@@ -129,13 +129,58 @@
       <h1>Dornori</h1>
       <p>Build something people actually want.</p>
 
-      <!-- Email catcher -->
-      <form class="email-box" action="https://formspree.io/f/xnjopbbb" method="POST">
-        <input type="email" name="email" placeholder="Enter your email" required />
-        <button type="submit">Get Early Access</button>
-      </form>
+<form id="my-form" action="https://formspree.io/f/xnjopbbb" method="POST">
+  <label>Email:</label>
+  <input type="email" name="email" required>
+  <button id="submit-btn" type="submit">Subscribe</button>
+  <p id="status"></p>
+</form>
+    
     </div>
 
+
+<script>
+  const form = document.getElementById("my-form");
+  
+  async function handleSubmit(event) {
+    event.preventDefault(); // Stop the page from reloading
+    const status = document.getElementById("status");
+    const data = new FormData(event.target);
+    const button = document.getElementById("submit-btn");
+
+    button.disabled = true;
+    status.innerHTML = "Sending...";
+
+    fetch(event.target.action, {
+      method: 'POST',
+      body: data,
+      headers: {
+          'Accept': 'application/json'
+      }
+    }).then(response => {
+      if (response.ok) {
+        // SUCCESS: This is where you do your custom redirect!
+        window.location.href = "https://yourusername.github.io/thanks.html";
+      } else {
+        response.json().then(data => {
+          if (Object.hasOwn(data, 'errors')) {
+            status.innerHTML = data["errors"].map(error => error["message"]).join(", ");
+          } else {
+            status.innerHTML = "Oops! There was a problem submitting your form";
+          }
+        })
+      }
+    }).catch(error => {
+      status.innerHTML = "Oops! There was a problem connecting to the server";
+    });
+  }
+  
+  form.addEventListener("submit", handleSubmit);
+</script>
+
+
+
+    
     <!-- Footer -->
     <div class="footer">
       © 2026 Dornori. All rights reserved.
