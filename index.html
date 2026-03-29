@@ -1,288 +1,243 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Dornori | The Future is Lit</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dornori | Engineered Light</title>
+    
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --accent: #ffb347; /* Industrial Amber */
+            --bg: #0d0d0d;
+            --panel: #151515;
+            --border: rgba(255, 255, 255, 0.1);
+        }
 
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  <style>
-    :root {
-      --primary: #ff7a18;
-      --secondary: #f5b942;
-      --accent: #ff0055;
-      --glass: rgba(255, 255, 255, 0.03);
-      --glass-border: rgba(255, 255, 255, 0.1);
-    }
+        body {
+            background-color: var(--bg);
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            /* Technical Grid Background */
+            background-image: 
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: 'Inter', -apple-system, system-ui, sans-serif;
-    }
+        /* Ambient Glow (Static, not following mouse) */
+        body::after {
+            content: "";
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(255, 179, 71, 0.05) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: -1;
+        }
 
-    body {
-      height: 100vh;
-      background: #020202; 
-      color: #fff;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      perspective: 1000px;
-    }
+        .main-container {
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            z-index: 10;
+        }
 
-    /* Animated Background Elements */
-    .bg-visuals {
-      position: fixed;
-      inset: 0;
-      z-index: -1;
-      overflow: hidden;
-    }
+        .product-header img {
+            width: 120px;
+            border: 1px solid var(--border);
+            padding: 5px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
 
-    .orb {
-      position: absolute;
-      border-radius: 50%;
-      filter: blur(120px);
-      opacity: 0.15;
-      animation: float 20s infinite alternate ease-in-out;
-    }
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 900;
+            letter-spacing: -2px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
 
-    .orb-1 { width: 500px; height: 500px; background: var(--primary); top: -10%; left: -5%; }
-    .orb-2 { width: 600px; height: 600px; background: var(--secondary); bottom: -10%; right: -5%; animation-delay: -5s; }
+        .tagline {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent);
+            font-size: 0.8rem;
+            letter-spacing: 4px;
+            margin-bottom: 40px;
+            text-transform: uppercase;
+        }
 
-    @keyframes float {
-      0% { transform: translate(0, 0) scale(1); }
-      100% { transform: translate(100px, 50px) scale(1.2); }
-    }
+        /* THE COMMAND PANEL */
+        .control-panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            padding: 40px;
+            border-radius: 4px; /* Sharp, industrial edges */
+            position: relative;
+        }
 
-    /* Main Interface Card */
-    .main-card {
-      background: var(--glass);
-      backdrop-filter: blur(25px);
-      -webkit-backdrop-filter: blur(25px);
-      border: 1px solid var(--glass-border);
-      padding: 60px 40px;
-      border-radius: 40px;
-      width: 90%;
-      max-width: 480px;
-      text-align: center;
-      box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8);
-      transform-style: preserve-3d;
-      transition: transform 0.1s ease-out;
-    }
+        .control-panel::before {
+            content: "SYSTEM_READY";
+            position: absolute;
+            top: -10px;
+            left: 20px;
+            background: var(--bg);
+            padding: 0 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: #444;
+        }
 
-    .logo-glow {
-      position: relative;
-      display: inline-block;
-      margin-bottom: 25px;
-    }
+        input {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            padding: 18px;
+            color: #fff;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 20px;
+            outline: none;
+            transition: 0.3s;
+        }
 
-    .logo-glow img {
-      width: 160px;
-      height: auto;
-      filter: drop-shadow(0 0 25px rgba(245, 185, 66, 0.5));
-      animation: pulse 4s infinite ease-in-out;
-    }
+        input:focus { border-color: var(--accent); }
 
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(245, 185, 66, 0.3)); }
-      50% { transform: scale(1.03); filter: drop-shadow(0 0 40px rgba(245, 185, 66, 0.6)); }
-    }
+        button {
+            width: 100%;
+            background: #fff;
+            color: #000;
+            padding: 18px;
+            border: none;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
 
-    h1 {
-      font-size: 3rem;
-      font-weight: 900;
-      letter-spacing: -2px;
-      margin-bottom: 10px;
-      background: linear-gradient(180deg, #fff 0%, #777 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
+        button:hover { background: var(--accent); }
 
-    .tagline {
-      color: #888;
-      font-size: 1.1rem;
-      margin-bottom: 40px;
-      letter-spacing: 1px;
-    }
+        /* THE SOCIAL UTILITY BAR */
+        .utility-bar {
+            margin-top: 50px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            width: 100%;
+        }
 
-    /* The "Sub" Section */
-    .input-container {
-      background: rgba(0,0,0,0.5);
-      border: 1px solid var(--glass-border);
-      border-radius: 20px;
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      transition: 0.3s;
-    }
+        .util-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            background: transparent;
+            border: 1px solid var(--border);
+            text-decoration: none;
+            color: #888;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            transition: 0.3s;
+            text-transform: uppercase;
+        }
 
-    .input-container:focus-within {
-      border-color: var(--secondary);
-      box-shadow: 0 0 20px rgba(245, 185, 66, 0.1);
-    }
+        .util-link svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+        }
 
-    input {
-      background: transparent;
-      border: none;
-      padding: 16px;
-      color: #fff;
-      font-size: 1rem;
-      outline: none;
-      text-align: center;
-    }
+        .util-link:hover {
+            border-color: #fff;
+            color: #fff;
+            background: rgba(255,255,255,0.05);
+        }
 
-    button {
-      background: #fff;
-      color: #000;
-      border: none;
-      padding: 16px;
-      border-radius: 14px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
-    }
+        .hidden { display: none !important; }
 
-    button:hover {
-      background: var(--secondary);
-      transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(245, 185, 66, 0.2);
-    }
-
-    button:disabled {
-      opacity: 0.3;
-      cursor: not-allowed;
-    }
-
-    /* Social Dock */
-    .social-dock {
-      margin-top: 40px;
-      display: flex;
-      justify-content: center;
-      gap: 25px;
-      border-top: 1px solid var(--glass-border);
-      padding-top: 30px;
-    }
-
-    .social-dock a {
-      color: #555;
-      transition: 0.4s;
-    }
-
-    .social-dock a:hover {
-      color: var(--secondary);
-      transform: scale(1.3) rotate(5deg);
-    }
-
-    /* Success Overlays */
-    .success-ui {
-      display: none;
-      animation: fadeIn 0.8s ease forwards;
-    }
-
-    @keyframes fadeIn { from { opacity: 0; scale: 0.9; } to { opacity: 1; scale: 1; } }
-
-    .checkmark-path {
-      stroke-dasharray: 100;
-      stroke-dashoffset: 100;
-      animation: dash 1s ease forwards 0.5s;
-    }
-
-    @keyframes dash { to { stroke-dashoffset: 0; } }
-
-    .hidden { display: none !important; }
-  </style>
+        @media (max-width: 400px) {
+            .utility-bar { grid-template-columns: 1fr; }
+        }
+    </style>
 </head>
 
 <body>
-  <div class="bg-visuals">
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
-  </div>
 
-  <div class="main-card" id="tilt-card">
-    <div id="form-content">
-      <div class="logo-glow">
-        <img src="images/dornori-logo-ONE.jpg" alt="Dornori">
-      </div>
-      <h1>Dornori</h1>
-      <p class="tagline">The wait is almost over.</p>
-
-      <form id="waitlist-form" action="https://formspree.io/f/xnjopbbb" method="POST">
-        <div class="cf-turnstile" data-sitekey="0x4AAAAAACxsga5y-bJ_qkzC" data-theme="dark"></div>
-        
-        <div class="input-container">
-          <input type="email" name="email" placeholder="Enter your email" required>
-          <button id="submit-btn" type="submit">Get Early Access</button>
+    <div class="main-container">
+        <div class="product-header">
+            <img src="images/dornori-logo-ONE.jpg" alt="Dornori Logo">
         </div>
-        <input type="text" name="_gotcha" style="display:none">
-      </form>
+
+        <h1>DORNORi</h1>
+        <p class="tagline">Next-Gen Outdoor Lighting</p>
+
+        <div class="control-panel">
+            <div id="form-container">
+                <form id="waitlist-form" action="https://formspree.io/f/xnjopbbb" method="POST">
+                    <div class="cf-turnstile" data-sitekey="0x4AAAAAACxsga5y-bJ_qkzC" data-theme="dark"></div>
+                    <input type="email" name="email" placeholder="USER_EMAIL_INTAKE" required>
+                    <button type="submit" id="submit-btn">Initialize Access</button>
+                </form>
+            </div>
+
+            <div id="success-msg" class="hidden">
+                <p style="font-family: 'JetBrains Mono'; color: var(--accent);">REGISTRATION_COMPLETE</p>
+                <h3 style="margin-top:10px;">Welcome to the Inner Circle.</h3>
+            </div>
+        </div>
+
+        <div class="utility-bar">
+            <a href="#" class="util-link">
+                <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path></svg>
+                Instagram
+            </a>
+            <a href="#" class="util-link">
+                <svg viewBox="0 0 24 24"><path d="M9 12V4h10v4h-6v12a4 4 0 1 1-4-4z"></path></svg>
+                TikTok
+            </a>
+            <a href="#" class="util-link">
+                <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                YouTube
+            </a>
+            <a href="#" class="util-link">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+                Patreon
+            </a>
+        </div>
     </div>
 
-    <div id="success-state" class="success-ui">
-      <svg width="80" height="80" viewBox="0 0 52 52" style="margin-bottom: 20px;">
-        <circle cx="26" cy="26" r="25" fill="none" stroke="#4bb543" stroke-width="2"/>
-        <path class="checkmark-path" fill="none" stroke="#4bb543" stroke-width="3" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
-      </svg>
-      <h2 style="font-size: 2rem;">Verified.</h2>
-      <p style="color: #666; margin-top: 10px;">Check your inbox shortly.</p>
-    </div>
+    <script>
+        const form = document.getElementById('waitlist-form');
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            document.getElementById('submit-btn').innerText = "TRANSMITTING...";
+            
+            const res = await fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: { 'Accept': 'application/json' }
+            });
 
-    <div class="social-dock">
-      <a href="https://twitter.com" target="_blank"><i data-lucide="twitter"></i></a>
-      <a href="https://github.com" target="_blank"><i data-lucide="github"></i></a>
-      <a href="https://linkedin.com" target="_blank"><i data-lucide="linkedin"></i></a>
-      <a href="mailto:hello@dornori.com"><i data-lucide="mail"></i></a>
-    </div>
-  </div>
-
-  <script>
-    lucide.createIcons();
-
-    const card = document.getElementById('tilt-card');
-    const form = document.getElementById('waitlist-form');
-    const submitBtn = document.getElementById('submit-btn');
-    const formContent = document.getElementById('form-content');
-    const successState = document.getElementById('success-state');
-
-    // Subtle 3D Tilt Effect
-    document.addEventListener('mousemove', (e) => {
-      const xAxis = (window.innerWidth / 2 - e.pageX) / 25;
-      const yAxis = (window.innerHeight / 2 - e.pageY) / 25;
-      card.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
-    });
-
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      submitBtn.disabled = true;
-      submitBtn.innerText = "Syncing...";
-
-      try {
-        const response = await fetch(form.action, {
-          method: 'POST',
-          body: new FormData(form),
-          headers: { 'Accept': 'application/json' }
-        });
-
-        if (response.ok) {
-          formContent.classList.add('hidden');
-          successState.style.display = 'block';
-        } else {
-          submitBtn.disabled = false;
-          submitBtn.innerText = "Error - Try Again";
-        }
-      } catch (err) {
-        submitBtn.disabled = false;
-        submitBtn.innerText = "Network Error";
-      }
-    };
-  </script>
+            if (res.ok) {
+                document.getElementById('form-container').classList.add('hidden');
+                document.getElementById('success-msg').classList.remove('hidden');
+            }
+        };
+    </script>
 </body>
 </html>
