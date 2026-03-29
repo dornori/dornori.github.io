@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Dornori | Join the Future</title>
+  <title>Dornori | Build the Future</title>
+
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 
   <style>
     :root {
@@ -21,10 +23,13 @@
 
     body {
       height: 100vh;
-      background: url("images/dornori-logo-ONE.png") no-repeat center center/cover;
+      /* Updated to your local images folder */
+      background: url("images/hero-bg.jpg") no-repeat center center/cover;
       position: relative;
       color: #fff;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
 
     body::before {
@@ -33,6 +38,7 @@
       inset: 0;
       background: var(--bg-overlay);
       backdrop-filter: blur(4px);
+      z-index: 0;
     }
 
     .container {
@@ -59,9 +65,7 @@
       transition: 0.3s;
     }
 
-    .top-links a:hover {
-      color: var(--secondary);
-    }
+    .top-links a:hover { color: var(--secondary); }
 
     .content {
       text-align: center;
@@ -82,27 +86,33 @@
     .content p {
       font-size: 18px;
       color: #999;
-      margin-bottom: 40px;
+      margin-bottom: 30px;
     }
 
-    /* Form Styling */
-    .email-box {
-      position: relative;
+    /* Form Design */
+    #my-form {
       display: flex;
-      gap: 10px;
+      flex-direction: column;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .input-group {
+      display: flex;
+      width: 100%;
       background: rgba(255, 255, 255, 0.05);
-      padding: 8px;
+      padding: 6px;
       border-radius: 12px;
       border: 1px solid rgba(255, 255, 255, 0.1);
-      transition: 0.4s ease;
+      transition: 0.4s;
     }
 
-    .email-box:focus-within {
+    .input-group:focus-within {
       border-color: var(--secondary);
       background: rgba(255, 255, 255, 0.08);
     }
 
-    .email-box input {
+    .input-group input {
       flex: 1;
       background: transparent;
       padding: 12px 16px;
@@ -112,7 +122,7 @@
       font-size: 16px;
     }
 
-    .email-box button {
+    .input-group button {
       padding: 12px 24px;
       border-radius: 8px;
       border: none;
@@ -120,76 +130,46 @@
       color: #000;
       font-weight: 700;
       cursor: pointer;
-      transition: transform 0.2s, opacity 0.2s;
+      transition: 0.2s;
     }
 
-    .email-box button:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 15px rgba(245, 185, 66, 0.3);
+    .input-group button:hover { opacity: 0.9; transform: scale(1.02); }
+    .input-group button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Turnstile Widget Styling */
+    .cf-turnstile {
+      margin-bottom: 10px;
     }
 
-    .email-box button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    /* Success States */
-    #status {
-      margin-top: 15px;
-      font-size: 14px;
-      min-height: 20px;
-    }
-
-    .hidden { display: none !important; }
-
-    /* The Animated Checkmark */
+    /* Success Checkmark Animation */
     .success-wrapper {
       display: flex;
       flex-direction: column;
       align-items: center;
-      animation: fadeIn 0.5s ease forwards;
+      animation: fadeIn 0.6s ease forwards;
     }
 
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
     .checkmark {
-      width: 56px;
-      height: 56px;
+      width: 60px;
+      height: 60px;
       border-radius: 50%;
-      display: block;
-      stroke-width: 2;
       stroke: #4bb543;
-      stroke-miterlimit: 10;
-      box-shadow: inset 0px 0px 0px #4bb543;
-      animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
-    }
-
-    .checkmark__circle {
-      stroke-dasharray: 166;
-      stroke-dashoffset: 166;
-      stroke-width: 2;
-      stroke-miterlimit: 10;
-      stroke: #4bb543;
+      stroke-width: 3;
       fill: none;
       animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
     }
 
-    .checkmark__check {
-      transform-origin: 50% 50%;
-      stroke-dasharray: 48;
-      stroke-dashoffset: 48;
-      animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
-    }
+    .checkmark-circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke: #4bb543; }
+    .checkmark-check { stroke-dasharray: 48; stroke-dashoffset: 48; }
 
     @keyframes stroke { 100% { stroke-dashoffset: 0; } }
-    @keyframes scale { 0%, 100% { transform: none; } 50% { transform: scale3d(1.1, 1.1, 1); } }
 
-    .footer {
-      text-align: center;
-      font-size: 12px;
-      color: #555;
-      letter-spacing: 1px;
-    }
+    #status { font-size: 14px; margin-top: 10px; min-height: 20px; }
+    .hidden { display: none !important; }
+
+    .footer { text-align: center; font-size: 12px; color: #555; }
   </style>
 </head>
 
@@ -206,25 +186,29 @@
       <h1>Dornori</h1>
       <p>Build something people actually want.</p>
 
-      <form id="my-form" action="https://formspree.io/f/xnjopbbb" method="POST" class="email-box">
-        <input type="email" name="email" placeholder="Enter your email address" required>
-        <button id="submit-btn" type="submit">Subscribe</button>
+      <form id="my-form" action="https://formspree.io/f/xnjopbbb" method="POST">
+        <div class="cf-turnstile" data-sitekey="YOUR_TURNSTILE_SITE_KEY"></div>
+        
+        <input type="text" name="_gotcha" style="display:none">
+
+        <div class="input-group">
+          <input type="email" name="email" placeholder="Enter your email" required>
+          <button id="submit-btn" type="submit">Subscribe</button>
+        </div>
       </form>
 
       <div id="success-state" class="success-wrapper hidden">
-        <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
-          <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
-          <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+        <svg class="checkmark" viewBox="0 0 52 52">
+          <circle class="checkmark-circle" cx="26" cy="26" r="25" />
+          <path class="checkmark-check" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
         </svg>
-        <p style="margin-top:10px; color:#4bb543; font-weight:600;">You're on the list!</p>
+        <p style="color:#4bb543; font-weight:600; margin-top:10px;">Subscribed Successfully!</p>
       </div>
 
       <p id="status"></p>
     </div>
 
-    <div class="footer">
-      © 2026 DORNORI. ALL RIGHTS RESERVED.
-    </div>
+    <div class="footer">© 2026 DORNORI. ALL RIGHTS RESERVED.</div>
   </div>
 
   <script>
@@ -233,45 +217,37 @@
     const submitBtn = document.getElementById("submit-btn");
     const successState = document.getElementById("success-state");
 
-    async function handleSubmit(event) {
-      event.preventDefault();
-      const data = new FormData(event.target);
-      
-      // UI Update: Loading
+    form.onsubmit = async (e) => {
+      e.preventDefault();
       submitBtn.disabled = true;
-      submitBtn.innerText = "Joining...";
-      status.innerHTML = "";
+      submitBtn.innerText = "Verifying...";
 
-      fetch(event.target.action, {
-        method: 'POST',
-        body: data,
-        headers: { 'Accept': 'application/json' }
-      }).then(response => {
+      const formData = new FormData(form);
+
+      try {
+        const response = await fetch(form.action, {
+          method: 'POST',
+          body: formData,
+          headers: { 'Accept': 'application/json' }
+        });
+
         if (response.ok) {
-          // Hide form and show checkmark
           form.classList.add("hidden");
           successState.classList.remove("hidden");
+          status.innerHTML = "";
         } else {
-          response.json().then(data => {
-            submitBtn.disabled = false;
-            submitBtn.innerText = "Subscribe";
-            if (Object.hasOwn(data, 'errors')) {
-              status.style.color = "#ff4d4d";
-              status.innerHTML = data["errors"].map(err => err["message"]).join(", ");
-            } else {
-              status.innerHTML = "Oops! Something went wrong.";
-            }
-          })
+          const data = await response.json();
+          submitBtn.disabled = false;
+          submitBtn.innerText = "Subscribe";
+          status.style.color = "#ff4d4d";
+          status.innerHTML = data.errors ? data.errors[0].message : "Submission failed.";
         }
-      }).catch(error => {
+      } catch (err) {
         submitBtn.disabled = false;
         submitBtn.innerText = "Subscribe";
-        status.style.color = "#ff4d4d";
-        status.innerHTML = "Connection error. Please try again.";
-      });
-    }
-
-    form.addEventListener("submit", handleSubmit);
+        status.innerHTML = "Network error. Try again.";
+      }
+    };
   </script>
 </body>
 </html>
