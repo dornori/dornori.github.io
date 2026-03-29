@@ -3,239 +3,198 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dornori | Engineered Light</title>
+    <title>DORNORi | Stealth</title>
     
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono&display=swap" rel="stylesheet">
     
     <style>
         :root {
-            --accent: #ffb347; /* Industrial Amber */
-            --bg: #0d0d0d;
-            --panel: #151515;
-            --border: rgba(255, 255, 255, 0.1);
+            --accent: #ffb347; 
+            --bg: #030303;
+            --border: rgba(255, 255, 255, 0.08);
+            
+            /* System Font Stacks (No Google Fonts) */
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+            /* Brand Glows */
+            --ig-glow: #E1306C; --tt-glow: #00f2ea; --x-glow: #ffffff;
+            --yt-glow: #FF0000; --fb-glow: #1877F2; --pt-glow: #FF424D;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
-
+        
         body {
             background-color: var(--bg);
             color: #fff;
-            font-family: 'Inter', sans-serif;
+            font-family: var(--font-sans);
             height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            /* Technical Grid Background */
-            background-image: 
-                linear-gradient(var(--border) 1px, transparent 1px),
-                linear-gradient(90deg, var(--border) 1px, transparent 1px);
-            background-size: 40px 40px;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #0f0f0f 0%, #030303 100%);
         }
 
-        /* Ambient Glow (Static, not following mouse) */
-        body::after {
-            content: "";
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 600px;
-            height: 600px;
-            background: radial-gradient(circle, rgba(255, 179, 71, 0.05) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: -1;
+        /* --- THE BREATHING PULSE --- */
+        @keyframes breathe {
+            0% { filter: drop-shadow(0 0 10px rgba(255, 179, 71, 0.15)) brightness(0.8); transform: scale(1); }
+            50% { filter: drop-shadow(0 0 35px rgba(255, 179, 71, 0.35)) brightness(1.1); transform: scale(1.02); }
+            100% { filter: drop-shadow(0 0 10px rgba(255, 179, 71, 0.15)) brightness(0.8); transform: scale(1); }
         }
 
-        .main-container {
-            width: 90%;
-            max-width: 500px;
-            text-align: center;
-            z-index: 10;
-        }
+        .hero-unit { text-align: center; z-index: 10; width: 100%; }
 
-        .product-header img {
-            width: 120px;
-            border: 1px solid var(--border);
-            padding: 5px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-        }
-
-        h1 {
-            font-size: 3.5rem;
-            font-weight: 900;
-            letter-spacing: -2px;
-            text-transform: uppercase;
-            margin-bottom: 5px;
-        }
-
-        .tagline {
-            font-family: 'JetBrains Mono', monospace;
-            color: var(--accent);
-            font-size: 0.8rem;
-            letter-spacing: 4px;
+        .hero-logo {
+            width: 220px;
+            height: auto;
             margin-bottom: 40px;
+            animation: breathe 5s ease-in-out infinite;
+        }
+
+        .statement {
+            font-size: 1.1rem;
+            font-weight: 300;
+            letter-spacing: 0.4em;
+            color: rgba(255,255,255,0.4);
             text-transform: uppercase;
+            margin-bottom: 60px;
+            font-family: var(--font-mono);
         }
 
-        /* THE COMMAND PANEL */
-        .control-panel {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            padding: 40px;
-            border-radius: 4px; /* Sharp, industrial edges */
-            position: relative;
+        /* --- SELF-CONTAINED FORM --- */
+        .form-container { width: 90%; max-width: 380px; margin: 0 auto; }
+
+        .input-group {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            padding: 12px 0;
+            transition: border-color 0.4s;
         }
 
-        .control-panel::before {
-            content: "SYSTEM_READY";
-            position: absolute;
-            top: -10px;
-            left: 20px;
-            background: var(--bg);
-            padding: 0 10px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 10px;
-            color: #444;
-        }
+        .input-group:focus-within { border-bottom-color: var(--accent); }
 
         input {
-            width: 100%;
-            background: #000;
-            border: 1px solid var(--border);
-            padding: 18px;
+            flex: 1;
+            background: transparent;
+            border: none;
             color: #fff;
-            font-family: 'JetBrains Mono', monospace;
-            margin-bottom: 20px;
+            font-size: 0.95rem;
             outline: none;
-            transition: 0.3s;
+            text-align: center;
+            font-family: var(--font-sans);
+            letter-spacing: 1px;
         }
 
-        input:focus { border-color: var(--accent); }
+        input::placeholder { color: #333; }
 
         button {
-            width: 100%;
-            background: #fff;
-            color: #000;
-            padding: 18px;
+            background: transparent;
             border: none;
+            color: var(--accent);
+            font-family: var(--font-mono);
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 2px;
             cursor: pointer;
-            transition: 0.3s;
+            padding-left: 10px;
+            font-size: 0.75rem;
         }
 
-        button:hover { background: var(--accent); }
-
-        /* THE SOCIAL UTILITY BAR */
-        .utility-bar {
-            margin-top: 50px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            width: 100%;
+        /* --- CIRCLE GLYPH FOOTER --- */
+        .social-footer {
+            position: fixed;
+            bottom: 50px;
+            display: flex;
+            gap: 12px;
         }
 
-        .util-link {
+        .glyph {
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 12px 20px;
-            background: transparent;
+            justify-content: center;
             border: 1px solid var(--border);
-            text-decoration: none;
-            color: #888;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
-            transition: 0.3s;
-            text-transform: uppercase;
+            border-radius: 50%;
+            color: #444;
+            transition: all 0.4s ease;
         }
 
-        .util-link svg {
-            width: 16px;
-            height: 16px;
-            stroke: currentColor;
-            fill: none;
-            stroke-width: 2;
-        }
+        .glyph svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; }
 
-        .util-link:hover {
-            border-color: #fff;
-            color: #fff;
-            background: rgba(255,255,255,0.05);
-        }
+        .glyph:hover { transform: translateY(-5px); }
+        
+        /* Brand Colors */
+        .g-ig:hover { color: var(--ig-glow); border-color: var(--ig-glow); box-shadow: 0 0 10px var(--ig-glow); }
+        .g-tt:hover { color: var(--tt-glow); border-color: var(--tt-glow); box-shadow: 0 0 10px var(--tt-glow); }
+        .g-x:hover { color: #fff; border-color: #fff; box-shadow: 0 0 10px #fff; }
+        .g-yt:hover { color: var(--yt-glow); border-color: var(--yt-glow); box-shadow: 0 0 10px var(--yt-glow); }
+        .g-fb:hover { color: var(--fb-glow); border-color: var(--fb-glow); box-shadow: 0 0 10px var(--fb-glow); }
+        .g-pt:hover { color: var(--pt-glow); border-color: var(--pt-glow); box-shadow: 0 0 10px var(--pt-glow); }
+        .g-igg:hover { color: #eb1478; border-color: #eb1478; box-shadow: 0 0 10px #eb1478; }
 
-        .hidden { display: none !important; }
+        .hidden { display: none; }
 
-        @media (max-width: 400px) {
-            .utility-bar { grid-template-columns: 1fr; }
+        @media (max-width: 500px) {
+            .statement { font-size: 0.65rem; }
+            .hero-logo { width: 180px; }
+            .social-footer { bottom: 30px; flex-wrap: wrap; justify-content: center; }
         }
     </style>
 </head>
-
 <body>
 
-    <div class="main-container">
-        <div class="product-header">
-            <img src="images/dornori-logo-ONE.jpg" alt="Dornori Logo">
-        </div>
+    <div class="hero-unit">
+        <img src="images/dornori-logo-ONE.jpg" class="hero-logo" alt="DORNORi Logo">
+        
+        <p class="statement">The Night, Reimagined.</p>
 
-        <h1>DORNORi</h1>
-        <p class="tagline">Next-Gen Outdoor Lighting</p>
-
-        <div class="control-panel">
-            <div id="form-container">
+        <div class="form-container">
+            <div id="form-ui">
                 <form id="waitlist-form" action="https://formspree.io/f/xnjopbbb" method="POST">
                     <div class="cf-turnstile" data-sitekey="0x4AAAAAACxsga5y-bJ_qkzC" data-theme="dark"></div>
-                    <input type="email" name="email" placeholder="USER_EMAIL_INTAKE" required>
-                    <button type="submit" id="submit-btn">Initialize Access</button>
+                    <div class="input-group">
+                        <input type="email" name="email" placeholder="ACCESS_WAITLIST" required>
+                        <button type="submit" id="sub-btn">Enter</button>
+                    </div>
                 </form>
             </div>
-
-            <div id="success-msg" class="hidden">
-                <p style="font-family: 'JetBrains Mono'; color: var(--accent);">REGISTRATION_COMPLETE</p>
-                <h3 style="margin-top:10px;">Welcome to the Inner Circle.</h3>
+            
+            <div id="success-ui" class="hidden">
+                <p style="font-family: var(--font-mono); color: var(--accent); letter-spacing: 2px; font-size: 0.8rem;">AUTH_SUCCESSFUL</p>
             </div>
         </div>
+    </div>
 
-        <div class="utility-bar">
-            <a href="#" class="util-link">
-                <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path></svg>
-                Instagram
-            </a>
-            <a href="#" class="util-link">
-                <svg viewBox="0 0 24 24"><path d="M9 12V4h10v4h-6v12a4 4 0 1 1-4-4z"></path></svg>
-                TikTok
-            </a>
-            <a href="#" class="util-link">
-                <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                YouTube
-            </a>
-            <a href="#" class="util-link">
-                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
-                Patreon
-            </a>
-        </div>
+    <div class="social-footer">
+        <a href="#" class="glyph g-ig"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path></svg></a>
+        <a href="#" class="glyph g-tt"><svg viewBox="0 0 24 24"><path d="M9 12V4h10v4h-6v12a4 4 0 1 1-4-4z"></path></svg></a>
+        <a href="#" class="glyph g-x"><svg viewBox="0 0 24 24"><path d="M4 4l11.733 16h4.267l-11.733 -16z M4 20l6.768 -6.768 M12.456 12.456l6.774 6.774"></path></svg></a>
+        <a href="#" class="glyph g-yt"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></a>
+        <a href="#" class="glyph g-fb"><svg viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg></a>
+        <a href="#" class="glyph g-pt"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg></a>
+        <a href="#" class="glyph g-igg"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v10M7 12h10"></path></svg></a>
     </div>
 
     <script>
         const form = document.getElementById('waitlist-form');
         form.onsubmit = async (e) => {
             e.preventDefault();
-            document.getElementById('submit-btn').innerText = "TRANSMITTING...";
-            
-            const res = await fetch(form.action, {
-                method: 'POST',
-                body: new FormData(form),
-                headers: { 'Accept': 'application/json' }
-            });
-
-            if (res.ok) {
-                document.getElementById('form-container').classList.add('hidden');
-                document.getElementById('success-msg').classList.remove('hidden');
+            document.getElementById('sub-btn').innerText = "...";
+            try {
+                const res = await fetch(form.action, { 
+                    method: 'POST', 
+                    body: new FormData(form), 
+                    headers: { 'Accept': 'application/json' } 
+                });
+                if (res.ok) {
+                    document.getElementById('form-ui').classList.add('hidden');
+                    document.getElementById('success-ui').classList.remove('hidden');
+                }
+            } catch (err) {
+                document.getElementById('sub-btn').innerText = "RETRY";
             }
         };
     </script>
