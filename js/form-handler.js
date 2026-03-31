@@ -10,16 +10,12 @@ export function initFormHandler() {
 
     form.onsubmit = (e) => {
         e.preventDefault();
-        
-        // If captcha container is empty, render the Turnstile widget
         if (captchaContainer.innerHTML === "") {
             btn.innerText = "VERIFYING...";
-            
             window.turnstile.render('#captcha-container', {
                 sitekey: SITE_CONFIG.turnstile_sitekey,
                 theme: 'dark',
                 callback: function(token) {
-                    // This function executes automatically once human check passes
                     executeSubmission(form, action, btn);
                 },
                 'error-callback': function() {
@@ -39,7 +35,6 @@ async function executeSubmission(form, action, btn) {
             body: new FormData(form),
             headers: { 'Accept': 'application/json' }
         });
-
         if (response.ok) {
             document.getElementById('form-container').classList.add('hidden');
             document.getElementById('success-container').classList.remove('hidden');
@@ -49,6 +44,5 @@ async function executeSubmission(form, action, btn) {
         }
     } catch (error) {
         btn.innerText = "JOIN";
-        console.error("Submission error:", error);
     }
 }
