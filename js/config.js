@@ -2,7 +2,8 @@ const SITE_CONFIG = {
     appearance: {
         icyLemon: "#F5F29B",
         bgDark: "#050505",
-        bannerStickyOffset: 0.35
+        bannerStickyOffset: 0.35,
+        root_url: "https://dornori.com" // New Parameter
     },
     navigation: [
         { label: "About", link: "about.html", type: "standard", enabled: false },
