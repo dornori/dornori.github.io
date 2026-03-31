@@ -4,322 +4,62 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dornori</title>
-    
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-    
-    <style>
-        :root {
-            /* Icy Lemon - Pantone 13-0645 TCX */
-            --accent: #F5F29B; 
-            --bg: #050505;
-            --glass: rgba(255, 255, 255, 0.02);
-            --border: rgba(245, 242, 155, 0.15);
-            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
-            
-            /* Social Brand Colors */
-            --c-ig: #E1306C; --c-tt: #00f2ea; --c-x: #ffffff;
-            --c-yt: #FF0000; --c-fb: #1877F2; --c-pt: #FF424D; 
-            --c-igg: #eb1478; --c-web: #00ff88;
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
-
-        body {
-            background-color: var(--bg);
-            color: #fff;
-            font-family: var(--font-sans);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            overflow-x: hidden;
-            background-image: 
-                radial-gradient(circle at center, transparent 0%, var(--bg) 95%),
-                linear-gradient(rgba(245, 242, 155, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(245, 242, 155, 0.03) 1px, transparent 1px);
-            background-size: 100% 100%, 50px 50px, 50px 50px;
-        }
-
-        /* --- FIXED NAVIGATION (Now fully transparent) --- */
-        nav.top-nav {
-            position: fixed;
-            top: 0;
-            width: 100%;
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-            padding: 20px 40px;
-            z-index: 1001;
-            background: transparent; /* Removed opaque transition */
-            gap: 25px;
-        }
-
-        .nav-link {
-            color: #bbb;
-            text-decoration: none;
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            font-weight: 600; 
-            transition: 0.3s;
-        }
-
-        .nav-link:hover { color: #fff; }
-
-        .nav-newsletter {
-            padding: 10px 20px;
-            background: var(--accent);
-            color: #000 !important; 
-            border: 1px solid var(--accent);
-        }
-
-        .nav-newsletter:hover {
-            background: #fff;
-            border-color: #fff;
-        }
-
-        /* --- STICKY HEADER --- */
-        header { 
-            width: 100%; 
-            line-height: 0;
-            position: sticky;
-            top: 0; 
-            z-index: 1000;
-            transition: top 0.1s ease-out;
-            background: var(--bg);
-        }
-
-        .billboard-logo {
-            width: 100%; 
-            height: auto;
-            display: block;
-            object-fit: cover;
-        }
-
-        /* --- CONTENT --- */
-        main { 
-            flex: 1; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            padding: 80px 20px; 
-            text-align: center; 
-            width: 100%;
-            z-index: 10;
-        }
-
-        .headline { 
-            font-size: clamp(1.1rem, 3.5vw, 1.8rem); 
-            font-weight: 200; 
-            color: #aaa; 
-            max-width: 800px; 
-            line-height: 1.6; 
-            margin-bottom: 40px; 
-            letter-spacing: 0.05em; 
-        }
-
-        .waitlist-card { 
-            background: var(--glass); 
-            backdrop-filter: blur(20px); 
-            border: 1px solid var(--border); 
-            padding: 40px; 
-            width: 100%; 
-            max-width: 500px; 
-            position: relative;
-            scroll-margin-top: 150px; 
-        }
-
-        .input-row { display: flex; border: 1px solid var(--border); }
-        
-        input { 
-            flex: 1; 
-            background: transparent; 
-            border: none; 
-            padding: 18px; 
-            color: #fff; 
-            outline: none; 
-            font-size: 0.9rem; 
-        }
-
-        .submit-btn { 
-            background: var(--accent); 
-            color: #000; 
-            border: none; 
-            padding: 0 30px; 
-            font-family: var(--font-mono); 
-            font-weight: 900; 
-            text-transform: uppercase; 
-            cursor: pointer; 
-            transition: 0.3s; 
-            font-size: 0.75rem; 
-        }
-
-        .submit-btn:hover { background: #fff; }
-
-        /* --- SOCIAL DOCK --- */
-        .social-dock { padding: 40px 20px 60px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-        .social-link {
-            width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;
-            border: 1px solid var(--border); background: rgba(245, 242, 155, 0.03); 
-            color: var(--accent); transition: all 0.4s ease;
-        }
-        .social-link svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.2; }
-        
-        /* Social Hovers */
-        .social-link[data-type="ig"]:hover { color: var(--c-ig); border-color: var(--c-ig); }
-        .social-link[data-type="tt"]:hover { color: var(--c-tt); border-color: var(--c-tt); }
-        .social-link[data-type="x"]:hover { color: var(--c-x); border-color: var(--c-x); }
-        .social-link[data-type="yt"]:hover { color: var(--c-yt); border-color: var(--c-yt); }
-        .social-link[data-type="fb"]:hover { color: var(--c-fb); border-color: var(--c-fb); }
-        .social-link[data-type="pt"]:hover { color: var(--c-pt); border-color: var(--c-pt); }
-        .social-link[data-type="igg"]:hover { color: var(--c-igg); border-color: var(--c-igg); }
-        .social-link[data-type="web"]:hover { color: var(--c-web); border-color: var(--c-web); }
-
-        footer {
-            width: 100%;
-            padding: 40px 20px;
-            border-top: 1px solid rgba(255,255,255,0.05);
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .footer-link {
-            color: #444;
-            text-decoration: none;
-            font-family: var(--font-mono);
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: 0.3s;
-        }
-
-        .hidden { display: none; }
-
-        @media (max-width: 600px) {
-            nav.top-nav { justify-content: center; padding: 15px; gap: 10px; }
-            .nav-link { font-size: 0.65rem; }
-            .input-row { flex-direction: column; border: none; gap: 10px; }
-            input { border: 1px solid var(--border); text-align: center; }
-            .submit-btn { padding: 18px; }
-        }
-    </style>
+    <link rel="stylesheet" href="css/main.css">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
 
-    <nav class="top-nav">
-        <!--
-        DISABLED
-        <a href="about.html" class="nav-link">About</a>
-        <a href="contact.html" class="nav-link">Contact</a>
-        -->
-        <a href="#newsletter" class="nav-link nav-newsletter">Newsletter</a>
-    </nav>
+    <nav class="top-nav"></nav>
 
     <header id="main-header">
-        <img src="images/dornori_header.jpg" class="billboard-logo" alt="Dornori" id="banner-img">
+        <img src="assets/images/dornori_header.jpg" class="billboard-logo" alt="Dornori" id="banner-img">
     </header>
 
     <main>
         <h2 class="headline">Illuminate Mankind</h2>
-
         <div class="waitlist-card" id="newsletter">
             <div id="form-container">
-                <form id="waitlist-form" action="https://formspree.io/f/xnjopbbb" method="POST">
-                    <div class="cf-turnstile" data-sitekey="0x4AAAAAACxsga5y-bJ_qkzC" data-theme="dark"></div>
+                <form id="waitlist-form">
+                    <div id="captcha-container"></div>
                     <div class="input-row">
                         <input type="email" name="email" placeholder="Subscribe to Newsletter" required>
                         <button type="submit" class="submit-btn" id="sub-btn">Join</button>
                     </div>
+                    <p class="disclaimer-text">
+                        By subscribing, you accept our 
+                        <a href="terms.html">Terms</a> & <a href="privacy.html">Privacy Policy</a>.
+                    </p>
                 </form>
             </div>
             <div id="success-container" class="hidden">
-                <p style="color: var(--accent); font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 2px;">THANKS FOR SUBSCRIBING</p>
+                <p class="success-msg">THANKS FOR SUBSCRIBING</p>
             </div>
         </div>
     </main>
 
     <div class="social-dock" id="social-dock"></div>
-<!-- DISABLED
+
     <footer>
-        <a href="security.html" class="footer-link">Security</a>
-        <a href="terms.html" class="footer-link">Terms & Conditions</a>
-        <a href="privacy.html" class="footer-link">Privacy Policy</a>
-        <a href="gdpr.html" class="footer-link">GDPR</a>
+        <div class="footer-content">
+            <p>&copy; 2026 DORNORI. All Rights Reserved.</p>
+            <div class="service-badges">
+                <span>Protected by <strong>Cloudflare</strong></span>
+                <span class="separator">|</span>
+                <span>Powered by <strong>Formspree</strong></span>
+            </div>
+        </div>
     </footer>
--->
-    <script>
-        /* --- STICKY BANNER CALCULATION --- */
-        const header = document.getElementById('main-header');
-        const bannerImg = document.getElementById('banner-img');
 
-        function updateHeaderStickiness() {
-            const headerHeight = header.offsetHeight;
-            const offset = headerHeight * 0.35; 
-            header.style.top = `-${offset}px`;
-        }
+    <script type="module">
+        import { initNavigation } from './js/nav-loader.js';
+        import { initStickyBanner } from './js/sticky-banner.js';
+        import { initSocials } from './js/social-loader.js';
+        import { initFormHandler } from './js/form-handler.js';
 
-        window.addEventListener('load', updateHeaderStickiness);
-        window.addEventListener('resize', updateHeaderStickiness);
-        bannerImg.onload = updateHeaderStickiness;
-
-        /* --- SOCIAL LINKS --- */
-        const SOCIAL_DATA = [
-            { id: 'ig',  user: "dornori.info", base: 'https://instagram.com/' },
-            { id: 'x',   user: "dornori_info", base: 'https://x.com/' },
-            { id: 'yt',  user: "dornori_info", base: 'https://youtube.com/@' },
-            { id: 'fb',  user: "profile.php?id=61585253280713",  base: 'https://facebook.com/' },
-            { id: 'web', user: "dornori.com",   base: 'https://' }
-        ];
-
-        const ICONS = {
-            ig:  '<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path></svg>',
-            x:   '<svg viewBox="0 0 24 24"><path d="M4 4l11.733 16h4.267l-11.733 -16z M4 20l6.768 -6.768 M12.456 12.456l6.774 6.774"></path></svg>',
-            yt:  '<svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>',
-            fb:  '<svg viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>',
-            web: '<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>'
-        };
-
-        const dock = document.getElementById('social-dock');
-        SOCIAL_DATA.forEach(item => {
-            if (item.user) {
-                const a = document.createElement('a');
-                a.href = item.base + item.user;
-                a.target = "_blank";
-                a.className = 'social-link';
-                a.setAttribute('data-type', item.id);
-                a.innerHTML = ICONS[item.id];
-                dock.appendChild(a);
-            }
-        });
-
-        /* --- FORM HANDLER --- */
-        const form = document.getElementById('waitlist-form');
-        form.onsubmit = async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('sub-btn');
-            btn.innerText = "...";
-            try {
-                const res = await fetch(form.action, { 
-                    method: 'POST', 
-                    body: new FormData(form), 
-                    headers: { 'Accept': 'application/json' } 
-                });
-                if (res.ok) {
-                    document.getElementById('form-container').classList.add('hidden');
-                    document.getElementById('success-container').classList.remove('hidden');
-                } else {
-                    btn.innerText = "Join";
-                }
-            } catch (err) {
-                btn.innerText = "Join";
-            }
-        };
+        initNavigation();
+        initStickyBanner();
+        initSocials();
+        initFormHandler();
     </script>
 </body>
 </html>
