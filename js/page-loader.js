@@ -1,5 +1,4 @@
 import SITE_CONFIG from './config.js';
-
 export function initPageLoader() {
     const homeView = document.getElementById('home-view');
     const pageView = document.getElementById('page-view');
@@ -27,16 +26,23 @@ export function initPageLoader() {
         }
     };
 
-    /**
-     * Updated showHome
-     * @param {boolean} shouldFocus - If true, targets the newsletter input
-     */
+    // Add event delegation for links inside loaded content
+    document.addEventListener('click', (e) => {
+        const link = e.target.closest('[data-page]');
+        if (link) {
+            e.preventDefault();
+            const slug = link.getAttribute('data-page');
+            if (SITE_CONFIG.pages[slug]) {
+                window.viewPage(slug);
+            }
+        }
+    });
+
     window.showHome = (shouldFocus = false) => {
         pageView.classList.add('hidden');
         homeView.classList.remove('hidden');
         
         if (shouldFocus && emailInput) {
-            // Small timeout ensures the element is visible before focusing
             setTimeout(() => {
                 emailInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 emailInput.focus();
