@@ -26,7 +26,12 @@ const SITE_CONFIG = {
     pages: {
         about: { title: "About Dornori", file: "content/about.html" },
         terms: { title: "Terms of Service", file: "content/terms.html" },
-        privacy: { title: "Privacy Policy", file: "content/privacy.html" }
+        privacy: { title: "Privacy Policy", file: "content/privacy.html" },
+        about: { title: "Child Safety", file: "content/children.html" },
+        terms: { title: "Security", file: "content/security.html" },
+        privacy: { title: "Cookie Policy", file: "content/cookies.html" },
+        privacy: { title: "Imprint", file: "content/imprint.html" },
+        privacy: { title: "Return Policy", file: "content/returns.html" }
     },
     socials: [
         { id: 'ig',      user: "dornori.info", base: 'https://instagram.com/' },
