@@ -10,8 +10,6 @@ export function initNavigation() {
         const btn = document.createElement('button');
         btn.textContent = item.label;
         btn.className = item.type === 'button' ? 'nav-link nav-newsletter' : 'nav-link';
-        
-        // Link to the internal page loader slug
         btn.onclick = () => window.viewPage(item.slug);
         nav.appendChild(btn);
     });
