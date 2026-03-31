@@ -2,8 +2,7 @@ const SITE_CONFIG = {
     appearance: {
         icyLemon: "#F5F29B",
         bgDark: "#050505",
-        bannerStickyOffset: 0.35,
-        navFontWeight: "600"
+        bannerStickyOffset: 0.35
     },
     navigation: [
         { label: "About", link: "about.html", type: "standard", enabled: false },
@@ -15,10 +14,9 @@ const SITE_CONFIG = {
         { id: 'x',   user: "dornori_info", base: 'https://x.com/' },
         { id: 'yt',  user: "dornori_info", base: 'https://youtube.com/@' },
         { id: 'fb',  user: "profile.php?id=61585253280713",  base: 'https://facebook.com/' },
-        { id: 'web', user: "dornori.com",   base: 'https://' }
+        { id: 'web', user: "dornori.com", base: 'https://' }
     ],
-    formspree_id: "xnjopbbb",
-    turnstile_sitekey: "0x4AAAAAACxsga5y-bJ_qkzC"
+    formspree_id: "xnjopbbb"
 };
 
 export default SITE_CONFIG;
