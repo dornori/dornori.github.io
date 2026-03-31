@@ -5,9 +5,7 @@ export function initStickyBanner() {
     const bannerImg = document.getElementById('banner-img');
     if (!header || !bannerImg) return;
 
-    bannerImg.addEventListener('click', () => {
-        window.location.href = SITE_CONFIG.appearance.root_url;
-    });
+    bannerImg.onclick = () => window.location.href = SITE_CONFIG.appearance.root_url;
 
     const updateStickiness = () => {
         const offset = header.offsetHeight * SITE_CONFIG.appearance.bannerStickyOffset;
@@ -17,5 +15,4 @@ export function initStickyBanner() {
     window.addEventListener('load', updateStickiness);
     window.addEventListener('resize', updateStickiness);
     if (bannerImg.complete) updateStickiness();
-    else bannerImg.onload = updateStickiness;
 }
