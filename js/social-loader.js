@@ -1,8 +1,8 @@
 import SITE_CONFIG from './config.js';
 
 /**
- * Initializes the social media dock by injecting SVGs based on config.js.
- * Includes explicit paths for: IG, X, YT, FB, LinkedIn, TikTok, GitHub, Discord, Telegram, Web.
+ * Initializes the social media dock by injecting the exact SVGs provided.
+ * Uses stroke-width="1.2" and specific linecap/join settings.
  */
 export function initSocials() {
     const dock = document.getElementById('social-dock');
