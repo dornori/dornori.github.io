@@ -24,9 +24,9 @@ export function initPageLoader() {
     closeBtn.onclick = () => {
         layer.classList.add('hidden');
         document.body.style.overflow = 'auto';
+        content.innerHTML = '';
     };
 
-    // ESC key listener
     window.addEventListener('keydown', (e) => {
         if (e.key === "Escape") closeBtn.onclick();
     });
