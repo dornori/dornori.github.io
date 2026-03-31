@@ -2,30 +2,53 @@ import SITE_CONFIG from './config.js';
 
 export function initFormHandler() {
     const form = document.getElementById('waitlist-form');
-    if (!form) return;
+    const btn = document.getElementById('sub-btn');
+    const captchaContainer = document.getElementById('captcha-container');
+    if (!form || !btn) return;
 
-    form.action = `https://formspree.io/f/${SITE_CONFIG.formspree_id}`;
+    const action = `https://formspree.io/f/${SITE_CONFIG.formspree_id}`;
 
-    form.onsubmit = async (e) => {
+    form.onsubmit = (e) => {
         e.preventDefault();
-        const btn = document.getElementById('sub-btn');
-        btn.innerText = "...";
         
-        try {
-            const res = await fetch(form.action, { 
-                method: 'POST', 
-                body: new FormData(form), 
-                headers: { 'Accept': 'application/json' } 
-            });
+        // If captcha container is empty, render the Turnstile widget
+        if (captchaContainer.innerHTML === "") {
+            btn.innerText = "VERIFYING...";
             
-            if (res.ok) {
-                document.getElementById('form-container').classList.add('hidden');
-                document.getElementById('success-container').classList.remove('hidden');
-            } else {
-                btn.innerText = "Join";
-            }
-        } catch (err) {
-            btn.innerText = "Join";
+            window.turnstile.render('#captcha-container', {
+                sitekey: SITE_CONFIG.turnstile_sitekey,
+                theme: 'dark',
+                callback: function(token) {
+                    // This function executes automatically once human check passes
+                    executeSubmission(form, action, btn);
+                },
+                'error-callback': function() {
+                    btn.innerText = "RETRY";
+                    window.turnstile.reset();
+                }
+            });
         }
     };
+}
+
+async function executeSubmission(form, action, btn) {
+    btn.innerText = "...";
+    try {
+        const response = await fetch(action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: { 'Accept': 'application/json' }
+        });
+
+        if (response.ok) {
+            document.getElementById('form-container').classList.add('hidden');
+            document.getElementById('success-container').classList.remove('hidden');
+        } else {
+            btn.innerText = "JOIN";
+            window.turnstile.reset();
+        }
+    } catch (error) {
+        btn.innerText = "JOIN";
+        console.error("Submission error:", error);
+    }
 }
