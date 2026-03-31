@@ -24,14 +24,14 @@ const SITE_CONFIG = {
         { label: "Newsletter", slug: "newsletter", type: "button", enabled: true }
     ],
     pages: {
-        about: { title: "About Dornori", file: "content/about.html" },
-        terms: { title: "Terms of Service", file: "content/terms.html" },
-        privacy: { title: "Privacy Policy", file: "content/privacy.html" },
-        children: { title: "Child Safety", file: "content/children.html" },
-        security: { title: "Security", file: "content/security.html" },
-        cookies: { title: "Cookie Policy", file: "content/cookies.html" },
-        imprint: { title: "Imprint", file: "content/imprint.html" },
-        returns: { title: "Return Policy", file: "content/returns.html" }
+        about: { title: "", file: "content/about.html" },
+        terms: { title: "", file: "content/terms.html" },
+        privacy: { title: "", file: "content/privacy.html" },
+        children: { title: "", file: "content/children.html" },
+        security: { title: "", file: "content/security.html" },
+        cookies: { title: "", file: "content/cookies.html" },
+        imprint: { title: "", file: "content/imprint.html" },
+        returns: { title: "", file: "content/returns.html" }
     },
     socials: [
         { id: 'ig',      user: "dornori.info", base: 'https://instagram.com/' },
