@@ -1,17 +1,5 @@
 /**
  * DORNORI SITE CONFIGURATION
- * ---------------------------------------------------------
- * APPEARANCE: 
- * - icyLemon: The primary brand accent color.
- * - bannerStickyOffset: 0.35 = 35% of the banner remains visible on scroll.
- * * NAVIGATION:
- * - Set 'enabled: true' to show a link in the top-right menu.
- * * SOCIALS:
- * - id: Must match the keys in social-loader.js (ig, x, yt, fb, li, tt, gh, discord, tg, web).
- * - base: The platform URL prefix.
- * * SERVICES:
- * - formspree_id: Your unique endpoint from Formspree.io.
- * - turnstile_sitekey: Your Public Site Key from Cloudflare.
  */
 const SITE_CONFIG = {
     appearance: {
@@ -20,18 +8,28 @@ const SITE_CONFIG = {
         bannerStickyOffset: 0.35,
         root_url: "https://dornori.com"
     },
+    // Define navigation and which "View" they trigger
     navigation: [
-        { label: "About", link: "about.html", type: "standard", enabled: false },
-        { label: "Contact", link: "contact.html", type: "standard", enabled: false },
-        { label: "Newsletter", link: "#newsletter", type: "button", enabled: true }
+        { label: "About", slug: "about", type: "standard", enabled: true },
+        { label: "Contact", slug: "contact", type: "standard", enabled: false },
+        { label: "Newsletter", slug: "newsletter", type: "button", enabled: true }
     ],
+    // Configuration for dynamic content blocks
+    pages: {
+        about: { title: "About Dornori", file: "content/about.html" },
+        terms: { title: "Terms of Service", file: "content/terms.html" },
+        privacy: { title: "Privacy Policy", file: "content/privacy.html" }
+    },
     socials: [
-        { id: 'ig',      user: "dornori.info", base: 'https://instagram.com/' },
-        { id: 'x',       user: "dornori_info", base: 'https://x.com/' },
-        { id: 'yt',      user: "dornori_info", base: 'https://youtube.com/@' },
-        { id: 'fb',      user: "profile.php?id=61585253280713", base: 'https://facebook.com/' },
-        { id: 'gh',      user: "dornori", base: 'https://github.com/' }
-        { id: 'web',     user: "dornori.com", base: 'https://' }
+        { id: 'ig', user: "dornori.info", base: 'https://instagram.com/' },
+        { id: 'x', user: "dornori_info", base: 'https://x.com/' },
+        { id: 'yt', user: "dornori_info", base: 'https://youtube.com/@' },
+        { id: 'fb', user: "profile.php?id=61585253280713", base: 'https://facebook.com/' },
+        { id: 'li', user: "dornori", base: 'https://linkedin.com/company/' },
+        { id: 'tt', user: "dornori", base: 'https://tiktok.com/@' },
+        { id: 'gh', user: "dornori", base: 'https://github.com/' },
+        { id: 'discord', user: "invite/dornori", base: 'https://discord.com/' },
+        { id: 'tg', user: "dornori", base: 'https://t.me/' }
     ],
     formspree_id: "xnjopbbb",
     turnstile_sitekey: "0x4AAAAAACxsga5y-bJ_qkzC"
