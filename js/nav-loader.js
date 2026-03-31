@@ -1,7 +1,7 @@
 import SITE_CONFIG from './config.js';
 
 /**
- * NAV LOADER MODULE
+ * NAV LOADER MODULE - 
  * Handles the top-right menu. 
  * Updated to handle the 'Newsletter' scroll-to-focus behavior.
  */
