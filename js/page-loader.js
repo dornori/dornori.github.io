@@ -25,7 +25,8 @@ export function initPageLoader() {
             const html = await res.text();
             
             // Inject the content with title
-            pageContent.innerHTML = `<h1>${page.title}</h1>` + html;
+         //   pageContent.innerHTML = `<h1>${page.title}</h1>` + html;
+            pageContent.innerHTML = html;
             
             // Update browser URL without page reload
             window.history.pushState({ slug: slug }, page.title, `/${slug}`);
