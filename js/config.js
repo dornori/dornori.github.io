@@ -3,10 +3,13 @@
  * ---------------------------------------------------------
  * APPEARANCE: 
  * - icyLemon: The primary brand accent color (#F5F29B).
- * - bannerStickyOffset: 0.35 (35% of the banner stays visible).
+ * - bannerStickyOffset: 0.35 (35% of the banner remains visible on scroll).
  * * NAVIGATION & PAGES:
- * - navigation: Links in the top-right. 'slug' must match a key in 'pages'.
- * - pages: Content blocks that load into the dynamic view layer.
+ * - navigation: Defines the top-right menu. 'slug' must match a key in 'pages'.
+ * - pages: Content blocks (HTML snippets) that load into the dynamic view layer.
+ * * SOCIALS:
+ * - id: Must match the keys in social-loader.js.
+ * - base: The platform URL prefix.
  * * LEGAL IDENTITY:
  * - The website dornori.com and the brand name "Dornori" are owned 
  * and operated by the registrant of the dornori.com domain.
@@ -37,7 +40,8 @@ const SITE_CONFIG = {
         { id: 'tt',      user: "dornori", base: 'https://tiktok.com/@' },
         { id: 'gh',      user: "dornori", base: 'https://github.com/' },
         { id: 'discord', user: "invite/dornori", base: 'https://discord.com/' },
-        { id: 'tg',      user: "dornori", base: 'https://t.me/' }
+        { id: 'tg',      user: "dornori", base: 'https://t.me/' },
+        { id: 'web',     user: "dornori.com", base: 'https://' }
     ],
     formspree_id: "xnjopbbb",
     turnstile_sitekey: "0x4AAAAAACxsga5y-bJ_qkzC"
