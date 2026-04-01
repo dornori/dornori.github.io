@@ -37,7 +37,7 @@ const SITE_CONFIG = {
         { id: 'ig',      user: "dornori.info", base: 'https://instagram.com/' },
         { id: 'x',       user: "dornori_info", base: 'https://x.com/' },
         { id: 'yt',      user: "dornori_info", base: 'https://youtube.com/@' },
-        { id: 'fb',      user: "profile.php?id=61585253280713", base: 'https://facebook.com/' },
+        { id: 'fb',      user: "Dornori.info", base: 'https://facebook.com/' },
 /**        { id: 'li',      user: "dornori", base: 'https://linkedin.com/company/' },
         { id: 'tt',      user: "dornori", base: 'https://tiktok.com/@' },
         { id: 'gh',      user: "dornori", base: 'https://github.com/' },
