@@ -29,7 +29,7 @@ const SITE_CONFIG = {
         { label: "🎮 Pre-Assembled Kit", slug: "pre-assembled-kit", type: "standard", enabled: true },
         { label: "🔩 Replacement Parts", slug: "replacement-parts", type: "standard", enabled: true },
         // INFO PAGES
-        { label: "About-us", slug: "about-us", type: "standard", enabled: true },
+        { label: "About", slug: "about-us", type: "standard", enabled: true },
         { label: "Contact", slug: "contact", type: "standard", enabled: false },
         { label: "Newsletter", slug: "newsletter", type: "button", enabled: true }
     ],
