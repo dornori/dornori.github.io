@@ -1,44 +1,187 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   main.css — Dornori
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── DESIGN TOKENS ─────────────────────────────────────────────────────────── */
 :root {
-    --accent: #F5F29B;
-    --bg: #050505;
-    --glass: rgba(255, 255, 255, 0.02);
-    --border: rgba(245, 242, 155, 0.15);
+    --accent:    #F5F29B;
+    --bg:        #050505;
+    --glass:     rgba(255, 255, 255, 0.02);
+    --border:    rgba(245, 242, 155, 0.15);
+    --text:      #ffffff;
+    --text-muted:#888888;
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+    /* topbar dimensions — change once, works everywhere */
+    --topbar-h:  44px;
 }
 
-/* BASE RESET */
+/* ── LIGHT THEME OVERRIDES (set via <html data-theme="light">) ─────────────── */
+[data-theme="light"] {
+    --bg:        #f5f5f0;
+    --glass:     rgba(0, 0, 0, 0.04);
+    --border:    rgba(0, 0, 0, 0.12);
+    --accent:    #7a6800;          /* darkened lemon so it's legible on white */
+    --text:      #111111;
+    --text-muted:#666666;
+}
+
+[data-theme="light"] body {
+    color: var(--text);
+    background-image:
+        radial-gradient(circle at center, transparent 0%, var(--bg) 95%),
+        linear-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+}
+
+/* ── BASE RESET ────────────────────────────────────────────────────────────── */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; height: 100%; }
 
 body {
     background-color: var(--bg);
-    color: #fff;
+    color: var(--text);
     font-family: var(--font-sans);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     overflow-x: hidden;
-    background-image: 
+    background-image:
         radial-gradient(circle at center, transparent 0%, var(--bg) 95%),
         linear-gradient(rgba(245, 242, 155, 0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(245, 242, 155, 0.03) 1px, transparent 1px);
     background-size: 100% 100%, 50px 50px, 50px 50px;
 }
 
-/* NAVIGATION */
+/* ── HOVER-REVEAL TOP BAR ──────────────────────────────────────────────────── */
+
+/*
+   Invisible trigger strip — always sits at the very top of the screen.
+   Wide and tall enough to catch the cursor reliably.
+   Created by nav-loader.js as #topBar-trigger.
+*/
+#topBar-trigger {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 12px;           /* generous catch zone */
+    z-index: 10001;         /* above everything including the bar itself */
+    cursor: default;
+}
+
+/*
+   The actual bar. Hidden above the viewport via translateY.
+   Slides down to translateY(0) when .active is added by JS.
+   Using transform instead of top/max-height gives buttery 60fps animation.
+*/
+#topBar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--topbar-h);
+    z-index: 10000;
+
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 24px;
+    gap: 16px;
+
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+
+    /* Accent line visible at all times as a hint the bar exists */
+    box-shadow: 0 2px 0 0 var(--accent);
+
+    /* Hidden by default — slid above the viewport */
+    transform: translateY(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Revealed state */
+#topBar.active {
+    transform: translateY(0);
+}
+
+/* ── THEME TOGGLE BUTTON (inside #topBar) ──────────────────────────────────── */
+#themeToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 0;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    transition: color 0.2s;
+}
+
+#themeToggle:hover { color: var(--text); }
+
+/* Pill track */
+.toggle-track {
+    position: relative;
+    display: inline-block;
+    width: 32px;
+    height: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    flex-shrink: 0;
+    transition: background 0.3s, border-color 0.3s;
+}
+
+/* Sliding dot */
+.toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s;
+}
+
+/* Thumb slides right in light mode */
+[data-theme="light"] .toggle-thumb {
+    transform: translateX(16px);
+    background: var(--accent);
+}
+
+[data-theme="light"] .toggle-track {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+/* ── NAVIGATION ────────────────────────────────────────────────────────────── */
 nav.top-nav {
     position: fixed;
-    top: 0; width: 100%;
-    display: flex; justify-content: flex-end; align-items: center;
-    padding: 20px 40px; z-index: 1001; gap: 25px;
+    top: 0;
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 20px 40px;
+    z-index: 1001;
+    gap: 25px;
 }
 
 .nav-link {
-    background: none; border: none;
-    color: #bbb; cursor: pointer;
-    font-family: var(--font-mono); font-size: 0.75rem;
-    text-transform: uppercase; letter-spacing: 2px;
+    background: none;
+    border: none;
+    color: #bbb;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
     transition: 0.3s ease;
 }
 
@@ -51,7 +194,7 @@ nav.top-nav {
     font-weight: 900;
 }
 
-/* NEWSLETTER FOCUS STATE */
+/* Newsletter focus */
 #waitlist-form input:focus {
     background: rgba(245, 242, 155, 0.05);
     box-shadow: inset 0 0 10px rgba(245, 242, 155, 0.05);
@@ -59,34 +202,45 @@ nav.top-nav {
 }
 
 .input-row:focus-within {
-    border-color: var(--accent); /* Highlights the whole row when typing */
+    border-color: var(--accent);
     transition: border-color 0.3s ease;
 }
 
-/* Ensure the sub-page content doesn't feel cramped */
-#page-view {
-    padding-bottom: 60px;
+/* Sub-page breathing room */
+#page-view { padding-bottom: 60px; }
+
+/* ── HEADER (sticky banner) ────────────────────────────────────────────────── */
+header {
+    width: 100%;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: var(--bg);
 }
 
+.billboard-logo {
+    width: 100%;
+    height: auto;
+    display: block;
+    cursor: pointer;
+    transition: opacity 0.3s;
+}
 
-
-/* HEADER STICKY */
-header { width: 100%; position: sticky; top: 0; z-index: 1000; background: var(--bg); }
-.billboard-logo { width: 100%; height: auto; display: block; cursor: pointer; transition: opacity 0.3s; }
 .billboard-logo:hover { opacity: 0.8; }
 
-/* MAIN CONTENT AREA */
-main { 
-    flex: 1; 
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    padding: 40px 20px; 
-    text-align: center; 
+/* ── MAIN CONTENT ──────────────────────────────────────────────────────────── */
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    text-align: center;
     width: 100%;
 }
 
-#home-view, #page-view {
+#home-view,
+#page-view {
     width: 100%;
     max-width: 800px;
     animation: fadeIn 0.5s ease;
@@ -94,119 +248,171 @@ main {
 
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
-.headline { 
-    font-size: clamp(1.1rem, 3.5vw, 1.8rem); 
-    font-weight: 200; 
-    color: #aaa; 
-    line-height: 1.6; 
-    margin-bottom: 40px; 
+.headline {
+    font-size: clamp(1.1rem, 3.5vw, 1.8rem);
+    font-weight: 200;
+    color: #aaa;
+    line-height: 1.6;
+    margin-bottom: 40px;
 }
 
-/* WAITLIST CARD */
-.waitlist-card { 
-    background: var(--glass); 
-    backdrop-filter: blur(20px); 
-    border: 1px solid var(--border); 
-    padding: 40px; 
+/* ── WAITLIST CARD ─────────────────────────────────────────────────────────── */
+.waitlist-card {
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    padding: 40px;
     margin: 0 auto;
-    width: 100%; 
-    max-width: 500px; 
+    width: 100%;
+    max-width: 500px;
 }
 
-.input-row { display: flex; border: 1px solid var(--border); margin-top: 20px; }
-input { flex: 1; background: transparent; border: none; padding: 18px; color: #fff; outline: none; font-family: var(--font-mono); }
-.submit-btn { background: var(--accent); color: #000; border: none; padding: 0 30px; font-family: var(--font-mono); font-weight: 900; text-transform: uppercase; cursor: pointer; }
+.input-row {
+    display: flex;
+    border: 1px solid var(--border);
+    margin-top: 20px;
+}
 
-.disclaimer-text { margin-top: 20px; font-family: var(--font-mono); font-size: 0.7rem; color: #888; }
-.link-btn { background: none; border: none; color: var(--accent); text-decoration: underline; cursor: pointer; font-size: inherit; }
+input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 18px;
+    color: var(--text);
+    outline: none;
+    font-family: var(--font-mono);
+}
 
-/* DYNAMIC PAGE CONTENT */
+.submit-btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 0 30px;
+    font-family: var(--font-mono);
+    font-weight: 900;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.disclaimer-text {
+    margin-top: 20px;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: #888;
+}
+
+.link-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: inherit;
+}
+
+/* ── DYNAMIC PAGE CONTENT ──────────────────────────────────────────────────── */
 .view-inner { text-align: left; color: #ccc; line-height: 1.8; }
-.view-inner h1 { color: var(--accent); font-family: var(--font-mono); text-transform: uppercase; margin-bottom: 30px; font-size: 1.5rem; letter-spacing: 3px; }
+.view-inner h1 {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    margin-bottom: 30px;
+    font-size: 1.5rem;
+    letter-spacing: 3px;
+}
 .view-inner p { margin-bottom: 20px; }
 
-/* SOCIAL DOCK */
-.social-dock { margin-top: 50px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; width: 100%; }
-.social-link {
-    width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
-    border: 1px solid var(--border); background: rgba(245, 242, 155, 0.03); 
-    color: var(--accent); transition: all 0.4s ease; text-decoration: none;
+/* ── SOCIAL DOCK ───────────────────────────────────────────────────────────── */
+.social-dock {
+    margin-top: 50px;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    width: 100%;
 }
-.social-link svg { width: 22px; height: 22px; display: block; fill: none; stroke: currentColor; stroke-width: 1.2; }
 
-/* Brand Hovers */
-.social-link[data-type="ig"]:hover { color: #E1306C; border-color: #E1306C; }
-.social-link[data-type="x"]:hover { color: #FFFFFF; border-color: #FFFFFF; }
-.social-link[data-type="yt"]:hover { color: #FF0000; border-color: #FF0000; }
-.social-link[data-type="fb"]:hover { color: #1877F2; border-color: #1877F2; }
-.social-link[data-type="li"]:hover { color: #0077B5; border-color: #0077B5; }
-.social-link[data-type="tt"]:hover { color: #00f2ea; border-color: #00f2ea; }
-.social-link[data-type="gh"]:hover { color: #fafafa; border-color: #fafafa; }
+.social-link {
+    width: 48px; height: 48px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border);
+    background: rgba(245, 242, 155, 0.03);
+    color: var(--accent);
+    transition: all 0.4s ease;
+    text-decoration: none;
+}
+
+.social-link svg {
+    width: 22px; height: 22px;
+    display: block;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.2;
+}
+
+/* Brand hovers */
+.social-link[data-type="ig"]:hover      { color: #E1306C; border-color: #E1306C; }
+.social-link[data-type="x"]:hover       { color: #FFFFFF; border-color: #FFFFFF; }
+.social-link[data-type="yt"]:hover      { color: #FF0000; border-color: #FF0000; }
+.social-link[data-type="fb"]:hover      { color: #1877F2; border-color: #1877F2; }
+.social-link[data-type="li"]:hover      { color: #0077B5; border-color: #0077B5; }
+.social-link[data-type="tt"]:hover      { color: #00f2ea; border-color: #00f2ea; }
+.social-link[data-type="gh"]:hover      { color: #fafafa; border-color: #fafafa; }
 .social-link[data-type="discord"]:hover { color: #5865F2; border-color: #5865F2; }
-.social-link[data-type="tg"]:hover { color: #26A5E4; border-color: #26A5E4; }
+.social-link[data-type="tg"]:hover      { color: #26A5E4; border-color: #26A5E4; }
 
-/* PREMIUM FOOTER */
-.site-footer { width: 100%; padding: 40px 60px; border-top: 1px solid var(--border); background: #050505; margin-top: auto; }
-.footer-container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
-.copyright-text { color: #555; font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 2px; }
+/* ── FOOTER ────────────────────────────────────────────────────────────────── */
+.site-footer {
+    width: 100%;
+    padding: 40px 60px;
+    border-top: 1px solid var(--border);
+    background: #050505;
+    margin-top: auto;
+}
+
+.footer-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.copyright-text {
+    color: #555;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+}
+
 .technical-credits { display: flex; gap: 30px; }
-.credit-item { font-family: var(--font-mono); font-size: 0.6rem; color: #444; display: flex; align-items: center; gap: 8px; }
-.credit-item strong { color: #666; font-weight: 400; }
-.status-dot { width: 4px; height: 4px; background: var(--border); border-radius: 50%; }
 
+.credit-item {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    color: #444;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.credit-item strong { color: #666; font-weight: 400; }
+
+.status-dot {
+    width: 4px; height: 4px;
+    background: var(--border);
+    border-radius: 50%;
+}
+
+/* ── UTILITY ───────────────────────────────────────────────────────────────── */
 .hidden { display: none !important; }
 
+/* ── RESPONSIVE ────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
-    .footer-container { flex-direction: column; gap: 20px; text-align: center; }
+    .footer-container  { flex-direction: column; gap: 20px; text-align: center; }
     .technical-credits { flex-direction: column; gap: 10px; }
-    nav.top-nav { padding: 20px; gap: 15px; }
-}
-
-
-body.light-theme {
-    --bg: #ffffff;
-    --accent: #111111;
-    --glass: rgba(0, 0, 0, 0.05);
-    --border: rgba(0, 0, 0, 0.15);
-    color: #000;
-}
-
-body.light-theme {
-    background-image: 
-        radial-gradient(circle at center, transparent 0%, var(--bg) 95%),
-        linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
-}
-
-/* Hidden bar */
-#topBar {
-    position: fixed;
-    top: -60px; /* hidden above screen */
-    left: 0;
-    width: 100%;
-    height: 60px;
-    background: var(--bg);
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: top 0.3s ease;
-    z-index: 1000;
-}
-
-/* When visible */
-#topBar.active {
-    top: 0;
-}
-
-/* Button styling */
-#themeToggle {
-    background: transparent;
-    color: var(--accent);
-    border: 1px solid var(--accent);
-    padding: 6px 12px;
-    cursor: pointer;
+    nav.top-nav        { padding: 20px; gap: 15px; }
 }
