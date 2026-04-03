@@ -4,10 +4,12 @@
  * APPEARANCE: 
  * - icyLemon: The primary brand accent color (#F5F29B).
  * - bannerStickyOffset: 0.35 (35% of the banner remains visible on scroll).
- * * NAVIGATION & PAGES:
+ * 
+ * NAVIGATION & PAGES:
  * - navigation: Defines the top-right menu. 'slug' must match a key in 'pages'.
  * - pages: Content snippets (HTML) loaded into the dynamic view layer.
- * * LEGAL IDENTITY:
+ * 
+ * LEGAL IDENTITY:
  * - The website dornori.com and the brand name "Dornori" are owned 
  * and operated by the registrant of the dornori.com domain.
  */
@@ -19,31 +21,46 @@ const SITE_CONFIG = {
         root_url: "https://dornori.com"
     },
     navigation: [
+        // PRODUCT PAGES (buttons)
+        { label: "📁 3D Print Files", slug: "3d-print-files", type: "button", enabled: true },
+        { label: "⚡ Electronics Bundle", slug: "electronics-bundle", type: "button", enabled: true },
+        { label: "🖨️ Pre-Printed Parts", slug: "pre-printed-parts-kit", type: "button", enabled: true },
+        { label: "🔧 Complete Assembly Kit", slug: "complete-assembly-kit", type: "button", enabled: true },
+        { label: "🎮 Pre-Assembled Kit", slug: "pre-assembled-kit", type: "button", enabled: true },
+        { label: "🔩 Replacement Parts", slug: "replacement-parts", type: "button", enabled: true },
+        // INFO PAGES
         { label: "About", slug: "about", type: "standard", enabled: true },
         { label: "Contact", slug: "contact", type: "standard", enabled: false },
         { label: "Newsletter", slug: "newsletter", type: "button", enabled: true }
     ],
     pages: {
-        about: { title: "", file: "content/about.html" },
-        terms: { title: "", file: "content/terms.html" },
-        privacy: { title: "", file: "content/privacy.html" },
-        children: { title: "", file: "content/children.html" },
-        security: { title: "", file: "content/security.html" },
-        cookies: { title: "", file: "content/cookies.html" },
-        imprint: { title: "", file: "content/imprint.html" },
-        returns: { title: "", file: "content/returns.html" }
+        // ========== PRODUCT PAGES ==========
+        "3d-print-files": { title: "3D Print Files", file: "content/3d-print-files.html" },
+        "electronics-bundle": { title: "Electronics Bundle", file: "content/electronics-bundle.html" },
+        "pre-printed-parts-kit": { title: "Pre-Printed Parts Kit", file: "content/pre-printed-parts-kit.html" },
+        "complete-assembly-kit": { title: "Complete Assembly Kit", file: "content/complete-assembly-kit.html" },
+        "pre-assembled-kit": { title: "Pre-Assembled Kit", file: "content/pre-assembled-kit.html" },
+        "replacement-parts": { title: "Replacement Parts", file: "content/replacement-parts.html" },
+        
+        // ========== INFO & LEGAL PAGES ==========
+        about: { title: "About Dornori", file: "content/about.html" },
+        terms: { title: "Terms of Service", file: "content/terms.html" },
+        privacy: { title: "Privacy Policy", file: "content/privacy.html" },
+        children: { title: "Child Safety Guidelines", file: "content/children.html" },
+        security: { title: "Security Center", file: "content/security.html" },
+        cookies: { title: "Cookie Policy", file: "content/cookies.html" },
+        imprint: { title: "Imprint / Legal Disclosure", file: "content/imprint.html" },
+        returns: { title: "Return Policy", file: "content/returns.html" },
+        
+        // ========== FUTURE / PLACEHOLDER PAGES ==========
+        contact: { title: "Contact Us", file: "content/contact.html" },
+        newsletter: { title: "Newsletter", file: "content/newsletter.html" }
     },
     socials: [
         { id: 'ig',      user: "dornori.info", base: 'https://instagram.com/' },
         { id: 'x',       user: "dornori_info", base: 'https://x.com/' },
         { id: 'yt',      user: "dornori_info", base: 'https://youtube.com/@' },
         { id: 'fb',      user: "Dornori.info", base: 'https://facebook.com/' },
-/**        { id: 'li',      user: "dornori", base: 'https://linkedin.com/company/' },
-        { id: 'tt',      user: "dornori", base: 'https://tiktok.com/@' },
-        { id: 'gh',      user: "dornori", base: 'https://github.com/' },
-        { id: 'discord', user: "invite/dornori", base: 'https://discord.com/' },
-        { id: 'tg',      user: "dornori", base: 'https://t.me/' },
-        */
         { id: 'web',     user: "dornori.com", base: 'https://' }
     ],
     formspree_id: "xnjopbbb",
