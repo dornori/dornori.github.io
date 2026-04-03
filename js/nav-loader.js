@@ -10,6 +10,22 @@ function toggleTheme() {
     document.body.classList.toggle("light-theme");
 }
 
+const topBar = document.getElementById("topBar");
+
+document.addEventListener("mousemove", (e) => {
+    if (e.clientY <= 5) topBar.classList.add("active");
+});
+
+topBar.addEventListener("mouseleave", () => {
+    topBar.classList.remove("active");
+});
+
+document.getElementById("themeToggle")
+    .addEventListener("click", () => {
+        document.body.classList.toggle("light-theme");
+    });
+
+
 export function initNavigation() {
     const nav = document.querySelector('.top-nav');
     if (!nav) return;
