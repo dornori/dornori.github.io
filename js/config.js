@@ -43,7 +43,7 @@ const SITE_CONFIG = {
         "replacement-parts": { title: "Replacement Parts", file: "content/replacement-parts.html" },
         
         // ========== INFO & LEGAL PAGES ==========
-        about: { title: "About Dornori", file: "content/about.html" },
+        About: { title: "About Dornori", file: "content/about-us.html" },
         terms: { title: "Terms of Service", file: "content/terms.html" },
         privacy: { title: "Privacy Policy", file: "content/privacy.html" },
         children: { title: "Child Safety Guidelines", file: "content/children.html" },
