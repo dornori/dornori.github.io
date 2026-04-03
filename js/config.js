@@ -22,14 +22,14 @@ const SITE_CONFIG = {
     },
     navigation: [
         // PRODUCT PAGES (buttons)
-        { label: "📁 3D Print Files", slug: "3d-print-files", type: "button", enabled: true },
-        { label: "⚡ Electronics Bundle", slug: "electronics-bundle", type: "button", enabled: true },
-        { label: "🖨️ Pre-Printed Parts", slug: "pre-printed-parts-kit", type: "button", enabled: true },
-        { label: "🔧 Complete Assembly Kit", slug: "complete-assembly-kit", type: "button", enabled: true },
-        { label: "🎮 Pre-Assembled Kit", slug: "pre-assembled-kit", type: "button", enabled: true },
-        { label: "🔩 Replacement Parts", slug: "replacement-parts", type: "button", enabled: true },
+        { label: "📁 3D Print Files", slug: "3d-print-files", type: "standard", enabled: true },
+        { label: "⚡ Electronics Bundle", slug: "electronics-bundle", type: "standard", enabled: true },
+        { label: "🖨️ Pre-Printed Parts", slug: "pre-printed-parts-kit", type: "standard", enabled: true },
+        { label: "🔧 Complete Assembly Kit", slug: "complete-assembly-kit", type: "standard", enabled: true },
+        { label: "🎮 Pre-Assembled Kit", slug: "pre-assembled-kit", type: "standard", enabled: true },
+        { label: "🔩 Replacement Parts", slug: "replacement-parts", type: "standard", enabled: true },
         // INFO PAGES
-        { label: "About", slug: "about", type: "standard", enabled: true },
+        { label: "About", slug: "about-us", type: "standard", enabled: true },
         { label: "Contact", slug: "contact", type: "standard", enabled: false },
         { label: "Newsletter", slug: "newsletter", type: "button", enabled: true }
     ],
