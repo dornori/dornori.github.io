@@ -29,7 +29,7 @@ const SITE_CONFIG = {
         { label: "🎮 Pre-Assembled Kit", slug: "pre-assembled-kit", type: "standard", enabled: true },
         { label: "🔩 Replacement Parts", slug: "replacement-parts", type: "standard", enabled: true },
         // INFO PAGES
-        { label: "About", slug: "about-us", type: "standard", enabled: true },
+        { label: "About", slug: "about", type: "standard", enabled: true },
         { label: "Contact", slug: "contact", type: "standard", enabled: false },
         { label: "Newsletter", slug: "newsletter", type: "button", enabled: true }
     ],
@@ -43,7 +43,7 @@ const SITE_CONFIG = {
         "replacement-parts": { title: "Replacement Parts", file: "content/replacement-parts.html" },
         
         // ========== INFO & LEGAL PAGES ==========
-        "about-us": { title: "About Dornori", file: "content/about-us.html" },
+        about: { title: "About Dornori", file: "content/about-us.html" },
         terms: { title: "Terms of Service", file: "content/terms.html" },
         privacy: { title: "Privacy Policy", file: "content/privacy.html" },
         children: { title: "Child Safety Guidelines", file: "content/children.html" },
