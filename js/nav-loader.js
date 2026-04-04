@@ -6,7 +6,7 @@ import SITE_CONFIG from './config.js';
  * Handles:
  *   1. Theme setup + persistence (localStorage → <html data-theme="...">)
  *   2. Settings icon (#settings-btn) that toggles the #topBar open/closed
- *   3. Theme toggle button inside #topBar
+ *   3. Theme toggle button inside #topBar — only keyboard-reachable when open
  *   4. Top-right nav menu
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -17,17 +17,20 @@ export function initNavigation() {
     const STORAGE_KEY = 'dornori-theme';
     const root        = document.documentElement;
 
-    // Apply saved theme immediately (prevents flash on reload)
     const saved = localStorage.getItem(STORAGE_KEY) || 'dark';
     root.setAttribute('data-theme', saved);
 
     /* ── 2. SETTINGS ICON + TOPBAR REVEAL ───────────────────────────────── */
-    const topBar = document.getElementById('topBar');
+    const topBar    = document.getElementById('topBar');
+    const toggleBtn = document.getElementById('themeToggle');
 
-    // Inject the settings icon button into the DOM
+    // Inject settings button at the very TOP of <body> so it's
+    // first in the natural tab order
     const settingsBtn = document.createElement('button');
     settingsBtn.id        = 'settings-btn';
-    settingsBtn.ariaLabel = 'Settings';
+    settingsBtn.setAttribute('aria-label', 'Open settings');
+    settingsBtn.setAttribute('aria-expanded', 'false');
+    settingsBtn.setAttribute('aria-controls', 'topBar');
     settingsBtn.innerHTML = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
              stroke-linecap="round" stroke-linejoin="round">
@@ -43,35 +46,57 @@ export function initNavigation() {
                      a1.65 1.65 0 0 0-1.51 1z"/>
         </svg>
     `;
-    document.body.appendChild(settingsBtn);
+
+    // Insert as first child of body so Tab hits it before anything else
+    document.body.insertBefore(settingsBtn, document.body.firstChild);
+
+    // Theme toggle starts hidden from tab order — bar is closed
+    if (toggleBtn) toggleBtn.setAttribute('tabindex', '-1');
+
+    const openBar = () => {
+        topBar.classList.add('active');
+        settingsBtn.classList.add('active');
+        settingsBtn.setAttribute('aria-expanded', 'true');
+        settingsBtn.setAttribute('aria-label', 'Close settings');
+        // Make toggle reachable by keyboard
+        if (toggleBtn) {
+            toggleBtn.setAttribute('tabindex', '0');
+            toggleBtn.focus(); // move focus into the bar
+        }
+    };
+
+    const closeBar = () => {
+        topBar.classList.remove('active');
+        settingsBtn.classList.remove('active');
+        settingsBtn.setAttribute('aria-expanded', 'false');
+        settingsBtn.setAttribute('aria-label', 'Open settings');
+        // Remove toggle from tab order again
+        if (toggleBtn) toggleBtn.setAttribute('tabindex', '-1');
+    };
 
     if (topBar) {
-        // Toggle bar open/closed on settings icon click
         settingsBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const isOpen = topBar.classList.toggle('active');
-            settingsBtn.classList.toggle('active', isOpen);
+            topBar.classList.contains('active') ? closeBar() : openBar();
         });
 
-        // Click anywhere outside the bar or icon closes it
+        // Click outside closes bar
         document.addEventListener('click', (e) => {
             if (!topBar.contains(e.target) && e.target !== settingsBtn) {
-                topBar.classList.remove('active');
-                settingsBtn.classList.remove('active');
+                closeBar();
             }
         });
 
-        // Escape key closes it
+        // Escape closes bar and returns focus to settings icon
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                topBar.classList.remove('active');
-                settingsBtn.classList.remove('active');
+            if (e.key === 'Escape' && topBar.classList.contains('active')) {
+                closeBar();
+                settingsBtn.focus();
             }
         });
     }
 
     /* ── 3. THEME TOGGLE BUTTON (inside #topBar) ─────────────────────────── */
-    const toggleBtn   = document.getElementById('themeToggle');
     const toggleLabel = document.getElementById('toggleLabel');
 
     const syncLabel = (theme) => {
