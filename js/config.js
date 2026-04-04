@@ -30,8 +30,7 @@ const SITE_CONFIG = {
         { label: "🖨️ Pre-Printed Parts",   slug: "pre-printed-parts-kit", type: "standard", enabled: true },
         { label: "🔧 Complete Assembly Kit",slug: "complete-assembly-kit", type: "standard", enabled: true },
         { label: "🎮 Pre-Assembled Kit",    slug: "pre-assembled-kit",     type: "standard", enabled: true },
-        { label: "🔩 Replacement Parts",    slug: "replacement-parts",     type: "button", enabled: true },
-        // INFO PAGES
+          // INFO PAGES
         { label: "About",      slug: "about",      type: "standard", enabled: false },
         { label: "Contact",    slug: "contact",    type: "standard", enabled: false },
         { label: "Newsletter", slug: "newsletter", type: "button",   enabled: true  }
