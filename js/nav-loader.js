@@ -3,9 +3,10 @@ import SITE_CONFIG from './config.js';
 /**
  * NAV LOADER MODULE
  * ─────────────────────────────────────────────────────────────────────────────
- * The settings tab is physically part of #topBar — it hangs below it as a
- * small tab. The whole unit (bar + tab) slides down together from the top.
- * Clicking the tab toggles open/close.
+ * 1. Theme setup + persistence
+ * 2. Settings tab on #topBar (click to reveal theme toggle)
+ * 3. Desktop nav  (.top-nav)   — text buttons on banner bottom edge
+ * 4. Mobile nav   (.mobile-nav) — icon + label stacked, below banner
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -18,12 +19,11 @@ export function initNavigation() {
     const saved = localStorage.getItem(STORAGE_KEY) || 'dark';
     root.setAttribute('data-theme', saved);
 
-    /* ── 2. INJECT TAB INTO #topBar ──────────────────────────────────────── */
+    /* ── 2. SETTINGS TAB + TOPBAR REVEAL ────────────────────────────────── */
     const topBar    = document.getElementById('topBar');
     const toggleBtn = document.getElementById('themeToggle');
 
     if (topBar) {
-        // Create the tab that hangs below the bar
         const tab = document.createElement('button');
         tab.id        = 'topBar-tab';
         tab.setAttribute('aria-label', 'Open settings');
@@ -45,10 +45,8 @@ export function initNavigation() {
             </svg>
             <span>SETTINGS</span>
         `;
-        // Append tab inside the bar — CSS will position it below the bar's bottom edge
         topBar.appendChild(tab);
 
-        // Theme toggle hidden from tab order while bar is closed
         if (toggleBtn) toggleBtn.setAttribute('tabindex', '-1');
 
         const openBar = () => {
@@ -73,12 +71,10 @@ export function initNavigation() {
             topBar.classList.contains('active') ? closeBar() : openBar();
         });
 
-        // Click outside closes bar
         document.addEventListener('click', (e) => {
             if (!topBar.contains(e.target)) closeBar();
         });
 
-        // Escape closes bar
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && topBar.classList.contains('active')) {
                 closeBar();
@@ -87,7 +83,7 @@ export function initNavigation() {
         });
     }
 
-    /* ── 3. THEME TOGGLE BUTTON ──────────────────────────────────────────── */
+    /* ── 3. THEME TOGGLE ─────────────────────────────────────────────────── */
     const toggleLabel = document.getElementById('toggleLabel');
 
     const syncLabel = (theme) => {
@@ -106,26 +102,36 @@ export function initNavigation() {
         });
     }
 
-    /* ── 4. NAV MENU ─────────────────────────────────────────────────────── */
-    const nav = document.querySelector('.top-nav');
-    if (!nav) return;
-    nav.innerHTML = '';
+    /* ── 4. DESKTOP NAV ──────────────────────────────────────────────────── */
+    const desktopNav = document.querySelector('.top-nav');
+    if (desktopNav) {
+        desktopNav.innerHTML = '';
+        SITE_CONFIG.navigation.forEach(item => {
+            if (!item.enabled) return;
+            const btn = document.createElement('button');
+            btn.textContent = item.label;
+            btn.className   = item.type === 'button' ? 'nav-link nav-newsletter' : 'nav-link';
+            btn.onclick = () => item.slug === 'newsletter' ? window.showHome(true) : window.viewPage(item.slug);
+            desktopNav.appendChild(btn);
+        });
+    }
 
-    SITE_CONFIG.navigation.forEach(item => {
-        if (!item.enabled) return;
-
-        const btn = document.createElement('button');
-        btn.textContent = item.label;
-        btn.className   = item.type === 'button' ? 'nav-link nav-newsletter' : 'nav-link';
-
-        btn.onclick = () => {
-            if (item.slug === 'newsletter') {
-                window.showHome(true);
-            } else {
-                window.viewPage(item.slug);
-            }
-        };
-
-        nav.appendChild(btn);
-    });
+    /* ── 5. MOBILE NAV ───────────────────────────────────────────────────── */
+    const mobileNav = document.getElementById('mobile-nav');
+    if (mobileNav) {
+        mobileNav.innerHTML = '';
+        SITE_CONFIG.navigation.forEach(item => {
+            if (!item.enabled) return;
+            const btn = document.createElement('button');
+            btn.className = item.type === 'button'
+                ? 'mobile-nav-item mobile-nav-cta'
+                : 'mobile-nav-item';
+            btn.innerHTML = `
+                <span class="mobile-nav-icon">${item.mobileIcon || ''}</span>
+                <span class="mobile-nav-label">${item.mobileLabel || item.label}</span>
+            `;
+            btn.onclick = () => item.slug === 'newsletter' ? window.showHome(true) : window.viewPage(item.slug);
+            mobileNav.appendChild(btn);
+        });
+    }
 }
