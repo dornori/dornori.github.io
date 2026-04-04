@@ -27,12 +27,12 @@ const SITE_CONFIG = {
 
     navigation: [
         // PRODUCT PAGES
-        { label: "📁 3D Print Files",        mobileLabel: "FILES",     mobileIcon: "📁", slug: "3d-print-files",        type: "standard", enabled: false },
-        { label: "⚡ Electronics Bundle",    mobileLabel: "ELECTRO",   mobileIcon: "⚡", slug: "electronics-bundle",    type: "standard", enabled: false },
-        { label: "🖨️ Pre-Printed Parts",    mobileLabel: "PARTS",     mobileIcon: "🖨️",slug: "pre-printed-parts-kit", type: "standard", enabled: false },
-        { label: "🔧 Complete Assembly Kit", mobileLabel: "ASSEMBLY",  mobileIcon: "🔧", slug: "complete-assembly-kit", type: "standard", enabled: false },
-        { label: "🎮 Pre-Assembled Kit",     mobileLabel: "KIT",       mobileIcon: "🎮", slug: "pre-assembled-kit",     type: "standard", enabled: false },
-        { label: "🔩 Replacement Parts",     mobileLabel: "SPARES",    mobileIcon: "🔩", slug: "replacement-parts",     type: "standard", enabled: false },
+        { label: "📁 3D Print Files",        mobileLabel: "FILES",     mobileIcon: "📁", slug: "3d-print-files",        type: "standard", enabled: true },
+        { label: "⚡ Electronics Bundle",    mobileLabel: "ELECTRO",   mobileIcon: "⚡", slug: "electronics-bundle",    type: "standard", enabled: true },
+        { label: "🖨️ Pre-Printed Parts",    mobileLabel: "PARTS",     mobileIcon: "🖨️",slug: "pre-printed-parts-kit", type: "standard", enabled: true },
+        { label: "🔧 Complete Assembly Kit", mobileLabel: "ASSEMBLY",  mobileIcon: "🔧", slug: "complete-assembly-kit", type: "standard", enabled: true },
+        { label: "🎮 Pre-Assembled Kit",     mobileLabel: "KIT",       mobileIcon: "🎮", slug: "pre-assembled-kit",     type: "standard", enabled: true },
+        { label: "🔩 Replacement Parts",     mobileLabel: "SPARES",    mobileIcon: "🔩", slug: "replacement-parts",     type: "standard", enabled: true },
         // INFO PAGES
         { label: "About",    mobileLabel: "ABOUT",    mobileIcon: "ℹ️",  slug: "about",      type: "standard", enabled: false },
         { label: "Contact",  mobileLabel: "CONTACT",  mobileIcon: "✉️",  slug: "contact",    type: "standard", enabled: false },
