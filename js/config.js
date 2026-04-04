@@ -25,12 +25,12 @@ const SITE_CONFIG = {
 
     navigation: [
         // PRODUCT PAGES (buttons)
-        { label: "📁 3D Print Files",       slug: "3d-print-files",        type: "standard", enabled: false },
-        { label: "⚡ Electronics Bundle",   slug: "electronics-bundle",    type: "standard", enabled: false },
-        { label: "🖨️ Pre-Printed Parts",   slug: "pre-printed-parts-kit", type: "standard", enabled: false },
-        { label: "🔧 Complete Assembly Kit",slug: "complete-assembly-kit", type: "standard", enabled: false },
-        { label: "🎮 Pre-Assembled Kit",    slug: "pre-assembled-kit",     type: "standard", enabled: false },
-        { label: "🔩 Replacement Parts",    slug: "replacement-parts",     type: "standard", enabled: false },
+        { label: "📁 3D Print Files",       slug: "3d-print-files",        type: "standard", enabled: true },
+        { label: "⚡ Electronics Bundle",   slug: "electronics-bundle",    type: "standard", enabled: true },
+        { label: "🖨️ Pre-Printed Parts",   slug: "pre-printed-parts-kit", type: "standard", enabled: true },
+        { label: "🔧 Complete Assembly Kit",slug: "complete-assembly-kit", type: "standard", enabled: true },
+        { label: "🎮 Pre-Assembled Kit",    slug: "pre-assembled-kit",     type: "standard", enabled: true },
+        { label: "🔩 Replacement Parts",    slug: "replacement-parts",     type: "button", enabled: true },
         // INFO PAGES
         { label: "About",      slug: "about",      type: "standard", enabled: false },
         { label: "Contact",    slug: "contact",    type: "standard", enabled: false },
