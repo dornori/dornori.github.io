@@ -5,19 +5,18 @@
  * - icyLemon: The primary brand accent color (#F5F29B).
  * - bannerStickyOffset: 0.35 (35% of the banner scrolls out before locking).
  *
- * NAVIGATION & PAGES:
- * - navigation: Defines nav items.
- *     label        → desktop button text
- *     mobileLabel  → short text shown UNDER the icon on mobile
- *     mobileIcon   → path to SVG file in assets/icons/ folder
- *                    e.g. "assets/icons/newsletter.svg"
- *                    The file is fetched and injected inline automatically.
- *     slug         → must match a key in 'pages'
- *     type         → 'standard' or 'button' (button gets accent styling)
- *     enabled      → true/false
+ * NAVIGATION:
+ * - label       → text shown on the desktop nav button (next to icon)
+ * - icon        → SVG file in assets/icons/ — used on BOTH desktop and mobile
+ * - mobileLabel → short text shown UNDER the icon on mobile
+ * - slug        → must match a key in 'pages'
+ * - type        → 'standard' or 'button' (button gets accent styling)
+ * - enabled     → true/false
  *
- * - footer: Footer link columns.
- * - pages:  HTML content files loaded into the dynamic view.
+ * To add a new nav item:
+ *   1. Drop your SVG into assets/icons/
+ *   2. Add an entry here with enabled: true
+ *   3. Make sure the slug matches a key in 'pages'
  */
 const SITE_CONFIG = {
     appearance: {
@@ -29,18 +28,15 @@ const SITE_CONFIG = {
 
     navigation: [
         // PRODUCT PAGES
-        // Drop your SVG files into assets/icons/ and reference them here.
-        { label: "3D Print Files",        mobileLabel: "FILES",    mobileIcon: "assets/icons/3d-file-icon-200x200.svg",  slug: "3d-print-files",        type: "standard", enabled: false },
-        { label: "Electronics Bundle",    mobileLabel: "ELECTRO",  mobileIcon: "assets/icons/electronics.svg", slug: "electronics-bundle",    type: "standard", enabled: false },
-        { label: "Pre-Printed Parts",     mobileLabel: "PARTS",    mobileIcon: "assets/icons/3d-printer-icon-200x200.svg",       slug: "pre-printed-parts-kit", type: "standard", enabled: false },
-        { label: "Complete Assembly Kit", mobileLabel: "ASSEMBLY", mobileIcon: "assets/icons/assembled-lamp-icon-200x200.svg",    slug: "complete-assembly-kit", type: "standard", enabled: false },
-        { label: "Pre-Assembled Kit",     mobileLabel: "KIT",      mobileIcon: "assets/icons/building-kit-icon-200x200.svg",         slug: "pre-assembled-kit",     type: "standard", enabled: false },
-        { label: "Replacement Parts",     mobileLabel: "SPARES",   mobileIcon: "assets/icons/spares.svg",      slug: "replacement-parts",     type: "standard", enabled: false },
+        { label: "3D Print Files",        icon: "assets/icons/3d-file-icon-200x200.svg",  mobileLabel: "FILES",    slug: "3d-print-files",        type: "standard", enabled: true },
+        { label: "Pre-Printed Parts",     icon: "assets/icons/assembled-lamp-icon-200x200.svg",       mobileLabel: "PARTS",    slug: "pre-printed-parts-kit", type: "standard", enabled: true },
+        { label: "Complete Assembly Kit", icon: "assets/icons/3d-printer-icon-200x200.svg",    mobileLabel: "ASSEMBLY", slug: "complete-assembly-kit", type: "standard", enabled: true },
+        { label: "Pre-Assembled Kit",     icon: "assets/icons/building-kit-icon-200x200.svg",         mobileLabel: "KIT",      slug: "pre-assembled-kit",     type: "standard", enabled: true },
         // INFO PAGES
-        { label: "About",   mobileLabel: "ABOUT",   mobileIcon: "assets/icons/about.svg",      slug: "about",      type: "standard", enabled: false },
-        { label: "Contact", mobileLabel: "CONTACT", mobileIcon: "assets/icons/contact.svg",    slug: "contact",    type: "standard", enabled: false },
+        { label: "About",                 icon: "assets/icons/about.svg",       mobileLabel: "ABOUT",    slug: "about",                 type: "standard", enabled: false },
+        { label: "Contact",               icon: "assets/icons/contact.svg",     mobileLabel: "CONTACT",  slug: "contact",               type: "standard", enabled: false },
         // PRIMARY CTA
-        { label: "Newsletter", mobileLabel: "JOIN", mobileIcon: "assets/icons/newsletter.svg", slug: "newsletter", type: "button",   enabled: true  }
+        { label: "Newsletter",            icon: "assets/icons/newsletter.svg",  mobileLabel: "JOIN",     slug: "newsletter",            type: "button",   enabled: true  }
     ],
 
     // ─── FOOTER LINK COLUMNS ──────────────────────────────────────────────────
