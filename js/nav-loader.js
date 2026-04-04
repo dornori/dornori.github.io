@@ -5,10 +5,40 @@ import SITE_CONFIG from './config.js';
  * ─────────────────────────────────────────────────────────────────────────────
  * 1. Theme setup + persistence
  * 2. Settings tab on #topBar (click to reveal theme toggle)
- * 3. Desktop nav  (.top-nav)   — text buttons on banner bottom edge
- * 4. Mobile nav   (.mobile-nav) — icon + label stacked, below banner
+ * 3. Desktop nav  (.top-nav)    — small inline SVG icon + text label
+ * 4. Mobile nav   (#mobile-nav) — larger SVG icon + short label underneath
+ *
+ * Both navs use item.icon (SVG file path from assets/icons/).
+ * Icons are fetched once and cached so the same file is never fetched twice.
+ * A neutral fallback is shown if a file is missing.
  * ─────────────────────────────────────────────────────────────────────────────
  */
+
+/* ── Fallback SVG shown when an icon file cannot be loaded ───────────────── */
+const FALLBACK_SVG = `
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+     stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/>
+    <line x1="12" y1="8" x2="12" y2="13"/>
+    <circle cx="12" cy="16" r="0.6" fill="currentColor" stroke="none"/>
+</svg>`;
+
+/* ── Simple in-memory cache so each SVG file is only fetched once ─────────── */
+const svgCache = new Map();
+
+async function fetchSVG(path) {
+    if (svgCache.has(path)) return svgCache.get(path);
+    try {
+        const res = await fetch(path);
+        if (!res.ok) throw new Error(`${res.status}`);
+        const svg = await res.text();
+        svgCache.set(path, svg);
+        return svg;
+    } catch {
+        svgCache.set(path, FALLBACK_SVG);
+        return FALLBACK_SVG;
+    }
+}
 
 export function initNavigation() {
 
@@ -102,36 +132,73 @@ export function initNavigation() {
         });
     }
 
-    /* ── 4. DESKTOP NAV ──────────────────────────────────────────────────── */
+    /* ── 4. DESKTOP NAV — small icon + text label ────────────────────────── */
     const desktopNav = document.querySelector('.top-nav');
     if (desktopNav) {
         desktopNav.innerHTML = '';
+
         SITE_CONFIG.navigation.forEach(item => {
             if (!item.enabled) return;
+
             const btn = document.createElement('button');
-            btn.textContent = item.label;
-            btn.className   = item.type === 'button' ? 'nav-link nav-newsletter' : 'nav-link';
-            btn.onclick = () => item.slug === 'newsletter' ? window.showHome(true) : window.viewPage(item.slug);
+            btn.className = item.type === 'button' ? 'nav-link nav-newsletter' : 'nav-link';
+
+            // Icon span — SVG injected async, fallback shown while loading
+            const iconEl = document.createElement('span');
+            iconEl.className = 'nav-icon';
+            iconEl.innerHTML = FALLBACK_SVG;
+
+            const labelEl = document.createElement('span');
+            labelEl.textContent = item.label;
+
+            btn.appendChild(iconEl);
+            btn.appendChild(labelEl);
+            btn.onclick = () => item.slug === 'newsletter'
+                ? window.showHome(true)
+                : window.viewPage(item.slug);
+
             desktopNav.appendChild(btn);
+
+            // Fetch and inject the real icon
+            if (item.icon) {
+                fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
+            }
         });
     }
 
-    /* ── 5. MOBILE NAV ───────────────────────────────────────────────────── */
+    /* ── 5. MOBILE NAV — large icon + short label underneath ────────────── */
     const mobileNav = document.getElementById('mobile-nav');
     if (mobileNav) {
         mobileNav.innerHTML = '';
+
         SITE_CONFIG.navigation.forEach(item => {
             if (!item.enabled) return;
+
             const btn = document.createElement('button');
             btn.className = item.type === 'button'
                 ? 'mobile-nav-item mobile-nav-cta'
                 : 'mobile-nav-item';
-            btn.innerHTML = `
-                <span class="mobile-nav-icon">${item.mobileIcon || ''}</span>
-                <span class="mobile-nav-label">${item.mobileLabel || item.label}</span>
-            `;
-            btn.onclick = () => item.slug === 'newsletter' ? window.showHome(true) : window.viewPage(item.slug);
+
+            const iconEl = document.createElement('span');
+            iconEl.className = 'mobile-nav-icon';
+            iconEl.innerHTML = FALLBACK_SVG;
+
+            const labelEl = document.createElement('span');
+            labelEl.className   = 'mobile-nav-label';
+            labelEl.textContent = item.mobileLabel || item.label;
+
+            btn.appendChild(iconEl);
+            btn.appendChild(labelEl);
+            btn.onclick = () => item.slug === 'newsletter'
+                ? window.showHome(true)
+                : window.viewPage(item.slug);
+
             mobileNav.appendChild(btn);
+
+            // Reuse the cached fetch from desktop nav if already loaded
+            if (item.icon) {
+                fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
+            }
         });
     }
 }
