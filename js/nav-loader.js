@@ -2,18 +2,8 @@ import SITE_CONFIG from './config.js';
 
 /**
  * NAV LOADER MODULE
- * Handles the top-right menu and the hover-reveal theme-toggle bar.
- *
- * HOW THE TOP BAR WORKS
- * ─────────────────────
- * #topBar sits fixed at top:-44px (hidden above the viewport).
- * A separate invisible #topBar-trigger strip sits at the very top of
- * the screen (height: 12px, z-index above everything).  Hovering that
- * strip adds .active to #topBar, sliding it down.  Mousing out of
- * #topBar (which also covers the trigger area once open) removes .active.
- *
- * Theme is toggled on <html data-theme="..."> and persisted to
- * localStorage — no cookies, no server calls.
+ * Handles the top-right menu and the theme toggle button inside the banner.
+ * Theme is stored on <html data-theme="..."> and persisted to localStorage.
  */
 
 export function initNavigation() {
@@ -26,35 +16,7 @@ export function initNavigation() {
     const saved = localStorage.getItem(STORAGE_KEY) || 'dark';
     root.setAttribute('data-theme', saved);
 
-    /* ── 2. TOP BAR HOVER REVEAL ─────────────────────────────────────────── */
-    const topBar = document.getElementById('topBar');
-    if (!topBar) return;
-
-    // Create the invisible hover-trigger strip at the very top
-    const trigger = document.createElement('div');
-    trigger.id = 'topBar-trigger';
-    document.body.insertBefore(trigger, document.body.firstChild);
-
-    let hideTimer = null;
-
-    const showBar = () => {
-        clearTimeout(hideTimer);
-        topBar.classList.add('active');
-    };
-
-    const hideBar = () => {
-        // Small delay so moving from trigger → bar doesn't flicker
-        hideTimer = setTimeout(() => {
-            topBar.classList.remove('active');
-        }, 120);
-    };
-
-    trigger.addEventListener('mouseenter', showBar);
-    trigger.addEventListener('mouseleave', hideBar);
-    topBar.addEventListener('mouseenter', showBar);
-    topBar.addEventListener('mouseleave', hideBar);
-
-    /* ── 3. THEME TOGGLE BUTTON ──────────────────────────────────────────── */
+    /* ── 2. THEME TOGGLE BUTTON ──────────────────────────────────────────── */
     const toggleBtn   = document.getElementById('themeToggle');
     const toggleLabel = document.getElementById('toggleLabel');
 
@@ -64,7 +26,6 @@ export function initNavigation() {
         }
     };
 
-    // Sync label to whatever was loaded from storage
     syncLabel(saved);
 
     if (toggleBtn) {
@@ -77,7 +38,7 @@ export function initNavigation() {
         });
     }
 
-    /* ── 4. NAV MENU ─────────────────────────────────────────────────────── */
+    /* ── 3. NAV MENU ─────────────────────────────────────────────────────── */
     const nav = document.querySelector('.top-nav');
     if (!nav) return;
     nav.innerHTML = '';
