@@ -31,12 +31,7 @@ const SITE_CONFIG = {
         { label: "3D Print Files",        icon: "assets/icons/3d-file-icon-200x200.svg",  mobileLabel: "FILES",    slug: "3d-print-files",        type: "standard", enabled: true },
         { label: "Pre-Printed Parts",     icon: "assets/icons/assembled-lamp-icon-200x200.svg",       mobileLabel: "PARTS",    slug: "pre-printed-parts-kit", type: "standard", enabled: true },
         { label: "Complete Assembly Kit", icon: "assets/icons/3d-printer-icon-200x200.svg",    mobileLabel: "ASSEMBLY", slug: "complete-assembly-kit", type: "standard", enabled: true },
-        { label: "Pre-Assembled Kit",     icon: "assets/icons/building-kit-icon-200x200.svg",         mobileLabel: "KIT",      slug: "pre-assembled-kit",     type: "standard", enabled: true },
-        // INFO PAGES
-        { label: "About",                 icon: "assets/icons/about.svg",       mobileLabel: "ABOUT",    slug: "about",                 type: "standard", enabled: false },
-        { label: "Contact",               icon: "assets/icons/contact.svg",     mobileLabel: "CONTACT",  slug: "contact",               type: "standard", enabled: false },
-        // PRIMARY CTA
-        { label: "Newsletter",            icon: "assets/icons/newsletter.svg",  mobileLabel: "JOIN",     slug: "newsletter",            type: "button",   enabled: true  }
+        { label: "Pre-Assembled Kit",     icon: "assets/icons/building-kit-icon-200x200.svg",         mobileLabel: "KIT",              type: "button",   enabled: true  }
     ],
 
     // ─── FOOTER LINK COLUMNS ──────────────────────────────────────────────────
