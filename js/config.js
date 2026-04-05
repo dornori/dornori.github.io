@@ -28,10 +28,11 @@ const SITE_CONFIG = {
 
     navigation: [
         // PRODUCT PAGES
-        { label: "3D Print Files",        icon: "assets/icons/3d-file-icon-200x200.svg",  mobileLabel: "FILES",    slug: "3d-print-files",        type: "standard", enabled: true },
-        { label: "Pre-Printed Parts",     icon: "assets/icons/assembled-lamp-icon-200x200.svg",       mobileLabel: "PARTS",    slug: "pre-printed-parts-kit", type: "standard", enabled: true },
-        { label: "Complete Assembly Kit", icon: "assets/icons/3d-printer-icon-200x200.svg",    mobileLabel: "ASSEMBLY", slug: "complete-assembly-kit", type: "standard", enabled: true },
-        { label: "Pre-Assembled Kit",     icon: "assets/icons/building-kit-icon-200x200.svg",  mobileLabel: "KIT", slug: "complete-assembly-kit", type: "standard",   enabled: true  }
+        { label: "Mission Statement",        icon: "assets/icons/3d-file-icon-200x200.svg",  mobileLabel: "FILES",    slug: "mission-statement",        type: "standard", enabled: true },
+        { label: "3D Print Files",        icon: "assets/icons/3d-file-icon-200x200.svg",  mobileLabel: "FILES",    slug: "3d-print-files",        type: "standard", enabled: false },
+        { label: "Pre-Printed Parts",     icon: "assets/icons/assembled-lamp-icon-200x200.svg",       mobileLabel: "PARTS",    slug: "pre-printed-parts-kit", type: "standard", enabled: false },
+        { label: "Complete Assembly Kit", icon: "assets/icons/3d-printer-icon-200x200.svg",    mobileLabel: "ASSEMBLY", slug: "complete-assembly-kit", type: "standard", enabled: false },
+        { label: "Pre-Assembled Kit",     icon: "assets/icons/building-kit-icon-200x200.svg",  mobileLabel: "KIT", slug: "complete-assembly-kit", type: "standard",   enabled: false  }
     ],
 
     // ─── FOOTER LINK COLUMNS ──────────────────────────────────────────────────
@@ -39,19 +40,19 @@ const SITE_CONFIG = {
         {
             label: "Company",
             links: [
-                { label: "About Us",  slug: "about",   enabled: true  },
-                { label: "Contact",   slug: "contact", enabled: true  }
+                { label: "About Us",  slug: "about",   enabled: false  },
+                { label: "Contact",   slug: "contact", enabled: false  }
             ]
         },
         {
             label: "Legal",
             links: [
-                { label: "Terms of Service",  slug: "terms",    enabled: true  },
-                { label: "Privacy Policy",    slug: "privacy",  enabled: true  },
-                { label: "Cookie Policy",     slug: "cookies",  enabled: true  },
-                { label: "Imprint",           slug: "imprint",  enabled: true  },
-                { label: "Return Policy",     slug: "returns",  enabled: true  },
-                { label: "Child Safety",      slug: "children", enabled: true  },
+                { label: "Terms of Service",  slug: "terms",    enabled: false  },
+                { label: "Privacy Policy",    slug: "privacy",  enabled: false  },
+                { label: "Cookie Policy",     slug: "cookies",  enabled: false  },
+                { label: "Imprint",           slug: "imprint",  enabled: false  },
+                { label: "Return Policy",     slug: "returns",  enabled: false  },
+                { label: "Child Safety",      slug: "children", enabled: false  },
                 { label: "Security Center",   slug: "security", enabled: false }
             ]
         }
@@ -59,6 +60,7 @@ const SITE_CONFIG = {
 
     pages: {
         // PRODUCT PAGES
+        "mission-statement":        { title: "Mission Statement",          file: "content/mission-statement.html"        },
         "3d-print-files":        { title: "3D Print Files",          file: "content/3d-print-files.html"        },
         "electronics-bundle":    { title: "Electronics Bundle",      file: "content/electronics-bundle.html"    },
         "pre-printed-parts-kit": { title: "Pre-Printed Parts Kit",   file: "content/pre-printed-parts-kit.html" },
