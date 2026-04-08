@@ -29,9 +29,9 @@ const SITE_CONFIG = {
     navigation: [
         // PRODUCT PAGES
         { label: "Mission Statement",        icon: "assets/icons/building-kit-icon-200x200.svg",  mobileLabel: "FILES",    slug: "mission-statement",        type: "standard", enabled: true },
-        { label: "3D Print Files",        icon: "assets/icons/3d-file-icon-200x200.svg",  mobileLabel: "FILES",    slug: "3d-print-files",        type: "standard", enabled: true },
+        { label: "4D Print Files",        icon: "assets/icons/3d-file-icon-200x200.svg",  mobileLabel: "FILES",    slug: "3d-print-files",        type: "standard", enabled: true },
         { label: "Pre-Printed Parts",     icon: "assets/icons/assembled-lamp-icon-200x200.svg",       mobileLabel: "PARTS",    slug: "pre-printed-parts-kit", type: "standard", enabled: true },
-        { label: "test", icon: "assets/icons/3d-printer-icon-200x200.svg",    mobileLabel: "test", slug: "test", type: "standard", enabled: true },
+        { label: "Complete Assembly Kit", icon: "assets/icons/3d-printer-icon-200x200.svg",    mobileLabel: "ASSEMBLY", slug: "complete-assembly-kit", type: "standard", enabled: true },
         { label: "Pre-Assembled Kit",     icon: "assets/icons/building-kit-icon-200x200.svg",  mobileLabel: "KIT", slug: "complete-assembly-kit", type: "standard",   enabled: true  }
     ],
 
@@ -64,7 +64,7 @@ const SITE_CONFIG = {
         "3d-print-files":        { title: "3D Print Files",          file: "content/3d-print-files.html"        },
         "electronics-bundle":    { title: "Electronics Bundle",      file: "content/electronics-bundle.html"    },
         "pre-printed-parts-kit": { title: "Pre-Printed Parts Kit",   file: "content/pre-printed-parts-kit.html" },
-        "test": { title: "Complete Assembly Kit",   file: "content/complete-assembly-kit.html" },
+        "complete-assembly-kit": { title: "Complete Assembly Kit",   file: "content/complete-assembly-kit.html" },
         "pre-assembled-kit":     { title: "Pre-Assembled Kit",       file: "content/pre-assembled-kit.html"     },
         "replacement-parts":     { title: "Replacement Parts",       file: "content/replacement-parts.html"     },
         // INFO & LEGAL
