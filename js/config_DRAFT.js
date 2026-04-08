@@ -28,7 +28,7 @@ const SITE_CONFIG = {
 
     navigation: [
         // PRODUCT PAGES
-        { label: "3D Files",              icon: "assets/icons/3d-file-icon-200x200.svg",  mobileLabel: "FILES",    slug: "files",                 type: "standard", enabled: true },
+        { label: "3D Files",              icon: "assets/icons/3d-file-icon-200x200.svg",  mobileLabel: "FILES",    slug: "4d-print-files",                 type: "standard", enabled: true },
         { label: "3D Print Files",        icon: "assets/icons/3d-file-icon-200x200.svg",  mobileLabel: "FILES",    slug: "3d-print-files",        type: "standard", enabled: true },
         { label: "Pre-Printed Parts",     icon: "assets/icons/assembled-lamp-icon-200x200.svg",       mobileLabel: "PARTS",    slug: "pre-printed-parts-kit", type: "standard", enabled: true },
         { label: "Complete Assembly Kit", icon: "assets/icons/3d-printer-icon-200x200.svg",    mobileLabel: "ASSEMBLY", slug: "complete-assembly-kit", type: "standard", enabled: true },
@@ -62,7 +62,7 @@ const SITE_CONFIG = {
 
     pages: {
         // PRODUCT PAGES
-        "files":                 { title: "3D Print Files",          file: "content/3d-print-files.html"        },
+        "4d-print-files":        { title: "3D Print Files",          file: "content/3d-print-files.html"        },
         "mission-statement":     { title: "Mission Statement",       file: "content/mission-statement.html"     },
         "3d-print-files":        { title: "3D Print Files",          file: "content/3d-print-files.html"        },
         "electronics-bundle":    { title: "Electronics Bundle",      file: "content/electronics-bundle.html"    },
