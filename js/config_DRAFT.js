@@ -60,10 +60,10 @@ const SITE_CONFIG = {
 
     pages: {
         // PRODUCT PAGES
-         built:    { title: "Fully Built",       file: "content/pre-assembled-kit.html"     },
-         kit:   { title: "Build-It Kit",      file: "content/pre-printed-parts-kit.html" },
-         parts:          { title: "Replacement Parts", file: "content/replacement-parts.html"     },
-         files:       { title: "3D Print Files",    file: "content/3d-print-files.html"        },
+         "built": { title: "Fully Built",       file: "content/pre-assembled-kit.html"     },
+         "kit":   { title: "Build-It Kit",      file: "content/pre-printed-parts-kit.html" },
+         "parts": { title: "Replacement Parts", file: "content/replacement-parts.html"     },
+         "files": { title: "3D Print Files",    file: "content/3d-print-files.html"        },
         // INFO & LEGAL 
         "mission-statement":        { title: "Mission Statement",          file: "content/mission-statement.html"        },
         about:    { title: "About Dornori",           file: "content/about-us.html"  },
