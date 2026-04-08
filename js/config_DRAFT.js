@@ -30,8 +30,8 @@ const SITE_CONFIG = {
         // PRODUCT PAGES   
         { label: "About Us",        icon: "assets/icons/building-kit-icon-200x200.svg",  mobileLabel: "About Us",    slug: "about",        type: "standard", enabled: true },
         { label: "Fully Built",     icon: "assets/icons/assembled-lamp-icon-200x200.svg",  mobileLabel: "Built", slug: "built", type: "standard",   enabled: true  },
-        { label: "Build-It Kits", icon: "building-kit-icon-200x200.svg",    mobileLabel: "Build-It", slug: "kit", type: "standard", enabled: true },
-        { label: "Printed Parts",     icon: "3d-printer-icon-200x200.svg",       mobileLabel: "Parts",    slug: "parts", type: "standard", enabled: true },
+        { label: "Build-It Kits", icon: "assets/icons/building-kit-icon-200x200.svg",    mobileLabel: "Build-It", slug: "kit", type: "standard", enabled: true },
+        { label: "Printed Parts",     icon: "assets/icons/3d-printer-icon-200x200.svg",       mobileLabel: "Parts",    slug: "parts", type: "standard", enabled: true },
         { label: "3D FIles",        icon: "assets/icons/3d-file-icon-200x200.svg",  mobileLabel: "BYOHW",    slug: "files",        type: "standard", enabled: true },
        ],
 
@@ -60,10 +60,10 @@ const SITE_CONFIG = {
 
     pages: {
         // PRODUCT PAGES
-         "built":    { title: "Fully Built",       file: "content/pre-assembled-kit.html"     },
-         "kit":   { title: "Build-It Kit",      file: "content/pre-printed-parts-kit.html" },
-         "parts":          { title: "Replacement Parts", file: "content/replacement-parts.html"     },
-         "files":       { title: "3D Print Files",    file: "content/3d-print-files.html"        },
+         built:    { title: "Fully Built",       file: "content/pre-assembled-kit.html"     },
+         kit:   { title: "Build-It Kit",      file: "content/pre-printed-parts-kit.html" },
+         parts:          { title: "Replacement Parts", file: "content/replacement-parts.html"     },
+         files:       { title: "3D Print Files",    file: "content/3d-print-files.html"        },
         // INFO & LEGAL 
         "mission-statement":        { title: "Mission Statement",          file: "content/mission-statement.html"        },
         about:    { title: "About Dornori",           file: "content/about-us.html"  },
