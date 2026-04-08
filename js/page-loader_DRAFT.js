@@ -1,5 +1,5 @@
 // page-loader.js - UPDATED VERSION
-import SITE_CONFIG from './config.js';
+import SITE_CONFIG from './config_DRAFT.js';
 
 export function initPageLoader() {
     const homeView = document.getElementById('home-view');
