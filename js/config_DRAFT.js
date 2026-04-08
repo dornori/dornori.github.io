@@ -65,7 +65,6 @@ const SITE_CONFIG = {
          parts: { title: "Replacement Parts", file: "content/replacement-parts.html"     },
          files: { title: "3D Print Files",    file: "content/3d-print-files.html"        },
         // INFO & LEGAL 
-        "mission-statement":        { title: "Mission Statement",          file: "content/mission-statement.html" },
         about:    { title: "About Dornori",           file: "content/about-us.html"  },
         terms:    { title: "Terms of Service",           file: "content/terms.html"     },
         privacy:  { title: "Privacy Policy",             file: "content/privacy.html"   },
