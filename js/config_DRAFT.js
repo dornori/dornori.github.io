@@ -32,7 +32,7 @@ const SITE_CONFIG = {
         { label: "Fully Built",     icon: "assets/icons/assembled-lamp-icon-200x200.svg",  mobileLabel: "Built", slug: "built", type: "standard",   enabled: true  },
         { label: "Build-It Kits", icon: "building-kit-icon-200x200.svg",    mobileLabel: "Build-It", slug: "kit", type: "standard", enabled: true },
         { label: "Printed Parts",     icon: "3d-printer-icon-200x200.svg",       mobileLabel: "Parts",    slug: "parts", type: "standard", enabled: true },
-        { label: "3D FIles",        icon: "assets/icons/3d-file-icon-200x200.svg",  mobileLabel: "BYOHW",    slug: "files"        type: "standard", enabled: true },
+        { label: "3D FIles",        icon: "assets/icons/3d-file-icon-200x200.svg",  mobileLabel: "BYOHW",    slug: "files",        type: "standard", enabled: true },
        ],
 
     // ─── FOOTER LINK COLUMNS ──────────────────────────────────────────────────
