@@ -60,15 +60,15 @@ const SITE_CONFIG = {
 
     pages: {
         // PRODUCT PAGES
-        "mission-statement":        { title: "Mission Statement",          file: "content/mission-statement.html"        },
-        "3d-print-files":        { title: "3D Print Files",          file: "content/3d-print-files.html"        },
-        "electronics-bundle":    { title: "Electronics Bundle",      file: "content/electronics-bundle.html"    },
-        "pre-printed-parts-kit": { title: "Pre-Printed Parts Kit",   file: "content/pre-printed-parts-kit.html" },
-        "complete-assembly-kit": { title: "Complete Assembly Kit",   file: "content/complete-assembly-kit.html" },
-        "pre-assembled-kit":     { title: "Pre-Assembled Kit",       file: "content/pre-assembled-kit.html"     },
-        "replacement-parts":     { title: "Replacement Parts",       file: "content/replacement-parts.html"     },
+        "mission-statement:"        { title: "Mission Statement",          file: "content/mission-statement.html"        },
+        "3d-print-files:"        { title: "3D Print Files",          file: "content/3d-print-files.html"        },
+        "electronics-bundle:"    { title: "Electronics Bundle",      file: "content/electronics-bundle.html"    },
+        "pre-printed-parts-kit:" { title: "Pre-Printed Parts Kit",   file: "content/pre-printed-parts-kit.html" },
+        "complete-assembly-kit:" { title: "Complete Assembly Kit",   file: "content/complete-assembly-kit.html" },
+        "pre-assembled-kit:"     { title: "Pre-Assembled Kit",       file: "content/pre-assembled-kit.html"     },
+        "replacement-parts:"     { title: "Replacement Parts",       file: "content/replacement-parts.html"     },
         // INFO & LEGAL
-        about:    { title: "About Dornori",              file: "content/about-us.html"  },
+        "about:"    { title: "About Dornori",              file: "content/about-us.html"  },
         terms:    { title: "Terms of Service",           file: "content/terms.html"     },
         privacy:  { title: "Privacy Policy",             file: "content/privacy.html"   },
         children: { title: "Child Safety Guidelines",    file: "content/children.html"  },
