@@ -28,7 +28,7 @@ const SITE_CONFIG = {
 
     navigation: [
         // PRODUCT PAGES   
-        { label: "About Us",        icon: "assets/icons/building-kit-icon-200x200.svg",  mobileLabel: "About Us",    slug: "about-us",        type: "standard", enabled: true },
+        { label: "About Us",        icon: "assets/icons/building-kit-icon-200x200.svg",  mobileLabel: "About Us",    slug: "about",        type: "standard", enabled: true },
         { label: "Fully Built",     icon: "assets/icons/assembled-lamp-icon-200x200.svg",  mobileLabel: "Built", slug: "ready-to-use", type: "standard",   enabled: true  },
         { label: "Build-It Kits", icon: "building-kit-icon-200x200.svg",    mobileLabel: "Build-It", slug: "build-it-kit", type: "standard", enabled: true },
         { label: "Printed Parts",     icon: "3d-printer-icon-200x200.svg",       mobileLabel: "Parts",    slug: "parts", type: "standard", enabled: true },
@@ -66,7 +66,7 @@ const SITE_CONFIG = {
          "3d-files":       { title: "3D Print Files",    file: "content/3d-print-files.html"        },
         // INFO & LEGAL 
         "mission-statement":        { title: "Mission Statement",          file: "content/mission-statement.html"        },
-        about-us:    { title: "About Dornori",           file: "content/about-us.html"  },
+        about:    { title: "About Dornori",           file: "content/about-us.html"  },
         terms:    { title: "Terms of Service",           file: "content/terms.html"     },
         privacy:  { title: "Privacy Policy",             file: "content/privacy.html"   },
         children: { title: "Child Safety Guidelines",    file: "content/children.html"  },
