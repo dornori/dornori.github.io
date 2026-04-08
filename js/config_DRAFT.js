@@ -27,13 +27,13 @@ const SITE_CONFIG = {
     },
 
     navigation: [
-        // PRODUCT PAGES   
-        { label: "About Us",        icon: "assets/icons/building-kit-icon-200x200.svg",  mobileLabel: "About Us",    slug: "about",        type: "standard", enabled: true },
-        { label: "Fully Built",     icon: "assets/icons/assembled-lamp-icon-200x200.svg",  mobileLabel: "Built", slug: "fullybuilt", type: "standard",   enabled: true  },
-        { label: "Build-It Kits", icon: "assets/icons/building-kit-icon-200x200.svg",    mobileLabel: "Build-It", slug: "kit", type: "standard", enabled: true },
-        { label: "Printed Parts",     icon: "assets/icons/3d-printer-icon-200x200.svg",       mobileLabel: "Parts",    slug: "parts", type: "standard", enabled: true },
-        { label: "3D Files",        icon: "assets/icons/3d-file-icon-200x200.svg",  mobileLabel: "BYOHW",    slug: "3dfiles",        type: "standard", enabled: true },
-       ],
+        // PRODUCT PAGES
+        { label: "Mission Statement",        icon: "assets/icons/building-kit-icon-200x200.svg",  mobileLabel: "FILES",    slug: "mission-statement",        type: "standard", enabled: true },
+        { label: "3D Print Files",        icon: "assets/icons/3d-file-icon-200x200.svg",  mobileLabel: "FILES",    slug: "3d-print-files",        type: "standard", enabled: true },
+        { label: "Pre-Printed Parts",     icon: "assets/icons/assembled-lamp-icon-200x200.svg",       mobileLabel: "PARTS",    slug: "pre-printed-parts-kit", type: "standard", enabled: true },
+        { label: "Fully Built", icon: "assets/icons/3d-printer-icon-200x200.svg",    mobileLabel: "BUILT", slug: "built", type: "standard", enabled: true },
+        { label: "Pre-Assembled Kit",     icon: "assets/icons/building-kit-icon-200x200.svg",  mobileLabel: "KIT", slug: "complete-assembly-kit", type: "standard",   enabled: true  }
+    ],
 
     // ─── FOOTER LINK COLUMNS ──────────────────────────────────────────────────
     footer: [
@@ -60,13 +60,15 @@ const SITE_CONFIG = {
 
     pages: {
         // PRODUCT PAGES
-         "fullybuilt": { title: "Fully Built",       file: "content/pre-assembled-kit.html"     },
-         "kit":   { title: "Build-It Kit",      file: "content/pre-printed-parts-kit.html" },
-         "parts": { title: "Replacement Parts", file: "content/replacement-parts.html"     },
-         "3dfiles": { title: "3D Print Files",    file: "content/3d-print-files.html"        },
-        // INFO & LEGAL 
         "mission-statement":        { title: "Mission Statement",          file: "content/mission-statement.html"        },
-        about:    { title: "About Dornori",           file: "content/about-us.html"  },
+        "3d-print-files":        { title: "3D Print Files",          file: "content/3d-print-files.html"        },
+        "electronics-bundle":    { title: "Electronics Bundle",      file: "content/electronics-bundle.html"    },
+        "pre-printed-parts-kit": { title: "Pre-Printed Parts Kit",   file: "content/pre-printed-parts-kit.html" },
+        "built": { title: "Complete Assembly Kit",   file: "content/complete-assembly-kit.html" },
+        "pre-assembled-kit":     { title: "Pre-Assembled Kit",       file: "content/pre-assembled-kit.html"     },
+        "replacement-parts":     { title: "Replacement Parts",       file: "content/replacement-parts.html"     },
+        // INFO & LEGAL
+        about:    { title: "About Dornori",              file: "content/about-us.html"  },
         terms:    { title: "Terms of Service",           file: "content/terms.html"     },
         privacy:  { title: "Privacy Policy",             file: "content/privacy.html"   },
         children: { title: "Child Safety Guidelines",    file: "content/children.html"  },
