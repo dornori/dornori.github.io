@@ -1,6 +1,5 @@
 /**
  * slideshow.js — Dornori image slideshow engine
- * ─────────────────────────────────────────────────────────────────────────────
  */
 
 function buildPicture(folder, name, alt = '') {
@@ -26,28 +25,36 @@ export function mountSlideshow(root) {
     const images = (root.dataset.images || '').split(',').map(s => s.trim()).filter(Boolean);
     const interval = parseInt(root.dataset.interval, 10) || 4000;
     const fit = root.dataset.fit || 'cover';
-    const height = root.dataset.height || '420px';
-    const aspect = root.dataset.aspect || 'auto'; // Added for auto-scaling
+    
+    // --- RESPONSIVE SIZE LOGIC ---
+    const aspect = root.dataset.aspect || 'auto';
+    let width = '100%';
+    let height = 'auto';
+
+    if (root.dataset.size && aspect === 'auto') {
+        const [w, h] = root.dataset.size.split('x');
+        width = w.match(/[a-z%]/) ? w : `${w}px`; // handle '800' or '800px'
+        height = h.match(/[a-z%]/) ? h : `${h}px`;
+    }
 
     if (!images.length) return;
-
     root.dataset.ssMounted = 'true';
 
-    // Flexible layout: Use aspect-ratio for auto-scaling, or fallback to fixed height
+    // Apply the container styles
     root.style.cssText = `
         position: relative;
-        width: 100%;
+        width: ${width};
+        max-width: 100%; 
         height: ${aspect !== 'auto' ? 'auto' : height};
         aspect-ratio: ${aspect};
         overflow: hidden;
-        background: var(--glass);
-        border: 1px solid var(--border);
-        object-fit: ${fit};
+        background: #111;
+        border-radius: 8px;
+        margin: 0 auto;
     `;
 
     const slides = images.map((name, i) => {
         const slide = document.createElement('div');
-        slide.className = 'ss-slide';
         slide.style.cssText = `
             position: absolute;
             inset: 0;
@@ -60,9 +67,7 @@ export function mountSlideshow(root) {
         return slide;
     });
 
-    if (slides.length > 1) {
-        setupControls(root, slides, interval);
-    }
+    if (slides.length > 1) setupControls(root, slides, interval);
 }
 
 function setupControls(root, slides, interval) {
@@ -72,29 +77,24 @@ function setupControls(root, slides, interval) {
     let current = 0;
     const dotEls = slides.map((_, i) => {
         const d = document.createElement('span');
-        d.style.cssText = `width:6px;height:6px;border-radius:50%;background:var(--accent);opacity:${i === 0 ? 1 : 0.3};transition:opacity 0.3s;cursor:pointer;`;
-        d.addEventListener('click', () => goTo(i));
+        d.style.cssText = `width:6px;height:6px;border-radius:50%;background:#fff;opacity:${i===0?1:0.3};cursor:pointer;`;
+        d.onclick = () => {
+            slides[current].style.opacity = 0;
+            dotEls[current].style.opacity = 0.3;
+            current = i;
+            slides[current].style.opacity = 1;
+            dotEls[current].style.opacity = 1;
+        };
         dots.appendChild(d);
         return d;
     });
     root.appendChild(dots);
 
-    const goTo = (next) => {
+    setInterval(() => {
         slides[current].style.opacity = 0;
         dotEls[current].style.opacity = 0.3;
-        current = (next + slides.length) % slides.length;
+        current = (current + 1) % slides.length;
         slides[current].style.opacity = 1;
         dotEls[current].style.opacity = 1;
-    };
-
-    let timer = setInterval(() => goTo(current + 1), interval);
-    root.addEventListener('mouseenter', () => clearInterval(timer));
-    root.addEventListener('mouseleave', () => timer = setInterval(() => goTo(current + 1), interval));
-
-    let touchStartX = 0;
-    root.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
-    root.addEventListener('touchend', e => {
-        const diff = touchStartX - e.changedTouches[0].clientX;
-        if (Math.abs(diff) > 40) goTo(current + (diff > 0 ? 1 : -1));
-    });
+    }, interval);
 }
