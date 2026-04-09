@@ -41,14 +41,14 @@ const SITE_CONFIG = {
             label: "Company",
             links: [
                 { label: "Gallery",  slug: "gallery",   enabled: true  },
-                { label: "About Us",  slug: "about",   enabled: false  },
-                { label: "Contact",   slug: "contact", enabled: false  }
+                { label: "About Us",  slug: "about",   enabled: true  },
+                { label: "Contact",   slug: "contact", enabled: true  }
             ]
         },
         {
             label: "Legal",
             links: [
-                { label: "Terms of Service",  slug: "terms",    enabled: false  },
+                { label: "Terms of Service",  slug: "terms",    enabled: true  },
                 { label: "Privacy Policy",    slug: "privacy",  enabled: false  },
                 { label: "Cookie Policy",     slug: "cookies",  enabled: false  },
                 { label: "Imprint",           slug: "imprint",  enabled: false  },
