@@ -76,7 +76,8 @@ const SITE_CONFIG = {
         returns:  { title: "Return Policy",              file: "content/returns.html"   },
         // FUTURE
         contact:    { title: "Contact Us",  file: "content/contact.html"    },
-        newsletter: { title: "Newsletter",  file: "content/newsletter.html" }
+        newsletter: { title: "Newsletter",  file: "content/newsletter.html" },
+        gallery:    { title: "Gallery",     file: "content/gallery.html"    }
     },
 
     socials: [
