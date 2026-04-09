@@ -35,10 +35,10 @@ const SLIDESHOW_CONFIGS = [
         target:   '#slideshow-about',
         folder:   'assets/images/gallery-about/',
         images:   [
-            'classroom-fun-01',
-            'family-time-01',
-            'mother-and-daughter-printing',
-            'parts-cutting_mat',
+            'teens-sitting-outside-on-the-beach',
+            'friends-diy-in-the-backyard',
+            'man-working-in-garden',
+            'kids-playing-in-backyard',
         ],
         interval: 4000,        // 4 seconds
         fit:      'cover',
