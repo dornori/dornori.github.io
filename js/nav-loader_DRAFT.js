@@ -54,7 +54,7 @@ export function initNavigation() {
     const STORAGE_KEY = 'dornori-theme';
     const root        = document.documentElement;
 
-    const saved = localStorage.getItem(STORAGE_KEY) || 'dark';
+    const saved = localStorage.getItem(STORAGE_KEY) || 'cutting-mat';
     root.setAttribute('data-theme', saved);
 
     /* ── 2. SETTINGS TAB + TOPBAR REVEAL ────────────────────────────────── */
