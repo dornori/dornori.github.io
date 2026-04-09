@@ -1,5 +1,5 @@
-import SITE_CONFIG from './config_DRAFT.js';
 import { mountSlideshow } from './slideshow.js';
+import SITE_CONFIG from './config_DRAFT.js';
 
 export function initPageLoader() {
     const pageContent = document.getElementById('page-content-inner');
@@ -10,18 +10,16 @@ export function initPageLoader() {
 
         try {
             const res = await fetch(page.file);
-            const html = await res.text();
-            pageContent.innerHTML = html;
+            pageContent.innerHTML = await res.text();
             
-            // Automatically find and mount all slideshows in the new HTML
-            pageContent.querySelectorAll('.slideshow-root[data-images]').forEach(mountSlideshow);
+            // Just scan the new HTML and mount the slideshows
+            pageContent.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
 
-            window.history.pushState({ slug }, page.title, `/${slug}`);
             document.getElementById('home-view').classList.add('hidden');
             document.getElementById('page-view').classList.remove('hidden');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            window.scrollTo(0, 0);
         } catch (err) {
-            console.error('Loader Error:', err);
+            console.error("Page Load Error", err);
         }
     };
 }
