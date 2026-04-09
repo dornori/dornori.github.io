@@ -1,74 +1,66 @@
 /**
- * DORNORI SLIDESHOW ENGINE
- * ─────────────────────────────────────────────────────────────────────────────
- * HOW-TO FOR THE TEAM:
- * 1. Set gallery-size="200x150" (pixels) OR gallery-size="16/9" (ratio).
- * 2. Set gallery-style="border, rounded" (adds 1px border and 8px corners).
- * - Use "border" for the line.
- * - Use "rounded" for corners.
- * - Leave empty for a sharp square look.
- * ─────────────────────────────────────────────────────────────────────────────
+ * DORNORI MASTER ENGINE
  */
-
 export function mountSlideshow(root) {
     if (root.dataset.ssMounted) return;
 
+    // --- MASTER DEFAULTS ---
+    // If the team leaves a setting out of the HTML, these defaults take over.
+    const MASTER_DEFAULT_INTERVAL = '4000'; 
+    const MASTER_DEFAULT_SIZE = '16/9';
+
+    // --- OVERRIDE LOGIC ---
+    // The code checks the HTML. If 'data-interval="2000"' exists, it overrides the Master.
     const { 
         folder = '', 
         galleryImages = '', 
-        interval = '4000', 
-        fit = 'cover', 
-        gallerySize = '16/9',
-        galleryStyle = '' // NEW: "border, rounded"
+        interval = MASTER_DEFAULT_INTERVAL, 
+        fit = 'cover',
+        gallerySize = MASTER_DEFAULT_SIZE,
+        galleryBorder = 'no',
+        galleryShape = 'square' 
     } = root.dataset;
 
     const imgList = galleryImages.split(',').map(s => s.trim()).filter(Boolean);
     if (!imgList.length) return;
 
-    // --- LOGIC: DIMENSIONS ---
+    // --- DIMENSION LOGIC ---
     let width = '100%', height = 'auto', aspect = 'auto';
-    if (gallerySize.includes('/')) {
-        aspect = gallerySize; 
-    } else if (gallerySize.includes('x')) {
+
+    if (gallerySize.includes('x')) {
         const [w, h] = gallerySize.split('x');
         width = w.includes('px') ? w : `${w}px`;
         height = h.includes('px') ? h : `${h}px`;
+    } else {
+        aspect = gallerySize;
     }
 
-    // --- LOGIC: STYLING ---
-    const hasBorder  = galleryStyle.includes('border');
-    const hasRounded = galleryStyle.includes('rounded');
+    // --- STYLE LOGIC ---
+    const borderCSS = (galleryBorder === 'yes') ? '1px solid #333' : 'none';
+    const cornerCSS = (galleryShape === 'rounded') ? '12px' : '0px';
 
     root.dataset.ssMounted = 'true';
+    
+    // Applying CSS: 'max-width: 100%' ensures the 200x150 box scales on mobile.
     root.style.cssText += `
-        position: relative; 
-        width: ${width}; 
-        max-width: 100%;
-        height: ${height}; 
-        aspect-ratio: ${aspect};
-        overflow: hidden; 
-        margin: 0 auto; 
-        display: block;
-        border: ${hasBorder ? '1px solid var(--border, #333)' : 'none'};
-        border-radius: ${hasRounded ? '12px' : '0px'};
+        position: relative; display: block; margin: 0 auto; overflow: hidden;
+        width: ${width}; max-width: 100%; height: ${height}; aspect-ratio: ${aspect};
+        border: ${borderCSS}; border-radius: ${cornerCSS};
     `;
 
+    // Injecting Slides
     imgList.forEach((name, i) => {
         const slide = document.createElement('div');
-        slide.style.cssText = `
-            position: absolute; inset: 0; opacity: ${i === 0 ? 1 : 0};
-            transition: opacity 0.8s ease;
-        `;
+        slide.style.cssText = `position:absolute;inset:0;opacity:${i===0?1:0};transition:opacity 0.8s ease;`;
         slide.innerHTML = `
             <picture style="width:100%;height:100%;">
                 <source srcset="${folder}${name}.webp" type="image/webp">
-                <img src="${folder}${name}.png" alt="${name}" 
-                     style="width:100%;height:100%;object-fit:${fit};display:block;">
+                <img src="${folder}${name}.png" style="width:100%;height:100%;object-fit:${fit};display:block;">
             </picture>`;
         root.appendChild(slide);
     });
 
-    // Timer logic
+    // Rotation Timer
     let cur = 0;
     const slides = root.querySelectorAll('div');
     if (slides.length > 1) {
@@ -76,6 +68,6 @@ export function mountSlideshow(root) {
             slides[cur].style.opacity = 0;
             cur = (cur + 1) % slides.length;
             slides[cur].style.opacity = 1;
-        }, parseInt(interval));
+        }, parseInt(interval)); // Uses the final chosen number (Override or Master)
     }
 }
