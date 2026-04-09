@@ -29,7 +29,7 @@
 
     <main id="viewport">
         <div id="home-view">
-            <!-- This will stay as-is and we'll fetch content into it -->
+            <!-- Content will be loaded from /contents/home.html -->
         </div>
 
         <div id="page-view" class="hidden">
@@ -56,36 +56,35 @@
         </div>
     </footer>
 
-    <script>
-        // Simple fetch to populate home-view before anything else
-        fetch('/contents/home.html')
-            .then(res => res.text())
-            .then(html => {
-                document.getElementById('home-view').innerHTML = html;
-            })
-            .catch(err => {
-                console.error('Home load error:', err);
-                document.getElementById('home-view').innerHTML = '<h2 class="headline">Welcome to Dornori</h2><div class="embed-form-root"></div>';
-            });
-    </script>
-
     <script type="module">
-        import { initNavigation } from './js/nav-loader_DRAFT.js';
-        import { initStickyBanner } from './js/sticky-banner.js';
-        import { initSocials } from './js/social-loader.js';
-        import { initEmbedForms } from './js/embed-form.js';
-        import { initPageLoader } from './js/page-loader_DRAFT.js';
-        import { initFooter } from './js/footer-loader.js';
-
-        // Delay embed form init slightly to ensure content is loaded
-        setTimeout(() => {
+        // Load home content first, then initialize everything
+        async function loadHomeAndInit() {
+            try {
+                const response = await fetch('/content/home.html');
+                const homeHtml = await response.text();
+                document.getElementById('home-view').innerHTML = homeHtml;
+            } catch (error) {
+                console.error('Failed to load home content:', error);
+                document.getElementById('home-view').innerHTML = '<div class="error">Failed to load content</div>';
+            }
+            
+            // Now initialize all modules after home content is loaded
+            const { initNavigation } = await import('./js/nav-loader_DRAFT.js');
+            const { initStickyBanner } = await import('./js/sticky-banner.js');
+            const { initSocials } = await import('./js/social-loader.js');
+            const { initEmbedForms } = await import('./js/embed-form.js');
+            const { initPageLoader } = await import('./js/page-loader_DRAFT.js');
+            const { initFooter } = await import('./js/footer-loader.js');
+            
             initNavigation();
             initStickyBanner();
             initSocials();
             initPageLoader();
             initFooter();
             initEmbedForms();
-        }, 100);
+        }
+        
+        loadHomeAndInit();
     </script>
 </body>
 </html>
