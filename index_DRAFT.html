@@ -31,8 +31,9 @@
     <nav class="mobile-nav" id="mobile-nav"></nav>
 
     <main id="viewport">
-        <!-- Home content will be loaded dynamically from /contents/home.html -->
-        <div id="home-container"></div>
+        <div id="home-view">
+            <!-- Content loaded from /contents/home.html -->
+        </div>
 
         <div id="page-view" class="hidden">
             <div id="page-content-inner" class="view-inner"></div>
@@ -59,14 +60,14 @@
     </footer>
 
     <script>
-        // Load home.html content on first run
-        (function loadHomeContent() {
-            fetch('/contents/home.html')
-                .then(response => response.text())
-                .then(html => {
-                    document.getElementById('home-container').innerHTML = html;
-                })
-                .catch(error => console.error('Failed to load home content:', error));
+        // Load home content synchronously before other scripts run
+        (function() {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', '/contents/home.html', false); // false = synchronous
+            xhr.send();
+            if (xhr.status === 200) {
+                document.getElementById('home-view').innerHTML = xhr.responseText;
+            }
         })();
     </script>
 
@@ -83,7 +84,7 @@
         initSocials();
         initPageLoader();
         initFooter();
-        initEmbedForms(); // must run after initPageLoader so window.viewPage is ready
+        initEmbedForms(); // now the home content is already loaded
     </script>
 </body>
 </html>
