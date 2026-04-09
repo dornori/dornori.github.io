@@ -51,7 +51,7 @@ const SITE_CONFIG = {
                 { label: "Terms of Service",  slug: "terms",    enabled: true  },
                 { label: "Privacy Policy",    slug: "privacy",  enabled: false  },
                 { label: "Cookie Policy",     slug: "cookies",  enabled: false  },
-                { label: "Imprint",           slug: "imprint",  enabled: false  },
+                { label: "Imprint",           slug: "imprint",  enabled: true  },
                 { label: "Return Policy",     slug: "returns",  enabled: false  },
                 { label: "Child Safety",      slug: "children", enabled: false  },
                 { label: "Security Center",   slug: "security", enabled: false }
