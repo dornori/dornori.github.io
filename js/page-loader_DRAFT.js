@@ -1,11 +1,37 @@
-// page-loader.js - UPDATED VERSION
-import SITE_CONFIG from './config_DRAFT.js';
+// page-loader_DRAFT.js
+import SITE_CONFIG        from './config_DRAFT.js';
+import { initSlideshows } from './slideshow.js';
+import SLIDESHOW_CONFIGS  from './slideshow-config.js';
 
 export function initPageLoader() {
-    const homeView = document.getElementById('home-view');
-    const pageView = document.getElementById('page-view');
+    const homeView    = document.getElementById('home-view');
+    const pageView    = document.getElementById('page-view');
     const pageContent = document.getElementById('page-content-inner');
-    const emailInput = document.querySelector('#waitlist-form input[type="email"]');
+    const emailInput  = document.querySelector('#waitlist-form input[type="email"]');
+
+    /* ── After injecting HTML, init any slideshows in the new content ──── */
+    function initPageSlideshows() {
+        // 1. Config-driven: match SLIDESHOW_CONFIGS entries whose target
+        //    exists inside the freshly-loaded pageContent
+        const configsForPage = SLIDESHOW_CONFIGS.filter(cfg => {
+            const el = pageContent.querySelector(cfg.target);
+            return el && !el.dataset.ssMounted;
+        });
+        initSlideshows(configsForPage);
+
+        // 2. Data-attribute driven: any .slideshow-root with data-images
+        //    that hasn't been mounted yet
+        pageContent.querySelectorAll('.slideshow-root[data-images]').forEach(root => {
+            if (root.dataset.ssMounted) return;
+            const folder   = root.dataset.folder   || '';
+            const interval = parseInt(root.dataset.interval, 10) || 4000;
+            const fit      = root.dataset.fit      || 'cover';
+            const height   = root.dataset.height   || '420px';
+            const images   = root.dataset.images.split(',').map(s => s.trim()).filter(Boolean);
+            // Pass the element directly so no selector lookup is needed
+            initSlideshows([{ _el: root, folder, images, interval, fit, height }]);
+        });
+    }
 
     window.viewPage = async (slug) => {
         const page = SITE_CONFIG.pages[slug];
@@ -15,25 +41,18 @@ export function initPageLoader() {
         }
 
         try {
-            // Construct full path - adjust based on your folder structure
-            // If your HTML files are in root/content/, use page.file directly
-            // If they're elsewhere, modify this path
-            const filePath = page.file; // Already includes "content/about.html" etc.
-            
-            const res = await fetch(filePath);
-            if (!res.ok) throw new Error(`Failed to load ${filePath}: ${res.status}`);
+            const res = await fetch(page.file);
+            if (!res.ok) throw new Error(`Failed to load ${page.file}: ${res.status}`);
             const html = await res.text();
-            
-            // Inject the content with title
-         //   pageContent.innerHTML = `<h1>${page.title}</h1>` + html;
+
             pageContent.innerHTML = html;
-            
-            // Update browser URL without page reload
-            window.history.pushState({ slug: slug }, page.title, `/${slug}`);
-            
+            initPageSlideshows();
+
+            window.history.pushState({ slug }, page.title, `/${slug}`);
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
             window.scrollTo({ top: 0, behavior: 'smooth' });
+
         } catch (err) {
             console.error('Page load error:', err);
             pageContent.innerHTML = `<h1>Error</h1><p>Content could not be loaded: ${err.message}</p>`;
@@ -44,33 +63,26 @@ export function initPageLoader() {
 
     // Handle internal links in loaded content
     document.addEventListener('click', async (e) => {
-        // Check if clicked element or its parent is a link
         const link = e.target.closest('a');
         if (!link) return;
-        
-        // Check if it's an internal link (data-page attribute or special class)
+
         const slug = link.getAttribute('data-page');
-        
+
         if (slug) {
-            // Option 1: Using data-page attribute
             e.preventDefault();
             if (SITE_CONFIG.pages[slug]) {
                 window.viewPage(slug);
             } else {
                 console.error(`Page slug "${slug}" not found in config`);
             }
-        } 
-        else if (link.classList && link.classList.contains('internal-link')) {
-            // Option 2: Using class="internal-link"
+        } else if (link.classList && link.classList.contains('internal-link')) {
             e.preventDefault();
             const href = link.getAttribute('href');
-            // Extract slug from href like "/terms" or "/page/terms"
-            let extractedSlug = href.replace(/^\/|\/page\//g, '');
+            const extractedSlug = href.replace(/^\/|\/page\//g, '');
             if (SITE_CONFIG.pages[extractedSlug]) {
                 window.viewPage(extractedSlug);
             }
         }
-        // External links will open normally (no e.preventDefault)
     });
 
     // Handle browser back/forward buttons
@@ -85,10 +97,8 @@ export function initPageLoader() {
     window.showHome = (shouldFocus = false) => {
         pageView.classList.add('hidden');
         homeView.classList.remove('hidden');
-        
-        // Update URL without page reload
         window.history.pushState({}, '', '/');
-        
+
         if (shouldFocus && emailInput) {
             setTimeout(() => {
                 emailInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -99,9 +109,8 @@ export function initPageLoader() {
         }
     };
 
-    // Escape key handler
     window.addEventListener('keydown', (e) => {
-        if (e.key === "Escape" && !pageView.classList.contains('hidden')) {
+        if (e.key === 'Escape' && !pageView.classList.contains('hidden')) {
             window.showHome();
         }
     });
