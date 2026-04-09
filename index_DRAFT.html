@@ -18,21 +18,18 @@
 </head>
 <body>
 
-    <!-- Settings-reveal top bar (profile selector rendered by nav-loader) -->
     <div id="topBar"></div>
 
-    <!-- Banner — desktop nav rides the bottom edge -->
     <header id="main-header">
         <img src="assets/images/dornori-logo-transparent.webp" class="billboard-logo" alt="Dornori" id="banner-img" onclick="window.showHome()">
         <nav class="top-nav"></nav>
     </header>
 
-    <!-- Mobile nav bar — sits just below the banner, scrolls/locks with it -->
     <nav class="mobile-nav" id="mobile-nav"></nav>
 
     <main id="viewport">
         <div id="home-view">
-            <!-- Content loaded from /contents/home.html -->
+            <!-- This will stay as-is and we'll fetch content into it -->
         </div>
 
         <div id="page-view" class="hidden">
@@ -60,31 +57,35 @@
     </footer>
 
     <script>
-        // Load home content synchronously before other scripts run
-        (function() {
-            const xhr = new XMLHttpRequest();
-            xhr.open('GET', '/contents/home.html', false); // false = synchronous
-            xhr.send();
-            if (xhr.status === 200) {
-                document.getElementById('home-view').innerHTML = xhr.responseText;
-            }
-        })();
+        // Simple fetch to populate home-view before anything else
+        fetch('/contents/home.html')
+            .then(res => res.text())
+            .then(html => {
+                document.getElementById('home-view').innerHTML = html;
+            })
+            .catch(err => {
+                console.error('Home load error:', err);
+                document.getElementById('home-view').innerHTML = '<h2 class="headline">Welcome to Dornori</h2><div class="embed-form-root"></div>';
+            });
     </script>
 
     <script type="module">
-        import { initNavigation }   from './js/nav-loader_DRAFT.js';
+        import { initNavigation } from './js/nav-loader_DRAFT.js';
         import { initStickyBanner } from './js/sticky-banner.js';
-        import { initSocials }      from './js/social-loader.js';
-        import { initEmbedForms }   from './js/embed-form.js';
-        import { initPageLoader }   from './js/page-loader_DRAFT.js';
-        import { initFooter }       from './js/footer-loader.js';
+        import { initSocials } from './js/social-loader.js';
+        import { initEmbedForms } from './js/embed-form.js';
+        import { initPageLoader } from './js/page-loader_DRAFT.js';
+        import { initFooter } from './js/footer-loader.js';
 
-        initNavigation();
-        initStickyBanner();
-        initSocials();
-        initPageLoader();
-        initFooter();
-        initEmbedForms(); // now the home content is already loaded
+        // Delay embed form init slightly to ensure content is loaded
+        setTimeout(() => {
+            initNavigation();
+            initStickyBanner();
+            initSocials();
+            initPageLoader();
+            initFooter();
+            initEmbedForms();
+        }, 100);
     </script>
 </body>
 </html>
