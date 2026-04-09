@@ -1,37 +1,28 @@
 /**
- * slideshow.js — Pure HTML-driven slideshow
- * No config files needed. Define everything in HTML data attributes.
- * Scales perfectly on any device.
+ * slideshow.js - Dornori HTML-driven slideshow
  */
 
 function buildPicture(folder, name) {
     const picture = document.createElement('picture');
-    
     const webp = document.createElement('source');
     webp.type = 'image/webp';
     webp.srcset = `${folder}${name}.webp`;
-    
     const img = document.createElement('img');
     img.src = `${folder}${name}.png`;
     img.alt = name.replace(/-/g, ' ');
-    img.style.cssText = `
-        width: 100%;
-        height: 100%;
-        object-fit: inherit;
-        display: block;
-    `;
-    
+    img.style.cssText = 'width:100%; height:100%; object-fit:inherit; display:block;';
     picture.appendChild(webp);
     picture.appendChild(img);
     return picture;
 }
 
 function mountSlideshow(root) {
-    // Read config from data attributes
+    if (root.dataset.ssMounted === 'true') return;
+    
     const folder = root.dataset.folder || '';
     const imagesRaw = root.dataset.images || '';
     const interval = parseInt(root.dataset.interval, 10) || 4000;
-    const fit = root.dataset.fit || 'contain';  // 'contain' = no distortion
+    const fit = root.dataset.fit || 'contain';
     const images = imagesRaw.split(',').map(s => s.trim()).filter(Boolean);
     
     if (!images.length) {
@@ -39,16 +30,13 @@ function mountSlideshow(root) {
         return;
     }
     
-    // Mark as mounted
     root.dataset.ssMounted = 'true';
-    
-    // Set container styles
+    root.innerHTML = '';
     root.style.position = 'relative';
     root.style.overflow = 'hidden';
     root.style.display = 'block';
     root.style.background = '#111';
     
-    // Build slides
     const slides = images.map((name, i) => {
         const slide = document.createElement('div');
         slide.style.cssText = `
@@ -60,20 +48,16 @@ function mountSlideshow(root) {
             align-items: center;
             justify-content: center;
         `;
-        
         const picture = buildPicture(folder, name);
         const img = picture.querySelector('img');
         if (img) img.style.objectFit = fit;
-        
         slide.appendChild(picture);
         root.appendChild(slide);
         return slide;
     });
     
-    // No slideshow if only 1 image
     if (slides.length <= 1) return;
     
-    // Auto-rotate
     let current = 0;
     let timer = setInterval(() => {
         slides[current].style.opacity = '0';
@@ -81,7 +65,6 @@ function mountSlideshow(root) {
         slides[current].style.opacity = '1';
     }, interval);
     
-    // Pause on hover (desktop)
     root.addEventListener('mouseenter', () => clearInterval(timer));
     root.addEventListener('mouseleave', () => {
         timer = setInterval(() => {
@@ -91,7 +74,6 @@ function mountSlideshow(root) {
         }, interval);
     });
     
-    // Touch swipe (mobile)
     let touchStart = 0;
     root.addEventListener('touchstart', (e) => {
         touchStart = e.touches[0].clientX;
@@ -101,18 +83,11 @@ function mountSlideshow(root) {
     root.addEventListener('touchend', (e) => {
         const touchEnd = e.changedTouches[0].clientX;
         const diff = touchStart - touchEnd;
-        
         if (Math.abs(diff) > 40) {
             slides[current].style.opacity = '0';
-            if (diff > 0) {
-                current = (current + 1) % slides.length;
-            } else {
-                current = (current - 1 + slides.length) % slides.length;
-            }
+            current = (diff > 0) ? (current + 1) % slides.length : (current - 1 + slides.length) % slides.length;
             slides[current].style.opacity = '1';
         }
-        
-        // Restart timer
         timer = setInterval(() => {
             slides[current].style.opacity = '0';
             current = (current + 1) % slides.length;
@@ -121,37 +96,14 @@ function mountSlideshow(root) {
     });
 }
 
-// Auto-initialize when DOM loads
 function initAllSlideshows() {
-    document.querySelectorAll('.slideshow-root:not([data-ss-mounted])').forEach(root => {
-        // Skip if already has data-ss-mounted (prevents double init)
-        if (root.hasAttribute('data-ss-mounted')) return;
-        mountSlideshow(root);
-    });
+    document.querySelectorAll('.slideshow-root:not([data-ss-mounted])').forEach(mountSlideshow);
 }
 
-// Run on page load
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initAllSlideshows);
-} else {
-    initAllSlideshows();
-}
-
-// Export for page-loader (if needed)
-export { initAllSlideshows as initSlideshows };
-
-// Listen for dynamically added slideshows (from page-loader)
-document.addEventListener('slideshow-init', (e) => {
-    if (e.detail && e.detail.root && !e.detail.root.hasAttribute('data-ss-mounted')) {
-        mountSlideshow(e.detail.root);
-    }
-});
-
-// Also watch for DOM changes (optional, catches everything)
 const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
-            if (node.nodeType === 1) { // Element node
+            if (node.nodeType === 1) {
                 if (node.matches && node.matches('.slideshow-root:not([data-ss-mounted])')) {
                     mountSlideshow(node);
                 }
@@ -163,3 +115,11 @@ const observer = new MutationObserver((mutations) => {
     });
 });
 observer.observe(document.body, { childList: true, subtree: true });
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAllSlideshows);
+} else {
+    initAllSlideshows();
+}
+
+export { mountSlideshow, initAllSlideshows as initSlideshows };
