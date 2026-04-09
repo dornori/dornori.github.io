@@ -1,43 +1,11 @@
-// page-loader_DRAFT.js
-import SITE_CONFIG        from './config_DRAFT.js';
-import { initSlideshows } from './slideshow.js';
-import SLIDESHOW_CONFIGS  from './slideshow-config.js';
+import SITE_CONFIG from './config_DRAFT.js';
+// slideshow.js imports automatically, no config needed
 
 export function initPageLoader() {
-    const homeView    = document.getElementById('home-view');
-    const pageView    = document.getElementById('page-view');
+    const homeView = document.getElementById('home-view');
+    const pageView = document.getElementById('page-view');
     const pageContent = document.getElementById('page-content-inner');
-    const emailInput  = document.querySelector('#waitlist-form input[type="email"]');
-
-   function initPageSlideshows() {
-    // Just find any .slideshow-root without data-ss-mounted in the fresh content
-    pageContent.querySelectorAll('.slideshow-root:not([data-ss-mounted])').forEach(root => {
-        // Import and call the slideshow init
-        import('./slideshow.js').then(module => {
-            // Re-run the mounting (the function will check data-ss-mounted)
-            if (root && !root.hasAttribute('data-ss-mounted')) {
-                // We need to expose mountSlideshow or re-run init
-                // Simplest: trigger a custom event that slideshow.js listens for
-                const event = new CustomEvent('slideshow-init', { detail: { root } });
-                document.dispatchEvent(event);
-            }
-        });
-    });
-}
-
-        // 2. Data-attribute driven: any .slideshow-root with data-images
-        //    that hasn't been mounted yet
-        pageContent.querySelectorAll('.slideshow-root[data-images]').forEach(root => {
-            if (root.dataset.ssMounted) return;
-            const folder   = root.dataset.folder   || '';
-            const interval = parseInt(root.dataset.interval, 10) || 4000;
-            const fit      = root.dataset.fit      || 'cover';
-            const height   = root.dataset.height   || '420px';
-            const images   = root.dataset.images.split(',').map(s => s.trim()).filter(Boolean);
-            // Pass the element directly so no selector lookup is needed
-            initSlideshows([{ _el: root, folder, images, interval, fit, height }]);
-        });
-    }
+    const emailInput = document.querySelector('#waitlist-form input[type="email"]');
 
     window.viewPage = async (slug) => {
         const page = SITE_CONFIG.pages[slug];
@@ -52,7 +20,7 @@ export function initPageLoader() {
             const html = await res.text();
 
             pageContent.innerHTML = html;
-            initPageSlideshows();
+            // Slideshow.js MutationObserver automatically handles any new .slideshow-root divs
 
             window.history.pushState({ slug }, page.title, `/${slug}`);
             homeView.classList.add('hidden');
@@ -67,7 +35,6 @@ export function initPageLoader() {
         }
     };
 
-    // Handle internal links in loaded content
     document.addEventListener('click', async (e) => {
         const link = e.target.closest('a');
         if (!link) return;
@@ -91,7 +58,6 @@ export function initPageLoader() {
         }
     });
 
-    // Handle browser back/forward buttons
     window.addEventListener('popstate', (event) => {
         if (event.state && event.state.slug) {
             window.viewPage(event.state.slug);
