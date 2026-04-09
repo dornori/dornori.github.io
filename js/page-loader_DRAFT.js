@@ -9,15 +9,21 @@ export function initPageLoader() {
     const pageContent = document.getElementById('page-content-inner');
     const emailInput  = document.querySelector('#waitlist-form input[type="email"]');
 
-    /* ── After injecting HTML, init any slideshows in the new content ──── */
-    function initPageSlideshows() {
-        // 1. Config-driven: match SLIDESHOW_CONFIGS entries whose target
-        //    exists inside the freshly-loaded pageContent
-        const configsForPage = SLIDESHOW_CONFIGS.filter(cfg => {
-            const el = pageContent.querySelector(cfg.target);
-            return el && !el.dataset.ssMounted;
+   function initPageSlideshows() {
+    // Just find any .slideshow-root without data-ss-mounted in the fresh content
+    pageContent.querySelectorAll('.slideshow-root:not([data-ss-mounted])').forEach(root => {
+        // Import and call the slideshow init
+        import('./slideshow.js').then(module => {
+            // Re-run the mounting (the function will check data-ss-mounted)
+            if (root && !root.hasAttribute('data-ss-mounted')) {
+                // We need to expose mountSlideshow or re-run init
+                // Simplest: trigger a custom event that slideshow.js listens for
+                const event = new CustomEvent('slideshow-init', { detail: { root } });
+                document.dispatchEvent(event);
+            }
         });
-        initSlideshows(configsForPage);
+    });
+}
 
         // 2. Data-attribute driven: any .slideshow-root with data-images
         //    that hasn't been mounted yet
