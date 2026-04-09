@@ -27,7 +27,7 @@
  *     images:   ['shot1', 'shot2'],  // filenames without extension
  *     interval: 4000,                // ms between transitions
  *     fit:      'cover',             // CSS object-fit: 'cover' | 'contain' (default: cover)
- *     height:   '420px',             // CSS height of the slideshow box (default: 420px)
+ *     height:   '100%',             // CSS height of the slideshow box (default: 420px)
  *   }
  * ─────────────────────────────────────────────────────────────────────────────
  */
