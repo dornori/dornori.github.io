@@ -42,7 +42,7 @@ const SLIDESHOW_CONFIGS = [
         ],
         interval: 4000,        // 4 seconds
         fit:      'cover',
-        height:   '420px',
+        height:   '',
     },
 
     /* ── Example: product detail shots on the assembly kit page ─────────── */
@@ -50,7 +50,7 @@ const SLIDESHOW_CONFIGS = [
         target:   '#slideshow-kit',
         folder:   'assets/images/gallery-kit/',
         images:   [
-            'parts-view-01',
+            '2-kids-repairing-a-bicycle',
             'exploded-view',
             'stl-preview',
         ],
