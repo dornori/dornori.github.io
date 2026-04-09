@@ -41,7 +41,7 @@ const SITE_CONFIG = {
             label: "Company",
             links: [
                 { label: "About Us",  slug: "about",   enabled: false  },
-                { label: "Contact",   slug: "contact", enabled: false  }
+                { label: "Contact",   slug: "contact", enabled: true  }
             ]
         },
         {
@@ -60,7 +60,7 @@ const SITE_CONFIG = {
 
     pages: {
         // PRODUCT PAGES
-        "mission-statement":        { title: "Mission Statement",          file: "content/mission-statement.html"        },
+        "mission-statement":     { title: "Mission Statement",          file: "content/mission-statement.html"        },
         "3d-print-files":        { title: "3D Print Files",          file: "content/3d-print-files.html"        },
         "electronics-bundle":    { title: "Electronics Bundle",      file: "content/electronics-bundle.html"    },
         "pre-printed-parts-kit": { title: "Pre-Printed Parts Kit",   file: "content/pre-printed-parts-kit.html" },
