@@ -139,3 +139,27 @@ if (document.readyState === 'loading') {
 
 // Export for page-loader (if needed)
 export { initAllSlideshows as initSlideshows };
+
+// Listen for dynamically added slideshows (from page-loader)
+document.addEventListener('slideshow-init', (e) => {
+    if (e.detail && e.detail.root && !e.detail.root.hasAttribute('data-ss-mounted')) {
+        mountSlideshow(e.detail.root);
+    }
+});
+
+// Also watch for DOM changes (optional, catches everything)
+const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === 1) { // Element node
+                if (node.matches && node.matches('.slideshow-root:not([data-ss-mounted])')) {
+                    mountSlideshow(node);
+                }
+                if (node.querySelectorAll) {
+                    node.querySelectorAll('.slideshow-root:not([data-ss-mounted])').forEach(mountSlideshow);
+                }
+            }
+        });
+    });
+});
+observer.observe(document.body, { childList: true, subtree: true });
