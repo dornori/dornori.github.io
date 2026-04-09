@@ -1,100 +1,81 @@
 /**
- * slideshow.js — Dornori image slideshow engine
+ * DORNORI SLIDESHOW ENGINE
+ * ─────────────────────────────────────────────────────────────────────────────
+ * HOW-TO FOR THE TEAM:
+ * 1. Set gallery-size="200x150" (pixels) OR gallery-size="16/9" (ratio).
+ * 2. Set gallery-style="border, rounded" (adds 1px border and 8px corners).
+ * - Use "border" for the line.
+ * - Use "rounded" for corners.
+ * - Leave empty for a sharp square look.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
-
-function buildPicture(folder, name, alt = '') {
-    const picture = document.createElement('picture');
-    const webp = document.createElement('source');
-    webp.type = 'image/webp';
-    webp.srcset = `${folder}${name}.webp`;
-
-    const img = document.createElement('img');
-    img.src = `${folder}${name}.png`;
-    img.alt = alt;
-    img.style.cssText = 'width:100%;height:100%;object-fit:inherit;display:block;';
-
-    picture.appendChild(webp);
-    picture.appendChild(img);
-    return picture;
-}
 
 export function mountSlideshow(root) {
     if (root.dataset.ssMounted) return;
 
-    const folder = root.dataset.folder || '';
-    const images = (root.dataset.images || '').split(',').map(s => s.trim()).filter(Boolean);
-    const interval = parseInt(root.dataset.interval, 10) || 4000;
-    const fit = root.dataset.fit || 'cover';
-    
-    // --- RESPONSIVE SIZE LOGIC ---
-    const aspect = root.dataset.aspect || 'auto';
-    let width = '100%';
-    let height = 'auto';
+    const { 
+        folder = '', 
+        galleryImages = '', 
+        interval = '4000', 
+        fit = 'cover', 
+        gallerySize = '16/9',
+        galleryStyle = '' // NEW: "border, rounded"
+    } = root.dataset;
 
-    if (root.dataset.size && aspect === 'auto') {
-        const [w, h] = root.dataset.size.split('x');
-        width = w.match(/[a-z%]/) ? w : `${w}px`; // handle '800' or '800px'
-        height = h.match(/[a-z%]/) ? h : `${h}px`;
+    const imgList = galleryImages.split(',').map(s => s.trim()).filter(Boolean);
+    if (!imgList.length) return;
+
+    // --- LOGIC: DIMENSIONS ---
+    let width = '100%', height = 'auto', aspect = 'auto';
+    if (gallerySize.includes('/')) {
+        aspect = gallerySize; 
+    } else if (gallerySize.includes('x')) {
+        const [w, h] = gallerySize.split('x');
+        width = w.includes('px') ? w : `${w}px`;
+        height = h.includes('px') ? h : `${h}px`;
     }
 
-    if (!images.length) return;
-    root.dataset.ssMounted = 'true';
+    // --- LOGIC: STYLING ---
+    const hasBorder  = galleryStyle.includes('border');
+    const hasRounded = galleryStyle.includes('rounded');
 
-    // Apply the container styles
-    root.style.cssText = `
-        position: relative;
-        width: ${width};
-        max-width: 100%; 
-        height: ${aspect !== 'auto' ? 'auto' : height};
+    root.dataset.ssMounted = 'true';
+    root.style.cssText += `
+        position: relative; 
+        width: ${width}; 
+        max-width: 100%;
+        height: ${height}; 
         aspect-ratio: ${aspect};
-        overflow: hidden;
-        background: #111;
-        border-radius: 8px;
-        margin: 0 auto;
+        overflow: hidden; 
+        margin: 0 auto; 
+        display: block;
+        border: ${hasBorder ? '1px solid var(--border, #333)' : 'none'};
+        border-radius: ${hasRounded ? '12px' : '0px'};
     `;
 
-    const slides = images.map((name, i) => {
+    imgList.forEach((name, i) => {
         const slide = document.createElement('div');
         slide.style.cssText = `
-            position: absolute;
-            inset: 0;
-            opacity: ${i === 0 ? 1 : 0};
+            position: absolute; inset: 0; opacity: ${i === 0 ? 1 : 0};
             transition: opacity 0.8s ease;
-            object-fit: ${fit};
         `;
-        slide.appendChild(buildPicture(folder, name, name.replace(/-/g, ' ')));
+        slide.innerHTML = `
+            <picture style="width:100%;height:100%;">
+                <source srcset="${folder}${name}.webp" type="image/webp">
+                <img src="${folder}${name}.png" alt="${name}" 
+                     style="width:100%;height:100%;object-fit:${fit};display:block;">
+            </picture>`;
         root.appendChild(slide);
-        return slide;
     });
 
-    if (slides.length > 1) setupControls(root, slides, interval);
-}
-
-function setupControls(root, slides, interval) {
-    const dots = document.createElement('div');
-    dots.style.cssText = 'position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:2;';
-
-    let current = 0;
-    const dotEls = slides.map((_, i) => {
-        const d = document.createElement('span');
-        d.style.cssText = `width:6px;height:6px;border-radius:50%;background:#fff;opacity:${i===0?1:0.3};cursor:pointer;`;
-        d.onclick = () => {
-            slides[current].style.opacity = 0;
-            dotEls[current].style.opacity = 0.3;
-            current = i;
-            slides[current].style.opacity = 1;
-            dotEls[current].style.opacity = 1;
-        };
-        dots.appendChild(d);
-        return d;
-    });
-    root.appendChild(dots);
-
-    setInterval(() => {
-        slides[current].style.opacity = 0;
-        dotEls[current].style.opacity = 0.3;
-        current = (current + 1) % slides.length;
-        slides[current].style.opacity = 1;
-        dotEls[current].style.opacity = 1;
-    }, interval);
+    // Timer logic
+    let cur = 0;
+    const slides = root.querySelectorAll('div');
+    if (slides.length > 1) {
+        setInterval(() => {
+            slides[cur].style.opacity = 0;
+            cur = (cur + 1) % slides.length;
+            slides[cur].style.opacity = 1;
+        }, parseInt(interval));
+    }
 }
