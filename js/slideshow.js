@@ -1,19 +1,17 @@
 /**
- * slideshow.js — Dornori image slideshow engine (HTML-Driven)
+ * slideshow.js — Dornori image slideshow engine
  * ─────────────────────────────────────────────────────────────────────────────
- * Renders an auto-cycling slideshow using data attributes on .slideshow-root.
  */
 
 function buildPicture(folder, name, alt = '') {
     const picture = document.createElement('picture');
     const webp = document.createElement('source');
-    webp.type   = 'image/webp';
+    webp.type = 'image/webp';
     webp.srcset = `${folder}${name}.webp`;
 
     const img = document.createElement('img');
-    img.src   = `${folder}${name}.png`;
-    img.alt   = alt;
-    // object-fit: inherit allows the parent container to control scaling
+    img.src = `${folder}${name}.png`;
+    img.alt = alt;
     img.style.cssText = 'width:100%;height:100%;object-fit:inherit;display:block;';
 
     picture.appendChild(webp);
@@ -24,27 +22,27 @@ function buildPicture(folder, name, alt = '') {
 export function mountSlideshow(root) {
     if (root.dataset.ssMounted) return;
 
-    const folder   = root.dataset.folder   || '';
-    const images   = (root.dataset.images  || '').split(',').map(s => s.trim()).filter(Boolean);
+    const folder = root.dataset.folder || '';
+    const images = (root.dataset.images || '').split(',').map(s => s.trim()).filter(Boolean);
     const interval = parseInt(root.dataset.interval, 10) || 4000;
-    const fit      = root.dataset.fit      || 'cover';
-    const height   = root.dataset.height   || '420px';
-    const aspect   = root.dataset.aspect   || 'auto'; // New: e.g. "16/9"
+    const fit = root.dataset.fit || 'cover';
+    const height = root.dataset.height || '420px';
+    const aspect = root.dataset.aspect || 'auto'; // Added for auto-scaling
 
     if (!images.length) return;
 
     root.dataset.ssMounted = 'true';
 
-    // Container Styling with Responsive Logic
+    // Flexible layout: Use aspect-ratio for auto-scaling, or fallback to fixed height
     root.style.cssText = `
         position: relative;
         width: 100%;
         height: ${aspect !== 'auto' ? 'auto' : height};
         aspect-ratio: ${aspect};
         overflow: hidden;
-        background: var(--glass, #1a1a1a);
-        border: 1px solid var(--border, #333);
-        border-radius: 8px;
+        background: var(--glass);
+        border: 1px solid var(--border);
+        object-fit: ${fit};
     `;
 
     const slides = images.map((name, i) => {
@@ -63,7 +61,6 @@ export function mountSlideshow(root) {
     });
 
     if (slides.length > 1) {
-        // ... (Dot indicators and Timer logic remain the same as previous version)
         setupControls(root, slides, interval);
     }
 }
@@ -75,8 +72,8 @@ function setupControls(root, slides, interval) {
     let current = 0;
     const dotEls = slides.map((_, i) => {
         const d = document.createElement('span');
-        d.style.cssText = `width:6px;height:6px;border-radius:50%;background:var(--accent, #fff);opacity:${i===0?1:0.3};transition:opacity 0.3s;cursor:pointer;`;
-        d.onclick = () => goTo(i);
+        d.style.cssText = `width:6px;height:6px;border-radius:50%;background:var(--accent);opacity:${i === 0 ? 1 : 0.3};transition:opacity 0.3s;cursor:pointer;`;
+        d.addEventListener('click', () => goTo(i));
         dots.appendChild(d);
         return d;
     });
@@ -91,19 +88,13 @@ function setupControls(root, slides, interval) {
     };
 
     let timer = setInterval(() => goTo(current + 1), interval);
-    root.onmouseenter = () => clearInterval(timer);
-    root.onmouseleave = () => timer = setInterval(() => goTo(current + 1), interval);
-    
-    // Swipe Logic
-    let startX = 0;
-    root.ontouchstart = e => startX = e.touches[0].clientX;
-    root.ontouchend = e => {
-        const diff = startX - e.changedTouches[0].clientX;
-        if (Math.abs(diff) > 40) goTo(current + (diff > 0 ? 1 : -1));
-    };
-}
+    root.addEventListener('mouseenter', () => clearInterval(timer));
+    root.addEventListener('mouseleave', () => timer = setInterval(() => goTo(current + 1), interval));
 
-// Auto-init on load
-document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.slideshow-root[data-images]').forEach(mountSlideshow);
-});
+    let touchStartX = 0;
+    root.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+    root.addEventListener('touchend', e => {
+        const diff = touchStartX - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 40) goTo(current + (diff > 0 ? 1 : -1));
+    });
+}
