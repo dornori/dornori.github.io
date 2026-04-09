@@ -40,6 +40,7 @@ const SITE_CONFIG = {
         {
             label: "Company",
             links: [
+                { label: "Gallery",  slug: "gallery",   enabled: true  },
                 { label: "About Us",  slug: "about",   enabled: false  },
                 { label: "Contact",   slug: "contact", enabled: false  }
             ]
