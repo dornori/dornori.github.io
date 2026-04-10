@@ -78,7 +78,7 @@ const SITE_CONFIG = {
         // FUTURE
         contact:    { title: "Contact Us",  file: "content/gallery.html"    },
         newsletter: { title: "Newsletter",  file: "content/newsletter.html" },
-        gallery:    { title: "Gallery",     file: "content/gallery.html"    }
+        gallery:    { title: "Gallery",     file: "content/gallery-1.html"    }
     },
 
     socials: [
