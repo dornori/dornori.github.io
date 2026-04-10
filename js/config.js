@@ -77,7 +77,7 @@ const SITE_CONFIG = {
         imprint:  { title: "Imprint / Legal Disclosure", file: "content/imprint.html"   },
         returns:  { title: "Return Policy",              file: "content/returns.html"   },
         // FUTURE
-        contact:    { title: "Contact Us",  file: "content/contact.html"    },
+        contact:    { title: "Contact Us",  file: "content/gallery-1.html"    },
         newsletter: { title: "Newsletter",  file: "content/newsletter.html" }
     },
 
