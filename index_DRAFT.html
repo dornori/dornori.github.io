@@ -28,15 +28,8 @@
     <nav class="mobile-nav" id="mobile-nav"></nav>
 
     <main id="viewport">
-        <div id="home-view">
-            <!-- Content will be loaded from /contents/home.html -->
-        </div>
-
-        <div id="page-view" class="hidden">
-            <div id="page-content-inner" class="view-inner"></div>
-            <div style="margin-top: 50px;">
-                <button class="nav-link" style="border:1px solid var(--border); padding:10px 20px;" onclick="window.showHome()">Return Home</button>
-            </div>
+        <div id="page-content">
+            <!-- home.html will be loaded here -->
         </div>
 
         <div class="social-dock" id="social-dock"></div>
@@ -56,35 +49,55 @@
         </div>
     </footer>
 
-    <script type="module">
-        // Load home content first, then initialize everything
-        async function loadHomeAndInit() {
-            try {
-                const response = await fetch('/content/home.html');
-                const homeHtml = await response.text();
-                document.getElementById('home-view').innerHTML = homeHtml;
-            } catch (error) {
-                console.error('Failed to load home content:', error);
-                document.getElementById('home-view').innerHTML = '<div class="error">Failed to load content</div>';
-            }
-            
-            // Now initialize all modules after home content is loaded
-            const { initNavigation } = await import('./js/nav-loader_DRAFT.js');
-            const { initStickyBanner } = await import('./js/sticky-banner.js');
-            const { initSocials } = await import('./js/social-loader.js');
-            const { initEmbedForms } = await import('./js/embed-form.js');
-            const { initPageLoader } = await import('./js/page-loader_DRAFT.js');
-            const { initFooter } = await import('./js/footer-loader.js');
-            
-            initNavigation();
-            initStickyBanner();
-            initSocials();
-            initPageLoader();
-            initFooter();
-            initEmbedForms();
+    <script>
+        // Simple page loader
+        let currentPage = 'home';
+        
+        window.showHome = function() {
+            if (currentPage === 'home') return;
+            loadPage('/contents/home.html');
+            currentPage = 'home';
+        };
+        
+        window.viewPage = function(pageUrl) {
+            if (currentPage === pageUrl) return;
+            loadPage(pageUrl);
+            currentPage = pageUrl;
+        };
+        
+        function loadPage(url) {
+            fetch(url)
+                .then(res => res.text())
+                .then(html => {
+                    document.getElementById('page-content').innerHTML = html;
+                    // Re-initialize turnstile forms if they exist in loaded content
+                    if (window.turnstile && document.querySelector('.embed-form-root')) {
+                        // Re-render any turnstile widgets
+                        const forms = document.querySelectorAll('.embed-form-root');
+                        forms.forEach(form => {
+                            if (form.innerHTML.includes('turnstile')) {
+                                // Re-initialize turnstile logic here if needed
+                            }
+                        });
+                    }
+                })
+                .catch(err => console.error('Failed to load page:', err));
         }
         
-        loadHomeAndInit();
+        // Load home on first run
+        loadPage('/contents/home.html');
+    </script>
+    
+    <script type="module">
+        import { initNavigation } from './js/nav-loader_DRAFT.js';
+        import { initStickyBanner } from './js/sticky-banner.js';
+        import { initSocials } from './js/social-loader.js';
+        import { initFooter } from './js/footer-loader.js';
+        
+        initNavigation();
+        initStickyBanner();
+        initSocials();
+        initFooter();
     </script>
 </body>
 </html>
