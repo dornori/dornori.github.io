@@ -1,46 +1,51 @@
+/**
+ * footer-loader.js
+ * Renders footer link columns from SITE_CONFIG.footer.
+ * Uses <a href> tags (not buttons) so Google can crawl them.
+ */
+
 import SITE_CONFIG from './config.js';
 
-/**
- * FOOTER LOADER MODULE
- * ─────────────────────────────────────────────────────────────────────────────
- * Reads SITE_CONFIG.footer and renders link columns into #footer-links.
- * Each column is only rendered if it has at least one enabled link.
- * Clicking a link calls window.viewPage(slug) — the same page-loader used
- * by the top nav — so no extra routing is needed.
- * ─────────────────────────────────────────────────────────────────────────────
- */
 export function initFooter() {
     const container = document.getElementById('footer-links');
     if (!container) return;
 
     const columns = SITE_CONFIG.footer;
-    if (!columns || !columns.length) return;
+    if (!columns?.length) return;
 
     container.innerHTML = '';
 
     columns.forEach(column => {
-        // Filter to enabled links only
         const visibleLinks = column.links.filter(l => l.enabled);
-        if (!visibleLinks.length) return; // skip empty columns entirely
+        if (!visibleLinks.length) return;
 
         const col = document.createElement('div');
         col.className = 'footer-col';
 
-        // Column heading (optional)
         if (column.label) {
-            const heading = document.createElement('p');
+            const heading     = document.createElement('p');
             heading.className = 'footer-col-heading';
             heading.textContent = column.label;
             col.appendChild(heading);
         }
 
-        // Links
         visibleLinks.forEach(link => {
-            const btn = document.createElement('button');
-            btn.className = 'footer-link';
-            btn.textContent = link.label;
-            btn.onclick = () => window.viewPage(link.slug);
-            col.appendChild(btn);
+            const lang = window.LANG || 'en';
+            const href = lang === 'en' ? `/${link.slug}` : `/${lang}/${link.slug}`;
+
+            const a   = document.createElement('a');
+            a.href    = href;
+            a.className = 'footer-link';
+            a.textContent = link.label;
+            a.setAttribute('data-slug', link.slug);
+
+            // SPA interception — keep the single-page behaviour
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                window.viewPage(link.slug);
+            });
+
+            col.appendChild(a);
         });
 
         container.appendChild(col);

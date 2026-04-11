@@ -1,29 +1,26 @@
-import SITE_CONFIG from './config.js';
-
 /**
- * NAV LOADER MODULE
+ * nav-loader.js
  * ─────────────────────────────────────────────────────────────────────────────
  * 1. Theme setup + persistence
- * 2. Settings tab on #topBar (click to reveal profile selector)
- * 3. Desktop nav  (.top-nav)    — small inline SVG icon + text label
- * 4. Mobile nav   (#mobile-nav) — larger SVG icon + short label underneath
+ * 2. Settings tab (#topBar) — profile selector + language selector
+ * 3. Desktop nav  (.top-nav)  — <a href> tags so Google can crawl them
+ * 4. Mobile nav   (#mobile-nav) — same, <a href> tags
  *
- * ── ADDING A NEW PROFILE ─────────────────────────────────────────────────────
- * 1. Add a [data-theme="your-name"] block to css/profiles.css
- * 2. Add { id: 'your-name', label: 'Your Label' } to PROFILES below
- * The selector in the settings bar updates automatically.
+ * WHY <a> INSTEAD OF <button>
  * ─────────────────────────────────────────────────────────────────────────────
+ * Google does not reliably execute JavaScript when crawling. Using real
+ * <a href="/about"> tags means the crawler can discover and index all pages.
+ * We intercept the click in JS to keep the SPA behaviour (no full page reload).
  */
 
-/* ── PROFILES — edit this list to add / remove themes ───────────────────── */
+import SITE_CONFIG from './config.js';
+
 const PROFILES = [
     { id: 'dark',        label: 'Dark'        },
     { id: 'light',       label: 'Light'       },
     { id: 'cutting-mat', label: 'Cutting Mat' },
-    // { id: 'my-profile', label: 'My Profile' },
 ];
 
-/* ── Fallback SVG shown when an icon file cannot be loaded ───────────────── */
 const FALLBACK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="9"/>
@@ -31,9 +28,7 @@ const FALLBACK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
     <circle cx="12" cy="16" r="0.6" fill="currentColor" stroke="none"/>
 </svg>`;
 
-/* ── Simple in-memory cache so each SVG file is only fetched once ─────────── */
 const svgCache = new Map();
-
 async function fetchSVG(path) {
     if (svgCache.has(path)) return svgCache.get(path);
     try {
@@ -48,25 +43,32 @@ async function fetchSVG(path) {
     }
 }
 
+// Build the href for a nav item.
+// English uses clean /slug; other languages use /lang/slug.
+function navHref(slug) {
+    const lang = window.LANG || 'en';
+    return lang === 'en' ? `/${slug}` : `/${lang}/${slug}`;
+}
+
 export function initNavigation() {
 
-    /* ── 1. THEME SETUP ──────────────────────────────────────────────────── */
-    const STORAGE_KEY = 'dornori-theme';
-    const root        = document.documentElement;
-
-    const saved = localStorage.getItem(STORAGE_KEY) || 'cutting-mat';
+    /* ── 1. THEME ────────────────────────────────────────────────────────── */
+    const THEME_KEY = 'dornori-theme';
+    const root      = document.documentElement;
+    const saved     = localStorage.getItem(THEME_KEY) || 'cutting-mat';
     root.setAttribute('data-theme', saved);
 
-    /* ── 2. SETTINGS TAB + TOPBAR REVEAL ────────────────────────────────── */
+    /* ── 2. SETTINGS TAB + TOPBAR ────────────────────────────────────────── */
     const topBar = document.getElementById('topBar');
     let profileSelect = null;
+    let langSelect    = null;
 
     if (topBar) {
 
-        /* Profile <select> */
-        const selectorWrap     = document.createElement('label');
-        selectorWrap.className = 'profile-selector-wrap';
-        selectorWrap.textContent = 'PROFILE ';
+        // ── Profile selector ──────────────────────────────────────────────
+        const profileWrap     = document.createElement('label');
+        profileWrap.className = 'profile-selector-wrap';
+        profileWrap.textContent = 'PROFILE ';
 
         profileSelect           = document.createElement('select');
         profileSelect.id        = 'profileSelect';
@@ -85,15 +87,50 @@ export function initNavigation() {
         profileSelect.addEventListener('change', () => {
             const next = profileSelect.value;
             root.setAttribute('data-theme', next);
-            localStorage.setItem(STORAGE_KEY, next);
+            localStorage.setItem(THEME_KEY, next);
         });
 
-        selectorWrap.appendChild(profileSelect);
-        topBar.appendChild(selectorWrap);
+        profileWrap.appendChild(profileSelect);
+        topBar.appendChild(profileWrap);
 
-        /* Settings gear tab */
-        const tab = document.createElement('button');
-        tab.id    = 'topBar-tab';
+        // ── Language selector ─────────────────────────────────────────────
+        const langWrap     = document.createElement('label');
+        langWrap.className = 'profile-selector-wrap';
+        langWrap.textContent = 'LANGUAGE ';
+
+        langSelect           = document.createElement('select');
+        langSelect.id        = 'langSelect';
+        langSelect.className = 'profile-select';
+        langSelect.setAttribute('aria-label', 'Choose language');
+        langSelect.setAttribute('tabindex', '-1');
+
+        SITE_CONFIG.languages.forEach(l => {
+            const opt       = document.createElement('option');
+            opt.value       = l.code;
+            opt.textContent = `${l.flag} ${l.label}`;
+            langSelect.appendChild(opt);
+        });
+
+        // Set initial value once LANG is available (may be set async)
+        const setLangSelectValue = () => {
+            langSelect.value = window.LANG || 'en';
+        };
+        // Try now and also after a tick in case i18n is still resolving
+        setLangSelectValue();
+        setTimeout(setLangSelectValue, 200);
+
+        langSelect.addEventListener('change', () => {
+            if (typeof window.setLang === 'function') {
+                window.setLang(langSelect.value);
+            }
+        });
+
+        langWrap.appendChild(langSelect);
+        topBar.appendChild(langWrap);
+
+        // ── Settings gear tab ─────────────────────────────────────────────
+        const tab  = document.createElement('button');
+        tab.id     = 'topBar-tab';
         tab.setAttribute('aria-label', 'Open settings');
         tab.setAttribute('aria-expanded', 'false');
         tab.setAttribute('aria-controls', 'topBar');
@@ -120,6 +157,7 @@ export function initNavigation() {
             tab.setAttribute('aria-expanded', 'true');
             tab.setAttribute('aria-label', 'Close settings');
             profileSelect.setAttribute('tabindex', '0');
+            langSelect.setAttribute('tabindex', '0');
             profileSelect.focus();
         };
 
@@ -128,6 +166,7 @@ export function initNavigation() {
             tab.setAttribute('aria-expanded', 'false');
             tab.setAttribute('aria-label', 'Open settings');
             profileSelect.setAttribute('tabindex', '-1');
+            langSelect.setAttribute('tabindex', '-1');
         };
 
         tab.addEventListener('click', e => {
@@ -147,7 +186,7 @@ export function initNavigation() {
         });
     }
 
-    /* ── 3. DESKTOP NAV — small icon + text label ────────────────────────── */
+    /* ── 3. DESKTOP NAV ──────────────────────────────────────────────────── */
     const desktopNav = document.querySelector('.top-nav');
     if (desktopNav) {
         desktopNav.innerHTML = '';
@@ -155,23 +194,29 @@ export function initNavigation() {
         SITE_CONFIG.navigation.forEach(item => {
             if (!item.enabled) return;
 
-            const btn = document.createElement('button');
-            btn.className = item.type === 'button' ? 'nav-link nav-newsletter' : 'nav-link';
+            // Use <a href> so Google can crawl it — intercept click for SPA
+            const a   = document.createElement('a');
+            a.href    = navHref(item.slug);
+            a.className = item.type === 'button' ? 'nav-link nav-newsletter' : 'nav-link';
+            a.setAttribute('data-slug', item.slug);
 
-            const iconEl = document.createElement('span');
+            const iconEl  = document.createElement('span');
             iconEl.className = 'nav-icon';
             iconEl.innerHTML = FALLBACK_SVG;
 
             const labelEl = document.createElement('span');
             labelEl.textContent = item.label;
 
-            btn.appendChild(iconEl);
-            btn.appendChild(labelEl);
-            btn.onclick = () => item.slug === 'newsletter'
-                ? window.showHome(true)
-                : window.viewPage(item.slug);
+            a.appendChild(iconEl);
+            a.appendChild(labelEl);
 
-            desktopNav.appendChild(btn);
+            // SPA click interception
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                window.viewPage(item.slug);
+            });
+
+            desktopNav.appendChild(a);
 
             if (item.icon) {
                 fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
@@ -179,7 +224,7 @@ export function initNavigation() {
         });
     }
 
-    /* ── 4. MOBILE NAV — large icon + short label underneath ────────────── */
+    /* ── 4. MOBILE NAV ───────────────────────────────────────────────────── */
     const mobileNav = document.getElementById('mobile-nav');
     if (mobileNav) {
         mobileNav.innerHTML = '';
@@ -187,12 +232,14 @@ export function initNavigation() {
         SITE_CONFIG.navigation.forEach(item => {
             if (!item.enabled) return;
 
-            const btn = document.createElement('button');
-            btn.className = item.type === 'button'
+            const a   = document.createElement('a');
+            a.href    = navHref(item.slug);
+            a.className = item.type === 'button'
                 ? 'mobile-nav-item mobile-nav-cta'
                 : 'mobile-nav-item';
+            a.setAttribute('data-slug', item.slug);
 
-            const iconEl = document.createElement('span');
+            const iconEl  = document.createElement('span');
             iconEl.className = 'mobile-nav-icon';
             iconEl.innerHTML = FALLBACK_SVG;
 
@@ -200,13 +247,15 @@ export function initNavigation() {
             labelEl.className   = 'mobile-nav-label';
             labelEl.textContent = item.mobileLabel || item.label;
 
-            btn.appendChild(iconEl);
-            btn.appendChild(labelEl);
-            btn.onclick = () => item.slug === 'newsletter'
-                ? window.showHome(true)
-                : window.viewPage(item.slug);
+            a.appendChild(iconEl);
+            a.appendChild(labelEl);
 
-            mobileNav.appendChild(btn);
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                window.viewPage(item.slug);
+            });
+
+            mobileNav.appendChild(a);
 
             if (item.icon) {
                 fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
