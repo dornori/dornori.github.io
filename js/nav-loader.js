@@ -1,36 +1,32 @@
-import SITE_CONFIG from './config.js';
-
 /**
- * NAV LOADER MODULE
+ * nav-loader.js
  * ─────────────────────────────────────────────────────────────────────────────
- * 1. Theme setup + persistence
- * 2. Settings tab on #topBar (click to reveal theme toggle)
- * 3. Desktop nav  (.top-nav)    — small inline SVG icon + text label
- * 4. Mobile nav   (#mobile-nav) — larger SVG icon + short label underneath
- *
- * Both navs use item.icon (SVG file path from assets/icons/).
- * Icons are fetched once and cached so the same file is never fetched twice.
- * A neutral fallback is shown if a file is missing.
- * ─────────────────────────────────────────────────────────────────────────────
+ * Reads labels from window.T (loaded by i18n.js from lang/{code}.json).
+ * Exposes window.renderNav() so setLang() can re-render without a page reload.
+ * Uses <a href> tags so Google can crawl all pages.
  */
 
-/* ── Fallback SVG shown when an icon file cannot be loaded ───────────────── */
-const FALLBACK_SVG = `
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+import SITE_CONFIG from './config.js';
+
+const PROFILES = [
+    { id: 'dark',        label: 'Dark'        },
+    { id: 'light',       label: 'Light'       },
+    { id: 'cutting-mat', label: 'Cutting Mat' },
+];
+
+const FALLBACK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="9"/>
     <line x1="12" y1="8" x2="12" y2="13"/>
     <circle cx="12" cy="16" r="0.6" fill="currentColor" stroke="none"/>
 </svg>`;
 
-/* ── Simple in-memory cache so each SVG file is only fetched once ─────────── */
 const svgCache = new Map();
-
 async function fetchSVG(path) {
     if (svgCache.has(path)) return svgCache.get(path);
     try {
         const res = await fetch(path);
-        if (!res.ok) throw new Error(`${res.status}`);
+        if (!res.ok) throw new Error();
         const svg = await res.text();
         svgCache.set(path, svg);
         return svg;
@@ -40,25 +36,128 @@ async function fetchSVG(path) {
     }
 }
 
+function navHref(slug) {
+    const lang = window.LANG || 'en';
+    const base = SITE_CONFIG.appearance.base_path;
+    return lang === 'en' ? `${base}${slug}` : `${base}${lang}/${slug}`;
+}
+
+// ── NAV RENDER ───────────────────────────────────────────────────────────────
+window.renderNav = () => {
+    const T = window.T || {};
+
+    /* ── Desktop nav ── */
+    const desktopNav = document.querySelector('.top-nav');
+    if (desktopNav) {
+        desktopNav.innerHTML = '';
+        SITE_CONFIG.navigation.forEach(item => {
+            if (!item.enabled) return;
+
+            const t = T.nav?.[item.slug] || {};
+
+            const a       = document.createElement('a');
+            a.href        = navHref(item.slug);
+            a.className   = item.type === 'button' ? 'nav-link nav-newsletter' : 'nav-link';
+            a.setAttribute('data-slug', item.slug);
+
+            const iconEl      = document.createElement('span');
+            iconEl.className  = 'nav-icon';
+            iconEl.innerHTML  = FALLBACK_SVG;
+
+            const labelEl     = document.createElement('span');
+            labelEl.textContent = t.label || item.slug;
+
+            a.appendChild(iconEl);
+            a.appendChild(labelEl);
+            a.addEventListener('click', e => { e.preventDefault(); window.viewPage(item.slug); });
+            desktopNav.appendChild(a);
+
+            if (item.icon) fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
+        });
+    }
+
+    /* ── Mobile nav ── */
+    const mobileNav = document.getElementById('mobile-nav');
+    if (mobileNav) {
+        mobileNav.innerHTML = '';
+        SITE_CONFIG.navigation.forEach(item => {
+            if (!item.enabled) return;
+
+            const t = T.nav?.[item.slug] || {};
+
+            const a     = document.createElement('a');
+            a.href      = navHref(item.slug);
+            a.className = item.type === 'button' ? 'mobile-nav-item mobile-nav-cta' : 'mobile-nav-item';
+            a.setAttribute('data-slug', item.slug);
+
+            const iconEl      = document.createElement('span');
+            iconEl.className  = 'mobile-nav-icon';
+            iconEl.innerHTML  = FALLBACK_SVG;
+
+            const labelEl       = document.createElement('span');
+            labelEl.className   = 'mobile-nav-label';
+            labelEl.textContent = t.mobileLabel || t.label || item.slug;
+
+            a.appendChild(iconEl);
+            a.appendChild(labelEl);
+            a.addEventListener('click', e => { e.preventDefault(); window.viewPage(item.slug); });
+            mobileNav.appendChild(a);
+
+            if (item.icon) fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
+        });
+    }
+};
+
+// ── MAIN INIT ────────────────────────────────────────────────────────────────
 export function initNavigation() {
 
-    /* ── 1. THEME SETUP ──────────────────────────────────────────────────── */
-    const STORAGE_KEY = 'dornori-theme';
-    const root        = document.documentElement;
-
-    const saved = localStorage.getItem(STORAGE_KEY) || 'dark';
+    const THEME_KEY = 'dornori-theme';
+    const root      = document.documentElement;
+    const saved     = localStorage.getItem(THEME_KEY) || 'cutting-mat';
     root.setAttribute('data-theme', saved);
 
-    /* ── 2. SETTINGS TAB + TOPBAR REVEAL ────────────────────────────────── */
-    const topBar    = document.getElementById('topBar');
-    const toggleBtn = document.getElementById('themeToggle');
-
+    const topBar = document.getElementById('topBar');
     if (topBar) {
+        const T = window.T?.ui || {};
+
+        // Profile selector
+        const profileWrap       = document.createElement('label');
+        profileWrap.className   = 'profile-selector-wrap';
+        profileWrap.textContent = (T.profile || 'PROFILE') + ' ';
+
+        const profileSelect     = document.createElement('select');
+        profileSelect.id        = 'profileSelect';
+        profileSelect.className = 'profile-select';
+        profileSelect.setAttribute('tabindex', '-1');
+
+        PROFILES.forEach(p => {
+            const opt       = document.createElement('option');
+            opt.value       = p.id;
+            opt.textContent = p.label.toUpperCase();
+            if (p.id === saved) opt.selected = true;
+            profileSelect.appendChild(opt);
+        });
+
+        // Language selector
+        const langWrap       = document.createElement('label');
+        langWrap.className   = 'profile-selector-wrap';
+        langWrap.textContent = (T.language || 'LANGUAGE') + ' ';
+
+        const langSelect     = document.createElement('select');
+        langSelect.id        = 'langSelect';
+        langSelect.className = 'profile-select';
+        langSelect.setAttribute('tabindex', '-1');
+
+        SITE_CONFIG.languages.forEach(l => {
+            const opt       = document.createElement('option');
+            opt.value       = l.code;
+            opt.textContent = `${l.flag} ${l.label}`;
+            if (l.code === (window.LANG || 'en')) opt.selected = true;
+            langSelect.appendChild(opt);
+        });
+
         const tab = document.createElement('button');
-        tab.id        = 'topBar-tab';
-        tab.setAttribute('aria-label', 'Open settings');
-        tab.setAttribute('aria-expanded', 'false');
-        tab.setAttribute('aria-controls', 'topBar');
+        tab.id    = 'topBar-tab';
         tab.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
                  stroke-linecap="round" stroke-linejoin="round">
@@ -73,132 +172,64 @@ export function initNavigation() {
                          l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09
                          a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
-            <span>SETTINGS</span>
+            <span>${T.settings || 'SETTINGS'}</span>
         `;
+
+        topBar.appendChild(profileWrap);
+        profileWrap.appendChild(profileSelect);
+        topBar.appendChild(langWrap);
+        langWrap.appendChild(langSelect);
         topBar.appendChild(tab);
 
-        if (toggleBtn) toggleBtn.setAttribute('tabindex', '-1');
+        let closeTimeout;
 
         const openBar = () => {
+            clearTimeout(closeTimeout);
             topBar.classList.add('active');
             tab.setAttribute('aria-expanded', 'true');
-            tab.setAttribute('aria-label', 'Close settings');
-            if (toggleBtn) {
-                toggleBtn.setAttribute('tabindex', '0');
-                toggleBtn.focus();
+            profileSelect.setAttribute('tabindex', '0');
+            langSelect.setAttribute('tabindex', '0');
+        };
+
+        const closeBar = (immediate = false) => {
+            clearTimeout(closeTimeout);
+            if (immediate) {
+                topBar.classList.remove('active');
+                tab.setAttribute('aria-expanded', 'false');
+                profileSelect.setAttribute('tabindex', '-1');
+                langSelect.setAttribute('tabindex', '-1');
+            } else {
+                closeTimeout = setTimeout(() => {
+                    topBar.classList.remove('active');
+                    tab.setAttribute('aria-expanded', 'false');
+                    profileSelect.setAttribute('tabindex', '-1');
+                    langSelect.setAttribute('tabindex', '-1');
+                }, 200); // Debounce duration
             }
         };
 
-        const closeBar = () => {
-            topBar.classList.remove('active');
-            tab.setAttribute('aria-expanded', 'false');
-            tab.setAttribute('aria-label', 'Open settings');
-            if (toggleBtn) toggleBtn.setAttribute('tabindex', '-1');
-        };
+        // Hover logic
+        topBar.addEventListener('mouseenter', openBar);
+        topBar.addEventListener('mouseleave', () => closeBar(false));
 
-        tab.addEventListener('click', (e) => {
-            e.stopPropagation();
-            topBar.classList.contains('active') ? closeBar() : openBar();
+        // Auto-close on selection
+        profileSelect.addEventListener('change', () => {
+            root.setAttribute('data-theme', profileSelect.value);
+            localStorage.setItem(THEME_KEY, profileSelect.value);
+            closeBar(true); 
         });
 
-        document.addEventListener('click', (e) => {
-            if (!topBar.contains(e.target)) closeBar();
+        langSelect.addEventListener('change', () => {
+            if (typeof window.setLang === 'function') window.setLang(langSelect.value);
+            closeBar(true);
         });
 
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && topBar.classList.contains('active')) {
-                closeBar();
-                tab.focus();
-            }
-        });
-    }
-
-    /* ── 3. THEME TOGGLE ─────────────────────────────────────────────────── */
-    const toggleLabel = document.getElementById('toggleLabel');
-
-    const syncLabel = (theme) => {
-        if (toggleLabel) toggleLabel.textContent = theme === 'dark' ? 'LIGHT MODE' : 'DARK MODE';
-    };
-
-    syncLabel(saved);
-
-    if (toggleBtn) {
-        toggleBtn.addEventListener('click', () => {
-            const current = root.getAttribute('data-theme') || 'dark';
-            const next    = current === 'dark' ? 'light' : 'dark';
-            root.setAttribute('data-theme', next);
-            localStorage.setItem(STORAGE_KEY, next);
-            syncLabel(next);
+        // Accessibility (Keyboard)
+        tab.addEventListener('focus', openBar);
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeBar(true);
         });
     }
 
-    /* ── 4. DESKTOP NAV — small icon + text label ────────────────────────── */
-    const desktopNav = document.querySelector('.top-nav');
-    if (desktopNav) {
-        desktopNav.innerHTML = '';
-
-        SITE_CONFIG.navigation.forEach(item => {
-            if (!item.enabled) return;
-
-            const btn = document.createElement('button');
-            btn.className = item.type === 'button' ? 'nav-link nav-newsletter' : 'nav-link';
-
-            // Icon span — SVG injected async, fallback shown while loading
-            const iconEl = document.createElement('span');
-            iconEl.className = 'nav-icon';
-            iconEl.innerHTML = FALLBACK_SVG;
-
-            const labelEl = document.createElement('span');
-            labelEl.textContent = item.label;
-
-            btn.appendChild(iconEl);
-            btn.appendChild(labelEl);
-            btn.onclick = () => item.slug === 'newsletter'
-                ? window.showHome(true)
-                : window.viewPage(item.slug);
-
-            desktopNav.appendChild(btn);
-
-            // Fetch and inject the real icon
-            if (item.icon) {
-                fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
-            }
-        });
-    }
-
-    /* ── 5. MOBILE NAV — large icon + short label underneath ────────────── */
-    const mobileNav = document.getElementById('mobile-nav');
-    if (mobileNav) {
-        mobileNav.innerHTML = '';
-
-        SITE_CONFIG.navigation.forEach(item => {
-            if (!item.enabled) return;
-
-            const btn = document.createElement('button');
-            btn.className = item.type === 'button'
-                ? 'mobile-nav-item mobile-nav-cta'
-                : 'mobile-nav-item';
-
-            const iconEl = document.createElement('span');
-            iconEl.className = 'mobile-nav-icon';
-            iconEl.innerHTML = FALLBACK_SVG;
-
-            const labelEl = document.createElement('span');
-            labelEl.className   = 'mobile-nav-label';
-            labelEl.textContent = item.mobileLabel || item.label;
-
-            btn.appendChild(iconEl);
-            btn.appendChild(labelEl);
-            btn.onclick = () => item.slug === 'newsletter'
-                ? window.showHome(true)
-                : window.viewPage(item.slug);
-
-            mobileNav.appendChild(btn);
-
-            // Reuse the cached fetch from desktop nav if already loaded
-            if (item.icon) {
-                fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
-            }
-        });
-    }
+    window.renderNav();
 }
