@@ -64,15 +64,17 @@ export function initPageLoader() {
     // All content lives at:  content/{lang}/{file}
     // The `file` in config is just the filename, e.g. 'about-us.html'
     function contentPath(page) {
-        const lang = window.LANG || 'en';
-        return `content/${lang}/${page.file}`;
+        const lang  = window.LANG || 'en';
+        const base  = SITE_CONFIG.appearance.base_path;
+        return `${base}content/${lang}/${page.file}`;
     }
 
     // ── LOAD HOME ─────────────────────────────────────────────────────────────
     window.loadHome = async () => {
         try {
             const lang = window.LANG || 'en';
-            const res  = await fetch(`content/${lang}/home.html`);
+            const base = SITE_CONFIG.appearance.base_path;
+            const res  = await fetch(`${base}content/${lang}/home.html`);
             if (!res.ok) throw new Error();
             const html = await res.text();
             homeView.innerHTML = html;
@@ -104,9 +106,12 @@ export function initPageLoader() {
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
 
-            // Push a clean URL — use /{lang}/{slug} pattern for i18n
+            // Push a clean URL — use base_path prefix
             const lang = window.LANG || 'en';
-            const url  = lang === 'en' ? `/${slug}` : `/${lang}/${slug}`;
+            const base = SITE_CONFIG.appearance.base_path;
+            const url  = lang === 'en'
+                ? `${base}${slug}`
+                : `${base}${lang}/${slug}`;
             window.history.pushState({ slug, lang }, page.title, url);
 
             updateSEO(slug);
@@ -128,7 +133,8 @@ export function initPageLoader() {
     window.showHome = () => {
         pageView.classList.add('hidden');
         homeView.classList.remove('hidden');
-        window.history.pushState({}, '', '/');
+        const base = SITE_CONFIG.appearance.base_path;
+        window.history.pushState({}, '', base);
         updateSEO('');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };

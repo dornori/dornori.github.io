@@ -31,7 +31,8 @@ export function initFooter() {
 
         visibleLinks.forEach(link => {
             const lang = window.LANG || 'en';
-            const href = lang === 'en' ? `/${link.slug}` : `/${lang}/${link.slug}`;
+            const base = SITE_CONFIG.appearance.base_path;
+            const href = lang === 'en' ? `${base}${link.slug}` : `${base}${lang}/${link.slug}`;
 
             const a   = document.createElement('a');
             a.href    = href;

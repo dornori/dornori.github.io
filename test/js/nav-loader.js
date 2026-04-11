@@ -47,7 +47,8 @@ async function fetchSVG(path) {
 // English uses clean /slug; other languages use /lang/slug.
 function navHref(slug) {
     const lang = window.LANG || 'en';
-    return lang === 'en' ? `/${slug}` : `/${lang}/${slug}`;
+    const base = SITE_CONFIG.appearance.base_path;
+    return lang === 'en' ? `${base}${slug}` : `${base}${lang}/${slug}`;
 }
 
 export function initNavigation() {

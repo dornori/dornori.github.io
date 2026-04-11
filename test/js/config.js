@@ -22,7 +22,9 @@ const SITE_CONFIG = {
         icyLemon:          '#F5F29B',
         bgDark:            '#050505',
         bannerStickyOffset: 0.35,
-        root_url:          'https://dornori.com'
+        root_url:          'https://dornori.com',
+        // Set to '/' when deployed to root. Include trailing slash.
+        base_path:         '/test/'
     },
 
     // ─── SUPPORTED LANGUAGES ──────────────────────────────────────────────────
