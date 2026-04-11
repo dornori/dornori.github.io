@@ -2,15 +2,11 @@
    main.css — Dornori
    ───────────────────────────────────────────────────────────────────────────── */
 
-/* ── DESIGN TOKENS ─────────────────────────────────────────────────────────── */
-/* Colour tokens and all theme profiles live in css/profiles.css               */
-/* Only typography (never changes between themes) is defined here.             */
 :root {
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
-/* ── BASE RESET ────────────────────────────────────────────────────────────── */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; height: 100%; }
 
@@ -29,98 +25,109 @@ body {
     background-size: 100% 100%, 50px 50px, 50px 50px;
 }
 
-/* ── SETTINGS TAB (hangs below #topBar, moves with it) ─────────────────────── */
-/* HOVER OPEN */
-@media (hover: hover) {
-
-    #topBar:hover {
-        transform: translateY(0);
-    }
-
-    /* ALSO open when hovering the tab itself */
-    #topBar-tab:hover + * ,
-    #topBar:hover {
-        transform: translateY(0);
-    }
+/* ── TOP SETTINGS BAR ─────────────────────────────────────────────────────── */
+#topBar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 44px;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 24px;
+    gap: 16px;
+    background: var(--header-bg, var(--bg));
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 2px 0 0 var(--accent);
+    transform: translateY(-100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: auto;
 }
 
-/* KEEP FOR MOBILE */
 #topBar.active {
     transform: translateY(0);
 }
-/* ── PROFILE SELECTOR (inside #topBar) ─────────────────────────────────────── */
+
+/* ── SETTINGS TAB (GEAR) ──────────────────────────────────────────────────── */
+#topBar-tab {
+    position: absolute;
+    bottom: -28px;
+    right: 24px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    box-shadow: 0 2px 0 0 var(--accent);
+    pointer-events: auto;
+}
+
+/* THE POINTER BRIDGE: 
+   This invisible area connects the tab to the bar. 
+   Without this, the hover breaks if there is a 1px gap between them.
+*/
+#topBar-tab::before {
+    content: '';
+    position: absolute;
+    top: -20px;
+    left: 0;
+    right: 0;
+    height: 20px;
+    background: transparent;
+}
+
+#topBar-tab:hover {
+    color: var(--accent);
+}
+
+#topBar-tab svg {
+    width: 12px;
+    height: 12px;
+    transition: transform 0.5s ease;
+}
+
+#topBar.active #topBar-tab svg {
+    transform: rotate(180deg);
+}
+
+/* ── SELECTORS ────────────────────────────────────────────────────────────── */
 .profile-selector-wrap {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     font-family: var(--font-mono);
     font-size: 10px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
     color: var(--text-muted);
-    cursor: default;
 }
 
 .profile-select {
     appearance: none;
-    -webkit-appearance: none;
     background: transparent;
     border: 1px solid var(--border);
     border-radius: 3px;
     color: var(--text);
     font-family: var(--font-mono);
     font-size: 10px;
-    letter-spacing: 0.1em;
     padding: 4px 24px 4px 8px;
     cursor: pointer;
-    /* chevron arrow */
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 6px center;
-    transition: border-color 0.2s, color 0.2s;
 }
 
-.profile-select:hover,
-.profile-select:focus {
-    border-color: var(--accent);
-    color: var(--accent);
-    outline: none;
-}
-
-.profile-select option {
-    background: #111;
-    color: #eee;
-}
-
-/* ── THEME TOGGLE (legacy — kept for reference, no longer rendered) ────────── */
-#themeToggle { display: none; }
-
-.toggle-track {
-    position: relative;
-    display: inline-block;
-    width: 32px;
-    height: 16px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: transparent;
-    flex-shrink: 0;
-    transition: background 0.3s, border-color 0.3s;
-}
-
-.toggle-thumb {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--text-muted);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s;
-}
-
-
-
-/* ── HEADER (sticky banner) ────────────────────────────────────────────────── */
+/* ── MAIN HEADER ──────────────────────────────────────────────────────────── */
 header {
     width: 100%;
     position: sticky;
@@ -129,526 +136,39 @@ header {
     background: var(--header-bg, var(--bg));
 }
 
-.billboard-logo-wrap {
-    position: relative;
-    display: block;
-    width: 10%;
-    cursor: pointer;
-    transition: opacity 0.3s;
-    flex-shrink: 0;
-}
-
-.billboard-logo-wrap:hover { opacity: 0.8; }
-
-.billboard-logo {
-    width: 100%;
-    height: auto;
-    display: block;
-}
-
 .billboard-wordmark {
-    position: absolute;
-    /* visually the snake ring center sits at ~52% from top, 50% from left */
-    top: 52%;
-    left: 45%;
-    /* shift up by half a line-height so text baseline sits on center;
-       no horizontal shift — left edge of text starts at the center point */
-    transform: translateY(-50%);
     color: var(--accent);
     font-family: var(--font-mono);
-    /* scale with the logo which is 10vw wide; snake ring ≈ 55% of image width */
-    font-size: clamp(1.5rem, 3.0vw, 2.8rem);
+    font-size: clamp(1.5rem, 4vw, 3rem);
     font-weight: 700;
-    letter-spacing: 0.18em;
-    text-transform: none;
-    white-space: nowrap;
-    pointer-events: none;
-    transition: color 0.3s;
+    text-align: center;
+    padding: 40px 0;
 }
 
-/* ── NAVIGATION ────────────────────────────────────────────────────────────── */
 nav.top-nav {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
     display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    padding: 12px 40px;
-    z-index: 1001;
-    gap: 25px;
-    /* subtle gradient so links stay readable over the banner image */
-    background: linear-gradient(to top, rgba(5,5,5,0.55) 0%, transparent 100%);
+    justify-content: center;
+    padding: 10px 0;
+    gap: 20px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
 }
 
 .nav-link {
-    background: none;
-    border: none;
+    text-decoration: none;
     color: var(--text-muted);
-    cursor: pointer;
     font-family: var(--font-mono);
     font-size: 0.75rem;
     text-transform: uppercase;
-    letter-spacing: 2px;
-    transition: 0.3s ease;
-
-    /* icon + label side by side */
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
 }
 
-/* Desktop icon — small, inherits stroke colour from button */
-.nav-icon {
-    display: inline-flex;
-    align-items: center;
-    flex-shrink: 0;
-    width: 16px;
-    height: 16px;
-}
-
-.nav-icon svg {
-    width: 26px;
-    height: 26px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.nav-link:hover { color: var(--accent); }
-
-.nav-newsletter {
-    padding: 10px 20px;
-    background: var(--accent);
-    color: #000;
-    font-weight: 900;
-}
-
-/* Newsletter focus */
-#waitlist-form input:focus {
-    background: rgba(245, 242, 155, 0.05);
-    box-shadow: inset 0 0 10px rgba(245, 242, 155, 0.05);
-    transition: all 0.3s ease;
-}
-
-.input-row:focus-within {
-    border-color: var(--accent);
-    transition: border-color 0.3s ease;
-}
-
-/* Sub-page breathing room */
-#page-view { padding-bottom: 60px; }
-
-/* ── MAIN CONTENT ──────────────────────────────────────────────────────────── */
-main {
+#viewport {
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     padding: 40px 20px;
-    text-align: center;
-    width: 100%;
 }
 
-#home-view {
-    width: 100%;
-    max-width: 800px;
-    animation: fadeIn 0.5s ease;
-}
-
-/* Full-width content section — responsive side spacing */
-#page-view {
-    width: 100%;
-    max-width: 100%;
-    /* Desktop: generous breathing room */
-    padding-left:  clamp(16px, 5vw, 80px);
-    padding-right: clamp(16px, 5vw, 80px);
-    animation: fadeIn 0.5s ease;
-    box-sizing: border-box;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-.headline {
-    font-size: clamp(1.1rem, 3.5vw, 1.8rem);
-    font-weight: 200;
-    color: var(--text-muted);
-    line-height: 1.6;
-    margin-bottom: 40px;
-}
-
-/* ── WAITLIST CARD ─────────────────────────────────────────────────────────── */
-.waitlist-card {
-    background: var(--glass);
-    backdrop-filter: blur(20px);
-    border: 1px solid var(--border);
-    padding: 40px;
-    margin: 0 auto;
-    width: 100%;
-    max-width: 500px;
-}
-
-.input-row {
-    display: flex;
-    border: 1px solid var(--border);
-    margin-top: 20px;
-}
-
-input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    padding: 18px;
-    color: var(--text);
-    outline: none;
-    font-family: var(--font-mono);
-}
-
-.submit-btn {
-    background: var(--accent);
-    color: #000;
-    border: none;
-    padding: 0 30px;
-    font-family: var(--font-mono);
-    font-weight: 900;
-    text-transform: uppercase;
-    cursor: pointer;
-}
-
-.disclaimer-text {
-    margin-top: 20px;
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    color: var(--text-muted);
-}
-
-.link-btn {
-    background: none;
-    border: none;
-    color: var(--accent);
-    text-decoration: underline;
-    cursor: pointer;
-    font-size: inherit;
-}
-
-/* ── DYNAMIC PAGE CONTENT ──────────────────────────────────────────────────── */
-.view-inner { text-align: left; color: var(--text-muted); line-height: 1.8; }
-.view-inner h1 {
-    color: var(--accent);
-    font-family: var(--font-mono);
-    text-transform: uppercase;
-    margin-bottom: 30px;
-    font-size: 1.5rem;
-    letter-spacing: 3px;
-}
-.view-inner p { margin-bottom: 20px; }
-
-/* Make all h2, h3, h4 headers use accent color */
-h2, h3, h4 {
-    color: var(--accent);
-}
-
-/* Or just specific headers in your product page */
-.product-content h2,
-.product-content h3 {
-    color: var(--accent);
-}
-
-
-/* ── SOCIAL DOCK ───────────────────────────────────────────────────────────── */
-.social-dock {
-    margin-top: 50px;
-    display: flex;
-    gap: 12px;
-    justify-content: center;
-    flex-wrap: wrap;
-    width: 100%;
-}
-
-.social-link {
-    width: 48px; height: 48px;
-    display: flex; align-items: center; justify-content: center;
-    border: 1px solid var(--border);
-    background: rgba(245, 242, 155, 0.03);
-    color: var(--accent);
-    transition: all 0.4s ease;
-    text-decoration: none;
-}
-
-.social-link svg {
-    width: 22px; height: 22px;
-    display: block;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.2;
-}
-
-/* Brand hovers */
-.social-link[data-type="ig"]:hover      { color: #E1306C; border-color: #E1306C; }
-.social-link[data-type="x"]:hover       { color: #FFFFFF; border-color: #FFFFFF; }
-.social-link[data-type="yt"]:hover      { color: #FF0000; border-color: #FF0000; }
-.social-link[data-type="fb"]:hover      { color: #1877F2; border-color: #1877F2; }
-.social-link[data-type="li"]:hover      { color: #0077B5; border-color: #0077B5; }
-.social-link[data-type="tt"]:hover      { color: #00f2ea; border-color: #00f2ea; }
-.social-link[data-type="gh"]:hover      { color: #fafafa; border-color: #fafafa; }
-.social-link[data-type="discord"]:hover { color: #5865F2; border-color: #5865F2; }
-.social-link[data-type="tg"]:hover      { color: #26A5E4; border-color: #26A5E4; }
-
-/* ── FOOTER ────────────────────────────────────────────────────────────────── */
-.site-footer {
-    width: 100%;
-    padding: 40px 60px;
-    border-top: 1px solid rgba(245, 242, 155, 0.15); /* fixed — not theme-dependent */
-    background: var(--footer-bg, #050505);                /* fallback: always dark */
-    margin-top: auto;
-}
-
-.footer-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-}
-
-.copyright-text {
-    color: #555;
-    font-family: var(--font-mono);
-    font-size: 0.65rem;
-    letter-spacing: 2px;
-}
-
-.technical-credits { display: flex; gap: 30px; }
-
-.credit-item {
-    font-family: var(--font-mono);
-    font-size: 0.6rem;
-    color: #444;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.credit-item strong { color: #666; font-weight: 400; }
-
-.status-dot {
-    width: 4px; height: 4px;
-    background: rgba(245, 242, 155, 0.15);
-    border-radius: 50%;
-}
-
-/* ── UTILITY ───────────────────────────────────────────────────────────────── */
 .hidden { display: none !important; }
 
-/* ── RESPONSIVE ────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
-    .footer-container  { flex-direction: column; gap: 20px; text-align: center; }
-    .technical-credits { flex-direction: column; gap: 10px; }
-    nav.top-nav        { padding: 20px; gap: 15px; }
-    #themeToggle       { bottom: 8px; right: 10px; }
-}
-
-/* ── FOOTER LINK COLUMNS (populated by footer-loader.js) ──────────────────── */
-.footer-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 48px;
-    padding-bottom: 32px;
-    border-bottom: 1px solid rgba(245, 242, 155, 0.15);
-    margin-bottom: 28px;
-    width: 100%;
-}
-
-.footer-col {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    min-width: 120px;
-}
-
-.footer-col-heading {
-    font-family: var(--font-mono);
-    font-size: 0.6rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: #F5F29B;            /* fixed lemon — always on dark footer */
-    margin-bottom: 4px;
-}
-
-.footer-link {
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.06em;
-    color: #555;
-    text-align: left;
-    transition: color 0.2s;
-}
-
-.footer-link:hover { color: #F5F29B; }
-
-/* Bottom bar (copyright + credits) */
-.footer-bottom {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-}
-
-@media (max-width: 768px) {
-    .footer-links  { gap: 32px; }
-    .footer-bottom { flex-direction: column; gap: 16px; text-align: center; }
-    .footer-col-heading,
-    .footer-link   { text-align: center; }
-}
-
-/* ── MOBILE NAV ────────────────────────────────────────────────────────────── */
-/*
-   Hidden on desktop. On mobile it sits just below the banner as a fixed
-   strip — its top value is set dynamically by sticky-banner.js so it
-   tracks and locks exactly with the banner.
-*/
-.mobile-nav {
-    display: none; /* hidden on desktop */
-}
-
-@media (max-width: 768px) {
-
-    /* Hide desktop nav on mobile */
     nav.top-nav { display: none; }
-
-    /* Show mobile nav */
-    .mobile-nav {
-        display: flex;
-        position: fixed;
-        left: 0;
-        right: 0;
-        z-index: 999; /* just below header (1000) */
-
-        flex-direction: row;
-        justify-content: space-around;
-        align-items: stretch;
-
-        background: var(--header-bg, var(--bg));
-        border-bottom: 1px solid var(--border);
-        box-shadow: 0 2px 0 0 var(--accent);
-    }
-
-    .mobile-nav-item {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
-        padding: 10px 4px;
-
-        background: none;
-        border: none;
-        border-right: 1px solid var(--border);
-        cursor: pointer;
-        transition: background 0.2s;
-    }
-
-    .mobile-nav-item:last-child {
-        border-right: none;
-    }
-
-    .mobile-nav-item:active {
-        background: rgba(245, 242, 155, 0.06);
-    }
-
-    .mobile-nav-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 24px;
-        height: 24px;
-    }
-
-    .mobile-nav-icon svg {
-        width: 34px;
-        height: 34px;
-        stroke: currentColor;
-        fill: none;
-    }
-
-    .mobile-nav-label {
-        font-family: var(--font-mono);
-        font-size: 0.55rem;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--text-muted);
-    }
-
-    /* CTA item (eg Newsletter) gets accent treatment */
-    .mobile-nav-cta {
-        background: #BED4E1;
-    }
-
-    .mobile-nav-cta .mobile-nav-label {
-        color: var(--accent);
-        font-weight: 700;
-    }
-
-    /* Push main content down so mobile nav doesn't overlap it */
-    #viewport {
-        margin-top: 60px; /* approx mobile nav height */
-    }
-}
-
-/* ── MOBILE NAV ICON — responsive sizing ──────────────────────────────────── */
-
-/* Small phones (≤380px) — tighter, more compact */
-@media (max-width: 380px) {
-    .mobile-nav-icon,
-    .mobile-nav-icon svg {
-        width: 30px;
-        height: 30px;
-    }
-    .mobile-nav-label {
-        font-size: 0.5rem;
-    }
-}
-
-/* Larger phones / small tablets (≥480px up to 768px) — more room, go bigger */
-@media (min-width: 480px) and (max-width: 768px) {
-    .mobile-nav-icon,
-    .mobile-nav-icon svg {
-        width: 38px;
-        height: 38px;
-    }
-    .mobile-nav-label {
-        font-size: 0.6rem;
-    }
-}
-
-/* ── DESKTOP NAV ICON ──────────────────────────────────────────────────────── */
-.nav-icon {
-    display: inline-flex;
-    align-items: center;
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-}
-
-.nav-icon svg {
-    width: 26px;
-    height: 26px;
-    stroke: currentColor;
-    fill: none;
-}
-
-.nav-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
 }
