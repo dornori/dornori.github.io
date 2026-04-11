@@ -1,4 +1,5 @@
 import { mountSlideshow } from './slideshow.js';
+import { initEmbedForms } from './embed-form.js';
 import SITE_CONFIG from './config.js';
 
 export function initPageLoader() {
@@ -12,8 +13,9 @@ export function initPageLoader() {
             const res = await fetch(page.file);
             pageContent.innerHTML = await res.text();
             
-            // Just scan the new HTML and mount the slideshows
+            // Mount galleries and forms in the freshly injected content
             pageContent.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
+            initEmbedForms();
 
             document.getElementById('home-view').classList.add('hidden');
             document.getElementById('page-view').classList.remove('hidden');
