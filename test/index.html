@@ -75,13 +75,17 @@
         initFooter();
         initEmbedForms();
 
-        // Load home content and mount any gallery/slideshow elements inside it
+        // Load home content, then mount galleries and forms that live inside it.
+        // initEmbedForms() runs at boot before this fetch resolves, so any
+        // .embed-form-root injected here would be missed — we call it again
+        // scoped to homeView so only the new nodes are initialised.
         fetch('/content/home.html')
             .then(response => response.text())
             .then(html => {
                 const homeView = document.getElementById('home-view');
                 homeView.innerHTML = html;
                 homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
+                initEmbedForms();
             })
             .catch(error => console.error('Failed to load home content:', error));
     </script>
