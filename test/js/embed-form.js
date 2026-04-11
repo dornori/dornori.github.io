@@ -19,7 +19,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import SITE_CONFIG from './config_DRAFT.js';
+import SITE_CONFIG from './config.js';
 
 /* ─── HTML template ────────────────────────────────────────────────────────── */
 function buildFormHTML(uid) {
