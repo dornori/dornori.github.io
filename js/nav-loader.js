@@ -43,6 +43,7 @@ function navHref(slug) {
 }
 
 // ── NAV RENDER ───────────────────────────────────────────────────────────────
+// Separated so i18n can call window.renderNav() on language switch
 window.renderNav = () => {
     const T = window.T || {};
 
@@ -111,11 +112,13 @@ window.renderNav = () => {
 // ── MAIN INIT ────────────────────────────────────────────────────────────────
 export function initNavigation() {
 
+    /* ── Theme ── */
     const THEME_KEY = 'dornori-theme';
     const root      = document.documentElement;
     const saved     = localStorage.getItem(THEME_KEY) || 'cutting-mat';
     root.setAttribute('data-theme', saved);
 
+    /* ── Settings topBar ── */
     const topBar = document.getElementById('topBar');
     if (topBar) {
         const T = window.T?.ui || {};
@@ -128,6 +131,7 @@ export function initNavigation() {
         const profileSelect     = document.createElement('select');
         profileSelect.id        = 'profileSelect';
         profileSelect.className = 'profile-select';
+        profileSelect.setAttribute('aria-label', 'Choose colour profile');
         profileSelect.setAttribute('tabindex', '-1');
 
         PROFILES.forEach(p => {
@@ -138,6 +142,14 @@ export function initNavigation() {
             profileSelect.appendChild(opt);
         });
 
+        profileSelect.addEventListener('change', () => {
+            root.setAttribute('data-theme', profileSelect.value);
+            localStorage.setItem(THEME_KEY, profileSelect.value);
+        });
+
+        profileWrap.appendChild(profileSelect);
+        topBar.appendChild(profileWrap);
+
         // Language selector
         const langWrap       = document.createElement('label');
         langWrap.className   = 'profile-selector-wrap';
@@ -146,7 +158,9 @@ export function initNavigation() {
         const langSelect     = document.createElement('select');
         langSelect.id        = 'langSelect';
         langSelect.className = 'profile-select';
+        langSelect.setAttribute('aria-label', 'Choose language');
         langSelect.setAttribute('tabindex', '-1');
+        langSelect.value     = window.LANG || 'en';
 
         SITE_CONFIG.languages.forEach(l => {
             const opt       = document.createElement('option');
@@ -156,8 +170,19 @@ export function initNavigation() {
             langSelect.appendChild(opt);
         });
 
+        langSelect.addEventListener('change', () => {
+            if (typeof window.setLang === 'function') window.setLang(langSelect.value);
+        });
+
+        langWrap.appendChild(langSelect);
+        topBar.appendChild(langWrap);
+
+        // Settings gear tab
         const tab = document.createElement('button');
         tab.id    = 'topBar-tab';
+        tab.setAttribute('aria-label', 'Open settings');
+        tab.setAttribute('aria-expanded', 'false');
+        tab.setAttribute('aria-controls', 'topBar');
         tab.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
                  stroke-linecap="round" stroke-linejoin="round">
@@ -174,62 +199,34 @@ export function initNavigation() {
             </svg>
             <span>${T.settings || 'SETTINGS'}</span>
         `;
-
-        topBar.appendChild(profileWrap);
-        profileWrap.appendChild(profileSelect);
-        topBar.appendChild(langWrap);
-        langWrap.appendChild(langSelect);
         topBar.appendChild(tab);
 
-        let closeTimeout;
-
         const openBar = () => {
-            clearTimeout(closeTimeout);
             topBar.classList.add('active');
             tab.setAttribute('aria-expanded', 'true');
+            tab.setAttribute('aria-label', 'Close settings');
             profileSelect.setAttribute('tabindex', '0');
             langSelect.setAttribute('tabindex', '0');
+            profileSelect.focus();
+        };
+        const closeBar = () => {
+            topBar.classList.remove('active');
+            tab.setAttribute('aria-expanded', 'false');
+            tab.setAttribute('aria-label', 'Open settings');
+            profileSelect.setAttribute('tabindex', '-1');
+            langSelect.setAttribute('tabindex', '-1');
         };
 
-        const closeBar = (immediate = false) => {
-            clearTimeout(closeTimeout);
-            if (immediate) {
-                topBar.classList.remove('active');
-                tab.setAttribute('aria-expanded', 'false');
-                profileSelect.setAttribute('tabindex', '-1');
-                langSelect.setAttribute('tabindex', '-1');
-            } else {
-                closeTimeout = setTimeout(() => {
-                    topBar.classList.remove('active');
-                    tab.setAttribute('aria-expanded', 'false');
-                    profileSelect.setAttribute('tabindex', '-1');
-                    langSelect.setAttribute('tabindex', '-1');
-                }, 200); // Debounce duration
-            }
-        };
-
-        // Hover logic
-        topBar.addEventListener('mouseenter', openBar);
-        topBar.addEventListener('mouseleave', () => closeBar(false));
-
-        // Auto-close on selection
-        profileSelect.addEventListener('change', () => {
-            root.setAttribute('data-theme', profileSelect.value);
-            localStorage.setItem(THEME_KEY, profileSelect.value);
-            closeBar(true); 
+        tab.addEventListener('click', e => {
+            e.stopPropagation();
+            topBar.classList.contains('active') ? closeBar() : openBar();
         });
-
-        langSelect.addEventListener('change', () => {
-            if (typeof window.setLang === 'function') window.setLang(langSelect.value);
-            closeBar(true);
-        });
-
-        // Accessibility (Keyboard)
-        tab.addEventListener('focus', openBar);
+        document.addEventListener('click', e => { if (!topBar.contains(e.target)) closeBar(); });
         document.addEventListener('keydown', e => {
-            if (e.key === 'Escape') closeBar(true);
+            if (e.key === 'Escape' && topBar.classList.contains('active')) { closeBar(); tab.focus(); }
         });
     }
 
+    // Render nav links
     window.renderNav();
 }
