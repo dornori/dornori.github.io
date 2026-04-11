@@ -1,212 +1,169 @@
-/**
- * nav-loader.js
- * ─────────────────────────────────────────────────────────────────────────────
- * Reads labels from window.T (loaded by i18n.js from lang/{code}.json).
- * Exposes window.renderNav() so setLang() can re-render without a page reload.
- */
+/* ─────────────────────────────────────────────────────────────────────────────
+   main.css — Dornori
+   ───────────────────────────────────────────────────────────────────────────── */
 
-import SITE_CONFIG from './config.js';
-
-const PROFILES = [
-    { id: 'dark',        label: 'Dark'        },
-    { id: 'light',       label: 'Light'       },
-    { id: 'cutting-mat', label: 'Cutting Mat' },
-];
-
-const FALLBACK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-     stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="9"/>
-    <line x1="12" x1="12" x2="12" y2="13"/>
-    <circle cx="12" cy="16" r="0.6" fill="currentColor" stroke="none"/>
-</svg>`;
-
-const svgCache = new Map();
-async function fetchSVG(path) {
-    if (svgCache.has(path)) return svgCache.get(path);
-    try {
-        const res = await fetch(path);
-        if (!res.ok) throw new Error();
-        const svg = await res.text();
-        svgCache.set(path, svg);
-        return svg;
-    } catch {
-        svgCache.set(path, FALLBACK_SVG);
-        return FALLBACK_SVG;
-    }
+:root {
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
-function navHref(slug) {
-    const lang = window.LANG || 'en';
-    const base = SITE_CONFIG.appearance.base_path;
-    return lang === 'en' ? `${base}${slug}` : `${base}${lang}/${slug}`;
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; height: 100%; }
+
+body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    background-image:
+        radial-gradient(circle at center, transparent 0%, var(--bg) 95%),
+        linear-gradient(rgba(245, 242, 155, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(245, 242, 155, 0.03) 1px, transparent 1px);
+    background-size: 100% 100%, 50px 50px, 50px 50px;
 }
 
-window.renderNav = () => {
-    const T = window.T || {};
+/* ── SETTINGS TAB ── */
+#topBar-tab {
+    position: absolute;
+    bottom: -28px;
+    right: 24px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    box-shadow: 0 2px 0 0 var(--accent);
+    transition: color 0.2s, background 0.2s;
+}
 
-    /* ── Desktop nav ── */
-    const desktopNav = document.querySelector('.top-nav');
-    if (desktopNav) {
-        desktopNav.innerHTML = '';
-        SITE_CONFIG.navigation.forEach(item => {
-            if (!item.enabled) return;
-            const t = T.nav?.[item.slug] || {};
-            const a = document.createElement('a');
-            a.href = navHref(item.slug);
-            a.className = item.type === 'button' ? 'nav-link nav-newsletter' : 'nav-link';
-            a.setAttribute('data-slug', item.slug);
+/* Invisible bridge to prevent pointer gaps */
+#topBar-tab::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 0;
+    right: 0;
+    height: 10px;
+}
 
-            const iconEl = document.createElement('span');
-            iconEl.className = 'nav-icon';
-            iconEl.innerHTML = FALLBACK_SVG;
+#topBar-tab:hover { color: var(--accent); }
 
-            const labelEl = document.createElement('span');
-            labelEl.textContent = t.label || item.slug;
+#topBar-tab svg {
+    width: 12px;
+    height: 12px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-            a.appendChild(iconEl);
-            a.appendChild(labelEl);
-            a.addEventListener('click', e => { e.preventDefault(); window.viewPage(item.slug); });
-            desktopNav.appendChild(a);
+#topBar.active #topBar-tab svg { transform: rotate(45deg); }
 
-            if (item.icon) fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
-        });
+/* ── HOVER-REVEAL TOP BAR ── */
+#topBar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 44px;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 24px;
+    gap: 16px;
+    background: var(--header-bg, var(--bg));
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 2px 0 0 var(--accent);
+    overflow: visible;
+    transform: translateY(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#topBar.active { transform: translateY(0); }
+
+/* ── SELECTORS ── */
+.profile-selector-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.profile-select {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 4px 24px 4px 8px;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+}
+
+/* ── NAVIGATION & LAYOUT ── */
+header {
+    width: 100%;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: var(--header-bg, var(--bg));
+}
+
+nav.top-nav {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px 40px;
+    gap: 25px;
+}
+
+.nav-link {
+    text-decoration: none;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.nav-link:hover { color: var(--accent); }
+
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+}
+
+.hidden { display: none !important; }
+
+@media (max-width: 768px) {
+    nav.top-nav { display: none; }
+    .mobile-nav {
+        display: flex;
+        position: fixed;
+        left: 0;
+        right: 0;
+        z-index: 999;
+        background: var(--header-bg, var(--bg));
+        border-bottom: 1px solid var(--border);
     }
-
-    /* ── Mobile nav ── */
-    const mobileNav = document.getElementById('mobile-nav');
-    if (mobileNav) {
-        mobileNav.innerHTML = '';
-        SITE_CONFIG.navigation.forEach(item => {
-            if (!item.enabled) return;
-            const t = T.nav?.[item.slug] || {};
-            const a = document.createElement('a');
-            a.href = navHref(item.slug);
-            a.className = item.type === 'button' ? 'mobile-nav-item mobile-nav-cta' : 'mobile-nav-item';
-            a.setAttribute('data-slug', item.slug);
-
-            const iconEl = document.createElement('span');
-            iconEl.className = 'mobile-nav-icon';
-            iconEl.innerHTML = FALLBACK_SVG;
-
-            const labelEl = document.createElement('span');
-            labelEl.className = 'mobile-nav-label';
-            labelEl.textContent = t.mobileLabel || t.label || item.slug;
-
-            a.appendChild(iconEl);
-            a.appendChild(labelEl);
-            a.addEventListener('click', e => { e.preventDefault(); window.viewPage(item.slug); });
-            mobileNav.appendChild(a);
-
-            if (item.icon) fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
-        });
-    }
-};
-
-export function initNavigation() {
-    const THEME_KEY = 'dornori-theme';
-    const root = document.documentElement;
-    const saved = localStorage.getItem(THEME_KEY) || 'cutting-mat';
-    root.setAttribute('data-theme', saved);
-
-    const topBar = document.getElementById('topBar');
-    if (topBar) {
-        topBar.innerHTML = ''; // Clear existing content to prevent duplication
-        const T = window.T?.ui || {};
-
-        // Profile Selector
-        const profileWrap = document.createElement('label');
-        profileWrap.className = 'profile-selector-wrap';
-        profileWrap.textContent = (T.profile || 'PROFILE') + ' ';
-
-        const profileSelect = document.createElement('select');
-        profileSelect.id = 'profileSelect';
-        profileSelect.className = 'profile-select';
-        profileSelect.setAttribute('tabindex', '-1');
-
-        PROFILES.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.id;
-            opt.textContent = p.label.toUpperCase();
-            if (p.id === saved) opt.selected = true;
-            profileSelect.appendChild(opt);
-        });
-
-        profileSelect.addEventListener('change', () => {
-            root.setAttribute('data-theme', profileSelect.value);
-            localStorage.setItem(THEME_KEY, profileSelect.value);
-        });
-
-        // Language Selector
-        const langWrap = document.createElement('label');
-        langWrap.className = 'profile-selector-wrap';
-        langWrap.textContent = (T.language || 'LANGUAGE') + ' ';
-
-        const langSelect = document.createElement('select');
-        langSelect.id = 'langSelect';
-        langSelect.className = 'profile-select';
-        langSelect.setAttribute('tabindex', '-1');
-
-        SITE_CONFIG.languages.forEach(l => {
-            const opt = document.createElement('option');
-            opt.value = l.code;
-            opt.textContent = `${l.flag} ${l.label}`;
-            if (l.code === (window.LANG || 'en')) opt.selected = true;
-            langSelect.appendChild(opt);
-        });
-
-        langSelect.addEventListener('change', () => {
-            if (typeof window.setLang === 'function') window.setLang(langSelect.value);
-        });
-
-        // Settings Tab
-        const tab = document.createElement('button');
-        tab.id = 'topBar-tab';
-        tab.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-                 stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06
-                         a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09
-                         A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83
-                         l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09
-                         A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83
-                         l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09
-                         a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83
-                         l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09
-                         a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-            <span>${T.settings || 'SETTINGS'}</span>
-        `;
-
-        // Proper Append Order
-        profileWrap.appendChild(profileSelect);
-        langWrap.appendChild(langSelect);
-        topBar.appendChild(profileWrap);
-        topBar.appendChild(langWrap);
-        topBar.appendChild(tab);
-
-        const openBar = () => {
-            topBar.classList.add('active');
-            tab.setAttribute('aria-expanded', 'true');
-            profileSelect.setAttribute('tabindex', '0');
-            langSelect.setAttribute('tabindex', '0');
-        };
-        const closeBar = () => {
-            topBar.classList.remove('active');
-            tab.setAttribute('aria-expanded', 'false');
-            profileSelect.setAttribute('tabindex', '-1');
-            langSelect.setAttribute('tabindex', '-1');
-        };
-
-        tab.addEventListener('click', e => {
-            e.stopPropagation();
-            topBar.classList.contains('active') ? closeBar() : openBar();
-        });
-        document.addEventListener('click', e => { if (!topBar.contains(e.target)) closeBar(); });
-        document.addEventListener('keydown', e => {
-            if (e.key === 'Escape' && topBar.classList.contains('active')) { closeBar(); tab.focus(); }
-        });
-    }
-
-    window.renderNav();
 }
