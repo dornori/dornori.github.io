@@ -56,7 +56,7 @@ export function mountSlideshow(root) {
         slide.innerHTML = `
             <picture style="width:100%;height:100%;">
                 <source srcset="${folder}${name}.webp" type="image/webp">
-                <img src="${folder}${name}.jpg" style="width:100%;height:100%;object-fit:cover;display:block;">
+                <img src="${folder}${name}.png" style="width:100%;height:100%;object-fit:cover;display:block;">
             </picture>`;
         root.appendChild(slide);
     });
