@@ -217,6 +217,7 @@ export function initNavigation() {
             langSelect.setAttribute('tabindex', '-1');
         };
 
+        // Click still works on all devices
         tab.addEventListener('click', e => {
             e.stopPropagation();
             topBar.classList.contains('active') ? closeBar() : openBar();
@@ -224,6 +225,23 @@ export function initNavigation() {
         document.addEventListener('click', e => { if (!topBar.contains(e.target)) closeBar(); });
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape' && topBar.classList.contains('active')) { closeBar(); tab.focus(); }
+        });
+
+        // Hover open/close — only on non-touch devices (pointer: fine = mouse/trackpad)
+        const isFinePonter = window.matchMedia('(pointer: fine)');
+        if (isFinePonter.matches) {
+            topBar.addEventListener('mouseenter', () => openBar());
+            topBar.addEventListener('mouseleave', () => closeBar());
+        }
+        // If device type changes (e.g. tablet with mouse attached), update behaviour
+        isFinePonter.addEventListener('change', e => {
+            if (e.matches) {
+                topBar.addEventListener('mouseenter', openBar);
+                topBar.addEventListener('mouseleave', closeBar);
+            } else {
+                topBar.removeEventListener('mouseenter', openBar);
+                topBar.removeEventListener('mouseleave', closeBar);
+            }
         });
     }
 
