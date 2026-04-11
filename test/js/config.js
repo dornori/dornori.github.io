@@ -42,7 +42,7 @@ const SITE_CONFIG = {
     // `label` and `mobileLabel` are intentionally absent — they come from
     // lang/{code}.json so they update when the language switches.
     navigation: [
-        { slug: 'about',  icon: 'assets/icons/building-kit-icon-200x200.svg',   type: 'standard', enabled: true  },
+        { slug: 'about',  icon: 'assets/icons/about-icon-200x200.svg',   type: 'standard', enabled: true  },
         { slug: 'built',  icon: 'assets/icons/assembled-lamp-icon-200x200.svg', type: 'standard', enabled: true  },
         { slug: 'kit',    icon: 'assets/icons/building-kit-icon-200x200.svg',   type: 'standard', enabled: true  },
         { slug: 'parts',  icon: 'assets/icons/3d-printer-icon-200x200.svg',     type: 'standard', enabled: true  },
