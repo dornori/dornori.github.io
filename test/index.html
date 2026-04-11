@@ -3,39 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dornori | revolutionary outdoor lighting</title>
-    <link rel="icon" href="/assets/icons/favicon.ico" sizes="any">
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32x32.png">
+
+    <title>Dornori — Build Your Own Rising Star Lamp</title>
+    <meta name="description" content="Discover Dornori's Star-A: a real kinetic outdoor lamp you build yourself. DC motor, 3D-printed parts, real electronics. For kids 7–12 and their grown-ups.">
+
+    <!-- Open Graph -->
+    <meta property="og:type"        content="website">
+    <meta property="og:url"         content="https://dornori.com">
+    <meta property="og:title"       content="Dornori — Build Your Own Rising Star Lamp">
+    <meta property="og:description" content="A kinetic outdoor lamp you build yourself. Real components, real engineering, for kids 7–12.">
+    <meta property="og:image"       content="https://dornori.com/assets/images/preview-image.jpg">
+
+    <!-- Twitter / X card -->
+    <meta name="twitter:card"        content="summary_large_image">
+    <meta name="twitter:title"       content="Dornori — Build Your Own Rising Star Lamp">
+    <meta name="twitter:description" content="A kinetic outdoor lamp you build yourself. Real components, real engineering, for kids 7–12.">
+    <meta name="twitter:image"       content="https://dornori.com/assets/images/preview-image.jpg">
+
+    <!-- Favicons -->
+    <link rel="icon"             href="/assets/icons/favicon.ico" sizes="any">
+    <link rel="icon"             href="/assets/icons/favicon-32x32.png" type="image/png" sizes="32x32">
     <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
-    <link rel="manifest" href="/assets/icons/site.webmanifest">
-    <meta name="description" content="Discover Dornori's exclusive collection of revolutionary outdoor lighting. High-quality craftsmanship meets modern design. Shop the latest live drops now.">
-    <meta property="og:title" content="Dornori - Official Store">
-    <meta property="og:description" content="Explore the new era of outdoor lighting with Dornori.">
-    <meta property="og:image" content="https://dornori.com/assets/images/preview-image.jpg">
+    <link rel="manifest"         href="/assets/icons/site.webmanifest">
+
+    <!-- Canonical (updated dynamically by page-loader) -->
+    <link rel="canonical" href="https://dornori.com">
+
+    <!-- Structured data — Organisation + Product -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Dornori",
+        "url": "https://dornori.com",
+        "logo": "https://dornori.com/assets/images/dornori-logo-transparent.webp",
+        "sameAs": [
+            "https://instagram.com/dornori.info",
+            "https://x.com/dornori_info",
+            "https://youtube.com/@dornori_info",
+            "https://facebook.com/Dornori.info"
+        ]
+    }
+    </script>
+
     <link rel="stylesheet" href="css/profiles.css">
     <link rel="stylesheet" href="css/main.css">
+
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
 
-    <!-- Settings-reveal top bar (profile selector rendered by nav-loader) -->
+    <!-- Settings bar (profile + language selectors rendered by nav-loader) -->
     <div id="topBar"></div>
 
-    <!-- Banner — desktop nav rides the bottom edge -->
+    <!-- Header -->
     <header id="main-header">
         <div class="billboard-logo-wrap" onclick="window.showHome()">
             <img src="assets/images/dornori-logo-transparent.webp" class="billboard-logo" alt="Dornori" id="banner-img">
             <span class="billboard-wordmark">Dornori</span>
         </div>
-        <nav class="top-nav"></nav>
+        <nav class="top-nav" aria-label="Main navigation"></nav>
     </header>
 
-    <!-- Mobile nav bar — sits just below the banner, scrolls/locks with it -->
-    <nav class="mobile-nav" id="mobile-nav"></nav>
+    <!-- Mobile nav -->
+    <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
 
     <main id="viewport">
         <div id="home-view">
-            <!-- Content loaded from /content/home.html -->
+            <!-- Loaded dynamically from content/{lang}/home.html -->
         </div>
 
         <div id="page-view" class="hidden">
@@ -63,34 +98,26 @@
     </footer>
 
     <script type="module">
-        import { initNavigation }   from './js/nav-loader.js';
-        import { initStickyBanner } from './js/sticky-banner.js';
-        import { initSocials }      from './js/social-loader.js';
-        import { initEmbedForms }   from './js/embed-form.js';
-        import { initPageLoader }   from './js/page-loader.js';
-        import { initFooter }       from './js/footer-loader.js';
-        import { mountSlideshow }   from './js/slideshow.js';
+        import { initI18n }        from './js/i18n.js';
+        import { initNavigation }  from './js/nav-loader.js';
+        import { initStickyBanner }from './js/sticky-banner.js';
+        import { initSocials }     from './js/social-loader.js';
+        import { initEmbedForms }  from './js/embed-form.js';
+        import { initPageLoader }  from './js/page-loader.js';
+        import { initFooter }      from './js/footer-loader.js';
+        import { mountSlideshow }  from './js/slideshow.js';
+
+        // i18n must resolve first — everything else depends on window.LANG
+        await initI18n();
 
         initNavigation();
         initStickyBanner();
         initSocials();
-        initPageLoader();
         initFooter();
         initEmbedForms();
 
-        // Load home content, then mount galleries and forms that live inside it.
-        // initEmbedForms() runs at boot before this fetch resolves, so any
-        // .embed-form-root injected here would be missed — we call it again
-        // scoped to homeView so only the new nodes are initialised.
-        fetch('content/home.html')
-            .then(response => response.text())
-            .then(html => {
-                const homeView = document.getElementById('home-view');
-                homeView.innerHTML = html;
-                homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
-                initEmbedForms();
-            })
-            .catch(error => console.error('Failed to load home content:', error));
+        // page-loader handles initial URL routing and home loading
+        initPageLoader();
     </script>
 </body>
 </html>
