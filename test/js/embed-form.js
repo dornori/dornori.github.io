@@ -74,8 +74,44 @@ function initFormInstance(root, uid) {
         });
     });
 
+    // Email input reference for validation
+    const emailInput = form.querySelector('input[type="email"]');
+
+    // Validate full RFC-5321 email format — local@domain.tld
+    // Rejects: missing @, missing dot in domain, spaces, consecutive dots etc.
+    function isValidEmail(val) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(val.trim());
+    }
+
+    // Show/clear inline error under the input
+    let errorEl = null;
+    function showEmailError(msg) {
+        if (!errorEl) {
+            errorEl           = document.createElement('p');
+            errorEl.className = 'ef-email-error';
+            errorEl.style.cssText = 'color:var(--accent);font-size:0.75rem;margin:4px 0 0;font-family:var(--font-mono);';
+            emailInput.parentNode.insertBefore(errorEl, emailInput.nextSibling);
+        }
+        errorEl.textContent = msg;
+    }
+    function clearEmailError() {
+        if (errorEl) errorEl.textContent = '';
+    }
+
+    // Clear error as user types
+    emailInput?.addEventListener('input', clearEmailError);
+
     form.addEventListener('submit', e => {
         e.preventDefault();
+
+        // Validate before doing anything else
+        if (!emailInput || !isValidEmail(emailInput.value)) {
+            showEmailError('Please enter a valid email address (e.g. name@example.com)');
+            emailInput?.focus();
+            return;
+        }
+        clearEmailError();
+
         /* Only render Turnstile widget on first submit attempt */
         if (captchaSlot.innerHTML.trim() === '') {
             btn.textContent = 'VERIFYING…';

@@ -104,4 +104,7 @@ export async function initI18n() {
     document.documentElement.setAttribute('lang', lang);
     window.T = await loadTranslations(lang);
     injectHreflangTags();
+    // Render nav and footer now that T is ready
+    if (typeof window.renderNav    === 'function') window.renderNav();
+    if (typeof window.renderFooter === 'function') window.renderFooter();
 }

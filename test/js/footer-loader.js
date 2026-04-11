@@ -59,5 +59,8 @@ window.renderFooter = () => {
 };
 
 export function initFooter() {
-    window.renderFooter();
+    // renderFooter() is called by initI18n() once window.T is loaded.
+    // initFooter() just ensures renderFooter is defined on window early enough.
+    // If T is already available (e.g. language was cached), render immediately.
+    if (window.T) window.renderFooter();
 }
