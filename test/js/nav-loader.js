@@ -1,16 +1,9 @@
 /**
  * nav-loader.js
  * ─────────────────────────────────────────────────────────────────────────────
- * 1. Theme setup + persistence
- * 2. Settings tab (#topBar) — profile selector + language selector
- * 3. Desktop nav  (.top-nav)  — <a href> tags so Google can crawl them
- * 4. Mobile nav   (#mobile-nav) — same, <a href> tags
- *
- * WHY <a> INSTEAD OF <button>
- * ─────────────────────────────────────────────────────────────────────────────
- * Google does not reliably execute JavaScript when crawling. Using real
- * <a href="/about"> tags means the crawler can discover and index all pages.
- * We intercept the click in JS to keep the SPA behaviour (no full page reload).
+ * Reads labels from window.T (loaded by i18n.js from lang/{code}.json).
+ * Exposes window.renderNav() so setLang() can re-render without a page reload.
+ * Uses <a href> tags so Google can crawl all pages.
  */
 
 import SITE_CONFIG from './config.js';
@@ -33,7 +26,7 @@ async function fetchSVG(path) {
     if (svgCache.has(path)) return svgCache.get(path);
     try {
         const res = await fetch(path);
-        if (!res.ok) throw new Error(`${res.status}`);
+        if (!res.ok) throw new Error();
         const svg = await res.text();
         svgCache.set(path, svg);
         return svg;
@@ -43,35 +36,99 @@ async function fetchSVG(path) {
     }
 }
 
-// Build the href for a nav item.
-// English uses clean /slug; other languages use /lang/slug.
 function navHref(slug) {
     const lang = window.LANG || 'en';
     const base = SITE_CONFIG.appearance.base_path;
     return lang === 'en' ? `${base}${slug}` : `${base}${lang}/${slug}`;
 }
 
+// ── NAV RENDER ───────────────────────────────────────────────────────────────
+// Separated so i18n can call window.renderNav() on language switch
+window.renderNav = () => {
+    const T = window.T || {};
+
+    /* ── Desktop nav ── */
+    const desktopNav = document.querySelector('.top-nav');
+    if (desktopNav) {
+        desktopNav.innerHTML = '';
+        SITE_CONFIG.navigation.forEach(item => {
+            if (!item.enabled) return;
+
+            const t = T.nav?.[item.slug] || {};
+
+            const a       = document.createElement('a');
+            a.href        = navHref(item.slug);
+            a.className   = item.type === 'button' ? 'nav-link nav-newsletter' : 'nav-link';
+            a.setAttribute('data-slug', item.slug);
+
+            const iconEl      = document.createElement('span');
+            iconEl.className  = 'nav-icon';
+            iconEl.innerHTML  = FALLBACK_SVG;
+
+            const labelEl     = document.createElement('span');
+            labelEl.textContent = t.label || item.slug;
+
+            a.appendChild(iconEl);
+            a.appendChild(labelEl);
+            a.addEventListener('click', e => { e.preventDefault(); window.viewPage(item.slug); });
+            desktopNav.appendChild(a);
+
+            if (item.icon) fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
+        });
+    }
+
+    /* ── Mobile nav ── */
+    const mobileNav = document.getElementById('mobile-nav');
+    if (mobileNav) {
+        mobileNav.innerHTML = '';
+        SITE_CONFIG.navigation.forEach(item => {
+            if (!item.enabled) return;
+
+            const t = T.nav?.[item.slug] || {};
+
+            const a     = document.createElement('a');
+            a.href      = navHref(item.slug);
+            a.className = item.type === 'button' ? 'mobile-nav-item mobile-nav-cta' : 'mobile-nav-item';
+            a.setAttribute('data-slug', item.slug);
+
+            const iconEl      = document.createElement('span');
+            iconEl.className  = 'mobile-nav-icon';
+            iconEl.innerHTML  = FALLBACK_SVG;
+
+            const labelEl       = document.createElement('span');
+            labelEl.className   = 'mobile-nav-label';
+            labelEl.textContent = t.mobileLabel || t.label || item.slug;
+
+            a.appendChild(iconEl);
+            a.appendChild(labelEl);
+            a.addEventListener('click', e => { e.preventDefault(); window.viewPage(item.slug); });
+            mobileNav.appendChild(a);
+
+            if (item.icon) fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
+        });
+    }
+};
+
+// ── MAIN INIT ────────────────────────────────────────────────────────────────
 export function initNavigation() {
 
-    /* ── 1. THEME ────────────────────────────────────────────────────────── */
+    /* ── Theme ── */
     const THEME_KEY = 'dornori-theme';
     const root      = document.documentElement;
     const saved     = localStorage.getItem(THEME_KEY) || 'cutting-mat';
     root.setAttribute('data-theme', saved);
 
-    /* ── 2. SETTINGS TAB + TOPBAR ────────────────────────────────────────── */
+    /* ── Settings topBar ── */
     const topBar = document.getElementById('topBar');
-    let profileSelect = null;
-    let langSelect    = null;
-
     if (topBar) {
+        const T = window.T?.ui || {};
 
-        // ── Profile selector ──────────────────────────────────────────────
-        const profileWrap     = document.createElement('label');
-        profileWrap.className = 'profile-selector-wrap';
-        profileWrap.textContent = 'PROFILE ';
+        // Profile selector
+        const profileWrap       = document.createElement('label');
+        profileWrap.className   = 'profile-selector-wrap';
+        profileWrap.textContent = (T.profile || 'PROFILE') + ' ';
 
-        profileSelect           = document.createElement('select');
+        const profileSelect     = document.createElement('select');
         profileSelect.id        = 'profileSelect';
         profileSelect.className = 'profile-select';
         profileSelect.setAttribute('aria-label', 'Choose colour profile');
@@ -86,52 +143,43 @@ export function initNavigation() {
         });
 
         profileSelect.addEventListener('change', () => {
-            const next = profileSelect.value;
-            root.setAttribute('data-theme', next);
-            localStorage.setItem(THEME_KEY, next);
+            root.setAttribute('data-theme', profileSelect.value);
+            localStorage.setItem(THEME_KEY, profileSelect.value);
         });
 
         profileWrap.appendChild(profileSelect);
         topBar.appendChild(profileWrap);
 
-        // ── Language selector ─────────────────────────────────────────────
-        const langWrap     = document.createElement('label');
-        langWrap.className = 'profile-selector-wrap';
-        langWrap.textContent = 'LANGUAGE ';
+        // Language selector
+        const langWrap       = document.createElement('label');
+        langWrap.className   = 'profile-selector-wrap';
+        langWrap.textContent = (T.language || 'LANGUAGE') + ' ';
 
-        langSelect           = document.createElement('select');
+        const langSelect     = document.createElement('select');
         langSelect.id        = 'langSelect';
         langSelect.className = 'profile-select';
         langSelect.setAttribute('aria-label', 'Choose language');
         langSelect.setAttribute('tabindex', '-1');
+        langSelect.value     = window.LANG || 'en';
 
         SITE_CONFIG.languages.forEach(l => {
             const opt       = document.createElement('option');
             opt.value       = l.code;
             opt.textContent = `${l.flag} ${l.label}`;
+            if (l.code === (window.LANG || 'en')) opt.selected = true;
             langSelect.appendChild(opt);
         });
 
-        // Set initial value once LANG is available (may be set async)
-        const setLangSelectValue = () => {
-            langSelect.value = window.LANG || 'en';
-        };
-        // Try now and also after a tick in case i18n is still resolving
-        setLangSelectValue();
-        setTimeout(setLangSelectValue, 200);
-
         langSelect.addEventListener('change', () => {
-            if (typeof window.setLang === 'function') {
-                window.setLang(langSelect.value);
-            }
+            if (typeof window.setLang === 'function') window.setLang(langSelect.value);
         });
 
         langWrap.appendChild(langSelect);
         topBar.appendChild(langWrap);
 
-        // ── Settings gear tab ─────────────────────────────────────────────
-        const tab  = document.createElement('button');
-        tab.id     = 'topBar-tab';
+        // Settings gear tab
+        const tab = document.createElement('button');
+        tab.id    = 'topBar-tab';
         tab.setAttribute('aria-label', 'Open settings');
         tab.setAttribute('aria-expanded', 'false');
         tab.setAttribute('aria-controls', 'topBar');
@@ -149,7 +197,7 @@ export function initNavigation() {
                          l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09
                          a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
-            <span>SETTINGS</span>
+            <span>${T.settings || 'SETTINGS'}</span>
         `;
         topBar.appendChild(tab);
 
@@ -161,7 +209,6 @@ export function initNavigation() {
             langSelect.setAttribute('tabindex', '0');
             profileSelect.focus();
         };
-
         const closeBar = () => {
             topBar.classList.remove('active');
             tab.setAttribute('aria-expanded', 'false');
@@ -174,93 +221,12 @@ export function initNavigation() {
             e.stopPropagation();
             topBar.classList.contains('active') ? closeBar() : openBar();
         });
-
-        document.addEventListener('click', e => {
-            if (!topBar.contains(e.target)) closeBar();
-        });
-
+        document.addEventListener('click', e => { if (!topBar.contains(e.target)) closeBar(); });
         document.addEventListener('keydown', e => {
-            if (e.key === 'Escape' && topBar.classList.contains('active')) {
-                closeBar();
-                tab.focus();
-            }
+            if (e.key === 'Escape' && topBar.classList.contains('active')) { closeBar(); tab.focus(); }
         });
     }
 
-    /* ── 3. DESKTOP NAV ──────────────────────────────────────────────────── */
-    const desktopNav = document.querySelector('.top-nav');
-    if (desktopNav) {
-        desktopNav.innerHTML = '';
-
-        SITE_CONFIG.navigation.forEach(item => {
-            if (!item.enabled) return;
-
-            // Use <a href> so Google can crawl it — intercept click for SPA
-            const a   = document.createElement('a');
-            a.href    = navHref(item.slug);
-            a.className = item.type === 'button' ? 'nav-link nav-newsletter' : 'nav-link';
-            a.setAttribute('data-slug', item.slug);
-
-            const iconEl  = document.createElement('span');
-            iconEl.className = 'nav-icon';
-            iconEl.innerHTML = FALLBACK_SVG;
-
-            const labelEl = document.createElement('span');
-            labelEl.textContent = item.label;
-
-            a.appendChild(iconEl);
-            a.appendChild(labelEl);
-
-            // SPA click interception
-            a.addEventListener('click', e => {
-                e.preventDefault();
-                window.viewPage(item.slug);
-            });
-
-            desktopNav.appendChild(a);
-
-            if (item.icon) {
-                fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
-            }
-        });
-    }
-
-    /* ── 4. MOBILE NAV ───────────────────────────────────────────────────── */
-    const mobileNav = document.getElementById('mobile-nav');
-    if (mobileNav) {
-        mobileNav.innerHTML = '';
-
-        SITE_CONFIG.navigation.forEach(item => {
-            if (!item.enabled) return;
-
-            const a   = document.createElement('a');
-            a.href    = navHref(item.slug);
-            a.className = item.type === 'button'
-                ? 'mobile-nav-item mobile-nav-cta'
-                : 'mobile-nav-item';
-            a.setAttribute('data-slug', item.slug);
-
-            const iconEl  = document.createElement('span');
-            iconEl.className = 'mobile-nav-icon';
-            iconEl.innerHTML = FALLBACK_SVG;
-
-            const labelEl = document.createElement('span');
-            labelEl.className   = 'mobile-nav-label';
-            labelEl.textContent = item.mobileLabel || item.label;
-
-            a.appendChild(iconEl);
-            a.appendChild(labelEl);
-
-            a.addEventListener('click', e => {
-                e.preventDefault();
-                window.viewPage(item.slug);
-            });
-
-            mobileNav.appendChild(a);
-
-            if (item.icon) {
-                fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
-            }
-        });
-    }
+    // Render nav links
+    window.renderNav();
 }

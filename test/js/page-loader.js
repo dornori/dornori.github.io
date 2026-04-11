@@ -24,10 +24,10 @@ export function initPageLoader() {
         }
         canonical.href = `${base}${path}`;
 
-        // Title + description
-        const page = SITE_CONFIG.pages[slug];
-        document.title = page
-            ? `${page.title} — Dornori`
+        // Title + description — read from window.T (lang JSON) so they're translated
+        const tPage = window.T?.pages?.[slug];
+        document.title = tPage
+            ? `${tPage.title} — Dornori`
             : 'Dornori — Build Your Own Rising Star Lamp';
 
         let descTag = document.querySelector('meta[name="description"]');
@@ -36,7 +36,7 @@ export function initPageLoader() {
             descTag.name = 'description';
             document.head.appendChild(descTag);
         }
-        descTag.content = page?.description
+        descTag.content = tPage?.description
             || 'Dornori — revolutionary outdoor lighting you build yourself.';
 
         // OG tags
@@ -119,10 +119,11 @@ export function initPageLoader() {
 
         } catch (err) {
             console.error('Page load error:', err);
+            const T = window.T?.ui || {};
             pageContent.innerHTML = `
-                <h1>Error</h1>
-                <p>Sorry, this content could not be loaded.</p>
-                <button onclick="window.showHome()">Return Home</button>
+                <h1>${T.errorTitle || 'Error'}</h1>
+                <p>${T.errorMsg || 'Sorry, this content could not be loaded.'}</p>
+                <button onclick="window.showHome()">${T.returnHome || 'Return Home'}</button>
             `;
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
