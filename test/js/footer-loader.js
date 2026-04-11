@@ -1,8 +1,7 @@
 /**
  * footer-loader.js
  * Reads labels from window.T (loaded by i18n.js from lang/{code}.json).
- * Exposes window.renderFooter() so setLang() can re-render on language switch.
- * Uses <a href> tags so Google can crawl footer links.
+ * Fallback to SITE_CONFIG labels if window.T is not yet available.
  */
 
 import SITE_CONFIG from './config.js';
@@ -11,13 +10,13 @@ window.renderFooter = () => {
     const container = document.getElementById('footer-links');
     if (!container) return;
 
+    // Safety: If window.T hasn't loaded yet, default to an empty object
     const T       = window.T?.footer || {};
     const columns = SITE_CONFIG.footer;
     if (!columns?.length) return;
 
     container.innerHTML = '';
 
-    // T.columns is an array matching the order in config.js footer
     columns.forEach((column, colIndex) => {
         const visibleLinks = column.links.filter(l => l.enabled);
         if (!visibleLinks.length) return;
@@ -28,13 +27,16 @@ window.renderFooter = () => {
         const col     = document.createElement('div');
         col.className = 'footer-col';
 
+        // Column Heading
         if (column.label) {
             const heading       = document.createElement('p');
             heading.className   = 'footer-col-heading';
-            heading.textContent = tCol.heading || column.label;
+            // Fallback chain: Translation -> Config Label -> "Menu"
+            heading.textContent = tCol.heading || column.label || "Menu";
             col.appendChild(heading);
         }
 
+        // Links
         visibleLinks.forEach(link => {
             const lang = window.LANG || 'en';
             const base = SITE_CONFIG.appearance.base_path;
@@ -43,7 +45,10 @@ window.renderFooter = () => {
             const a         = document.createElement('a');
             a.href          = href;
             a.className     = 'footer-link';
-            a.textContent   = tLinks[link.slug] || link.label;
+            
+            // Fallback chain: Translation -> Config Label -> Slug string
+            a.textContent   = tLinks[link.slug] || link.label || link.slug;
+            
             a.setAttribute('data-slug', link.slug);
 
             a.addEventListener('click', e => {
