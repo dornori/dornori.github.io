@@ -3,6 +3,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * Reads labels from window.T (loaded by i18n.js from lang/{code}.json).
  * Exposes window.renderNav() so setLang() can re-render without a page reload.
+ * Uses <a href> tags so Google can crawl all pages.
  */
 
 import SITE_CONFIG from './config.js';
@@ -16,7 +17,7 @@ const PROFILES = [
 const FALLBACK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="9"/>
-    <line x1="12" x1="12" x2="12" y2="13"/>
+    <line x1="12" y1="8" x2="12" y2="13"/>
     <circle cx="12" cy="16" r="0.6" fill="currentColor" stroke="none"/>
 </svg>`;
 
@@ -41,6 +42,8 @@ function navHref(slug) {
     return lang === 'en' ? `${base}${slug}` : `${base}${lang}/${slug}`;
 }
 
+// ── NAV RENDER ───────────────────────────────────────────────────────────────
+// Separated so i18n can call window.renderNav() on language switch
 window.renderNav = () => {
     const T = window.T || {};
 
@@ -50,17 +53,19 @@ window.renderNav = () => {
         desktopNav.innerHTML = '';
         SITE_CONFIG.navigation.forEach(item => {
             if (!item.enabled) return;
+
             const t = T.nav?.[item.slug] || {};
-            const a = document.createElement('a');
-            a.href = navHref(item.slug);
-            a.className = item.type === 'button' ? 'nav-link nav-newsletter' : 'nav-link';
+
+            const a       = document.createElement('a');
+            a.href        = navHref(item.slug);
+            a.className   = item.type === 'button' ? 'nav-link nav-newsletter' : 'nav-link';
             a.setAttribute('data-slug', item.slug);
 
-            const iconEl = document.createElement('span');
-            iconEl.className = 'nav-icon';
-            iconEl.innerHTML = FALLBACK_SVG;
+            const iconEl      = document.createElement('span');
+            iconEl.className  = 'nav-icon';
+            iconEl.innerHTML  = FALLBACK_SVG;
 
-            const labelEl = document.createElement('span');
+            const labelEl     = document.createElement('span');
             labelEl.textContent = t.label || item.slug;
 
             a.appendChild(iconEl);
@@ -78,18 +83,20 @@ window.renderNav = () => {
         mobileNav.innerHTML = '';
         SITE_CONFIG.navigation.forEach(item => {
             if (!item.enabled) return;
+
             const t = T.nav?.[item.slug] || {};
-            const a = document.createElement('a');
-            a.href = navHref(item.slug);
+
+            const a     = document.createElement('a');
+            a.href      = navHref(item.slug);
             a.className = item.type === 'button' ? 'mobile-nav-item mobile-nav-cta' : 'mobile-nav-item';
             a.setAttribute('data-slug', item.slug);
 
-            const iconEl = document.createElement('span');
-            iconEl.className = 'mobile-nav-icon';
-            iconEl.innerHTML = FALLBACK_SVG;
+            const iconEl      = document.createElement('span');
+            iconEl.className  = 'mobile-nav-icon';
+            iconEl.innerHTML  = FALLBACK_SVG;
 
-            const labelEl = document.createElement('span');
-            labelEl.className = 'mobile-nav-label';
+            const labelEl       = document.createElement('span');
+            labelEl.className   = 'mobile-nav-label';
             labelEl.textContent = t.mobileLabel || t.label || item.slug;
 
             a.appendChild(iconEl);
@@ -102,30 +109,34 @@ window.renderNav = () => {
     }
 };
 
+// ── MAIN INIT ────────────────────────────────────────────────────────────────
 export function initNavigation() {
+
+    /* ── Theme ── */
     const THEME_KEY = 'dornori-theme';
-    const root = document.documentElement;
-    const saved = localStorage.getItem(THEME_KEY) || 'cutting-mat';
+    const root      = document.documentElement;
+    const saved     = localStorage.getItem(THEME_KEY) || 'cutting-mat';
     root.setAttribute('data-theme', saved);
 
+    /* ── Settings topBar ── */
     const topBar = document.getElementById('topBar');
     if (topBar) {
-        topBar.innerHTML = ''; // Clear existing content to prevent duplication
         const T = window.T?.ui || {};
 
-        // Profile Selector
-        const profileWrap = document.createElement('label');
-        profileWrap.className = 'profile-selector-wrap';
+        // Profile selector
+        const profileWrap       = document.createElement('label');
+        profileWrap.className   = 'profile-selector-wrap';
         profileWrap.textContent = (T.profile || 'PROFILE') + ' ';
 
-        const profileSelect = document.createElement('select');
-        profileSelect.id = 'profileSelect';
+        const profileSelect     = document.createElement('select');
+        profileSelect.id        = 'profileSelect';
         profileSelect.className = 'profile-select';
+        profileSelect.setAttribute('aria-label', 'Choose colour profile');
         profileSelect.setAttribute('tabindex', '-1');
 
         PROFILES.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.id;
+            const opt       = document.createElement('option');
+            opt.value       = p.id;
             opt.textContent = p.label.toUpperCase();
             if (p.id === saved) opt.selected = true;
             profileSelect.appendChild(opt);
@@ -136,19 +147,24 @@ export function initNavigation() {
             localStorage.setItem(THEME_KEY, profileSelect.value);
         });
 
-        // Language Selector
-        const langWrap = document.createElement('label');
-        langWrap.className = 'profile-selector-wrap';
+        profileWrap.appendChild(profileSelect);
+        topBar.appendChild(profileWrap);
+
+        // Language selector
+        const langWrap       = document.createElement('label');
+        langWrap.className   = 'profile-selector-wrap';
         langWrap.textContent = (T.language || 'LANGUAGE') + ' ';
 
-        const langSelect = document.createElement('select');
-        langSelect.id = 'langSelect';
+        const langSelect     = document.createElement('select');
+        langSelect.id        = 'langSelect';
         langSelect.className = 'profile-select';
+        langSelect.setAttribute('aria-label', 'Choose language');
         langSelect.setAttribute('tabindex', '-1');
+        langSelect.value     = window.LANG || 'en';
 
         SITE_CONFIG.languages.forEach(l => {
-            const opt = document.createElement('option');
-            opt.value = l.code;
+            const opt       = document.createElement('option');
+            opt.value       = l.code;
             opt.textContent = `${l.flag} ${l.label}`;
             if (l.code === (window.LANG || 'en')) opt.selected = true;
             langSelect.appendChild(opt);
@@ -158,9 +174,15 @@ export function initNavigation() {
             if (typeof window.setLang === 'function') window.setLang(langSelect.value);
         });
 
-        // Settings Tab
+        langWrap.appendChild(langSelect);
+        topBar.appendChild(langWrap);
+
+        // Settings gear tab
         const tab = document.createElement('button');
-        tab.id = 'topBar-tab';
+        tab.id    = 'topBar-tab';
+        tab.setAttribute('aria-label', 'Open settings');
+        tab.setAttribute('aria-expanded', 'false');
+        tab.setAttribute('aria-controls', 'topBar');
         tab.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
                  stroke-linecap="round" stroke-linejoin="round">
@@ -177,23 +199,20 @@ export function initNavigation() {
             </svg>
             <span>${T.settings || 'SETTINGS'}</span>
         `;
-
-        // Proper Append Order
-        profileWrap.appendChild(profileSelect);
-        langWrap.appendChild(langSelect);
-        topBar.appendChild(profileWrap);
-        topBar.appendChild(langWrap);
         topBar.appendChild(tab);
 
         const openBar = () => {
             topBar.classList.add('active');
             tab.setAttribute('aria-expanded', 'true');
+            tab.setAttribute('aria-label', 'Close settings');
             profileSelect.setAttribute('tabindex', '0');
             langSelect.setAttribute('tabindex', '0');
+            profileSelect.focus();
         };
         const closeBar = () => {
             topBar.classList.remove('active');
             tab.setAttribute('aria-expanded', 'false');
+            tab.setAttribute('aria-label', 'Open settings');
             profileSelect.setAttribute('tabindex', '-1');
             langSelect.setAttribute('tabindex', '-1');
         };
@@ -208,5 +227,6 @@ export function initNavigation() {
         });
     }
 
+    // Render nav links
     window.renderNav();
 }
