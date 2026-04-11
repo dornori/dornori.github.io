@@ -1,163 +1,131 @@
-/**
- * nav-loader.js (UPDATED FOR HOVER BEHAVIOR)
- */
+<!DOCTYPE html>
+<html lang="en" data-theme="cutting-mat">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-import SITE_CONFIG from './config.js';
+    <title>Dornori — Build Your Own Rising Star Lamp</title>
+    <meta name="description" content="Discover Dornori's Star-A: a real kinetic outdoor lamp you build yourself. DC motor, 3D-printed parts, real electronics. For kids 7–12 and their grown-ups.">
 
-const PROFILES = [
-    { id: 'dark',        label: 'Dark'        },
-    { id: 'light',       label: 'Light'       },
-    { id: 'cutting-mat', label: 'Cutting Mat' },
-];
+    <meta property="og:type"        content="website">
+    <meta property="og:url"         content="https://dornori.com">
+    <meta property="og:title"       content="Dornori — Build Your Own Rising Star Lamp">
+    <meta property="og:description" content="A kinetic outdoor lamp you build yourself. Real components, real engineering, for kids 7–12.">
+    <meta property="og:image"       content="https://dornori.com/assets/images/preview-image.jpg">
 
-const FALLBACK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-     stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="9"/>
-    <line x1="12" y1="8" x2="12" y2="13"/>
-    <circle cx="12" cy="16" r="0.6" fill="currentColor" stroke="none"/>
-</svg>`;
+    <meta name="twitter:card"        content="summary_large_image">
+    <meta name="twitter:title"       content="Dornori — Build Your Own Rising Star Lamp">
+    <meta name="twitter:description" content="A kinetic outdoor lamp you build yourself. Real components, real engineering, for kids 7–12.">
+    <meta name="twitter:image"       content="https://dornori.com/assets/images/preview-image.jpg">
 
-const svgCache = new Map();
-async function fetchSVG(path) {
-    if (svgCache.has(path)) return svgCache.get(path);
-    try {
-        const res = await fetch(path);
-        if (!res.ok) throw new Error();
-        const svg = await res.text();
-        svgCache.set(path, svg);
-        return svg;
-    } catch {
-        svgCache.set(path, FALLBACK_SVG);
-        return FALLBACK_SVG;
+    <link rel="icon"             href="/assets/icons/favicon.ico" sizes="any">
+    <link rel="icon"             href="/assets/icons/favicon-32x32.png" type="image/png" sizes="32x32">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+    <link rel="manifest"         href="/assets/icons/site.webmanifest">
+
+    <link rel="canonical" href="https://dornori.com">
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Dornori",
+        "url": "https://dornori.com",
+        "logo": "https://dornori.com/assets/images/dornori-logo-transparent.webp",
+        "sameAs": [
+            "https://instagram.com/dornori.info",
+            "https://x.com/dornori_info",
+            "https://youtube.com/@dornori_info",
+            "https://facebook.com/Dornori.info"
+        ]
     }
-}
+    </script>
 
-function navHref(slug) {
-    const lang = window.LANG || 'en';
-    const base = SITE_CONFIG.appearance.base_path;
-    return lang === 'en' ? `${base}${slug}` : `${base}${lang}/${slug}`;
-}
+    <link rel="stylesheet" href="css/profiles.css">
+    <link rel="stylesheet" href="css/main.css">
 
-window.renderNav = () => {
-    const T = window.T || {};
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+</head>
+<body>
 
-    const desktopNav = document.querySelector('.top-nav');
-    if (desktopNav) {
-        desktopNav.innerHTML = '';
-        SITE_CONFIG.navigation.forEach(item => {
-            if (!item.enabled) return;
+    <div id="topBar"></div>
 
-            const t = T.nav?.[item.slug] || {};
+    <header id="main-header">
+        <div class="billboard-logo-wrap" onclick="window.showHome()">
+            <img src="assets/images/dornori-logo-transparent.webp" class="billboard-logo" alt="Dornori" id="banner-img">
+            <span class="billboard-wordmark">Dornori</span>
+        </div>
+        <nav class="top-nav" aria-label="Main navigation"></nav>
+    </header>
 
-            const a = document.createElement('a');
-            a.href = navHref(item.slug);
-            a.className = 'nav-link';
-            a.setAttribute('data-slug', item.slug);
+    <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
 
-            const iconEl = document.createElement('span');
-            iconEl.className = 'nav-icon';
-            iconEl.innerHTML = FALLBACK_SVG;
+    <main id="viewport">
+        <div id="home-view">
+            </div>
 
-            const labelEl = document.createElement('span');
-            labelEl.textContent = t.label || item.slug;
+        <div id="page-view" class="hidden">
+            <div id="page-content-inner" class="view-inner"></div>
+            <div style="margin-top: 50px;">
+                <button class="nav-link" style="border:1px solid var(--border); padding:10px 20px;" onclick="window.showHome()">Return Home</button>
+            </div>
+        </div>
 
-            a.appendChild(iconEl);
-            a.appendChild(labelEl);
-            a.addEventListener('click', e => {
-                e.preventDefault();
-                window.viewPage(item.slug);
-            });
+        <div class="social-dock" id="social-dock"></div>
+    </main>
 
-            desktopNav.appendChild(a);
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div id="footer-links" class="footer-links"></div>
+            <div class="footer-bottom">
+                <p class="copyright-text">&copy; 2026 DORNORI. ALL RIGHTS RESERVED.</p>
+                <div class="technical-credits">
+                    <span class="credit-item">
+                        <span class="status-dot"></span>Performance &amp; Security by <strong>Cloudflare</strong>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </footer>
 
-            if (item.icon) fetchSVG(item.icon).then(svg => {
-                iconEl.innerHTML = svg;
-            });
-        });
-    }
-};
+    <script type="module">
+        import { initI18n }        from './js/i18n.js';
+        import { initNavigation }  from './js/nav-loader.js';
+        import { initStickyBanner }from './js/sticky-banner.js';
+        import { initSocials }     from './js/social-loader.js';
+        import { initEmbedForms }  from './js/embed-form.js';
+        import { initPageLoader }  from './js/page-loader.js';
+        import { initFooter }      from './js/footer-loader.js';
 
-export function initNavigation() {
+        /**
+         * BOOT SEQUENCE
+         * We wrap this in an async function to ensure language data (fetch) 
+         * completes BEFORE we try to render the UI components.
+         */
+        async function bootApp() {
+            try {
+                // 1. Fetch JSON translations and set window.T
+                await initI18n();
 
-    const THEME_KEY = 'dornori-theme';
-    const root = document.documentElement;
-    const saved = localStorage.getItem(THEME_KEY) || 'cutting-mat';
-    root.setAttribute('data-theme', saved);
+                // 2. Render UI components that depend on window.T
+                initNavigation();
+                initFooter();
+                initSocials();
+                initStickyBanner();
+                initEmbedForms();
 
-    const topBar = document.getElementById('topBar');
-    if (topBar) {
-        const T = window.T?.ui || {};
-
-        /* ---------- PROFILE ---------- */
-        const profileWrap = document.createElement('label');
-        profileWrap.className = 'profile-selector-wrap';
-        profileWrap.textContent = (T.profile || 'PROFILE') + ' ';
-
-        const profileSelect = document.createElement('select');
-        profileSelect.className = 'profile-select';
-
-        PROFILES.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.id;
-            opt.textContent = p.label.toUpperCase();
-            if (p.id === saved) opt.selected = true;
-            profileSelect.appendChild(opt);
-        });
-
-        profileSelect.addEventListener('change', () => {
-            root.setAttribute('data-theme', profileSelect.value);
-            localStorage.setItem(THEME_KEY, profileSelect.value);
-        });
-
-        profileWrap.appendChild(profileSelect);
-        topBar.appendChild(profileWrap);
-
-        /* ---------- LANGUAGE ---------- */
-        const langWrap = document.createElement('label');
-        langWrap.className = 'profile-selector-wrap';
-        langWrap.textContent = (T.language || 'LANGUAGE') + ' ';
-
-        const langSelect = document.createElement('select');
-        langSelect.className = 'profile-select';
-
-        SITE_CONFIG.languages.forEach(l => {
-            const opt = document.createElement('option');
-            opt.value = l.code;
-            opt.textContent = `${l.flag} ${l.label}`;
-            langSelect.appendChild(opt);
-        });
-
-        langSelect.addEventListener('change', () => {
-            if (window.setLang) window.setLang(langSelect.value);
-        });
-
-        langWrap.appendChild(langSelect);
-        topBar.appendChild(langWrap);
-
-        /* ---------- SETTINGS TAB ---------- */
-        const tab = document.createElement('button');
-        tab.id = 'topBar-tab';
-        tab.innerHTML = `⚙ SETTINGS`;
-        topBar.appendChild(tab);
-
-        const isTouch = window.matchMedia("(hover: none)").matches;
-
-        if (isTouch) {
-            // MOBILE: keep click
-            tab.addEventListener('click', (e) => {
-                e.stopPropagation();
-                topBar.classList.toggle('active');
-            });
-
-            document.addEventListener('click', (e) => {
-                if (!topBar.contains(e.target)) {
-                    topBar.classList.remove('active');
-                }
-            });
+                // 3. Handle URL routing (this loads the actual page content)
+                initPageLoader();
+                
+            } catch (error) {
+                console.error("Critical boot error:", error);
+                // Fallback attempt to show the site even if i18n fails
+                initFooter();
+                initPageLoader();
+            }
         }
 
-        // ❌ DESKTOP CLICK REMOVED COMPLETELY
-    }
-
-    window.renderNav();
-}
+        bootApp();
+    </script>
+</body>
+</html>
