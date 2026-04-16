@@ -1,6 +1,6 @@
 /**
- * embed-form.js - Fixed with proper Turnstile handling (no loops)
- * Usage: <div class="embed-form-root"></div>
+ * embed-form.js - Fixed Turnstile + Formspree handler
+ * No loops, no conflicts
  */
 
 import SITE_CONFIG from './config.js';
@@ -11,9 +11,9 @@ function buildFormHTML(uid) {
   <div id="ef-form-container-${uid}">
     <form id="ef-waitlist-form-${uid}" class="ef-waitlist-form" novalidate>
       <div class="input-row">
-        <input type="email" name="email" placeholder="Subscribe" required
+        <input type="email" name="email" placeholder="your@email.com" required
                autocomplete="email" aria-label="Email address">
-        <button type="submit" class="submit-btn" id="ef-sub-btn-${uid}">Join</button>
+        <button type="submit" class="submit-btn" id="ef-sub-btn-${uid}">JOIN</button>
       </div>
       <div id="ef-captcha-${uid}" class="ef-captcha-slot"></div>
       <p class="disclaimer-text">
@@ -43,8 +43,8 @@ function initFormInstance(root, uid) {
     const action = `https://formspree.io/f/${SITE_CONFIG.formspree_id}`;
     const emailInput = form.querySelector('input[type="email"]');
     
-    // Track if Turnstile is already rendered for this instance
-    let turnstileRendered = false;
+    // Track state
+    let isSubmitting = false;
     let turnstileWidgetId = null;
 
     function isValidEmail(val) {
@@ -67,14 +67,18 @@ function initFormInstance(root, uid) {
 
     emailInput?.addEventListener('input', clearEmailError);
 
-    async function submitForm(token) {
+    async function submitToFormspree(token) {
+        if (isSubmitting) return;
+        isSubmitting = true;
+        
         btn.textContent = '...';
         btn.disabled = true;
         
         try {
-            // Create FormData and add the turnstile token
             const formData = new FormData(form);
-            formData.append('cf-turnstile-response', token);
+            if (token) {
+                formData.append('cf-turnstile-response', token);
+            }
             
             const response = await fetch(action, {
                 method: 'POST',
@@ -86,30 +90,31 @@ function initFormInstance(root, uid) {
                 formWrap.classList.add('hidden');
                 successWrap.classList.remove('hidden');
             } else {
+                const data = await response.json();
+                console.error('Formspree error:', data);
                 btn.textContent = 'JOIN';
                 btn.disabled = false;
-                // Reset turnstile so user can try again
-                if (turnstileWidgetId !== null && window.turnstile) {
-                    window.turnstile.reset(turnstileWidgetId);
+                
+                // Show error message
+                if (data.errors) {
+                    showEmailError(data.errors.map(e => e.message).join(', '));
+                } else {
+                    showEmailError('Something went wrong. Please try again.');
                 }
-                turnstileRendered = false;
-                turnstileWidgetId = null;
             }
         } catch (error) {
-            console.error('Form submission error:', error);
+            console.error('Network error:', error);
             btn.textContent = 'JOIN';
             btn.disabled = false;
-            if (turnstileWidgetId !== null && window.turnstile) {
-                window.turnstile.reset(turnstileWidgetId);
-            }
-            turnstileRendered = false;
-            turnstileWidgetId = null;
+            showEmailError('Network error. Please check your connection.');
+        } finally {
+            isSubmitting = false;
         }
     }
 
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
-
+        
         // Validate email
         if (!emailInput || !isValidEmail(emailInput.value)) {
             showEmailError('Please enter a valid email address (e.g. name@example.com)');
@@ -117,61 +122,65 @@ function initFormInstance(root, uid) {
             return;
         }
         clearEmailError();
-
-        // Check if Turnstile is available
+        
+        // Check if Turnstile is loaded
         if (typeof window.turnstile === 'undefined') {
-            console.error('Turnstile not loaded - refresh the page');
-            btn.textContent = 'ERROR';
-            setTimeout(() => { btn.textContent = 'JOIN'; }, 2000);
+            console.warn('Turnstile not loaded, submitting without CAPTCHA');
+            await submitToFormspree(null);
             return;
         }
-
-        // Only render Turnstile once per form instance
-        if (!turnstileRendered) {
-            turnstileRendered = true;
-            btn.textContent = 'VERIFYING...';
-            btn.disabled = true;
-            
-            turnstileWidgetId = window.turnstile.render(captchaSlot, {
-                sitekey: SITE_CONFIG.turnstile_sitekey,
-                theme: 'dark',
-                callback: (token) => {
-                    // Success - submit the form
-                    submitForm(token);
-                },
-                'error-callback': () => {
-                    // Error - reset and let user try again
-                    btn.textContent = 'JOIN';
-                    btn.disabled = false;
-                    turnstileRendered = false;
-                    turnstileWidgetId = null;
-                    captchaSlot.innerHTML = '';
-                },
-                'expired-callback': () => {
-                    // Token expired - reset
-                    btn.textContent = 'JOIN';
-                    btn.disabled = false;
-                    turnstileRendered = false;
-                    turnstileWidgetId = null;
-                    captchaSlot.innerHTML = '';
-                }
-            });
+        
+        // If Turnstile already rendered, don't render again
+        if (turnstileWidgetId !== null) {
+            return;
         }
+        
+        // Render Turnstile
+        btn.textContent = 'VERIFYING...';
+        btn.disabled = true;
+        
+        turnstileWidgetId = window.turnstile.render(captchaSlot, {
+            sitekey: SITE_CONFIG.turnstile_sitekey,
+            theme: 'dark',
+            callback: async (token) => {
+                // Success - submit the form
+                await submitToFormspree(token);
+                // Reset Turnstile for potential future submissions
+                if (turnstileWidgetId !== null) {
+                    window.turnstile.reset(turnstileWidgetId);
+                }
+            },
+            'error-callback': () => {
+                console.error('Turnstile error');
+                btn.textContent = 'JOIN';
+                btn.disabled = false;
+                turnstileWidgetId = null;
+                captchaSlot.innerHTML = '';
+                showEmailError('Verification failed. Please try again.');
+            },
+            'expired-callback': () => {
+                console.log('Turnstile expired');
+                btn.textContent = 'JOIN';
+                btn.disabled = false;
+                turnstileWidgetId = null;
+                captchaSlot.innerHTML = '';
+                showEmailError('Verification expired. Please try again.');
+            }
+        });
     });
 }
 
 export function initEmbedForms() {
     const roots = document.querySelectorAll('.embed-form-root');
     roots.forEach((root, i) => {
-        // Skip if already initialized
         if (root.dataset.efInit === 'true') return;
         root.dataset.efInit = 'true';
-        const uid = `ef-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 6)}`;
+        const uid = `ef-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 8)}`;
         initFormInstance(root, uid);
     });
 }
 
-// Auto-init when DOM is ready
+// Auto-init
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initEmbedForms);
 } else {
