@@ -35,7 +35,7 @@ const CONFIG = {
   // Use "1x00000000000000000000AA" for always-pass testing
   // Use "2x00000000000000000000AB" for always-block testing
   turnstile: {
-    sitekey: "1x00000000000000000000AA", // ← replace with your real sitekey
+    sitekey: "0x4AAAAAACxsga5y-bJ_qkzC", // ← replace with your real sitekey
   },
 
   // Tax-exempt countries (no tax applied)
