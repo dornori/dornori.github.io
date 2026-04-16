@@ -1,5 +1,6 @@
 /**
  * i18n.js — Language detection and switching
+ * All paths derived from config.js only.
  */
 
 import SITE_CONFIG from './config.js';
@@ -12,6 +13,7 @@ export function detectLangFromURL() {
     const base = SITE_CONFIG.appearance.base_path;
     let path = window.location.pathname;
 
+    // Remove base_path prefix if present
     if (base && base !== '/' && path.startsWith(base.slice(0, -1))) {
         path = path.slice(base.length - 1);
     }
