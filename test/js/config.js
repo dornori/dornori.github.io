@@ -1,16 +1,9 @@
-/**
- * DORNORI SITE CONFIGURATION
- * Only structure and defaults here.
- * Translated text and per-language slugs go in lang/*.json
- */
-
 const SITE_CONFIG = {
     appearance: {
         root_url:  'https://dornori.com',
-        base_path: '/test/',           // ← Change this when needed. Must end with '/'
+        base_path: '/test/',           // Change to '/' when moving to root. Must end with '/'
     },
 
-    // Supported languages
     languages: [
         { code: 'en', hreflang: 'en', label: 'English',    flag: '🇬🇧' },
         { code: 'de', hreflang: 'de', label: 'Deutsch',    flag: '🇩🇪' },
@@ -18,7 +11,6 @@ const SITE_CONFIG = {
         { code: 'fr', hreflang: 'fr', label: 'Français',   flag: '🇫🇷' },
     ],
 
-    // Default navigation (English slugs)
     navigation: [
         { slug: 'about',  enabled: true },
         { slug: 'built',  enabled: true },
@@ -27,7 +19,6 @@ const SITE_CONFIG = {
         { slug: 'files',  enabled: true },
     ],
 
-    // Default page slugs (English)
     pages: {
         about:               'about',
         built:               'built',
