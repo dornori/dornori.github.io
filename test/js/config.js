@@ -1,7 +1,7 @@
 /**
  * DORNORI SITE CONFIGURATION
- * All paths are relative to the website root.
- * Change `base_path` to '/' when moving to root directory.
+ * All paths and keys are centralised here.
+ * Change `base_path` to '/' when moving to root.
  */
 
 const SITE_CONFIG = {
@@ -13,6 +13,9 @@ const SITE_CONFIG = {
         base_path:          '/test/',   // ← change to '/' when moving to root
     },
 
+    // Local storage key for language preference
+    storageKey: 'dornori-lang',
+
     languages: [
         { code: 'en', hreflang: 'en', label: 'English',    flag: '🇬🇧' },
         { code: 'de', hreflang: 'de', label: 'Deutsch',    flag: '🇩🇪' },
@@ -20,7 +23,6 @@ const SITE_CONFIG = {
         { code: 'fr', hreflang: 'fr', label: 'Français',   flag: '🇫🇷' },
     ],
     
-    // Localised URL slugs (for pretty URLs)
     url_slugs: {
         en: {
             about:   'about',
