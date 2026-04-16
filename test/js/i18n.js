@@ -1,51 +1,49 @@
 import SITE_CONFIG from './config.js';
 
 const STORAGE_KEY = 'dornori-lang';
-const FALLBACK = SITE_CONFIG.default_language;
-const supported = new Set(SITE_CONFIG.getLanguageCodes());
 
 function detectLang() {
-    // Get base path from config dynamically
-    const cleanBase = SITE_CONFIG.getCleanBasePath();
-    const basePattern = cleanBase ? `/${cleanBase}/` : '/';
+    const basePath = SITE_CONFIG.base_path;
+    const cleanBase = basePath === '/' ? '' : basePath.replace(/\/$/, '');
     
-    // Build regex pattern dynamically from config
-    const langPattern = SITE_CONFIG.getLanguageCodes().join('|');
-    const pattern = new RegExp(`^${basePattern}(${langPattern})/`);
-    const pathMatch = window.location.pathname.match(pattern);
+    const langCodes = SITE_CONFIG.languages.map(l => l.code).join('|');
+    const pattern = cleanBase 
+        ? new RegExp(`^/${cleanBase}/(${langCodes})/`)
+        : new RegExp(`^/(${langCodes})/`);
     
-    if (pathMatch && supported.has(pathMatch[1])) {
-        const urlLang = pathMatch[1];
-        localStorage.setItem(STORAGE_KEY, urlLang);
-        return urlLang;
+    const match = window.location.pathname.match(pattern);
+    
+    if (match && SITE_CONFIG.languages.some(l => l.code === match[1])) {
+        localStorage.setItem(STORAGE_KEY, match[1]);
+        return match[1];
     }
     
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved && supported.has(saved)) {
+    if (saved && SITE_CONFIG.languages.some(l => l.code === saved)) {
         return saved;
     }
 
     const browserMatch = (navigator.languages || [navigator.language])
         .map(l => l.split('-')[0].toLowerCase())
-        .find(l => supported.has(l));
+        .find(l => SITE_CONFIG.languages.some(lang => lang.code === l));
 
     if (browserMatch) {
         localStorage.setItem(STORAGE_KEY, browserMatch);
         return browserMatch;
     }
 
-    return FALLBACK;
+    return SITE_CONFIG.default_language;
 }
 
 async function loadTranslations(code) {
-    const basePath = SITE_CONFIG.base_path || '/';
+    const basePath = SITE_CONFIG.base_path;
     try {
         const res = await fetch(`${basePath}lang/${code}.json`);
         if (!res.ok) throw new Error();
         return await res.json();
     } catch {
-        if (code !== FALLBACK) {
-            const res = await fetch(`${basePath}lang/${FALLBACK}.json`);
+        if (code !== SITE_CONFIG.default_language) {
+            const res = await fetch(`${basePath}lang/${SITE_CONFIG.default_language}.json`);
             return await res.json();
         }
         return {};
@@ -53,21 +51,19 @@ async function loadTranslations(code) {
 }
 
 window.setLang = (code) => {
-    if (!supported.has(code)) return;
+    if (!SITE_CONFIG.languages.some(l => l.code === code)) return;
     
     localStorage.setItem(STORAGE_KEY, code);
     
-    let currentPath = window.location.pathname;
+    const currentPath = window.location.pathname;
     const currentLang = detectLang();
-    const cleanBase = SITE_CONFIG.getCleanBasePath();
-    const basePattern = cleanBase ? `/${cleanBase}/` : '/';
+    const basePath = SITE_CONFIG.base_path;
+    const cleanBase = basePath === '/' ? '' : basePath.replace(/\/$/, '');
     
-    let newPath = currentPath.replace(`${basePattern}${currentLang}/`, `${basePattern}${code}/`);
+    const oldPattern = cleanBase ? `/${cleanBase}/${currentLang}/` : `/${currentLang}/`;
+    const newPattern = cleanBase ? `/${cleanBase}/${code}/` : `/${code}/`;
     
-    if (newPath === currentPath) {
-        newPath = SITE_CONFIG.getPageUrl(code);
-    }
-    
+    const newPath = currentPath.replace(oldPattern, newPattern);
     window.location.href = newPath;
 };
 
@@ -78,9 +74,7 @@ export async function initI18n() {
     window.T = await loadTranslations(lang);
     
     const langSelect = document.getElementById('langSelect');
-    if (langSelect) {
-        langSelect.value = lang;
-    }
+    if (langSelect) langSelect.value = lang;
     
     if (typeof window.renderNav === 'function') window.renderNav();
     if (typeof window.renderFooter === 'function') window.renderFooter();
