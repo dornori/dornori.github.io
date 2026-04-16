@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Formspree Test</title></head>
+<body>
+
+  <form id="testForm" method="POST">
+    <input type="hidden" name="_subject" value="Test Order LM-TEST-123">
+    <input type="hidden" name="order_ref" value="LM-TEST-123">
+    <input type="hidden" name="status" value="TEST">
+    
+    <p><strong>Test Order</strong></p>
+    <label>Email: <input type="email" name="email" value="test@example.com" required></label><br><br>
+    
+    <button type="submit">Send Test to Formspree</button>
+  </form>
+
+  <script>
+    document.getElementById("testForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData(e.target);
+      formData.append("cart_items", "2× Arc Floor Lamp @ €299 = €598");
+      formData.append("total", "€598.00");
+
+      try {
+        const res = await fetch("https://formspree.io/f/YOUR_OWN_FORM_ID_HERE", {  // ← change this
+          method: "POST",
+          body: formData,
+          headers: { "Accept": "application/json" }
+        });
+
+        if (res.ok) {
+          alert("✅ Test submission sent successfully!\nCheck your Formspree dashboard or email.");
+        } else {
+          alert("Failed with status: " + res.status);
+        }
+      } catch(err) {
+        alert("Error: " + err.message + "\n(This is common when testing on localhost due to CORS)");
+      }
+    });
+  </script>
+</body>
+</html>
