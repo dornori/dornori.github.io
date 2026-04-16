@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUMIO – Order Confirmed</title>
+  <link rel="stylesheet" href="css/shop.css">
+  <style>
+    body { min-height: 100vh; display: flex; flex-direction: column; }
+    .lumio-page-main { flex: 1; display: flex; align-items: center; }
+    .lumio-confetti {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      pointer-events: none;
+      z-index: 9999;
+    }
+    @keyframes fall {
+      0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+    .confetti-piece {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      animation: fall linear forwards;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="lumio-page-header">
+    <div class="lumio-container">
+      <div class="lumio-page-header__inner">
+        <a href="index.html" class="lumio-logo">LUM<span>IO</span></a>
+      </div>
+    </div>
+  </header>
+
+  <main class="lumio-page-main">
+    <div class="lumio-container">
+      <div class="lumio-result-page lumio-fade-in" id="result-page">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+  </main>
+
+  <!-- Confetti canvas -->
+  <div class="lumio-confetti" id="confetti-container"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/shop.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref") || localStorage.getItem("lumio_last_order") || "—";
+    const status = params.get("status") || "success";
+    const page = document.getElementById("result-page");
+
+    Shop.loadLang().then(() => {
+      if (status === "success") {
+        page.innerHTML = `
+          <div class="lumio-result-icon lumio-result-icon--success">✓</div>
+          <h1>${Shop.t("success_title")}</h1>
+          <p>${Shop.t("success_message")}</p>
+          <p>${Shop.t("success_ref")}:</p>
+          <div class="lumio-ref-badge">${ref}</div>
+          <p style="font-size:0.82rem; color:var(--c-text-3);">
+            Please save this reference in case you need to contact support.
+          </p>
+          <a href="index.html" class="lumio-btn lumio-btn--primary" style="margin-top:8px;">Continue Shopping</a>
+        `;
+        launchConfetti();
+      } else {
+        page.innerHTML = `
+          <div class="lumio-result-icon lumio-result-icon--cancel">⚠</div>
+          <h1>${Shop.t("cancel_title")}</h1>
+          <p>${Shop.t("cancel_message")}</p>
+          <div style="display:flex; gap:12px; justify-content:center; margin-top:20px; flex-wrap:wrap;">
+            <a href="cart.html" class="lumio-btn lumio-btn--primary">Return to Cart</a>
+            <a href="index.html" class="lumio-btn lumio-btn--outline">Continue Shopping</a>
+          </div>
+        `;
+      }
+    });
+
+    function launchConfetti() {
+      const container = document.getElementById("confetti-container");
+      const colors = ["#c8a96e", "#1a1714", "#f0e4cc", "#4a7c59", "#9b3a3a", "#ede9e3"];
+      for (let i = 0; i < 80; i++) {
+        const el = document.createElement("div");
+        el.className = "confetti-piece";
+        el.style.cssText = `
+          left: ${Math.random() * 100}%;
+          top: ${-Math.random() * 20}px;
+          background: ${colors[Math.floor(Math.random() * colors.length)]};
+          width: ${4 + Math.random() * 8}px;
+          height: ${4 + Math.random() * 8}px;
+          border-radius: ${Math.random() > 0.5 ? "50%" : "2px"};
+          animation-duration: ${2 + Math.random() * 3}s;
+          animation-delay: ${Math.random() * 1.5}s;
+        `;
+        container.appendChild(el);
+        el.addEventListener("animationend", () => el.remove());
+      }
+    }
+  </script>
+</body>
+</html>
