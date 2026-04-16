@@ -1,5 +1,5 @@
 /* =========================================================
-   LUMIO SHOP ENGINE  –  shop.js
+   LUMIO SHOP ENGINE  –  shop.js (FIXED)
    ========================================================= */
 
 const Shop = (() => {
@@ -480,8 +480,6 @@ const Shop = (() => {
   function renderTurnstile(containerEl) {
     return new Promise((resolve, reject) => {
       if (typeof window.turnstile === "undefined") {
-        // Turnstile not loaded — resolve with null so submission can proceed
-        // without a token (Formspree will still accept the form).
         console.warn("Turnstile not loaded — skipping captcha.");
         resolve(null);
         return;
@@ -494,19 +492,30 @@ const Shop = (() => {
         return;
       }
 
-      // Clear any previous widget
+      // Clear any previous content
       containerEl.innerHTML = "";
 
+      // Track if callback was already called to avoid double-resolve
+      let resolved = false;
+      
       window.turnstile.render(containerEl, {
         sitekey,
         theme: "light",
-        callback: (token) => resolve(token),
+        callback: (token) => {
+          if (resolved) return;
+          resolved = true;
+          resolve(token);
+        },
         "error-callback": () => {
+          if (resolved) return;
+          resolved = true;
           console.warn("Turnstile error — resetting widget.");
           window.turnstile.reset(containerEl);
           reject(new Error("Turnstile challenge failed"));
         },
         "expired-callback": () => {
+          if (resolved) return;
+          resolved = true;
           window.turnstile.reset(containerEl);
           reject(new Error("Turnstile token expired"));
         },
