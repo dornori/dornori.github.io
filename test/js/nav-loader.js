@@ -1,5 +1,6 @@
 import SITE_CONFIG from './config.js';
 
+// Profiles are visual themes - these don't come from config (keep as is)
 const PROFILES = [
     { id: 'dark', label: 'Dark' },
     { id: 'light', label: 'Light' },
@@ -18,7 +19,8 @@ const svgCache = new Map();
 async function fetchSVG(path) {
     if (svgCache.has(path)) return svgCache.get(path);
     try {
-        const res = await fetch(path);
+        const fullPath = SITE_CONFIG.getAssetPath(path);
+        const res = await fetch(fullPath);
         if (!res.ok) throw new Error();
         const svg = await res.text();
         svgCache.set(path, svg);
@@ -30,21 +32,13 @@ async function fetchSVG(path) {
 }
 
 function getPageUrl(slug) {
-    const lang = window.LANG || 'en';
-    const basePath = SITE_CONFIG.appearance.base_path || '/';
-    return `${basePath}${lang}/${slug}/`;
-}
-
-function getHomeUrl() {
-    const lang = window.LANG || 'en';
-    const basePath = SITE_CONFIG.appearance.base_path || '/';
-    return `${basePath}${lang}/`;
+    const lang = window.LANG || SITE_CONFIG.default_language;
+    return SITE_CONFIG.getPageUrl(lang, slug);
 }
 
 window.renderNav = () => {
     const T = window.T || {};
 
-    // Desktop nav
     const desktopNav = document.querySelector('.top-nav');
     if (desktopNav) {
         desktopNav.innerHTML = '';
@@ -71,7 +65,6 @@ window.renderNav = () => {
         });
     }
 
-    // Mobile nav
     const mobileNav = document.getElementById('mobile-nav');
     if (mobileNav) {
         mobileNav.innerHTML = '';
@@ -135,7 +128,7 @@ export function initNavigation() {
         profileWrap.appendChild(profileSelect);
         topBar.appendChild(profileWrap);
 
-        // Language selector
+        // Language selector - uses config languages
         const langWrap = document.createElement('label');
         langWrap.className = 'profile-selector-wrap';
         langWrap.textContent = (T.language || 'LANGUAGE') + ' ';
@@ -145,7 +138,7 @@ export function initNavigation() {
         langSelect.setAttribute('aria-label', 'Choose language');
         langSelect.setAttribute('tabindex', '-1');
         
-        const currentLang = window.LANG || 'en';
+        const currentLang = window.LANG || SITE_CONFIG.default_language;
         
         SITE_CONFIG.languages.forEach(l => {
             const opt = document.createElement('option');
