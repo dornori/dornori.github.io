@@ -2,7 +2,7 @@
 import SITE_CONFIG from './config.js';
 import { mountSlideshow } from './slideshow.js';
 import { initEmbedForms }  from './embed-form.js';
-import { injectHreflangTags } from './i18n.js';
+import { injectHreflangTags, detectLangFromURL } from './i18n.js';
 
 export function initPageLoader() {
     const homeView    = document.getElementById('home-view');
@@ -49,8 +49,8 @@ export function initPageLoader() {
             }
             tag.setAttribute('content', val);
         };
-        setOG('og:url',   `${base}${path}`);
-        setOG('og:title', document.title);
+        setOG('og:url',         `${base}${path}`);
+        setOG('og:title',       document.title);
         setOG('og:description', descTag.content);
 
         // hreflang alternates
@@ -62,10 +62,9 @@ export function initPageLoader() {
 
     // ── CONTENT PATH ─────────────────────────────────────────────────────────
     // All content lives at:  content/{lang}/{file}
-    // The `file` in config is just the filename, e.g. 'about-us.html'
     function contentPath(page) {
-        const lang  = window.LANG || 'en';
-        const base  = SITE_CONFIG.appearance.base_path;
+        const lang = window.LANG || 'en';
+        const base = SITE_CONFIG.appearance.base_path;
         return `${base}content/${lang}/${page.file}`;
     }
 
@@ -106,13 +105,14 @@ export function initPageLoader() {
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
 
-            // Push a clean URL — use base_path prefix
+            // Push a clean URL — lang prefix only for non-English
             const lang = window.LANG || 'en';
             const base = SITE_CONFIG.appearance.base_path;
-            const url  = lang === 'en'
+            const FALLBACK = SITE_CONFIG.languages[0].code;
+            const url  = lang === FALLBACK
                 ? `${base}${slug}`
                 : `${base}${lang}/${slug}`;
-            window.history.pushState({ slug, lang }, page.title, url);
+            window.history.pushState({ slug, lang }, '', url);
 
             updateSEO(slug);
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -134,28 +134,73 @@ export function initPageLoader() {
     window.showHome = () => {
         pageView.classList.add('hidden');
         homeView.classList.remove('hidden');
-        const base = SITE_CONFIG.appearance.base_path;
-        window.history.pushState({}, '', base);
+
+        const lang     = window.LANG || 'en';
+        const base     = SITE_CONFIG.appearance.base_path;
+        const FALLBACK = SITE_CONFIG.languages[0].code;
+        const url      = lang === FALLBACK ? base : `${base}${lang}/`;
+        window.history.pushState({}, '', url);
+
+        window.CURRENT_SLUG = '';
         updateSEO('');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     // ── HANDLE DIRECT URL ON FIRST LOAD ──────────────────────────────────────
-    // Works with GitHub Pages 404.html redirect trick.
-    // URL patterns supported:  /about  or  /de/about
+    // Parses the path after stripping base_path.
+    // Supported patterns:
+    //   /              → home (English)
+    //   /about         → about page (English)
+    //   /de/           → home (German)
+    //   /de/about      → about page (German)
+    //   /test/         → home (English, base_path = /test/)
+    //   /test/de/about → about page (German, base_path = /test/)
     function handleInitialURL() {
-        const parts = window.location.pathname
-            .replace(/^\//, '')   // strip leading slash
-            .split('/')
-            .filter(Boolean);
+        const base     = SITE_CONFIG.appearance.base_path; // e.g. '/test/'
+        const FALLBACK = SITE_CONFIG.languages[0].code;
+        const langs    = new Set(SITE_CONFIG.languages.map(l => l.code));
 
-        // Try to detect  /{lang}/{slug}  or just  /{slug}
-        const langs   = new Set(SITE_CONFIG.languages.map(l => l.code));
+        // Strip base_path from pathname
+        let path = window.location.pathname;
+        if (base && base !== '/') {
+            // base is like '/test/' — strip without the trailing slash for comparison
+            const baseNoTrail = base.endsWith('/') ? base.slice(0, -1) : base;
+            if (path.startsWith(baseNoTrail)) {
+                path = path.slice(baseNoTrail.length) || '/';
+            }
+        }
+
+        // Split into clean parts
+        const parts = path.replace(/^\//, '').split('/').filter(Boolean);
+
         let slug = '';
+        let langFromURL = '';
+
         if (parts.length >= 2 && langs.has(parts[0])) {
-            slug = parts[1];
+            // e.g. ['de', 'about']
+            langFromURL = parts[0];
+            slug        = parts[1];
         } else if (parts.length === 1) {
-            slug = parts[0];
+            if (langs.has(parts[0])) {
+                // e.g. ['de'] — language home
+                langFromURL = parts[0];
+                slug        = '';
+            } else {
+                // e.g. ['about'] — English page
+                slug = parts[0];
+            }
+        }
+        // parts.length === 0 → root home, slug stays ''
+
+        // If the URL specified a language that differs from what initI18n() set,
+        // switch language now (translations already loaded so just update state).
+        // initI18n() already called detectLangFromURL() so window.LANG is correct,
+        // but we sync just in case.
+        if (langFromURL && langFromURL !== window.LANG) {
+            // This shouldn't normally happen because initI18n() reads URL first,
+            // but guard anyway.
+            window.LANG = langFromURL;
+            document.documentElement.setAttribute('lang', langFromURL);
         }
 
         if (slug && SITE_CONFIG.pages[slug]) {
@@ -169,7 +214,12 @@ export function initPageLoader() {
     // ── BACK / FORWARD ───────────────────────────────────────────────────────
     window.addEventListener('popstate', (e) => {
         if (e.state?.slug) {
-            window.viewPage(e.state.slug);
+            // Restore language if it was stored in history state
+            if (e.state.lang && e.state.lang !== window.LANG) {
+                window.setLang(e.state.lang).then(() => window.viewPage(e.state.slug));
+            } else {
+                window.viewPage(e.state.slug);
+            }
         } else {
             window.showHome();
         }

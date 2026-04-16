@@ -1,26 +1,62 @@
 /**
  * i18n.js — Language detection, JSON loading, and switching
  * ─────────────────────────────────────────────────────────────────────────────
- * - Detects language from localStorage, then navigator.languages, then fallback
- * - Fetches lang/{code}.json and exposes it as window.T
- * - Re-renders nav, footer, and page content when language is switched
- * - Injects hreflang tags for SEO
- * - Provides getPageUrl(slug) for localized URL generation
- * - Provides parseUrlPath() for parsing incoming URLs
+ * Priority order for language detection:
+ *   1. URL path  (e.g. /de/about  or  /test/fr/kit)   ← highest priority
+ *   2. localStorage saved preference
+ *   3. navigator.languages browser preference
+ *   4. Fallback (first language in config = English)
+ *
+ * This ensures that sharing a /de/ URL always loads German, even on a device
+ * that previously had English saved in localStorage.
  * ─────────────────────────────────────────────────────────────────────────────
+ * TO ADD A LANGUAGE:
+ *   1. Add entry to SITE_CONFIG.languages in config.js
+ *   2. Create lang/{code}.json (copy en.json and translate)
+ *   3. Create content/{code}/ folder and translate HTML files
+ *   That's it.
  */
 
 import SITE_CONFIG from './config.js';
 
-const STORAGE_KEY = SITE_CONFIG.storageKey;
+const STORAGE_KEY = 'dornori-lang';
 const FALLBACK    = SITE_CONFIG.languages[0].code;
 const supported   = new Set(SITE_CONFIG.languages.map(l => l.code));
 
-// ── DETECT ───────────────────────────────────────────────────────────────────
+// ── DETECT LANGUAGE FROM URL PATH ────────────────────────────────────────────
+// Strips base_path prefix, then checks if the first path segment is a known
+// language code.  e.g. /test/de/about → 'de',  /test/about → null
+export function detectLangFromURL() {
+    const base = SITE_CONFIG.appearance.base_path; // e.g. '/test/'
+    let   path = window.location.pathname;
+
+    // Remove base_path prefix so we work with the relative part only
+    if (base && base !== '/' && path.startsWith(base.slice(0, -1))) {
+        path = path.slice(base.length - 1); // keep the leading /
+    }
+
+    // Split and grab first non-empty segment
+    const parts = path.replace(/^\//, '').split('/').filter(Boolean);
+    if (parts.length > 0 && supported.has(parts[0])) {
+        return parts[0];
+    }
+    return null;
+}
+
+// ── DETECT (full priority chain) ─────────────────────────────────────────────
 function detectLang() {
+    // 1. URL path
+    const fromURL = detectLangFromURL();
+    if (fromURL) {
+        localStorage.setItem(STORAGE_KEY, fromURL);
+        return fromURL;
+    }
+
+    // 2. localStorage
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved && supported.has(saved)) return saved;
 
+    // 3. Browser preference
     const match = (navigator.languages || [navigator.language])
         .map(l => l.split('-')[0].toLowerCase())
         .find(l => supported.has(l));
@@ -30,6 +66,7 @@ function detectLang() {
         return match;
     }
 
+    // 4. Fallback
     return FALLBACK;
 }
 
@@ -41,7 +78,6 @@ async function loadTranslations(code) {
         if (!res.ok) throw new Error();
         return await res.json();
     } catch {
-        // If translation file missing, fall back to English
         if (code !== FALLBACK) {
             const res = await fetch(`${base}lang/${FALLBACK}.json`);
             return await res.json();
@@ -50,71 +86,29 @@ async function loadTranslations(code) {
     }
 }
 
-// ── URL HELPERS ──────────────────────────────────────────────────────────────
-// Get the localized URL path for a given slug in a given language
-export function getPageUrl(slug, lang = null) {
-    const targetLang = lang || window.LANG || FALLBACK;
-    const slugs = SITE_CONFIG.url_slugs[targetLang];
-    const localSlug = slugs?.[slug] || slug;
-    return targetLang === FALLBACK ? `/${localSlug}` : `/${targetLang}/${localSlug}`;
-}
-
-// Parse current URL path to extract { lang, slug }
-// Returns { lang: 'en', slug: 'about' } or { lang: null, slug: null } for home
-export function parseUrlPath(pathname) {
-    const parts = pathname.replace(/^\//, '').split('/').filter(Boolean);
-    if (parts.length === 0) return { lang: null, slug: null };
-    
-    // Check if first part is a language code
-    const first = parts[0];
-    const langMatch = SITE_CONFIG.languages.find(l => l.code === first);
-    
-    if (langMatch) {
-        // /en/about  -> lang='en', rest='about'
-        const rest = parts.slice(1).join('/');
-        // Find canonical slug by reverse lookup in url_slugs for this language
-        let canonicalSlug = null;
-        const urlSlugsForLang = SITE_CONFIG.url_slugs[langMatch.code];
-        for (const [canonical, localized] of Object.entries(urlSlugsForLang)) {
-            if (rest === localized) {
-                canonicalSlug = canonical;
-                break;
-            }
-        }
-        // If no match, maybe the rest is already a canonical slug (like 'about')
-        if (!canonicalSlug && SITE_CONFIG.pages[rest]) {
-            canonicalSlug = rest;
-        }
-        return { lang: langMatch.code, slug: canonicalSlug };
-    } else {
-        // /about  -> lang=fallback, slug='about'
-        const canonicalSlug = SITE_CONFIG.pages[first] ? first : null;
-        return { lang: FALLBACK, slug: canonicalSlug };
-    }
-}
-
 // ── HREFLANG ─────────────────────────────────────────────────────────────────
 export function injectHreflangTags(slug = '') {
     const base = SITE_CONFIG.appearance.root_url;
+    const path = slug ? `/${slug}` : '';
+
     document.querySelectorAll('link[rel="alternate"][hreflang]').forEach(el => el.remove());
 
     SITE_CONFIG.languages.forEach(({ code, hreflang }) => {
-        const url = slug ? `${base}${getPageUrl(slug, code)}` : `${base}${code === FALLBACK ? '' : `/${code}`}`;
-        const link = document.createElement('link');
-        link.rel = 'alternate';
+        const link    = document.createElement('link');
+        link.rel      = 'alternate';
         link.hreflang = hreflang;
-        link.href = url;
+        link.href     = code === FALLBACK ? `${base}${path}` : `${base}/${code}${path}`;
         document.head.appendChild(link);
     });
 
-    const xDef = document.createElement('link');
-    xDef.rel = 'alternate';
+    const xDef    = document.createElement('link');
+    xDef.rel      = 'alternate';
     xDef.hreflang = 'x-default';
-    xDef.href = slug ? `${base}${getPageUrl(slug, FALLBACK)}` : base;
+    xDef.href     = `${base}${path}`;
     document.head.appendChild(xDef);
 }
 
-// ── SET LANG (called from settings UI) ───────────────────────────────────────
+// ── SET LANG (called from settings UI or page-loader) ────────────────────────
 window.setLang = async (code) => {
     if (!supported.has(code)) return;
     localStorage.setItem(STORAGE_KEY, code);
@@ -124,18 +118,23 @@ window.setLang = async (code) => {
     window.T = await loadTranslations(code);
 
     // Re-render nav and footer with new labels
-    if (typeof window.renderNav === 'function') window.renderNav();
+    if (typeof window.renderNav    === 'function') window.renderNav();
     if (typeof window.renderFooter === 'function') window.renderFooter();
 
-    // Reload content in new language, preserving current slug
+    // Update the language selector dropdown to match (if it exists)
+    const langSelect = document.getElementById('langSelect');
+    if (langSelect) langSelect.value = code;
+
+    // Reload content in new language — push new URL
     const slug = window.CURRENT_SLUG || '';
     if (slug) {
-        // Push new URL for the same slug in the new language
-        const newUrl = getPageUrl(slug, code);
-        window.history.pushState({ slug, lang: code }, '', newUrl);
         window.viewPage(slug);
     } else {
         window.loadHome();
+        // Update URL to reflect new language
+        const base   = SITE_CONFIG.appearance.base_path;
+        const newURL = code === FALLBACK ? base : `${base}${code}/`;
+        window.history.pushState({}, '', newURL);
     }
 };
 
@@ -146,7 +145,6 @@ export async function initI18n() {
     document.documentElement.setAttribute('lang', lang);
     window.T = await loadTranslations(lang);
     injectHreflangTags();
-    // Render nav and footer now that T is ready
-    if (typeof window.renderNav === 'function') window.renderNav();
+    if (typeof window.renderNav    === 'function') window.renderNav();
     if (typeof window.renderFooter === 'function') window.renderFooter();
 }
