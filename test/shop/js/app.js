@@ -1,69 +1,87 @@
-document.getElementById("shop-name").innerText = CONFIG.shopName;
+let LANG={};
+let cart=JSON.parse(localStorage.getItem("cart")||"[]");
 
-let cart = JSON.parse(localStorage.getItem("cart")||"[]");
-
-function updateCart(){
-  localStorage.setItem("cart", JSON.stringify(cart));
-  let count = document.getElementById("cart-count");
-  if(count) count.innerText = cart.length;
+async function loadLang(){
+  let res=await fetch("data/lang/"+CONFIG.language+".json");
+  LANG=await res.json();
 }
 
-async function loadProducts(){
-  let res = await fetch("data/products/manifest.json");
-  let list = await res.json();
-  let grid = document.getElementById("product-grid");
-  if(!grid) return;
+function saveCart(){localStorage.setItem("cart",JSON.stringify(cart));}
 
-  for(let p of list){
-    let r = await fetch("data/products/"+p);
-    let prod = await r.json();
+function addToCart(p){
+  cart.push(p);
+  saveCart();
+  showPopup(p.name+" "+LANG.added);
+}
 
-    let el = document.createElement("div");
-    el.className="product-card";
-    el.innerHTML = `
-      <img src="${prod.image}">
-      <h3>${prod.name}</h3>
-      <p>$${prod.price}</p>
-      <button onclick="addToCart('${prod.id}')">Add</button>
-      <button onclick="location.href='product.html?id=${prod.id}'">View</button>
+function showPopup(txt){
+  let d=document.createElement("div");
+  d.className="popup";
+  d.innerText=txt;
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(),2000);
+}
+
+async function renderShop(divId){
+  await loadLang();
+  let container=document.getElementById(divId);
+  let grid=document.createElement("div");
+  grid.className="shop-grid";
+
+  let m=await fetch("data/products/manifest.json");
+  let list=await m.json();
+
+  for(let file of list){
+    let r=await fetch("data/products/"+file);
+    let p=await r.json();
+
+    let c=document.createElement("div");
+    c.className="shop-card";
+    c.innerHTML=`
+      <img src="${p.image}" style="width:100%">
+      <h3>${p.name}</h3>
+      <p>${CONFIG.currency}${p.price}</p>
+      <button onclick='addToCart(${JSON.stringify(p)})'>${LANG.buy_now}</button>
     `;
-    grid.appendChild(el);
+    grid.appendChild(c);
   }
+  container.appendChild(grid);
 }
 
-async function loadProductPage(){
-  let params = new URLSearchParams(location.search);
-  let id = params.get("id");
-  if(!id) return;
-
-  let res = await fetch("data/products/"+id+".json");
-  let p = await res.json();
-
-  let c = document.getElementById("product-container");
-  if(!c) return;
-
-  c.innerHTML = `
-    <h2>${p.name}</h2>
-    <img src="${p.image}">
-    <p>${p.description}</p>
-    <h3>$${p.price}</h3>
-    <button onclick="addToCart('${p.id}')">Add to Cart</button>
-  `;
+function renderCartIcon(){
+  let d=document.createElement("div");
+  d.className="shop-cart";
+  d.innerText="🛒";
+  d.onclick=()=>alert("Cart items: "+cart.length);
+  document.body.appendChild(d);
 }
 
-function addToCart(id){
-  cart.push(id);
-  updateCart();
+function calculateTotal(){
+  let subtotal=cart.reduce((a,b)=>a+b.price,0);
+  let weight=cart.reduce((a,b)=>a+b.weight,0);
+  let shipping=CONFIG.shipping.base+(weight*CONFIG.shipping.perKg);
+  let tax=subtotal*CONFIG.taxRate;
+  return subtotal+shipping+tax;
 }
 
-function loadCart(){
-  let el = document.getElementById("cart-items");
-  if(!el) return;
-
-  el.innerHTML = cart.join("<br>");
+function attachBuyOverlay(selector,productId){
+  document.querySelectorAll(selector).forEach(el=>{
+    let o=document.createElement("div");
+    o.className="buy-overlay";
+    o.innerText=LANG.buy_now;
+    o.onclick=async ()=>{
+      let r=await fetch("data/products/"+productId+".json");
+      let p=await r.json();
+      addToCart(p);
+    };
+    el.style.position="relative";
+    el.appendChild(o);
+  });
 }
 
-updateCart();
-loadProducts();
-loadProductPage();
-loadCart();
+window.Shop={
+  renderShop,
+  renderCartIcon,
+  attachBuyOverlay,
+  calculateTotal
+};
