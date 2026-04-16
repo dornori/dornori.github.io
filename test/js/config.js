@@ -1,31 +1,23 @@
 const SITE_CONFIG = {
-    // ============================================================
-    // DEPLOYMENT - CHANGE THESE WHEN MOVING TO ROOT
-    // ============================================================
-    base_path: '/test/',  // ← ONLY CHANGE THIS ('' for root, '/test/' for testing)
+    // DEPLOYMENT - CHANGE THIS ONE LINE WHEN MOVING TO ROOT
+    base_path: '/test/',  // ← Change to '/' for production, keep '/test/' for testing
     root_url: 'https://dornori.com',
     
-    // ============================================================
     // APPEARANCE
-    // ============================================================
     icyLemon: '#F5F29B',
     bgDark: '#050505',
     bannerStickyOffset: 0.35,
     
-    // ============================================================
-    // LANGUAGES - Add/remove languages here
-    // ============================================================
+    // LANGUAGES
     languages: [
-        { code: 'en', hreflang: 'en', label: 'English', flag: '🇬🇧', name: 'English' },
-        { code: 'de', hreflang: 'de', label: 'Deutsch', flag: '🇩🇪', name: 'German' },
-        { code: 'nl', hreflang: 'nl', label: 'Nederlands', flag: '🇳🇱', name: 'Dutch' },
-        { code: 'fr', hreflang: 'fr', label: 'Français', flag: '🇫🇷', name: 'French' },
+        { code: 'en', hreflang: 'en', label: 'English', flag: '🇬🇧' },
+        { code: 'de', hreflang: 'de', label: 'Deutsch', flag: '🇩🇪' },
+        { code: 'nl', hreflang: 'nl', label: 'Nederlands', flag: '🇳🇱' },
+        { code: 'fr', hreflang: 'fr', label: 'Français', flag: '🇫🇷' },
     ],
     default_language: 'en',
     
-    // ============================================================
     // NAVIGATION
-    // ============================================================
     navigation: [
         { slug: 'about',  icon: '/assets/icons/about-icon-200x200.svg',   type: 'standard', enabled: true },
         { slug: 'built',  icon: '/assets/icons/assembled-lamp-icon-200x200.svg', type: 'standard', enabled: true },
@@ -34,88 +26,28 @@ const SITE_CONFIG = {
         { slug: 'files',  icon: '/assets/icons/3d-file-icon-200x200.svg',        type: 'standard', enabled: true },
     ],
     
-    // ============================================================
     // FOOTER
-    // ============================================================
     footer: [
         {
             label: 'Company',
             links: [
-                { slug: 'gallery',  enabled: true, label: 'Gallery' },
-                { slug: 'about',    enabled: true, label: 'About' },
-                { slug: 'contact',  enabled: true, label: 'Contact' },
+                { slug: 'gallery',  enabled: true },
+                { slug: 'about',    enabled: true },
+                { slug: 'contact',  enabled: true },
             ]
         },
         {
             label: 'Legal',
             links: [
-                { slug: 'terms',    enabled: true, label: 'Terms' },
-                { slug: 'imprint',  enabled: true, label: 'Imprint' },
+                { slug: 'terms',    enabled: true },
+                { slug: 'imprint',  enabled: true },
             ]
         }
     ],
     
-    // ============================================================
-    // PAGE MAPPING
-    // ============================================================
-    pages: {
-        about:   { file: 'about-us.html', title: 'About Dornori', description: 'Where Dornori started and what makes the Star-A lamp different.' },
-        built:   { file: 'built.html', title: 'Ready to Use', description: 'Fully assembled Star-A lamp. Drop in batteries and flip the lever.' },
-        kit:     { file: 'kit.html', title: 'Complete Assembly Kit', description: 'Build your own Star-A lamp. No soldering, no 3D printer needed.' },
-        parts:   { file: 'parts.html', title: 'Replacement Parts', description: 'Every part of the Star-A lamp available separately.' },
-        files:   { file: 'files.html', title: '3D Print Files', description: 'Download STL, OBJ, and 3MF files for the Star-A lamp.' },
-        terms:   { file: 'terms.html', title: 'Terms of Service', description: 'Terms and conditions for using Dornori products and website.' },
-        imprint: { file: 'imprint.html', title: 'Imprint', description: 'Legal information about Dornori.' },
-        contact: { file: 'gallery-1.html', title: 'Contact', description: 'Get in touch with Dornori.' },
-        gallery: { file: 'gallery-1.html', title: 'Gallery', description: 'Photos of Star-A lamps in action.' },
-    },
-    
-    // ============================================================
     // FORMS
-    // ============================================================
     formspree_id: 'xnjopbbb',
     turnstile_sitekey: '0x4AAAAAACxsga5y-bJ_qkzC',
-    
-    // ============================================================
-    // HELPER FUNCTIONS
-    // ============================================================
-    getCleanBasePath() {
-        const bp = this.base_path || '/';
-        return bp === '/' ? '' : bp.replace(/\/$/, '');
-    },
-    
-    getPageUrl(lang, slug = '') {
-        const cleanBase = this.getCleanBasePath();
-        const base = cleanBase ? `/${cleanBase}/` : '/';
-        if (slug) {
-            return `${base}${lang}/${slug}/`;
-        }
-        return `${base}${lang}/`;
-    },
-    
-    getAssetPath(path) {
-        const cleanBase = this.getCleanBasePath();
-        if (cleanBase) {
-            return `/${cleanBase}${path}`;
-        }
-        return path;
-    },
-    
-    isValidLanguage(code) {
-        return this.languages.some(l => l.code === code);
-    },
-    
-    getLanguage(code) {
-        return this.languages.find(l => l.code === code) || this.languages[0];
-    },
-    
-    // Get all language codes
-    getLanguageCodes() {
-        return this.languages.map(l => l.code);
-    },
 };
-
-// Make config available globally for non-module scripts
-window.SITE_CONFIG = SITE_CONFIG;
 
 export default SITE_CONFIG;
