@@ -7,6 +7,14 @@
  */
 
 import SITE_CONFIG from './config.js';
+ // ─── WEBSITE COLOR PROFILES ─────────────────────────────────────────────────
+    // Fallback defined in 'profiles.cc' (cutting-mat)
+const PROFILES = [
+    { id: 'dark',        label: 'Dark'        },
+    { id: 'light',       label: 'Light'       },
+    { id: 'cutting-mat', label: 'Cutting Mat' },
+    { id: 'cutting-blue',label: 'Cutting Blue' },
+]
 
 const FALLBACK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
