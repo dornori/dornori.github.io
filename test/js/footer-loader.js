@@ -1,9 +1,8 @@
 import SITE_CONFIG from './config.js';
 
 function getPageUrl(slug) {
-    const lang = window.LANG || 'en';
-    const basePath = SITE_CONFIG.appearance.base_path || '/';
-    return `${basePath}${lang}/${slug}/`;
+    const lang = window.LANG || SITE_CONFIG.default_language;
+    return SITE_CONFIG.getPageUrl(lang, slug);
 }
 
 window.renderFooter = () => {
@@ -37,7 +36,7 @@ window.renderFooter = () => {
             const a = document.createElement('a');
             a.href = getPageUrl(link.slug);
             a.className = 'footer-link';
-            a.textContent = tLinks[link.slug] || link.label;
+            a.textContent = tLinks[link.slug] || link.label || link.slug;
             a.setAttribute('data-slug', link.slug);
             col.appendChild(a);
         });
