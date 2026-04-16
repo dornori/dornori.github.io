@@ -2,7 +2,8 @@ import SITE_CONFIG from './config.js';
 
 function getPageUrl(slug) {
     const lang = window.LANG || 'en';
-    return `/${lang}/${slug}/`;
+    const basePath = SITE_CONFIG.appearance.base_path || '/';
+    return `${basePath}${lang}/${slug}/`;
 }
 
 window.renderFooter = () => {
@@ -37,6 +38,7 @@ window.renderFooter = () => {
             a.href = getPageUrl(link.slug);
             a.className = 'footer-link';
             a.textContent = tLinks[link.slug] || link.label;
+            a.setAttribute('data-slug', link.slug);
             col.appendChild(a);
         });
 
