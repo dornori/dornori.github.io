@@ -39,7 +39,7 @@ const SITE_CONFIG = {
     ],
  // ─── WEBSITE COLOR PROFILES ─────────────────────────────────────────────────
     // Fallback defined in 'profiles.cc' (cutting-mat)
-const PROFILES = [
+PROFILES = [
     { id: 'dark',        label: 'Dark'        },
     { id: 'light',       label: 'Light'       },
     { id: 'cutting-mat', label: 'Cutting Mat' },
