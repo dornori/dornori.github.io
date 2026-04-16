@@ -15,11 +15,13 @@ const FALLBACK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 </svg>`;
 
 const svgCache = new Map();
+
 async function fetchSVG(path) {
     if (svgCache.has(path)) return svgCache.get(path);
     try {
-        const basePath = SITE_CONFIG.base_path;
-        const fullPath = basePath === '/' ? path : basePath.replace(/\/$/, '') + path;
+        const basePath = SITE_CONFIG.appearance.base_path;
+        const cleanBase = basePath === '/' ? '' : basePath.replace(/\/$/, '');
+        const fullPath = cleanBase ? `/${cleanBase}${path}` : path;
         const res = await fetch(fullPath);
         if (!res.ok) throw new Error();
         const svg = await res.text();
@@ -33,9 +35,8 @@ async function fetchSVG(path) {
 
 function getPageUrl(slug) {
     const lang = window.LANG || SITE_CONFIG.default_language;
-    const basePath = SITE_CONFIG.base_path;
-    const cleanBase = basePath === '/' ? '' : basePath.replace(/\/$/, '');
-    return cleanBase ? `/${cleanBase}/${lang}/${slug}/` : `/${lang}/${slug}/`;
+    const basePath = SITE_CONFIG.appearance.base_path;
+    return `${basePath}${lang}/${slug}/`;
 }
 
 window.renderNav = () => {
@@ -180,42 +181,29 @@ export function initNavigation() {
         const openBar = () => {
             topBar.classList.add('active');
             tab.setAttribute('aria-expanded', 'true');
-            tab.setAttribute('aria-label', 'Close settings');
             profileSelect.setAttribute('tabindex', '0');
             langSelect.setAttribute('tabindex', '0');
-            profileSelect.focus();
         };
         const closeBar = () => {
             topBar.classList.remove('active');
             tab.setAttribute('aria-expanded', 'false');
-            tab.setAttribute('aria-label', 'Open settings');
             profileSelect.setAttribute('tabindex', '-1');
             langSelect.setAttribute('tabindex', '-1');
         };
 
-        tab.addEventListener('click', e => {
+        tab.addEventListener('click', (e) => {
             e.stopPropagation();
             topBar.classList.contains('active') ? closeBar() : openBar();
         });
-        document.addEventListener('click', e => { if (!topBar.contains(e.target)) closeBar(); });
-        document.addEventListener('keydown', e => {
-            if (e.key === 'Escape' && topBar.classList.contains('active')) { closeBar(); tab.focus(); }
+        document.addEventListener('click', (e) => {
+            if (!topBar.contains(e.target)) closeBar();
         });
-
+        
         const isFinePointer = window.matchMedia('(pointer: fine)');
         if (isFinePointer.matches) {
             topBar.addEventListener('mouseenter', openBar);
             topBar.addEventListener('mouseleave', closeBar);
         }
-        isFinePointer.addEventListener('change', e => {
-            if (e.matches) {
-                topBar.addEventListener('mouseenter', openBar);
-                topBar.addEventListener('mouseleave', closeBar);
-            } else {
-                topBar.removeEventListener('mouseenter', openBar);
-                topBar.removeEventListener('mouseleave', closeBar);
-            }
-        });
     }
     window.renderNav();
 }
