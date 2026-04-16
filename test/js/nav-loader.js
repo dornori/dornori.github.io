@@ -1,17 +1,20 @@
 /**
- * nav-loader.js — Updated for clean language directory URLs
- * URLs now use: /en/about/, /nl/kit/, etc. (with trailing slash)
+ * nav-loader.js
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Reads labels from window.T (loaded by i18n.js from lang/{code}.json).
+ * Exposes window.renderNav() so setLang() can re-render without a page reload.
+ * Uses <a href> tags so Google can crawl all pages.
  */
 
 import SITE_CONFIG from './config.js';
-
-// ─── WEBSITE COLOR PROFILES ─────────────────────────────────────────────────
+ // ─── WEBSITE COLOR PROFILES ─────────────────────────────────────────────────
+    // Fallback defined in 'profiles.cc' (cutting-mat)
 const PROFILES = [
     { id: 'dark',        label: 'Dark'        },
     { id: 'light',       label: 'Light'       },
     { id: 'cutting-mat', label: 'Cutting Mat' },
     { id: 'cutting-blue',label: 'Cutting Blue' },
-];
+]
 
 const FALLBACK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -21,7 +24,6 @@ const FALLBACK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 </svg>`;
 
 const svgCache = new Map();
-
 async function fetchSVG(path) {
     if (svgCache.has(path)) return svgCache.get(path);
     try {
@@ -36,13 +38,14 @@ async function fetchSVG(path) {
     }
 }
 
-// ─── NEW NAV HREF FUNCTION (Clean directory URLs) ───────────────────────────
-function navHref(slug, lang = window.LANG || 'en') {
-    const prefix = SITE_CONFIG.appearance.getLangPrefix(lang);
-    return `${prefix}/${slug}/`;   // Important: trailing slash for clean URLs
+function navHref(slug) {
+    const lang = window.LANG || 'en';
+    const base = SITE_CONFIG.appearance.base_path;
+    return lang === 'en' ? `${base}${slug}` : `${base}${lang}/${slug}`;
 }
 
-// ── NAV RENDER ──────────────────────────────────────────────────────────────
+// ── NAV RENDER ───────────────────────────────────────────────────────────────
+// Separated so i18n can call window.renderNav() on language switch
 window.renderNav = () => {
     const T = window.T || {};
 
@@ -56,7 +59,7 @@ window.renderNav = () => {
             const t = T.nav?.[item.slug] || {};
 
             const a       = document.createElement('a');
-            a.href        = navHref(item.slug, window.LANG);
+            a.href        = navHref(item.slug);
             a.className   = item.type === 'button' ? 'nav-link nav-newsletter' : 'nav-link';
             a.setAttribute('data-slug', item.slug);
 
@@ -69,25 +72,10 @@ window.renderNav = () => {
 
             a.appendChild(iconEl);
             a.appendChild(labelEl);
-
-            // Click handler - uses new viewPage
-            a.addEventListener('click', e => {
-                e.preventDefault();
-                if (typeof window.viewPage === 'function') {
-                    window.viewPage(item.slug);
-                } else {
-                    window.location.href = a.href;
-                }
-            });
-
+            a.addEventListener('click', e => { e.preventDefault(); window.viewPage(item.slug); });
             desktopNav.appendChild(a);
 
-            // Load real SVG icon
-            if (item.icon) {
-                fetchSVG(item.icon).then(svg => {
-                    iconEl.innerHTML = svg;
-                });
-            }
+            if (item.icon) fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
         });
     }
 
@@ -101,7 +89,7 @@ window.renderNav = () => {
             const t = T.nav?.[item.slug] || {};
 
             const a     = document.createElement('a');
-            a.href      = navHref(item.slug, window.LANG);
+            a.href      = navHref(item.slug);
             a.className = item.type === 'button' ? 'mobile-nav-item mobile-nav-cta' : 'mobile-nav-item';
             a.setAttribute('data-slug', item.slug);
 
@@ -115,23 +103,10 @@ window.renderNav = () => {
 
             a.appendChild(iconEl);
             a.appendChild(labelEl);
-
-            a.addEventListener('click', e => {
-                e.preventDefault();
-                if (typeof window.viewPage === 'function') {
-                    window.viewPage(item.slug);
-                } else {
-                    window.location.href = a.href;
-                }
-            });
-
+            a.addEventListener('click', e => { e.preventDefault(); window.viewPage(item.slug); });
             mobileNav.appendChild(a);
 
-            if (item.icon) {
-                fetchSVG(item.icon).then(svg => {
-                    iconEl.innerHTML = svg;
-                });
-            }
+            if (item.icon) fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
         });
     }
 };
@@ -139,11 +114,11 @@ window.renderNav = () => {
 // ── MAIN INIT ────────────────────────────────────────────────────────────────
 export function initNavigation() {
 
-    /* ── Theme Selector ── */
+    /* ── Theme ── */
     const THEME_KEY = 'dornori-theme';
     const root      = document.documentElement;
-    const savedTheme = localStorage.getItem(THEME_KEY) || 'cutting-mat';
-    root.setAttribute('data-theme', savedTheme);
+    const saved     = localStorage.getItem(THEME_KEY) || 'cutting-mat';
+    root.setAttribute('data-theme', saved);
 
     /* ── Settings topBar ── */
     const topBar = document.getElementById('topBar');
@@ -158,12 +133,14 @@ export function initNavigation() {
         const profileSelect     = document.createElement('select');
         profileSelect.id        = 'profileSelect';
         profileSelect.className = 'profile-select';
+        profileSelect.setAttribute('aria-label', 'Choose colour profile');
+        profileSelect.setAttribute('tabindex', '-1');
 
         PROFILES.forEach(p => {
             const opt       = document.createElement('option');
             opt.value       = p.id;
             opt.textContent = p.label.toUpperCase();
-            if (p.id === savedTheme) opt.selected = true;
+            if (p.id === saved) opt.selected = true;
             profileSelect.appendChild(opt);
         });
 
@@ -183,6 +160,9 @@ export function initNavigation() {
         const langSelect     = document.createElement('select');
         langSelect.id        = 'langSelect';
         langSelect.className = 'profile-select';
+        langSelect.setAttribute('aria-label', 'Choose language');
+        langSelect.setAttribute('tabindex', '-1');
+        langSelect.value     = window.LANG || 'en';
 
         SITE_CONFIG.languages.forEach(l => {
             const opt       = document.createElement('option');
@@ -193,18 +173,18 @@ export function initNavigation() {
         });
 
         langSelect.addEventListener('change', () => {
-            if (typeof window.setLang === 'function') {
-                window.setLang(langSelect.value);
-            }
+            if (typeof window.setLang === 'function') window.setLang(langSelect.value);
         });
 
         langWrap.appendChild(langSelect);
         topBar.appendChild(langWrap);
 
-        // Settings gear tab (unchanged)
+        // Settings gear tab
         const tab = document.createElement('button');
         tab.id    = 'topBar-tab';
         tab.setAttribute('aria-label', 'Open settings');
+        tab.setAttribute('aria-expanded', 'false');
+        tab.setAttribute('aria-controls', 'topBar');
         tab.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
                  stroke-linecap="round" stroke-linejoin="round">
@@ -226,38 +206,47 @@ export function initNavigation() {
         const openBar = () => {
             topBar.classList.add('active');
             tab.setAttribute('aria-expanded', 'true');
+            tab.setAttribute('aria-label', 'Close settings');
+            profileSelect.setAttribute('tabindex', '0');
+            langSelect.setAttribute('tabindex', '0');
+            profileSelect.focus();
         };
         const closeBar = () => {
             topBar.classList.remove('active');
             tab.setAttribute('aria-expanded', 'false');
+            tab.setAttribute('aria-label', 'Open settings');
+            profileSelect.setAttribute('tabindex', '-1');
+            langSelect.setAttribute('tabindex', '-1');
         };
 
+        // Click still works on all devices
         tab.addEventListener('click', e => {
             e.stopPropagation();
             topBar.classList.contains('active') ? closeBar() : openBar();
         });
-
-        document.addEventListener('click', e => {
-            if (!topBar.contains(e.target)) closeBar();
+        document.addEventListener('click', e => { if (!topBar.contains(e.target)) closeBar(); });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && topBar.classList.contains('active')) { closeBar(); tab.focus(); }
         });
 
-        document.addEventListener('keydown', e => {
-            if (e.key === 'Escape' && topBar.classList.contains('active')) {
-                closeBar();
-                tab.focus();
+        // Hover open/close — only on non-touch devices (pointer: fine = mouse/trackpad)
+        const isFinePonter = window.matchMedia('(pointer: fine)');
+        if (isFinePonter.matches) {
+            topBar.addEventListener('mouseenter', () => openBar());
+            topBar.addEventListener('mouseleave', () => closeBar());
+        }
+        // If device type changes (e.g. tablet with mouse attached), update behaviour
+        isFinePonter.addEventListener('change', e => {
+            if (e.matches) {
+                topBar.addEventListener('mouseenter', openBar);
+                topBar.addEventListener('mouseleave', closeBar);
+            } else {
+                topBar.removeEventListener('mouseenter', openBar);
+                topBar.removeEventListener('mouseleave', closeBar);
             }
         });
-
-        // Hover behavior on desktop
-        const isFinePointer = window.matchMedia('(pointer: fine)');
-        if (isFinePointer.matches) {
-            topBar.addEventListener('mouseenter', openBar);
-            topBar.addEventListener('mouseleave', closeBar);
-        }
     }
 
-    // Render navigation
+    // Render nav links
     window.renderNav();
 }
-
-initNavigation();
