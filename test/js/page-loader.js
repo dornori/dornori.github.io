@@ -1,45 +1,47 @@
 // page-loader.js
 import SITE_CONFIG from './config.js';
 import { mountSlideshow } from './slideshow.js';
-import { initEmbedForms }  from './embed-form.js';
-import { injectHreflangTags, detectLangFromURL } from './i18n.js';
+import { initEmbedForms } from './embed-form.js';
+import { injectHreflangTags } from './i18n.js';
 
 export function initPageLoader() {
     const homeView    = document.getElementById('home-view');
     const pageView    = document.getElementById('page-view');
     const pageContent = document.getElementById('page-content-inner');
 
-    // ── SEO ──────────────────────────────────────────────────────────────────
+    function buildCleanURL(slug = '') {
+        const lang = window.LANG || SITE_CONFIG.languages[0].code;
+        const base = SITE_CONFIG.appearance.base_path;
+        const fallback = SITE_CONFIG.languages[0].code;
+        const path = slug ? `${slug}/` : '';
+        return lang === fallback ? `${base}${path}` : `${base}${lang}/${path}`;
+    }
+
     function updateSEO(slug = '') {
         const base = SITE_CONFIG.appearance.root_url;
-        const lang = window.LANG || 'en';
-        const path = slug ? `/${slug}` : '';
+        const url = buildCleanURL(slug);
 
-        // Canonical — always points to the clean URL on the main domain
         let canonical = document.querySelector('link[rel="canonical"]');
         if (!canonical) {
-            canonical     = document.createElement('link');
+            canonical = document.createElement('link');
             canonical.rel = 'canonical';
             document.head.appendChild(canonical);
         }
-        canonical.href = `${base}${path}`;
+        canonical.href = `${base}${slug ? '/' + slug + '/' : '/'}`;
 
-        // Title + description — read from window.T (lang JSON) so they're translated
         const tPage = window.T?.pages?.[slug];
-        document.title = tPage
-            ? `${tPage.title} — Dornori`
+        document.title = tPage 
+            ? `${tPage.title} — Dornori` 
             : 'Dornori — Build Your Own Rising Star Lamp';
 
         let descTag = document.querySelector('meta[name="description"]');
         if (!descTag) {
-            descTag      = document.createElement('meta');
+            descTag = document.createElement('meta');
             descTag.name = 'description';
             document.head.appendChild(descTag);
         }
-        descTag.content = tPage?.description
-            || 'Dornori — revolutionary outdoor lighting you build yourself.';
+        descTag.content = tPage?.description || 'Dornori — Build your own Star-A rising kinetic lamp.';
 
-        // OG tags
         const setOG = (prop, val) => {
             let tag = document.querySelector(`meta[property="${prop}"]`);
             if (!tag) {
@@ -47,72 +49,58 @@ export function initPageLoader() {
                 tag.setAttribute('property', prop);
                 document.head.appendChild(tag);
             }
-            tag.setAttribute('content', val);
+            tag.content = val;
         };
-        setOG('og:url',         `${base}${path}`);
-        setOG('og:title',       document.title);
+        setOG('og:url', url);
+        setOG('og:title', document.title);
         setOG('og:description', descTag.content);
 
-        // hreflang alternates
         injectHreflangTags(slug);
-
-        // Track current slug so setLang() can reload the right page
         window.CURRENT_SLUG = slug;
     }
 
-    // ── CONTENT PATH ─────────────────────────────────────────────────────────
-    // All content lives at:  content/{lang}/{file}
-    function contentPath(page) {
-        const lang = window.LANG || 'en';
+    function getPageURL(slug) {
+        const lang = window.LANG || SITE_CONFIG.languages[0].code;
         const base = SITE_CONFIG.appearance.base_path;
-        return `${base}content/${lang}/${page.file}`;
+        const fallback = SITE_CONFIG.languages[0].code;
+        const path = slug ? `${slug}/` : '';
+        const full = lang === fallback ? `${base}${path}` : `${base}${lang}/${path}`;
+        return `${full}index.html`;
     }
 
-    // ── LOAD HOME ─────────────────────────────────────────────────────────────
     window.loadHome = async () => {
         try {
-            const lang = window.LANG || 'en';
-            const base = SITE_CONFIG.appearance.base_path;
-            const res  = await fetch(`${base}content/${lang}/home.html`);
-            if (!res.ok) throw new Error();
-            const html = await res.text();
-            homeView.innerHTML = html;
+            const res = await fetch(`${SITE_CONFIG.appearance.base_path}index.html`);
+            if (res.ok) {
+                const html = await res.text();
+                homeView.innerHTML = html;
+            }
             homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
-        } catch {
-            // Silently fail — home.html may not be translated yet
+        } catch (e) {
+            console.warn('Home content could not be loaded dynamically');
         }
     };
 
-    // ── VIEW PAGE ────────────────────────────────────────────────────────────
     window.viewPage = async (slug) => {
-        const page = SITE_CONFIG.pages[slug];
-        if (!page) {
-            console.error(`Page "${slug}" not found in config`);
-            return;
-        }
+        if (!SITE_CONFIG.pages[slug]) return;
 
         try {
-            const res = await fetch(contentPath(page));
-            if (!res.ok) throw new Error(`Failed to load ${contentPath(page)}`);
+            const url = getPageURL(slug);
+            const res = await fetch(url);
+            if (!res.ok) throw new Error();
 
             const html = await res.text();
-
             pageContent.innerHTML = html;
+
             pageContent.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
 
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
 
-            // Push a clean URL — lang prefix only for non-English
-            const lang = window.LANG || 'en';
-            const base = SITE_CONFIG.appearance.base_path;
-            const FALLBACK = SITE_CONFIG.languages[0].code;
-            const url  = lang === FALLBACK
-                ? `${base}${slug}`
-                : `${base}${lang}/${slug}`;
-            window.history.pushState({ slug, lang }, '', url);
+            const cleanUrl = buildCleanURL(slug);
+            window.history.pushState({ slug }, '', cleanUrl);
 
             updateSEO(slug);
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -130,75 +118,42 @@ export function initPageLoader() {
         }
     };
 
-    // ── SHOW HOME ────────────────────────────────────────────────────────────
     window.showHome = () => {
         pageView.classList.add('hidden');
         homeView.classList.remove('hidden');
 
-        const lang     = window.LANG || 'en';
-        const base     = SITE_CONFIG.appearance.base_path;
-        const FALLBACK = SITE_CONFIG.languages[0].code;
-        const url      = lang === FALLBACK ? base : `${base}${lang}/`;
-        window.history.pushState({}, '', url);
+        const cleanUrl = buildCleanURL('');
+        window.history.pushState({}, '', cleanUrl);
 
         window.CURRENT_SLUG = '';
         updateSEO('');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // ── HANDLE DIRECT URL ON FIRST LOAD ──────────────────────────────────────
-    // Parses the path after stripping base_path.
-    // Supported patterns:
-    //   /              → home (English)
-    //   /about         → about page (English)
-    //   /de/           → home (German)
-    //   /de/about      → about page (German)
-    //   /test/         → home (English, base_path = /test/)
-    //   /test/de/about → about page (German, base_path = /test/)
     function handleInitialURL() {
-        const base     = SITE_CONFIG.appearance.base_path; // e.g. '/test/'
-        const FALLBACK = SITE_CONFIG.languages[0].code;
-        const langs    = new Set(SITE_CONFIG.languages.map(l => l.code));
-
-        // Strip base_path from pathname
+        const base = SITE_CONFIG.appearance.base_path;
         let path = window.location.pathname;
-        if (base && base !== '/') {
-            // base is like '/test/' — strip without the trailing slash for comparison
-            const baseNoTrail = base.endsWith('/') ? base.slice(0, -1) : base;
-            if (path.startsWith(baseNoTrail)) {
-                path = path.slice(baseNoTrail.length) || '/';
-            }
+
+        if (base && base !== '/' && path.startsWith(base.slice(0, -1))) {
+            path = path.slice(base.length - 1) || '/';
         }
 
-        // Split into clean parts
         const parts = path.replace(/^\//, '').split('/').filter(Boolean);
-
         let slug = '';
         let langFromURL = '';
 
-        if (parts.length >= 2 && langs.has(parts[0])) {
-            // e.g. ['de', 'about']
+        if (parts.length >= 2 && SITE_CONFIG.languages.some(l => l.code === parts[0])) {
             langFromURL = parts[0];
-            slug        = parts[1];
+            slug = parts[1];
         } else if (parts.length === 1) {
-            if (langs.has(parts[0])) {
-                // e.g. ['de'] — language home
+            if (SITE_CONFIG.languages.some(l => l.code === parts[0])) {
                 langFromURL = parts[0];
-                slug        = '';
             } else {
-                // e.g. ['about'] — English page
                 slug = parts[0];
             }
         }
-        // parts.length === 0 → root home, slug stays ''
 
-        // If the URL specified a language that differs from what initI18n() set,
-        // switch language now (translations already loaded so just update state).
-        // initI18n() already called detectLangFromURL() so window.LANG is correct,
-        // but we sync just in case.
         if (langFromURL && langFromURL !== window.LANG) {
-            // This shouldn't normally happen because initI18n() reads URL first,
-            // but guard anyway.
             window.LANG = langFromURL;
             document.documentElement.setAttribute('lang', langFromURL);
         }
@@ -211,31 +166,22 @@ export function initPageLoader() {
         }
     }
 
-    // ── BACK / FORWARD ───────────────────────────────────────────────────────
     window.addEventListener('popstate', (e) => {
         if (e.state?.slug) {
-            // Restore language if it was stored in history state
-            if (e.state.lang && e.state.lang !== window.LANG) {
-                window.setLang(e.state.lang).then(() => window.viewPage(e.state.slug));
-            } else {
-                window.viewPage(e.state.slug);
-            }
+            window.viewPage(e.state.slug);
         } else {
             window.showHome();
         }
     });
 
-    // ── ESCAPE KEY ───────────────────────────────────────────────────────────
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !pageView.classList.contains('hidden')) {
             window.showHome();
         }
     });
 
-    // Run on boot
     handleInitialURL();
     updateSEO('');
 }
 
-// Auto-init when imported directly
 initPageLoader();
