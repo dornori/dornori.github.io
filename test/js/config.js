@@ -1,41 +1,14 @@
-/**
- * DORNORI SITE CONFIGURATION
- * ─────────────────────────────────────────────────────────────────────────────
- * Labels and translated text are NOT stored here.
- * They live in lang/en.json, lang/de.json etc.
- *
- * This file contains only structural config:
- * - appearance settings
- * - supported languages (code, hreflang, flag — for the UI selector)
- * - URL slug mappings per language (for pretty localized URLs)
- * - navigation slugs + icons + enabled flags
- * - footer slugs + enabled flags
- * - page file mappings
- * - socials, formspree, turnstile
- *
- * TO ADD A LANGUAGE:
- *   1. Add entry to `languages` below
- *   2. Add URL slug mapping for each page in `url_slugs`
- *   3. Create lang/{code}.json
- *   4. Create content/{code}/ and translate HTML files
- */
-
 const SITE_CONFIG = {
     appearance: {
         icyLemon:           '#F5F29B',
         bgDark:             '#050505',
         bannerStickyOffset: 0.35,
         root_url:           'https://dornori.com',
-        // Change to '/' when deployed to root. Must include trailing slash.
-        base_path:          '/test/'
+        base_path:          '/test/',   // ← CHANGE THIS ONE VALUE WHEN MOVING TO ROOT
     },
 
-    // Local storage key for language preference
     storageKey: 'dornori-lang',
 
-    // ─── SUPPORTED LANGUAGES ─────────────────────────────────────────────────
-    // First entry = fallback language (English).
-    // `hreflang` must be a valid BCP-47 tag.
     languages: [
         { code: 'en', hreflang: 'en', label: 'English',    flag: '🇬🇧' },
         { code: 'de', hreflang: 'de', label: 'Deutsch',    flag: '🇩🇪' },
@@ -43,9 +16,6 @@ const SITE_CONFIG = {
         { code: 'fr', hreflang: 'fr', label: 'Français',   flag: '🇫🇷' },
     ],
     
-    // ─── URL SLUG MAPPINGS (for localized pretty URLs) ───────────────────────
-    // Each language gets its own slug for each page.
-    // When generating links, use getPageUrl(slug) from i18n.js
     url_slugs: {
         en: {
             about:   'about',
@@ -117,9 +87,6 @@ const SITE_CONFIG = {
         }
     },
 
-    // ─── NAVIGATION ──────────────────────────────────────────────────────────
-    // `label` and `mobileLabel` are intentionally absent — they come from
-    // lang/{code}.json so they update when the language switches.
     navigation: [
         { slug: 'about',  icon: 'assets/icons/about-icon-200x200.svg',   type: 'standard', enabled: true  },
         { slug: 'built',  icon: 'assets/icons/assembled-lamp-icon-200x200.svg', type: 'standard', enabled: true  },
@@ -128,9 +95,6 @@ const SITE_CONFIG = {
         { slug: 'files',  icon: 'assets/icons/3d-file-icon-200x200.svg',        type: 'standard', enabled: true  },
     ],
 
-    // ─── FOOTER ──────────────────────────────────────────────────────────────
-    // Column headings and link labels come from lang/{code}.json.
-    // `label` here is only the English fallback if JSON hasn't loaded yet.
     footer: [
         {
             label: 'Company',
@@ -144,19 +108,12 @@ const SITE_CONFIG = {
             label: 'Legal',
             links: [
                 { slug: 'terms',    enabled: true  },
-                { slug: 'privacy',  enabled: false },
-                { slug: 'cookies',  enabled: false },
                 { slug: 'imprint',  enabled: true  },
-                { slug: 'returns',  enabled: false },
                 { slug: 'children', enabled: true  },
-                { slug: 'security', enabled: false },
             ]
         }
     ],
 
-    // ─── PAGES ───────────────────────────────────────────────────────────────
-    // `file` is the filename within content/{lang}/, e.g. content/en/about-us.html
-    // Titles and descriptions come from lang/{code}.json — not stored here.
     pages: {
         built:               { file: 'built.html'              },
         kit:                 { file: 'kit.html'                },
@@ -176,7 +133,6 @@ const SITE_CONFIG = {
         'parents-educators': { file: 'parents-educators.html'  },
     },
 
-    // ─── SOCIALS ─────────────────────────────────────────────────────────────
     socials: [
         { id: 'ig',  user: 'dornori.info', base: 'https://instagram.com/' },
         { id: 'x',   user: 'dornori_info', base: 'https://x.com/'         },
