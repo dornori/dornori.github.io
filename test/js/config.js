@@ -1,21 +1,8 @@
 /**
  * DORNORI SITE CONFIGURATION
  * ─────────────────────────────────────────────────────────────────────────────
- * Labels and translated text are NOT stored here.
- * They live in lang/en.json, lang/de.json etc.
- *
- * This file contains only structural config:
- * - appearance settings
- * - supported languages (code, hreflang, flag — for the UI selector)
- * - navigation slugs + icons + enabled flags
- * - footer slugs + enabled flags
- * - page file mappings
- * - socials, formspree, turnstile
- *
- * TO ADD A LANGUAGE:
- *   1. Add entry to `languages` below
- *   2. Create lang/{code}.json
- *   3. Create content/{code}/ and translate HTML files
+ * Change base_path to '/' for root domain or '/test/' for subfolder.
+ * All other files derive paths from this config.
  */
 
 const SITE_CONFIG = {
@@ -23,24 +10,19 @@ const SITE_CONFIG = {
         icyLemon:           '#F5F29B',
         bgDark:             '#050505',
         bannerStickyOffset: 0.35,
-        root_url:           'https://dornori.com',
-        // Change to '/' when deployed to root. Must include trailing slash.
-        base_path:          '/test/'
+        root_url:           'https://dornori.com',   // Public URL (no trailing slash)
+        base_path:          '/',                     // ← CHANGE HERE: '/' or '/test/'
     },
 
-    // ─── SUPPORTED LANGUAGES ─────────────────────────────────────────────────
-    // First entry = fallback language (English).
-    // `hreflang` must be a valid BCP-47 tag.
+    // Languages – first one is default (English)
     languages: [
         { code: 'en', hreflang: 'en', label: 'English',    flag: '🇬🇧' },
         { code: 'de', hreflang: 'de', label: 'Deutsch',    flag: '🇩🇪' },
         { code: 'nl', hreflang: 'nl', label: 'Nederlands', flag: '🇳🇱' },
         { code: 'fr', hreflang: 'fr', label: 'Français',   flag: '🇫🇷' },
     ],
-    
-    // ─── NAVIGATION ──────────────────────────────────────────────────────────
-    // `label` and `mobileLabel` are intentionally absent — they come from
-    // lang/{code}.json so they update when the language switches.
+
+    // Navigation (labels come from lang JSON)
     navigation: [
         { slug: 'about',  icon: 'assets/icons/about-icon-200x200.svg',   type: 'standard', enabled: true  },
         { slug: 'built',  icon: 'assets/icons/assembled-lamp-icon-200x200.svg', type: 'standard', enabled: true  },
@@ -49,9 +31,7 @@ const SITE_CONFIG = {
         { slug: 'files',  icon: 'assets/icons/3d-file-icon-200x200.svg',        type: 'standard', enabled: true  },
     ],
 
-    // ─── FOOTER ──────────────────────────────────────────────────────────────
-    // Column headings and link labels come from lang/{code}.json.
-    // `label` here is only the English fallback if JSON hasn't loaded yet.
+    // Footer structure (labels from lang JSON)
     footer: [
         {
             label: 'Company',
@@ -75,28 +55,25 @@ const SITE_CONFIG = {
         }
     ],
 
-    // ─── PAGES ───────────────────────────────────────────────────────────────
-    // `file` is the filename within content/{lang}/, e.g. content/en/about-us.html
-    // Titles and descriptions come from lang/{code}.json — not stored here.
+    // All supported page slugs
     pages: {
-        built:               { file: 'built.html'              },
-        kit:                 { file: 'kit.html'                },
-        parts:               { file: 'parts.html'              },
-        files:               { file: 'files.html'              },
-        'mission-statement': { file: 'mission-statement.html'  },
-        about:               { file: 'about-us.html'           },
-        terms:               { file: 'terms.html'              },
-        privacy:             { file: 'privacy.html'            },
-        children:            { file: 'children.html'           },
-        security:            { file: 'security.html'           },
-        cookies:             { file: 'cookies.html'            },
-        imprint:             { file: 'imprint.html'            },
-        returns:             { file: 'returns.html'            },
-        contact:             { file: 'gallery-1.html'          },
-        gallery:             { file: 'gallery-1.html'          },
+        about:               {},
+        built:               {},
+        kit:                 {},
+        parts:               {},
+        files:               {},
+        'mission-statement': {},
+        terms:               {},
+        privacy:             {},
+        children:            {},
+        security:            {},
+        cookies:             {},
+        imprint:             {},
+        returns:             {},
+        contact:             {},
+        gallery:             {},
     },
 
-    // ─── SOCIALS ─────────────────────────────────────────────────────────────
     socials: [
         { id: 'ig',  user: 'dornori.info', base: 'https://instagram.com/' },
         { id: 'x',   user: 'dornori_info', base: 'https://x.com/'         },
