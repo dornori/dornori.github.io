@@ -1,14 +1,12 @@
 const SITE_CONFIG = {
-    // DEPLOYMENT - CHANGE THIS ONE LINE WHEN MOVING TO ROOT
-    base_path: '/test/',  // ← Change to '/' for production, keep '/test/' for testing
-    root_url: 'https://dornori.com',
+    // CHANGE THIS ONE LINE FOR PRODUCTION
+    base_path: '/test/',  // ← Change to '/' when deploying to root
     
-    // APPEARANCE
+    root_url: 'https://dornori.com',
     icyLemon: '#F5F29B',
     bgDark: '#050505',
     bannerStickyOffset: 0.35,
     
-    // LANGUAGES
     languages: [
         { code: 'en', hreflang: 'en', label: 'English', flag: '🇬🇧' },
         { code: 'de', hreflang: 'de', label: 'Deutsch', flag: '🇩🇪' },
@@ -17,7 +15,6 @@ const SITE_CONFIG = {
     ],
     default_language: 'en',
     
-    // NAVIGATION
     navigation: [
         { slug: 'about',  icon: '/assets/icons/about-icon-200x200.svg',   type: 'standard', enabled: true },
         { slug: 'built',  icon: '/assets/icons/assembled-lamp-icon-200x200.svg', type: 'standard', enabled: true },
@@ -26,7 +23,6 @@ const SITE_CONFIG = {
         { slug: 'files',  icon: '/assets/icons/3d-file-icon-200x200.svg',        type: 'standard', enabled: true },
     ],
     
-    // FOOTER
     footer: [
         {
             label: 'Company',
@@ -45,9 +41,11 @@ const SITE_CONFIG = {
         }
     ],
     
-    // FORMS
     formspree_id: 'xnjopbbb',
     turnstile_sitekey: '0x4AAAAAACxsga5y-bJ_qkzC',
 };
+
+// Make available globally for non-module scripts
+window.SITE_CONFIG = SITE_CONFIG;
 
 export default SITE_CONFIG;
