@@ -56,7 +56,7 @@
     <!-- Settings bar (profile + language selectors rendered by nav-loader) -->
     <div id="topBar"></div>
 
-    <!-- Header -->
+     <!-- Header -->
     <header id="main-header">
         <div class="billboard-logo-wrap" onclick="window.showHome()">
             <img src="assets/images/dornori-logo-transparent.webp" class="billboard-logo" alt="Dornori" id="banner-img">
@@ -70,7 +70,16 @@
 
     <main id="viewport">
         <div id="home-view">
-            <!-- Loaded dynamically from content/{lang}/home.html -->
+            <!-- Static loading indicator while language loads -->
+            <div style="text-align: center; padding: 60px 20px;">
+                <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid var(--border); border-radius: 50%; border-top-color: var(--accent); animation: spin 0.8s linear infinite;"></div>
+                <p style="margin-top: 20px; font-family: var(--font-mono);">Loading Dornori...</p>
+            </div>
+            <style>
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+            </style>
         </div>
 
         <div id="page-view" class="hidden">
@@ -98,26 +107,32 @@
     </footer>
 
     <script type="module">
-        import { initI18n }        from './js/i18n.js';
-        import { initNavigation }  from './js/nav-loader.js';
-        import { initStickyBanner }from './js/sticky-banner.js';
-        import { initSocials }     from './js/social-loader.js';
-        import { initEmbedForms }  from './js/embed-form.js';
-        import { initPageLoader }  from './js/page-loader.js';
-        import { initFooter }      from './js/footer-loader.js';
-        import { mountSlideshow }  from './js/slideshow.js';
+        import { initI18n } from './js/i18n.js';
+        import { initNavigation } from './js/nav-loader.js';
+        import { initStickyBanner } from './js/sticky-banner.js';
+        import { initSocials } from './js/social-loader.js';
+        import { initEmbedForms } from './js/embed-form.js';
+        import { initPageLoader } from './js/page-loader.js';
+        import { initFooter } from './js/footer-loader.js';
+        import { mountSlideshow } from './js/slideshow.js';
 
-        // i18n must resolve first — everything else depends on window.LANG
-        initI18n();
-
-        initNavigation();
-        initStickyBanner();
-        initSocials();
-        initFooter();
-        initEmbedForms();
-
-        // page-loader handles initial URL routing and home loading
-        initPageLoader();
+        // Wait for language to be fully loaded before initializing page content
+        async function init() {
+            // Step 1: Load language (detects from localStorage/browser, fetches JSON)
+            await initI18n();
+            
+            // Step 2: Now language is ready — initialize everything else
+            initNavigation();
+            initStickyBanner();
+            initSocials();
+            initFooter();
+            initEmbedForms();
+            
+            // Step 3: Load the page (this will now use the correct language for home)
+            initPageLoader();
+        }
+        
+        init();
     </script>
 </body>
 </html>
