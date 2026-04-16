@@ -463,38 +463,68 @@ const Shop = (() => {
     document.addEventListener("shop:cartUpdated", render);
   }
 
-  /* ── Formspree + PayPal flow ─────────────────────────── */
+  /* ── Formspree Submission (Fixed – same style as embed-form.js) ─────────────────────────── */
   async function submitOrderDetails(orderRef, formData, cart) {
     const totals = calculateTotals(cart, formData.isBusiness);
-    const payload = {
-      _subject: `New Order ${orderRef}`,
-      order_ref: orderRef,
-      ...formData,
-      cart_items: cart.map(i => `${i.qty}x ${i.name}${i.selectedColor ? " ("+i.selectedColor+")" : ""} @ ${fmt(i.price)}`).join(", "),
-      subtotal: fmt(totals.subtotal),
-      tax: fmt(totals.tax),
-      shipping: totals.isFreeShipping ? "Free" : fmt(totals.shipping),
-      total: fmt(totals.total),
-      status: "PENDING_PAYMENT",
-    };
 
-    await fetch(CONFIG.formspree.endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify(payload),
+    const payload = new FormData();
+
+    payload.append("_subject", `New Order ${orderRef}`);
+    payload.append("order_ref", orderRef);
+    payload.append("status", "PENDING_PAYMENT");
+
+    // Customer data
+    Object.entries(formData).forEach(([key, value]) => {
+      if (value != null && value !== "") payload.append(key, value);
     });
+
+    // Cart summary
+    const cartSummary = cart.map(item => 
+      `${item.qty}× ${item.name}${item.selectedColor ? ` (${item.selectedColor})` : ""} @ ${fmt(item.price)} = ${fmt(item.price * item.qty)}`
+    ).join("\n");
+
+    payload.append("cart_items", cartSummary);
+    payload.append("subtotal", fmt(totals.subtotal));
+    payload.append("tax", fmt(totals.tax));
+    payload.append("shipping", totals.isFreeShipping ? "FREE" : fmt(totals.shipping));
+    payload.append("total", fmt(totals.total));
+    payload.append("total_weight", fmtWeight(totals.totalWeight || 0));
+
+    try {
+      const response = await fetch(CONFIG.formspree.endpoint, {
+        method: "POST",
+        body: payload,
+        headers: { "Accept": "application/json" }
+      });
+
+      if (response.ok) {
+        console.log(`✅ Order ${orderRef} sent to Formspree`);
+        return true;
+      } else {
+        console.warn(`Formspree status: ${response.status}`);
+        return false;
+      }
+    } catch (err) {
+      console.warn("Formspree submission failed (normal on localhost)", err);
+      return false;
+    }
   }
 
   async function submitOrderStatus(orderRef, status) {
-    await fetch(CONFIG.formspree.endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({
-        _subject: `Order ${status}: ${orderRef}`,
-        order_ref: orderRef,
-        status,
-      }),
-    });
+    const payload = new FormData();
+    payload.append("_subject", `Order ${status}: ${orderRef}`);
+    payload.append("order_ref", orderRef);
+    payload.append("status", status);
+
+    try {
+      await fetch(CONFIG.formspree.endpoint, {
+        method: "POST",
+        body: payload,
+        headers: { "Accept": "application/json" }
+      });
+    } catch (err) {
+      console.warn(`Status update failed for ${orderRef}`, err);
+    }
   }
 
   /* ── Public API ───────────────────────────────────────── */
