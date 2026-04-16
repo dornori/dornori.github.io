@@ -1,20 +1,19 @@
 /**
  * nav-loader.js
- * ─────────────────────────────────────────────────────────────────────────────
  * Reads labels from window.T (loaded by i18n.js from lang/{code}.json).
  * Exposes window.renderNav() so setLang() can re-render without a page reload.
- * Uses <a href> tags so Google can crawl all pages.
+ * Uses real <a href> tags for SEO/crawling.
  */
 
 import SITE_CONFIG from './config.js';
- // ─── WEBSITE COLOR PROFILES ─────────────────────────────────────────────────
-    // Fallback defined in 'profiles.cc' (cutting-mat)
+
+// ─── WEBSITE COLOR PROFILES ─────────────────────────────────────────────────
 const PROFILES = [
     { id: 'dark',        label: 'Dark'        },
     { id: 'light',       label: 'Light'       },
     { id: 'cutting-mat', label: 'Cutting Mat' },
     { id: 'cutting-blue',label: 'Cutting Blue' },
-]
+];
 
 const FALLBACK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -38,14 +37,19 @@ async function fetchSVG(path) {
     }
 }
 
+// ── BUILD CLEAN NAV URL (no hard-coded paths) ───────────────────────────────
 function navHref(slug) {
-    const lang = window.LANG || 'en';
+    const lang = window.LANG || SITE_CONFIG.languages[0].code;
     const base = SITE_CONFIG.appearance.base_path;
-    return lang === 'en' ? `${base}${slug}` : `${base}${lang}/${slug}`;
+    const fallback = SITE_CONFIG.languages[0].code;
+
+    const path = slug ? `${slug}/` : '';
+    return lang === fallback 
+        ? `${base}${path}` 
+        : `${base}${lang}/${path}`;
 }
 
 // ── NAV RENDER ───────────────────────────────────────────────────────────────
-// Separated so i18n can call window.renderNav() on language switch
 window.renderNav = () => {
     const T = window.T || {};
 
@@ -72,7 +76,10 @@ window.renderNav = () => {
 
             a.appendChild(iconEl);
             a.appendChild(labelEl);
-            a.addEventListener('click', e => { e.preventDefault(); window.viewPage(item.slug); });
+            a.addEventListener('click', e => { 
+                e.preventDefault(); 
+                window.viewPage(item.slug); 
+            });
             desktopNav.appendChild(a);
 
             if (item.icon) fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
@@ -103,7 +110,10 @@ window.renderNav = () => {
 
             a.appendChild(iconEl);
             a.appendChild(labelEl);
-            a.addEventListener('click', e => { e.preventDefault(); window.viewPage(item.slug); });
+            a.addEventListener('click', e => { 
+                e.preventDefault(); 
+                window.viewPage(item.slug); 
+            });
             mobileNav.appendChild(a);
 
             if (item.icon) fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
@@ -219,7 +229,6 @@ export function initNavigation() {
             langSelect.setAttribute('tabindex', '-1');
         };
 
-        // Click still works on all devices
         tab.addEventListener('click', e => {
             e.stopPropagation();
             topBar.classList.contains('active') ? closeBar() : openBar();
@@ -229,14 +238,12 @@ export function initNavigation() {
             if (e.key === 'Escape' && topBar.classList.contains('active')) { closeBar(); tab.focus(); }
         });
 
-        // Hover open/close — only on non-touch devices (pointer: fine = mouse/trackpad)
-        const isFinePonter = window.matchMedia('(pointer: fine)');
-        if (isFinePonter.matches) {
+        const isFinePointer = window.matchMedia('(pointer: fine)');
+        if (isFinePointer.matches) {
             topBar.addEventListener('mouseenter', () => openBar());
             topBar.addEventListener('mouseleave', () => closeBar());
         }
-        // If device type changes (e.g. tablet with mouse attached), update behaviour
-        isFinePonter.addEventListener('change', e => {
+        isFinePointer.addEventListener('change', e => {
             if (e.matches) {
                 topBar.addEventListener('mouseenter', openBar);
                 topBar.addEventListener('mouseleave', closeBar);
