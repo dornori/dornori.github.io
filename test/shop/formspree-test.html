@@ -1,57 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Formspree Test</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUMIO — Formspree + Turnstile Connection Test</title>
 
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer></script>
-
-<style>
-body { font-family: monospace; background:#111; color:#eee; padding:40px; }
-button { padding:10px 20px; }
-#log { margin-top:20px; white-space:pre-wrap; }
-</style>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer></script>
 </head>
 <body>
 
-<h2>Formspree Test</h2>
-
-<div id="captcha"></div>
-<button onclick="run()">Run Test</button>
-
+<button onclick="startTest()">Run Test</button>
 <div id="log"></div>
 
 <script>
 function log(msg){
-  document.getElementById("log").textContent += msg + "\n";
+  const el = document.getElementById("log");
+  el.innerHTML += msg + "<br>";
 }
 
-function run(){
-  log("Starting...");
+/* ── Main test flow ── */
+function startTest() {
+  const endpoint  = "https://formspree.io/f/xwvaleqz";
 
-  const sitekey = "1x00000000000000000000AA";
-  const endpoint = "https://formspree.io/f/xwvaleqz";
+  if (typeof window.turnstile === "undefined") {
+    log("Turnstile not loaded");
+    return;
+  }
 
-  document.getElementById("captcha").innerHTML = "";
-
-  turnstile.render("#captcha", {
-    sitekey,
+  turnstile.render(document.body, {
+    sitekey: "1x00000000000000000000AA",
     callback: (token) => {
       log("Captcha OK");
-      send(token, endpoint);
+      submitToFormspree(endpoint, "[TEST]", token);
     }
   });
 }
 
-async function send(token, endpoint){
+/* ── FIXED FUNCTION ── */
+async function submitToFormspree(endpoint, subject, token) {
+
+  const ts = new Date().toISOString();
+
   const payload = {
-    _subject: "TEST",
-    test: "hello world",
-    "cf-turnstile-response": token
+    _subject: subject,
+    test_timestamp: ts,
+    test_source: "formspree-test.html",
+    test_note: "This is an automated test",
+    ...(token && { "cf-turnstile-response": token })
   };
 
+  log("Sending...");
+
   try {
-    const res = await fetch(endpoint, {
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Accept": "application/json",
@@ -60,17 +61,17 @@ async function send(token, endpoint){
       body: JSON.stringify(payload)
     });
 
-    const data = await res.json().catch(()=>({}));
+    const body = await response.json().catch(() => ({}));
 
-    log("Status: " + res.status);
+    log("Status: " + response.status);
 
-    if(res.ok){
+    if (response.ok) {
       log("SUCCESS ✅");
     } else {
-      log("ERROR ❌ " + JSON.stringify(data));
+      log("ERROR ❌ " + JSON.stringify(body));
     }
 
-  } catch(err){
+  } catch (err) {
     log("NETWORK ERROR: " + err.message);
   }
 }
