@@ -3,13 +3,12 @@
    ========================================================= */
 
 const Shop = (() => {
-  /* ── State ────────────────────────────────────────────── */
   let LANG = {};
   let _langLoaded = false;
   let _langLoadPromise = null;
   let _products = {};
 
-  /* ── Cart helpers ─────────────────────────────────────── */
+  /* Cart functions */
   function getCart() {
     try { return JSON.parse(localStorage.getItem("lumio_cart") || "[]"); }
     catch { return []; }
@@ -27,15 +26,9 @@ const Shop = (() => {
     if (existing) {
       existing.qty = Math.min(existing.qty + qty, product.stock || 99);
     } else {
-      cart.push({
-        ...product,
-        cartKey: key,
-        qty,
-        selectedColor: selectedColor || (product.colors ? product.colors[0] : null),
-      });
+      cart.push({ ...product, cartKey: key, qty, selectedColor });
     }
     saveCart(cart);
-    return cart;
   }
 
   function removeFromCart(cartKey) {
@@ -47,8 +40,8 @@ const Shop = (() => {
     const cart = getCart();
     const item = cart.find(i => i.cartKey === cartKey);
     if (item) {
-      if (qty <= 0) { removeFromCart(cartKey); return; }
-      item.qty = qty;
+      if (qty <= 0) removeFromCart(cartKey);
+      else item.qty = qty;
       saveCart(cart);
     }
   }
@@ -58,7 +51,6 @@ const Shop = (() => {
     document.dispatchEvent(new CustomEvent("shop:cartUpdated", { detail: { cart: [] } }));
   }
 
-  /* ── Totals ───────────────────────────────────────────── */
   function calculateTotals(cart, isBusiness = false) {
     const subtotal = cart.reduce((a, i) => a + i.price * i.qty, 0);
     const totalWeight = cart.reduce((a, i) => a + (i.weight || 0) * i.qty, 0);
@@ -67,14 +59,13 @@ const Shop = (() => {
     const taxRate = isBusiness ? 0 : CONFIG.taxRate;
     const tax = subtotal * taxRate;
     const total = subtotal + shipping + tax;
-    return { subtotal, shipping, tax, total, totalWeight, isFreeShipping, taxRate };
+    return { subtotal, shipping, tax, total, totalWeight, isFreeShipping };
   }
 
-  /* ── Language ─────────────────────────────────────────── */
   function loadLang() {
     if (_langLoaded) return Promise.resolve(LANG);
     if (_langLoadPromise) return _langLoadPromise;
-    const lang = CONFIG.language || CONFIG.defaultLanguage || "en";
+    const lang = CONFIG.language || "en";
     _langLoadPromise = fetch("data/lang/" + lang + ".json")
       .then(r => r.json())
       .then(d => { LANG = d; _langLoaded = true; return d; })
@@ -86,13 +77,10 @@ const Shop = (() => {
     return LANG[key] || fallback || key;
   }
 
-  /* ── Product loader ───────────────────────────────────── */
   async function loadProducts() {
     const manifest = await fetch("data/products/manifest.json").then(r => r.json());
-    const all = await Promise.all(
-      manifest.map(f => fetch("data/products/" + f).then(r => r.json()))
-    );
-    all.forEach(p => { _products[p.id] = p; });
+    const all = await Promise.all(manifest.map(f => fetch("data/products/" + f).then(r => r.json())));
+    all.forEach(p => _products[p.id] = p);
     return all;
   }
 
@@ -103,7 +91,6 @@ const Shop = (() => {
     return p;
   }
 
-  /* ── Helpers ──────────────────────────────────────────── */
   function generateOrderRef() {
     const ts = Date.now().toString(36).toUpperCase();
     const rnd = Math.random().toString(36).substr(2, 5).toUpperCase();
@@ -112,10 +99,6 @@ const Shop = (() => {
 
   function fmt(amount) {
     return CONFIG.currency + amount.toFixed(2);
-  }
-
-  function fmtWeight(kg) {
-    return kg >= 1 ? kg.toFixed(1) + " kg" : (kg * 1000).toFixed(0) + " g";
   }
 
   function toast(text, duration = 2800) {
@@ -132,7 +115,7 @@ const Shop = (() => {
     }, duration);
   }
 
-  /* ── Formspree – EXACT same method as embed-form.js ─────────────────────────── */
+  /* ==================== FORMSPREE - EXACT SAME AS YOUR EMBED-FORM.JS ==================== */
   async function submitOrderDetails(orderRef, formData, cart) {
     const totals = calculateTotals(cart, formData.isBusiness);
 
@@ -143,9 +126,7 @@ const Shop = (() => {
     payload.append("status", "PENDING_PAYMENT");
 
     Object.entries(formData).forEach(([key, value]) => {
-      if (value != null && value !== "") {
-        payload.append(key, value);
-      }
+      if (value != null && value !== "") payload.append(key, value);
     });
 
     const cartSummary = cart.map(item => 
@@ -165,39 +146,22 @@ const Shop = (() => {
         headers: { Accept: 'application/json' }
       });
 
-      if (response.ok) {
-        console.log(`✅ Order ${orderRef} sent to Formspree`);
-        return true;
-      } else {
-        console.warn(`Formspree returned ${response.status}`);
-        return false;
-      }
+      return response.ok;
     } catch (err) {
       console.warn("Formspree fetch error:", err);
       return false;
     }
   }
 
-  async function submitOrderStatus(orderRef, status) {
-    // Optional - keep simple
-    console.log(`Order status update: ${status} for ${orderRef}`);
-  }
-
-  /* ── Public API ───────────────────────────────────────── */
+  /* Public API */
   return {
     getCart,
-    saveCart,
     addToCart,
     removeFromCart,
     updateQty,
     clearCart,
     calculateTotals,
     loadLang,
-    loadProducts,
-    getProduct,
-    generateOrderRef,
-    fmt,
-    fmtWeight,
     t,
     toast,
     renderCartIcon,
@@ -206,6 +170,6 @@ const Shop = (() => {
     attachBuyOverlay,
     renderMiniCart,
     submitOrderDetails,
-    submitOrderStatus,
+    submitOrderStatus: () => {}   // placeholder
   };
 })();
