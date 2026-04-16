@@ -1,7 +1,7 @@
 import SITE_CONFIG from './config.js';
 
 function buildFormHTML(uid) {
-    return /* html */`
+    return `
 <div class="waitlist-card">
   <div id="ef-form-container-${uid}">
     <form id="ef-waitlist-form-${uid}" class="ef-waitlist-form" novalidate>
@@ -13,8 +13,8 @@ function buildFormHTML(uid) {
       </div>
       <p class="disclaimer-text">
         By subscribing, you accept our
-        <a href="#" data-page="terms">Terms</a> &amp;
-        <a href="#" data-page="privacy">Privacy Policy</a>.
+        <button type="button" class="link-btn" data-page="terms">Terms</button> &amp;
+        <button type="button" class="link-btn" data-page="privacy">Privacy Policy</button>.
       </p>
       <div style="display:flex;justify-content:center;width:100%;">
         <span class="credit-item">
@@ -27,6 +27,13 @@ function buildFormHTML(uid) {
     <p style="font-family:var(--font-mono);color:var(--accent);">Thanks for Subscribing!</p>
   </div>
 </div>`;
+}
+
+function getPageUrl(slug) {
+    const lang = window.LANG || SITE_CONFIG.default_language;
+    const basePath = SITE_CONFIG.base_path;
+    const cleanBase = basePath === '/' ? '' : basePath.replace(/\/$/, '');
+    return cleanBase ? `/${cleanBase}/${lang}/${slug}/` : `/${lang}/${slug}/`;
 }
 
 function initFormInstance(root, uid) {
@@ -42,14 +49,11 @@ function initFormInstance(root, uid) {
 
     const action = `https://formspree.io/f/${SITE_CONFIG.formspree_id}`;
 
-    root.querySelectorAll('[data-page]').forEach(el => {
-        el.addEventListener('click', (e) => {
+    root.querySelectorAll('.link-btn[data-page]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
             e.preventDefault();
-            const slug = el.getAttribute('data-page');
-            if (slug) {
-                const lang = window.LANG || SITE_CONFIG.default_language;
-                window.location.href = SITE_CONFIG.getPageUrl(lang, slug);
-            }
+            const slug = btn.getAttribute('data-page');
+            if (slug) window.location.href = getPageUrl(slug);
         });
     });
 
@@ -113,7 +117,8 @@ async function executeSubmission(form, action, btn, formWrap, successWrap) {
             successWrap.classList.remove('hidden');
         } else {
             btn.textContent = 'JOIN';
-            window.turnstile.reset();
+            const captchaSlot = form.closest('.waitlist-card')?.querySelector('[class*="captcha"]');
+            if (captchaSlot) window.turnstile.reset(captchaSlot);
         }
     } catch {
         btn.textContent = 'JOIN';
