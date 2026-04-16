@@ -43,6 +43,7 @@ const PROFILES = [
     { id: 'dark',        label: 'Dark'        },
     { id: 'light',       label: 'Light'       },
     { id: 'cutting-mat', label: 'Cutting Mat' },
+    { id: 'cutting-blue', label: 'Cutting Blue' },
 ],
 
 
