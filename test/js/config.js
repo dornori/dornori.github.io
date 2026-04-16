@@ -11,7 +11,7 @@ const SITE_CONFIG = {
         bgDark:             '#050505',
         bannerStickyOffset: 0.35,
         root_url:           'https://dornori.com',   // Public URL (no trailing slash)
-        base_path:          '/',                     // ← CHANGE HERE: '/' or '/test/'
+        base_path:          '/test/',                     // ← CHANGE HERE: '/' or '/test/'
     },
 
     // Languages – first one is default (English)
