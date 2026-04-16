@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LUMIO — Formspree + Turnstile Connection Test</title>
+  <title>LUMIO — Formspree + Turnstile Test (Fixed)</title>
 
   <!-- Cloudflare Turnstile -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer></script>
@@ -21,542 +21,248 @@
       --c-ok:       #4a9c6d;
       --c-warn:     #c8a96e;
       --c-err:      #c05050;
-      --font-mono:  "JetBrains Mono", "Fira Mono", "Courier New", monospace;
+      --font-mono:  "JetBrains Mono", monospace;
       --radius:     8px;
-      --transition: 0.18s ease;
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background: var(--c-bg);
       color: var(--c-text);
       font-family: var(--font-mono);
-      font-size: 0.88rem;
+      font-size: 0.9rem;
+      padding: 40px 20px;
       min-height: 100vh;
       display: grid;
-      place-items: start center;
-      padding: 40px 16px 60px;
+      place-items: center;
     }
 
-    .page { width: 100%; max-width: 700px; }
-
-    /* ── Header ── */
-    .hd {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 36px;
-    }
-    .logo {
-      font-size: 1.05rem;
-      font-weight: 700;
-      letter-spacing: 0.18em;
-      color: var(--c-accent);
-      text-transform: uppercase;
-    }
-    .hd-sep { flex: 1; height: 1px; background: var(--c-border); }
-    .hd-badge {
-      font-size: 0.68rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--c-text-3);
-      border: 1px solid var(--c-border);
-      padding: 3px 9px;
-      border-radius: 100px;
+    .container {
+      width: 100%;
+      max-width: 680px;
     }
 
-    /* ── Card ── */
     .card {
       background: var(--c-surface);
       border: 1px solid var(--c-border);
       border-radius: var(--radius);
-      padding: 28px 32px;
-      margin-bottom: 20px;
-    }
-    .card-title {
-      font-size: 0.72rem;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--c-text-3);
-      margin-bottom: 20px;
+      padding: 32px;
+      margin-bottom: 24px;
     }
 
-    /* ── Config fields ── */
-    .field { margin-bottom: 16px; }
+    h1 { font-size: 1.4rem; margin-bottom: 8px; color: var(--c-accent); }
+    .subtitle { color: var(--c-text-3); margin-bottom: 24px; font-size: 0.85rem; }
+
+    .field {
+      margin-bottom: 20px;
+    }
     .field label {
       display: block;
-      font-size: 0.72rem;
+      font-size: 0.75rem;
       color: var(--c-text-3);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
       margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
     }
-    .field input {
+    .field input, .field select {
       width: 100%;
       background: var(--c-bg);
       border: 1px solid var(--c-border);
       border-radius: var(--radius);
-      padding: 10px 14px;
+      padding: 12px 14px;
       color: var(--c-text);
       font-family: var(--font-mono);
-      font-size: 0.85rem;
-      outline: none;
-      transition: border-color var(--transition);
     }
-    .field input:focus { border-color: var(--c-accent); }
-    .field .hint {
-      font-size: 0.7rem;
-      color: var(--c-text-3);
-      margin-top: 5px;
-      line-height: 1.5;
-    }
-    .field .hint code {
-      background: var(--c-bg);
-      border: 1px solid var(--c-border);
-      padding: 1px 5px;
-      border-radius: 4px;
-      font-size: 0.7rem;
+    .field input:focus { border-color: var(--c-accent); outline: none; }
+
+    #turnstile-container {
+      min-height: 70px;
+      margin: 20px 0;
     }
 
-    /* ── Turnstile container ── */
-    #turnstile-wrap {
-      min-height: 0;
-      margin-bottom: 16px;
-      transition: min-height 0.2s;
-    }
-    #turnstile-wrap.has-widget { min-height: 68px; }
-
-    /* ── Buttons ── */
     .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 11px 22px;
-      border-radius: var(--radius);
-      font-family: var(--font-mono);
-      font-size: 0.82rem;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      cursor: pointer;
-      border: none;
-      transition: all var(--transition);
-    }
-    .btn--primary {
       background: var(--c-accent);
       color: #0f0e0c;
+      border: none;
+      padding: 14px 28px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: var(--radius);
+      cursor: pointer;
       width: 100%;
-      justify-content: center;
+      margin-top: 10px;
     }
-    .btn--primary:hover:not(:disabled) { background: var(--c-accent-d); }
-    .btn--primary:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn--ghost {
-      background: transparent;
-      color: var(--c-text-3);
-      border: 1px solid var(--c-border);
-      font-size: 0.75rem;
-      padding: 7px 14px;
-    }
-    .btn--ghost:hover { border-color: var(--c-text-3); color: var(--c-text); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    /* ── Log terminal ── */
     .log {
       background: var(--c-bg);
       border: 1px solid var(--c-border);
       border-radius: var(--radius);
-      padding: 16px 18px;
-      max-height: 320px;
+      padding: 16px;
+      max-height: 300px;
       overflow-y: auto;
-      margin-top: 0;
-      font-size: 0.78rem;
-      line-height: 1.75;
-    }
-    .log:empty::before {
-      content: "▸ Waiting for test run…";
-      color: var(--c-text-3);
-    }
-    .log-line { display: flex; gap: 10px; }
-    .log-line .ts { color: var(--c-text-3); flex-shrink: 0; }
-    .log-line .msg { color: var(--c-text-2); }
-    .log-line.ok .msg { color: var(--c-ok); }
-    .log-line.err .msg { color: var(--c-err); }
-    .log-line.warn .msg { color: var(--c-warn); }
-    .log-line.head .msg { color: var(--c-text); font-weight: 600; }
-
-    /* ── Status pill ── */
-    .status-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      font-size: 0.82rem;
+      line-height: 1.6;
       margin-top: 20px;
-      padding-top: 20px;
-      border-top: 1px solid var(--c-border);
     }
-    .status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--c-text-3);
-      flex-shrink: 0;
-      transition: background 0.3s;
-    }
-    .status-dot.ok  { background: var(--c-ok); box-shadow: 0 0 6px var(--c-ok); }
-    .status-dot.err { background: var(--c-err); box-shadow: 0 0 6px var(--c-err); }
-    .status-dot.spin {
-      background: var(--c-accent);
-      animation: pulse 0.8s ease-in-out infinite alternate;
-    }
-    @keyframes pulse { to { opacity: 0.25; } }
-    .status-label { font-size: 0.75rem; color: var(--c-text-2); }
-
-    /* ── Payload preview ── */
-    .payload-preview {
-      background: var(--c-bg);
-      border: 1px solid var(--c-border);
-      border-radius: var(--radius);
-      padding: 14px 18px;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-size: 0.75rem;
-      color: var(--c-text-3);
-      max-height: 180px;
-      overflow-y: auto;
-      display: none;
-    }
-    .payload-preview.visible { display: block; }
-
-    /* ── Toggle ── */
-    .toggle-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-    }
-    .toggle-label { font-size: 0.72rem; color: var(--c-text-3); letter-spacing: 0.1em; text-transform: uppercase; }
-
-    /* ── Divider ── */
-    .divider {
-      height: 1px;
-      background: var(--c-border);
-      margin: 20px 0;
-    }
-
-    /* ── Guide list ── */
-    .guide { padding-left: 0; list-style: none; }
-    .guide li {
-      display: flex;
-      gap: 12px;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--c-border);
-      font-size: 0.8rem;
-      color: var(--c-text-2);
-      line-height: 1.5;
-    }
-    .guide li:last-child { border-bottom: none; }
-    .guide .num {
-      color: var(--c-accent);
-      font-weight: 700;
-      flex-shrink: 0;
-      width: 18px;
-    }
+    .log-line { margin-bottom: 6px; }
+    .ok  { color: var(--c-ok); }
+    .err { color: var(--c-err); }
+    .warn { color: var(--c-warn); }
   </style>
 </head>
 <body>
-<div class="page">
 
-  <!-- Header -->
-  <div class="hd">
-    <span class="logo">Lumio</span>
-    <div class="hd-sep"></div>
-    <span class="hd-badge">Formspree · Turnstile · Test</span>
-  </div>
+<div class="container">
 
-  <!-- Config -->
   <div class="card">
-    <p class="card-title">01 — Configuration</p>
+    <h1>LUMIO Formspree + Turnstile Test</h1>
+    <p class="subtitle">Click "Run Test" to render Turnstile and send a test submission to Formspree.</p>
 
     <div class="field">
       <label>Formspree Form ID</label>
-      <input id="cfg-formspree-id" type="text" value="xwvaleqz" placeholder="e.g. xwvaleqz">
-      <p class="hint">Found in your Formspree dashboard URL: formspree.io/f/<strong>&lt;id&gt;</strong></p>
+      <input id="form-id" type="text" value="xwvaleqz" placeholder="xwvaleqz">
     </div>
 
     <div class="field">
-      <label>Cloudflare Turnstile Site Key</label>
-      <input id="cfg-sitekey" type="text" value="1x00000000000000000000AA" placeholder="0x4AAAAAAA...">
-      <p class="hint">
-        Test keys: <code>1x00000000000000000000AA</code> (always pass) ·
-        <code>2x00000000000000000000AB</code> (always block)<br>
-        Real key: Cloudflare Dashboard → Turnstile → Sites → Site Key
-      </p>
+      <label>Turnstile Site Key</label>
+      <input id="sitekey" type="text" value="1x00000000000000000000AA" placeholder="1x00000000000000000000AA">
+      <small style="color:#756d61; font-size:0.75rem;">
+        Use <code>1x00000000000000000000AA</code> = always pass<br>
+        Use <code>2x00000000000000000000AB</code> = always block
+      </small>
     </div>
 
-    <div class="field">
-      <label>Test Payload (name shown in Formspree)</label>
-      <input id="cfg-subject" type="text" value="[TEST] Formspree + Turnstile Connection Test">
-    </div>
+    <div id="turnstile-container"></div>
+
+    <button id="test-btn" class="btn">▶ Run Test</button>
   </div>
 
-  <!-- Captcha + Submit -->
   <div class="card">
-    <p class="card-title">02 — Captcha &amp; Submit</p>
-    <p style="font-size:0.8rem; color:var(--c-text-2); margin-bottom:18px; line-height:1.6;">
-      Click <strong style="color:var(--c-accent)">Run Test</strong> to render the Turnstile widget and, once
-      verified, POST a test payload to Formspree. Check your Formspree inbox
-      to confirm delivery.
-    </p>
-
-    <div id="turnstile-wrap"></div>
-    <button class="btn btn--primary" id="run-btn" onclick="startTest()">▶ Run Test</button>
-
-    <div class="status-row">
-      <div class="status-dot" id="status-dot"></div>
-      <span class="status-label" id="status-label">Idle — press Run Test to begin</span>
-    </div>
-  </div>
-
-  <!-- Log -->
-  <div class="card">
-    <div class="toggle-row">
-      <p class="card-title" style="margin:0;">03 — Event Log</p>
-      <button class="btn btn--ghost" onclick="clearLog()">Clear</button>
-    </div>
-    <div class="log" id="log"></div>
-  </div>
-
-  <!-- Payload preview -->
-  <div class="card">
-    <div class="toggle-row">
-      <p class="card-title" style="margin:0;">04 — Last Payload Sent</p>
-      <button class="btn btn--ghost" id="toggle-payload-btn" onclick="togglePayload()">Show</button>
-    </div>
-    <pre class="payload-preview" id="payload-preview"></pre>
-  </div>
-
-  <!-- Guide -->
-  <div class="card">
-    <p class="card-title">05 — Integration Checklist</p>
-    <ul class="guide">
-      <li>
-        <span class="num">1</span>
-        <span>Add the Turnstile CDN script to every page that uses the checkout:
-          <br><code style="background:var(--c-bg);border:1px solid var(--c-border);padding:2px 6px;border-radius:4px;font-size:0.72rem;">&lt;script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer&gt;&lt;/script&gt;</code>
-        </span>
-      </li>
-      <li>
-        <span class="num">2</span>
-        <span>Set your real Turnstile site key in <code>config.js</code> →
-          <code>CONFIG.turnstile.sitekey</code>. Also add the secret key to your
-          Formspree form settings (Formspree → Settings → Integrations → Cloudflare Turnstile).
-        </span>
-      </li>
-      <li>
-        <span class="num">3</span>
-        <span>In your Formspree form settings, enable the Turnstile integration and
-          paste your <strong>secret key</strong>. Formspree will then verify every token
-          server-side before accepting a submission.
-        </span>
-      </li>
-      <li>
-        <span class="num">4</span>
-        <span>The captcha container (<code>#lumio-captcha-container</code>) in
-          <code>cart.html</code> renders automatically when the customer clicks
-          "Continue to Payment". The widget must pass before the order is sent.
-        </span>
-      </li>
-      <li>
-        <span class="num">5</span>
-        <span>On localhost, <code>fetch</code> to Formspree may be blocked by CORS.
-          Deploy to any static host (Netlify, Vercel, GitHub Pages) to test end-to-end.
-        </span>
-      </li>
-    </ul>
+    <h2 style="font-size:1rem; margin-bottom:12px;">Live Log</h2>
+    <div id="log" class="log"></div>
   </div>
 
 </div>
-<script>
-  /* ── State ── */
-  let turnstileRendered = false;
-  let captchaToken      = null;
-  let payloadShown      = false;
-  let lastPayloadLines  = "";
 
-  /* ── Logging ── */
-  function log(msg, type = "") {
-    const el = document.getElementById("log");
-    const now = new Date();
-    const ts  = now.toTimeString().slice(0, 8);
+<script>
+  let currentWidgetId = null;
+
+  function log(message, type = "") {
+    const logEl = document.getElementById("log");
+    const time = new Date().toLocaleTimeString();
     const line = document.createElement("div");
     line.className = `log-line ${type}`;
-    line.innerHTML = `<span class="ts">${ts}</span><span class="msg">${escHtml(msg)}</span>`;
-    el.appendChild(line);
-    el.scrollTop = el.scrollHeight;
+    line.innerHTML = `<strong>[${time}]</strong> ${message}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
   }
 
   function clearLog() {
     document.getElementById("log").innerHTML = "";
   }
 
-  function escHtml(s) {
-    return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-  }
+  async function runTest() {
+    const btn = document.getElementById("test-btn");
+    const formId = document.getElementById("form-id").value.trim();
+    const sitekey = document.getElementById("sitekey").value.trim();
+    const endpoint = `https://formspree.io/f/${formId}`;
 
-  /* ── Status dot ── */
-  function setStatus(state, label) {
-    const dot = document.getElementById("status-dot");
-    const lbl = document.getElementById("status-label");
-    dot.className = "status-dot" + (state ? " " + state : "");
-    lbl.textContent = label;
-  }
-
-  /* ── Payload preview ── */
-  function togglePayload() {
-    payloadShown = !payloadShown;
-    const pre = document.getElementById("payload-preview");
-    const btn = document.getElementById("toggle-payload-btn");
-    pre.classList.toggle("visible", payloadShown);
-    btn.textContent = payloadShown ? "Hide" : "Show";
-  }
-
-  function showPayload(lines) {
-    lastPayloadLines = lines;
-    const pre = document.getElementById("payload-preview");
-    pre.textContent = lines;
-    if (payloadShown) pre.classList.add("visible");
-  }
-
-  /* ── Main test flow ── */
-  function startTest() {
-    const sitekey   = document.getElementById("cfg-sitekey").value.trim();
-    const formId    = document.getElementById("cfg-formspree-id").value.trim();
-    const subject   = document.getElementById("cfg-subject").value.trim() || "[TEST] Formspree Connection Test";
-    const endpoint  = `https://formspree.io/f/${formId}`;
-    const btn       = document.getElementById("run-btn");
-    const tsWrap    = document.getElementById("turnstile-wrap");
-
-    if (!formId) { log("⚠ No Formspree form ID entered.", "warn"); return; }
-
-    captchaToken = null;
-    turnstileRendered = false;
-    tsWrap.innerHTML = "";
-    tsWrap.classList.remove("has-widget");
-    btn.disabled = true;
-    btn.textContent = "…loading captcha";
-    setStatus("spin", "Rendering Turnstile widget…");
-    log("── Test started ──────────────────────────", "head");
-    log(`Formspree endpoint: ${endpoint}`);
-    log(`Turnstile sitekey: ${sitekey || "(none)"}`);
-
-    if (!sitekey) {
-      log("No sitekey — skipping Turnstile, submitting directly.", "warn");
-      submitToFormspree(endpoint, subject, null, btn);
+    if (!formId) {
+      log("❌ Please enter a Formspree Form ID", "err");
       return;
     }
 
-    const waitForTurnstile = (attempts = 0) => {
-      if (typeof window.turnstile !== "undefined") {
-        renderWidget(sitekey, tsWrap, endpoint, subject, btn);
-      } else if (attempts < 30) {
-        setTimeout(() => waitForTurnstile(attempts + 1), 200);
-      } else {
-        log("Turnstile SDK did not load — check network / ad blockers.", "err");
-        setStatus("err", "Turnstile failed to load");
-        btn.disabled = false;
-        btn.textContent = "▶ Run Test";
-      }
-    };
-    waitForTurnstile();
-  }
+    btn.disabled = true;
+    btn.textContent = "Running test...";
+    clearLog();
 
-  function renderWidget(sitekey, container, endpoint, subject, btn) {
-    log("Turnstile SDK ready — rendering widget…");
-    container.classList.add("has-widget");
+    log("🚀 Starting Formspree + Turnstile test...", "ok");
+    log(`Endpoint: ${endpoint}`);
 
-    window.turnstile.render(container, {
-      sitekey,
+    const container = document.getElementById("turnstile-container");
+    container.innerHTML = "";
+
+    // Wait for Turnstile SDK
+    if (typeof window.turnstile === "undefined") {
+      log("Waiting for Turnstile script to load...", "warn");
+      await new Promise(resolve => {
+        const check = setInterval(() => {
+          if (typeof window.turnstile !== "undefined") {
+            clearInterval(check);
+            resolve();
+          }
+        }, 200);
+      });
+    }
+
+    log("✅ Turnstile SDK ready");
+
+    // Render widget
+    log("Rendering Turnstile widget...");
+    currentWidgetId = window.turnstile.render(container, {
+      sitekey: sitekey,
       theme: "dark",
-      callback: (token) => {
-        captchaToken = token;
-        log(`Turnstile token received (${token.slice(0, 24)}…)`, "ok");
-        setStatus("spin", "Token received — submitting to Formspree…");
-        submitToFormspree(endpoint, subject, token, btn);
+      callback: async (token) => {
+        log(`✅ Turnstile passed! Token received: ${token.substring(0, 30)}...`, "ok");
+        await submitToFormspree(endpoint, token);
       },
       "error-callback": () => {
-        log("Turnstile error — widget reset.", "err");
-        setStatus("err", "Turnstile error — try again");
+        log("❌ Turnstile error occurred", "err");
         btn.disabled = false;
-        btn.textContent = "▶ Run Test";
-        window.turnstile.reset(container);
+        btn.textContent = "▶ Run Test Again";
       },
       "expired-callback": () => {
-        log("Turnstile token expired — widget reset.", "warn");
-        setStatus("", "Token expired — run again");
+        log("⚠️ Turnstile token expired", "warn");
         btn.disabled = false;
-        btn.textContent = "▶ Run Test";
-        window.turnstile.reset(container);
-      },
+        btn.textContent = "▶ Run Test Again";
+      }
     });
 
-    btn.textContent = "Waiting for captcha…";
-    log("Widget rendered — complete the challenge to proceed.");
+    log("👀 Please complete the captcha challenge above");
   }
 
-  /* ✅ FIXED FUNCTION (ONLY CHANGE) */
-  async function submitToFormspree(endpoint, subject, token, btn) {
-    const ts = new Date().toISOString();
+  async function submitToFormspree(endpoint, token) {
+    const btn = document.getElementById("test-btn");
 
-    const payload = {
-      _subject: subject,
-      test_timestamp: ts,
-      test_source: "formspree-test.html",
-      test_sitekey: document.getElementById("cfg-sitekey").value.trim() || "(none)",
-      test_note: "This is an automated connection test from the LUMIO shop test page.",
-      ...(token && { "cf-turnstile-response": token })
-    };
+    const formData = new FormData();
+    formData.append("_subject", "[TEST] Formspree + Turnstile from LUMIO");
+    formData.append("test_source", "formspree-test-fixed.html");
+    formData.append("test_timestamp", new Date().toISOString());
+    formData.append("message", "This is a test submission from the fixed test page.");
+    if (token) formData.append("cf-turnstile-response", token);
 
-    const lines = [
-      `POST ${endpoint}`,
-      `_subject              : ${subject}`,
-      `test_timestamp        : ${ts}`,
-      `test_source           : formspree-test.html`,
-      `cf-turnstile-response : ${token ? token.slice(0, 32) + "…" : "(none — skipped)"}`,
-    ].join("\n");
-    showPayload(lines);
-
-    log("Sending POST to Formspree…");
+    log("Sending POST to Formspree...");
 
     try {
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
+        body: formData,
+        headers: { "Accept": "application/json" }
       });
 
-      const body = await response.json().catch(() => ({}));
-      log(`HTTP ${response.status} ${response.ok ? "OK" : "Error"}`);
+      const result = await response.json().catch(() => ({}));
 
       if (response.ok) {
-        log("✅ Submission accepted by Formspree!", "ok");
-        setStatus("ok", "Success — check your Formspree inbox");
+        log("🎉 SUCCESS! Submission accepted by Formspree", "ok");
+        log("✅ Check your Formspree dashboard / email inbox", "ok");
       } else {
-        const errMsg = body?.errors?.map(e => e.message).join(", ") || JSON.stringify(body);
-        log(`❌ Formspree rejected submission: ${errMsg}`, "err");
-        setStatus("err", `Rejected (${response.status}) — see log`);
+        log(`❌ Formspree rejected: ${response.status} ${result?.errors ? JSON.stringify(result.errors) : ''}`, "err");
       }
     } catch (err) {
-      log(`Network error: ${err.message}`, "err");
-      setStatus("err", "Network error — see log");
+      log(`❌ Network error: ${err.message}`, "err");
+      log("Note: On localhost CORS may block it. Deploy to Netlify/Vercel for real test.", "warn");
     }
 
     btn.disabled = false;
     btn.textContent = "▶ Run Test Again";
-    log("── Test complete ─────────────────────────", "head");
   }
+
+  // Attach button
+  document.getElementById("test-btn").addEventListener("click", runTest);
+
+  // Auto log on load
+  log("Page loaded. Ready to test.", "ok");
 </script>
 
 </body>
