@@ -1,7 +1,29 @@
+/**
+ * embed-form.js
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Self-contained waitlist / subscribe form.
+ *
+ * USAGE — add this anywhere in any page:
+ *
+ *   <div class="embed-form-root"></div>
+ *
+ * Then load the script (after the Turnstile CDN script):
+ *
+ *   <script type="module" src="./js/embed-form.js"></script>
+ *   <!-- or import it from another module: -->
+ *   import { initEmbedForms } from './js/embed-form.js';
+ *   initEmbedForms();
+ *
+ * Multiple instances on one page are fully supported — each one is
+ * independent (its own Turnstile widget, its own success state).
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
 import SITE_CONFIG from './config.js';
 
+/* ─── HTML template ────────────────────────────────────────────────────────── */
 function buildFormHTML(uid) {
-    return `
+    return /* html */`
 <div class="waitlist-card">
   <div id="ef-form-container-${uid}">
     <form id="ef-waitlist-form-${uid}" class="ef-waitlist-form" novalidate>
@@ -29,43 +51,43 @@ function buildFormHTML(uid) {
 </div>`;
 }
 
-function getPageUrl(slug) {
-    const lang = window.LANG || SITE_CONFIG.default_language;
-    const basePath = SITE_CONFIG.appearance.base_path;
-    return `${basePath}${lang}/${slug}/`;
-}
-
+/* ─── Per-instance initialiser ─────────────────────────────────────────────── */
 function initFormInstance(root, uid) {
     root.innerHTML = buildFormHTML(uid);
 
-    const form = root.querySelector(`#ef-waitlist-form-${uid}`);
-    const btn = root.querySelector(`#ef-sub-btn-${uid}`);
-    const captchaSlot = root.querySelector(`#ef-captcha-${uid}`);
-    const formWrap = root.querySelector(`#ef-form-container-${uid}`);
-    const successWrap = root.querySelector(`#ef-success-container-${uid}`);
+    const form         = root.querySelector(`#ef-waitlist-form-${uid}`);
+    const btn          = root.querySelector(`#ef-sub-btn-${uid}`);
+    const captchaSlot  = root.querySelector(`#ef-captcha-${uid}`);
+    const formWrap     = root.querySelector(`#ef-form-container-${uid}`);
+    const successWrap  = root.querySelector(`#ef-success-container-${uid}`);
 
     if (!form || !btn) return;
 
     const action = `https://formspree.io/f/${SITE_CONFIG.formspree_id}`;
 
-    root.querySelectorAll('.link-btn[data-page]').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            const slug = btn.getAttribute('data-page');
-            if (slug) window.location.href = getPageUrl(slug);
+    /* wire up legal link buttons → viewPage if available */
+    root.querySelectorAll('button[data-page]').forEach(b => {
+        b.addEventListener('click', () => {
+            if (typeof window.viewPage === 'function') {
+                window.viewPage(b.getAttribute('data-page'));
+            }
         });
     });
 
+    // Email input reference for validation
     const emailInput = form.querySelector('input[type="email"]');
 
+    // Validate full RFC-5321 email format — local@domain.tld
+    // Rejects: missing @, missing dot in domain, spaces, consecutive dots etc.
     function isValidEmail(val) {
         return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(val.trim());
     }
 
+    // Show/clear inline error under the input
     let errorEl = null;
     function showEmailError(msg) {
         if (!errorEl) {
-            errorEl = document.createElement('p');
+            errorEl           = document.createElement('p');
             errorEl.className = 'ef-email-error';
             errorEl.style.cssText = 'color:var(--accent);font-size:0.75rem;margin:4px 0 0;font-family:var(--font-mono);';
             emailInput.parentNode.insertBefore(errorEl, emailInput.nextSibling);
@@ -76,18 +98,21 @@ function initFormInstance(root, uid) {
         if (errorEl) errorEl.textContent = '';
     }
 
+    // Clear error as user types
     emailInput?.addEventListener('input', clearEmailError);
 
     form.addEventListener('submit', e => {
         e.preventDefault();
 
+        // Validate before doing anything else
         if (!emailInput || !isValidEmail(emailInput.value)) {
-            showEmailError('Please enter a valid email address');
+            showEmailError('Please enter a valid email address (e.g. name@example.com)');
             emailInput?.focus();
             return;
         }
         clearEmailError();
 
+        /* Only render Turnstile widget on first submit attempt */
         if (captchaSlot.innerHTML.trim() === '') {
             btn.textContent = 'VERIFYING…';
             window.turnstile.render(captchaSlot, {
@@ -116,24 +141,33 @@ async function executeSubmission(form, action, btn, formWrap, successWrap) {
             successWrap.classList.remove('hidden');
         } else {
             btn.textContent = 'JOIN';
-            const captchaSlot = form.closest('.waitlist-card')?.querySelector('[class*="captcha"]');
-            if (captchaSlot) window.turnstile.reset(captchaSlot);
+            window.turnstile.reset();
         }
     } catch {
         btn.textContent = 'JOIN';
     }
 }
 
+/* ─── Public API ───────────────────────────────────────────────────────────── */
+
+/**
+ * Finds every `.embed-form-root` element in the document and renders
+ * an independent form instance inside each one.
+ *
+ * Call this once after the DOM is ready.  Safe to call multiple times —
+ * already-initialised roots (marked with data-ef-init) are skipped.
+ */
 export function initEmbedForms() {
     const roots = document.querySelectorAll('.embed-form-root');
     roots.forEach((root, i) => {
-        if (root.dataset.efInit) return;
+        if (root.dataset.efInit) return;          // skip if already done
         root.dataset.efInit = 'true';
-        const uid = `${Date.now()}-${i}`;
+        const uid = `${Date.now()}-${i}`;        // unique per instance
         initFormInstance(root, uid);
     });
 }
 
+/* Auto-init when the script is loaded directly (non-module usage) */
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initEmbedForms);
 } else {

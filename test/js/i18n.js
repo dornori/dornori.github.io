@@ -1,75 +1,110 @@
+/**
+ * i18n.js — Language detection, JSON loading, and switching
+ * ─────────────────────────────────────────────────────────────────────────────
+ * - Detects language from localStorage, then navigator.languages, then fallback
+ * - Fetches lang/{code}.json and exposes it as window.T
+ * - Re-renders nav, footer, and page content when language is switched
+ * - Injects hreflang tags for SEO
+ * ─────────────────────────────────────────────────────────────────────────────
+ * TO ADD A LANGUAGE:
+ *   1. Add entry to SITE_CONFIG.languages in config.js
+ *   2. Create lang/{code}.json (copy en.json and translate)
+ *   3. Create content/{code}/ folder and translate HTML files
+ *   That's it.
+ */
+
 import SITE_CONFIG from './config.js';
 
 const STORAGE_KEY = 'dornori-lang';
+const FALLBACK    = SITE_CONFIG.languages[0].code;
+const supported   = new Set(SITE_CONFIG.languages.map(l => l.code));
 
+// ── DETECT ───────────────────────────────────────────────────────────────────
 function detectLang() {
-    const basePath = SITE_CONFIG.appearance.base_path;
-    const cleanBase = basePath === '/' ? '' : basePath.replace(/\/$/, '');
-    const langCodes = SITE_CONFIG.languages.map(l => l.code).join('|');
-    const pattern = cleanBase 
-        ? new RegExp(`^/${cleanBase}/(${langCodes})/`)
-        : new RegExp(`^/(${langCodes})/`);
-    const match = window.location.pathname.match(pattern);
-    
-    if (match) {
-        localStorage.setItem(STORAGE_KEY, match[1]);
-        return match[1];
-    }
-    
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved && SITE_CONFIG.languages.some(l => l.code === saved)) {
-        return saved;
-    }
-    
-    const browserMatch = (navigator.languages || [navigator.language])
+    if (saved && supported.has(saved)) return saved;
+
+    const match = (navigator.languages || [navigator.language])
         .map(l => l.split('-')[0].toLowerCase())
-        .find(l => SITE_CONFIG.languages.some(lang => lang.code === l));
-    
-    if (browserMatch) {
-        localStorage.setItem(STORAGE_KEY, browserMatch);
-        return browserMatch;
+        .find(l => supported.has(l));
+
+    if (match) {
+        localStorage.setItem(STORAGE_KEY, match);
+        return match;
     }
-    
-    return SITE_CONFIG.default_language;
+
+    return FALLBACK;
 }
 
+// ── LOAD JSON ─────────────────────────────────────────────────────────────────
 async function loadTranslations(code) {
-    const basePath = SITE_CONFIG.appearance.base_path;
+    const base = SITE_CONFIG.appearance.base_path;
     try {
-        const res = await fetch(`${basePath}lang/${code}.json`);
+        const res = await fetch(`${base}lang/${code}.json`);
         if (!res.ok) throw new Error();
         return await res.json();
     } catch {
-        if (code !== SITE_CONFIG.default_language) {
-            const res = await fetch(`${basePath}lang/${SITE_CONFIG.default_language}.json`);
+        // If translation file missing, fall back to English
+        if (code !== FALLBACK) {
+            const res = await fetch(`${base}lang/${FALLBACK}.json`);
             return await res.json();
         }
         return {};
     }
 }
 
-window.setLang = (code) => {
-    if (!SITE_CONFIG.languages.some(l => l.code === code)) return;
+// ── HREFLANG ─────────────────────────────────────────────────────────────────
+export function injectHreflangTags(slug = '') {
+    const base = SITE_CONFIG.appearance.root_url;
+    const path = slug ? `/${slug}` : '';
+
+    document.querySelectorAll('link[rel="alternate"][hreflang]').forEach(el => el.remove());
+
+    SITE_CONFIG.languages.forEach(({ code, hreflang }) => {
+        const link    = document.createElement('link');
+        link.rel      = 'alternate';
+        link.hreflang = hreflang;
+        link.href     = code === FALLBACK ? `${base}${path}` : `${base}/${code}${path}`;
+        document.head.appendChild(link);
+    });
+
+    const xDef    = document.createElement('link');
+    xDef.rel      = 'alternate';
+    xDef.hreflang = 'x-default';
+    xDef.href     = `${base}${path}`;
+    document.head.appendChild(xDef);
+}
+
+// ── SET LANG (called from settings UI) ───────────────────────────────────────
+window.setLang = async (code) => {
+    if (!supported.has(code)) return;
     localStorage.setItem(STORAGE_KEY, code);
-    const currentPath = window.location.pathname;
-    const currentLang = detectLang();
-    const basePath = SITE_CONFIG.appearance.base_path;
-    const cleanBase = basePath === '/' ? '' : basePath.replace(/\/$/, '');
-    const oldPattern = cleanBase ? `/${cleanBase}/${currentLang}/` : `/${currentLang}/`;
-    const newPattern = cleanBase ? `/${cleanBase}/${code}/` : `/${code}/`;
-    const newPath = currentPath.replace(oldPattern, newPattern);
-    window.location.href = newPath;
+    window.LANG = code;
+    document.documentElement.setAttribute('lang', code);
+
+    window.T = await loadTranslations(code);
+
+    // Re-render nav and footer with new labels
+    if (typeof window.renderNav    === 'function') window.renderNav();
+    if (typeof window.renderFooter === 'function') window.renderFooter();
+
+    // Reload content in new language
+    const slug = window.CURRENT_SLUG || '';
+    if (slug) {
+        window.viewPage(slug);
+    } else {
+        window.loadHome();
+    }
 };
 
+// ── INIT ─────────────────────────────────────────────────────────────────────
 export async function initI18n() {
     const lang = detectLang();
     window.LANG = lang;
     document.documentElement.setAttribute('lang', lang);
     window.T = await loadTranslations(lang);
-    
-    const langSelect = document.getElementById('langSelect');
-    if (langSelect) langSelect.value = lang;
-    
-    if (typeof window.renderNav === 'function') window.renderNav();
+    injectHreflangTags();
+    // Render nav and footer now that T is ready
+    if (typeof window.renderNav    === 'function') window.renderNav();
     if (typeof window.renderFooter === 'function') window.renderFooter();
 }
