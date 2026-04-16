@@ -2,17 +2,12 @@ const SITE_CONFIG = {
     // ============================================================
     // DEPLOYMENT - CHANGE THESE WHEN MOVING TO ROOT
     // ============================================================
-    
-    // Base path for the site ('' for root, '/test/' for testing)
-    base_path: '/test/',
-    
-    // Root domain (no trailing slash)
+    base_path: '/test/',  // ← ONLY CHANGE THIS ('' for root, '/test/' for testing)
     root_url: 'https://dornori.com',
     
     // ============================================================
     // APPEARANCE
     // ============================================================
-    
     icyLemon: '#F5F29B',
     bgDark: '#050505',
     bannerStickyOffset: 0.35,
@@ -20,21 +15,17 @@ const SITE_CONFIG = {
     // ============================================================
     // LANGUAGES - Add/remove languages here
     // ============================================================
-    
     languages: [
         { code: 'en', hreflang: 'en', label: 'English', flag: '🇬🇧', name: 'English' },
         { code: 'de', hreflang: 'de', label: 'Deutsch', flag: '🇩🇪', name: 'German' },
         { code: 'nl', hreflang: 'nl', label: 'Nederlands', flag: '🇳🇱', name: 'Dutch' },
         { code: 'fr', hreflang: 'fr', label: 'Français', flag: '🇫🇷', name: 'French' },
     ],
-    
-    // Default language (must be one of the codes above)
     default_language: 'en',
     
     // ============================================================
-    // NAVIGATION - Add/remove menu items here
+    // NAVIGATION
     // ============================================================
-    
     navigation: [
         { slug: 'about',  icon: '/assets/icons/about-icon-200x200.svg',   type: 'standard', enabled: true },
         { slug: 'built',  icon: '/assets/icons/assembled-lamp-icon-200x200.svg', type: 'standard', enabled: true },
@@ -44,9 +35,8 @@ const SITE_CONFIG = {
     ],
     
     // ============================================================
-    // FOOTER - Add/remove footer sections and links here
+    // FOOTER
     // ============================================================
-    
     footer: [
         {
             label: 'Company',
@@ -66,9 +56,8 @@ const SITE_CONFIG = {
     ],
     
     // ============================================================
-    // PAGE MAPPING - Map slugs to content files
+    // PAGE MAPPING
     // ============================================================
-    
     pages: {
         about:   { file: 'about-us.html', title: 'About Dornori', description: 'Where Dornori started and what makes the Star-A lamp different.' },
         built:   { file: 'built.html', title: 'Ready to Use', description: 'Fully assembled Star-A lamp. Drop in batteries and flip the lever.' },
@@ -84,48 +73,49 @@ const SITE_CONFIG = {
     // ============================================================
     // FORMS
     // ============================================================
-    
     formspree_id: 'xnjopbbb',
     turnstile_sitekey: '0x4AAAAAACxsga5y-bJ_qkzC',
     
     // ============================================================
-    // HELPER FUNCTIONS (used by other scripts)
+    // HELPER FUNCTIONS
     // ============================================================
-    
-    // Get clean base path (no trailing slash)
     getCleanBasePath() {
         const bp = this.base_path || '/';
         return bp === '/' ? '' : bp.replace(/\/$/, '');
     },
     
-    // Get full URL for a page
     getPageUrl(lang, slug = '') {
         const cleanBase = this.getCleanBasePath();
-        const base = cleanBase ? `${cleanBase}/` : '/';
+        const base = cleanBase ? `/${cleanBase}/` : '/';
         if (slug) {
             return `${base}${lang}/${slug}/`;
         }
         return `${base}${lang}/`;
     },
     
-    // Get asset path (with base_path)
     getAssetPath(path) {
         const cleanBase = this.getCleanBasePath();
         if (cleanBase) {
-            return `${cleanBase}${path}`;
+            return `/${cleanBase}${path}`;
         }
         return path;
     },
     
-    // Validate language code
     isValidLanguage(code) {
         return this.languages.some(l => l.code === code);
     },
     
-    // Get language by code
     getLanguage(code) {
         return this.languages.find(l => l.code === code) || this.languages[0];
     },
+    
+    // Get all language codes
+    getLanguageCodes() {
+        return this.languages.map(l => l.code);
+    },
 };
+
+// Make config available globally for non-module scripts
+window.SITE_CONFIG = SITE_CONFIG;
 
 export default SITE_CONFIG;
