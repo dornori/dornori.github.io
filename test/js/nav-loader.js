@@ -31,7 +31,14 @@ async function fetchSVG(path) {
 
 function getPageUrl(slug) {
     const lang = window.LANG || 'en';
-    return `/${lang}/${slug}/`;
+    const basePath = SITE_CONFIG.appearance.base_path || '/';
+    return `${basePath}${lang}/${slug}/`;
+}
+
+function getHomeUrl() {
+    const lang = window.LANG || 'en';
+    const basePath = SITE_CONFIG.appearance.base_path || '/';
+    return `${basePath}${lang}/`;
 }
 
 window.renderNav = () => {
@@ -110,6 +117,9 @@ export function initNavigation() {
         const profileSelect = document.createElement('select');
         profileSelect.id = 'profileSelect';
         profileSelect.className = 'profile-select';
+        profileSelect.setAttribute('aria-label', 'Choose colour profile');
+        profileSelect.setAttribute('tabindex', '-1');
+        
         PROFILES.forEach(p => {
             const opt = document.createElement('option');
             opt.value = p.id;
@@ -117,6 +127,7 @@ export function initNavigation() {
             if (p.id === saved) opt.selected = true;
             profileSelect.appendChild(opt);
         });
+        
         profileSelect.addEventListener('change', () => {
             root.setAttribute('data-theme', profileSelect.value);
             localStorage.setItem(THEME_KEY, profileSelect.value);
@@ -131,27 +142,44 @@ export function initNavigation() {
         const langSelect = document.createElement('select');
         langSelect.id = 'langSelect';
         langSelect.className = 'profile-select';
-        langSelect.value = window.LANG || 'en';
+        langSelect.setAttribute('aria-label', 'Choose language');
+        langSelect.setAttribute('tabindex', '-1');
+        
+        const currentLang = window.LANG || 'en';
+        
         SITE_CONFIG.languages.forEach(l => {
             const opt = document.createElement('option');
             opt.value = l.code;
             opt.textContent = `${l.flag} ${l.label}`;
-            if (l.code === (window.LANG || 'en')) opt.selected = true;
+            if (l.code === currentLang) opt.selected = true;
             langSelect.appendChild(opt);
         });
+        
         langSelect.addEventListener('change', () => {
             if (typeof window.setLang === 'function') window.setLang(langSelect.value);
         });
         langWrap.appendChild(langSelect);
         topBar.appendChild(langWrap);
 
-        // Settings tab
+        // Settings gear tab
         const tab = document.createElement('button');
         tab.id = 'topBar-tab';
+        tab.setAttribute('aria-label', 'Open settings');
+        tab.setAttribute('aria-expanded', 'false');
+        tab.setAttribute('aria-controls', 'topBar');
         tab.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06
+                         a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09
+                         A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83
+                         l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09
+                         A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83
+                         l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09
+                         a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83
+                         l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09
+                         a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
             <span>${T.settings || 'SETTINGS'}</span>
         `;
@@ -159,25 +187,43 @@ export function initNavigation() {
 
         const openBar = () => {
             topBar.classList.add('active');
+            tab.setAttribute('aria-expanded', 'true');
+            tab.setAttribute('aria-label', 'Close settings');
             profileSelect.setAttribute('tabindex', '0');
             langSelect.setAttribute('tabindex', '0');
+            profileSelect.focus();
         };
         const closeBar = () => {
             topBar.classList.remove('active');
+            tab.setAttribute('aria-expanded', 'false');
+            tab.setAttribute('aria-label', 'Open settings');
             profileSelect.setAttribute('tabindex', '-1');
             langSelect.setAttribute('tabindex', '-1');
         };
+
         tab.addEventListener('click', e => {
             e.stopPropagation();
             topBar.classList.contains('active') ? closeBar() : openBar();
         });
         document.addEventListener('click', e => { if (!topBar.contains(e.target)) closeBar(); });
-        
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && topBar.classList.contains('active')) { closeBar(); tab.focus(); }
+        });
+
         const isFinePointer = window.matchMedia('(pointer: fine)');
         if (isFinePointer.matches) {
             topBar.addEventListener('mouseenter', openBar);
             topBar.addEventListener('mouseleave', closeBar);
         }
+        isFinePointer.addEventListener('change', e => {
+            if (e.matches) {
+                topBar.addEventListener('mouseenter', openBar);
+                topBar.addEventListener('mouseleave', closeBar);
+            } else {
+                topBar.removeEventListener('mouseenter', openBar);
+                topBar.removeEventListener('mouseleave', closeBar);
+            }
+        });
     }
     window.renderNav();
 }
