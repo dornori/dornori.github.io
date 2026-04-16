@@ -2,9 +2,8 @@ import SITE_CONFIG from './config.js';
 
 function getPageUrl(slug) {
     const lang = window.LANG || SITE_CONFIG.default_language;
-    const basePath = SITE_CONFIG.base_path;
-    const cleanBase = basePath === '/' ? '' : basePath.replace(/\/$/, '');
-    return cleanBase ? `/${cleanBase}/${lang}/${slug}/` : `/${lang}/${slug}/`;
+    const basePath = SITE_CONFIG.appearance.base_path;
+    return `${basePath}${lang}/${slug}/`;
 }
 
 window.renderFooter = () => {
@@ -13,7 +12,6 @@ window.renderFooter = () => {
 
     const T = window.T?.footer || {};
     const columns = SITE_CONFIG.footer;
-    if (!columns?.length) return;
 
     container.innerHTML = '';
 
@@ -27,19 +25,16 @@ window.renderFooter = () => {
         const col = document.createElement('div');
         col.className = 'footer-col';
 
-        if (column.label) {
-            const heading = document.createElement('p');
-            heading.className = 'footer-col-heading';
-            heading.textContent = tCol.heading || column.label;
-            col.appendChild(heading);
-        }
+        const heading = document.createElement('p');
+        heading.className = 'footer-col-heading';
+        heading.textContent = tCol.heading || column.label;
+        col.appendChild(heading);
 
         visibleLinks.forEach(link => {
             const a = document.createElement('a');
             a.href = getPageUrl(link.slug);
             a.className = 'footer-link';
             a.textContent = tLinks[link.slug] || link.slug;
-            a.setAttribute('data-slug', link.slug);
             col.appendChild(a);
         });
 
