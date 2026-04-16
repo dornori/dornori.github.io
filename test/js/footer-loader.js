@@ -2,7 +2,7 @@
  * footer-loader.js
  * Reads labels from window.T (loaded by i18n.js from lang/{code}.json).
  * Exposes window.renderFooter() so setLang() can re-render on language switch.
- * Uses <a href> tags so Google can crawl footer links.
+ * Uses real <a href> tags for Google crawling.
  */
 
 import SITE_CONFIG from './config.js';
@@ -17,7 +17,6 @@ window.renderFooter = () => {
 
     container.innerHTML = '';
 
-    // T.columns is an array matching the order in config.js footer
     columns.forEach((column, colIndex) => {
         const visibleLinks = column.links.filter(l => l.enabled);
         if (!visibleLinks.length) return;
@@ -36,14 +35,19 @@ window.renderFooter = () => {
         }
 
         visibleLinks.forEach(link => {
-            const lang = window.LANG || 'en';
+            // Build clean crawlable URL from config only
+            const lang = window.LANG || SITE_CONFIG.languages[0].code;
             const base = SITE_CONFIG.appearance.base_path;
-            const href = lang === 'en' ? `${base}${link.slug}` : `${base}${lang}/${link.slug}`;
+            const fallback = SITE_CONFIG.languages[0].code;
+
+            const href = lang === fallback 
+                ? `${base}${link.slug}/` 
+                : `${base}${lang}/${link.slug}/`;
 
             const a         = document.createElement('a');
             a.href          = href;
             a.className     = 'footer-link';
-            a.textContent   = tLinks[link.slug] || link.label;
+            a.textContent   = tLinks[link.slug] || link.label || link.slug;
             a.setAttribute('data-slug', link.slug);
 
             a.addEventListener('click', e => {
@@ -59,8 +63,7 @@ window.renderFooter = () => {
 };
 
 export function initFooter() {
-    // renderFooter() is called by initI18n() once window.T is loaded.
-    // initFooter() just ensures renderFooter is defined on window early enough.
-    // If T is already available (e.g. language was cached), render immediately.
+    // renderFooter() is called by initI18n() once translations are loaded.
+    // This just ensures the function exists early.
     if (window.T) window.renderFooter();
 }
