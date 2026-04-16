@@ -415,38 +415,39 @@
     document.getElementById("btn-back-to-1").addEventListener("click", () => goToStep(1));
     document.getElementById("btn-back-to-2").addEventListener("click", () => goToStep(2));
 
-    // ── Step 2 → 3: EXACT same as embed-form.js ───────────────────────────
-    document.getElementById("btn-to-step-3").addEventListener("click", async () => {
-      const btn = document.getElementById("btn-to-step-3");
-      const originalText = btn.textContent;
-      btn.textContent = "Sending...";
-      btn.disabled = true;
+     // ── Step 2 → 3: Formspree (EXACT same as embed-form.js) ────────
+  document.getElementById("btn-to-step-3").addEventListener("click", async () => {
+    const btn = document.getElementById("btn-to-step-3");
+    const originalText = btn.textContent;
 
-      const cart = Shop.getCart();
-      orderRef = Shop.generateOrderRef();
+    btn.textContent = "Sending...";
+    btn.disabled = true;
 
-      localStorage.setItem("lumio_order_ref", orderRef);
-      localStorage.setItem("lumio_order_email", formData.email);
+    const cart = Shop.getCart();
+    orderRef = Shop.generateOrderRef();
 
-      // Exact same fetch + FormData pattern as your embed-form.js
-      const sent = await Shop.submitOrderDetails(orderRef, formData, cart);
+    localStorage.setItem("lumio_order_ref", orderRef);
+    localStorage.setItem("lumio_order_email", formData.email);
 
-      if (sent) {
-        Shop.toast("Order details recorded successfully", 2000);
-      } else {
-        Shop.toast("Proceeding to payment...", 2500);
-      }
+    // Exact same method as your embed-form.js
+    const sent = await Shop.submitOrderDetails(orderRef, formData, cart);
 
-      goToStep(3);
-      document.getElementById("delivery-estimate").textContent = 
-        CONFIG.shipping.estimatedDays + " business days";
+    if (sent) {
+      Shop.toast("Order details recorded successfully", 2000);
+    } else {
+      Shop.toast("Proceeding to payment...", 2500);
+    }
 
-      renderPayPalButton(cart);
+    goToStep(3);
+    document.getElementById("delivery-estimate").textContent = 
+      CONFIG.shipping.estimatedDays + " business days";
 
-      btn.textContent = originalText;
-      btn.disabled = false;
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
+    renderPayPalButton(cart);
+
+    btn.textContent = originalText;
+    btn.disabled = false;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
 
     // ── PayPal ─────────────────────────────────────────────
     function renderPayPalButton(cart) {
