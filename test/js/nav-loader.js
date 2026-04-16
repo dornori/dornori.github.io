@@ -1,6 +1,5 @@
 import SITE_CONFIG from './config.js';
 
-// Profiles are visual themes - these don't come from config (keep as is)
 const PROFILES = [
     { id: 'dark', label: 'Dark' },
     { id: 'light', label: 'Light' },
@@ -19,7 +18,8 @@ const svgCache = new Map();
 async function fetchSVG(path) {
     if (svgCache.has(path)) return svgCache.get(path);
     try {
-        const fullPath = SITE_CONFIG.getAssetPath(path);
+        const basePath = SITE_CONFIG.base_path;
+        const fullPath = basePath === '/' ? path : basePath.replace(/\/$/, '') + path;
         const res = await fetch(fullPath);
         if (!res.ok) throw new Error();
         const svg = await res.text();
@@ -33,7 +33,9 @@ async function fetchSVG(path) {
 
 function getPageUrl(slug) {
     const lang = window.LANG || SITE_CONFIG.default_language;
-    return SITE_CONFIG.getPageUrl(lang, slug);
+    const basePath = SITE_CONFIG.base_path;
+    const cleanBase = basePath === '/' ? '' : basePath.replace(/\/$/, '');
+    return cleanBase ? `/${cleanBase}/${lang}/${slug}/` : `/${lang}/${slug}/`;
 }
 
 window.renderNav = () => {
@@ -103,7 +105,6 @@ export function initNavigation() {
     if (topBar) {
         const T = window.T?.ui || {};
 
-        // Profile selector
         const profileWrap = document.createElement('label');
         profileWrap.className = 'profile-selector-wrap';
         profileWrap.textContent = (T.profile || 'PROFILE') + ' ';
@@ -128,7 +129,6 @@ export function initNavigation() {
         profileWrap.appendChild(profileSelect);
         topBar.appendChild(profileWrap);
 
-        // Language selector - uses config languages
         const langWrap = document.createElement('label');
         langWrap.className = 'profile-selector-wrap';
         langWrap.textContent = (T.language || 'LANGUAGE') + ' ';
@@ -154,7 +154,6 @@ export function initNavigation() {
         langWrap.appendChild(langSelect);
         topBar.appendChild(langWrap);
 
-        // Settings gear tab
         const tab = document.createElement('button');
         tab.id = 'topBar-tab';
         tab.setAttribute('aria-label', 'Open settings');
