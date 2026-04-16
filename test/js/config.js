@@ -37,16 +37,6 @@ const SITE_CONFIG = {
         { code: 'nl', hreflang: 'nl', label: 'Nederlands', flag: '🇳🇱' },
         { code: 'fr', hreflang: 'fr', label: 'Français',   flag: '🇫🇷' },
     ],
- // ─── WEBSITE COLOR PROFILES ─────────────────────────────────────────────────
-    // Fallback defined in 'profiles.cc' (cutting-mat)
-PROFILES = [
-    { id: 'dark',        label: 'Dark'        },
-    { id: 'light',       label: 'Light'       },
-    { id: 'cutting-mat', label: 'Cutting Mat' },
-    { id: 'cutting-blue', label: 'Cutting Blue' },
-],
-
-
     
     // ─── NAVIGATION ──────────────────────────────────────────────────────────
     // `label` and `mobileLabel` are intentionally absent — they come from
