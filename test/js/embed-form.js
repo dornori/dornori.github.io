@@ -31,9 +31,8 @@ function buildFormHTML(uid) {
 
 function getPageUrl(slug) {
     const lang = window.LANG || SITE_CONFIG.default_language;
-    const basePath = SITE_CONFIG.base_path;
-    const cleanBase = basePath === '/' ? '' : basePath.replace(/\/$/, '');
-    return cleanBase ? `/${cleanBase}/${lang}/${slug}/` : `/${lang}/${slug}/`;
+    const basePath = SITE_CONFIG.appearance.base_path;
+    return `${basePath}${lang}/${slug}/`;
 }
 
 function initFormInstance(root, uid) {
@@ -83,7 +82,7 @@ function initFormInstance(root, uid) {
         e.preventDefault();
 
         if (!emailInput || !isValidEmail(emailInput.value)) {
-            showEmailError('Please enter a valid email address (e.g. name@example.com)');
+            showEmailError('Please enter a valid email address');
             emailInput?.focus();
             return;
         }
