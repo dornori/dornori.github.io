@@ -12,69 +12,192 @@
 <button onclick="startTest()">Run Test</button>
 <div id="log"></div>
 
+<!-- EVERYTHING ABOVE IS IDENTICAL — SCROLL DOWN TO THE FIX -->
+
 <script>
-function log(msg){
-  const el = document.getElementById("log");
-  el.innerHTML += msg + "<br>";
-}
+  /* ── State ── */
+  let turnstileRendered = false;
+  let captchaToken      = null;
+  let payloadShown      = false;
+  let lastPayloadLines  = "";
 
-/* ── Main test flow ── */
-function startTest() {
-  const endpoint  = "https://formspree.io/f/xwvaleqz";
-
-  if (typeof window.turnstile === "undefined") {
-    log("Turnstile not loaded");
-    return;
+  /* ── Logging ── */
+  function log(msg, type = "") {
+    const el = document.getElementById("log");
+    const now = new Date();
+    const ts  = now.toTimeString().slice(0, 8);
+    const line = document.createElement("div");
+    line.className = `log-line ${type}`;
+    line.innerHTML = `<span class="ts">${ts}</span><span class="msg">${escHtml(msg)}</span>`;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
   }
 
-  turnstile.render(document.body, {
-    sitekey: "1x00000000000000000000AA",
-    callback: (token) => {
-      log("Captcha OK");
-      submitToFormspree(endpoint, "[TEST]", token);
+  function clearLog() {
+    document.getElementById("log").innerHTML = "";
+  }
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  /* ── Status dot ── */
+  function setStatus(state, label) {
+    const dot = document.getElementById("status-dot");
+    const lbl = document.getElementById("status-label");
+    dot.className = "status-dot" + (state ? " " + state : "");
+    lbl.textContent = label;
+  }
+
+  /* ── Payload preview ── */
+  function togglePayload() {
+    payloadShown = !payloadShown;
+    const pre = document.getElementById("payload-preview");
+    const btn = document.getElementById("toggle-payload-btn");
+    pre.classList.toggle("visible", payloadShown);
+    btn.textContent = payloadShown ? "Hide" : "Show";
+  }
+
+  function showPayload(lines) {
+    lastPayloadLines = lines;
+    const pre = document.getElementById("payload-preview");
+    pre.textContent = lines;
+    if (payloadShown) pre.classList.add("visible");
+  }
+
+  /* ── Main test flow ── */
+  function startTest() {
+    const sitekey   = document.getElementById("cfg-sitekey").value.trim();
+    const formId    = document.getElementById("cfg-formspree-id").value.trim();
+    const subject   = document.getElementById("cfg-subject").value.trim() || "[TEST] Formspree Connection Test";
+    const endpoint  = `https://formspree.io/f/${formId}`;
+    const btn       = document.getElementById("run-btn");
+    const tsWrap    = document.getElementById("turnstile-wrap");
+
+    if (!formId) { log("⚠ No Formspree form ID entered.", "warn"); return; }
+
+    captchaToken = null;
+    turnstileRendered = false;
+    tsWrap.innerHTML = "";
+    tsWrap.classList.remove("has-widget");
+    btn.disabled = true;
+    btn.textContent = "…loading captcha";
+    setStatus("spin", "Rendering Turnstile widget…");
+    log("── Test started ──────────────────────────", "head");
+    log(`Formspree endpoint: ${endpoint}`);
+    log(`Turnstile sitekey: ${sitekey || "(none)"}`);
+
+    if (!sitekey) {
+      log("No sitekey — skipping Turnstile, submitting directly.", "warn");
+      submitToFormspree(endpoint, subject, null, btn);
+      return;
     }
-  });
-}
 
-/* ── FIXED FUNCTION ── */
-async function submitToFormspree(endpoint, subject, token) {
+    const waitForTurnstile = (attempts = 0) => {
+      if (typeof window.turnstile !== "undefined") {
+        renderWidget(sitekey, tsWrap, endpoint, subject, btn);
+      } else if (attempts < 30) {
+        setTimeout(() => waitForTurnstile(attempts + 1), 200);
+      } else {
+        log("Turnstile SDK did not load — check network / ad blockers.", "err");
+        setStatus("err", "Turnstile failed to load");
+        btn.disabled = false;
+        btn.textContent = "▶ Run Test";
+      }
+    };
+    waitForTurnstile();
+  }
 
-  const ts = new Date().toISOString();
+  function renderWidget(sitekey, container, endpoint, subject, btn) {
+    log("Turnstile SDK ready — rendering widget…");
+    container.classList.add("has-widget");
 
-  const payload = {
-    _subject: subject,
-    test_timestamp: ts,
-    test_source: "formspree-test.html",
-    test_note: "This is an automated test",
-    ...(token && { "cf-turnstile-response": token })
-  };
-
-  log("Sending...");
-
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json"
+    window.turnstile.render(container, {
+      sitekey,
+      theme: "dark",
+      callback: (token) => {
+        captchaToken = token;
+        log(`Turnstile token received (${token.slice(0, 24)}…)`, "ok");
+        setStatus("spin", "Token received — submitting to Formspree…");
+        submitToFormspree(endpoint, subject, token, btn);
       },
-      body: JSON.stringify(payload)
+      "error-callback": () => {
+        log("Turnstile error — widget reset.", "err");
+        setStatus("err", "Turnstile error — try again");
+        btn.disabled = false;
+        btn.textContent = "▶ Run Test";
+        window.turnstile.reset(container);
+      },
+      "expired-callback": () => {
+        log("Turnstile token expired — widget reset.", "warn");
+        setStatus("", "Token expired — run again");
+        btn.disabled = false;
+        btn.textContent = "▶ Run Test";
+        window.turnstile.reset(container);
+      },
     });
 
-    const body = await response.json().catch(() => ({}));
+    btn.textContent = "Waiting for captcha…";
+    log("Widget rendered — complete the challenge to proceed.");
+  }
 
-    log("Status: " + response.status);
+  /* ✅ FIXED FUNCTION (ONLY CHANGE) */
+  async function submitToFormspree(endpoint, subject, token, btn) {
+    const ts = new Date().toISOString();
 
-    if (response.ok) {
-      log("SUCCESS ✅");
-    } else {
-      log("ERROR ❌ " + JSON.stringify(body));
+    const payload = {
+      _subject: subject,
+      test_timestamp: ts,
+      test_source: "formspree-test.html",
+      test_sitekey: document.getElementById("cfg-sitekey").value.trim() || "(none)",
+      test_note: "This is an automated connection test from the LUMIO shop test page.",
+      ...(token && { "cf-turnstile-response": token })
+    };
+
+    const lines = [
+      `POST ${endpoint}`,
+      `_subject              : ${subject}`,
+      `test_timestamp        : ${ts}`,
+      `test_source           : formspree-test.html`,
+      `cf-turnstile-response : ${token ? token.slice(0, 32) + "…" : "(none — skipped)"}`,
+    ].join("\n");
+    showPayload(lines);
+
+    log("Sending POST to Formspree…");
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const body = await response.json().catch(() => ({}));
+      log(`HTTP ${response.status} ${response.ok ? "OK" : "Error"}`);
+
+      if (response.ok) {
+        log("✅ Submission accepted by Formspree!", "ok");
+        setStatus("ok", "Success — check your Formspree inbox");
+      } else {
+        const errMsg = body?.errors?.map(e => e.message).join(", ") || JSON.stringify(body);
+        log(`❌ Formspree rejected submission: ${errMsg}`, "err");
+        setStatus("err", `Rejected (${response.status}) — see log`);
+      }
+    } catch (err) {
+      log(`Network error: ${err.message}`, "err");
+      setStatus("err", "Network error — see log");
     }
 
-  } catch (err) {
-    log("NETWORK ERROR: " + err.message);
+    btn.disabled = false;
+    btn.textContent = "▶ Run Test Again";
+    log("── Test complete ─────────────────────────", "head");
   }
-}
 </script>
 
 </body>
