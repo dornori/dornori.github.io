@@ -1,14 +1,13 @@
-/**
- * i18n.js — Language detection, JSON loading, and switching
- */
-
 import SITE_CONFIG from './config.js';
 
+// ... (keep everything else, but change the detection function)
+
+const STORAGE_KEY = SITE_CONFIG.storageKey;
 const FALLBACK    = SITE_CONFIG.languages[0].code;
 const supported   = new Set(SITE_CONFIG.languages.map(l => l.code));
 
 function detectLang() {
-    const saved = localStorage.getItem(SITE_CONFIG.storageKey);
+    const saved = localStorage.getItem(STORAGE_KEY);
     if (saved && supported.has(saved)) return saved;
 
     const match = (navigator.languages || [navigator.language])
@@ -16,11 +15,13 @@ function detectLang() {
         .find(l => supported.has(l));
 
     if (match) {
-        localStorage.setItem(SITE_CONFIG.storageKey, match);
+        localStorage.setItem(STORAGE_KEY, match);
         return match;
     }
+
     return FALLBACK;
 }
+
 
 async function loadTranslations(code) {
     const base = SITE_CONFIG.appearance.base_path;
