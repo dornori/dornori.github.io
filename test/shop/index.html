@@ -90,13 +90,16 @@
     <div class="lumio-container">
       <div class="lumio-page-header__inner">
         <a href="index.html" class="lumio-logo">LUM<span>IO</span></a>
-        <div class="lumio-lang-switcher">
-          <button class="lumio-lang-btn active" data-lang="en">EN</button>
-          <button class="lumio-lang-btn" data-lang="no">NO</button>
-          <button class="lumio-lang-btn" data-lang="nl">NL</button>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <div class="lumio-lang-switcher">
+            <button class="lumio-lang-btn active" data-lang="en">EN</button>
+            <button class="lumio-lang-btn" data-lang="no">NO</button>
+            <button class="lumio-lang-btn" data-lang="nl">NL</button>
+          </div>
+          <div id="currency-selector-slot"></div>
+          <!-- Cart icon injected by JS -->
+          <div id="cart-icon-slot"></div>
         </div>
-        <!-- Cart icon injected by JS -->
-        <div id="cart-icon-slot"></div>
       </div>
     </div>
   </header>
@@ -129,7 +132,6 @@
   </footer>
 
   <script src="js/config.js"></script>
-  <script src="js/lang-bridge.js"></script>
   <script src="js/shop.js"></script>
   <script>
     // Language switcher
@@ -143,7 +145,6 @@
       });
     });
 
-    // Load saved language
     const savedLang = localStorage.getItem("lumio_lang");
     if (savedLang) {
       CONFIG.language = savedLang;
@@ -152,9 +153,16 @@
       });
     }
 
-    // Render
-    Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false });
-    Shop.renderShop("shop", { showFilter: true });
+    // Boot: load shipping config, detect currency from IP, then render
+    Promise.all([
+      Shipping.load(),
+      Currency.init(),
+      Shop.loadLang(),
+    ]).then(() => {
+      Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false });
+      Shop.renderCurrencySelector("#currency-selector-slot");
+      Shop.renderShop("shop", { showFilter: true });
+    });
   </script>
 </body>
 </html>
