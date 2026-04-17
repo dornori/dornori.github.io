@@ -3,33 +3,11 @@
    ───────────────────────────────────────────────────────────────────────────── */
 
 /* ── DESIGN TOKENS ─────────────────────────────────────────────────────────── */
+/* Colour tokens and all theme profiles live in css/profiles.css               */
+/* Only typography (never changes between themes) is defined here.             */
 :root {
-    --accent:    #BED4E1;
-    --bg:        #050505;
-    --glass:     rgba(255, 255, 255, 0.02);
-    --border:    #FFFFFF /*#BED4E1;  rgba(245, 242, 155, 0.15); */
-    --text:      #BED4E1;
-    --text-muted:#888888;
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
-}
-
-/* ── LIGHT THEME OVERRIDES (set via <html data-theme="light">) ─────────────── */
-[data-theme="light"] {
-    --bg:        #f5f5f0;
-    --glass:     rgba(0, 0, 0, 0.04);
-    --border:    rgba(0, 0, 0, 0.12);
-    --accent:    #7a6800;
-    --text:      #111111;
-    --text-muted:#666666;
-}
-
-[data-theme="light"] body {
-    color: var(--text);
-    background-image:
-        radial-gradient(circle at center, transparent 0%, var(--bg) 95%),
-        linear-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+    --font-mono: Impact, ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 /* ── BASE RESET ────────────────────────────────────────────────────────────── */
@@ -110,7 +88,7 @@ body {
     padding: 0 24px;
     gap: 16px;
 
-    background: var(--bg);
+    background: var(--header-bg, var(--bg));
     border-bottom: 1px solid var(--border);
     box-shadow: 0 2px 0 0 var(--accent);
 
@@ -124,24 +102,52 @@ body {
     transform: translateY(0);
 }
 
-/* ── THEME TOGGLE (inside #topBar) ─────────────────────────────────────────── */
-#themeToggle {
+/* ── PROFILE SELECTOR (inside #topBar) ─────────────────────────────────────── */
+.profile-selector-wrap {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 4px 0;
+    gap: 8px;
     font-family: var(--font-mono);
     font-size: 10px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--text-muted);
-    transition: color 0.2s;
+    cursor: default;
 }
 
-#themeToggle:hover { color: var(--text); }
+.profile-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    padding: 4px 24px 4px 8px;
+    cursor: pointer;
+    /* chevron arrow */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+    transition: border-color 0.2s, color 0.2s;
+}
+
+.profile-select:hover,
+.profile-select:focus {
+    border-color: var(--accent);
+    color: var(--accent);
+    outline: none;
+}
+
+.profile-select option {
+    background: #111;
+    color: #eee;
+}
+
+/* ── THEME TOGGLE (legacy — kept for reference, no longer rendered) ────────── */
+#themeToggle { display: none; }
 
 .toggle-track {
     position: relative;
@@ -166,14 +172,7 @@ body {
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s;
 }
 
-[data-theme="light"] .toggle-thumb {
-    transform: translateX(16px);
-    background: var(--accent);
-}
 
-[data-theme="light"] .toggle-track {
-    background: rgba(0, 0, 0, 0.06);
-}
 
 /* ── HEADER (sticky banner) ────────────────────────────────────────────────── */
 header {
@@ -181,18 +180,164 @@ header {
     position: sticky;
     top: 0;
     z-index: 1000;
-    background: var(--bg);
+    background: var(--header-bg, var(--bg));
 }
+
+.billboard-logo-wrap {
+    position: relative;
+    display: block;
+    width: 13%;
+    cursor: pointer;
+    transition: opacity 0.3s;
+    flex-shrink: 0;
+}
+
+.billboard-logo-wrap:hover { opacity: 0.8; }
 
 .billboard-logo {
     width: 100%;
     height: auto;
     display: block;
-    cursor: pointer;
-    transition: opacity 0.3s;
 }
 
-.billboard-logo:hover { opacity: 0.8; }
+.billboard-wordmark {
+    position: absolute;
+    top: 52%;
+    left: 45%;
+    transform: translateY(-50%);
+
+    font-family: var(--font-sans);
+    font-size: clamp(1.6rem, 3.2vw, 34rem);
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    white-space: nowrap;
+    pointer-events: none;
+
+    /* 🔤 restore normal text color */
+    color: var(--accent);
+
+    /* 🧱 subtle emboss */
+    text-shadow:
+        0 1px 0 rgba(255,255,255,0.9),
+        0 2px 0 rgba(0,0,0,0.10),
+        0 3px 6px rgba(0,0,0,0.18),
+
+        /* ✨ yellow glow layer (separate from text color) */
+        0 0 12px rgba(255, 242, 0, 0.25),
+        0 0 24px rgba(255, 242, 0, 0.18);
+}
+
+/* anchor */
+.i-wrap {
+    position: relative;
+    display: inline-block;
+    width: 0.6ch;
+}
+
+.dot {
+    position: absolute;
+
+    left: 45%;
+    top: 0.25em;
+
+    width: 0.18em;
+    height: 0.18em;
+
+    border-radius: 50%;
+
+    background: #fff200;
+
+    box-shadow: 0 0 0 1px var(--accent);
+
+    transform: translateX(-50%);
+
+    animation: dotCycle 7.6s ease-in-out infinite;
+}
+
+@keyframes dotCycle {
+
+    /* 🟦 START: accent, resting */
+    0% {
+        transform: translateX(-50%) translateY(0);
+        background: var(--accent);
+    }
+
+    20% { /* ~1.5s hold (start wait) */
+        transform: translateX(-50%) translateY(0);
+        background: var(--accent);
+    }
+
+    /* 🟡 switch to yellow */
+    25% {
+        background: #fff200;
+    }
+
+    /* 🚀 move UP */
+    45% {
+        transform: translateX(-50%) translateY(-38px);
+        background: #fff200;
+    }
+
+    /* ⏸ hold at top (~1.5s) */
+    65% {
+        transform: translateX(-50%) translateY(-38px);
+        background: #fff200;
+    }
+
+    /* 🌊 move DOWN */
+    85% {
+        transform: translateX(-50%) translateY(0);
+        background: #fff200;
+    }
+
+    /* 🟦 reset to accent */
+    100% {
+        transform: translateX(-50%) translateY(0);
+        background: var(--accent);
+    }
+}
+
+@media (max-width: 768px) {
+
+    @keyframes dotCycle {
+
+        0% {
+            transform: translateX(-50%) translateY(0);
+            background: var(--accent);
+        }
+
+        20% {
+            transform: translateX(-50%) translateY(0);
+            background: var(--accent);
+        }
+
+        25% {
+            background: #fff200;
+        }
+
+        /* smaller travel on mobile */
+        45% {
+            transform: translateX(-50%) translateY(-18px);
+            background: #fff200;
+        }
+
+        65% {
+            transform: translateX(-50%) translateY(-18px);
+            background: #fff200;
+        }
+
+        85% {
+            transform: translateX(-50%) translateY(0);
+            background: #fff200;
+        }
+
+        100% {
+            transform: translateX(-50%) translateY(0);
+            background: var(--accent);
+        }
+    }
+}
+
 
 /* ── NAVIGATION ────────────────────────────────────────────────────────────── */
 nav.top-nav {
@@ -216,11 +361,12 @@ nav.top-nav {
     color: var(--text-muted);
     cursor: pointer;
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 1.00rem;
     text-transform: uppercase;
     letter-spacing: 2px;
     transition: 0.3s ease;
-
+    /* Removes the default underline from nav links */
+    text-decoration: none;
     /* icon + label side by side */
     display: inline-flex;
     align-items: center;
@@ -232,13 +378,13 @@ nav.top-nav {
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
-    width: 16px;
-    height: 16px;
+    width: 32px;
+    height: 32px;
 }
 
 .nav-icon svg {
-    width: 26px;
-    height: 26px;
+    width: 36px;
+    height: 36px;
     fill: none;
     stroke: currentColor;
     stroke-width: 1.5;
@@ -281,11 +427,21 @@ main {
     width: 100%;
 }
 
-#home-view,
-#page-view {
+#home-view {
     width: 100%;
     max-width: 800px;
     animation: fadeIn 0.5s ease;
+}
+
+/* Full-width content section — responsive side spacing */
+#page-view {
+    width: 100%;
+    max-width: 100%;
+    /* Desktop: generous breathing room */
+    padding-left:  clamp(16px, 5vw, 80px);
+    padding-right: clamp(16px, 5vw, 80px);
+    animation: fadeIn 0.5s ease;
+    box-sizing: border-box;
 }
 
 @keyframes fadeIn {
@@ -323,7 +479,7 @@ input {
     background: transparent;
     border: none;
     padding: 18px;
-    color: var(--text);
+    color: var(--accent);
     outline: none;
     font-family: var(--font-mono);
 }
@@ -423,7 +579,7 @@ h2, h3, h4 {
     width: 100%;
     padding: 40px 60px;
     border-top: 1px solid rgba(245, 242, 155, 0.15); /* fixed — not theme-dependent */
-    background: #050505;                              /* always dark regardless of theme */
+    background: var(--footer-bg, #050505);                /* fallback: always dark */
     margin-top: auto;
 }
 
@@ -555,7 +711,7 @@ h2, h3, h4 {
         justify-content: space-around;
         align-items: stretch;
 
-        background: var(--bg);
+        background: var(--header-bg, var(--bg));
         border-bottom: 1px solid var(--border);
         box-shadow: 0 2px 0 0 var(--accent);
     }
@@ -653,8 +809,8 @@ h2, h3, h4 {
 .nav-icon {
     display: inline-flex;
     align-items: center;
-    width: 16px;
-    height: 16px;
+    width: 36px;
+    height: 36px;
     flex-shrink: 0;
 }
 
