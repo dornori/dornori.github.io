@@ -1,5 +1,5 @@
 /* =========================================================
-   LUMIO SHOP ENGINE  –  shop.js (FIXED)
+   LUMIO SHOP ENGINE  –  shop.js
    ========================================================= */
 
 const Shop = (() => {
@@ -20,18 +20,37 @@ const Shop = (() => {
     document.dispatchEvent(new CustomEvent("shop:cartUpdated", { detail: { cart } }));
   }
 
-  function addToCart(product, qty = 1, selectedColor = null) {
+  /* ── Build the color-specific image path ─────────────────
+   * Convention: images/products/<name>_<color>.webp
+   * Falls back to the product's default image.
+   * Color string is lowercased and spaces→hyphens.
+   */
+  function colorImageSrc(product, color) {
+    if (!color) return product.image;
+    const slug = color.toLowerCase().replace(/\s+/g, "-");
+    // Derive base name from default image path, strip extension
+    const base = (product.image || "").replace(/\.[^/.]+$/, "");
+    // Try <base>_<color>.webp pattern
+    return base + "_" + slug + ".webp";
+  }
+
+  /* ── Add to cart ──────────────────────────────────────── */
+  function addToCart(product, qty = 1, selectedColor = null, selectedImageSrc = null) {
     const cart = getCart();
-    const key = product.id + (selectedColor ? "_" + selectedColor : "");
+    const key = product.id + (selectedColor ? "_" + selectedColor.toLowerCase().replace(/\s+/g, "-") : "");
     const existing = cart.find(i => i.cartKey === key);
     if (existing) {
       existing.qty = Math.min(existing.qty + qty, product.stock || 99);
     } else {
+      const color = selectedColor || (product.colors ? product.colors[0] : null);
+      // Store the image that was actually showing when added
+      const image = selectedImageSrc || (color ? colorImageSrc(product, color) : product.image);
       cart.push({
         ...product,
         cartKey: key,
         qty,
-        selectedColor: selectedColor || (product.colors ? product.colors[0] : null),
+        selectedColor: color,
+        image,          // override with color-specific image
       });
     }
     saveCart(cart);
@@ -59,15 +78,31 @@ const Shop = (() => {
   }
 
   /* ── Totals ───────────────────────────────────────────── */
-  function calculateTotals(cart, isBusiness = false) {
+  function calculateTotals(cart, isBusiness = false, countryCode = null) {
     const subtotal = cart.reduce((a, i) => a + i.price * i.qty, 0);
     const totalWeight = cart.reduce((a, i) => a + (i.weight || 0) * i.qty, 0);
-    const isFreeShipping = subtotal >= CONFIG.shipping.freeThreshold;
-    const shipping = isFreeShipping ? 0 : CONFIG.shipping.base + (totalWeight * CONFIG.shipping.perKg);
+
+    // If Shipping module is available and we have a country, use per-country rate
+    let shippingConfig = {
+      base: CONFIG.shipping.base,
+      perKg: CONFIG.shipping.perKg,
+      freeThreshold: CONFIG.shipping.freeThreshold,
+      estimatedDays: CONFIG.shipping.estimatedDays,
+    };
+    if (countryCode && typeof Shipping !== "undefined") {
+      shippingConfig = Shipping.getRate(countryCode);
+    }
+
+    const isFreeShipping = subtotal >= shippingConfig.freeThreshold;
+    const shipping = isFreeShipping ? 0 : shippingConfig.base + (totalWeight * shippingConfig.perKg);
     const taxRate = isBusiness ? 0 : CONFIG.taxRate;
     const tax = subtotal * taxRate;
     const total = subtotal + shipping + tax;
-    return { subtotal, shipping, tax, total, totalWeight, isFreeShipping, taxRate };
+    return {
+      subtotal, shipping, tax, total,
+      totalWeight, isFreeShipping, taxRate,
+      estimatedDays: shippingConfig.estimatedDays,
+    };
   }
 
   /* ── Language ─────────────────────────────────────────── */
@@ -78,15 +113,11 @@ const Shop = (() => {
     _langLoadPromise = fetch("data/lang/" + lang + ".json")
       .then(r => r.json())
       .then(d => { LANG = d; _langLoaded = true; return d; })
-      .catch(() => {
-        LANG = {}; _langLoaded = true; return {};
-      });
+      .catch(() => { LANG = {}; _langLoaded = true; return {}; });
     return _langLoadPromise;
   }
 
-  function t(key, fallback = "") {
-    return LANG[key] || fallback || key;
-  }
+  function t(key, fallback = "") { return LANG[key] || fallback || key; }
 
   /* ── Product loader ───────────────────────────────────── */
   async function loadProducts() {
@@ -105,16 +136,20 @@ const Shop = (() => {
     return p;
   }
 
-  /* ── Order reference generator ────────────────────────── */
+  /* ── Helpers ──────────────────────────────────────────── */
   function generateOrderRef() {
     const ts = Date.now().toString(36).toUpperCase();
     const rnd = Math.random().toString(36).substr(2, 5).toUpperCase();
     return "LM-" + ts + "-" + rnd;
   }
 
-  /* ── Format helpers ───────────────────────────────────── */
-  function fmt(amount) {
-    return CONFIG.currency + amount.toFixed(2);
+  /* fmt() always works in EUR internally.
+   * If Currency module is available, it converts + buffers. */
+  function fmt(eurAmount) {
+    if (typeof Currency !== "undefined" && Currency.getActive() !== "EUR") {
+      return Currency.fmt(eurAmount);
+    }
+    return CONFIG.currency + eurAmount.toFixed(2);
   }
 
   function fmtWeight(kg) {
@@ -136,14 +171,44 @@ const Shop = (() => {
     }, duration);
   }
 
+  /* ── CURRENCY SELECTOR widget ─────────────────────────────
+   * Renders a self-contained <div> currency picker.
+   * Can be dropped anywhere: header, cart sidebar, etc.
+   * target: CSS selector string or DOM element
+   */
+  function renderCurrencySelector(target) {
+    const container = typeof target === "string" ? document.querySelector(target) : target;
+    if (!container || typeof Currency === "undefined") return;
+
+    function build() {
+      const active = Currency.getActive();
+      const all = Currency.list();
+
+      container.className = "lumio-currency-selector";
+      container.innerHTML = `
+        <label class="lumio-currency-selector__label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14">
+            <circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 0 0 20M12 2a15 15 0 0 1 0 20M2 12h20"/>
+          </svg>
+        </label>
+        <select class="lumio-currency-selector__select" aria-label="Select currency">
+          ${all.map(c => `<option value="${c.code}" ${c.code === active ? "selected" : ""}>${c.code} ${c.symbol}</option>`).join("")}
+        </select>
+      `;
+
+      container.querySelector("select").addEventListener("change", e => {
+        Currency.setActive(e.target.value);
+      });
+    }
+
+    build();
+    // Rebuild when currency changes (e.g. from another selector instance)
+    document.addEventListener("currency:changed", build);
+  }
+
   /* ── CART ICON widget ─────────────────────────────────── */
   function renderCartIcon(options = {}) {
-    const {
-      target = "body",
-      fixed = true,
-      cartUrl = "cart.html",
-    } = options;
-
+    const { target = "body", fixed = true, cartUrl = "cart.html" } = options;
     const wrapper = document.createElement("a");
     wrapper.href = cartUrl;
     wrapper.className = "lumio-cart-icon" + (fixed ? " lumio-cart-icon--fixed" : "");
@@ -183,15 +248,9 @@ const Shop = (() => {
     const container = document.getElementById(divId);
     if (!container) return;
 
-    const {
-      columns = "auto",
-      showFilter = true,
-      cartUrl = "cart.html",
-    } = options;
-
+    const { columns = "auto", showFilter = true, cartUrl = "cart.html" } = options;
     container.classList.add("lumio-shop");
 
-    // Category filter
     if (showFilter) {
       const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
       if (categories.length > 1) {
@@ -215,7 +274,6 @@ const Shop = (() => {
       }
     }
 
-    // Grid
     const grid = document.createElement("div");
     grid.className = "lumio-grid";
     if (columns !== "auto") grid.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
@@ -229,21 +287,44 @@ const Shop = (() => {
       grid.appendChild(card);
       wireProductCard(card, p);
     });
+
+    // Re-format prices when currency changes
+    document.addEventListener("currency:changed", () => {
+      container.querySelectorAll(".lumio-card-price").forEach((el, i) => {
+        if (products[i]) el.textContent = fmt(products[i].price);
+      });
+    });
   }
 
-  /* ── PRODUCT CARD (standalone div) ───────────────────── */
+  /* ── PRODUCT CARD HTML ────────────────────────────────── */
   function buildProductCard(p) {
     const inStock = !p.stock || p.stock > 0;
+
+    // Build color swatches — each color can be marked sold out in product JSON
+    // p.colors = ["Matte Black", "Brushed Gold"]  (in stock)
+    // p.colors_soldout = ["Brushed Gold"]          (these are visible but unselectable)
+    const soldOut = p.colors_soldout || [];
     const colorOptions = p.colors?.length
       ? `<div class="lumio-colors">
-          ${p.colors.map((c, i) => `<button class="lumio-color${i === 0 ? " lumio-color--active" : ""}" data-color="${c}" title="${c}"></button>`).join("")}
+          ${p.colors.map((c, i) => {
+            const isSoldOut = soldOut.includes(c);
+            return `<button
+              class="lumio-color${i === 0 ? " lumio-color--active" : ""}${isSoldOut ? " lumio-color--soldout" : ""}"
+              data-color="${c}"
+              title="${c}${isSoldOut ? " (sold out)" : ""}"
+              ${isSoldOut ? 'disabled aria-disabled="true"' : ""}
+            ></button>`;
+          }).join("")}
          </div>`
       : "";
+
     return `
       <div class="lumio-card-img-wrap">
-        <img class="lumio-card-img" src="${p.image}" alt="${p.name}" loading="lazy" onerror="this.src='images/placeholder.svg'">
+        <img class="lumio-card-img" src="${p.image}" alt="${p.name}" loading="lazy"
+          onerror="this.src='images/placeholder.svg'">
         ${p.featured ? '<span class="lumio-badge">Featured</span>' : ""}
-        <button class="lumio-card-quick-add" data-id="${p.id}" aria-label="Add to cart" ${inStock ? "" : "disabled"}>
+        <button class="lumio-card-quick-add" data-id="${p.id}" aria-label="Add to cart"
+          ${inStock ? "" : "disabled"}>
           ${inStock ? t("add_to_cart") : t("out_of_stock")}
         </button>
       </div>
@@ -264,7 +345,17 @@ const Shop = (() => {
 
   function wireProductCard(card, p) {
     let qty = 1;
-    let selectedColor = p.colors?.[0] || null;
+    const availableColors = (p.colors || []).filter(c => !(p.colors_soldout || []).includes(c));
+    let selectedColor = availableColors[0] || null;
+    const img = card.querySelector(".lumio-card-img");
+
+    // Set initial image for first available (non-soldout) color
+    if (selectedColor && img) {
+      const src = colorImageSrc(p, selectedColor);
+      const test = new Image();
+      test.onload = () => { img.src = src; };
+      test.src = src;
+    }
 
     const qtyVal = card.querySelector(".lumio-qty-val");
     card.querySelector(".lumio-qty-btn--plus")?.addEventListener("click", () => {
@@ -276,21 +367,34 @@ const Shop = (() => {
       qtyVal.textContent = qty;
     });
 
-    card.querySelectorAll(".lumio-color").forEach(btn => {
+    card.querySelectorAll(".lumio-color:not([disabled])").forEach(btn => {
       btn.addEventListener("click", () => {
         card.querySelectorAll(".lumio-color").forEach(b => b.classList.remove("lumio-color--active"));
         btn.classList.add("lumio-color--active");
         selectedColor = btn.dataset.color;
+
+        // Switch product image
+        if (img) {
+          const src = colorImageSrc(p, selectedColor);
+          const test = new Image();
+          test.onload = () => {
+            img.style.opacity = "0";
+            setTimeout(() => { img.src = src; img.style.opacity = ""; }, 150);
+          };
+          // If color image not found, keep current
+          test.src = src;
+        }
       });
     });
 
     card.querySelector(".lumio-card-quick-add")?.addEventListener("click", () => {
-      addToCart(p, qty, selectedColor);
+      const currentSrc = img?.src || null;
+      addToCart(p, qty, selectedColor, currentSrc);
       toast(`${p.name} ${t("added")}`);
     });
   }
 
-  /* ── PRODUCT INFO div (standalone) ───────────────────── */
+  /* ── PRODUCT INFO div ─────────────────────────────────── */
   async function renderProductInfo(divId, productId, options = {}) {
     await loadLang();
     const p = await getProduct(productId);
@@ -298,30 +402,43 @@ const Shop = (() => {
     if (!container) return;
     container.classList.add("lumio-product-info");
 
-    let currentImg = 0;
     const images = p.images || [p.image];
+    const soldOut = p.colors_soldout || [];
+    const availableColors = (p.colors || []).filter(c => !soldOut.includes(c));
+    let selectedColor = availableColors[0] || (p.colors?.[0] || null);
     let qty = 1;
-    let selectedColor = p.colors?.[0] || null;
 
     container.innerHTML = `
       <div class="lumio-product-gallery">
         <div class="lumio-product-main-img-wrap">
-          <img id="lumio-main-img" class="lumio-product-main-img" src="${images[0]}" alt="${p.name}" onerror="this.src='images/placeholder.svg'">
+          <img id="lumio-main-img" class="lumio-product-main-img"
+            src="${images[0]}" alt="${p.name}"
+            onerror="this.src='images/placeholder.svg'">
         </div>
         ${images.length > 1 ? `
           <div class="lumio-product-thumbs">
-            ${images.map((img, i) => `<img class="lumio-product-thumb${i === 0 ? " active" : ""}" src="${img}" data-idx="${i}" alt="" onerror="this.src='images/placeholder.svg'">`).join("")}
+            ${images.map((img, i) =>
+              `<img class="lumio-product-thumb${i === 0 ? " active" : ""}" src="${img}" data-idx="${i}" alt=""
+                onerror="this.src='images/placeholder.svg'">`
+            ).join("")}
           </div>` : ""}
       </div>
       <div class="lumio-product-details">
         <h1 class="lumio-product-name">${p.name}</h1>
-        <p class="lumio-product-price">${fmt(p.price)}</p>
+        <p class="lumio-product-price" id="lumio-info-price">${fmt(p.price)}</p>
         <p class="lumio-product-desc">${p.description || ""}</p>
         ${p.colors?.length ? `
           <div class="lumio-product-option-group">
             <label>${t("color")}</label>
             <div class="lumio-product-colors">
-              ${p.colors.map((c, i) => `<button class="lumio-product-color${i===0?" active":""}" data-color="${c}">${c}</button>`).join("")}
+              ${p.colors.map((c, i) => {
+                const isSoldOut = soldOut.includes(c);
+                return `<button
+                  class="lumio-product-color${i===0?" active":""}${isSoldOut?" soldout":""}"
+                  data-color="${c}"
+                  ${isSoldOut ? 'disabled title="Sold out"' : ""}
+                >${c}${isSoldOut ? ' <em>(sold out)</em>' : ""}</button>`;
+              }).join("")}
             </div>
           </div>` : ""}
         <div class="lumio-product-option-group">
@@ -337,6 +454,7 @@ const Shop = (() => {
             ${p.stock > 0 ? t("in_stock") : t("out_of_stock")}
           </span>
           <span class="lumio-weight-info">${t("weight")}: ${fmtWeight(p.weight)}</span>
+          ${p.dimensions ? `<span class="lumio-dim-info">${p.dimensions.l}×${p.dimensions.w}×${p.dimensions.h} cm</span>` : ""}
         </div>
         <button class="lumio-btn lumio-btn--primary lumio-add-to-cart" data-id="${p.id}" ${p.stock > 0 ? "" : "disabled"}>
           ${t("add_to_cart")}
@@ -345,12 +463,14 @@ const Shop = (() => {
       </div>
     `;
 
-    // Wire gallery
+    const mainImg = container.querySelector("#lumio-main-img");
+
+    // Wire gallery thumbs
     container.querySelectorAll(".lumio-product-thumb").forEach(thumb => {
       thumb.addEventListener("click", () => {
         container.querySelectorAll(".lumio-product-thumb").forEach(t => t.classList.remove("active"));
         thumb.classList.add("active");
-        document.getElementById("lumio-main-img").src = images[+thumb.dataset.idx];
+        mainImg.src = images[+thumb.dataset.idx];
       });
     });
 
@@ -365,28 +485,43 @@ const Shop = (() => {
       qtyVal.textContent = qty;
     });
 
-    // Wire colors
-    container.querySelectorAll(".lumio-product-color").forEach(btn => {
+    // Wire color buttons → image swap
+    container.querySelectorAll(".lumio-product-color:not([disabled])").forEach(btn => {
       btn.addEventListener("click", () => {
         container.querySelectorAll(".lumio-product-color").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         selectedColor = btn.dataset.color;
+
+        const src = colorImageSrc(p, selectedColor);
+        const test = new Image();
+        test.onload = () => {
+          mainImg.style.transition = "opacity 0.2s";
+          mainImg.style.opacity = "0";
+          setTimeout(() => { mainImg.src = src; mainImg.style.opacity = "1"; }, 200);
+        };
+        test.src = src;
       });
     });
 
-    // Wire add to cart
+    // Wire add-to-cart
     container.querySelector(".lumio-add-to-cart")?.addEventListener("click", () => {
-      addToCart(p, qty, selectedColor);
+      const currentSrc = mainImg?.src || null;
+      addToCart(p, qty, selectedColor, currentSrc);
       toast(`${p.name} ${t("added")}`);
+    });
+
+    // Update price on currency change
+    document.addEventListener("currency:changed", () => {
+      const priceEl = container.querySelector("#lumio-info-price");
+      if (priceEl) priceEl.textContent = fmt(p.price);
     });
   }
 
-  /* ── BUY NOW OVERLAY (for hero images) ────────────────── */
+  /* ── BUY NOW OVERLAY ──────────────────────────────────── */
   async function attachBuyOverlay(selector, productId, options = {}) {
     await loadLang();
     const p = await getProduct(productId);
-    const elements = document.querySelectorAll(selector);
-    elements.forEach(el => {
+    document.querySelectorAll(selector).forEach(el => {
       el.style.position = "relative";
       const overlay = document.createElement("div");
       overlay.className = "lumio-buy-overlay";
@@ -397,7 +532,7 @@ const Shop = (() => {
           <button class="lumio-buy-overlay__btn">${t("buy_now")}</button>
         </div>
       `;
-      overlay.querySelector("button").addEventListener("click", (e) => {
+      overlay.querySelector("button").addEventListener("click", e => {
         e.stopPropagation();
         addToCart(p, 1);
         toast(`${p.name} ${t("added")}`);
@@ -416,7 +551,7 @@ const Shop = (() => {
     function render() {
       loadLang().then(() => {
         const cart = getCart();
-        const { subtotal, shipping, tax, total, isFreeShipping } = calculateTotals(cart);
+        const { subtotal, shipping, tax, total, totalWeight, isFreeShipping } = calculateTotals(cart);
         const count = cart.reduce((a, i) => a + i.qty, 0);
 
         if (cart.length === 0) {
@@ -434,6 +569,7 @@ const Shop = (() => {
                   <span class="lumio-mini-cart__item-name">${item.name}</span>
                   ${item.selectedColor ? `<span class="lumio-mini-cart__item-color">${item.selectedColor}</span>` : ""}
                   <span class="lumio-mini-cart__item-price">${item.qty} × ${fmt(item.price)}</span>
+                  <span class="lumio-mini-cart__item-weight">${fmtWeight((item.weight||0)*item.qty)}</span>
                 </div>
                 <button class="lumio-mini-cart__remove" data-key="${item.cartKey}" aria-label="Remove">✕</button>
               </li>
@@ -447,149 +583,79 @@ const Shop = (() => {
               <span>${t("shipping")}</span>
               <span>${isFreeShipping ? t("free") : fmt(shipping)}</span>
             </div>
+            <div class="lumio-mini-cart__row">
+              <span>${t("weight")}</span><span>${fmtWeight(totalWeight)}</span>
+            </div>
+            <div class="lumio-mini-cart__row lumio-mini-cart__row--total">
+              <span>${t("total")}</span><span>${fmt(total)}</span>
+            </div>
           </div>
           <a class="lumio-btn lumio-btn--primary" href="${cartUrl}">${t("checkout")}</a>
         `;
 
         container.querySelectorAll(".lumio-mini-cart__remove").forEach(btn => {
-          btn.addEventListener("click", () => {
-            removeFromCart(btn.dataset.key);
-          });
+          btn.addEventListener("click", () => removeFromCart(btn.dataset.key));
         });
       });
     }
 
     render();
     document.addEventListener("shop:cartUpdated", render);
+    document.addEventListener("currency:changed", render);
   }
 
-  /* ── Turnstile Captcha helper ─────────────────────────────────────────────
-   *
-   * renderTurnstile(containerEl) → Promise<token>
-   *
-   * Shows a Cloudflare Turnstile widget inside containerEl and resolves with
-   * the cf-turnstile-response token once the user passes the challenge.
-   * Rejects if Turnstile is not loaded or an error occurs.
-   *
-   * The Turnstile CDN script must be present on the page BEFORE this is called:
-   *   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer></script>
-   *
-   * Set CONFIG.turnstile.sitekey in config.js:
-   *   turnstile: { sitekey: "0x4AAAAAAA..." }
-   * ───────────────────────────────────────────────────────────────────────── */
+  /* ── Turnstile Captcha ────────────────────────────────── */
   function renderTurnstile(containerEl) {
     return new Promise((resolve, reject) => {
-      if (typeof window.turnstile === "undefined") {
-        console.warn("Turnstile not loaded — skipping captcha.");
-        resolve(null);
-        return;
-      }
-
+      if (typeof window.turnstile === "undefined") { resolve(null); return; }
       const sitekey = CONFIG.turnstile?.sitekey || "";
-      if (!sitekey) {
-        console.warn("No Turnstile sitekey configured (CONFIG.turnstile.sitekey).");
-        resolve(null);
-        return;
-      }
-
-      // Clear any previous content
+      if (!sitekey) { resolve(null); return; }
       containerEl.innerHTML = "";
-
-      // Track if callback was already called to avoid double-resolve
       let resolved = false;
-      
       window.turnstile.render(containerEl, {
-        sitekey,
-        theme: "light",
-        callback: (token) => {
-          if (resolved) return;
-          resolved = true;
-          resolve(token);
-        },
-        "error-callback": () => {
-          if (resolved) return;
-          resolved = true;
-          console.warn("Turnstile error — resetting widget.");
-          window.turnstile.reset(containerEl);
-          reject(new Error("Turnstile challenge failed"));
-        },
-        "expired-callback": () => {
-          if (resolved) return;
-          resolved = true;
-          window.turnstile.reset(containerEl);
-          reject(new Error("Turnstile token expired"));
-        },
+        sitekey, theme: "light",
+        callback: token => { if (!resolved) { resolved = true; resolve(token); } },
+        "error-callback": () => { if (!resolved) { resolved = true; window.turnstile.reset(containerEl); reject(new Error("Turnstile failed")); } },
+        "expired-callback": () => { if (!resolved) { resolved = true; window.turnstile.reset(containerEl); reject(new Error("Turnstile expired")); } },
       });
     });
   }
 
-  /* ── Formspree Submission ──────────────────────────────────────────────────
-   *
-   * submitOrderDetails(orderRef, formData, cart, captchaContainerEl?)
-   *
-   * captchaContainerEl — optional DOM element to mount the Turnstile widget
-   * in before submitting.  If omitted (or Turnstile is not configured) the
-   * order is submitted without a captcha token.
-   * ───────────────────────────────────────────────────────────────────────── */
+  /* ── Formspree ────────────────────────────────────────── */
   async function submitOrderDetails(orderRef, formData, cart, captchaContainerEl = null) {
-    const totals = calculateTotals(cart, formData.isBusiness);
-
-    // ── Captcha ────────────────────────────────────────────────────────────
+    const totals = calculateTotals(cart, formData.isBusiness, formData.country);
     let captchaToken = null;
     if (captchaContainerEl) {
-      try {
-        captchaToken = await renderTurnstile(captchaContainerEl);
-      } catch (err) {
-        // Widget errored — surface to caller so the UI can show a retry
-        throw err;
-      }
+      captchaToken = await renderTurnstile(captchaContainerEl);
     }
 
-    // ── Build payload ──────────────────────────────────────────────────────
     const payload = new FormData();
-
     payload.append("_subject", `New Order ${orderRef}`);
     payload.append("order_ref", orderRef);
     payload.append("status", "PENDING_PAYMENT");
+    payload.append("display_currency", CONFIG.currencyCode);
+    if (captchaToken) payload.append("cf-turnstile-response", captchaToken);
 
-    // Captcha token (Formspree reads cf-turnstile-response automatically)
-    if (captchaToken) {
-      payload.append("cf-turnstile-response", captchaToken);
-    }
+    Object.entries(formData).forEach(([k, v]) => { if (v != null && v !== "") payload.append(k, v); });
 
-    // Customer data
-    Object.entries(formData).forEach(([key, value]) => {
-      if (value != null && value !== "") payload.append(key, value);
-    });
-
-    // Cart summary
     const cartSummary = cart.map(item =>
-      `${item.qty}× ${item.name}${item.selectedColor ? ` (${item.selectedColor})` : ""} @ ${fmt(item.price)} = ${fmt(item.price * item.qty)}`
+      `${item.qty}× ${item.name}${item.selectedColor ? ` (${item.selectedColor})` : ""} @ ${fmt(item.price)} = ${fmt(item.price * item.qty)} | ${fmtWeight((item.weight||0)*item.qty)}`
     ).join("\n");
 
     payload.append("cart_items", cartSummary);
-    payload.append("subtotal", fmt(totals.subtotal));
+    payload.append("subtotal_eur", "€" + totals.subtotal.toFixed(2));
+    payload.append("subtotal_display", fmt(totals.subtotal));
     payload.append("tax", fmt(totals.tax));
     payload.append("shipping", totals.isFreeShipping ? "FREE" : fmt(totals.shipping));
-    payload.append("total", fmt(totals.total));
+    payload.append("total_eur", "€" + totals.total.toFixed(2));
+    payload.append("total_display", fmt(totals.total));
     payload.append("total_weight", fmtWeight(totals.totalWeight || 0));
 
-    // ── Send ───────────────────────────────────────────────────────────────
     try {
       const response = await fetch(CONFIG.formspree.endpoint, {
-        method: "POST",
-        body: payload,
-        headers: { "Accept": "application/json" }
+        method: "POST", body: payload, headers: { "Accept": "application/json" }
       });
-
-      if (response.ok) {
-        console.log(`✅ Order ${orderRef} sent to Formspree`);
-        return true;
-      } else {
-        const body = await response.json().catch(() => ({}));
-        console.warn(`Formspree status: ${response.status}`, body);
-        return false;
-      }
+      return response.ok;
     } catch (err) {
       console.warn("Formspree submission failed (normal on localhost)", err);
       return false;
@@ -601,13 +667,8 @@ const Shop = (() => {
     payload.append("_subject", `Order ${status}: ${orderRef}`);
     payload.append("order_ref", orderRef);
     payload.append("status", status);
-
     try {
-      await fetch(CONFIG.formspree.endpoint, {
-        method: "POST",
-        body: payload,
-        headers: { "Accept": "application/json" }
-      });
+      await fetch(CONFIG.formspree.endpoint, { method: "POST", body: payload, headers: { "Accept": "application/json" } });
     } catch (err) {
       console.warn(`Status update failed for ${orderRef}`, err);
     }
@@ -615,28 +676,11 @@ const Shop = (() => {
 
   /* ── Public API ───────────────────────────────────────── */
   return {
-    getCart,
-    saveCart,
-    addToCart,
-    removeFromCart,
-    updateQty,
-    clearCart,
-    calculateTotals,
-    loadLang,
-    loadProducts,
-    getProduct,
-    generateOrderRef,
-    fmt,
-    fmtWeight,
-    t,
-    toast,
-    renderCartIcon,
-    renderShop,
-    renderProductInfo,
-    attachBuyOverlay,
-    renderMiniCart,
-    renderTurnstile,
-    submitOrderDetails,
-    submitOrderStatus,
+    getCart, saveCart, addToCart, removeFromCart, updateQty, clearCart,
+    calculateTotals, loadLang, loadProducts, getProduct,
+    generateOrderRef, fmt, fmtWeight, t, toast, colorImageSrc,
+    renderCurrencySelector,
+    renderCartIcon, renderShop, renderProductInfo, attachBuyOverlay, renderMiniCart,
+    renderTurnstile, submitOrderDetails, submitOrderStatus,
   };
 })();
