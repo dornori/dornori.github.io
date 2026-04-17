@@ -27,7 +27,7 @@ const CONFIG = {
   },
 
   formspree: {
-    id: "xwvaleqz",
+    id: "xnjopbbb",
     endpoint: "https://formspree.io/f/xwvaleqz",
   },
 
