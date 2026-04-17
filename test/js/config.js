@@ -1,7 +1,7 @@
 const SITE_CONFIG = {
     appearance: {
         root_url:  'https://dornori.com',
-        base_path: '/test/',           // ← Change this to '/' when moving to root. Must end with '/'
+        base_path: '/test/',           // ← Change this to '/' when you move to root
     },
 
     languages: [
