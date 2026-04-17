@@ -1,1 +1,81 @@
-<html>hallo wereld</html>
+<!DOCTYPE html>
+<html lang="en" data-theme="cutting-mat">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dornori</title>
+
+    <!-- Load config first for base_path -->
+    <script type="module" src="../../../js/config.js"></script>
+
+    <script>
+        function setDynamicAssets() {
+            const base = SITE_CONFIG ? SITE_CONFIG.appearance.base_path : '/test/';
+            document.getElementById('profiles-css').href = base + 'css/profiles.css';
+            document.getElementById('main-css').href = base + 'css/main.css';
+            document.getElementById('banner-img').src = base + 'assets/images/dornori-logo-transparent.webp';
+        }
+        window.addEventListener('load', setDynamicAssets);
+    </script>
+
+    <link rel="stylesheet" id="profiles-css" href="">
+    <link rel="stylesheet" id="main-css" href="">
+
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+</head>
+<body>
+
+    <div id="topBar"></div>
+
+    <header id="main-header">
+        <div class="billboard-logo-wrap" onclick="window.showHome()">
+            <img id="banner-img" class="billboard-logo" alt="Dornori">
+            <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
+        </div>
+        <nav class="top-nav"></nav>
+    </header>
+
+    <nav class="mobile-nav" id="mobile-nav"></nav>
+
+    <main id="viewport">
+        <div id="page-view">
+            <div id="page-content-inner" class="view-inner"></div>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div id="footer-links" class="footer-links"></div>
+            <div class="footer-bottom">
+                <p class="copyright-text">&copy; 2026 DORNORI. ALL RIGHTS RESERVED.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script type="module">
+        async function init() {
+            const base = SITE_CONFIG ? SITE_CONFIG.appearance.base_path : '/test/';
+
+            await import(base + 'js/i18n.js').then(m => m.initI18n && m.initI18n());
+            await import(base + 'js/nav-loader.js').then(m => m.initNavigation && m.initNavigation());
+            await import(base + 'js/sticky-banner.js').then(m => m.initStickyBanner && m.initStickyBanner());
+            await import(base + 'js/social-loader.js').then(m => m.initSocials && m.initSocials());
+            await import(base + 'js/embed-form.js').then(m => m.initEmbedForms && m.initEmbedForms());
+            await import(base + 'js/footer-loader.js').then(m => m.initFooter && m.initFooter());
+
+            // Load content from same folder
+            try {
+                const res = await fetch('content.html');
+                if (res.ok) {
+                    const html = await res.text();
+                    document.getElementById('page-content-inner').innerHTML = html;
+                }
+            } catch (e) {
+                console.error("Could not load content.html");
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
