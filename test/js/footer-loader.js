@@ -1,8 +1,3 @@
-/**
- * footer-loader.js
- * All slugs and structure come from config.js only.
- */
-
 import SITE_CONFIG from './config.js';
 
 window.renderFooter = () => {
@@ -10,8 +5,7 @@ window.renderFooter = () => {
     if (!container) return;
 
     const T = window.T?.footer || {};
-    const columns = SITE_CONFIG.footer;
-    if (!columns?.length) return;
+    const columns = SITE_CONFIG.footer || [];
 
     container.innerHTML = '';
 
@@ -33,11 +27,9 @@ window.renderFooter = () => {
         }
 
         visibleLinks.forEach(link => {
-            // Build URL from config only
             const lang = window.LANG || SITE_CONFIG.languages[0].code;
             const base = SITE_CONFIG.appearance.base_path;
             const fallback = SITE_CONFIG.languages[0].code;
-
             const href = lang === fallback 
                 ? `${base}${link.slug}/` 
                 : `${base}${lang}/${link.slug}/`;
