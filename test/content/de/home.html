@@ -16,32 +16,56 @@
       <button type="submit">Submit</button>
     </form>
 
-    <script>
-      const form = document.getElementById("form");
+   <script>
+  const form = document.getElementById("form");
 
-      form.addEventListener("submit", function (event) {
-        event.preventDefault();
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
 
-        // Grab all form fields, including the hidden cf-turnstile-response
-        const data = new FormData(form);
+    // Get the Turnstile response token
+    const turnstileToken = document.querySelector('[name="cf-turnstile-response"]')?.value;
+    
+    if (!turnstileToken) {
+      console.error("Please complete the Turnstile challenge");
+      alert("Please complete the security check first");
+      return;
+    }
 
-        fetch(form.action, {
-          method: form.method,
-          body: data,
-          headers: {
-            "Accept": "application/json"
-          }
-        })
-          .then(function (response) {
-            return response.json();
-          })
-          .then(function (data) {
-            console.log("Formspree response:", data);
-          })
-          .catch(function (error) {
-            console.error("Error:", error);
-          });
-      });
-    </script>
+    // Prepare data as JSON (what Formspore expects for fetch)
+    const formData = {
+      email: form.email.value,
+      "cf-turnstile-response": turnstileToken
+    };
+
+    fetch(form.action, {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(formData)
+    })
+    .then(function (response) {
+      if (response.ok) {
+        return response.json();
+      }
+      throw new Error("Form submission failed");
+    })
+    .then(function (data) {
+      console.log("Formspree response:", data);
+      alert("Success! Form submitted.");
+      form.reset();
+      // Reset Turnstile widget for next submission
+      if (typeof turnstile !== 'undefined') {
+        turnstile.reset();
+      }
+    })
+    .catch(function (error) {
+      console.error("Error:", error);
+      alert("Submission failed. Please try again.");
+    });
+  });
+</script>
   </body>
 </html>
+
