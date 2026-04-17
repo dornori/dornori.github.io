@@ -1,71 +1,287 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>Turnstile AJAX Demo</title>
-    <!-- Turnstile script -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turnstile AJAX Form - Dornori</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 450px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .turnstile-wrapper {
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid white;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+    <!-- Cloudflare Turnstile Script -->
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-  </head>
-  <body>
-    <form id="form" method="POST" action="https://formspree.io/f/xwvaleqz">
-      <input type="email" name="email" placeholder="email@example.com" required />
+</head>
+<body>
+    <div class="container">
+        <h1>Subscribe to Dornori</h1>
+        <p class="subtitle">Stay updated with our latest news and offers</p>
+        
+        <form id="subscriptionForm">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    placeholder="your@email.com" 
+                    required 
+                    autocomplete="email"
+                />
+            </div>
 
-      <!-- Turnstile widget (automatically adds hidden cf-turnstile-response input) -->
-      <div class="cf-turnstile" data-sitekey="0x4AAAAAACxsga5y-bJ_qkzC"></div>
+            <!-- Turnstile Widget -->
+            <div class="turnstile-wrapper">
+                <div 
+                    class="cf-turnstile" 
+                    data-sitekey="0x4AAAAAACxsga5y-bJ_qkzC"
+                    data-theme="light"
+                    data-size="normal"
+                ></div>
+            </div>
 
-      <br />
-      <button type="submit">Submit</button>
-    </form>
+            <button type="submit" id="submitBtn">
+                Subscribe Now
+            </button>
+        </form>
 
-   <script>
-  const form = document.getElementById("form");
+        <div id="message" class="message"></div>
+    </div>
 
-  form.addEventListener("submit", function (event) {
-    event.preventDefault();
+    <script>
+        const form = document.getElementById('subscriptionForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const messageDiv = document.getElementById('message');
 
-    // Get the Turnstile response token
-    const turnstileToken = document.querySelector('[name="cf-turnstile-response"]')?.value;
-    
-    if (!turnstileToken) {
-      console.error("Please complete the Turnstile challenge");
-      alert("Please complete the security check first");
-      return;
-    }
+        // Formspree API endpoint (AJAX endpoint)
+        const FORMSPREE_API_URL = 'https://formspree.io/api/submit/xwvaleqz';
 
-    // Prepare data as JSON (what Formspore expects for fetch)
-    const formData = {
-      email: form.email.value,
-      "cf-turnstile-response": turnstileToken
-    };
+        form.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            // Clear previous message
+            messageDiv.className = 'message';
+            messageDiv.style.display = 'none';
+            
+            // Get email value
+            const email = document.getElementById('email').value.trim();
+            
+            if (!email) {
+                showMessage('Please enter your email address.', 'error');
+                return;
+            }
 
-    fetch(form.action, {
-      method: "POST",
-      headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(formData)
-    })
-    .then(function (response) {
-      if (response.ok) {
-        return response.json();
-      }
-      throw new Error("Form submission failed");
-    })
-    .then(function (data) {
-      console.log("Formspree response:", data);
-      alert("Success! Form submitted.");
-      form.reset();
-      // Reset Turnstile widget for next submission
-      if (typeof turnstile !== 'undefined') {
-        turnstile.reset();
-      }
-    })
-    .catch(function (error) {
-      console.error("Error:", error);
-      alert("Submission failed. Please try again.");
-    });
-  });
-</script>
-  </body>
+            // Get Turnstile response token
+            const turnstileToken = document.querySelector('[name="cf-turnstile-response"]')?.value;
+            
+            if (!turnstileToken) {
+                showMessage('Please complete the security check first.', 'error');
+                return;
+            }
+
+            // Disable button and show loading state
+            submitBtn.disabled = true;
+            const originalButtonText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<span class="loading"></span> Submitting...';
+
+            try {
+                // Prepare data as JSON
+                const formData = {
+                    email: email,
+                    "cf-turnstile-response": turnstileToken
+                };
+
+                // Send to Formspree API endpoint
+                const response = await fetch(FORMSPREE_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Success!
+                    console.log('Formspree response:', data);
+                    showMessage('Thanks for subscribing! You\'re now on our list.', 'success');
+                    form.reset();
+                    
+                    // Reset Turnstile widget
+                    if (typeof turnstile !== 'undefined') {
+                        turnstile.reset();
+                    }
+                } else {
+                    // Formspree returned an error
+                    let errorMsg = 'Submission failed. ';
+                    if (data.errors && data.errors.length > 0) {
+                        errorMsg += data.errors[0].message;
+                    } else {
+                        errorMsg += 'Please try again.';
+                    }
+                    throw new Error(errorMsg);
+                }
+                
+            } catch (error) {
+                console.error('Submission error:', error);
+                showMessage(error.message || 'Something went wrong. Please try again.', 'error');
+                
+                // Reset Turnstile on error so user can retry
+                if (typeof turnstile !== 'undefined') {
+                    turnstile.reset();
+                }
+            } finally {
+                // Re-enable button and restore text
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalButtonText;
+            }
+        });
+
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type}`;
+            messageDiv.style.display = 'block';
+            
+            // Auto-hide success message after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    messageDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Optional: Reset Turnstile if form is reset or page is refreshed
+        window.addEventListener('load', function() {
+            console.log('Turnstile widget ready');
+        });
+    </script>
+</body>
 </html>
-
