@@ -1,6 +1,7 @@
+// page-loader.js
 import SITE_CONFIG from './config.js';
 import { mountSlideshow } from './slideshow.js';
-import { initEmbedForms } from './embed-form.js';
+import { initEmbedForms }  from './embed-form.js';
 import { injectHreflangTags } from './i18n.js';
 
 export function initPageLoader() {
@@ -8,39 +9,43 @@ export function initPageLoader() {
     const pageView    = document.getElementById('page-view');
     const pageContent = document.getElementById('page-content-inner');
 
-    function buildCleanURL(slug = '') {
-        const lang = window.LANG || SITE_CONFIG.languages[0].code;
-        const base = SITE_CONFIG.appearance.base_path;
-        const fallback = SITE_CONFIG.languages[0].code;
-        const path = slug ? `${slug}/` : '';
-        return lang === fallback ? `${base}${path}` : `${base}${lang}/${path}`;
-    }
-
+    // ── SEO ──────────────────────────────────────────────────────────────────
     function updateSEO(slug = '') {
         const base = SITE_CONFIG.appearance.root_url;
-        const url = buildCleanURL(slug);
+        const lang = window.LANG || 'en';
 
+        // Build the canonical URL using the language URL slug
         let canonical = document.querySelector('link[rel="canonical"]');
         if (!canonical) {
-            canonical = document.createElement('link');
+            canonical     = document.createElement('link');
             canonical.rel = 'canonical';
             document.head.appendChild(canonical);
         }
-        canonical.href = `${base}${slug ? '/' + slug + '/' : '/'}`;
+        if (slug) {
+            const urlSlug = SITE_CONFIG.pageUrlSlug(slug, lang);
+            canonical.href = lang === 'en'
+                ? `${base}/en/${urlSlug}`
+                : `${base}/${lang}/${urlSlug}`;
+        } else {
+            canonical.href = base;
+        }
 
+        // Title + description — read from window.T (lang JSON) so they're translated
         const tPage = window.T?.pages?.[slug];
-        document.title = tPage 
-            ? `${tPage.title} — Dornori` 
+        document.title = tPage
+            ? `${tPage.title} — Dornori`
             : 'Dornori — Build Your Own Rising Star Lamp';
 
         let descTag = document.querySelector('meta[name="description"]');
         if (!descTag) {
-            descTag = document.createElement('meta');
+            descTag      = document.createElement('meta');
             descTag.name = 'description';
             document.head.appendChild(descTag);
         }
-        descTag.content = tPage?.description || 'Dornori — Build your own Star-A rising kinetic lamp.';
+        descTag.content = tPage?.description
+            || 'Dornori — revolutionary outdoor lighting you build yourself.';
 
+        // OG tags
         const setOG = (prop, val) => {
             let tag = document.querySelector(`meta[property="${prop}"]`);
             if (!tag) {
@@ -48,47 +53,74 @@ export function initPageLoader() {
                 tag.setAttribute('property', prop);
                 document.head.appendChild(tag);
             }
-            tag.content = val;
+            tag.setAttribute('content', val);
         };
-        setOG('og:url', url);
+        setOG('og:url',   canonical.href);
         setOG('og:title', document.title);
         setOG('og:description', descTag.content);
 
+        // hreflang alternates
         injectHreflangTags(slug);
+
+        // Track current slug so setLang() can reload the right page
         window.CURRENT_SLUG = slug;
     }
 
+    // ── CONTENT PATH ─────────────────────────────────────────────────────────
+    function contentPath(page) {
+        const lang  = window.LANG || 'en';
+        const base  = SITE_CONFIG.appearance.base_path;
+        return `${base}content/${lang}/${page.file}`;
+    }
+
+    // ── BUILD CLEAN URL for history pushState ─────────────────────────────────
+    function pageUrl(slug, lang) {
+        const base    = SITE_CONFIG.appearance.base_path;
+        const urlSlug = SITE_CONFIG.pageUrlSlug(slug, lang);
+        return lang === 'en'
+            ? `${base}en/${urlSlug}/`
+            : `${base}${lang}/${urlSlug}/`;
+    }
+
+    // ── LOAD HOME ─────────────────────────────────────────────────────────────
     window.loadHome = async () => {
-        homeView.classList.remove('hidden');
-        pageView.classList.add('hidden');
-        updateSEO('');
+        try {
+            const lang = window.LANG || 'en';
+            const base = SITE_CONFIG.appearance.base_path;
+            const res  = await fetch(`${base}content/${lang}/home.html`);
+            if (!res.ok) throw new Error();
+            const html = await res.text();
+            homeView.innerHTML = html;
+            homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
+            initEmbedForms();
+        } catch {
+            // Silently fail — home.html may not be translated yet
+        }
     };
 
+    // ── VIEW PAGE ────────────────────────────────────────────────────────────
     window.viewPage = async (slug) => {
-        if (!SITE_CONFIG.pages[slug]) return;
+        const page = SITE_CONFIG.pages[slug];
+        if (!page) {
+            console.error(`Page "${slug}" not found in config`);
+            return;
+        }
 
         try {
-            const base = SITE_CONFIG.appearance.base_path;
-            const lang = window.LANG || SITE_CONFIG.languages[0].code;
-            const path = slug ? `${slug}/` : '';
-            const full = lang === SITE_CONFIG.languages[0].code 
-                ? `${base}${path}` 
-                : `${base}${lang}/${path}`;
-
-            const res = await fetch(full + 'content.html');
-            if (!res.ok) throw new Error();
+            const res = await fetch(contentPath(page));
+            if (!res.ok) throw new Error(`Failed to load ${contentPath(page)}`);
 
             const html = await res.text();
-            pageContent.innerHTML = html;
 
+            pageContent.innerHTML = html;
             pageContent.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
 
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
 
-            const cleanUrl = buildCleanURL(slug);
-            window.history.pushState({ slug }, '', cleanUrl);
+            const lang = window.LANG || 'en';
+            window.history.pushState({ slug, lang }, '', pageUrl(slug, lang));
 
             updateSEO(slug);
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -106,52 +138,96 @@ export function initPageLoader() {
         }
     };
 
+    // ── SHOW HOME ────────────────────────────────────────────────────────────
     window.showHome = () => {
         pageView.classList.add('hidden');
         homeView.classList.remove('hidden');
-        const cleanUrl = buildCleanURL('');
-        window.history.pushState({}, '', cleanUrl);
-        window.CURRENT_SLUG = '';
+        const base = SITE_CONFIG.appearance.base_path;
+        window.history.pushState({}, '', base);
         updateSEO('');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    // ── HANDLE DIRECT URL ON FIRST LOAD ──────────────────────────────────────
+    // Supports:  /test/en/about/
+    //            /test/nl/over-ons/
+    //            /test/en/about  (no trailing slash)
     function handleInitialURL() {
-        const base = SITE_CONFIG.appearance.base_path;
-        let path = window.location.pathname;
+        const basePath = SITE_CONFIG.appearance.base_path; // e.g. '/test/'
+        const rawPath  = window.location.pathname;
 
-        if (base && base !== '/' && path.startsWith(base.slice(0, -1))) {
-            path = path.slice(base.length - 1) || '/';
+        // Strip the base_path prefix so we only deal with the relative part
+        let relativePath = rawPath;
+        if (basePath && basePath !== '/' && rawPath.startsWith(basePath)) {
+            relativePath = rawPath.slice(basePath.length);
         }
 
-        const parts = path.replace(/^\//, '').split('/').filter(Boolean);
-        let slug = '';
-        let langFromURL = '';
+        const parts = relativePath
+            .replace(/^\/+|\/+$/g, '') // strip leading/trailing slashes
+            .split('/')
+            .filter(Boolean);
 
-        if (parts.length >= 2 && SITE_CONFIG.languages.some(l => l.code === parts[0])) {
-            langFromURL = parts[0];
-            slug = parts[1];
+        const langCodes = new Set(SITE_CONFIG.languages.map(l => l.code));
+
+        let lang = null;
+        let urlSegment = null;
+
+        if (parts.length >= 2 && langCodes.has(parts[0])) {
+            // e.g.  en/about  or  nl/over-ons
+            lang       = parts[0];
+            urlSegment = parts[1];
+        } else if (parts.length === 1 && langCodes.has(parts[0])) {
+            // e.g. just /en/ — show home in that language
+            lang = parts[0];
         } else if (parts.length === 1) {
-            if (SITE_CONFIG.languages.some(l => l.code === parts[0])) {
-                langFromURL = parts[0];
-            } else {
-                slug = parts[0];
+            // e.g. /about (no language prefix) — treat as English
+            lang       = 'en';
+            urlSegment = parts[0];
+        }
+
+        // If a different language was detected from the URL, override stored pref
+        if (lang && lang !== window.LANG) {
+            window.LANG = lang;
+            document.documentElement.setAttribute('lang', lang);
+            // Re-fetch translations for this lang
+            const base = SITE_CONFIG.appearance.base_path;
+            fetch(`${base}lang/${lang}.json`)
+                .then(r => r.json())
+                .then(t => {
+                    window.T = t;
+                    if (typeof window.renderNav    === 'function') window.renderNav();
+                    if (typeof window.renderFooter === 'function') window.renderFooter();
+                    if (urlSegment) {
+                        const slug = SITE_CONFIG.canonicalSlug(urlSegment, lang) || urlSegment;
+                        if (SITE_CONFIG.pages[slug]) {
+                            window.viewPage(slug);
+                        } else {
+                            window.loadHome(); updateSEO('');
+                        }
+                    } else {
+                        window.loadHome(); updateSEO('');
+                    }
+                })
+                .catch(() => {
+                    window.loadHome(); updateSEO('');
+                });
+            return; // async path handled above
+        }
+
+        if (urlSegment) {
+            const detectedLang = lang || window.LANG || 'en';
+            const slug = SITE_CONFIG.canonicalSlug(urlSegment, detectedLang) || urlSegment;
+            if (SITE_CONFIG.pages[slug]) {
+                window.viewPage(slug);
+                return;
             }
         }
 
-        if (langFromURL && langFromURL !== window.LANG) {
-            window.LANG = langFromURL;
-            document.documentElement.setAttribute('lang', langFromURL);
-        }
-
-        if (slug && SITE_CONFIG.pages[slug]) {
-            window.viewPage(slug);
-        } else {
-            window.loadHome();
-            updateSEO('');
-        }
+        window.loadHome();
+        updateSEO('');
     }
 
+    // ── BACK / FORWARD ───────────────────────────────────────────────────────
     window.addEventListener('popstate', (e) => {
         if (e.state?.slug) {
             window.viewPage(e.state.slug);
@@ -160,14 +236,13 @@ export function initPageLoader() {
         }
     });
 
+    // ── ESCAPE KEY ───────────────────────────────────────────────────────────
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !pageView.classList.contains('hidden')) {
             window.showHome();
         }
     });
 
+    // Run on boot
     handleInitialURL();
-    updateSEO('');
 }
-
-initPageLoader();

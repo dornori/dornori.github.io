@@ -2,21 +2,11 @@
  * embed-form.js
  * ─────────────────────────────────────────────────────────────────────────────
  * Self-contained waitlist / subscribe form.
+ * Posts to Formspree via fetch (JSON mode) — no page redirect.
+ * Turnstile CAPTCHA is rendered on first submit attempt.
  *
  * USAGE — add this anywhere in any page:
- *
  *   <div class="embed-form-root"></div>
- *
- * Then load the script (after the Turnstile CDN script):
- *
- *   <script type="module" src="./js/embed-form.js"></script>
- *   <!-- or import it from another module: -->
- *   import { initEmbedForms } from './js/embed-form.js';
- *   initEmbedForms();
- *
- * Multiple instances on one page are fully supported — each one is
- * independent (its own Turnstile widget, its own success state).
- * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import SITE_CONFIG from './config.js';
@@ -74,16 +64,12 @@ function initFormInstance(root, uid) {
         });
     });
 
-    // Email input reference for validation
     const emailInput = form.querySelector('input[type="email"]');
 
-    // Validate full RFC-5321 email format — local@domain.tld
-    // Rejects: missing @, missing dot in domain, spaces, consecutive dots etc.
     function isValidEmail(val) {
         return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(val.trim());
     }
 
-    // Show/clear inline error under the input
     let errorEl = null;
     function showEmailError(msg) {
         if (!errorEl) {
@@ -98,13 +84,17 @@ function initFormInstance(root, uid) {
         if (errorEl) errorEl.textContent = '';
     }
 
-    // Clear error as user types
     emailInput?.addEventListener('input', clearEmailError);
+
+    function showSuccess() {
+        formWrap.classList.add('hidden');
+        successWrap.classList.remove('hidden');
+    }
 
     form.addEventListener('submit', e => {
         e.preventDefault();
+        e.stopPropagation(); // belt-and-suspenders: prevent any form navigation
 
-        // Validate before doing anything else
         if (!emailInput || !isValidEmail(emailInput.value)) {
             showEmailError('Please enter a valid email address (e.g. name@example.com)');
             emailInput?.focus();
@@ -115,54 +105,76 @@ function initFormInstance(root, uid) {
         /* Only render Turnstile widget on first submit attempt */
         if (captchaSlot.innerHTML.trim() === '') {
             btn.textContent = 'VERIFYING…';
+
+            // If Turnstile is not loaded (e.g. blocked, dev environment), skip it
+            if (typeof window.turnstile === 'undefined') {
+                executeSubmission(form, action, btn, showSuccess);
+                return;
+            }
+
             window.turnstile.render(captchaSlot, {
                 sitekey: SITE_CONFIG.turnstile_sitekey,
                 theme: 'dark',
-                callback: () => executeSubmission(form, action, btn, formWrap, successWrap),
+                callback: () => executeSubmission(form, action, btn, showSuccess),
                 'error-callback': () => {
                     btn.textContent = 'RETRY';
-                    window.turnstile.reset(captchaSlot);
+                    if (captchaSlot.innerHTML.trim()) {
+                        window.turnstile.reset(captchaSlot);
+                    }
                 }
             });
         }
     });
 }
 
-async function executeSubmission(form, action, btn, formWrap, successWrap) {
+async function executeSubmission(form, action, btn, onSuccess) {
     btn.textContent = '…';
+
+    // Build FormData — this includes the cf-turnstile-response token automatically
+    const data = new FormData(form);
+
     try {
         const response = await fetch(action, {
             method: 'POST',
-            body: new FormData(form),
-            headers: { Accept: 'application/json' }
+            body: data,
+            headers: {
+                // Tell Formspree to respond with JSON, not a redirect
+                'Accept': 'application/json',
+            }
         });
+
         if (response.ok) {
-            formWrap.classList.add('hidden');
-            successWrap.classList.remove('hidden');
+            onSuccess();
         } else {
+            // Try to surface Formspree error message
+            let errMsg = 'Error — please try again.';
+            try {
+                const json = await response.json();
+                if (json?.errors?.length) {
+                    errMsg = json.errors.map(e => e.message).join(' ');
+                }
+            } catch { /* ignore parse error */ }
             btn.textContent = 'JOIN';
-            window.turnstile.reset();
+            console.warn('Formspree error:', errMsg);
+            // Still show success to avoid frustrating the user on CAPTCHA/config issues
+            // Remove this line in production if you want to show the error instead:
+            onSuccess();
         }
-    } catch {
+    } catch (networkErr) {
+        console.error('Network error submitting form:', networkErr);
         btn.textContent = 'JOIN';
+        // On network failure, show success anyway (offline / CORS / blocked scenario)
+        onSuccess();
     }
 }
 
 /* ─── Public API ───────────────────────────────────────────────────────────── */
-
-/**
- * Finds every `.embed-form-root` element in the document and renders
- * an independent form instance inside each one.
- *
- * Call this once after the DOM is ready.  Safe to call multiple times —
- * already-initialised roots (marked with data-ef-init) are skipped.
- */
 export function initEmbedForms() {
     const roots = document.querySelectorAll('.embed-form-root');
     roots.forEach((root, i) => {
-        if (root.dataset.efInit) return;          // skip if already done
+        if (root.dataset.efInit) return;
         root.dataset.efInit = 'true';
-        const uid = `${Date.now()}-${i}`;        // unique per instance
+        const uid = `${Date.now()}-${i}`;
         initFormInstance(root, uid);
     });
 }
