@@ -1,4 +1,3 @@
-// page-loader.js
 import SITE_CONFIG from './config.js';
 import { mountSlideshow } from './slideshow.js';
 import { initEmbedForms } from './embed-form.js';
@@ -59,35 +58,24 @@ export function initPageLoader() {
         window.CURRENT_SLUG = slug;
     }
 
-    function getPageURL(slug) {
-        const lang = window.LANG || SITE_CONFIG.languages[0].code;
-        const base = SITE_CONFIG.appearance.base_path;
-        const fallback = SITE_CONFIG.languages[0].code;
-        const path = slug ? `${slug}/` : '';
-        const full = lang === fallback ? `${base}${path}` : `${base}${lang}/${path}`;
-        return `${full}index.html`;
-    }
-
     window.loadHome = async () => {
-        try {
-            const res = await fetch(`${SITE_CONFIG.appearance.base_path}index.html`);
-            if (res.ok) {
-                const html = await res.text();
-                homeView.innerHTML = html;
-            }
-            homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
-            initEmbedForms();
-        } catch (e) {
-            console.warn('Home content could not be loaded dynamically');
-        }
+        homeView.classList.remove('hidden');
+        pageView.classList.add('hidden');
+        updateSEO('');
     };
 
     window.viewPage = async (slug) => {
         if (!SITE_CONFIG.pages[slug]) return;
 
         try {
-            const url = getPageURL(slug);
-            const res = await fetch(url);
+            const base = SITE_CONFIG.appearance.base_path;
+            const lang = window.LANG || SITE_CONFIG.languages[0].code;
+            const path = slug ? `${slug}/` : '';
+            const full = lang === SITE_CONFIG.languages[0].code 
+                ? `${base}${path}` 
+                : `${base}${lang}/${path}`;
+
+            const res = await fetch(full + 'content.html');
             if (!res.ok) throw new Error();
 
             const html = await res.text();
@@ -121,10 +109,8 @@ export function initPageLoader() {
     window.showHome = () => {
         pageView.classList.add('hidden');
         homeView.classList.remove('hidden');
-
         const cleanUrl = buildCleanURL('');
         window.history.pushState({}, '', cleanUrl);
-
         window.CURRENT_SLUG = '';
         updateSEO('');
         window.scrollTo({ top: 0, behavior: 'smooth' });
