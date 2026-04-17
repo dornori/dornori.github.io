@@ -5,31 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dornori</title>
 
-    <!-- Dynamic asset paths -->
+    <!-- Load config first for base_path -->
+    <script type="module" src="../../../js/config.js"></script>
+
     <script>
-        window.BASE_PATH = (function() {
-            const path = window.location.pathname;
-            const parts = path.split('/').filter(Boolean);
-            if (parts.length >= 2) return '/' + parts[0] + '/';
-            return '/';
-        })();
+        function setDynamicAssets() {
+            const base = SITE_CONFIG ? SITE_CONFIG.appearance.base_path : '/test/';
+            document.getElementById('profiles-css').href = base + 'css/profiles.css';
+            document.getElementById('main-css').href = base + 'css/main.css';
+            document.getElementById('banner-img').src = base + 'assets/images/dornori-logo-transparent.webp';
+        }
+        window.addEventListener('load', setDynamicAssets);
     </script>
 
-    <link rel="stylesheet" id="css-profiles" href="">
-    <link rel="stylesheet" id="css-main" href="">
+    <link rel="stylesheet" id="profiles-css" href="">
+    <link rel="stylesheet" id="main-css" href="">
 
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
-
-    <!-- GitHub Pages decoder -->
-    <script>
-        (function() {
-            const params = new URLSearchParams(window.location.search);
-            const p = params.get('p');
-            if (p) window.history.replaceState(null, '', p);
-        })();
-    </script>
 
     <div id="topBar"></div>
 
@@ -59,26 +53,15 @@
     </footer>
 
     <script type="module">
-        // Dynamic paths
-        const base = window.BASE_PATH || '/';
-        document.getElementById('css-profiles').href = base + 'css/profiles.css';
-        document.getElementById('css-main').href = base + 'css/main.css';
-        document.getElementById('banner-img').src = base + 'assets/images/dornori-logo-transparent.webp';
-
-        import { initI18n } from base + 'js/i18n.js';
-        import { initNavigation } from base + 'js/nav-loader.js';
-        import { initStickyBanner } from base + 'js/sticky-banner.js';
-        import { initSocials } from base + 'js/social-loader.js';
-        import { initEmbedForms } from base + 'js/embed-form.js';
-        import { initFooter } from base + 'js/footer-loader.js';
-
         async function init() {
-            await initI18n();
-            initNavigation();
-            initStickyBanner();
-            initSocials();
-            initFooter();
-            initEmbedForms();
+            const base = SITE_CONFIG ? SITE_CONFIG.appearance.base_path : '/test/';
+
+            await import(base + 'js/i18n.js').then(m => m.initI18n && m.initI18n());
+            await import(base + 'js/nav-loader.js').then(m => m.initNavigation && m.initNavigation());
+            await import(base + 'js/sticky-banner.js').then(m => m.initStickyBanner && m.initStickyBanner());
+            await import(base + 'js/social-loader.js').then(m => m.initSocials && m.initSocials());
+            await import(base + 'js/embed-form.js').then(m => m.initEmbedForms && m.initEmbedForms());
+            await import(base + 'js/footer-loader.js').then(m => m.initFooter && m.initFooter());
 
             // Load content from same folder
             try {
@@ -88,7 +71,7 @@
                     document.getElementById('page-content-inner').innerHTML = html;
                 }
             } catch (e) {
-                console.error("Failed to load content.html");
+                console.error("Could not load content.html");
             }
         }
 
