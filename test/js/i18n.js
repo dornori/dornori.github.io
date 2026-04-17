@@ -1,19 +1,13 @@
-/**
- * i18n.js — Language detection and switching
- * All paths derived from config.js only.
- */
-
 import SITE_CONFIG from './config.js';
 
 const STORAGE_KEY = 'dornori-lang';
-const FALLBACK    = SITE_CONFIG.languages[0].code;
-const supported   = new Set(SITE_CONFIG.languages.map(l => l.code));
+const FALLBACK = SITE_CONFIG.languages[0].code;
+const supported = new Set(SITE_CONFIG.languages.map(l => l.code));
 
 export function detectLangFromURL() {
     const base = SITE_CONFIG.appearance.base_path;
     let path = window.location.pathname;
 
-    // Remove base_path prefix if present
     if (base && base !== '/' && path.startsWith(base.slice(0, -1))) {
         path = path.slice(base.length - 1);
     }
@@ -69,12 +63,10 @@ export function injectHreflangTags(slug = '') {
     document.querySelectorAll('link[rel="alternate"][hreflang]').forEach(el => el.remove());
 
     SITE_CONFIG.languages.forEach(({ code, hreflang }) => {
-        const link    = document.createElement('link');
-        link.rel      = 'alternate';
+        const link = document.createElement('link');
+        link.rel = 'alternate';
         link.hreflang = hreflang;
-        link.href     = code === FALLBACK 
-            ? `${base}${path}` 
-            : `${base}/${code}${path}`;
+        link.href = code === FALLBACK ? `${base}${path}` : `${base}/${code}${path}`;
         document.head.appendChild(link);
     });
 
@@ -93,11 +85,8 @@ window.setLang = async (code) => {
 
     window.T = await loadTranslations(code);
 
-    if (typeof window.renderNav    === 'function') window.renderNav();
+    if (typeof window.renderNav === 'function') window.renderNav();
     if (typeof window.renderFooter === 'function') window.renderFooter();
-
-    const langSelect = document.getElementById('langSelect');
-    if (langSelect) langSelect.value = code;
 
     const slug = window.CURRENT_SLUG || '';
     if (slug) window.viewPage(slug);
@@ -110,6 +99,6 @@ export async function initI18n() {
     document.documentElement.setAttribute('lang', lang);
     window.T = await loadTranslations(lang);
     injectHreflangTags();
-    if (typeof window.renderNav    === 'function') window.renderNav();
+    if (typeof window.renderNav === 'function') window.renderNav();
     if (typeof window.renderFooter === 'function') window.renderFooter();
 }
