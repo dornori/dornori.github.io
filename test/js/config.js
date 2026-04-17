@@ -170,7 +170,8 @@ const SITE_CONFIG = {
         { id: 'web', user: 'dornori.com',  base: 'https://'               },
     ],
 
-    formspree_id:      'xnjopbbb',
+    formspree_mail_id:      'xnjopbbb',
+    formspree_id:      'xwvaleqz',
     turnstile_sitekey: '0x4AAAAAACxsga5y-bJ_qkzC',
 };
 
