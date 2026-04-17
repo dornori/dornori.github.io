@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUMIO — Formspree + Turnstile Connection Test</title>
+
+  <!-- Cloudflare Turnstile -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
+  <style>
+    :root {
+      --c-bg:       #0f0e0c;
+      --c-surface:  #1a1916;
+      --c-border:   #2e2b26;
+      --c-accent:   #c8a96e;
+      --c-accent-d: #a3834a;
+      --c-text:     #f0ebe2;
+      --c-text-2:   #b5ad9f;
+      --c-text-3:   #756d61;
+      --c-ok:       #4a9c6d;
+      --c-warn:     #c8a96e;
+      --c-err:      #c05050;
+      --font-mono:  "JetBrains Mono", "Fira Mono", "Courier New", monospace;
+      --radius:     8px;
+      --transition: 0.18s ease;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--c-bg);
+      color: var(--c-text);
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      min-height: 100vh;
+      display: grid;
+      place-items: start center;
+      padding: 40px 16px 60px;
+    }
+
+    .page { width: 100%; max-width: 700px; }
+
+    /* Header */
+    .hd {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 36px;
+    }
+    .logo {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      color: var(--c-accent);
+      text-transform: uppercase;
+    }
+    .hd-sep { flex: 1; height: 1px; background: var(--c-border); }
+    .hd-badge {
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--c-text-3);
+      border: 1px solid var(--c-border);
+      padding: 3px 9px;
+      border-radius: 100px;
+    }
+
+    /* Card */
+    .card {
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 0.72rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--c-text-3);
+      margin-bottom: 20px;
+    }
+
+    /* Form fields */
+    .field { margin-bottom: 16px; }
+    .field label {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--c-text-3);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .field input, .field select {
+      width: 100%;
+      background: var(--c-bg);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      color: var(--c-text);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    .field input:focus, .field select:focus { border-color: var(--c-accent); }
+    .field .hint {
+      font-size: 0.7rem;
+      color: var(--c-text-3);
+      margin-top: 5px;
+      line-height: 1.5;
+    }
+    .field .hint code {
+      background: var(--c-bg);
+      border: 1px solid var(--c-border);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+    }
+
+    /* Turnstile container */
+    #turnstile-wrap {
+      min-height: 0;
+      margin-bottom: 20px;
+      transition: min-height 0.2s;
+      display: flex;
+      justify-content: center;
+    }
+    #turnstile-wrap.has-widget { min-height: 68px; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 22px;
+      border-radius: var(--radius);
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      border: none;
+      transition: all var(--transition);
+    }
+    .btn--primary {
+      background: var(--c-accent);
+      color: #0f0e0c;
+      width: 100%;
+      justify-content: center;
+    }
+    .btn--primary:hover:not(:disabled) { background: var(--c-accent-d); }
+    .btn--primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn--ghost {
+      background: transparent;
+      color: var(--c-text-3);
+      border: 1px solid var(--c-border);
+      font-size: 0.75rem;
+      padding: 7px 14px;
+    }
+    .btn--ghost:hover { border-color: var(--c-text-3); color: var(--c-text); }
+
+    /* Log terminal */
+    .log {
+      background: var(--c-bg);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      max-height: 320px;
+      overflow-y: auto;
+      margin-top: 0;
+      font-size: 0.78rem;
+      line-height: 1.75;
+    }
+    .log:empty::before {
+      content: "▸ Waiting for test run…";
+      color: var(--c-text-3);
+    }
+    .log-line { display: flex; gap: 10px; font-family: monospace; }
+    .log-line .ts { color: var(--c-text-3); flex-shrink: 0; }
+    .log-line .msg { color: var(--c-text-2); }
+    .log-line.ok .msg { color: var(--c-ok); }
+    .log-line.err .msg { color: var(--c-err); }
+    .log-line.warn .msg { color: var(--c-warn); }
+    .log-line.head .msg { color: var(--c-text); font-weight: 600; }
+
+    /* Status row */
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--c-border);
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--c-text-3);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .status-dot.ok  { background: var(--c-ok); box-shadow: 0 0 6px var(--c-ok); }
+    .status-dot.err { background: var(--c-err); box-shadow: 0 0 6px var(--c-err); }
+    .status-dot.spin {
+      background: var(--c-accent);
+      animation: pulse 0.8s ease-in-out infinite alternate;
+    }
+    @keyframes pulse { to { opacity: 0.25; } }
+
+    /* Payload preview */
+    .payload-preview {
+      background: var(--c-bg);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.75rem;
+      color: var(--c-text-3);
+      max-height: 180px;
+      overflow-y: auto;
+      display: none;
+    }
+    .payload-preview.visible { display: block; }
+
+    /* Toggle row */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .toggle-label { font-size: 0.72rem; color: var(--c-text-3); letter-spacing: 0.1em; text-transform: uppercase; }
+
+    /* Guide list */
+    .guide { padding-left: 0; list-style: none; }
+    .guide li {
+      display: flex;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--c-border);
+      font-size: 0.8rem;
+      color: var(--c-text-2);
+      line-height: 1.5;
+    }
+    .guide li:last-child { border-bottom: none; }
+    .guide .num {
+      color: var(--c-accent);
+      font-weight: 700;
+      flex-shrink: 0;
+      width: 18px;
+    }
+
+    /* Test email row */
+    .test-email-row {
+      background: var(--c-bg);
+      border-radius: var(--radius);
+      padding: 12px;
+      margin-bottom: 16px;
+      font-size: 0.8rem;
+      color: var(--c-text-2);
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="hd">
+    <span class="logo">Lumio</span>
+    <div class="hd-sep"></div>
+    <span class="hd-badge">Formspree · Turnstile · Test</span>
+  </div>
+
+  <!-- Config -->
+  <div class="card">
+    <p class="card-title">01 — Configuration</p>
+
+    <div class="field">
+      <label>Formspree Form ID</label>
+      <input id="cfg-formspree-id" type="text" value="xwvaleqz" placeholder="e.g. xwvaleqz">
+      <p class="hint">Found in your Formspree dashboard URL: formspree.io/f/<strong>&lt;id&gt;</strong></p>
+    </div>
+
+    <div class="field">
+      <label>Cloudflare Turnstile Site Key</label>
+      <input id="cfg-sitekey" type="text" value="1x00000000000000000000AA" placeholder="0x4AAAAAAA...">
+      <p class="hint">
+        Test keys: <code>1x00000000000000000000AA</code> (always pass) ·
+        <code>2x00000000000000000000AB</code> (always block)<br>
+        Real key: Cloudflare Dashboard → Turnstile → Sites → Site Key
+      </p>
+    </div>
+
+    <div class="field">
+      <label>Test Email (will receive the submission)</label>
+      <input id="cfg-test-email" type="email" value="test@example.com" placeholder="your@email.com">
+      <p class="hint">This email will appear in your Formspree submissions</p>
+    </div>
+  </div>
+
+  <!-- Captcha + Submit -->
+  <div class="card">
+    <p class="card-title">02 — Captcha &amp; Submit</p>
+    
+    <div class="test-email-row">
+      📧 Test submission will be sent to: <strong id="email-display">test@example.com</strong>
+    </div>
+
+    <div id="turnstile-wrap"></div>
+    <button class="btn btn--primary" id="run-btn">▶ Run Test</button>
+
+    <div class="status-row">
+      <div class="status-dot" id="status-dot"></div>
+      <span class="status-label" id="status-label">Idle — press Run Test to begin</span>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card">
+    <div class="toggle-row">
+      <p class="card-title" style="margin:0;">03 — Event Log</p>
+      <button class="btn btn--ghost" id="clear-log-btn">Clear</button>
+    </div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <!-- Payload preview -->
+  <div class="card">
+    <div class="toggle-row">
+      <p class="card-title" style="margin:0;">04 — Last Payload Sent</p>
+      <button class="btn btn--ghost" id="toggle-payload-btn">Show</button>
+    </div>
+    <pre class="payload-preview" id="payload-preview"></pre>
+  </div>
+
+  <!-- Guide -->
+  <div class="card">
+    <p class="card-title">05 — Integration Checklist</p>
+    <ul class="guide">
+      <li>
+        <span class="num">1</span>
+        <span>Add the Turnstile CDN script to every page that uses the checkout:
+          <br><code style="background:var(--c-bg);border:1px solid var(--c-border);padding:2px 6px;border-radius:4px;font-size:0.72rem;">&lt;script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer&gt;&lt;/script&gt;</code>
+        </span>
+      </li>
+      <li>
+        <span class="num">2</span>
+        <span>Set your real Turnstile site key in <code>config.js</code> →
+          <code>CONFIG.turnstile.sitekey</code>. Also add the secret key to your
+          Formspree form settings (Formspree → Settings → Integrations → Cloudflare Turnstile).
+        </span>
+      </li>
+      <li>
+        <span class="num">3</span>
+        <span>In your Formspree form settings, enable the Turnstile integration and
+          paste your <strong>secret key</strong>. Formspree will then verify every token
+          server-side before accepting a submission.
+        </span>
+      </li>
+      <li>
+        <span class="num">4</span>
+        <span>The captcha container in <code>cart.html</code> renders automatically when the customer clicks
+          "Continue to Payment". The widget must pass before the order is sent.
+        </span>
+      </li>
+      <li>
+        <span class="num">5</span>
+        <span>On localhost, <code>fetch</code> to Formspree may be blocked by CORS.
+          Deploy to any static host (Netlify, Vercel, GitHub Pages) to test end-to-end.
+        </span>
+      </li>
+    </ul>
+  </div>
+
+</div>
+
+<script>
+  /* ── State ── */
+  let turnstileWidgetId = null;
+  let captchaToken = null;
+  let payloadShown = false;
+
+  /* ── DOM Elements ── */
+  const logEl = document.getElementById("log");
+  const statusDot = document.getElementById("status-dot");
+  const statusLabel = document.getElementById("status-label");
+  const runBtn = document.getElementById("run-btn");
+  const clearLogBtn = document.getElementById("clear-log-btn");
+  const togglePayloadBtn = document.getElementById("toggle-payload-btn");
+  const payloadPreview = document.getElementById("payload-preview");
+  const turnstileWrap = document.getElementById("turnstile-wrap");
+  const cfgFormspreeId = document.getElementById("cfg-formspree-id");
+  const cfgSitekey = document.getElementById("cfg-sitekey");
+  const cfgTestEmail = document.getElementById("cfg-test-email");
+  const emailDisplay = document.getElementById("email-display");
+
+  /* ── Update email display ── */
+  cfgTestEmail.addEventListener("input", () => {
+    emailDisplay.textContent = cfgTestEmail.value || "test@example.com";
+  });
+
+  /* ── Logging ── */
+  function log(msg, type = "") {
+    const now = new Date();
+    const ts = now.toTimeString().slice(0, 8);
+    const line = document.createElement("div");
+    line.className = `log-line ${type}`;
+    line.innerHTML = `<span class="ts">${ts}</span><span class="msg">${escapeHtml(msg)}</span>`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function clearLog() {
+    logEl.innerHTML = "";
+    log("Log cleared", "head");
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function setStatus(state, label) {
+    statusDot.className = "status-dot" + (state ? " " + state : "");
+    statusLabel.textContent = label;
+  }
+
+  function showPayload(content) {
+    payloadPreview.textContent = content;
+    if (payloadShown) payloadPreview.classList.add("visible");
+  }
+
+  togglePayloadBtn.addEventListener("click", () => {
+    payloadShown = !payloadShown;
+    payloadPreview.classList.toggle("visible", payloadShown);
+    togglePayloadBtn.textContent = payloadShown ? "Hide" : "Show";
+  });
+
+  clearLogBtn.addEventListener("click", clearLog);
+
+  /* ── Reset Turnstile ── */
+  function resetTurnstile() {
+    if (turnstileWidgetId !== null && typeof window.turnstile !== "undefined") {
+      try {
+        window.turnstile.reset(turnstileWidgetId);
+      } catch(e) {}
+      turnstileWidgetId = null;
+    }
+    turnstileWrap.innerHTML = "";
+    turnstileWrap.classList.remove("has-widget");
+    captchaToken = null;
+  }
+
+  /* ── Main test function ── */
+  async function runTest() {
+    const formspreeId = cfgFormspreeId.value.trim();
+    const sitekey = cfgSitekey.value.trim();
+    const testEmail = cfgTestEmail.value.trim();
+
+    if (!formspreeId) {
+      log("❌ Please enter a Formspree Form ID", "err");
+      return;
+    }
+
+    if (!testEmail) {
+      log("❌ Please enter a test email address", "err");
+      return;
+    }
+
+    const endpoint = `https://formspree.io/f/${formspreeId}`;
+
+    // Reset state
+    resetTurnstile();
+    setStatus("spin", "Initializing...");
+    log("── Test started ──────────────────────────", "head");
+    log(`Formspree endpoint: ${endpoint}`);
+    log(`Test email: ${testEmail}`);
+
+    if (!sitekey) {
+      log("⚠️ No Turnstile sitekey — submitting without captcha", "warn");
+      await submitToFormspree(endpoint, testEmail, null);
+      return;
+    }
+
+    log(`Turnstile sitekey: ${sitekey}`);
+
+    // Check if Turnstile is loaded
+    if (typeof window.turnstile === "undefined") {
+      log("❌ Turnstile not loaded! Check the script tag.", "err");
+      setStatus("err", "Turnstile failed to load");
+      return;
+    }
+
+    log("Rendering Turnstile widget...");
+    setStatus("spin", "Complete the captcha...");
+    
+    turnstileWrap.classList.add("has-widget");
+
+    try {
+      turnstileWidgetId = window.turnstile.render(turnstileWrap, {
+        sitekey: sitekey,
+        theme: "dark",
+        callback: async (token) => {
+          log(`✅ Turnstile token received (${token.substring(0, 20)}...)`, "ok");
+          captchaToken = token;
+          setStatus("spin", "Token received — submitting...");
+          await submitToFormspree(endpoint, testEmail, token);
+        },
+        "error-callback": () => {
+          log("❌ Turnstile error occurred", "err");
+          setStatus("err", "Captcha error — try again");
+          runBtn.disabled = false;
+          runBtn.textContent = "▶ Run Test";
+        },
+        "expired-callback": () => {
+          log("⚠️ Turnstile token expired — please try again", "warn");
+          setStatus("err", "Token expired — retry");
+          runBtn.disabled = false;
+          runBtn.textContent = "▶ Run Test";
+        },
+      });
+      log("Turnstile widget rendered — waiting for user verification...");
+      runBtn.disabled = true;
+      runBtn.textContent = "Waiting for captcha...";
+    } catch (err) {
+      log(`❌ Failed to render Turnstile: ${err.message}`, "err");
+      setStatus("err", "Render failed");
+      runBtn.disabled = false;
+      runBtn.textContent = "▶ Run Test";
+    }
+  }
+
+  async function submitToFormspree(endpoint, testEmail, token) {
+    const formspreeId = cfgFormspreeId.value.trim();
+    
+    const formData = new FormData();
+    formData.append("_subject", `[TEST] Formspree + Turnstile Connection Test`);
+    formData.append("test_email", testEmail);
+    formData.append("test_timestamp", new Date().toISOString());
+    formData.append("test_source", "formspree-test.html");
+    formData.append("test_note", "This is an automated connection test from the LUMIO shop test page.");
+    formData.append("cf-turnstile-response", token || "none");
+
+    // Build preview
+    const preview = `POST ${endpoint}
+─────────────────────────────
+_subject              : [TEST] Formspree + Turnstile Connection Test
+test_email            : ${testEmail}
+test_timestamp        : ${new Date().toISOString()}
+test_source           : formspree-test.html
+cf-turnstile-response : ${token ? token.substring(0, 32) + "..." : "(none)"}
+─────────────────────────────`;
+    showPayload(preview);
+
+    log(`📤 Sending POST to Formspree...`);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        body: formData,
+        headers: { "Accept": "application/json" }
+      });
+
+      log(`HTTP ${response.status} ${response.ok ? "OK" : "Error"}`);
+
+      if (response.ok) {
+        const data = await response.json().catch(() => ({}));
+        log("✅ Submission accepted by Formspree!", "ok");
+        log(`📬 Check your Formspree dashboard at: https://formspree.io/forms/${formspreeId}/submissions`, "ok");
+        setStatus("ok", "Success! Check Formspree dashboard");
+      } else {
+        const errorText = await response.text();
+        log(`❌ Formspree rejected: ${response.status} - ${errorText.substring(0, 200)}`, "err");
+        setStatus("err", `Failed (${response.status})`);
+      }
+    } catch (err) {
+      log(`❌ Network error: ${err.message}`, "err");
+      log(`⚠️ This may be a CORS issue — deploy to a static host for full testing`, "warn");
+      setStatus("err", "Network error — see log");
+    }
+
+    // Reset button
+    runBtn.disabled = false;
+    runBtn.textContent = "▶ Run Test";
+    log("── Test complete ─────────────────────────", "head");
+  }
+
+  // Wire up run button
+  runBtn.addEventListener("click", runTest);
+
+  // Initial log
+  log("✨ Test page ready — enter your Formspree ID and click 'Run Test'", "ok");
+  log("💡 Use test sitekey: 1x00000000000000000000AA (always passes)", "warn");
+</script>
+</body>
+</html>

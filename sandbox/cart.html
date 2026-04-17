@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUMIO – Cart & Checkout</title>
+  <link rel="stylesheet" href="css/shop.css">
+  <!-- Cloudflare Turnstile — set CONFIG.turnstile.sitekey in config.js -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer></script>
+  <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=EUR" defer></script>
+  <style>
+    .lumio-checkout-panel {
+      background: var(--c-surface);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      box-shadow: var(--shadow-sm);
+    }
+    @media (max-width: 600px) { .lumio-checkout-panel { padding: 20px; } }
+    .lumio-panel-title {
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      font-weight: 400;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--c-border);
+    }
+    .lumio-step-content { display: none; }
+    .lumio-step-content.active { display: block; }
+
+    /* Shipping estimate chip */
+    .lumio-ship-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--c-accent-light);
+      border: 1px solid var(--c-accent);
+      color: var(--c-accent-dark);
+      padding: 6px 14px;
+      border-radius: 100px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    /* Review step */
+    .lumio-review-section { margin-bottom: 24px; }
+    .lumio-review-section h4 {
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--c-text-3);
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .lumio-review-section p { font-size: 0.9rem; color: var(--c-text-2); line-height: 1.6; }
+
+    /* Secure badge */
+    .lumio-secure-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      color: var(--c-text-3);
+      margin-top: 14px;
+    }
+    .lumio-secure-badge svg { width: 14px; height: 14px; opacity: 0.5; }
+
+    /* Table on mobile */
+    @media (max-width: 640px) {
+      .lumio-cart-table-wrap { overflow-x: auto; }
+    }
+
+    .lumio-lang-switcher { display: flex; gap: 6px; align-items: center; }
+    .lumio-lang-btn {
+      padding: 4px 10px; border: 1px solid var(--c-border);
+      border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600;
+      color: var(--c-text-3); background: transparent; cursor: pointer;
+      letter-spacing: 0.06em; transition: all var(--transition);
+    }
+    .lumio-lang-btn.active, .lumio-lang-btn:hover {
+      background: var(--c-text); color: white; border-color: var(--c-text);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="lumio-page-header">
+    <div class="lumio-container">
+      <div class="lumio-page-header__inner">
+        <a href="index.html" class="lumio-logo">LUM<span>IO</span></a>
+        <div style="display:flex; gap:12px; align-items:center;">
+          <div class="lumio-lang-switcher">
+            <button class="lumio-lang-btn active" data-lang="en">EN</button>
+            <button class="lumio-lang-btn" data-lang="no">NO</button>
+            <button class="lumio-lang-btn" data-lang="nl">NL</button>
+          </div>
+          <div id="cart-icon-slot"></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="lumio-page-main">
+    <div class="lumio-container">
+
+      <!-- Step indicator -->
+      <div class="lumio-steps lumio-fade-in" id="step-indicator">
+        <div class="lumio-step lumio-step--active" id="step-ind-1">
+          <div class="lumio-step__num">1</div>
+          <div class="lumio-step__label" data-i18n="step_shipping">Shipping</div>
+        </div>
+        <div class="lumio-step" id="step-ind-2">
+          <div class="lumio-step__num">2</div>
+          <div class="lumio-step__label" data-i18n="step_review">Review</div>
+        </div>
+        <div class="lumio-step" id="step-ind-3">
+          <div class="lumio-step__num">3</div>
+          <div class="lumio-step__label" data-i18n="step_payment">Payment</div>
+        </div>
+      </div>
+
+      <!-- CART LAYOUT -->
+      <div class="lumio-cart-layout lumio-fade-in lumio-fade-in-1">
+
+        <!-- LEFT COLUMN: Cart items + checkout steps -->
+        <div>
+
+          <!-- Cart items table -->
+          <div class="lumio-checkout-panel" id="cart-items-panel" style="margin-bottom:24px;">
+            <h2 class="lumio-panel-title" data-i18n="cart_title">Shopping Cart</h2>
+            <div class="lumio-cart-table-wrap">
+              <table class="lumio-cart-table" id="cart-table">
+                <thead>
+                  <tr>
+                    <th style="width:80px"></th>
+                    <th data-i18n="order_summary">Item</th>
+                    <th data-i18n="quantity">Qty</th>
+                    <th data-i18n="subtotal">Price</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="cart-tbody"></tbody>
+              </table>
+              <div id="cart-empty-state" style="display:none;" class="lumio-cart-empty">
+                <div class="lumio-cart-empty__icon">🛒</div>
+                <h2 data-i18n="cart_empty">Your cart is empty</h2>
+                <p>Looks like you haven't added anything yet.</p>
+                <a href="index.html" class="lumio-btn lumio-btn--primary" data-i18n="continue_shopping">Continue Shopping</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP 1: Shipping form -->
+          <div class="lumio-checkout-panel lumio-step-content active" id="step-1">
+            <h2 class="lumio-panel-title" data-i18n="shipping_info">Shipping Information</h2>
+
+            <!-- Business toggle -->
+            <label class="lumio-checkbox-group" style="margin-bottom:20px;">
+              <input type="checkbox" id="is-business">
+              <span class="lumio-checkbox-label" data-i18n="business_order">This is a business order</span>
+            </label>
+            <div id="business-fields" style="display:none; margin-bottom:20px;">
+              <div class="lumio-form-row">
+                <div class="lumio-form-group">
+                  <label data-i18n="company">Company Name</label>
+                  <input type="text" id="company" name="company" autocomplete="organization">
+                </div>
+                <div class="lumio-form-group">
+                  <label data-i18n="vat_number">VAT Number</label>
+                  <input type="text" id="vat_number" name="vat_number">
+                </div>
+              </div>
+            </div>
+
+            <div class="lumio-form" id="shipping-form">
+              <div class="lumio-form-row">
+                <div class="lumio-form-group">
+                  <label data-i18n="first_name">First Name</label>
+                  <input type="text" id="first_name" name="first_name" required autocomplete="given-name">
+                </div>
+                <div class="lumio-form-group">
+                  <label data-i18n="last_name">Last Name</label>
+                  <input type="text" id="last_name" name="last_name" required autocomplete="family-name">
+                </div>
+              </div>
+              <div class="lumio-form-row">
+                <div class="lumio-form-group">
+                  <label data-i18n="email">Email Address</label>
+                  <input type="email" id="email" name="email" required autocomplete="email">
+                </div>
+                <div class="lumio-form-group">
+                  <label data-i18n="phone">Phone Number</label>
+                  <input type="tel" id="phone" name="phone" autocomplete="tel">
+                </div>
+              </div>
+              <div class="lumio-form-group">
+                <label data-i18n="address">Street Address</label>
+                <input type="text" id="address" name="address" required autocomplete="street-address">
+              </div>
+              <div class="lumio-form-row">
+                <div class="lumio-form-group">
+                  <label data-i18n="city">City</label>
+                  <input type="text" id="city" name="city" required autocomplete="address-level2">
+                </div>
+                <div class="lumio-form-group">
+                  <label data-i18n="postal_code">Postal Code</label>
+                  <input type="text" id="postal_code" name="postal_code" required autocomplete="postal-code">
+                </div>
+              </div>
+              <div class="lumio-form-group">
+                <label data-i18n="country">Country</label>
+                <select id="country" name="country" required autocomplete="country">
+                  <option value="" data-i18n="select_country">Select country...</option>
+                  <option value="NO">Norway</option>
+                  <option value="SE">Sweden</option>
+                  <option value="DK">Denmark</option>
+                  <option value="FI">Finland</option>
+                  <option value="NL">Netherlands</option>
+                  <option value="BE">Belgium</option>
+                  <option value="DE">Germany</option>
+                  <option value="GB">United Kingdom</option>
+                  <option value="FR">France</option>
+                  <option value="ES">Spain</option>
+                  <option value="IT">Italy</option>
+                  <option value="US">United States</option>
+                  <option value="CA">Canada</option>
+                  <option value="AU">Australia</option>
+                  <option value="NZ">New Zealand</option>
+                </select>
+              </div>
+              <button type="button" class="lumio-btn lumio-btn--primary lumio-btn--full" id="btn-to-step-2">
+                Next: Review Order →
+              </button>
+            </div>
+          </div>
+
+          <!-- STEP 2: Review -->
+          <div class="lumio-checkout-panel lumio-step-content" id="step-2" style="display:none;">
+            <h2 class="lumio-panel-title" data-i18n="order_summary">Order Summary</h2>
+
+            <div class="lumio-review-section">
+              <h4 data-i18n="shipping_info">Shipping to</h4>
+              <p id="review-address"></p>
+            </div>
+
+            <div class="lumio-review-section">
+              <h4>Items</h4>
+              <div id="review-items"></div>
+            </div>
+
+            <div id="lumio-captcha-container" style="margin-bottom:16px; min-height:0;"></div>
+            <div style="display:flex; gap:12px; margin-top:8px;">
+              <button type="button" class="lumio-btn lumio-btn--outline" id="btn-back-to-1">← Back</button>
+              <button type="button" class="lumio-btn lumio-btn--primary" style="flex:1;" id="btn-to-step-3">
+                Continue to Payment →
+              </button>
+            </div>
+          </div>
+
+          <!-- STEP 3: Payment -->
+          <div class="lumio-checkout-panel lumio-step-content" id="step-3" style="display:none;">
+            <h2 class="lumio-panel-title" data-i18n="payment">Payment</h2>
+
+            <div class="lumio-ship-chip">
+              🚚 Estimated delivery: <strong id="delivery-estimate">3–5 business days</strong>
+            </div>
+
+            <p style="font-size:0.85rem; color:var(--c-text-2); margin-bottom:20px; line-height:1.6;">
+              Your order details have been recorded. Click <strong>Pay Now</strong> to complete your purchase securely via PayPal. You'll be redirected back here once payment is confirmed.
+            </p>
+
+            <div id="lumio-paypal-container"></div>
+
+            <div class="lumio-secure-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Secured by PayPal · 256-bit SSL encryption
+            </div>
+
+            <div style="margin-top:16px; text-align:center;">
+              <button type="button" class="lumio-btn lumio-btn--ghost" id="btn-back-to-2">← Back to Review</button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- RIGHT COLUMN: Order summary -->
+        <div>
+          <div class="lumio-summary-panel lumio-fade-in lumio-fade-in-2">
+            <h2 data-i18n="order_summary">Order Summary</h2>
+
+            <!-- Free shipping progress bar -->
+            <div class="lumio-free-shipping-bar" id="free-ship-bar">
+              <div class="lumio-free-shipping-bar__label" id="free-ship-label">Add more to unlock free shipping</div>
+              <div class="lumio-free-shipping-bar__track">
+                <div class="lumio-free-shipping-bar__fill" id="free-ship-fill" style="width:0%"></div>
+              </div>
+            </div>
+
+            <div class="lumio-summary-row">
+              <span data-i18n="subtotal">Subtotal</span>
+              <span id="summary-subtotal">€0.00</span>
+            </div>
+            <div class="lumio-summary-row" id="summary-tax-row">
+              <span data-i18n="tax">VAT (25%)</span>
+              <span id="summary-tax">€0.00</span>
+            </div>
+            <div class="lumio-summary-row">
+              <span data-i18n="shipping">Shipping</span>
+              <span id="summary-shipping">—</span>
+            </div>
+            <div class="lumio-summary-row lumio-summary-row--total">
+              <span data-i18n="total">Total</span>
+              <span id="summary-total">€0.00</span>
+            </div>
+
+            <p class="lumio-shipping-note" id="shipping-note">
+              🚚 Shipping costs calculated based on weight and destination.
+            </p>
+
+            <div id="summary-items" style="margin-bottom:16px;"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/shop.js"></script>
+  <script>
+  // ── State ──────────────────────────────────────────────
+  let currentStep = 1;
+  let formData = {};
+  let isBusiness = false;
+  let orderRef = null;
+
+  // ── Language setup ─────────────────────────────────────
+  document.querySelectorAll(".lumio-lang-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      CONFIG.language = btn.dataset.lang;
+      localStorage.setItem("lumio_lang", btn.dataset.lang);
+      location.reload();
+    });
+  });
+
+  const savedLang = localStorage.getItem("lumio_lang");
+  if (savedLang) {
+    CONFIG.language = savedLang;
+    document.querySelectorAll(".lumio-lang-btn").forEach(b => {
+      b.classList.toggle("active", b.dataset.lang === savedLang);
+    });
+  }
+
+  // ── Init ───────────────────────────────────────────────
+  Shop.loadLang().then(() => {
+    applyI18n();
+    Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false });
+    renderCartTable();
+    renderSummary();
+  });
+
+  document.addEventListener("shop:cartUpdated", () => {
+    renderCartTable();
+    renderSummary();
+  });
+
+  function applyI18n() {
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+      const key = el.dataset.i18n;
+      const val = Shop.t(key);
+      if (val) el.textContent = val;
+    });
+  }
+
+  // ── Cart table ─────────────────────────────────────────
+  function renderCartTable() {
+    const cart = Shop.getCart();
+    const tbody = document.getElementById("cart-tbody");
+    const emptyState = document.getElementById("cart-empty-state");
+    const table = document.getElementById("cart-table");
+
+    if (cart.length === 0) {
+      table.style.display = "none";
+      emptyState.style.display = "block";
+      document.getElementById("step-indicator").style.display = "none";
+      ["step-1","step-2","step-3"].forEach(id => document.getElementById(id).style.display = "none");
+      return;
+    }
+
+    table.style.display = "";
+    emptyState.style.display = "none";
+
+    tbody.innerHTML = cart.map(item => `
+      <tr>
+        <td data-label="">
+          <img class="lumio-cart-item-img" src="${item.image}" alt="${item.name}"
+            onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22><rect fill=%22%23ede9e3%22 width=%2272%22 height=%2272%22/></svg>'">
+        </td>
+        <td data-label="Item">
+          <div class="lumio-cart-item-name">${item.name}</div>
+          ${item.selectedColor ? `<div class="lumio-cart-item-color">${item.selectedColor}</div>` : ""}
+          <div style="font-size:0.75rem; color:var(--c-text-3);">${Shop.fmtWeight(item.weight)}</div>
+        </td>
+        <td data-label="Qty">
+          <div class="lumio-qty-control">
+            <button class="lumio-qty-btn lumio-qty-btn--minus" data-key="${item.cartKey}">−</button>
+            <span class="lumio-qty-val">${item.qty}</span>
+            <button class="lumio-qty-btn lumio-qty-btn--plus" data-key="${item.cartKey}" data-stock="${item.stock || 99}">+</button>
+          </div>
+        </td>
+        <td data-label="Price" class="lumio-cart-item-total">${Shop.fmt(item.price * item.qty)}</td>
+        <td>
+          <button class="lumio-cart-remove" data-key="${item.cartKey}" aria-label="Remove">✕</button>
+        </td>
+      </tr>
+    `).join("");
+
+    // Wire qty buttons
+    tbody.querySelectorAll(".lumio-qty-btn--minus").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const cart = Shop.getCart();
+        const item = cart.find(i => i.cartKey === btn.dataset.key);
+        if (item) Shop.updateQty(btn.dataset.key, item.qty - 1);
+      });
+    });
+    tbody.querySelectorAll(".lumio-qty-btn--plus").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const cart = Shop.getCart();
+        const item = cart.find(i => i.cartKey === btn.dataset.key);
+        if (item) Shop.updateQty(btn.dataset.key, Math.min(item.qty + 1, +btn.dataset.stock));
+      });
+    });
+
+    // Wire remove buttons
+    tbody.querySelectorAll(".lumio-cart-remove").forEach(btn => {
+      btn.addEventListener("click", () => Shop.removeFromCart(btn.dataset.key));
+    });
+  }
+
+  // ── Summary panel ──────────────────────────────────────
+  function renderSummary() {
+    const cart = Shop.getCart();
+    const { subtotal, shipping, tax, total, isFreeShipping, totalWeight } = Shop.calculateTotals(cart, isBusiness);
+
+    document.getElementById("summary-subtotal").textContent = Shop.fmt(subtotal);
+    document.getElementById("summary-tax").textContent = isBusiness ? "€0.00 (B2B)" : Shop.fmt(tax);
+    document.getElementById("summary-shipping").textContent = isFreeShipping
+      ? Shop.t("free") || "FREE"
+      : Shop.fmt(shipping);
+    document.getElementById("summary-total").textContent = Shop.fmt(total);
+
+    // Free shipping bar
+    const pct = Math.min((subtotal / CONFIG.shipping.freeThreshold) * 100, 100);
+    document.getElementById("free-ship-fill").style.width = pct + "%";
+    const remaining = CONFIG.shipping.freeThreshold - subtotal;
+    document.getElementById("free-ship-label").textContent = isFreeShipping
+      ? `✓ Free shipping unlocked!`
+      : `Add ${Shop.fmt(Math.max(0, remaining))} for free shipping`;
+
+    // Summary items
+    const sumItems = document.getElementById("summary-items");
+    sumItems.innerHTML = cart.map(item => `
+      <div style="display:flex; justify-content:space-between; padding:6px 0; font-size:0.83rem; color:var(--c-text-2); border-bottom:1px solid var(--c-border);">
+        <span>${item.qty}× ${item.name}${item.selectedColor ? ` <em style="opacity:.6">(${item.selectedColor})</em>` : ""}</span>
+        <span style="font-weight:500;">${Shop.fmt(item.price * item.qty)}</span>
+      </div>
+    `).join("");
+  }
+
+  // ── Business toggle ────────────────────────────────────
+  document.getElementById("is-business").addEventListener("change", function() {
+    isBusiness = this.checked;
+    document.getElementById("business-fields").style.display = this.checked ? "block" : "none";
+    renderSummary();
+  });
+
+  // ── Step navigation ────────────────────────────────────
+  function goToStep(n) {
+    currentStep = n;
+    ["step-1","step-2","step-3"].forEach((id, i) => {
+      const el = document.getElementById(id);
+      el.style.display = (i + 1 === n) ? "block" : "none";
+      el.classList.toggle("active", i + 1 === n);
+    });
+
+    for (let i = 1; i <= 3; i++) {
+      const ind = document.getElementById("step-ind-" + i);
+      ind.classList.remove("lumio-step--active", "lumio-step--done");
+      if (i < n) ind.classList.add("lumio-step--done");
+      if (i === n) ind.classList.add("lumio-step--active");
+    }
+  }
+
+  // ── Step 1 → 2: Validate form ─────────────────────────
+  document.getElementById("btn-to-step-2").addEventListener("click", () => {
+    const fields = ["first_name","last_name","email","address","city","postal_code","country"];
+    let valid = true;
+
+    fields.forEach(id => {
+      const input = document.getElementById(id);
+      input.classList.remove("error");
+      const nextError = input.nextElementSibling;
+      if (nextError?.classList.contains("lumio-form-error")) nextError.remove();
+
+      if (!input.value.trim()) {
+        valid = false;
+        input.classList.add("error");
+        const err = document.createElement("p");
+        err.className = "lumio-form-error";
+        err.textContent = Shop.t("required_field") || "Required";
+        input.after(err);
+      }
+      if (id === "email" && input.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value)) {
+        valid = false;
+        input.classList.add("error");
+        const err = document.createElement("p");
+        err.className = "lumio-form-error";
+        err.textContent = Shop.t("invalid_email") || "Invalid email";
+        input.after(err);
+      }
+    });
+
+    if (!valid) {
+      document.getElementById("shipping-form").querySelector(".error")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    formData = {
+      first_name: document.getElementById("first_name").value.trim(),
+      last_name: document.getElementById("last_name").value.trim(),
+      email: document.getElementById("email").value.trim(),
+      phone: document.getElementById("phone").value.trim(),
+      address: document.getElementById("address").value.trim(),
+      city: document.getElementById("city").value.trim(),
+      postal_code: document.getElementById("postal_code").value.trim(),
+      country: document.getElementById("country").value,
+      company: document.getElementById("company").value.trim(),
+      vat_number: document.getElementById("vat_number").value.trim(),
+      isBusiness,
+    };
+
+    const countryName = document.getElementById("country").options[document.getElementById("country").selectedIndex]?.text;
+    document.getElementById("review-address").innerHTML = `
+      <strong>${formData.first_name} ${formData.last_name}</strong>${formData.company ? ` · ${formData.company}` : ""}<br>
+      ${formData.address}<br>
+      ${formData.postal_code} ${formData.city}<br>
+      ${countryName}<br>
+      ${formData.email}${formData.phone ? " · " + formData.phone : ""}
+    `;
+
+    const cart = Shop.getCart();
+    const { subtotal, shipping, tax, total, isFreeShipping } = Shop.calculateTotals(cart, isBusiness);
+    document.getElementById("review-items").innerHTML = `
+      ${cart.map(i => `<div style="display:flex; justify-content:space-between; padding:8px 0; font-size:0.88rem; border-bottom:1px solid var(--c-border); color:var(--c-text-2);">
+        <span>${i.qty}× ${i.name}${i.selectedColor ? ` (${i.selectedColor})` : ""}</span>
+        <span>${Shop.fmt(i.price * i.qty)}</span>
+      </div>`).join("")}
+      <div style="display:flex; justify-content:space-between; padding:10px 0 0; font-weight:600;">
+        <span>${Shop.t("total")}</span><span>${Shop.fmt(total)}</span>
+      </div>
+    `;
+
+    goToStep(2);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  document.getElementById("btn-back-to-1").addEventListener("click", () => goToStep(1));
+  document.getElementById("btn-back-to-2").addEventListener("click", () => goToStep(2));
+
+  // ── Step 2 → 3: Send to Formspree then show PayPal ────────
+  document.getElementById("btn-to-step-3").addEventListener("click", async () => {
+    const btn = document.getElementById("btn-to-step-3");
+    const originalText = btn.textContent;
+    btn.textContent = Shop.t("saving") || "Sending...";
+    btn.disabled = true;
+
+    const cart = Shop.getCart();
+    orderRef = Shop.generateOrderRef();
+
+    localStorage.setItem("lumio_order_ref", orderRef);
+    localStorage.setItem("lumio_order_email", formData.email);
+
+    const captchaContainer = document.getElementById("lumio-captcha-container");
+
+    // Submit to Formspree — captcha widget shown inside captchaContainer
+    let sent;
+    try {
+      sent = await Shop.submitOrderDetails(orderRef, formData, cart, captchaContainer);
+    } catch (captchaErr) {
+      // Turnstile challenge failed — let user retry
+      btn.textContent = originalText;
+      btn.disabled = false;
+      Shop.toast("Captcha verification failed — please try again.", 3000);
+      return;
+    }
+
+    if (sent) {
+      Shop.toast("Order details recorded successfully", 2000);
+    } else {
+      Shop.toast("Order saved – proceeding to payment", 2500);
+    }
+
+    goToStep(3);
+    document.getElementById("delivery-estimate").textContent =
+      CONFIG.shipping.estimatedDays + " " + (Shop.t("days") || "business days");
+
+    renderPayPalButton(cart);
+
+    btn.textContent = originalText;
+    btn.disabled = false;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  // ── PayPal Button Renderer ─────────────────────────────────
+  function renderPayPalButton(cart) {
+    const container = document.getElementById("lumio-paypal-container");
+    container.innerHTML = "";
+
+    const { total } = Shop.calculateTotals(cart, isBusiness);
+
+    function tryRender(attempts = 0) {
+      if (typeof paypal === "undefined") {
+        if (attempts < 20) {
+          setTimeout(() => tryRender(attempts + 1), 300);
+          return;
+        }
+        container.innerHTML = `<div class="lumio-paypal-placeholder">PayPal is loading… If this persists, <a href="#" onclick="location.reload()">refresh the page</a>.</div>`;
+        return;
+      }
+
+      paypal.Buttons({
+        style: {
+          layout: "vertical",
+          color: "gold",
+          shape: "rect",
+          label: "pay",
+          height: 48,
+        },
+        createOrder: (data, actions) => {
+          return actions.order.create({
+            purchase_units: [{
+              reference_id: orderRef,
+              amount: {
+                currency_code: CONFIG.currencyCode || "EUR",
+                value: total.toFixed(2),
+                breakdown: (() => {
+                  const { subtotal, shipping, tax, isFreeShipping } = Shop.calculateTotals(cart, isBusiness);
+                  return {
+                    item_total: { currency_code: CONFIG.currencyCode || "EUR", value: subtotal.toFixed(2) },
+                    shipping: { currency_code: CONFIG.currencyCode || "EUR", value: (isFreeShipping ? 0 : shipping).toFixed(2) },
+                    tax_total: { currency_code: CONFIG.currencyCode || "EUR", value: tax.toFixed(2) },
+                  };
+                })(),
+              },
+              items: cart.map(i => ({
+                name: i.name + (i.selectedColor ? ` (${i.selectedColor})` : ""),
+                unit_amount: { currency_code: CONFIG.currencyCode || "EUR", value: i.price.toFixed(2) },
+                quantity: String(i.qty),
+              })),
+            }],
+            application_context: {
+              return_url: window.location.origin + "/success.html",
+              cancel_url: window.location.origin + "/cart.html",
+            },
+          });
+        },
+
+        onApprove: async (data, actions) => {
+          const details = await actions.order.capture();
+          Shop.clearCart();
+          try {
+            await Shop.submitOrderStatus(orderRef, "PAYMENT_SUCCESS");
+          } catch(e) {}
+          localStorage.setItem("lumio_last_order", orderRef);
+          localStorage.removeItem("lumio_order_ref");
+          window.location.href = "success.html?ref=" + encodeURIComponent(orderRef) + "&status=success";
+        },
+
+        onCancel: async (data) => {
+          try {
+            await Shop.submitOrderStatus(orderRef, "PAYMENT_CANCELLED");
+          } catch(e) {}
+          Shop.toast("Payment cancelled — your cart is saved.", 4000);
+          goToStep(2);
+        },
+
+        onError: async (err) => {
+          console.error("PayPal error", err);
+          try {
+            await Shop.submitOrderStatus(orderRef, "PAYMENT_ERROR");
+          } catch(e) {}
+          alert("A payment error occurred. Please try again or contact support.");
+        },
+      }).render("#lumio-paypal-container");
+    }
+
+    tryRender();
+  }
+</script>
+</body>
+</html>

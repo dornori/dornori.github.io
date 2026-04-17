@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Formspree Test - Exact same as embed-form.js</title>
+  <style>
+    body { 
+      font-family: system-ui, sans-serif; 
+      padding: 40px; 
+      max-width: 600px; 
+      margin: 0 auto; 
+      background: #f5f0ea;
+    }
+    form { 
+      background: white; 
+      padding: 40px; 
+      border-radius: 12px; 
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    input, textarea, button { 
+      width: 100%; 
+      padding: 14px; 
+      margin: 10px 0; 
+      font-size: 1rem; 
+      border: 1px solid #d8d0c4; 
+      border-radius: 6px;
+    }
+    button { 
+      background: #c8a96e; 
+      color: white; 
+      border: none; 
+      font-weight: 600; 
+      cursor: pointer;
+    }
+    button:hover { background: #a88a50; }
+    .result { 
+      margin-top: 20px; 
+      padding: 20px; 
+      border-radius: 8px; 
+      font-size: 1.05rem;
+    }
+    .success { background: #e8f5e9; color: #2e7d32; }
+    .error { background: #ffebee; color: #c62828; }
+  </style>
+</head>
+<body>
+
+  <h1>Formspree Test (Exact same as embed-form.js)</h1>
+  <p>Replace <code>YOUR_REAL_FORM_ID_HERE</code> with your actual Formspree ID.</p>
+
+  <form id="testForm">
+    <input type="hidden" name="_subject" value="Test Order from LUMIO Shop">
+
+    <label>Email Address</label>
+    <input type="email" name="email" value="test@example.com" required>
+
+    <label>First Name</label>
+    <input type="text" name="first_name" value="John" required>
+
+    <label>Last Name</label>
+    <input type="text" name="last_name" value="Doe" required>
+
+    <label>Cart Items</label>
+    <textarea name="cart_items" rows="3" required>2× Arc Floor Lamp @ €299.00, 1× Globe Pendant @ €129.00</textarea>
+
+    <label>Total Amount</label>
+    <input type="text" name="total" value="€428.00" readonly>
+
+    <button type="submit">Send Test to Formspree</button>
+  </form>
+
+  <div id="result" class="result"></div>
+
+  <script>
+    const form = document.getElementById('testForm');
+    const resultDiv = document.getElementById('result');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      resultDiv.textContent = "Sending...";
+      resultDiv.className = "result";
+
+      const payload = new FormData(form);
+
+      try {
+        const response = await fetch('https://formspree.io/f/xwvaleqz', {   // ← CHANGE THIS
+          method: 'POST',
+          body: payload,
+          headers: { 
+            'Accept': 'application/json' 
+          }
+        });
+
+        if (response.ok) {
+          resultDiv.innerHTML = `✅ <strong>Success!</strong><br>Test order sent to Formspree.<br>Check your Formspree dashboard or email.`;
+          resultDiv.className = "result success";
+          console.log("✅ Test successful");
+        } else {
+          resultDiv.innerHTML = `❌ Failed (Status: ${response.status})`;
+          resultDiv.className = "result error";
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `❌ Fetch Error:<br>${err.message}<br><small>Common causes: ad-blocker, CORS, or wrong Formspree ID.</small>`;
+        resultDiv.className = "result error";
+        console.error("Error:", err);
+      }
+    });
+  </script>
+
+</body>
+</html>
