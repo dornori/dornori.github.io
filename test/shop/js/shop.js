@@ -1,17 +1,18 @@
 /* =========================================================
-   LUMIO SHOP ENGINE  –  shop.js  (v2)
+   LUMIO SHOP ENGINE  –  shop.js  (v3)
    =========================================================
-   Changes from v1:
-   · Removed openProductModal / image-click-to-modal behaviour.
-     Product images are no longer clickable by default.
-     If product.url is set, clicking the image navigates there.
-   · Removed attachBuyOverlay (overlay feature retired).
-   · Added variant support: product.variants[] with per-variant
-     label, price, weight, image, stock. Falls back to base
-     product price/stock when variant fields are absent.
-   · Added related products: product.related[] renders a "You
-     may also need" strip below the main product info/card.
-   · More currencies in currencies.csv (CZK, PLN, HUF, etc.)
+   Changes v3:
+   1. ATC button in card body (lumio-card-atc), NOT on image.
+      Qty +/- always accessible, never obscured.
+   2. Image naming: <productId>_<variantId>_<colorSlug>.<ext>
+      e.g. dornori_star-a_red-blue.webp
+      Explicit variant.image in JSON takes priority.
+   3. Language auto-detected from browser Accept-Language.
+      Uses CONFIG.userPrefs.langKey (configurable key).
+   4. Currency from IP via CONFIG.userPrefs.currencyKey.
+   5. CONFIG.features.showLanguageSwitcher: false hides buttons
+      but keeps all language logic functional.
+   6. Payment via Payment module (PayPal or Stripe).
    ========================================================= */
 
 const Shop = (() => {
@@ -20,17 +21,35 @@ const Shop = (() => {
   let _langLoadPromise = null;
   let _products = {};
 
-  /* ─── LANGUAGE RESOLUTION ───────────────────────────── */
+  /* ═══════════════════════════════════════════════════════
+     LANGUAGE RESOLUTION
+     Priority: URL ?lang= → stored pref → browser → config default → "en"
+  ═══════════════════════════════════════════════════════ */
+  function detectBrowserLanguage() {
+    const supported = CONFIG.supportedLanguages || ["en", "no", "nl"];
+    for (const lang of (navigator.languages || [navigator.language || "en"])) {
+      const code = lang.split("-")[0].toLowerCase();
+      if (supported.includes(code)) return code;
+    }
+    return null;
+  }
+
   function resolveLanguage() {
     const supported = CONFIG.supportedLanguages || ["en", "no", "nl"];
+    const langKey   = CONFIG.userPrefs?.langKey || "lumio_lang";
+
     const urlLang = new URLSearchParams(window.location.search).get("lang");
     if (urlLang && supported.includes(urlLang)) {
       CONFIG.language = urlLang;
-      localStorage.setItem("lumio_lang", urlLang);
+      localStorage.setItem(langKey, urlLang);
       return urlLang;
     }
-    const saved = localStorage.getItem("lumio_lang");
+    const saved = localStorage.getItem(langKey);
     if (saved && supported.includes(saved)) { CONFIG.language = saved; return saved; }
+
+    const browser = detectBrowserLanguage();
+    if (browser) { CONFIG.language = browser; return browser; }
+
     const def = CONFIG.language || CONFIG.defaultLanguage || "en";
     CONFIG.language = def;
     return def;
@@ -38,8 +57,9 @@ const Shop = (() => {
 
   async function switchLanguage(code) {
     if (code === CONFIG.language && _langLoaded) return;
+    const langKey = CONFIG.userPrefs?.langKey || "lumio_lang";
     CONFIG.language = code;
-    localStorage.setItem("lumio_lang", code);
+    localStorage.setItem(langKey, code);
     _langLoaded = false; _langLoadPromise = null; LANG = {};
     await loadLang();
     document.dispatchEvent(new CustomEvent("shop:langChanged", { detail: { lang: code } }));
@@ -50,49 +70,55 @@ const Shop = (() => {
   function pDesc(p)     { return p.i18n?.[CONFIG.language]?.description || p.description || ""; }
   function pCategory(p) { return p.i18n?.[CONFIG.language]?.category    || p.category    || ""; }
 
+  /* ═══════════════════════════════════════════════════════
+     IMAGE NAMING CONVENTION
+     <imageDir><productId>_<variantId>_<colorSlug>.<imageExt>
+     e.g. images/products/dornori_star-a_red-blue.webp
+  ═══════════════════════════════════════════════════════ */
+  function slugify(str) {
+    return (str || "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  }
+
+  function buildImagePath(productId, variantId = null, colorSlug = null) {
+    const dir = CONFIG.images?.imageDir || "images/products/";
+    const ext = CONFIG.images?.imageExt || "webp";
+    const pid = slugify(productId);
+    if (variantId && colorSlug) return `${dir}${pid}_${slugify(variantId)}_${slugify(colorSlug)}.${ext}`;
+    if (variantId)               return `${dir}${pid}_${slugify(variantId)}.${ext}`;
+    if (colorSlug)               return `${dir}${pid}_${slugify(colorSlug)}.${ext}`;
+    return null;
+  }
+
   /* ─── VARIANT HELPERS ───────────────────────────────── */
-  /**
-   * Get effective variant object for a product + selected variant id.
-   * Falls back gracefully: missing fields use product-level defaults.
-   *
-   * Product schema (new):
-   *   product.variants = [
-   *     { id, label, price?, weight?, image?, stock? }, ...
-   *   ]
-   *   product.url = "" | "https://..."   → if set, image click navigates here
-   *   product.related = [ { id, name, price, image, weight, description } ]
-   *
-   * Backward compat: if no variants array, product.colors is used as
-   * plain display labels with no per-variant pricing.
-   */
   function getVariant(product, variantId) {
     if (!product.variants?.length) return null;
     return product.variants.find(v => v.id === variantId) || product.variants[0];
   }
-
   function variantPrice(product, variantId) {
     const v = getVariant(product, variantId);
     return (v && v.price != null) ? v.price : product.price;
   }
-
   function variantWeight(product, variantId) {
     const v = getVariant(product, variantId);
     return (v && v.weight != null) ? v.weight : (product.weight || 0);
   }
-
+  /**
+   * Priority: 1. variant.image (explicit JSON) 2. naming convention 3. product.image
+   */
   function variantImage(product, variantId) {
     const v = getVariant(product, variantId);
-    return (v && v.image) ? v.image : product.image;
+    if (v?.image) return v.image;
+    return buildImagePath(product.id, variantId) || product.image;
   }
-
+  function colorImageSrc(product, color) {
+    if (!color) return product.image;
+    return buildImagePath(product.id, null, color) || product.image;
+  }
   function variantStock(product, variantId) {
     const v = getVariant(product, variantId);
     return (v && v.stock != null) ? v.stock : (product.stock || 0);
   }
-
-  function variantInStock(product, variantId) {
-    return variantStock(product, variantId) > 0;
-  }
+  function variantInStock(product, variantId) { return variantStock(product, variantId) > 0; }
 
   /* ─── CART ──────────────────────────────────────────── */
   function getCart() { try { return JSON.parse(localStorage.getItem("lumio_cart") || "[]"); } catch { return []; } }
@@ -100,41 +126,20 @@ const Shop = (() => {
     localStorage.setItem("lumio_cart", JSON.stringify(cart));
     document.dispatchEvent(new CustomEvent("shop:cartUpdated", { detail: { cart } }));
   }
-
-  /**
-   * Add a product to cart.
-   * variantId: string id from product.variants[], or null.
-   * For backward compat, selectedColor is kept for color-only products.
-   */
   function addToCart(product, qty = 1, variantId = null, selectedColor = null, imageOverride = null) {
-    const cart = getCart();
-    const vKey = variantId || selectedColor || "";
-    const key = product.id + (vKey ? "_" + vKey.toLowerCase().replace(/\s+/g, "-") : "");
+    const cart  = getCart();
+    const vKey  = variantId || selectedColor || "";
+    const key   = product.id + (vKey ? "_" + slugify(vKey) : "");
     const existing = cart.find(i => i.cartKey === key);
     const price  = variantId ? variantPrice(product, variantId)  : product.price;
     const weight = variantId ? variantWeight(product, variantId) : (product.weight || 0);
-    const image  = imageOverride || (variantId ? variantImage(product, variantId) : product.image);
+    const image  = imageOverride || (variantId ? variantImage(product, variantId) : selectedColor ? colorImageSrc(product, selectedColor) : product.image);
     const label  = variantId ? (getVariant(product, variantId)?.label || variantId) : selectedColor;
     const maxQty = variantId ? variantStock(product, variantId) : (product.stock || 99);
-
-    if (existing) {
-      existing.qty = Math.min(existing.qty + qty, maxQty || 99);
-    } else {
-      cart.push({
-        ...product,
-        cartKey: key,
-        qty,
-        price,
-        weight,
-        image,
-        selectedColor: label,
-        variantId,
-      });
-    }
-    saveCart(cart);
-    return cart;
+    if (existing) { existing.qty = Math.min(existing.qty + qty, maxQty || 99); }
+    else cart.push({ ...product, cartKey: key, qty, price, weight, image, selectedColor: label, variantId });
+    saveCart(cart); return cart;
   }
-
   function removeFromCart(cartKey) { saveCart(getCart().filter(i => i.cartKey !== cartKey)); }
   function updateQty(cartKey, qty) {
     const cart = getCart(), item = cart.find(i => i.cartKey === cartKey);
@@ -149,16 +154,14 @@ const Shop = (() => {
 
   /* ─── TOTALS ────────────────────────────────────────── */
   function calculateTotals(cart, isBusiness = false, countryCode = null) {
-    const subtotal = cart.reduce((a, i) => a + i.price * i.qty, 0);
+    const subtotal    = cart.reduce((a, i) => a + i.price * i.qty, 0);
     const totalWeight = cart.reduce((a, i) => a + (i.weight || 0) * i.qty, 0);
-    let cfg = { base: CONFIG.shipping.base, perKg: CONFIG.shipping.perKg,
-      freeThreshold: CONFIG.shipping.freeThreshold, estimatedDays: CONFIG.shipping.estimatedDays };
+    let cfg = { base: CONFIG.shipping.base, perKg: CONFIG.shipping.perKg, freeThreshold: CONFIG.shipping.freeThreshold, estimatedDays: CONFIG.shipping.estimatedDays };
     if (countryCode && typeof Shipping !== "undefined") cfg = Shipping.getRate(countryCode);
     const isFreeShipping = subtotal >= cfg.freeThreshold;
-    const shipping = isFreeShipping ? 0 : cfg.base + totalWeight * cfg.perKg;
-    const tax = isBusiness ? 0 : subtotal * CONFIG.taxRate;
-    return { subtotal, shipping, tax, total: subtotal + shipping + tax,
-      totalWeight, isFreeShipping, estimatedDays: cfg.estimatedDays };
+    const shipping       = isFreeShipping ? 0 : cfg.base + totalWeight * cfg.perKg;
+    const tax            = isBusiness ? 0 : subtotal * CONFIG.taxRate;
+    return { subtotal, shipping, tax, total: subtotal + shipping + tax, totalWeight, isFreeShipping, estimatedDays: cfg.estimatedDays };
   }
 
   /* ─── LANG LOADER ───────────────────────────────────── */
@@ -194,9 +197,7 @@ const Shop = (() => {
     const p = await fetch("data/products/" + id + ".json").then(r => r.json());
     _products[id] = p; return p;
   }
-  function generateOrderRef() {
-    return "LM-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(36).substr(2,5).toUpperCase();
-  }
+  function generateOrderRef() { return "LM-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(36).substr(2,5).toUpperCase(); }
 
   /* ─── TOAST ─────────────────────────────────────────── */
   function toast(text, duration = 2800) {
@@ -209,18 +210,23 @@ const Shop = (() => {
     setTimeout(() => { el.classList.remove("lumio-toast--visible"); setTimeout(() => el.remove(), 400); }, duration);
   }
 
-  /* ─── SWAP IMAGE (fade) ─────────────────────────────── */
-  function swapMainImg(imgEl, src) {
+  /* ─── SWAP IMAGE (fade + convention fallback) ────────── */
+  function swapMainImg(imgEl, src, fallback = null) {
+    if (!imgEl) return;
     imgEl.style.opacity = "0";
-    setTimeout(() => { imgEl.src = src; imgEl.style.opacity = ""; }, 180);
+    const next = new Image();
+    next.onload  = () => { setTimeout(() => { imgEl.src = src; imgEl.style.opacity = ""; }, 50); };
+    next.onerror = () => { imgEl.src = fallback || imgEl.src; imgEl.style.opacity = ""; };
+    next.src = src;
   }
 
   /* ─── CURRENCY SELECTOR ─────────────────────────────── */
   function renderCurrencySelector(target) {
+    if (CONFIG.features?.showCurrencySelector === false) return;
     const container = typeof target === "string" ? document.querySelector(target) : target;
     if (!container || typeof Currency === "undefined") return;
     function build() {
-      const active = Currency.getActive(), all = Currency.list();
+      const active = Currency.getActive();
       container.className = "lumio-currency-selector";
       container.innerHTML = `
         <label class="lumio-currency-selector__label">
@@ -229,7 +235,7 @@ const Shop = (() => {
           </svg>
         </label>
         <select class="lumio-currency-selector__select" aria-label="Currency">
-          ${all.map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
+          ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
         </select>`;
       container.querySelector("select").addEventListener("change", e => Currency.setActive(e.target.value));
     }
@@ -239,9 +245,10 @@ const Shop = (() => {
 
   /* ─── LANGUAGE SWITCHER ─────────────────────────────── */
   function wireLanguageSwitcher(selector = ".lumio-lang-btn") {
-    const currentLang = CONFIG.language;
+    const show = CONFIG.features?.showLanguageSwitcher !== false;
     document.querySelectorAll(selector).forEach(btn => {
-      btn.classList.toggle("active", btn.dataset.lang === currentLang);
+      if (!show) { btn.style.display = "none"; btn.setAttribute("aria-hidden", "true"); }
+      btn.classList.toggle("active", btn.dataset.lang === CONFIG.language);
       btn.addEventListener("click", async () => {
         const code = btn.dataset.lang;
         document.querySelectorAll(selector).forEach(b => b.classList.remove("active"));
@@ -262,17 +269,12 @@ const Shop = (() => {
     const el = document.createElement(href ? "a" : "button");
     el.className = "lumio-back-btn";
     if (href) el.href = href;
-    el.innerHTML = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="15" height="15">
-        <polyline points="15 18 9 12 15 6"/>
-      </svg>
+    el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="15" height="15"><polyline points="15 18 9 12 15 6"/></svg>
       <span class="lumio-back-btn__label">${label || t("back_to_shop")}</span>`;
     if (!href && !onClick) el.addEventListener("click", () => window.history.back());
     else if (onClick) el.addEventListener("click", onClick);
     container.prepend(el);
-    document.addEventListener("shop:langChanged", () => {
-      el.querySelector(".lumio-back-btn__label").textContent = label || t("back_to_shop");
-    });
+    document.addEventListener("shop:langChanged", () => { el.querySelector(".lumio-back-btn__label").textContent = label || t("back_to_shop"); });
     return el;
   }
 
@@ -283,11 +285,7 @@ const Shop = (() => {
     wrapper.href = cartUrl;
     wrapper.className = "lumio-cart-icon" + (fixed ? " lumio-cart-icon--fixed" : "");
     wrapper.setAttribute("aria-label", "Shopping cart");
-    wrapper.innerHTML = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-        <line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
-      </svg>
+    wrapper.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
       <span class="lumio-cart-icon__badge" aria-live="polite">0</span>`;
     const mount = target === "body" ? document.body : document.querySelector(target);
     mount?.appendChild(wrapper);
@@ -303,32 +301,22 @@ const Shop = (() => {
 
   /* ═══════════════════════════════════════════════════════
      RELATED PRODUCTS STRIP
-     Renders a horizontal strip of add-to-cart mini cards
-     for product.related[]. Each related item is a lightweight
-     object { id, name, price, image, weight, description }.
   ═══════════════════════════════════════════════════════ */
   function buildRelatedStrip(product, context = "card") {
     if (!product.related?.length) return "";
-    const items = product.related;
-    return `
-      <div class="lumio-related${context === "info" ? " lumio-related--info" : ""}">
+    return `<div class="lumio-related${context === "info" ? " lumio-related--info" : ""}">
         <h4 class="lumio-related__title">${t("related_products", "You may also need")}</h4>
         <div class="lumio-related__list">
-          ${items.map(r => `
+          ${product.related.map(r => `
             <div class="lumio-related__item" data-related-id="${r.id}">
-              <img class="lumio-related__img" src="${r.image || "images/placeholder.svg"}"
-                alt="${r.name}" onerror="this.src='images/placeholder.svg'">
+              <img class="lumio-related__img" src="${r.image || "images/placeholder.svg"}" alt="${r.name}" onerror="this.src='images/placeholder.svg'">
               <div class="lumio-related__info">
                 <span class="lumio-related__name">${r.name}</span>
                 ${r.description ? `<span class="lumio-related__desc">${r.description}</span>` : ""}
                 <span class="lumio-related__price">${fmt(r.price)}</span>
               </div>
-              <button class="lumio-related__add lumio-btn lumio-btn--sm lumio-btn--outline"
-                data-related-id="${r.id}" aria-label="Add ${r.name} to cart">
-                + ${t("add_to_cart", "Add")}
-              </button>
-            </div>
-          `).join("")}
+              <button class="lumio-related__add lumio-btn lumio-btn--sm lumio-btn--outline" data-related-id="${r.id}">+ ${t("add_to_cart", "Add")}</button>
+            </div>`).join("")}
         </div>
       </div>`;
   }
@@ -338,120 +326,48 @@ const Shop = (() => {
     container.querySelectorAll(".lumio-related__add").forEach(btn => {
       btn.addEventListener("click", e => {
         e.stopPropagation();
-        const id = btn.dataset.relatedId;
-        const rel = product.related.find(r => r.id === id);
+        const rel = product.related.find(r => r.id === btn.dataset.relatedId);
         if (!rel) return;
-        // Treat related item as a mini product for cart purposes
-        addToCart({ id: rel.id, name: rel.name, price: rel.price, weight: rel.weight || 0,
-          image: rel.image || "images/placeholder.svg", stock: 99 }, 1);
+        addToCart({ id: rel.id, name: rel.name, price: rel.price, weight: rel.weight || 0, image: rel.image || "images/placeholder.svg", stock: 99 }, 1);
         toast(`${rel.name} ${t("added", "added to cart")}`);
       });
     });
   }
 
   /* ═══════════════════════════════════════════════════════
-     PRODUCT GRID
+     PRODUCT CARD
+     FIX v3: ATC button is .lumio-card-atc in card body.
+     Image area is clean — qty controls always reachable.
   ═══════════════════════════════════════════════════════ */
-  async function renderShop(divId, options = {}) {
-    await loadLang();
-    const products = await loadProducts();
-    const container = document.getElementById(divId);
-    if (!container) return;
-    const { columns = "auto", showFilter = true } = options;
-
-    function buildGrid() {
-      container.innerHTML = "";
-      container.classList.add("lumio-shop");
-
-      if (showFilter) {
-        const cats = [...new Set(products.map(p => p.category).filter(Boolean))];
-        if (cats.length > 1) {
-          const filterEl = document.createElement("div");
-          filterEl.className = "lumio-filter";
-          filterEl.innerHTML = `
-            <button class="lumio-filter__btn lumio-filter__btn--active" data-cat="all">${t("category_all", "All")}</button>
-            ${cats.map(c => `<button class="lumio-filter__btn" data-cat="${c}">
-              ${t("category_" + c) || (c.charAt(0).toUpperCase() + c.slice(1))}
-            </button>`).join("")}`;
-          filterEl.addEventListener("click", e => {
-            const btn = e.target.closest(".lumio-filter__btn");
-            if (!btn) return;
-            filterEl.querySelectorAll(".lumio-filter__btn").forEach(b => b.classList.remove("lumio-filter__btn--active"));
-            btn.classList.add("lumio-filter__btn--active");
-            const cat = btn.dataset.cat;
-            container.querySelectorAll(".lumio-product-card").forEach(card => {
-              card.style.display = (cat === "all" || card.dataset.cat === cat) ? "" : "none";
-            });
-          });
-          container.appendChild(filterEl);
-        }
-      }
-
-      const grid = document.createElement("div");
-      grid.className = "lumio-grid";
-      if (columns !== "auto") grid.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
-      container.appendChild(grid);
-      products.forEach(p => {
-        const card = document.createElement("div");
-        card.className = "lumio-product-card";
-        card.dataset.cat = p.category || "";
-        card.innerHTML = buildProductCard(p);
-        grid.appendChild(card);
-        wireProductCard(card, p);
-      });
-    }
-
-    buildGrid();
-    document.addEventListener("shop:langChanged", buildGrid);
-    document.addEventListener("currency:changed", () => {
-      container.querySelectorAll(".lumio-card-price").forEach((el, i) => {
-        if (products[i]) el.textContent = fmt(products[i].price);
-      });
-    });
-  }
-
   function buildProductCard(p) {
-    const hasVariants = p.variants?.length > 0;
+    const hasVariants  = p.variants?.length > 0;
     const firstVariant = hasVariants ? p.variants[0] : null;
     const displayPrice = firstVariant?.price != null ? firstVariant.price : p.price;
-    const inStock = hasVariants ? variantInStock(p, firstVariant?.id) : (p.stock > 0);
+    const inStock      = hasVariants ? variantInStock(p, firstVariant?.id) : (p.stock > 0);
 
-    // Variant selector or legacy color swatches
     let selectorHtml = "";
     if (hasVariants) {
-      selectorHtml = `<div class="lumio-variants">
-        ${p.variants.map((v, i) => {
-          const so = v.stock != null && v.stock === 0;
-          return `<button class="lumio-variant-btn${i === 0 ? " active" : ""}${so ? " soldout" : ""}"
-            data-variant-id="${v.id}" data-price="${v.price != null ? v.price : p.price}"
-            data-image="${v.image || p.image}" data-stock="${v.stock != null ? v.stock : (p.stock || 0)}"
-            ${so ? `disabled title="${t("sold_out", "Sold Out")}"` : ""}
-          >${v.label}${so ? ` <em>(${t("sold_out","Sold Out")})</em>` : ""}</button>`;
-        }).join("")}
-      </div>`;
+      selectorHtml = `<div class="lumio-variants">${p.variants.map((v, i) => {
+        const so = v.stock != null && v.stock === 0;
+        return `<button class="lumio-variant-btn${i===0?" active":""}${so?" soldout":""}" data-variant-id="${v.id}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${v.label}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
+      }).join("")}</div>`;
     } else if (p.colors?.length) {
-      const soldOut = p.colors_soldout || [];
-      selectorHtml = `<div class="lumio-colors">
-        ${p.colors.map((c, i) => {
-          const so = soldOut.includes(c);
-          return `<button class="lumio-color${i===0?" lumio-color--active":""}${so?" lumio-color--soldout":""}"
-            data-color="${c}" title="${c}${so?" ("+t("sold_out","Sold Out")+")" : ""}"
-            ${so ? 'disabled aria-disabled="true"' : ""}></button>`;
-        }).join("")}
-      </div>`;
+      const so = p.colors_soldout || [];
+      selectorHtml = `<div class="lumio-colors">${p.colors.map((c,i) => {
+        const s = so.includes(c);
+        return `<button class="lumio-color${i===0?" lumio-color--active":""}${s?" lumio-color--soldout":""}" data-color="${c}" title="${c}${s?" ("+t("sold_out","Sold Out")+")" :""}" ${s?'disabled aria-disabled="true"':""}></button>`;
+      }).join("")}</div>`;
     }
 
-    // Image area — clickable only if product.url is set
     const hasUrl = !!p.url;
-    const imgWrapTag = hasUrl ? `a href="${p.url}"` : "div";
-    const imgWrapClose = hasUrl ? "a" : "div";
+    const wTag = hasUrl ? `a href="${p.url}"` : "div";
+    const wEnd = hasUrl ? "a" : "div";
 
     return `
-      <${imgWrapTag} class="lumio-card-img-wrap${hasUrl ? " lumio-card-img-link" : ""}"${hasUrl ? ` title="${pName(p)}"` : ""}>
-        <img class="lumio-card-img" src="${p.image}" alt="${pName(p)}" loading="lazy"
-          onerror="this.src='images/placeholder.svg'">
-        ${p.featured ? `<span class="lumio-badge">${t("featured", "Featured")}</span>` : ""}
-      </${imgWrapClose}>
+      <${wTag} class="lumio-card-img-wrap${hasUrl?" lumio-card-img-link":""}"${hasUrl?` title="${pName(p)}"`:""}>
+        <img class="lumio-card-img" src="${p.image}" alt="${pName(p)}" loading="lazy" onerror="this.src='images/placeholder.svg'">
+        ${p.featured?`<span class="lumio-badge">${t("featured","Featured")}</span>`:""}
+      </${wEnd}>
       <div class="lumio-card-body">
         <h3 class="lumio-card-title">${pName(p)}</h3>
         ${selectorHtml}
@@ -463,8 +379,8 @@ const Shop = (() => {
             <button class="lumio-qty-btn lumio-qty-btn--plus" aria-label="Increase">+</button>
           </div>
         </div>
-        <button class="lumio-card-quick-add lumio-btn lumio-btn--primary lumio-btn--full" ${inStock ? "" : "disabled"}>
-          ${inStock ? t("add_to_cart", "Add to Cart") : t("out_of_stock", "Out of Stock")}
+        <button class="lumio-card-atc lumio-btn lumio-btn--primary lumio-btn--full" ${inStock?"":"disabled"}>
+          ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>
         ${buildRelatedStrip(p, "card")}
       </div>`;
@@ -472,61 +388,82 @@ const Shop = (() => {
 
   function wireProductCard(card, p) {
     let qty = 1;
-    const hasVariants = p.variants?.length > 0;
+    const hasVariants     = p.variants?.length > 0;
     let selectedVariantId = hasVariants ? p.variants[0]?.id : null;
-    let selectedColor = !hasVariants && p.colors ? p.colors[0] : null;
-    const img = card.querySelector(".lumio-card-img");
+    let selectedColor     = !hasVariants && p.colors ? p.colors[0] : null;
+    const img    = card.querySelector(".lumio-card-img");
     const priceEl = card.querySelector(".lumio-card-price");
-    const addBtn = card.querySelector(".lumio-card-quick-add");
+    const addBtn  = card.querySelector(".lumio-card-atc");
 
-    function refreshCardState() {
+    function refresh() {
       if (!hasVariants) return;
-      const price = variantPrice(p, selectedVariantId);
-      const inStock = variantInStock(p, selectedVariantId);
-      const imgSrc = variantImage(p, selectedVariantId);
+      const price = variantPrice(p, selectedVariantId), inStock = variantInStock(p, selectedVariantId);
       if (priceEl) priceEl.textContent = fmt(price);
-      if (addBtn) {
-        addBtn.disabled = !inStock;
-        addBtn.textContent = inStock ? t("add_to_cart", "Add to Cart") : t("out_of_stock", "Out of Stock");
-      }
-      if (img && imgSrc && imgSrc !== img.src) {
-        img.style.opacity = "0";
-        setTimeout(() => { img.src = imgSrc; img.style.opacity = ""; }, 150);
-      }
+      if (addBtn) { addBtn.disabled = !inStock; addBtn.textContent = inStock ? t("add_to_cart","Add to Cart") : t("out_of_stock","Out of Stock"); }
+      if (img) swapMainImg(img, variantImage(p, selectedVariantId), p.image);
     }
 
-    // Wire variant buttons
     card.querySelectorAll(".lumio-variant-btn:not([disabled])").forEach(btn => {
       btn.addEventListener("click", () => {
         card.querySelectorAll(".lumio-variant-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        selectedVariantId = btn.dataset.variantId;
-        refreshCardState();
+        btn.classList.add("active"); selectedVariantId = btn.dataset.variantId; refresh();
       });
     });
-
-    // Wire legacy color swatches
     card.querySelectorAll(".lumio-color:not([disabled])").forEach(btn => {
       btn.addEventListener("click", () => {
         card.querySelectorAll(".lumio-color").forEach(b => b.classList.remove("lumio-color--active"));
-        btn.classList.add("lumio-color--active");
-        selectedColor = btn.dataset.color;
+        btn.classList.add("lumio-color--active"); selectedColor = btn.dataset.color;
+        if (img) swapMainImg(img, colorImageSrc(p, selectedColor), p.image);
       });
     });
-
     const qv = card.querySelector(".lumio-qty-val");
-    card.querySelector(".lumio-qty-btn--plus")?.addEventListener("click", () => {
-      const max = hasVariants ? variantStock(p, selectedVariantId) : (p.stock || 99);
-      qty = Math.min(qty + 1, max || 99); qv.textContent = qty;
-    });
-    card.querySelector(".lumio-qty-btn--minus")?.addEventListener("click", () => { qty = Math.max(1, qty - 1); qv.textContent = qty; });
-
-    addBtn?.addEventListener("click", () => {
-      addToCart(p, qty, selectedVariantId, selectedColor, null);
-      toast(`${pName(p)} ${t("added", "added to cart")}`);
-    });
-
+    card.querySelector(".lumio-qty-btn--plus")?.addEventListener("click", () => { const max = hasVariants ? variantStock(p, selectedVariantId) : (p.stock||99); qty = Math.min(qty+1, max||99); qv.textContent = qty; });
+    card.querySelector(".lumio-qty-btn--minus")?.addEventListener("click", () => { qty = Math.max(1, qty-1); qv.textContent = qty; });
+    addBtn?.addEventListener("click", () => { addToCart(p, qty, selectedVariantId, selectedColor, null); toast(`${pName(p)} ${t("added","added to cart")}`); });
     wireRelatedStrip(card, p);
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     PRODUCT GRID
+  ═══════════════════════════════════════════════════════ */
+  async function renderShop(divId, options = {}) {
+    await loadLang();
+    const products  = await loadProducts();
+    const container = document.getElementById(divId);
+    if (!container) return;
+    const { columns = "auto", showFilter = true } = options;
+
+    function buildGrid() {
+      container.innerHTML = ""; container.classList.add("lumio-shop");
+      if (showFilter) {
+        const cats = [...new Set(products.map(p => p.category).filter(Boolean))];
+        if (cats.length > 1) {
+          const filterEl = document.createElement("div");
+          filterEl.className = "lumio-filter";
+          filterEl.innerHTML = `<button class="lumio-filter__btn lumio-filter__btn--active" data-cat="all">${t("category_all","All")}</button>
+            ${cats.map(c => `<button class="lumio-filter__btn" data-cat="${c}">${t("category_"+c)||(c.charAt(0).toUpperCase()+c.slice(1))}</button>`).join("")}`;
+          filterEl.addEventListener("click", e => {
+            const btn = e.target.closest(".lumio-filter__btn"); if (!btn) return;
+            filterEl.querySelectorAll(".lumio-filter__btn").forEach(b => b.classList.remove("lumio-filter__btn--active")); btn.classList.add("lumio-filter__btn--active");
+            const cat = btn.dataset.cat;
+            container.querySelectorAll(".lumio-product-card").forEach(card => { card.style.display = (cat==="all"||card.dataset.cat===cat)?"":"none"; });
+          });
+          container.appendChild(filterEl);
+        }
+      }
+      const grid = document.createElement("div"); grid.className = "lumio-grid";
+      if (columns !== "auto") grid.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+      container.appendChild(grid);
+      products.forEach(p => {
+        const card = document.createElement("div"); card.className = "lumio-product-card"; card.dataset.cat = p.category || "";
+        card.innerHTML = buildProductCard(p); grid.appendChild(card); wireProductCard(card, p);
+      });
+    }
+    buildGrid();
+    document.addEventListener("shop:langChanged", buildGrid);
+    document.addEventListener("currency:changed", () => {
+      container.querySelectorAll(".lumio-card-price").forEach((el, i) => { if (products[i]) el.textContent = fmt(products[i].price); });
+    });
   }
 
   /* ═══════════════════════════════════════════════════════
@@ -538,61 +475,43 @@ const Shop = (() => {
     const container = document.getElementById(divId);
     if (!container) return;
     container.classList.add("lumio-product-info");
-
     const hasVariants = p.variants?.length > 0;
     let selectedVariantId = hasVariants ? p.variants[0]?.id : null;
     let selectedColor = !hasVariants && p.colors ? p.colors[0] : null;
     let qty = 1;
 
     function build() {
-      const images = p.images?.length ? p.images : [p.image];
+      const images      = p.images?.length ? p.images : [p.image];
       const displayPrice = hasVariants ? variantPrice(p, selectedVariantId) : p.price;
-      const inStock = hasVariants ? variantInStock(p, selectedVariantId) : (p.stock > 0);
-      const soldOut = p.colors_soldout || [];
+      const inStock     = hasVariants ? variantInStock(p, selectedVariantId) : (p.stock > 0);
+      const soldOut     = p.colors_soldout || [];
 
-      // Variant selector
       let variantHtml = "";
       if (hasVariants) {
         variantHtml = `<div class="lumio-product-option-group">
-          <label class="lumio-product-option-label">${t("variant", "Option")}</label>
+          <label class="lumio-product-option-label">${t("variant","Option")}</label>
           <div class="lumio-product-variants">
-            ${p.variants.map((v, i) => {
-              const so = v.stock != null && v.stock === 0;
-              const isActive = (v.id === selectedVariantId) || (i === 0 && !selectedVariantId);
-              return `<button class="lumio-product-variant-btn${isActive ? " active" : ""}${so ? " soldout" : ""}"
-                data-variant-id="${v.id}" ${so ? `disabled title="${t("sold_out","Sold Out")}"` : ""}
-              >${v.label}${so ? ` <em>(${t("sold_out","Sold Out")})</em>` : ""}</button>`;
+            ${p.variants.map((v,i) => { const so=v.stock!=null&&v.stock===0, active=(v.id===selectedVariantId)||(i===0&&!selectedVariantId);
+              return `<button class="lumio-product-variant-btn${active?" active":""}${so?" soldout":""}" data-variant-id="${v.id}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${v.label}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
             }).join("")}
-          </div>
-        </div>`;
+          </div></div>`;
       } else if (p.colors?.length) {
         variantHtml = `<div class="lumio-product-option-group">
-          <label class="lumio-product-option-label">${t("color", "Color")}</label>
+          <label class="lumio-product-option-label">${t("color","Color")}</label>
           <div class="lumio-product-colors">
-            ${p.colors.map((c, i) => {
-              const so = soldOut.includes(c);
-              return `<button class="lumio-product-color${i===0?" active":""}${so?" soldout":""}"
-                data-color="${c}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}
-              >${c}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
+            ${p.colors.map((c,i) => { const so=soldOut.includes(c);
+              return `<button class="lumio-product-color${i===0?" active":""}${so?" soldout":""}" data-color="${c}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${c}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
             }).join("")}
-          </div>
-        </div>`;
+          </div></div>`;
       }
 
       container.innerHTML = `
         <div class="lumio-product-gallery">
           <div class="lumio-product-main-img-wrap">
-            ${p.url ? `<a href="${p.url}">` : ""}
-            <img id="pinfo-main-${productId}" class="lumio-product-main-img"
-              src="${hasVariants ? variantImage(p, selectedVariantId) : images[0]}"
-              alt="${pName(p)}" onerror="this.src='images/placeholder.svg'">
-            ${p.url ? "</a>" : ""}
+            ${p.url?`<a href="${p.url}">`:""}<img id="pinfo-main-${productId}" class="lumio-product-main-img"
+              src="${hasVariants?variantImage(p,selectedVariantId):images[0]}" alt="${pName(p)}" onerror="this.src='images/placeholder.svg'">${p.url?"</a>":""}
           </div>
-          ${images.length > 1 ? `<div class="lumio-product-thumbs">
-            ${images.map((src, i) => `<img class="lumio-product-thumb${i===0?" active":""}"
-              src="${src}" data-idx="${i}" alt="${t("image_of","Image of")} ${pName(p)} ${i+1}"
-              onerror="this.src='images/placeholder.svg'">`).join("")}
-          </div>` : ""}
+          ${images.length>1?`<div class="lumio-product-thumbs">${images.map((src,i)=>`<img class="lumio-product-thumb${i===0?" active":""}" src="${src}" data-idx="${i}" alt="${t("image_of","Image of")} ${pName(p)} ${i+1}" onerror="this.src='images/placeholder.svg'">`).join("")}</div>`:""}
         </div>
         <div class="lumio-product-details">
           <p class="lumio-product-category">${pCategory(p)}</p>
@@ -601,7 +520,7 @@ const Shop = (() => {
           <p class="lumio-product-desc">${pDesc(p)}</p>
           ${variantHtml}
           <div class="lumio-product-option-group">
-            <label class="lumio-product-option-label">${t("quantity", "Qty")}</label>
+            <label class="lumio-product-option-label">${t("quantity","Qty")}</label>
             <div class="lumio-qty-control lumio-qty-control--lg">
               <button class="lumio-qty-btn lumio-qty-btn--minus">−</button>
               <span class="lumio-qty-val">1</span>
@@ -609,85 +528,46 @@ const Shop = (() => {
             </div>
           </div>
           <div class="lumio-product-meta">
-            <span id="pinfo-stock-${productId}" class="${inStock?"lumio-in-stock":"lumio-out-of-stock"}">
-              ${inStock ? t("in_stock","In Stock") : t("out_of_stock","Out of Stock")}
-            </span>
-            <span class="lumio-weight-info">${t("weight","Weight")}: ${fmtWeight(hasVariants ? variantWeight(p, selectedVariantId) : (p.weight||0))}</span>
+            <span id="pinfo-stock-${productId}" class="${inStock?"lumio-in-stock":"lumio-out-of-stock"}">${inStock?t("in_stock","In Stock"):t("out_of_stock","Out of Stock")}</span>
+            <span class="lumio-weight-info">${t("weight","Weight")}: ${fmtWeight(hasVariants?variantWeight(p,selectedVariantId):(p.weight||0))}</span>
             ${p.dimensions?`<span class="lumio-dim-info">${p.dimensions.l}×${p.dimensions.w}×${p.dimensions.h} cm</span>`:""}
           </div>
-          <button id="pinfo-atc-${productId}" class="lumio-btn lumio-btn--primary lumio-btn--full lumio-add-to-cart" ${inStock?"":"disabled"}>
-            ${t("add_to_cart","Add to Cart")}
-          </button>
-          <a class="lumio-btn lumio-btn--outline lumio-btn--full" href="cart.html" style="margin-top:10px; display:flex; align-items:center; justify-content:center;">
-            ${t("view_cart","View Cart")}
-          </a>
-          ${buildRelatedStrip(p, "info")}
+          <button id="pinfo-atc-${productId}" class="lumio-btn lumio-btn--primary lumio-btn--full" ${inStock?"":"disabled"}>${t("add_to_cart","Add to Cart")}</button>
+          <a class="lumio-btn lumio-btn--outline lumio-btn--full" href="cart.html" style="margin-top:10px;display:flex;align-items:center;justify-content:center;">${t("view_cart","View Cart")}</a>
+          ${buildRelatedStrip(p,"info")}
         </div>`;
 
-      const mainImg = container.querySelector("#pinfo-main-" + productId);
-      const priceEl = container.querySelector("#pinfo-price-" + productId);
-      const stockEl = container.querySelector("#pinfo-stock-" + productId);
-      const atcBtn  = container.querySelector("#pinfo-atc-" + productId);
+      const mainImg = container.querySelector("#pinfo-main-"+productId);
+      const priceEl = container.querySelector("#pinfo-price-"+productId);
+      const stockEl = container.querySelector("#pinfo-stock-"+productId);
+      const atcBtn  = container.querySelector("#pinfo-atc-"+productId);
+      const wtEl    = container.querySelector(".lumio-weight-info");
 
-      function refreshInfoState() {
+      function refreshInfo() {
         if (!hasVariants) return;
-        const price   = variantPrice(p, selectedVariantId);
-        const inStk   = variantInStock(p, selectedVariantId);
-        const imgSrc  = variantImage(p, selectedVariantId);
-        const wt      = variantWeight(p, selectedVariantId);
+        const price=variantPrice(p,selectedVariantId), inStk=variantInStock(p,selectedVariantId), wt=variantWeight(p,selectedVariantId);
         if (priceEl) priceEl.textContent = fmt(price);
-        if (stockEl) {
-          stockEl.textContent = inStk ? t("in_stock","In Stock") : t("out_of_stock","Out of Stock");
-          stockEl.className = inStk ? "lumio-in-stock" : "lumio-out-of-stock";
-        }
-        if (atcBtn) { atcBtn.disabled = !inStk; atcBtn.textContent = inStk ? t("add_to_cart","Add to Cart") : t("out_of_stock","Out of Stock"); }
-        if (mainImg && imgSrc) swapMainImg(mainImg, imgSrc);
-        container.querySelector(".lumio-weight-info").textContent = `${t("weight","Weight")}: ${fmtWeight(wt)}`;
+        if (stockEl) { stockEl.textContent=inStk?t("in_stock","In Stock"):t("out_of_stock","Out of Stock"); stockEl.className=inStk?"lumio-in-stock":"lumio-out-of-stock"; }
+        if (atcBtn)  { atcBtn.disabled=!inStk; atcBtn.textContent=inStk?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock"); }
+        if (mainImg) swapMainImg(mainImg, variantImage(p,selectedVariantId), p.image);
+        if (wtEl)    wtEl.textContent = `${t("weight","Weight")}: ${fmtWeight(wt)}`;
       }
 
-      // Wire thumbnails
       container.querySelectorAll(".lumio-product-thumb").forEach(thumb => {
-        thumb.addEventListener("click", () => {
-          container.querySelectorAll(".lumio-product-thumb").forEach(t => t.classList.remove("active"));
-          thumb.classList.add("active");
-          swapMainImg(mainImg, images[+thumb.dataset.idx]);
-        });
+        thumb.addEventListener("click", () => { container.querySelectorAll(".lumio-product-thumb").forEach(t=>t.classList.remove("active")); thumb.classList.add("active"); swapMainImg(mainImg, images[+thumb.dataset.idx]); });
       });
-
-      // Wire variant buttons
       container.querySelectorAll(".lumio-product-variant-btn:not([disabled])").forEach(btn => {
-        btn.addEventListener("click", () => {
-          container.querySelectorAll(".lumio-product-variant-btn").forEach(b => b.classList.remove("active"));
-          btn.classList.add("active");
-          selectedVariantId = btn.dataset.variantId;
-          refreshInfoState();
-        });
+        btn.addEventListener("click", () => { container.querySelectorAll(".lumio-product-variant-btn").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); selectedVariantId=btn.dataset.variantId; refreshInfo(); });
       });
-
-      // Wire legacy color buttons
       container.querySelectorAll(".lumio-product-color:not([disabled])").forEach(btn => {
-        btn.addEventListener("click", () => {
-          container.querySelectorAll(".lumio-product-color").forEach(b => b.classList.remove("active"));
-          btn.classList.add("active");
-          selectedColor = btn.dataset.color;
-        });
+        btn.addEventListener("click", () => { container.querySelectorAll(".lumio-product-color").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); selectedColor=btn.dataset.color; if (mainImg) swapMainImg(mainImg, colorImageSrc(p,selectedColor), p.image); });
       });
-
       const qv = container.querySelector(".lumio-qty-val");
-      container.querySelector(".lumio-qty-btn--plus")?.addEventListener("click", () => {
-        const max = hasVariants ? variantStock(p, selectedVariantId) : (p.stock || 99);
-        qty = Math.min(qty + 1, max || 99); qv.textContent = qty;
-      });
-      container.querySelector(".lumio-qty-btn--minus")?.addEventListener("click", () => { qty = Math.max(1, qty - 1); qv.textContent = qty; });
-
-      atcBtn?.addEventListener("click", () => {
-        addToCart(p, qty, selectedVariantId, selectedColor, mainImg?.src || null);
-        toast(`${pName(p)} ${t("added","added to cart")}`);
-      });
-
+      container.querySelector(".lumio-qty-btn--plus")?.addEventListener("click", () => { const max=hasVariants?variantStock(p,selectedVariantId):(p.stock||99); qty=Math.min(qty+1,max||99); qv.textContent=qty; });
+      container.querySelector(".lumio-qty-btn--minus")?.addEventListener("click", () => { qty=Math.max(1,qty-1); qv.textContent=qty; });
+      atcBtn?.addEventListener("click", () => { addToCart(p,qty,selectedVariantId,selectedColor,mainImg?.src||null); toast(`${pName(p)} ${t("added","added to cart")}`); });
       wireRelatedStrip(container, p);
     }
-
     build();
     document.addEventListener("shop:langChanged", build);
     document.addEventListener("currency:changed", build);
@@ -699,27 +579,24 @@ const Shop = (() => {
     const container = document.getElementById(divId);
     if (!container) return;
     container.classList.add("lumio-mini-cart");
-
     function render() {
       loadLang().then(() => {
         const cart = getCart();
         const { subtotal, shipping, total, totalWeight, isFreeShipping } = calculateTotals(cart);
         const count = cart.reduce((a, i) => a + i.qty, 0);
-        if (cart.length === 0) { container.innerHTML = `<p class="lumio-mini-cart__empty">${t("cart_empty","Your cart is empty")}</p>`; return; }
+        if (!cart.length) { container.innerHTML = `<p class="lumio-mini-cart__empty">${t("cart_empty","Your cart is empty")}</p>`; return; }
         container.innerHTML = `
           <h3 class="lumio-mini-cart__title">${t("cart","Cart")} <span>(${count})</span></h3>
-          <ul class="lumio-mini-cart__list">
-            ${cart.map(item => `<li class="lumio-mini-cart__item">
-              <img src="${item.image}" alt="${item.name}" onerror="this.src='images/placeholder.svg'">
-              <div class="lumio-mini-cart__item-info">
-                <span class="lumio-mini-cart__item-name">${item.name}</span>
-                ${item.selectedColor?`<span class="lumio-mini-cart__item-color">${item.selectedColor}</span>`:""}
-                <span class="lumio-mini-cart__item-price">${item.qty} × ${fmt(item.price)}</span>
-                <span class="lumio-mini-cart__item-weight">${fmtWeight((item.weight||0)*item.qty)}</span>
-              </div>
-              <button class="lumio-mini-cart__remove" data-key="${item.cartKey}" aria-label="${t("remove","Remove")}">✕</button>
-            </li>`).join("")}
-          </ul>
+          <ul class="lumio-mini-cart__list">${cart.map(item=>`<li class="lumio-mini-cart__item">
+            <img src="${item.image}" alt="${item.name}" onerror="this.src='images/placeholder.svg'">
+            <div class="lumio-mini-cart__item-info">
+              <span class="lumio-mini-cart__item-name">${item.name}</span>
+              ${item.selectedColor?`<span class="lumio-mini-cart__item-color">${item.selectedColor}</span>`:""}
+              <span class="lumio-mini-cart__item-price">${item.qty} × ${fmt(item.price)}</span>
+              <span class="lumio-mini-cart__item-weight">${fmtWeight((item.weight||0)*item.qty)}</span>
+            </div>
+            <button class="lumio-mini-cart__remove" data-key="${item.cartKey}" aria-label="${t("remove","Remove")}">✕</button>
+          </li>`).join("")}</ul>
           <div class="lumio-mini-cart__totals">
             <div class="lumio-mini-cart__row"><span>${t("subtotal","Subtotal")}</span><span>${fmt(subtotal)}</span></div>
             <div class="lumio-mini-cart__row"><span>${t("shipping","Shipping")}</span><span>${isFreeShipping?t("free","FREE"):fmt(shipping)}</span></div>
@@ -727,9 +604,7 @@ const Shop = (() => {
             <div class="lumio-mini-cart__row lumio-mini-cart__row--total"><span>${t("total","Total")}</span><span>${fmt(total)}</span></div>
           </div>
           <a class="lumio-btn lumio-btn--primary" href="${cartUrl}">${t("checkout","Proceed to Checkout")}</a>`;
-        container.querySelectorAll(".lumio-mini-cart__remove").forEach(btn => {
-          btn.addEventListener("click", () => removeFromCart(btn.dataset.key));
-        });
+        container.querySelectorAll(".lumio-mini-cart__remove").forEach(btn => { btn.addEventListener("click", () => removeFromCart(btn.dataset.key)); });
       });
     }
     render();
@@ -738,7 +613,7 @@ const Shop = (() => {
     document.addEventListener("currency:changed", render);
   }
 
-  /* ─── TURNSTILE ─────────────────────────────────────── */
+  /* ─── TURNSTILE + FORMSPREE ─────────────────────────── */
   function renderTurnstile(containerEl) {
     return new Promise((resolve, reject) => {
       if (typeof window.turnstile === "undefined") { resolve(null); return; }
@@ -751,46 +626,36 @@ const Shop = (() => {
       });
     });
   }
-
-  /* ─── FORMSPREE ─────────────────────────────────────── */
   async function submitOrderDetails(orderRef, formData, cart, captchaEl = null) {
     const totals = calculateTotals(cart, formData.isBusiness, formData.country);
-    let captchaToken = null;
-    if (captchaEl) captchaToken = await renderTurnstile(captchaEl);
+    let captchaToken = captchaEl ? await renderTurnstile(captchaEl) : null;
     const payload = new FormData();
-    payload.append("_subject", `New Order ${orderRef}`);
-    payload.append("order_ref", orderRef); payload.append("status", "PENDING_PAYMENT");
-    payload.append("display_currency", CONFIG.currencyCode);
+    payload.append("_subject", `New Order ${orderRef}`); payload.append("order_ref", orderRef); payload.append("status", "PENDING_PAYMENT"); payload.append("display_currency", CONFIG.currencyCode);
     if (captchaToken) payload.append("cf-turnstile-response", captchaToken);
-    Object.entries(formData).forEach(([k, v]) => { if (v != null && v !== "") payload.append(k, v); });
-    payload.append("cart_items", cart.map(i => `${i.qty}× ${i.name}${i.selectedColor?` (${i.selectedColor})`:""} @ ${fmt(i.price)} | ${fmtWeight((i.weight||0)*i.qty)}`).join("\n"));
-    payload.append("subtotal_eur", "€" + totals.subtotal.toFixed(2));
-    payload.append("subtotal_display", fmt(totals.subtotal));
-    payload.append("tax", fmt(totals.tax));
-    payload.append("shipping", totals.isFreeShipping ? "FREE" : fmt(totals.shipping));
-    payload.append("total_eur", "€" + totals.total.toFixed(2));
-    payload.append("total_display", fmt(totals.total));
-    payload.append("total_weight", fmtWeight(totals.totalWeight || 0));
-    try { const r = await fetch(CONFIG.formspree.endpoint, { method:"POST", body:payload, headers:{"Accept":"application/json"} }); return r.ok; }
-    catch (e) { console.warn("Formspree failed", e); return false; }
+    Object.entries(formData).forEach(([k,v]) => { if (v!=null&&v!=="") payload.append(k,v); });
+    payload.append("cart_items", cart.map(i=>`${i.qty}× ${i.name}${i.selectedColor?` (${i.selectedColor})`:""} @ ${fmt(i.price)} | ${fmtWeight((i.weight||0)*i.qty)}`).join("\n"));
+    payload.append("subtotal_eur","€"+totals.subtotal.toFixed(2)); payload.append("subtotal_display",fmt(totals.subtotal));
+    payload.append("tax",fmt(totals.tax)); payload.append("shipping",totals.isFreeShipping?"FREE":fmt(totals.shipping));
+    payload.append("total_eur","€"+totals.total.toFixed(2)); payload.append("total_display",fmt(totals.total)); payload.append("total_weight",fmtWeight(totals.totalWeight||0));
+    try { const r = await fetch(CONFIG.formspree.endpoint,{method:"POST",body:payload,headers:{"Accept":"application/json"}}); return r.ok; } catch(e) { console.warn("Formspree failed",e); return false; }
   }
   async function submitOrderStatus(orderRef, status) {
-    const payload = new FormData();
-    payload.append("_subject", `Order ${status}: ${orderRef}`); payload.append("order_ref", orderRef); payload.append("status", status);
-    try { await fetch(CONFIG.formspree.endpoint, { method:"POST", body:payload, headers:{"Accept":"application/json"} }); } catch {}
+    const payload = new FormData(); payload.append("_subject",`Order ${status}: ${orderRef}`); payload.append("order_ref",orderRef); payload.append("status",status);
+    try { await fetch(CONFIG.formspree.endpoint,{method:"POST",body:payload,headers:{"Accept":"application/json"}}); } catch {}
   }
 
   /* ─── PUBLIC API ────────────────────────────────────── */
   return {
-    resolveLanguage, switchLanguage, wireLanguageSwitcher, loadLang, t,
+    resolveLanguage, detectBrowserLanguage, switchLanguage, wireLanguageSwitcher, loadLang, t,
     loadProducts, getProduct, pName, pDesc, pCategory,
     getCart, saveCart, addToCart, removeFromCart, updateQty, clearCart, calculateTotals,
     fmt, fmtWeight, generateOrderRef,
+    slugify, buildImagePath, colorImageSrc,
     toast, swapMainImg,
     getVariant, variantPrice, variantWeight, variantImage, variantStock, variantInStock,
-    buildRelatedStrip, wireRelatedStrip,
-    renderCurrencySelector, renderBackButton, wireLanguageSwitcher,
-    renderCartIcon, renderShop, renderProductInfo, renderMiniCart,
+    buildRelatedStrip, wireRelatedStrip, buildProductCard, wireProductCard,
+    renderCurrencySelector, renderBackButton, renderCartIcon,
+    renderShop, renderProductInfo, renderMiniCart,
     renderTurnstile, submitOrderDetails, submitOrderStatus,
   };
 })();
