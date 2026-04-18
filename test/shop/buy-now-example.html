@@ -798,102 +798,49 @@ CONFIG.features = {
   };
 
   /* ── HELPERS ─────────────────────────────────────── */
-  function makeCard(p, opts={}) {
-    const hasVariants = p.variants?.length > 0;
-    const firstV = hasVariants ? p.variants[0] : null;
-    const displayPrice = firstV?.price != null ? firstV.price : p.price;
-    const inStock = hasVariants ? Shop.variantInStock(p, firstV?.id) : p.stock > 0;
-    const soldOut = p.colors_soldout || [];
-    const hasUrl = !!(opts.url || p.url);
-    const url = opts.url || p.url || "";
+  // Swatch palette for demo color buttons (applies background color visually)
+  const SWATCH = {
+    "Smoke":"#a0968c","Clear":"#c0d0e0","Amber":"#d0a040",
+    "Opal White":"#e8e4dc","Terracotta":"#c87050",
+    "Matte Black":"#2a2825","Brushed Gold":"#d4a83c","Washed White":"#f0ece4","Raw Concrete":"#b0a898"
+  };
 
-    let selHtml = "";
-    if (hasVariants) {
-      selHtml = `<div class="lumio-variants">${p.variants.map((v,i)=>{
-        const so = v.stock!=null && v.stock===0;
-        return `<button class="lumio-variant-btn${i===0?" active":""}${so?" soldout":""}"
-          data-variant-id="${v.id}" ${so?'disabled title="Sold Out"':""}>
-          ${v.label}${so?" <em>(Sold Out)</em>":""}</button>`;
-      }).join("")}</div>`;
-    } else if (p.colors?.length) {
-      selHtml = `<div class="lumio-colors">${p.colors.map((c,i)=>{
-        const so = soldOut.includes(c);
-        return `<button class="lumio-color${i===0?" lumio-color--active":""}${so?" lumio-color--soldout":""}"
-          data-color="${c}" title="${c}${so?" (Sold Out)":""}" ${so?'disabled aria-disabled="true"':""}></button>`;
-      }).join("")}</div>`;
+  /**
+   * Build and wire a product card using Shop's own engine.
+   * colorImages: { "ColorName": dataURI } — overrides image src on swatch click.
+   * opts.related: false → suppress related strip.
+   */
+  function makeAndWireCard(container, p, colorImages = {}, opts = {}) {
+    container.innerHTML = "";
+    // If opts.related is false, temporarily strip related so buildProductCard omits it
+    const pForCard = opts.related === false ? { ...p, related: [] } : p;
+    const card = document.createElement("div");
+    card.className = "lumio-product-card";
+    card.innerHTML = Shop.buildProductCard(pForCard);
+    container.appendChild(card);
+
+    // Apply swatch colors (must happen after card is in DOM)
+    card.querySelectorAll(".lumio-color").forEach(btn => {
+      const col = SWATCH[btn.dataset.color];
+      if (col) btn.style.background = col;
+    });
+
+    // Wire standard shop card behaviour (variant buttons, qty, ATC, related)
+    Shop.wireProductCard(card, pForCard);
+
+    // Extra: override image swap for color swatches using demo data URIs
+    if (Object.keys(colorImages).length) {
+      card.querySelectorAll(".lumio-color:not([disabled])").forEach(btn => {
+        // Re-attach click to use demo color images instead of convention paths
+        btn.addEventListener("click", () => {
+          const src = colorImages[btn.dataset.color];
+          const img = card.querySelector(".lumio-card-img");
+          if (img && src) { img.src = src; }  // direct assign — safe for data URIs
+        });
+      });
     }
 
-    const imgTag = hasUrl ? `a href="${url}" target="_blank"` : "div";
-    const imgEnd = hasUrl ? "a" : "div";
-
-    return `<${imgTag} class="lumio-card-img-wrap${hasUrl?" lumio-card-img-link":""}">
-        <img class="lumio-card-img" src="${p.image}" alt="${Shop.pName(p)}">
-        ${p.featured?`<span class="lumio-badge">${Shop.t("featured","Featured")}</span>`:""}
-      </${imgEnd}>
-      <div class="lumio-card-body">
-        <h3 class="lumio-card-title">${Shop.pName(p)}</h3>
-        ${selHtml}
-        <div class="lumio-card-footer">
-          <span class="lumio-card-price">${Shop.fmt(displayPrice)}</span>
-          <div class="lumio-qty-control">
-            <button class="lumio-qty-btn lumio-qty-btn--minus">−</button>
-            <span class="lumio-qty-val">1</span>
-            <button class="lumio-qty-btn lumio-qty-btn--plus">+</button>
-          </div>
-        </div>
-        <button class="lumio-card-quick-add lumio-btn lumio-btn--primary lumio-btn--full" ${inStock?"":"disabled"}>
-          ${inStock?Shop.t("add_to_cart","Add to Cart"):Shop.t("out_of_stock","Out of Stock")}
-        </button>
-        ${opts.related !== false ? Shop.buildRelatedStrip(p,"card") : ""}
-      </div>`;
-  }
-
-  function wireCard(wrap, p, colorImages) {
-    const hasVariants = p.variants?.length > 0;
-    let qty=1, selV=p.variants?.[0]?.id||null, selC=p.colors?.[0]||null;
-    const img   = wrap.querySelector(".lumio-card-img");
-    const price = wrap.querySelector(".lumio-card-price");
-    const atc   = wrap.querySelector(".lumio-card-quick-add");
-    const qv    = wrap.querySelector(".lumio-qty-val");
-
-    // Swatch visual colors
-    const swatchPalette = {
-      "Smoke":"#a0968c","Clear":"#c0d0e0","Amber":"#d0a040",
-      "Opal White":"#e8e4dc","Terracotta":"#c87050",
-      "Matte Black":"#2a2825","Brushed Gold":"#d4a83c","Washed White":"#f0ece4","Raw Concrete":"#b0a898"
-    };
-    wrap.querySelectorAll(".lumio-color").forEach(btn => {
-      if (swatchPalette[btn.dataset.color]) btn.style.background = swatchPalette[btn.dataset.color];
-    });
-
-    wrap.querySelectorAll(".lumio-variant-btn:not([disabled])").forEach(btn => {
-      btn.addEventListener("click", () => {
-        wrap.querySelectorAll(".lumio-variant-btn").forEach(b=>b.classList.remove("active"));
-        btn.classList.add("active"); selV=btn.dataset.variantId;
-        if (price) price.textContent = Shop.fmt(Shop.variantPrice(p,selV));
-        const inStk = Shop.variantInStock(p,selV);
-        if (atc) { atc.disabled=!inStk; atc.textContent=inStk?Shop.t("add_to_cart","Add to Cart"):Shop.t("out_of_stock","Out of Stock"); }
-        const imgSrc = Shop.variantImage(p,selV);
-        if (img&&imgSrc) Shop.swapMainImg(img,imgSrc);
-      });
-    });
-    wrap.querySelectorAll(".lumio-color:not([disabled])").forEach(btn => {
-      btn.addEventListener("click", () => {
-        wrap.querySelectorAll(".lumio-color").forEach(b=>b.classList.remove("lumio-color--active"));
-        btn.classList.add("lumio-color--active"); selC=btn.dataset.color;
-        if (img && colorImages && colorImages[selC]) Shop.swapMainImg(img,colorImages[selC]);
-      });
-    });
-    if (qv) {
-      wrap.querySelector(".lumio-qty-btn--plus")?.addEventListener("click",()=>{qty=Math.min(qty+1,p.stock||99);qv.textContent=qty;});
-      wrap.querySelector(".lumio-qty-btn--minus")?.addEventListener("click",()=>{qty=Math.max(1,qty-1);qv.textContent=qty;});
-    }
-    if (atc) atc.addEventListener("click",()=>{
-      Shop.addToCart(p,qty,selV,selC,img?.src||null);
-      const label = selV ? (p.variants?.find(v=>v.id===selV)?.label||selV) : selC;
-      Shop.toast(`${Shop.pName(p)}${label?" – "+label:""} ${Shop.t("added","added to cart")}`);
-    });
-    Shop.wireRelatedStrip(wrap,p);
+    return card;
   }
 
   /* ── BOOT ─────────────────────────────────────────── */
@@ -948,11 +895,9 @@ CONFIG.features = {
       allProds.forEach(p => {
         const wrap=document.createElement("div");
         wrap.className="lumio-product-card"; wrap.dataset.cat=p.category;
-        const globeColorImgs={Smoke:M.globeSmk,Clear:M.globeClr,Amber:M.globeAmb};
-        const colorImgs = p.id==="globe-pendant" ? globeColorImgs : {};
-        wrap.innerHTML=makeCard(p);
+        const colorImgs = p.id==="globe-pendant" ? {Smoke:M.globeSmk,Clear:M.globeClr,Amber:M.globeAmb} : {};
+        makeAndWireCard(wrap, p, colorImgs);
         grid.appendChild(wrap);
-        wireCard(wrap,p,colorImgs);
       });
     }
     buildGrid();
@@ -961,15 +906,8 @@ CONFIG.features = {
     /* §3  URL demos */
     function mkSimpleCard(container, p, withUrl) {
       if (!container) return;
-      const url = withUrl ? "https://lumio.shop/products/"+p.id : "";
-      const card = document.createElement("div");
-      card.className = "lumio-product-card";
-      card.innerHTML = makeCard({...p,url}, {related:false});
-      container.innerHTML = "";
-      container.appendChild(card);
-      card.querySelector(".lumio-card-quick-add")?.addEventListener("click",()=>{
-        Shop.addToCart(p,1); Shop.toast(`${Shop.pName(p)} ${Shop.t("added","added to cart")}`);
-      });
+      const pWithUrl = {...p, url: withUrl ? "https://lumio.shop/products/"+p.id : ""};
+      makeAndWireCard(container, pWithUrl, {}, {related:false});
     }
     mkSimpleCard(document.getElementById("url-card-with"),   P.arc,  true);
     mkSimpleCard(document.getElementById("url-card-without"), P.globe, false);
@@ -978,41 +916,24 @@ CONFIG.features = {
     (function(){
       const wrap = document.getElementById("variant-card");
       if (!wrap) return;
-      const card = document.createElement("div");
-      card.className = "lumio-product-card";
-      card.innerHTML = makeCard(P.hoodie, {related:false});
-      wrap.innerHTML = ""; wrap.appendChild(card);
-      wireCard(card, P.hoodie, {});
+      makeAndWireCard(wrap, P.hoodie, {}, {related:false});
     })();
 
     /* §5  Color swatch card */
     (function(){
       const wrap = document.getElementById("color-card");
       if (!wrap) return;
-      const card = document.createElement("div");
-      card.className = "lumio-product-card";
-      const p = {...P.globe, image: M.globeSmk};  // start on Smoke
-      card.innerHTML = makeCard(p, {related:false});
-      wrap.innerHTML=""; wrap.appendChild(card);
-      wireCard(card, P.globe, {Smoke:M.globeSmk, Clear:M.globeClr, Amber:M.globeAmb});
+      // Start on Smoke image
+      const p = {...P.globe, image: M.globeSmk};
+      makeAndWireCard(wrap, p, {Smoke:M.globeSmk, Clear:M.globeClr, Amber:M.globeAmb}, {related:false});
     })();
 
     /* §6  Sold-out demos */
     (function(){
       const cWrap=document.getElementById("soldout-color-card");
-      if (cWrap) {
-        const card=document.createElement("div"); card.className="lumio-product-card";
-        card.innerHTML=makeCard(P.sconce,{related:false});
-        cWrap.innerHTML=""; cWrap.appendChild(card);
-        wireCard(card,P.sconce,{});
-      }
+      if (cWrap) makeAndWireCard(cWrap, P.sconce, {}, {related:false});
       const vWrap=document.getElementById("soldout-variant-card");
-      if (vWrap) {
-        const card=document.createElement("div"); card.className="lumio-product-card";
-        card.innerHTML=makeCard(P.hoodie,{related:false});
-        vWrap.innerHTML=""; vWrap.appendChild(card);
-        wireCard(card,P.hoodie,{});
-      }
+      if (vWrap) makeAndWireCard(vWrap, P.hoodie, {}, {related:false});
     })();
 
     /* §7  Related strip */
