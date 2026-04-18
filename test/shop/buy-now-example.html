@@ -85,7 +85,9 @@ const M = {
           <a href="cart.html" style="color:var(--c-text-2)">Cart</a>
         </nav>
         <div style="display:flex;gap:10px;align-items:center;">
-          <div class="lumio-lang-switcher">
+          <!-- Lang switcher hidden: CONFIG.features.showLanguageSwitcher=false -->
+          <!-- Language auto-detected from browser / URL ?lang= / stored pref -->
+          <div class="lumio-lang-switcher" aria-hidden="true">
             <button class="lumio-lang-btn" data-lang="en">EN</button>
             <button class="lumio-lang-btn" data-lang="no">NO</button>
             <button class="lumio-lang-btn" data-lang="nl">NL</button>
@@ -124,6 +126,9 @@ const M = {
         <a href="#s10">Back Button</a>
         <a href="#s11">Currencies</a>
         <a href="#s12">Integration Guide</a>
+        <a href="#s13">Payment Module</a>
+        <a href="#s14">Image Naming</a>
+        <a href="#s15">Language &amp; Storage Keys</a>
       </nav>
 
       <!-- §1 Language & Currency -->
@@ -558,6 +563,152 @@ Promise.all([
     <span class="hl">"no"</span>: { <span class="hl">"name"</span>:<span class="str">"Mitt Produkt"</span>, <span class="hl">"description"</span>:<span class="str">"..."</span>, <span class="hl">"category"</span>:<span class="str">"skrivebord"</span> }
   }
 }</pre></div>
+      </div>
+
+
+      <!-- §13 Payment Module -->
+      <div id="s13" class="demo-section lumio-fade-in">
+        <span class="demo-badge demo-badge--new">New in v3</span>
+        <h2 class="demo-title">Payment Module</h2>
+        <p class="demo-desc">
+          A pluggable <code>Payment</code> module with adapters for PayPal and Stripe.
+          Switch processors by changing one config value — no HTML changes needed.
+          Both adapters fire the same custom events so your checkout flow is processor-agnostic.
+        </p>
+        <div class="demo-2col">
+          <div class="demo-code"><pre><span class="cm">/* config.js — switch processor here */</span>
+CONFIG.payment = {
+  <span class="hl">activeProcessor</span>: <span class="str">"paypal"</span>,   <span class="cm">← or "stripe" | "none"</span>
+
+  <span class="hl">paypal</span>: {
+    clientId: <span class="str">"AZ..."</span>,
+    currency: <span class="str">"EUR"</span>,
+    intent:   <span class="str">"capture"</span>,   <span class="cm">← or "authorize"</span>
+    returnUrl: <span class="str">"/success.html"</span>,
+    cancelUrl: <span class="str">"/cart.html"</span>,
+  },
+
+  <span class="hl">stripe</span>: {
+    publishableKey:  <span class="str">"pk_test_..."</span>,
+    currency:        <span class="str">"eur"</span>,
+    <span class="hl">intentEndpoint</span>:  <span class="str">"/api/create-intent"</span>,
+    returnUrl: <span class="str">"/success.html"</span>,
+    appearance: { theme: <span class="str">"stripe"</span>, ... },
+  },
+};
+
+<span class="cm">/* Boot (e.g. in cart.html) */</span>
+<span class="kw">await</span> Payment.init();
+
+<span class="kw">const</span> orderRef = Shop.generateOrderRef();
+<span class="kw">const</span> totals   = Shop.calculateTotals(Shop.getCart());
+
+<span class="cm">// Renders PayPal buttons or Stripe Elements</span>
+Payment.render(cart, totals, orderRef, <span class="str">"#payment-mount"</span>);
+
+<span class="cm">// Outcome events (same for both processors)</span>
+document.addEventListener(<span class="str">"payment:success"</span>, e => {
+  Shop.clearCart();
+  window.location = <span class="str">"/success.html?ref="</span> + e.detail.orderRef;
+});
+document.addEventListener(<span class="str">"payment:cancel"</span>,  e => { ... });
+document.addEventListener(<span class="str">"payment:error"</span>,   e => { ... });
+
+<span class="cm">// Switch processor at runtime:</span>
+Payment.switchProcessor(<span class="str">"stripe"</span>);</pre></div>
+          <div>
+            <p class="live-label">Payment mount — PayPal (demo mode)</p>
+            <div id="payment-demo-mount" style="min-height:80px;border:1px dashed var(--c-border);border-radius:var(--radius);padding:16px;"></div>
+            <div style="margin-top:16px;">
+              <p style="font-size:0.8rem;color:var(--c-text-3);margin-bottom:8px;">Switch processor:</p>
+              <div style="display:flex;gap:8px;">
+                <button onclick="showPaymentDemo('paypal')" class="lumio-btn lumio-btn--outline" style="font-size:0.8rem;padding:7px 16px;">PayPal</button>
+                <button onclick="showPaymentDemo('stripe')" class="lumio-btn lumio-btn--outline" style="font-size:0.8rem;padding:7px 16px;">Stripe</button>
+                <button onclick="showPaymentDemo('none')"   class="lumio-btn lumio-btn--outline" style="font-size:0.8rem;padding:7px 16px;">None</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- §14 Image Naming Convention -->
+      <div id="s14" class="demo-section lumio-fade-in">
+        <span class="demo-badge demo-badge--new">New in v3</span>
+        <h2 class="demo-title">Image Naming Convention</h2>
+        <p class="demo-desc">
+          Images follow a predictable naming pattern so the engine can find them automatically
+          from product ID, variant ID, and color slug. Explicit <code>variant.image</code> in JSON always takes priority.
+        </p>
+        <div class="demo-code"><pre><span class="cm">/* config.js */</span>
+CONFIG.images = {
+  imageDir: <span class="str">"images/products/"</span>,
+  imageExt: <span class="str">"webp"</span>,
+};
+
+<span class="cm">/* Format: &lt;imageDir&gt;&lt;productId&gt;_&lt;variantId&gt;_&lt;colorSlug&gt;.&lt;imageExt&gt; */</span>
+
+<span class="cm">// Variant only:</span>
+<span class="hl">dornori_star-a_matte-black.webp</span>    <span class="cm">// productId=dornori, variantId=star-a, color=matte-black</span>
+<span class="hl">concrete-desk-lamp_washed-white.webp</span>  <span class="cm">// productId=concrete-desk-lamp, variantId=washed-white</span>
+
+<span class="cm">// Color swatch only (no variants):</span>
+<span class="hl">globe-pendant_amber.webp</span>              <span class="cm">// productId=globe-pendant, color=Amber → slug: amber</span>
+
+<span class="cm">// Priority order:</span>
+<span class="cm">// 1. variant.image (explicit override in product JSON)</span>
+<span class="cm">// 2. Convention path built from productId + variantId</span>
+<span class="cm">// 3. product.image fallback (onerror)</span>
+
+<span class="cm">// JS helpers:</span>
+Shop.buildImagePath(<span class="str">"dornori"</span>, <span class="str">"star-a"</span>, <span class="str">"red-blue"</span>)
+<span class="cm">// → "images/products/dornori_star-a_red-blue.webp"</span>
+
+Shop.buildImagePath(<span class="str">"globe-pendant"</span>, <span class="kw">null</span>, <span class="str">"Amber"</span>)
+<span class="cm">// → "images/products/globe-pendant_amber.webp"</span>
+
+Shop.slugify(<span class="str">"Brushed Gold"</span>)  <span class="cm">// → "brushed-gold"</span>
+Shop.slugify(<span class="str">"Red/Blue"</span>)      <span class="cm">// → "redblue"</span></pre></div>
+      </div>
+
+      <!-- §15 Language & Storage Keys -->
+      <div id="s15" class="demo-section lumio-fade-in">
+        <span class="demo-badge demo-badge--new">New in v3</span>
+        <h2 class="demo-title">Language Auto-Detection &amp; Configurable Storage Keys</h2>
+        <p class="demo-desc">
+          Language is detected automatically — no manual switcher needed.
+          Storage key names are configurable so they can match your wider site's naming convention.
+        </p>
+        <div class="demo-2col">
+          <div class="demo-code"><pre><span class="cm">/* config.js — configure keys to match your site */</span>
+CONFIG.userPrefs = {
+  <span class="hl">langKey</span>:     <span class="str">"lumio_lang"</span>,      <span class="cm">← change to "dornori_locale" etc.</span>
+  <span class="hl">currencyKey</span>: <span class="str">"lumio_currency"</span>,  <span class="cm">← change to "dornori_currency" etc.</span>
+};
+
+CONFIG.features = {
+  <span class="hl">showLanguageSwitcher</span>: <span class="kw">false</span>,  <span class="cm">← hides buttons, keeps logic</span>
+  <span class="hl">showCurrencySelector</span>: <span class="kw">true</span>,
+};
+
+<span class="cm">/* Language resolution priority (highest → lowest): */</span>
+<span class="cm">// 1. URL ?lang=nl          — from embedding sites / iframes</span>
+<span class="cm">// 2. localStorage[langKey] — stored user preference</span>
+<span class="cm">// 3. navigator.languages   — browser Accept-Language</span>
+<span class="cm">// 4. CONFIG.defaultLanguage</span>
+<span class="cm">// 5. "en" fallback</span>
+
+<span class="cm">/* Currency resolution: */</span>
+<span class="cm">// 1. localStorage[currencyKey] — stored preference</span>
+<span class="cm">// 2. IP detect (ipapi.co)      — auto on first visit</span>
+<span class="cm">// 3. "EUR" fallback</span>
+
+<span class="cm">/* Embed with language preset (for iframes / partner sites): */</span>
+<span class="cm">// lumio.shop/index.html?lang=nl</span></pre></div>
+          <div>
+            <p class="live-label">Current state</p>
+            <div id="lang-storage-demo" style="background:var(--c-surface-2);border-radius:var(--radius-lg);padding:20px;font-size:0.85rem;line-height:2;color:var(--c-text-2);"></div>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -1005,6 +1156,47 @@ Promise.all([
     }
     buildPriceConv();
     document.addEventListener("currency:changed",buildPriceConv);
+
+  }); // end Promise.all
+
+  /* §13 Payment module demo */
+  window.showPaymentDemo = async function(processor) {
+    const el = document.getElementById("payment-demo-mount");
+    if (!el) return;
+    CONFIG.payment.activeProcessor = processor;
+    await Payment.switchProcessor(processor);
+    const demoCart   = [{ id:"demo", name:"Arc Floor Lamp", price:249, qty:1, weight:4.2, selectedColor:"Matte Black" }];
+    const demoTotals = Shop.calculateTotals(demoCart);
+    const demoRef    = Shop.generateOrderRef();
+    await Payment.render(demoCart, demoTotals, demoRef, el);
+    el.scrollIntoView({ behavior:"smooth", block:"nearest" });
+  };
+  // Show PayPal placeholder on load (SDK not loaded in demo)
+  document.getElementById("payment-demo-mount").innerHTML =
+    `<div style="padding:20px;text-align:center;color:var(--c-text-3);font-size:0.85rem;">
+      Click a processor button above to render the payment UI.<br>
+      <small>PayPal/Stripe SDK loads on first click.</small>
+    </div>`;
+
+  /* §15 Language & storage key state display */
+  function updateLangStorageDemo() {
+    const el = document.getElementById("lang-storage-demo");
+    if (!el) return;
+    const langKey  = CONFIG.userPrefs?.langKey     || "lumio_lang";
+    const currKey  = CONFIG.userPrefs?.currencyKey || "lumio_currency";
+    el.innerHTML = `
+      <strong>Lang key:</strong> <code style="background:var(--c-accent-light);padding:1px 7px;border-radius:4px;">${langKey}</code><br>
+      <strong>Currency key:</strong> <code style="background:var(--c-accent-light);padding:1px 7px;border-radius:4px;">${currKey}</code><br>
+      <strong>Active language:</strong> <code style="background:var(--c-accent-light);padding:1px 7px;border-radius:4px;">${CONFIG.language}</code><br>
+      <strong>Stored lang:</strong> <code style="background:var(--c-accent-light);padding:1px 7px;border-radius:4px;">${localStorage.getItem(langKey) || "(not set)"}</code><br>
+      <strong>Active currency:</strong> <code style="background:var(--c-accent-light);padding:1px 7px;border-radius:4px;">${Currency.getActive()}</code><br>
+      <strong>URL ?lang=:</strong> <code style="background:var(--c-accent-light);padding:1px 7px;border-radius:4px;">${new URLSearchParams(location.search).get("lang") || "(not set)"}</code><br>
+      <strong>Browser lang:</strong> <code style="background:var(--c-accent-light);padding:1px 7px;border-radius:4px;">${Shop.detectBrowserLanguage() || "(no match)"}</code>
+    `;
+  }
+  updateLangStorageDemo();
+  document.addEventListener("shop:langChanged",  updateLangStorageDemo);
+  document.addEventListener("currency:changed",  updateLangStorageDemo);
 
   }); // end Promise.all
   </script>

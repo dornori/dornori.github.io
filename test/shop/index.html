@@ -58,22 +58,6 @@
       font-weight: 600;
       letter-spacing: 0.05em;
     }
-    .lumio-lang-switcher { display: flex; gap: 6px; align-items: center; }
-    .lumio-lang-btn {
-      padding: 4px 10px;
-      border: 1px solid var(--c-border);
-      border-radius: var(--radius-sm);
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--c-text-3);
-      background: transparent;
-      cursor: pointer;
-      letter-spacing: 0.06em;
-      transition: all var(--transition);
-    }
-    .lumio-lang-btn.active, .lumio-lang-btn:hover {
-      background: var(--c-text); color: white; border-color: var(--c-text);
-    }
   </style>
 </head>
 <body>
@@ -83,7 +67,13 @@
       <div class="lumio-page-header__inner">
         <a href="index.html" class="lumio-logo">LUM<span>IO</span></a>
         <div style="display:flex; gap:10px; align-items:center;">
-          <div class="lumio-lang-switcher">
+          <!--
+            Language switcher buttons are kept in HTML for potential use
+            but hidden by CONFIG.features.showLanguageSwitcher = false.
+            Language is auto-detected from browser / URL param / stored pref.
+            To show the switcher: set CONFIG.features.showLanguageSwitcher = true
+          -->
+          <div class="lumio-lang-switcher" aria-hidden="true" style="display:none;">
             <button class="lumio-lang-btn" data-lang="en">EN</button>
             <button class="lumio-lang-btn" data-lang="no">NO</button>
             <button class="lumio-lang-btn" data-lang="nl">NL</button>
@@ -122,14 +112,27 @@
   <script>
     Promise.all([
       Shipping.load(),
-      Currency.init(),
-      Shop.loadLang(),
+      Currency.init(),    // auto-detects from IP; uses CONFIG.userPrefs.currencyKey
+      Shop.loadLang(),    // auto-detects from browser/URL/stored pref; uses CONFIG.userPrefs.langKey
     ]).then(() => {
-      // Wire language buttons — handles URL ?lang=, localStorage, active state
+      // Wire lang buttons — hidden by CONFIG.features.showLanguageSwitcher = false
+      // but still functional for URL ?lang= embeds and programmatic switching.
       Shop.wireLanguageSwitcher(".lumio-lang-btn");
+
+      // Currency selector (shown; set CONFIG.features.showCurrencySelector = false to hide)
       Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false });
       Shop.renderCurrencySelector("#currency-selector-slot");
+
+      // Product grid — cards now have ATC button in body, qty always accessible
       Shop.renderShop("shop", { showFilter: true });
+    });
+
+    // Listen for payment outcomes (used by cart.html checkout flow)
+    document.addEventListener("payment:success", e => {
+      console.log("[Payment] Success:", e.detail);
+    });
+    document.addEventListener("payment:cancel", e => {
+      console.log("[Payment] Cancelled:", e.detail);
     });
   </script>
 </body>
