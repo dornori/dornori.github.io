@@ -212,7 +212,13 @@ const Shop = (() => {
 
   /* ─── SWAP IMAGE (fade + convention fallback) ────────── */
   function swapMainImg(imgEl, src, fallback = null) {
-    if (!imgEl) return;
+    if (!imgEl || !src) return;
+    // Data URIs are always valid — skip preload, swap directly
+    if (src.startsWith("data:")) {
+      imgEl.style.opacity = "0";
+      setTimeout(() => { imgEl.src = src; imgEl.style.opacity = ""; }, 50);
+      return;
+    }
     imgEl.style.opacity = "0";
     const next = new Image();
     next.onload  = () => { setTimeout(() => { imgEl.src = src; imgEl.style.opacity = ""; }, 50); };
