@@ -6,7 +6,6 @@
   <title>LUMIO – Curated Lighting</title>
   <link rel="stylesheet" href="css/shop.css">
   <style>
-    /* ── Index-specific hero ── */
     .lumio-hero {
       background: var(--c-surface);
       border-bottom: 1px solid var(--c-border);
@@ -59,11 +58,7 @@
       font-weight: 600;
       letter-spacing: 0.05em;
     }
-    .lumio-lang-switcher {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-    }
+    .lumio-lang-switcher { display: flex; gap: 6px; align-items: center; }
     .lumio-lang-btn {
       padding: 4px 10px;
       border: 1px solid var(--c-border);
@@ -77,53 +72,44 @@
       transition: all var(--transition);
     }
     .lumio-lang-btn.active, .lumio-lang-btn:hover {
-      background: var(--c-text);
-      color: white;
-      border-color: var(--c-text);
+      background: var(--c-text); color: white; border-color: var(--c-text);
     }
   </style>
 </head>
 <body>
 
-  <!-- HEADER -->
   <header class="lumio-page-header">
     <div class="lumio-container">
       <div class="lumio-page-header__inner">
         <a href="index.html" class="lumio-logo">LUM<span>IO</span></a>
         <div style="display:flex; gap:10px; align-items:center;">
           <div class="lumio-lang-switcher">
-            <button class="lumio-lang-btn active" data-lang="en">EN</button>
+            <button class="lumio-lang-btn" data-lang="en">EN</button>
             <button class="lumio-lang-btn" data-lang="no">NO</button>
             <button class="lumio-lang-btn" data-lang="nl">NL</button>
           </div>
           <div id="currency-selector-slot"></div>
-          <!-- Cart icon injected by JS -->
           <div id="cart-icon-slot"></div>
         </div>
       </div>
     </div>
   </header>
 
-  <!-- HERO -->
   <section class="lumio-hero">
     <div class="lumio-container">
       <p class="lumio-hero-eyebrow">New Collection 2025</p>
       <h1 class="lumio-hero-title">Light that <em>lives</em><br>with you</h1>
       <p class="lumio-hero-sub">Handpicked lamps and luminaires for every corner of your home.</p>
-      <div class="lumio-free-ship-badge">
-        ✦ Free shipping on orders over €150
-      </div>
+      <div class="lumio-free-ship-badge">✦ Free shipping on orders over €150</div>
     </div>
   </section>
 
-  <!-- MAIN SHOP GRID -->
   <main class="lumio-page-main">
     <div class="lumio-container">
       <div id="shop"></div>
     </div>
   </main>
 
-  <!-- FOOTER -->
   <footer style="background: var(--c-text); color: var(--c-white); padding: 40px 0; margin-top: 40px;">
     <div class="lumio-container" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
       <span class="lumio-logo" style="font-size:1.2rem;">LUM<span style="color:var(--c-accent)">IO</span></span>
@@ -134,31 +120,13 @@
   <script src="js/config.js"></script>
   <script src="js/shop.js"></script>
   <script>
-    // Language switcher
-    document.querySelectorAll(".lumio-lang-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        CONFIG.language = btn.dataset.lang;
-        localStorage.setItem("lumio_lang", btn.dataset.lang);
-        document.querySelectorAll(".lumio-lang-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        location.reload();
-      });
-    });
-
-    const savedLang = localStorage.getItem("lumio_lang");
-    if (savedLang) {
-      CONFIG.language = savedLang;
-      document.querySelectorAll(".lumio-lang-btn").forEach(b => {
-        b.classList.toggle("active", b.dataset.lang === savedLang);
-      });
-    }
-
-    // Boot: load shipping config, detect currency from IP, then render
     Promise.all([
       Shipping.load(),
       Currency.init(),
       Shop.loadLang(),
     ]).then(() => {
+      // Wire language buttons — handles URL ?lang=, localStorage, active state
+      Shop.wireLanguageSwitcher(".lumio-lang-btn");
       Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false });
       Shop.renderCurrencySelector("#currency-selector-slot");
       Shop.renderShop("shop", { showFilter: true });
