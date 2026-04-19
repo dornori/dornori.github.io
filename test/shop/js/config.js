@@ -11,7 +11,7 @@
    ========================================================= */
 
 const CONFIG = {
-  shopName: "LUMIO",
+  shopName: "Dornori",
   tagline:  "Curated lighting for modern spaces",
 
   baseCurrency: "EUR",
@@ -27,7 +27,7 @@ const CONFIG = {
    * e.g. if your site uses "dornori_locale", set langKey to that.
    */
   userPrefs: {
-    langKey:     "lumio_lang",      // localStorage key for language preference
+    langKey:     "dornori-lang",      // localStorage key for language preference default - lumio_lang
     currencyKey: "lumio_currency",  // localStorage key for currency preference
   },
 
