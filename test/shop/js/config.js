@@ -20,7 +20,7 @@ const CONFIG = {
 
   language:           "en",
   defaultLanguage:    "en",
-  supportedLanguages: ["en", "no", "nl"],
+  supportedLanguages: ["en", "no", "nl", "de"],
 
   /* ── Configurable storage keys ────────────────────────
    * Change to match your wider site's naming convention.
