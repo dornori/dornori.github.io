@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUMIO – Arc Floor Lamp</title>
+  <link rel="stylesheet" href="css/shop.css">
+  <style>
+    /* ════════════════════════════════════════════════════
+       PRODUCT PAGE LAYOUT
+    ════════════════════════════════════════════════════ */
+    .pdp-wrapper {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    /* ── Main product section ─────────────────────────── */
+    .pdp-main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: start;
+      background: var(--c-surface);
+      border-radius: var(--radius-xl);
+      padding: 40px;
+      box-shadow: var(--shadow-sm);
+      /* Fixed height with internal scroll for long content */
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    @media (max-width: 820px) {
+      .pdp-main { grid-template-columns: 1fr; max-height: none; padding: 24px; }
+    }
+
+    /* ── Gallery ──────────────────────────────────────── */
+    .pdp-gallery {
+      position: sticky;
+      top: 24px;
+    }
+    .pdp-gallery__main-wrap {
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius-lg);
+      background: var(--c-bg-alt);
+      cursor: crosshair;
+      aspect-ratio: 1;
+    }
+    .pdp-gallery__main-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: opacity 0.2s;
+    }
+
+    /* Magnifier overlay */
+    .pdp-magnifier {
+      position: fixed;
+      width: 320px;
+      height: 320px;
+      border-radius: var(--radius-lg);
+      border: 2px solid var(--c-border);
+      background: var(--c-surface);
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 200;
+      box-shadow: var(--shadow-lg, 0 20px 60px rgba(0,0,0,.15));
+      display: none;
+    }
+    .pdp-magnifier img {
+      position: absolute;
+      transform-origin: top left;
+    }
+
+    /* Thumbs row */
+    .pdp-gallery__thumbs {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .pdp-gallery__thumb {
+      width: 64px; height: 64px;
+      object-fit: cover;
+      border-radius: var(--radius);
+      cursor: pointer;
+      opacity: 0.6;
+      transition: opacity 0.2s, transform 0.15s;
+      border: 2px solid transparent;
+      flex-shrink: 0;
+    }
+    .pdp-gallery__thumb:hover { opacity: 1; transform: scale(1.05); }
+    .pdp-gallery__thumb.active { opacity: 1; border-color: var(--c-accent); }
+
+    /* Full view button */
+    .pdp-fullview-btn {
+      margin-top: 10px;
+      width: 100%;
+      padding: 10px;
+      background: var(--c-surface-2);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius);
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      color: var(--c-text-2);
+      letter-spacing: 0.04em;
+      transition: all var(--transition);
+    }
+    .pdp-fullview-btn:hover { background: var(--c-text); color: white; border-color: var(--c-text); }
+
+    /* ── Product details panel ────────────────────────── */
+    .pdp-details { padding-top: 4px; }
+    .pdp-category {
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--c-accent); margin-bottom: 8px;
+    }
+    .pdp-name {
+      font-family: var(--font-display);
+      font-size: clamp(1.4rem, 2.5vw, 2rem);
+      font-weight: 400;
+      line-height: 1.2;
+      margin-bottom: 14px;
+    }
+    .pdp-price {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--c-text);
+      margin-bottom: 16px;
+    }
+    .pdp-desc {
+      font-size: 0.9rem;
+      color: var(--c-text-2);
+      line-height: 1.7;
+      margin-bottom: 24px;
+    }
+    .pdp-option-label {
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--c-text-3); margin-bottom: 8px;
+    }
+    .pdp-variants { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+    .pdp-variant-btn {
+      padding: 8px 18px; border: 1.5px solid var(--c-border);
+      border-radius: var(--radius); font-size: 0.84rem; cursor: pointer;
+      background: var(--c-surface); color: var(--c-text-2);
+      transition: all var(--transition); font-weight: 500;
+    }
+    .pdp-variant-btn:hover { border-color: var(--c-accent); color: var(--c-text); }
+    .pdp-variant-btn.active { border-color: var(--c-accent); background: var(--c-accent-light); color: var(--c-accent-dark); font-weight: 600; }
+
+    .pdp-atc-row { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+    .pdp-atc-btn { flex: 1; padding: 16px; font-size: 1rem; font-weight: 600; letter-spacing: 0.04em; }
+
+    /* ════════════════════════════════════════════════════
+       LIGHTBOX / FULL VIEW OVERLAY
+    ════════════════════════════════════════════════════ */
+    .pdp-lightbox {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .pdp-lightbox.open { opacity: 1; pointer-events: all; }
+
+    .pdp-lightbox__inner {
+      background: var(--c-surface);
+      border-radius: var(--radius-xl);
+      max-width: 900px;
+      width: 100%;
+      max-height: 90vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.3);
+      transform: scale(0.95);
+      transition: transform 0.25s;
+    }
+    .pdp-lightbox.open .pdp-lightbox__inner { transform: scale(1); }
+
+    .pdp-lightbox__close {
+      position: absolute; top: 16px; right: 16px; z-index: 10;
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 1.5px solid var(--c-border);
+      background: var(--c-surface); cursor: pointer;
+      font-size: 1.1rem; color: var(--c-text-2);
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition);
+    }
+    .pdp-lightbox__close:hover { background: var(--c-text); color: white; border-color: var(--c-text); }
+
+    /* Tabs */
+    .pdp-lightbox__tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--c-border);
+      padding: 0 24px;
+      flex-shrink: 0;
+    }
+    .pdp-lightbox__tab {
+      padding: 16px 24px;
+      font-size: 0.84rem; font-weight: 600; letter-spacing: 0.04em;
+      border: none; background: none; cursor: pointer;
+      color: var(--c-text-3);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .pdp-lightbox__tab.active { color: var(--c-text); border-bottom-color: var(--c-accent); }
+
+    .pdp-lightbox__body { overflow-y: auto; padding: 24px; flex: 1; }
+
+    /* Video tab */
+    .pdp-video-wrap {
+      aspect-ratio: 16/9;
+      background: var(--c-bg-alt);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .pdp-video-wrap iframe { width: 100%; height: 100%; border: none; }
+    .pdp-no-video {
+      display: flex; align-items: center; justify-content: center;
+      height: 100%; min-height: 200px;
+      font-size: 0.9rem; color: var(--c-text-3);
+    }
+
+    /* Images tab */
+    .pdp-lightbox-gallery {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 600px) { .pdp-lightbox-gallery { grid-template-columns: 1fr; } }
+    .pdp-lightbox-main {
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      background: var(--c-bg-alt);
+      aspect-ratio: 1;
+    }
+    .pdp-lightbox-main img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pdp-lightbox-thumbs { display: flex; flex-direction: column; gap: 8px; }
+    .pdp-lightbox-thumb {
+      width: 100%; aspect-ratio: 1;
+      object-fit: cover; border-radius: var(--radius);
+      cursor: pointer; opacity: 0.65; border: 2px solid transparent;
+      transition: opacity 0.2s, border-color 0.2s;
+    }
+    .pdp-lightbox-thumb.active { opacity: 1; border-color: var(--c-accent); }
+    .pdp-lightbox-thumb:hover { opacity: 1; }
+
+    /* ════════════════════════════════════════════════════
+       SECTIONS BELOW MAIN
+    ════════════════════════════════════════════════════ */
+    .pdp-section {
+      background: var(--c-surface);
+      border-radius: var(--radius-xl);
+      padding: 36px 40px;
+      box-shadow: var(--shadow-sm);
+      margin-top: 24px;
+    }
+    @media (max-width: 600px) { .pdp-section { padding: 24px; } }
+    .pdp-section-title {
+      font-family: var(--font-display);
+      font-size: 1.1rem; font-weight: 400;
+      margin-bottom: 24px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--c-border);
+    }
+
+    /* Frequently bought together */
+    .pdp-bundle-item {
+      display: flex; align-items: center; gap: 16px;
+      padding: 14px 0; border-bottom: 1px solid var(--c-border);
+    }
+    .pdp-bundle-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .pdp-bundle-item img { width: 72px; height: 72px; object-fit: cover; border-radius: var(--radius); flex-shrink: 0; }
+    .pdp-bundle-item__info { flex: 1; }
+    .pdp-bundle-item__name { font-size: 0.9rem; font-weight: 500; margin-bottom: 3px; }
+    .pdp-bundle-item__price { font-size: 0.82rem; color: var(--c-text-3); }
+    .pdp-bundle-add-btn {
+      padding: 9px 20px; font-size: 0.8rem; font-weight: 600;
+      white-space: nowrap; flex-shrink: 0;
+    }
+
+    /* Related products grid */
+    .pdp-related-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .pdp-related-card {
+      background: var(--c-bg-alt);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      border: 1px solid var(--c-border);
+    }
+    .pdp-related-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-sm); }
+    .pdp-related-card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+    .pdp-related-card__info { padding: 12px; }
+    .pdp-related-card__name { font-size: 0.84rem; font-weight: 500; margin-bottom: 4px; }
+    .pdp-related-card__price { font-size: 0.82rem; color: var(--c-accent-dark, var(--c-accent)); font-weight: 600; }
+
+    /* ── Accordion specs ──────────────────────────────── */
+    .pdp-accordion-item {
+      border-bottom: 1px solid var(--c-border);
+    }
+    .pdp-accordion-item:first-child { border-top: 1px solid var(--c-border); }
+    .pdp-accordion-trigger {
+      width: 100%; display: flex; justify-content: space-between; align-items: center;
+      padding: 18px 0;
+      background: none; border: none; cursor: pointer;
+      font-size: 0.92rem; font-weight: 600; color: var(--c-text);
+      text-align: left;
+    }
+    .pdp-accordion-trigger:hover { color: var(--c-accent); }
+    .pdp-accordion-trigger svg { flex-shrink: 0; transition: transform 0.25s; }
+    .pdp-accordion-item.open .pdp-accordion-trigger svg { transform: rotate(180deg); }
+    .pdp-accordion-body {
+      max-height: 0; overflow: hidden; transition: max-height 0.35s ease;
+    }
+    .pdp-accordion-item.open .pdp-accordion-body { max-height: 600px; }
+    .pdp-spec-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    .pdp-spec-table tr:nth-child(odd) td { background: var(--c-bg-alt); }
+    .pdp-spec-table td { padding: 9px 14px; font-size: 0.84rem; color: var(--c-text-2); border: none; }
+    .pdp-spec-table td:first-child { color: var(--c-text-3); width: 45%; font-weight: 500; }
+
+    /* Lang switcher */
+    .lumio-lang-switcher { display: flex; gap: 6px; align-items: center; }
+    .lumio-lang-btn {
+      padding: 4px 10px; border: 1px solid var(--c-border);
+      border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600;
+      color: var(--c-text-3); background: transparent; cursor: pointer;
+      letter-spacing: 0.06em; transition: all var(--transition);
+    }
+    .lumio-lang-btn.active, .lumio-lang-btn:hover { background: var(--c-text); color: white; border-color: var(--c-text); }
+  </style>
+</head>
+<body>
+
+  <!-- Magnifier overlay (positioned via JS) -->
+  <div class="pdp-magnifier" id="magnifier">
+    <img id="magnifier-img" src="" alt="">
+  </div>
+
+  <!-- Full-view lightbox -->
+  <div class="pdp-lightbox" id="lightbox" role="dialog" aria-modal="true">
+    <div class="pdp-lightbox__inner">
+      <button class="pdp-lightbox__close" id="lightbox-close" aria-label="Close">✕</button>
+
+      <div class="pdp-lightbox__tabs">
+        <button class="pdp-lightbox__tab active" data-tab="images">Images</button>
+        <button class="pdp-lightbox__tab" data-tab="video">Video</button>
+      </div>
+
+      <div class="pdp-lightbox__body">
+        <!-- Images tab -->
+        <div id="tab-images">
+          <div class="pdp-lightbox-gallery">
+            <div class="pdp-lightbox-main">
+              <img id="lb-main-img" src="" alt="">
+            </div>
+            <div class="pdp-lightbox-thumbs" id="lb-thumbs"></div>
+          </div>
+        </div>
+
+        <!-- Video tab -->
+        <div id="tab-video" style="display:none;">
+          <div class="pdp-video-wrap" id="video-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <header class="lumio-page-header">
+    <div class="lumio-container">
+      <div class="lumio-page-header__inner">
+        <a href="index.html" class="lumio-logo">LUM<span>IO</span></a>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <div class="lumio-lang-switcher" id="lang-switcher-slot"></div>
+          <div id="currency-selector-slot"></div>
+          <div id="cart-icon-slot"></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="lumio-page-main">
+    <div class="lumio-container">
+      <div class="pdp-wrapper">
+
+        <!-- ═══ MAIN PRODUCT SECTION ═══ -->
+        <div class="pdp-main lumio-fade-in" id="pdp-main-section">
+
+          <!-- Gallery -->
+          <div class="pdp-gallery" id="pdp-gallery">
+            <div class="pdp-gallery__main-wrap" id="gallery-main-wrap">
+              <img class="pdp-gallery__main-img" id="gallery-main-img"
+                src="https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=800&q=80"
+                alt="Arc Floor Lamp">
+            </div>
+            <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
+            <button class="pdp-fullview-btn" id="fullview-btn">↗ Click to see full view</button>
+          </div>
+
+          <!-- Details -->
+          <div class="pdp-details" id="pdp-details">
+            <p class="pdp-category">Floor Lamps</p>
+            <h1 class="pdp-name" id="pdp-name">Arc Floor Lamp</h1>
+            <p class="pdp-price" id="pdp-price">€249</p>
+            <p class="pdp-desc" id="pdp-desc">
+              A statement piece for any living space. The arc floor lamp combines Scandinavian minimalism with warm ambient lighting. 
+              The powder-coated steel arc arm extends gracefully, suspending a spun-aluminum shade that casts a soft, 
+              focused light ideal for reading corners or beside a sofa. Available in Matte Black and Brushed Gold finishes.
+              Fits standard E27 bulbs up to 40W.
+            </p>
+
+            <div id="pdp-variants-wrap">
+              <p class="pdp-option-label">Finish</p>
+              <div class="pdp-variants" id="pdp-variants"></div>
+            </div>
+
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;">
+              <div class="lumio-qty-control lumio-qty-control--lg">
+                <button class="lumio-qty-btn lumio-qty-btn--minus" id="qty-minus">−</button>
+                <span class="lumio-qty-val" id="qty-val">1</span>
+                <button class="lumio-qty-btn lumio-qty-btn--plus" id="qty-plus">+</button>
+              </div>
+              <button class="lumio-btn lumio-btn--primary pdp-atc-btn" id="atc-btn">Add to Cart</button>
+            </div>
+
+            <div style="font-size:0.78rem;color:var(--c-text-3);display:flex;flex-direction:column;gap:4px;">
+              <span>✓ Free shipping over €150</span>
+              <span>✓ 30-day returns</span>
+              <span>✓ 2-year warranty</span>
+            </div>
+          </div>
+
+        </div>
+        <!-- /pdp-main -->
+
+        <!-- ═══ FREQUENTLY BOUGHT TOGETHER ═══ -->
+        <div class="pdp-section lumio-fade-in lumio-fade-in-1">
+          <h2 class="pdp-section-title">Frequently Bought Together</h2>
+          <div id="bundle-items"></div>
+        </div>
+
+        <!-- ═══ RELATED PRODUCTS ═══ -->
+        <div class="pdp-section lumio-fade-in lumio-fade-in-2">
+          <h2 class="pdp-section-title">Products Related to This Item</h2>
+          <div class="pdp-related-grid" id="related-grid"></div>
+        </div>
+
+        <!-- ═══ SPECS ACCORDION ═══ -->
+        <div class="pdp-section lumio-fade-in lumio-fade-in-3">
+          <div id="specs-accordion"></div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script>
+    (function() {
+      function loadScript(src) {
+        return new Promise(function(resolve) {
+          var s=document.createElement("script"); s.src=src;
+          s.onload=resolve; s.onerror=function(){ resolve(); };
+          document.head.appendChild(s);
+        });
+      }
+      var modules=(CONFIG.modules||[]).concat(["js/lang-bridge.js","js/shop.js"]);
+      var chain=Promise.resolve();
+      modules.forEach(function(src){ chain=chain.then(function(){ return loadScript(src); }); });
+      chain.then(function(){ document.dispatchEvent(new Event("lumio:ready")); });
+    })();
+  </script>
+  <script>
+  /* ═══════════════════════════════════════════════════════
+     PRODUCT PAGE DATA
+  ═══════════════════════════════════════════════════════ */
+  const PRODUCT = {
+    id: "arc-floor-lamp",
+    name: "Arc Floor Lamp",
+    category: "Floor Lamps",
+    price: 249,
+    weight: 4.2,
+    stock: 12,
+    image: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=800&q=80",
+    images: [
+      "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=800&q=80",
+      "https://images.unsplash.com/photo-1524484485831-a92ffc0de03f?w=800&q=80",
+      "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?w=800&q=80",
+      "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&q=80"
+    ],
+    videos: [],  // Add YouTube/Vimeo embed URLs here; empty = "no video available"
+    variants: [
+      { id: "matte-black",  label: "Matte Black",  price: 249, stock: 8,  image: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=800&q=80" },
+      { id: "brushed-gold", label: "Brushed Gold", price: 279, stock: 4,  image: "https://images.unsplash.com/photo-1524484485831-a92ffc0de03f?w=800&q=80" }
+    ],
+    // Frequently bought together
+    bundled: [
+      { id: "dimmer-switch",        name: "Inline Dimmer Switch",  price: 24, weight: 0.1,  image: "https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=400&q=80", desc: "Touch-sensitive inline dimmer." },
+      { id: "replacement-bulb-e27", name: "Edison Bulb E27 4W",   price: 12, weight: 0.05, image: "https://images.unsplash.com/photo-1573833040204-4e8b9f53bef3?w=400&q=80", desc: "Warm 2200K, dimmable." }
+    ],
+    // Related products group flag
+    relatedFlag: "floor-lighting",
+    related: [
+      { id: "globe-pendant",   name: "Globe Pendant",    price: 139, image: "https://images.unsplash.com/photo-1565814329452-e1efa11c5b89?w=400&q=80", flag: "floor-lighting" },
+      { id: "half-moon-sconce", name: "Half-Moon Sconce", price: 195, image: "https://images.unsplash.com/photo-1540932239986-30128078f3c5?w=400&q=80", flag: "floor-lighting" },
+      { id: "concrete-desk-lamp", name: "Concrete Desk Lamp", price: 89, image: "https://images.unsplash.com/photo-1544457070-4cd773b4d71e?w=400&q=80", flag: "floor-lighting" }
+    ]
+  };
+
+  const SPECS = [
+    {
+      title: "Features & Specs",
+      rows: [
+        ["Light Source Type", "Light Emitting Diode (LED)"],
+        ["Power Source", "Solar Powered"],
+        ["Battery Description", "Rechargeable Lithium-Ion Polymer"],
+        ["Mounting Type", "Tabletop Mount"],
+        ["Water Resistance Level", "Waterproof"],
+        ["Bulb Shape Size", "A19"],
+        ["Light Source Special Features", "Color-changing, Flickering (Simulated Candle Mode)"],
+        ["Color Temperature", "3000 Kelvin"],
+        ["Number of Batteries", "1 Nonstandard Battery batteries required. (included)"],
+        ["Voltage", "5 Volts"],
+        ["Number of Light Sources", "3"],
+        ["Batteries are Included", "Yes"]
+      ]
+    },
+    {
+      title: "Measurements",
+      rows: [
+        ["Item Weight", "0.74 Kilograms"]
+      ]
+    },
+    {
+      title: "Item Details",
+      rows: [
+        ["Brand Name", "uuffoo"],
+        ["Model Number", "PBG-1427"],
+        ["Manufacturer", "uuffoo"],
+        ["Included Components", "Batteries included"],
+        ["Unit Count", "1.0 Count"]
+      ]
+    },
+    {
+      title: "Materials & Care",
+      rows: [
+        ["Material Type", "Plastic"],
+        ["Finish Types", "Unfinished"],
+        ["Shade Material", "Plastic"]
+      ]
+    },
+    {
+      title: "Additional Details",
+      rows: [
+        ["Color", "Brown"]
+      ]
+    }
+  ];
+
+  /* ═══════════════════════════════════════════════════════
+     MAIN INIT
+  ═══════════════════════════════════════════════════════ */
+  document.addEventListener("lumio:ready", function() {
+
+    let selectedVariant = PRODUCT.variants[0].id;
+    let qty = 1;
+    let currentImgIdx = 0;
+
+    // Init shop widgets
+    if (typeof Currency !== "undefined") Currency.init();
+    if (typeof Shop !== "undefined") {
+      Shop.loadLang().then(() => {
+        Shop.wireLanguageSwitcher(".lumio-lang-btn");
+        Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false });
+        Shop.renderCurrencySelector("#currency-selector-slot");
+        buildLangSwitcher();
+        updatePrice();
+      });
+    }
+
+    function buildLangSwitcher() {
+      const slot = document.getElementById("lang-switcher-slot"); if (!slot) return;
+      const langs = CONFIG.supportedLanguages||["en"], current = CONFIG.language||"en";
+      slot.innerHTML = langs.map(l=>`<button class="lumio-lang-btn${l===current?" active":""}" data-lang="${l}">${l.toUpperCase()}</button>`).join("");
+    }
+
+    function fmt(n) {
+      if (typeof Shop !== "undefined" && Shop.fmt) return Shop.fmt(n);
+      return "€" + n.toFixed(2);
+    }
+
+    function updatePrice() {
+      const v = PRODUCT.variants.find(v=>v.id===selectedVariant);
+      document.getElementById("pdp-price").textContent = fmt(v ? v.price : PRODUCT.price);
+    }
+    document.addEventListener("currency:changed", updatePrice);
+
+    // ── Gallery ─────────────────────────────────────────
+    const mainImg = document.getElementById("gallery-main-img");
+    const thumbsWrap = document.getElementById("gallery-thumbs");
+
+    function buildThumbs() {
+      thumbsWrap.innerHTML = PRODUCT.images.map((src, i) => `
+        <img class="pdp-gallery__thumb${i===currentImgIdx?" active":""}" src="${src}" alt="View ${i+1}" data-idx="${i}">`
+      ).join("");
+      thumbsWrap.querySelectorAll(".pdp-gallery__thumb").forEach(img => {
+        img.addEventListener("click", () => selectImage(+img.dataset.idx));
+        img.addEventListener("click", () => openLightbox("images"));
+      });
+    }
+
+    function selectImage(idx) {
+      currentImgIdx = idx;
+      const src = PRODUCT.images[idx];
+      mainImg.src = src;
+      document.getElementById("magnifier-img").src = src;
+      buildThumbs();
+      // Update lightbox main if open
+      const lbMain = document.getElementById("lb-main-img");
+      if (lbMain) lbMain.src = src;
+      document.querySelectorAll(".pdp-lightbox-thumb").forEach((t,i) => t.classList.toggle("active", i===idx));
+    }
+    buildThumbs();
+
+    // ── Magnifier ────────────────────────────────────────
+    const magEl = document.getElementById("magnifier");
+    const magImg = document.getElementById("magnifier-img");
+    const mainWrap = document.getElementById("gallery-main-wrap");
+    magImg.src = PRODUCT.images[0];
+
+    mainWrap.addEventListener("mousemove", (e) => {
+      const rect = mainWrap.getBoundingClientRect();
+      const xPct = (e.clientX - rect.left) / rect.width;
+      const yPct = (e.clientY - rect.top)  / rect.height;
+
+      // Position magnifier to the right of the image
+      const mW = 320, mH = 320;
+      let mLeft = rect.right + 16;
+      let mTop  = e.clientY - mH/2;
+
+      // If no room on right, show left
+      if (mLeft + mW > window.innerWidth - 10) mLeft = rect.left - mW - 16;
+      mTop = Math.max(10, Math.min(mTop, window.innerHeight - mH - 10));
+
+      magEl.style.left = mLeft + "px";
+      magEl.style.top  = mTop  + "px";
+      magEl.style.display = "block";
+
+      // Scale image inside magnifier (2x zoom)
+      const zoom = 2.5;
+      const iW = mW * zoom, iH = mH * zoom;
+      magImg.style.width  = iW + "px";
+      magImg.style.height = iH + "px";
+      magImg.style.left   = -(xPct * iW - mW/2) + "px";
+      magImg.style.top    = -(yPct * iH - mH/2) + "px";
+    });
+    mainWrap.addEventListener("mouseleave", () => { magEl.style.display = "none"; });
+
+    // ── Variants ─────────────────────────────────────────
+    const variantsEl = document.getElementById("pdp-variants");
+    variantsEl.innerHTML = PRODUCT.variants.map(v => `
+      <button class="pdp-variant-btn${v.id===selectedVariant?" active":""}" data-vid="${v.id}">${v.label}</button>`
+    ).join("");
+    variantsEl.querySelectorAll(".pdp-variant-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        selectedVariant = btn.dataset.vid;
+        variantsEl.querySelectorAll(".pdp-variant-btn").forEach(b=>b.classList.remove("active"));
+        btn.classList.add("active");
+        const v = PRODUCT.variants.find(v=>v.id===selectedVariant);
+        if (v?.image) { mainImg.src = v.image; magImg.src = v.image; }
+        updatePrice();
+      });
+    });
+
+    // ── Qty ──────────────────────────────────────────────
+    const qtyVal = document.getElementById("qty-val");
+    document.getElementById("qty-minus").addEventListener("click", () => { if(qty>1){qty--; qtyVal.textContent=qty;} });
+    document.getElementById("qty-plus").addEventListener("click", () => {
+      const v = PRODUCT.variants.find(v=>v.id===selectedVariant);
+      const stock = v?.stock ?? PRODUCT.stock;
+      if(qty<stock){qty++; qtyVal.textContent=qty;}
+    });
+
+    // ── Add to cart ──────────────────────────────────────
+    document.getElementById("atc-btn").addEventListener("click", () => {
+      if (typeof Shop === "undefined") return;
+      const v = PRODUCT.variants.find(v=>v.id===selectedVariant);
+      Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image||PRODUCT.image);
+      Shop.toast(`${PRODUCT.name} – ${v?.label||""} added to cart`);
+    });
+
+    // ── Lightbox ─────────────────────────────────────────
+    const lightbox = document.getElementById("lightbox");
+    let activeTab = "images";
+
+    function openLightbox(tab) {
+      activeTab = tab||"images";
+      buildLightbox();
+      lightbox.classList.add("open");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove("open");
+      document.body.style.overflow = "";
+    }
+
+    function buildLightbox() {
+      // Tabs
+      document.querySelectorAll(".pdp-lightbox__tab").forEach(t => {
+        t.classList.toggle("active", t.dataset.tab===activeTab);
+      });
+      document.getElementById("tab-images").style.display = activeTab==="images" ? "" : "none";
+      document.getElementById("tab-video").style.display  = activeTab==="video"  ? "" : "none";
+
+      // Images tab
+      if (activeTab === "images") {
+        document.getElementById("lb-main-img").src = PRODUCT.images[currentImgIdx];
+        const lbThumbs = document.getElementById("lb-thumbs");
+        lbThumbs.innerHTML = PRODUCT.images.map((src,i)=>`
+          <img class="pdp-lightbox-thumb${i===currentImgIdx?" active":""}" src="${src}" alt="View ${i+1}" data-idx="${i}">`
+        ).join("");
+        lbThumbs.querySelectorAll(".pdp-lightbox-thumb").forEach(t=>{
+          t.addEventListener("click",()=>{
+            currentImgIdx=+t.dataset.idx;
+            document.getElementById("lb-main-img").src=PRODUCT.images[currentImgIdx];
+            lbThumbs.querySelectorAll(".pdp-lightbox-thumb").forEach((x,j)=>x.classList.toggle("active",j===currentImgIdx));
+          });
+        });
+      }
+
+      // Video tab
+      if (activeTab === "video") {
+        const vc = document.getElementById("video-container");
+        if (PRODUCT.videos && PRODUCT.videos.length) {
+          vc.innerHTML = `<iframe src="${PRODUCT.videos[0]}" allowfullscreen allow="autoplay; encrypted-media"></iframe>`;
+        } else {
+          vc.innerHTML = `<div class="pdp-no-video">📽 No video available for this product.</div>`;
+        }
+      }
+    }
+
+    document.getElementById("fullview-btn").addEventListener("click", () => openLightbox("images"));
+    document.getElementById("lightbox-close").addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", (e) => { if(e.target===lightbox) closeLightbox(); });
+    document.querySelectorAll(".pdp-lightbox__tab").forEach(t => {
+      t.addEventListener("click", () => { activeTab=t.dataset.tab; buildLightbox(); });
+    });
+    document.addEventListener("keydown", (e) => { if(e.key==="Escape") closeLightbox(); });
+
+    // ── Frequently bought together ───────────────────────
+    const bundleEl = document.getElementById("bundle-items");
+    bundleEl.innerHTML = PRODUCT.bundled.map(item => `
+      <div class="pdp-bundle-item">
+        <img src="${item.image}" alt="${item.name}" onerror="this.style.background='var(--c-bg-alt)'">
+        <div class="pdp-bundle-item__info">
+          <div class="pdp-bundle-item__name">${item.name}</div>
+          <div class="pdp-bundle-item__price">${fmt(item.price)} · ${item.desc||""}</div>
+        </div>
+        <button class="lumio-btn lumio-btn--outline pdp-bundle-add-btn" data-bid="${item.id}">Add both to cart</button>
+      </div>`
+    ).join("");
+
+    bundleEl.querySelectorAll(".pdp-bundle-add-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (typeof Shop === "undefined") return;
+        const bundled = PRODUCT.bundled.find(b=>b.id===btn.dataset.bid);
+        const v = PRODUCT.variants.find(v=>v.id===selectedVariant);
+        Shop.addToCart(PRODUCT, 1, selectedVariant, null, v?.image||PRODUCT.image);
+        Shop.addToCart({ id: bundled.id, name: bundled.name, price: bundled.price, weight: bundled.weight, image: bundled.image, stock: 99 }, 1, null, null, bundled.image);
+        Shop.toast(`${PRODUCT.name} + ${bundled.name} added to cart`);
+      });
+    });
+
+    // ── Related products ─────────────────────────────────
+    const relatedEl = document.getElementById("related-grid");
+    const relatedFiltered = PRODUCT.related.filter(r => r.flag === PRODUCT.relatedFlag);
+    relatedEl.innerHTML = relatedFiltered.map(r => `
+      <div class="pdp-related-card">
+        <img src="${r.image}" alt="${r.name}">
+        <div class="pdp-related-card__info">
+          <div class="pdp-related-card__name">${r.name}</div>
+          <div class="pdp-related-card__price">${fmt(r.price)}</div>
+        </div>
+      </div>`
+    ).join("");
+
+    // ── Specs accordion ──────────────────────────────────
+    const accordionEl = document.getElementById("specs-accordion");
+    accordionEl.innerHTML = SPECS.map((section, i) => `
+      <div class="pdp-accordion-item${i===0?" open":""}">
+        <button class="pdp-accordion-trigger">
+          <span>${section.title}</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="pdp-accordion-body">
+          <table class="pdp-spec-table">
+            <tbody>
+              ${section.rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>`
+    ).join("");
+
+    accordionEl.querySelectorAll(".pdp-accordion-trigger").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const item = btn.closest(".pdp-accordion-item");
+        item.classList.toggle("open");
+      });
+    });
+
+  }); // lumio:ready
+  </script>
+</body>
+</html>
