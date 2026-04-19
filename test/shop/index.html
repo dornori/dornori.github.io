@@ -35,7 +35,6 @@
       font-weight: 400;
       line-height: 1.1;
       margin-bottom: 16px;
-      color: var(--c-text);
     }
     .lumio-hero-title em { font-style: italic; color: var(--c-accent); }
     .lumio-hero-sub {
@@ -68,10 +67,9 @@
         <a href="index.html" class="lumio-logo">LUM<span>IO</span></a>
         <div style="display:flex; gap:10px; align-items:center;">
           <!--
-            Language switcher buttons are kept in HTML for potential use
-            but hidden by CONFIG.features.showLanguageSwitcher = false.
-            Language is auto-detected from browser / URL param / stored pref.
-            To show the switcher: set CONFIG.features.showLanguageSwitcher = true
+            Language buttons: hidden by CONFIG.features.showLanguageSwitcher = false (default).
+            Language is auto-detected from browser Accept-Language → stored pref → URL ?lang=.
+            Set CONFIG.features.showLanguageSwitcher = true in config.js to show these.
           -->
           <div class="lumio-lang-switcher" aria-hidden="true" style="display:none;">
             <button class="lumio-lang-btn" data-lang="en">EN</button>
@@ -100,10 +98,10 @@
     </div>
   </main>
 
-  <footer style="background: var(--c-text); color: var(--c-white); padding: 40px 0; margin-top: 40px;">
-    <div class="lumio-container" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+  <footer style="background:var(--c-text);color:var(--c-white);padding:40px 0;margin-top:40px;">
+    <div class="lumio-container" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
       <span class="lumio-logo" style="font-size:1.2rem;">LUM<span style="color:var(--c-accent)">IO</span></span>
-      <span style="font-size:0.82rem; color: rgba(255,255,255,.45);">© 2025 LUMIO. All rights reserved.</span>
+      <span style="font-size:0.82rem;color:rgba(255,255,255,.45);">© 2025 LUMIO. All rights reserved.</span>
     </div>
   </footer>
 
@@ -112,28 +110,21 @@
   <script>
     Promise.all([
       Shipping.load(),
-      Currency.init(),    // auto-detects from IP; uses CONFIG.userPrefs.currencyKey
-      Shop.loadLang(),    // auto-detects from browser/URL/stored pref; uses CONFIG.userPrefs.langKey
+      Currency.init(),   // auto-detects from IP; cached in localStorage
+      Shop.loadLang(),   // auto-detects from browser Accept-Language + URL ?lang=
     ]).then(() => {
-      // Wire lang buttons — hidden by CONFIG.features.showLanguageSwitcher = false
-      // but still functional for URL ?lang= embeds and programmatic switching.
+      // Wire language buttons (hidden by default; functional for URL embeds)
       Shop.wireLanguageSwitcher(".lumio-lang-btn");
 
-      // Currency selector (shown; set CONFIG.features.showCurrencySelector = false to hide)
       Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false });
       Shop.renderCurrencySelector("#currency-selector-slot");
-
-      // Product grid — cards now have ATC button in body, qty always accessible
       Shop.renderShop("shop", { showFilter: true });
     });
 
-    // Listen for payment outcomes (used by cart.html checkout flow)
-    document.addEventListener("payment:success", e => {
-      console.log("[Payment] Success:", e.detail);
-    });
-    document.addEventListener("payment:cancel", e => {
-      console.log("[Payment] Cancelled:", e.detail);
-    });
+    // Payment outcome hooks (used by cart.html checkout flow)
+    document.addEventListener("payment:success", e => console.log("[Payment] Success:", e.detail));
+    document.addEventListener("payment:cancel",  e => console.log("[Payment] Cancelled:", e.detail));
+    document.addEventListener("payment:error",   e => console.error("[Payment] Error:", e.detail));
   </script>
 </body>
 </html>
