@@ -1,22 +1,29 @@
 /* =========================================================
-   LUMIO SHOP ENGINE  –  shop.js  (v3)
+   LUMIO SHOP ENGINE  –  shop.js  (v4)
    =========================================================
-   Changes v3:
-   1. ATC button in card body (lumio-card-atc), NOT on image.
-      Qty +/- always accessible, never obscured.
-   2. Image naming: <productId>_<variantId>_<colorSlug>.<ext>
-      e.g. dornori_star-a_red-blue.webp
-      Explicit variant.image in JSON takes priority.
-   3. Language auto-detected from browser Accept-Language.
-      Uses CONFIG.userPrefs.langKey (configurable key).
-   4. Currency from IP via CONFIG.userPrefs.currencyKey.
-   5. CONFIG.features.showLanguageSwitcher: false hides buttons
-      but keeps all language logic functional.
-   6. Payment via Payment module (PayPal or Stripe).
+   Language file structure (v4):
+     data/lang/ui/{lang}.json       — UI strings only
+     data/lang/products/{lang}.json — product text only
+
+   Both are translator-safe: no IDs, paths, prices, or config.
+   Both fall back to English if the file is missing or a key
+   is absent. Product JSON i18n blocks remain as a last fallback.
+
+   Priority for product text:
+     1. data/lang/products/{lang}.json
+     2. product.i18n[lang] (inline JSON block)
+     3. product.name / product.description (root fields)
+
+   Priority for UI strings:
+     1. data/lang/ui/{lang}.json
+     2. data/lang/ui/en.json (English fallback)
+     3. t() inline fallback argument
    ========================================================= */
 
 const Shop = (() => {
   let LANG = {};
+  let PRODUCT_LANG    = {};  // active-language product text
+  let PRODUCT_LANG_EN = {};  // English product text (fallback)
   let _langLoaded = false;
   let _langLoadPromise = null;
   let _products = {};
@@ -61,14 +68,12 @@ const Shop = (() => {
     CONFIG.language = code;
     localStorage.setItem(langKey, code);
     _langLoaded = false; _langLoadPromise = null; LANG = {};
+    PRODUCT_LANG = {}; PRODUCT_LANG_EN = {};
     await loadLang();
     document.dispatchEvent(new CustomEvent("shop:langChanged", { detail: { lang: code } }));
   }
 
-  /* ─── i18n PRODUCT HELPERS ──────────────────────────── */
-  function pName(p)     { return p.i18n?.[CONFIG.language]?.name        || p.name        || ""; }
-  function pDesc(p)     { return p.i18n?.[CONFIG.language]?.description || p.description || ""; }
-  function pCategory(p) { return p.i18n?.[CONFIG.language]?.category    || p.category    || ""; }
+  /* ─── i18n helpers: pName, pDesc, pCategory defined below in language section ─── */
 
   /* ═══════════════════════════════════════════════════════
      IMAGE NAMING CONVENTION
@@ -165,16 +170,51 @@ const Shop = (() => {
   }
 
   /* ─── LANG LOADER ───────────────────────────────────── */
+  /* ─── PRODUCT TRANSLATIONS ─────────────────────────────
+   * Loaded from data/lang/products/{lang}.json.
+   * Keyed by product ID: { "arc-floor-lamp": { name, description, category } }
+   * Falls back to English, then to inline product.i18n, then product root fields.
+   */
+  function pName(p) {
+    return PRODUCT_LANG[p.id]?.name || PRODUCT_LANG_EN[p.id]?.name
+      || p.i18n?.[CONFIG.language]?.name || p.i18n?.en?.name || p.name || "";
+  }
+  function pDesc(p) {
+    return PRODUCT_LANG[p.id]?.description || PRODUCT_LANG_EN[p.id]?.description
+      || p.i18n?.[CONFIG.language]?.description || p.i18n?.en?.description || p.description || "";
+  }
+  function pCategory(p) {
+    return PRODUCT_LANG[p.id]?.category || PRODUCT_LANG_EN[p.id]?.category
+      || p.i18n?.[CONFIG.language]?.category || p.i18n?.en?.category || p.category || "";
+  }
+
   function loadLang() {
     if (_langLoaded) return Promise.resolve(LANG);
     if (_langLoadPromise) return _langLoadPromise;
     const lang = resolveLanguage();
-    _langLoadPromise = fetch("data/lang/" + lang + ".json")
+
+    // Fetch helper — resolves to {} on any error (file not found = fallback)
+    const safeFetch = url => fetch(url)
       .then(r => { if (!r.ok) throw 0; return r.json(); })
-      .then(d => { LANG = d; _langLoaded = true; return d; })
-      .catch(() => fetch("data/lang/en.json").then(r => r.json())
-        .then(d => { LANG = d; _langLoaded = true; return d; })
-        .catch(() => { LANG = {}; _langLoaded = true; return {}; }));
+      .catch(() => ({}));
+
+    _langLoadPromise = Promise.all([
+      // UI strings: lang version, then English fallback
+      safeFetch("data/lang/ui/" + lang + ".json"),
+      safeFetch("data/lang/ui/en.json"),
+      // Product strings: lang version, then English fallback
+      safeFetch("data/lang/products/" + lang + ".json"),
+      safeFetch("data/lang/products/en.json"),
+    ]).then(([ui, uiEn, prod, prodEn]) => {
+      // Merge: English base, then lang on top (lang wins on any shared key)
+      LANG = { ...uiEn, ...ui };
+      // Store product lang dicts (strip _readme meta key)
+      const clean = obj => { const r = { ...obj }; delete r._readme; return r; };
+      PRODUCT_LANG    = clean(prod);
+      PRODUCT_LANG_EN = clean(prodEn);
+      _langLoaded = true;
+      return LANG;
+    });
     return _langLoadPromise;
   }
   function t(key, fallback = "") { return LANG[key] || fallback || key; }
