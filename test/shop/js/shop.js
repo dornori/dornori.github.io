@@ -227,15 +227,23 @@ const Shop = (() => {
   function fmtWeight(kg) { return kg >= 1 ? kg.toFixed(1) + " kg" : (kg * 1000).toFixed(0) + " g"; }
 
   /* ─── PRODUCT LOADER ────────────────────────────────── */
+  /* Reads data/products.json (non-text fields: price, stock, images, variants…)
+   * then overlays name/description/category from data/lang/products/{lang}.json.
+   * Text always comes from lang files — the products.json is translator-safe. */
   async function loadProducts() {
-    const manifest = await fetch("data/products/manifest.json").then(r => r.json());
-    const all = await Promise.all(manifest.map(f => fetch("data/products/" + f).then(r => r.json())));
-    all.forEach(p => { _products[p.id] = p; }); return all;
+    await loadLang();
+    const src = CONFIG.data?.productsJson || "data/products.json";
+    const all = await fetch(src).then(r => r.json());
+    all.forEach(p => { _products[p.id] = p; });
+    return all;
   }
   async function getProduct(id) {
     if (_products[id]) return _products[id];
-    const p = await fetch("data/products/" + id + ".json").then(r => r.json());
-    _products[id] = p; return p;
+    await loadLang();
+    const src = CONFIG.data?.productsJson || "data/products.json";
+    const all = await fetch(src).then(r => r.json());
+    all.forEach(p => { _products[p.id] = p; });
+    return _products[id] || null;
   }
   function generateOrderRef() { return "LM-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(36).substr(2,5).toUpperCase(); }
 

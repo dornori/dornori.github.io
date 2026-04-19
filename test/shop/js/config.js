@@ -79,11 +79,11 @@ const CONFIG = {
 
   /* ── Data file paths ───────────────────────────────── */
   data: {
-    shippingCsv:  "data/shipping.csv",
-    currenciesCsv: "data/currencies.csv",
-    langUiDir:     "data/lang/ui/",
+    shippingCsv:     "data/shipping.csv",
+    currenciesCsv:   "data/currencies.csv",
+    langUiDir:       "data/lang/ui/",
     langProductsDir: "data/lang/products/",
-    productsDir:   "data/products/",
+    productsJson:    "data/products.json",
   },
 
   /* ── Modules to load ───────────────────────────────── */
