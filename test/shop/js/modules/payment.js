@@ -23,9 +23,14 @@ const Payment = (() => {
 
   function _loadScript(src, attrs = {}) {
     return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src*="${src.split("?")[0]}"]`)) { resolve(); return; }
+      const baseSrc = src.split("?")[0];
+      const existing = document.querySelector(`script[src*="${baseSrc}"]`);
+      if (existing && existing._loadSuccess) { resolve(); return; }
+      if (existing) existing.remove(); // remove failed/stale tag so we can retry
       const s = Object.assign(document.createElement("script"), {
-        src, onload: resolve, onerror: () => reject(new Error("Script load failed: " + src))
+        src,
+        onload:  () => { s._loadSuccess = true; resolve(); },
+        onerror: () => reject(new Error("Script load failed: " + src)),
       });
       Object.entries(attrs).forEach(([k, v]) => s.setAttribute(k, v));
       document.head.appendChild(s);
@@ -45,7 +50,14 @@ const Payment = (() => {
       );
     },
     async render(cart, totals, orderRef, el) {
-      if (!window.paypal) throw new Error("[Payment/PayPal] SDK not loaded");
+      if (!window.paypal) {
+        el.innerHTML = `<div style="padding:20px;text-align:center;border:1px dashed var(--c-border);border-radius:var(--radius);color:var(--c-text-3);font-size:0.85rem;line-height:1.6;">
+          <strong style="display:block;margin-bottom:6px;">PayPal not loaded</strong>
+          Set a valid <code>CONFIG.payment.paypal.clientId</code> in <code>js/config.js</code>.<br>
+          Use your <a href="https://developer.paypal.com/dashboard/" target="_blank" style="color:var(--c-accent);">PayPal Developer</a> sandbox or live client ID.
+        </div>`;
+        return;
+      }
       el.innerHTML = "";
       const cfg = CONFIG.payment.paypal;
       await window.paypal.Buttons({
@@ -161,8 +173,13 @@ const Payment = (() => {
     if (_ready) return;
     const name = CONFIG.payment.activeProcessor || "none";
     if (!_adapters[name]) { console.warn("[Payment] Unknown processor:", name); return; }
-    await _adapters[name].init();
-    _ready = true;
+    try {
+      await _adapters[name].init();
+      _ready = true;
+    } catch (e) {
+      // Don't mark ready — allow retry. Propagate so renderPayment can show fallback.
+      throw e;
+    }
   }
 
   async function render(cart, totals, orderRef, mountEl) {

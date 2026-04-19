@@ -801,7 +801,14 @@
         await Payment.render(cart, totals, orderRef, mount);
       } catch (e) {
         console.error("[Payment] render failed:", e);
-        mount.innerHTML = `<div style="padding:16px;color:#c0392b;font-size:0.85rem;">Payment could not be loaded. Please refresh or contact support.</div>`;
+        const isConfigError = e.message?.includes("Script load failed") || e.message?.includes("client-id");
+        mount.innerHTML = `<div style="padding:20px;text-align:center;border:1px dashed var(--c-border);border-radius:var(--radius);color:var(--c-text-3);font-size:0.85rem;line-height:1.6;">
+          <strong style="display:block;margin-bottom:6px;">${isConfigError ? "Payment not configured" : "Payment could not be loaded"}</strong>
+          ${isConfigError
+            ? `Set a valid <code>CONFIG.payment.paypal.clientId</code> in <code>js/config.js</code>.<br>
+               Get your client ID from <a href="https://developer.paypal.com/dashboard/" target="_blank" style="color:var(--c-accent);">PayPal Developer Dashboard</a>.`
+            : "Please refresh the page or contact support."}
+        </div>`;
       }
     }
 
