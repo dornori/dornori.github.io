@@ -6,7 +6,7 @@
   <title>LUMIO – Arc Floor Lamp</title>
   <link rel="stylesheet" href="css/shop.css">
   <style>
-    /* Magnifier styles - based on original, just fixed aspect ratio */
+    /* Magnifier styles - LARGE VERSION (half screen) */
     .pdp-magnifier {
       position: fixed;
       pointer-events: none;
@@ -58,7 +58,7 @@
 </head>
 <body>
 
-  <!-- Magnifier overlay -->
+  <!-- Magnifier overlay - LARGE VERSION -->
   <div class="pdp-magnifier" id="magnifier">
     <img id="magnifier-img" src="" alt="">
   </div>
@@ -314,7 +314,10 @@
       currentImgIdx = idx;
       const src = PRODUCT.images[idx];
       mainImg.src = src;
-      document.getElementById("magnifier-img").src = src;
+      // Update high-res image for magnifier
+      let highSrc = src;
+      if (highSrc.includes('w=800')) highSrc = highSrc.replace('w=800', 'w=1600');
+      document.getElementById("magnifier-img").src = highSrc;
       buildThumbs();
       const lbMain = document.getElementById("lb-main-img");
       if (lbMain) lbMain.src = src;
@@ -322,7 +325,7 @@
     }
     buildThumbs();
 
-    // ========== MAGNIFIER - BASED ON ORIGINAL, JUST FIXED ZOOM & ASPECT RATIO ==========
+    // ========== MAGNIFIER - LARGE VERSION (HALF SCREEN WIDTH) ==========
     const magEl = document.getElementById("magnifier");
     const magImg = document.getElementById("magnifier-img");
     const mainWrap = document.getElementById("gallery-main-wrap");
@@ -332,38 +335,48 @@
     if (fullResSrc.includes('w=800')) fullResSrc = fullResSrc.replace('w=800', 'w=1600');
     magImg.src = fullResSrc;
     
+    // Function to update magnifier size based on window
+    function updateMagnifierSize() {
+      const rect = mainWrap.getBoundingClientRect();
+      // Make magnifier take half the screen width (or available space)
+      const maxWidth = Math.min(window.innerWidth * 0.45, 600);
+      const size = Math.min(maxWidth, rect.width * 1.2);
+      magEl.style.width = size + "px";
+      magEl.style.height = size + "px";
+    }
+    
     mainWrap.addEventListener("mousemove", (e) => {
       const rect = mainWrap.getBoundingClientRect();
       const xPct = (e.clientX - rect.left) / rect.width;
       const yPct = (e.clientY - rect.top) / rect.height;
       
-      // Magnifier size - bigger lens for better viewing
-      const lensSize = Math.min(rect.width * 0.6, window.innerWidth * 0.35, 450);
-      magEl.style.width = lensSize + "px";
-      magEl.style.height = lensSize + "px";
+      // Update magnifier size (large - half screen)
+      updateMagnifierSize();
+      const lensW = magEl.offsetWidth;
+      const lensH = magEl.offsetHeight;
       
-      // Position magnifier next to cursor
-      let mLeft = rect.right + 16;
-      let mTop = rect.top + (rect.height / 2) - (lensSize / 2);
+      // Position magnifier on the right side of the main image
+      let mLeft = rect.right + 20;
+      let mTop = rect.top + (rect.height / 2) - (lensH / 2);
       
-      if (mLeft + lensSize > window.innerWidth - 10) {
-        mLeft = rect.left - lensSize - 16;
+      // If not enough space on right, show on left
+      if (mLeft + lensW > window.innerWidth - 20) {
+        mLeft = rect.left - lensW - 20;
       }
-      mTop = Math.max(10, Math.min(mTop, window.innerHeight - lensSize - 10));
+      // Ensure within viewport
+      mLeft = Math.max(10, Math.min(mLeft, window.innerWidth - lensW - 10));
+      mTop = Math.max(10, Math.min(mTop, window.innerHeight - lensH - 10));
       
       magEl.style.left = mLeft + "px";
       magEl.style.top = mTop + "px";
       magEl.style.display = "block";
       
-      // Zoom factor - 3.5x for good magnification without distortion
-      const zoom = 3.5;
-      
-      // Get the natural dimensions of the high-res image
+      // Get natural dimensions of high-res image
       const naturalW = magImg.naturalWidth;
       const naturalH = magImg.naturalHeight;
       
       if (naturalW && naturalH) {
-        // Calculate displayed image dimensions to maintain aspect ratio
+        // Calculate aspect ratio and visible area of main image
         const containerAspect = rect.width / rect.height;
         const imgAspect = naturalW / naturalH;
         
@@ -381,24 +394,34 @@
           offsetY = (rect.height - displayH) / 2;
         }
         
-        // Calculate the actual pixel position on the original image
-        const imgX = (xPct * displayW - offsetX) / displayW * naturalW;
-        const imgY = (yPct * displayH - offsetY) / displayH * naturalH;
+        // Calculate actual pixel position on original image
+        const imgX = ((xPct * displayW - offsetX) / displayW) * naturalW;
+        const imgY = ((yPct * displayH - offsetY) / displayH) * naturalH;
         
-        // Set magnifier image size (zoom * lens size)
+        // Zoom factor for large magnifier (4x)
+        const zoom = 4;
+        
+        // Set magnifier image dimensions (zoom * lens size)
         const zoomW = naturalW * zoom;
         const zoomH = naturalH * zoom;
         magImg.style.width = zoomW + "px";
         magImg.style.height = zoomH + "px";
         
-        // Position the image to show the zoomed area around the cursor
-        magImg.style.left = -(imgX * zoom - lensSize / 2) + "px";
-        magImg.style.top = -(imgY * zoom - lensSize / 2) + "px";
+        // Position the image to show area around cursor
+        magImg.style.left = -(imgX * zoom - lensW / 2) + "px";
+        magImg.style.top = -(imgY * zoom - lensH / 2) + "px";
       }
     });
     
     mainWrap.addEventListener("mouseleave", () => {
       magEl.style.display = "none";
+    });
+    
+    // Update on window resize
+    window.addEventListener('resize', () => {
+      if (magEl.style.display === 'block') {
+        updateMagnifierSize();
+      }
     });
 
     // Main image click opens lightbox
@@ -566,7 +589,7 @@
         <div class="pdp-accordion-body">
           <table class="pdp-spec-table">
             <tbody>
-              ${section.rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td><tr>`).join("")}
+              ${section.rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join("")}
             </tbody>
           </table>
         </div>
