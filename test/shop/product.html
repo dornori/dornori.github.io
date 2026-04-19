@@ -29,6 +29,24 @@
       position: relative;
       overflow: hidden;
     }
+    /* Buy Now button uppercase styling */
+    .pdp-related-card__buy-btn {
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+    /* Accordion: all closed by default */
+    .pdp-accordion-item.open .pdp-accordion-body {
+      max-height: 600px;
+    }
+    .pdp-accordion-item .pdp-accordion-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s ease;
+    }
+    .pdp-accordion-item.open .pdp-accordion-trigger svg {
+      transform: rotate(180deg);
+    }
   </style>
 </head>
 <body>
@@ -342,80 +360,50 @@
 
     // Preload original high-res image (full size from unsplash) for crisp zoom
     let fullResSrc = PRODUCT.images[0];
-    // replace w=800 with w=1600 for high-res zoom if possible
     if (fullResSrc.includes('w=800')) fullResSrc = fullResSrc.replace('w=800', 'w=1600');
     else if (!fullResSrc.includes('w=')) fullResSrc = fullResSrc + '?w=1600&q=90';
     magImg.src = fullResSrc;
     magImg.onload = () => { /* ready */ };
     
     mainWrap.addEventListener("mousemove", (e) => {
-      // Ensure rect is fresh
       updateMainRect();
       const rect = mainImgRect;
       
-      // Calculate relative position (0..1) within the image area
       let x = (e.clientX - rect.left) / rect.width;
       let y = (e.clientY - rect.top) / rect.height;
-      // Clamp values to 0..1
       x = Math.min(Math.max(x, 0), 1);
       y = Math.min(Math.max(y, 0), 1);
       
-      // Magnifier lens size (square)
       const lensW = magEl.offsetWidth;
       const lensH = magEl.offsetHeight;
       if (lensW === 0 || lensH === 0) return;
       
-      // Position lens near cursor (prefer right side, but avoid edges)
       let left = e.clientX + 20;
       let top = e.clientY - lensH / 2;
-      // Adjust if overflow right
       if (left + lensW > window.innerWidth - 10) left = e.clientX - lensW - 20;
-      // Adjust if overflow left
       if (left < 10) left = e.clientX + 20;
-      // Vertical boundaries
       top = Math.min(Math.max(top, 10), window.innerHeight - lensH - 10);
       
       magEl.style.left = left + "px";
       magEl.style.top = top + "px";
       magEl.style.display = "block";
       
-      // Determine zoom factor: lens displays 1/zoomFactor of original image area
-      // We want the lens to show a magnified region that is exactly the area under cursor.
-      // The background image inside lens will be scaled up so that the visible portion matches cursor area.
-      // Logic: the full image inside lens has width = lensW * zoomFactor.
-      // The visible region inside lens should map to the original image region size = (lensW / zoomFactor) on main.
-      // So zoomFactor = (fullImageWidth / mainImageWidth) ideally? No — we just need consistent zoom.
-      // We'll use zoom factor = 3 (3x magnification). So the lens displays a 3x zoomed view of the area under cursor.
-      const zoom = 3.5; // 3.5x magnification for clear detail without distortion
-      
-      // The natural dimensions of the full-resolution image (we'll use the loaded magImg)
+      const zoom = 3.5;
       const fullImgW = magImg.naturalWidth;
       const fullImgH = magImg.naturalHeight;
       if (!fullImgW || !fullImgH) return;
       
-      // The main image displayed has width = rect.width, height = rect.height (aspect ratio may differ)
-      // But the fullRes image might have different aspect ratio than displayed image.
-      // To avoid distortion, we need to map cursor position to the full resolution image coordinates,
-      // then show a region of size (lensW * zoomFactor) but scaled to lensW.
-      
-      // Calculate the displayed image's actual dimensions inside the element (object-fit: cover)
-      // However we have simple img with width=100% height=100%, object-fit: cover. 
-      // To get accurate mapping, we need to know the source rectangle being shown.
-      // For simplicity: we assume the displayed image fills the container without distortion (object-fit: contain? but it's cover).
-      // We'll compute based on the natural aspect ratio and container.
       const containerAspect = rect.width / rect.height;
       const imgNaturalAspect = fullImgW / fullImgH;
       let srcX, srcY, srcW, srcH;
       
       if (imgNaturalAspect > containerAspect) {
-        // image is wider than container -> centered horizontally
         const scale = fullImgH / rect.height;
         srcW = rect.width * scale;
         srcX = (fullImgW - srcW) / 2;
         srcY = 0;
         srcH = fullImgH;
       } else {
-        // image is taller than container -> centered vertically
         const scale = fullImgW / rect.width;
         srcH = rect.height * scale;
         srcY = (fullImgH - srcH) / 2;
@@ -423,43 +411,22 @@
         srcW = fullImgW;
       }
       
-      // Now map cursor position to full image coordinates
       const imgX = srcX + x * srcW;
       const imgY = srcY + y * srcH;
       
-      // The region to show in magnifier: size = (lensW / zoom) in original image coordinates? No.
-      // To get zoom = 3.5x, the lens should display an area of size (lensW / zoom) from the source.
       const zoomRegionW = lensW / zoom;
       const zoomRegionH = lensH / zoom;
       
       let zoomLeft = imgX - zoomRegionW / 2;
       let zoomTop = imgY - zoomRegionH / 2;
-      // Clamp to source bounds
       zoomLeft = Math.min(Math.max(zoomLeft, srcX), srcX + srcW - zoomRegionW);
       zoomTop = Math.min(Math.max(zoomTop, srcY), srcY + srcH - zoomRegionH);
-      
-      // Now set the magnifier image to show that region scaled to lensW x lensH
-      // We use the full-resolution image as background, but we can use CSS transform.
-      // Better: set the magImg style to position absolute with width/height based on full image,
-      // and translate to show the correct portion.
-      const scaleX = fullImgW / lensW;
-      const scaleY = fullImgH / lensH;
-      // The region we want to display corresponds to (zoomLeft, zoomTop) to (zoomLeft+zoomRegionW, zoomTop+zoomRegionH)
-      // We want to map that region into the lens element (0..lensW, 0..lensH).
-      // So the image should be placed such that the point (zoomLeft, zoomTop) in source maps to (0,0) in lens,
-      // and (zoomLeft+zoomRegionW, zoomTop+zoomRegionH) maps to (lensW, lensH).
-      // Therefore the displayed image width should be fullImgW * (lensW / zoomRegionW)?? No.
-      // The image element inside lens has its own dimensions. We set its width = fullImgW * (lensW / zoomRegionW)
-      // Actually simpler: set magImg style.width = fullImgW * (lensW / zoomRegionW) px, style.height = fullImgH * (lensH / zoomRegionH) px,
-      // and then translate using background-position style using left/top percentages.
       
       const displayW = (fullImgW / zoomRegionW) * lensW;
       const displayH = (fullImgH / zoomRegionH) * lensH;
       magImg.style.width = displayW + "px";
       magImg.style.height = displayH + "px";
       
-      // The offset: the point (zoomLeft, zoomTop) in source should be at top-left of lens (0,0) in the displayed area.
-      // The displayed image's left offset = - (zoomLeft * (displayW / fullImgW))
       const leftOffset = - (zoomLeft * (displayW / fullImgW));
       const topOffset = - (zoomTop * (displayH / fullImgH));
       magImg.style.left = leftOffset + "px";
@@ -484,7 +451,6 @@
         const v = PRODUCT.variants.find(v=>v.id===selectedVariant);
         if (v?.image) { 
           mainImg.src = v.image; 
-          // update magnifier high-res source
           let highSrc = v.image;
           if (highSrc.includes('w=800')) highSrc = highSrc.replace('w=800', 'w=1600');
           else if (!highSrc.includes('w=')) highSrc = highSrc + '?w=1600&q=90';
@@ -548,7 +514,6 @@
           });
         });
 
-        // Populate product details panel in lightbox
         const lbDetails = document.getElementById("lb-details");
         const v = PRODUCT.variants.find(v=>v.id===selectedVariant);
         const perksHtml = ["perk_free_shipping","perk_returns","perk_warranty"].map((k,i) => {
@@ -581,7 +546,7 @@
     });
     document.addEventListener("keydown", (e) => { if(e.key==="Escape") closeLightbox(); });
 
-    // ── Frequently bought together – single ADD BOTH button ──
+    // ── Frequently bought together ──────────────────────
     const bundleEl = document.getElementById("bundle-items");
     bundleEl.innerHTML = PRODUCT.bundled.map(item => `
       <div class="pdp-bundle-item">
@@ -600,14 +565,14 @@
       PRODUCT.bundled.forEach(bundled => {
         Shop.addToCart({ id: bundled.id, name: bundled.name, price: bundled.price, weight: bundled.weight, image: bundled.image, stock: 99 }, 1, null, null, bundled.image);
       });
-      const label = (typeof Shop !== "undefined" ? Shop.t("add_both_to_cart") : null) || "All items";
       Shop.toast(`${PRODUCT.name} + bundle added to cart`);
     });
 
-    // ── Related products with Buy Now overlay ────────────
+    // ── Related products with BUY NOW (uppercase) overlay ──
     const relatedEl = document.getElementById("related-grid");
     const relatedFiltered = PRODUCT.related.filter(r => r.flag === PRODUCT.relatedFlag);
-    const buyNowLabel = (typeof Shop !== "undefined" ? Shop.t("buy_now") : null) || "Buy Now";
+    // Use translation key "buy_now" which returns "BUY NOW" in uppercase (or localized equivalent)
+    const buyNowLabel = (typeof Shop !== "undefined" ? Shop.t("buy_now") : null) || "BUY NOW";
     relatedEl.innerHTML = relatedFiltered.map(r => `
       <div class="pdp-related-card">
         <div class="pdp-related-card__img-wrap">
@@ -633,10 +598,11 @@
       });
     });
 
-    // ── Specs accordion ──────────────────────────────────
+    // ── Specs accordion (ALL CLOSED by default) ──────────────────
     const accordionEl = document.getElementById("specs-accordion");
+    // Generate accordion items WITHOUT "open" class on any — all closed initially
     accordionEl.innerHTML = SPECS.map((section, i) => `
-      <div class="pdp-accordion-item${i===0?" open":""}">
+      <div class="pdp-accordion-item">
         <button class="pdp-accordion-trigger">
           <span>${section.title}</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
@@ -655,6 +621,14 @@
       btn.addEventListener("click", () => {
         const item = btn.closest(".pdp-accordion-item");
         item.classList.toggle("open");
+      });
+    });
+
+    // Update buy_now button text on language change
+    document.addEventListener("shop:langChanged", () => {
+      const newLabel = (typeof Shop !== "undefined" ? Shop.t("buy_now") : null) || "BUY NOW";
+      relatedEl.querySelectorAll(".pdp-related-card__buy-btn").forEach(btn => {
+        btn.textContent = newLabel;
       });
     });
 
