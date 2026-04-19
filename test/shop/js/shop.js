@@ -670,9 +670,14 @@ const Shop = (() => {
   }
 
   /* ─── PUBLIC API ────────────────────────────────────── */
+  /* expose lang caches for external use (e.g. per-product spec title translations) */
+  function getProductLang()   { return PRODUCT_LANG; }
+  function getProductLangEn() { return PRODUCT_LANG_EN; }
+
   return {
     resolveLanguage, detectBrowserLanguage, switchLanguage, wireLanguageSwitcher, loadLang, t,
     loadProducts, getProduct, pName, pDesc, pCategory,
+    getProductLang, getProductLangEn,
     getCart, saveCart, addToCart, removeFromCart, updateQty, clearCart, calculateTotals,
     fmt, fmtWeight, generateOrderRef,
     slugify, buildImagePath, colorImageSrc,
