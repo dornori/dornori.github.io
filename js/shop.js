@@ -26,7 +26,7 @@ const Shop = (() => {
      Priority: URL ?lang= → stored pref → browser → config default → "en"
   ═══════════════════════════════════════════════════════ */
   function detectBrowserLanguage() {
-    const supported = CONFIG.supportedLanguages || ["en", "no", "nl","de"];
+    const supported = CONFIG.supportedLanguages || ["en", "no", "nl", "de"];
     for (const lang of (navigator.languages || [navigator.language || "en"])) {
       const code = lang.split("-")[0].toLowerCase();
       if (supported.includes(code)) return code;
@@ -35,7 +35,7 @@ const Shop = (() => {
   }
 
   function resolveLanguage() {
-    const supported = CONFIG.supportedLanguages || ["en", "no", "nl","de"];
+    const supported = CONFIG.supportedLanguages || ["en", "no", "nl", "de"];
     const langKey   = CONFIG.userPrefs?.langKey || "lumio_lang";
 
     const urlLang = new URLSearchParams(window.location.search).get("lang");
