@@ -177,7 +177,11 @@
         </div>
         <div class="lumio-step" id="step-ind-2">
           <div class="lumio-step__num">2</div>
-          <div class="lumio-step__label" data-i18n="step_review">Review & Pay</div>
+          <div class="lumio-step__label" data-i18n="step_review">Review</div>
+        </div>
+        <div class="lumio-step" id="step-ind-3">
+          <div class="lumio-step__num">3</div>
+          <div class="lumio-step__label" data-i18n="step_payment">Pay</div>
         </div>
       </div>
 
@@ -282,26 +286,8 @@
             </div>
           </div>
 
-          <!-- STEP 2: Review & Pay -->
+          <!-- STEP 2: Review -->
           <div class="lumio-step-content" id="step-2" style="display:none;">
-
-            <!-- Payment options — TOP of review page -->
-            <div class="lumio-payment-top">
-              <h2 class="lumio-panel-title" data-i18n="payment">Payment</h2>
-
-              <div class="lumio-ship-chip">
-                🚚 <span data-i18n="estimated_delivery">Estimated delivery:</span>
-                <strong id="delivery-estimate">3–5 business days</strong>
-              </div>
-
-              <div id="lumio-captcha-container" style="margin-bottom:14px; min-height:0;"></div>
-              <div id="lumio-payment-mount"></div>
-
-              <div class="lumio-secure-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                <span id="payment-security-label">Secured · 256-bit SSL encryption</span>
-              </div>
-            </div>
 
             <!-- Order summary: address + line items with images -->
             <div class="lumio-checkout-panel">
@@ -321,11 +307,43 @@
                 <button type="button" class="lumio-btn lumio-btn--outline" id="btn-back-to-1">
                   ← <span data-i18n="back">Back</span>
                 </button>
+                <button type="button" class="lumio-btn lumio-btn--primary" id="btn-to-step-3">
+                  <span data-i18n="next_payment">Next: Payment →</span>
+                </button>
               </div>
             </div>
 
           </div>
           <!-- /step-2 -->
+
+          <!-- STEP 3: Pay -->
+          <div class="lumio-step-content" id="step-3" style="display:none;">
+
+            <div class="lumio-payment-top">
+              <h2 class="lumio-panel-title" data-i18n="payment">Payment</h2>
+
+              <div class="lumio-ship-chip">
+                🚚 <span data-i18n="estimated_delivery">Estimated delivery:</span>
+                <strong id="delivery-estimate">3–5 business days</strong>
+              </div>
+
+              <div id="lumio-captcha-container" style="margin-bottom:14px; min-height:0;"></div>
+              <div id="lumio-payment-mount"></div>
+
+              <div class="lumio-secure-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <span id="payment-security-label">Secured · 256-bit SSL encryption</span>
+              </div>
+            </div>
+
+            <div style="margin-top:12px;">
+              <button type="button" class="lumio-btn lumio-btn--outline" id="btn-back-to-2">
+                ← <span data-i18n="back">Back</span>
+              </button>
+            </div>
+
+          </div>
+          <!-- /step-3 -->
 
         </div>
         <!-- /left column -->
@@ -414,7 +432,6 @@
     let formData     = {};
     let isBusiness   = false;
     let orderRef     = null;
-    let paymentReady = false;
 
     const FORM_FIELDS = ["first_name","last_name","email","phone","address","city","postal_code","country","company","vat_number"];
     const FORM_STORAGE_KEY = "lumio_checkout_form";
@@ -443,9 +460,6 @@
 
       renderCartTable();
       renderSummary();
-
-      // Init payment module
-      Payment.init().then(() => { paymentReady = true; });
     });
 
     // ── Build lang switcher dynamically ───────────────────
@@ -536,6 +550,7 @@
         stepInd.style.display = "none";
         document.getElementById("step-1").style.display = "none";
         document.getElementById("step-2").style.display = "none";
+        document.getElementById("step-3").style.display = "none";
         return;
       }
 
@@ -639,15 +654,17 @@
     function goToStep(n) {
       currentStep = n;
 
-      // Cart items panel: only show on step 1
       document.getElementById("cart-items-panel").style.display = n === 1 ? "" : "none";
       document.getElementById("step-1").style.display = n === 1 ? "block" : "none";
       document.getElementById("step-1").classList.toggle("active", n === 1);
       document.getElementById("step-2").style.display = n === 2 ? "block" : "none";
       document.getElementById("step-2").classList.toggle("active", n === 2);
+      document.getElementById("step-3").style.display = n === 3 ? "block" : "none";
+      document.getElementById("step-3").classList.toggle("active", n === 3);
 
-      for (let i = 1; i <= 2; i++) {
+      for (let i = 1; i <= 3; i++) {
         const ind = document.getElementById("step-ind-" + i);
+        if (!ind) continue;
         ind.classList.remove("lumio-step--active", "lumio-step--done");
         if (i < n) ind.classList.add("lumio-step--done");
         if (i === n) ind.classList.add("lumio-step--active");
@@ -745,14 +762,31 @@
       orderRef = Shop.generateOrderRef();
       localStorage.setItem("lumio_order_ref",   orderRef);
       localStorage.setItem("lumio_order_email", formData.email);
-
       Shop.submitOrderDetails(orderRef, formData, cart, null).catch(() => {});
+    });
 
-      // Render payment button
+    // ── Step 2 → 3: go to payment ──────────────────────────
+    document.getElementById("btn-to-step-3").addEventListener("click", async () => {
+      const cart = Shop.getCart();
+
+      // Delivery estimate
+      const shippingRate = Shipping.getRate(formData.country);
+      document.getElementById("delivery-estimate").textContent =
+        shippingRate.estimatedDays + " " + (Shop.t("days") || "business days");
+
+      // Payment security label
+      const proc = CONFIG.payment.activeProcessor || "paypal";
+      document.getElementById("payment-security-label").textContent =
+        proc === "paypal" ? "Secured by PayPal · 256-bit SSL encryption"
+        : proc === "stripe" ? "Secured by Stripe · 256-bit SSL encryption"
+        : "256-bit SSL encryption";
+
+      goToStep(3);
       await renderPayment(cart);
     });
 
     document.getElementById("btn-back-to-1").addEventListener("click", () => goToStep(1));
+    document.getElementById("btn-back-to-2").addEventListener("click", () => goToStep(2));
 
     // ── Payment render ─────────────────────────────────────
     async function renderPayment(cart) {
@@ -763,7 +797,7 @@
       const totals = { subtotal, shipping: isFreeShipping ? 0 : shipping, tax, total };
 
       try {
-        if (!paymentReady) await Payment.init();
+        await Payment.init();
         await Payment.render(cart, totals, orderRef, mount);
       } catch (e) {
         console.error("[Payment] render failed:", e);
@@ -784,7 +818,7 @@
     document.addEventListener("payment:cancel", async () => {
       try { await Shop.submitOrderStatus(orderRef, "PAYMENT_CANCELLED"); } catch {}
       Shop.toast(Shop.t("payment_cancelled") || "Payment cancelled — your cart is saved.", 4000);
-      goToStep(1);
+      goToStep(2);
     });
 
     document.addEventListener("payment:error", async (e) => {

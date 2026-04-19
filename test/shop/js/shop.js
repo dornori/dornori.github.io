@@ -141,8 +141,10 @@ const Shop = (() => {
     const image  = imageOverride || (variantId ? variantImage(product, variantId) : selectedColor ? colorImageSrc(product, selectedColor) : product.image);
     const label  = variantId ? (getVariant(product, variantId)?.label || variantId) : selectedColor;
     const maxQty = variantId ? variantStock(product, variantId) : (product.stock || 99);
+    // Always resolve name via pName() so cart items are never blank regardless of product JSON structure
+    const resolvedName = pName(product) || product.name || product.id;
     if (existing) { existing.qty = Math.min(existing.qty + qty, maxQty || 99); }
-    else cart.push({ ...product, cartKey: key, qty, price, weight, image, selectedColor: label, variantId });
+    else cart.push({ ...product, name: resolvedName, cartKey: key, qty, price, weight, image, selectedColor: label, variantId });
     saveCart(cart); return cart;
   }
   function removeFromCart(cartKey) { saveCart(getCart().filter(i => i.cartKey !== cartKey)); }
