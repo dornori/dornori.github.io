@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cart — LUMIO</title>
+  <title>SCart — LUMIO</title>
   <link rel="stylesheet" href="css/shop.css">
   <script src="js/config.js"></script>
   <script src="js/shop.js"></script>
@@ -15,41 +15,40 @@
     .lumio-cart-layout {
       display: grid;
       grid-template-columns: 1fr 380px;
-      gap: 40px;
+      gap: 48px;
       align-items: start;
     }
-
     @media (max-width: 900px) {
-      .lumio-cart-layout { grid-template-columns: 1fr; }
+      .lumio-cart-layout { grid-template-columns: 1fr; gap: 32px; }
     }
 
-    /* Review Order Summary with images */
-    .review-items-list {
+    /* Review - Top Order Summary with images */
+    .review-order-summary {
       background: var(--c-surface);
       padding: 28px;
       border-radius: var(--radius-lg);
-      margin-bottom: 32px;
+      margin-bottom: 40px;
     }
     .review-item {
       display: flex;
-      gap: 16px;
-      padding: 16px 0;
+      gap: 18px;
+      padding: 14px 0;
       border-bottom: 1px solid var(--c-border);
     }
-    .review-item:last-child { border-bottom: none; }
+    .review-item:last-child { border-bottom: none; padding-bottom: 0; }
     .review-item img {
-      width: 68px;
-      height: 68px;
+      width: 72px;
+      height: 72px;
       object-fit: cover;
       border-radius: var(--radius);
       flex-shrink: 0;
     }
     .review-item-info { flex: 1; }
-    .review-item-name { font-size: 1.05rem; font-weight: 500; margin-bottom: 4px; }
-    .review-item-meta { font-size: 0.85rem; color: var(--c-text-3); }
+    .review-item-name { font-size: 1.08rem; font-weight: 500; margin-bottom: 4px; }
+    .review-item-meta { font-size: 0.87rem; color: var(--c-text-3); }
 
     .form-error { color: var(--c-error); font-size: 0.8rem; margin-top: 4px; display: none; }
-    .input-error { border-color: var(--c-error) !important; }
+    .input-error { border-color: var(--c-error) !important; box-shadow: 0 0 0 3px rgba(155,58,58,0.15); }
   </style>
 </head>
 <body>
@@ -63,7 +62,7 @@
 
   <div class="lumio-container lumio-page-main">
 
-    <!-- Progress Steps -->
+    <!-- Steps -->
     <div class="lumio-steps" id="checkout-steps">
       <div class="lumio-step lumio-step--active" data-step="1"><div class="lumio-step__num">1</div><div class="lumio-step__label">Shipping</div></div>
       <div class="lumio-step" data-step="2"><div class="lumio-step__num">2</div><div class="lumio-step__label">Review</div></div>
@@ -72,7 +71,7 @@
 
     <div class="lumio-cart-layout">
 
-      <!-- ==================== STEP 1: SHIPPING ==================== -->
+      <!-- STEP 1: SHIPPING -->
       <div id="step-1" class="step-content active">
         <h2 class="lumio-section-title">Shipping Information</h2>
 
@@ -86,85 +85,82 @@
             <div class="lumio-form-group">
               <label>First Name *</label>
               <input type="text" id="first-name" class="required">
-              <div class="form-error" id="err-first-name">This field is required</div>
+              <div class="form-error" id="err-first">Required</div>
             </div>
             <div class="lumio-form-group">
               <label>Last Name *</label>
               <input type="text" id="last-name" class="required">
-              <div class="form-error" id="err-last-name">This field is required</div>
+              <div class="form-error" id="err-last">Required</div>
             </div>
           </div>
 
           <div class="lumio-form-group">
             <label>Email Address *</label>
             <input type="email" id="email" class="required">
-            <div class="form-error" id="err-email">Please enter a valid email</div>
+            <div class="form-error" id="err-email">Valid email required</div>
           </div>
 
           <div class="lumio-form-group">
             <label>Street Address *</label>
             <input type="text" id="address" class="required">
-            <div class="form-error" id="err-address">This field is required</div>
+            <div class="form-error" id="err-address">Required</div>
           </div>
 
           <div class="lumio-form-row">
             <div class="lumio-form-group">
               <label>City *</label>
               <input type="text" id="city" class="required">
-              <div class="form-error" id="err-city">This field is required</div>
+              <div class="form-error" id="err-city">Required</div>
             </div>
             <div class="lumio-form-group">
               <label>Postal Code *</label>
               <input type="text" id="postal" class="required">
-              <div class="form-error" id="err-postal">This field is required</div>
+              <div class="form-error" id="err-postal">Required</div>
             </div>
           </div>
 
           <div class="lumio-form-group">
             <label>Country *</label>
-            <select id="country" class="required">
-              <option value="">Select country...</option>
-            </select>
+            <select id="country" class="required"></select>
             <div class="form-error" id="err-country">Please select a country</div>
           </div>
         </div>
 
-        <button class="lumio-btn lumio-btn--primary lumio-btn--full" onclick="goToReview()">Next: Review Order →</button>
+        <button class="lumio-btn lumio-btn--primary lumio-btn--full" onclick="nextStep(2)">Next: Review Order →</button>
       </div>
 
-      <!-- ==================== STEP 2: REVIEW ==================== -->
+      <!-- STEP 2: REVIEW -->
       <div id="step-2" class="step-content">
         <h2 class="lumio-section-title">Order Summary</h2>
         
-        <div id="review-order-items" class="review-items-list">
-          <!-- Populated by JS with small images -->
+        <div id="review-order-items" class="review-order-summary">
+          <!-- JS: Items with small images -->
         </div>
 
-        <!-- Right Sidebar -->
+        <!-- Right sidebar -->
         <div class="lumio-summary-panel">
           <h3>Shopping Cart</h3>
           <div id="review-mini-cart"></div>
           <div id="review-totals"></div>
 
-          <button class="lumio-btn lumio-btn--primary lumio-btn--full" onclick="goToPayment()" style="margin-top:24px;">Continue to Payment →</button>
-          <button class="lumio-btn lumio-btn--outline lumio-btn--full" onclick="goToShipping()" style="margin-top:10px;">← Back to Shipping</button>
+          <button class="lumio-btn lumio-btn--primary lumio-btn--full" onclick="nextStep(3)" style="margin-top:28px;">Continue to Payment →</button>
+          <button class="lumio-btn lumio-btn--outline lumio-btn--full" onclick="nextStep(1)" style="margin-top:10px;">← Back</button>
         </div>
       </div>
 
-      <!-- ==================== STEP 3: PAYMENT ==================== -->
+      <!-- STEP 3: PAYMENT -->
       <div id="step-3" class="step-content">
         <h2 class="lumio-section-title">Payment Options</h2>
         
-        <div id="lumio-paypal-container" style="margin-bottom: 32px;">
-          <!-- PayPal / Stripe rendered here -->
+        <div id="lumio-paypal-container" style="background:#faf8f5; padding:24px; border-radius:var(--radius-lg); margin-bottom:32px;">
+          <!-- Payment buttons rendered here by Payment module -->
         </div>
 
-        <!-- Right Sidebar - Clean Summary -->
+        <!-- Right sidebar - clean summary only -->
         <div class="lumio-summary-panel">
           <h3>Order Summary</h3>
           <div id="payment-order-summary"></div>
-
-          <button class="lumio-btn lumio-btn--outline lumio-btn--full" onclick="goToReview()" style="margin-top:24px;">← Back to Review</button>
+          <button class="lumio-btn lumio-btn--outline lumio-btn--full" onclick="nextStep(2)" style="margin-top:28px;">← Back to Review</button>
         </div>
       </div>
 
@@ -172,13 +168,12 @@
   </div>
 
   <script>
-    // Populate countries from shipping.csv
+    // Populate countries
     async function populateCountries() {
       const select = document.getElementById('country');
       const countries = Shipping.getCountries();
-      
       Object.entries(countries)
-        .sort((a, b) => a[1].country_name.localeCompare(b[1].country_name))
+        .sort(([,a], [,b]) => (a.country_name || '').localeCompare(b.country_name || ''))
         .forEach(([code, data]) => {
           const opt = document.createElement('option');
           opt.value = code;
@@ -187,95 +182,69 @@
         });
     }
 
-    // Basic validation
-    function validateShippingForm() {
-      let isValid = true;
-      const fields = ['first-name','last-name','email','address','city','postal','country'];
+    // Simple validation
+    function validateCurrentStep() {
+      if (document.getElementById('step-1').classList.contains('active')) {
+        const required = document.querySelectorAll('#step-1 .required');
+        let valid = true;
+        required.forEach(field => {
+          const err = document.getElementById('err-' + field.id.split('-')[0]) || document.getElementById('err-' + field.id);
+          if (err) err.style.display = 'none';
+          field.classList.remove('input-error');
 
-      fields.forEach(id => {
-        const el = document.getElementById(id);
-        const err = document.getElementById('err-' + id);
-        if (!el) return;
-
-        el.classList.remove('input-error');
-        if (err) err.style.display = 'none';
-
-        if (el.classList.contains('required') && !el.value.trim()) {
-          isValid = false;
-          el.classList.add('input-error');
-          if (err) err.style.display = 'block';
-        }
-
-        if (id === 'email' && el.value && !el.value.includes('@')) {
-          isValid = false;
-          el.classList.add('input-error');
-          if (err) err.style.display = 'block';
-        }
-      });
-
-      return isValid;
+          if (!field.value.trim()) {
+            valid = false;
+            field.classList.add('input-error');
+            if (err) err.style.display = 'block';
+          }
+        });
+        return valid;
+      }
+      return true;
     }
 
-    function goToShipping() {
-      document.querySelectorAll('.step-content').forEach(s => s.classList.remove('active'));
-      document.getElementById('step-1').classList.add('active');
-      updateStepIndicators(1);
+    function nextStep(step) {
+      if (!validateCurrentStep()) return;
+
+      document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
+      document.getElementById('step-' + step).classList.add('active');
+
+      document.querySelectorAll('.lumio-step').forEach(s => s.classList.remove('lumio-step--active'));
+      document.querySelector(`.lumio-step[data-step="${step}"]`).classList.add('lumio-step--active');
+
+      if (step === 2) renderReview();
+      if (step === 3) renderPayment();
     }
 
-    function goToReview() {
-      if (!validateShippingForm()) return;
-      document.querySelectorAll('.step-content').forEach(s => s.classList.remove('active'));
-      document.getElementById('step-2').classList.add('active');
-      updateStepIndicators(2);
-      renderReviewStep();
-    }
-
-    function goToPayment() {
-      document.querySelectorAll('.step-content').forEach(s => s.classList.remove('active'));
-      document.getElementById('step-3').classList.add('active');
-      updateStepIndicators(3);
-      renderPaymentStep();
-    }
-
-    function updateStepIndicators(step) {
-      document.querySelectorAll('.lumio-step').forEach(s => {
-        s.classList.remove('lumio-step--active');
-        if (parseInt(s.dataset.step) === step) s.classList.add('lumio-step--active');
-      });
-    }
-
-    // Render Review Step
-    function renderReviewStep() {
+    function renderReview() {
       const cart = Shop.getCart();
       if (!cart.length) return;
 
-      // Top Order Summary with images
-      let html = '';
+      // Top: Order Summary with images (no duplication)
+      let topHtml = '';
       cart.forEach(item => {
-        html += `
+        topHtml += `
           <div class="review-item">
-            <img src="${item.image || 'images/placeholder.svg'}" alt="${item.name}">
+            <img src="${item.image}" alt="${item.name}" onerror="this.src='images/placeholder.svg'">
             <div class="review-item-info">
               <div class="review-item-name">${item.name}</div>
-              <div class="review-item-meta">
-                ${item.selectedColor ? item.selectedColor + ' • ' : ''}Qty: ${item.qty}
-              </div>
+              <div class="review-item-meta">${item.selectedColor ? item.selectedColor + ' • ' : ''}Qty: ${item.qty}</div>
             </div>
-            <div class="review-item-price">${Shop.fmt(item.price * item.qty)}</div>
+            <div style="font-weight:600;">${Shop.fmt(item.price * item.qty)}</div>
           </div>`;
       });
-      document.getElementById('review-order-items').innerHTML = html;
+      document.getElementById('review-order-items').innerHTML = topHtml;
 
       // Right sidebar mini cart
-      let miniHtml = cart.map(item => `
-        <div style="display:flex; gap:12px; margin-bottom:14px; align-items:center;">
-          <img src="${item.image}" style="width:52px;height:52px;object-fit:cover;border-radius:6px;" onerror="this.src='images/placeholder.svg'">
-          <div style="flex:1; font-size:0.92rem;">${item.name}<br>
-            <small style="color:#777;">${item.selectedColor || ''} × ${item.qty}</small>
-          </div>
-          <div style="font-weight:600; white-space:nowrap;">${Shop.fmt(item.price * item.qty)}</div>
-        </div>
-      `).join('');
+      let miniHtml = '';
+      cart.forEach(item => {
+        miniHtml += `
+          <div style="display:flex;gap:12px;margin-bottom:12px;align-items:center;">
+            <img src="${item.image}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;" onerror="this.src='images/placeholder.svg'">
+            <div style="flex:1;font-size:0.9rem;">${item.name}<br><small>${item.selectedColor||''} × ${item.qty}</small></div>
+            <div style="font-weight:600;">${Shop.fmt(item.price * item.qty)}</div>
+          </div>`;
+      });
       document.getElementById('review-mini-cart').innerHTML = miniHtml;
 
       const totals = Shop.calculateTotals(cart);
@@ -287,8 +256,7 @@
       `;
     }
 
-    // Render Payment Step
-    function renderPaymentStep() {
+    function renderPayment() {
       const cart = Shop.getCart();
       const totals = Shop.calculateTotals(cart);
       const orderRef = Shop.generateOrderRef();
@@ -296,28 +264,24 @@
       const summaryHtml = `
         <div class="lumio-summary-row"><span>Subtotal</span><span>${Shop.fmt(totals.subtotal)}</span></div>
         <div class="lumio-summary-row"><span>Shipping</span><span>${totals.isFreeShipping ? 'FREE' : Shop.fmt(totals.shipping)}</span></div>
-        <div class="lumio-summary-row"><span>VAT</span><span>${Shop.fmt(totals.tax)}</span></div>
+        <div class="lumio-summary-row"><span>VAT (25%)</span><span>${Shop.fmt(totals.tax)}</span></div>
         <div class="lumio-summary-row lumio-summary-row--total"><span>Total</span><span>${Shop.fmt(totals.total)}</span></div>
       `;
       document.getElementById('payment-order-summary').innerHTML = summaryHtml;
 
-      // Render Payment Buttons
+      // Render actual payment buttons
       Payment.render(cart, totals, orderRef, "#lumio-paypal-container");
     }
 
-    // Initialize everything
+    // Boot
     window.addEventListener('load', async () => {
-      await Promise.all([
-        Shipping.load(),
-        Currency.init(),
-        Shop.loadLang()
-      ]);
+      await Promise.all([ Shipping.load(), Currency.init(), Shop.loadLang() ]);
 
       Shop.renderCurrencySelector("#currency-slot");
       await populateCountries();
 
-      // Start on Shipping step
-      goToShipping();
+      // Start at Shipping
+      document.getElementById('step-1').classList.add('active');
     });
   </script>
 </body>
