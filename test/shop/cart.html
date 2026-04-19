@@ -421,9 +421,10 @@
       chain.then(function() { document.dispatchEvent(new Event("lumio:ready")); });
     })();
   </script>
-  <script>
+
+    <script>
   /* =========================================================
-     CART PAGE CONTROLLER
+     CART PAGE CONTROLLER (FIXED)
      ========================================================= */
   document.addEventListener("lumio:ready", function() {
 
@@ -436,31 +437,44 @@
     const FORM_FIELDS = ["first_name","last_name","email","phone","address","city","postal_code","country","company","vat_number"];
     const FORM_STORAGE_KEY = "lumio_checkout_form";
 
-    // ── Init sequence ──────────────────────────────────────
-    Promise.all([
-      Shipping.load(),
-      Currency.init(),
-      Shop.loadLang(),
-    ]).then(() => {
-      // Populate country select from shipping.csv
-      const countrySelect = document.getElementById("country");
-      Shipping.populateCountrySelect(countrySelect, Shop.t("select_country") || "Select country…");
+    // ── FIXED Init sequence: Currency first, then Shipping, then Shop ──
+    (async function initializeShop() {
+      try {
+        // Initialize Currency first and wait for it to be ready
+        if (typeof Currency !== "undefined") {
+          await Currency.init();
+          await Currency.waitForReady();
+        }
+        
+        // Then load Shipping and Shop language
+        await Shipping.load();
+        await Shop.loadLang();
+        
+        // Now everything is ready
+        const countrySelect = document.getElementById("country");
+        Shipping.populateCountrySelect(countrySelect, Shop.t("select_country") || "Select country…");
 
-      // Wire language switcher buttons
-      buildLangSwitcher();
-      Shop.wireLanguageSwitcher(".lumio-lang-btn");
-      applyI18n();
+        // Wire language switcher buttons
+        buildLangSwitcher();
+        Shop.wireLanguageSwitcher(".lumio-lang-btn");
+        applyI18n();
 
-      Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false });
-      Shop.renderCurrencySelector("#currency-selector-slot");
-      Shop.renderBackButton(document.querySelector(".lumio-page-main .lumio-container"), { href: "index.html" });
+        Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false });
+        Shop.renderCurrencySelector("#currency-selector-slot");
+        Shop.renderBackButton(document.querySelector(".lumio-page-main .lumio-container"), { href: "index.html" });
 
-      // Restore form data from localStorage
-      restoreFormData();
+        // Restore form data from localStorage
+        restoreFormData();
 
-      renderCartTable();
-      renderSummary();
-    });
+        renderCartTable();
+        renderSummary();
+      } catch (error) {
+        console.error("[Init] Failed to initialize shop:", error);
+        // Still try to render with fallbacks
+        renderCartTable();
+        renderSummary();
+      }
+    })();
 
     // ── Build lang switcher dynamically ───────────────────
     function buildLangSwitcher() {
@@ -480,12 +494,10 @@
       buildLangSwitcher();
       Shop.wireLanguageSwitcher(".lumio-lang-btn");
       applyI18n();
-      // Re-populate country select with translated placeholder
       Shipping.populateCountrySelect(
         document.getElementById("country"),
         Shop.t("select_country") || "Select country…"
       );
-      // Restore selected country after repopulation
       const saved = getSavedForm();
       if (saved.country) document.getElementById("country").value = saved.country;
       renderCartTable();
@@ -517,7 +529,6 @@
         if (!el || !saved[id]) return;
         el.value = saved[id];
       });
-      // Restore business toggle
       if (saved._isBusiness) {
         document.getElementById("is-business").checked = true;
         isBusiness = true;
@@ -562,25 +573,25 @@
           <td data-label="">
             <img class="lumio-cart-item-img" src="${item.image}" alt="${item.name}"
               onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22><rect fill=%22%23ede9e3%22 width=%2272%22 height=%2272%22/></svg>'">
-          </td>
+           </td>
           <td data-label="Item">
             <div class="lumio-cart-item-name">${item.name}</div>
             ${item.selectedColor ? `<div class="lumio-cart-item-color">${item.selectedColor}</div>` : ""}
             <div style="font-size:0.75rem; color:var(--c-text-3);">${Shop.fmtWeight(item.weight)}</div>
-          </td>
+           </td>
           <td data-label="Qty">
             <div class="lumio-qty-control">
               <button class="lumio-qty-btn lumio-qty-btn--minus" data-key="${item.cartKey}">−</button>
               <span class="lumio-qty-val">${item.qty}</span>
               <button class="lumio-qty-btn lumio-qty-btn--plus" data-key="${item.cartKey}" data-stock="${item.stock || 99}">+</button>
             </div>
-          </td>
+           </td>
           <td data-label="Price" class="lumio-cart-item-total">${Shop.fmt(item.price * item.qty)}</td>
           <td>
             <button class="lumio-cart-remove" data-key="${item.cartKey}" aria-label="Remove">✕</button>
-          </td>
-        </tr>
-      `).join("");
+           </td>
+         `
+      ).join("");
 
       tbody.querySelectorAll(".lumio-qty-btn--minus").forEach(btn => {
         btn.addEventListener("click", () => {
@@ -616,7 +627,6 @@
       document.getElementById("summary-weight").textContent = Shop.fmtWeight(totalWeight);
       document.getElementById("summary-total").textContent = Shop.fmt(total);
 
-      // Free shipping bar
       const threshold = CONFIG.shipping.freeThreshold;
       const pct = Math.min((subtotal / threshold) * 100, 100);
       document.getElementById("free-ship-fill").style.width = pct + "%";
@@ -624,7 +634,6 @@
         ? "✓ Free shipping unlocked!"
         : `Add ${Shop.fmt(Math.max(0, threshold - subtotal))} for free shipping`;
 
-      // Mini product list in summary
       const sumItems = document.getElementById("summary-items");
       sumItems.innerHTML = cart.map(item => `
         <div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--c-border);">
@@ -730,7 +739,6 @@
         ${formData.email}${formData.phone ? " · " + formData.phone : ""}
       `;
 
-      // Review items with images
       const cart = Shop.getCart();
       document.getElementById("review-items").innerHTML = cart.map(item => `
         <div class="lumio-review-item">
@@ -744,12 +752,10 @@
         </div>
       `).join("");
 
-      // Delivery estimate
       const shippingRate = Shipping.getRate(formData.country);
       document.getElementById("delivery-estimate").textContent =
         shippingRate.estimatedDays + " " + (Shop.t("days") || "business days");
 
-      // Update payment security label
       const proc = CONFIG.payment.activeProcessor || "paypal";
       document.getElementById("payment-security-label").textContent =
         proc === "paypal" ? "Secured by PayPal · 256-bit SSL encryption"
@@ -758,7 +764,6 @@
 
       goToStep(2);
 
-      // Submit order details to Formspree (background)
       orderRef = Shop.generateOrderRef();
       localStorage.setItem("lumio_order_ref",   orderRef);
       localStorage.setItem("lumio_order_email", formData.email);
@@ -769,12 +774,10 @@
     document.getElementById("btn-to-step-3").addEventListener("click", async () => {
       const cart = Shop.getCart();
 
-      // Delivery estimate
       const shippingRate = Shipping.getRate(formData.country);
       document.getElementById("delivery-estimate").textContent =
         shippingRate.estimatedDays + " " + (Shop.t("days") || "business days");
 
-      // Payment security label
       const proc = CONFIG.payment.activeProcessor || "paypal";
       document.getElementById("payment-security-label").textContent =
         proc === "paypal" ? "Secured by PayPal · 256-bit SSL encryption"
