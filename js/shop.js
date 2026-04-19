@@ -26,7 +26,7 @@ const Shop = (() => {
      Priority: URL ?lang= → stored pref → browser → config default → "en"
   ═══════════════════════════════════════════════════════ */
   function detectBrowserLanguage() {
-    const supported = CONFIG.supportedLanguages || ["en", "no", "nl"];
+    const supported = CONFIG.supportedLanguages || ["en", "no", "nl","de"];
     for (const lang of (navigator.languages || [navigator.language || "en"])) {
       const code = lang.split("-")[0].toLowerCase();
       if (supported.includes(code)) return code;
