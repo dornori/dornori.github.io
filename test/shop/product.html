@@ -6,7 +6,7 @@
   <title>LUMIO – Arc Floor Lamp</title>
   <link rel="stylesheet" href="css/shop.css">
   <style>
-    /* Magnifier styles */
+    /* Magnifier styles - critical fixes */
     .pdp-magnifier {
       position: fixed;
       pointer-events: none;
@@ -29,6 +29,12 @@
       cursor: crosshair;
       position: relative;
       overflow: hidden;
+    }
+    .pdp-gallery__main-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
     /* Buy Now button styling */
     .pdp-related-card__buy-btn {
@@ -308,7 +314,7 @@
       currentImgIdx = idx;
       const src = PRODUCT.images[idx];
       mainImg.src = src;
-      // Update magnifier high-res source
+      // Update magnifier high-res image
       let highSrc = src;
       if (highSrc.includes('w=800')) highSrc = highSrc.replace('w=800', 'w=1600');
       else if (!highSrc.includes('w=')) highSrc = highSrc + '?w=1600&q=90';
@@ -320,116 +326,125 @@
     }
     buildThumbs();
 
-    // MAGNIFIER - fully rewritten for reliability
-    const magEl = document.getElementById("magnifier");
-    const magImgEl = document.getElementById("magnifier-img");
+    // ========== MAGNIFIER - FIXED VERSION ==========
+    const magnifier = document.getElementById("magnifier");
+    const magnifierImg = document.getElementById("magnifier-img");
     const mainWrap = document.getElementById("gallery-main-wrap");
     
-    // Preload high-res image
-    let highResSrc = PRODUCT.images[0];
-    if (highResSrc.includes('w=800')) highResSrc = highResSrc.replace('w=800', 'w=1600');
-    else if (!highResSrc.includes('w=')) highResSrc = highResSrc + '?w=1600&q=90';
-    magImgEl.src = highResSrc;
+    // Set initial high-res image
+    let initialHighSrc = PRODUCT.images[0];
+    if (initialHighSrc.includes('w=800')) initialHighSrc = initialHighSrc.replace('w=800', 'w=1600');
+    else if (!initialHighSrc.includes('w=')) initialHighSrc = initialHighSrc + '?w=1600&q=90';
+    magnifierImg.src = initialHighSrc;
     
     // Set magnifier size
-    function updateMagnifierSize() {
-      const maxSize = Math.min(window.innerWidth * 0.35, 380);
+    function setMagnifierSize() {
+      const maxSize = Math.min(window.innerWidth * 0.4, 400);
       const containerRect = mainWrap.getBoundingClientRect();
-      const sz = Math.min(maxSize, containerRect.width * 0.7);
-      magEl.style.width = sz + "px";
-      magEl.style.height = sz + "px";
+      const size = Math.min(maxSize, containerRect.width * 0.8);
+      magnifier.style.width = size + "px";
+      magnifier.style.height = size + "px";
     }
-    updateMagnifierSize();
-    window.addEventListener('resize', updateMagnifierSize);
+    setMagnifierSize();
+    window.addEventListener('resize', setMagnifierSize);
     
+    // Magnifier logic
     mainWrap.addEventListener("mousemove", function(e) {
       const rect = mainWrap.getBoundingClientRect();
-      const lensW = magEl.offsetWidth;
-      const lensH = magEl.offsetHeight;
+      const lensW = magnifier.offsetWidth;
+      const lensH = magnifier.offsetHeight;
+      
       if (lensW === 0 || lensH === 0) return;
       
-      // Calculate mouse position percentage (0-1) within the image area
+      // Get mouse position relative to the image (0 to 1)
       let mouseX = (e.clientX - rect.left) / rect.width;
       let mouseY = (e.clientY - rect.top) / rect.height;
       mouseX = Math.min(Math.max(mouseX, 0), 1);
       mouseY = Math.min(Math.max(mouseY, 0), 1);
       
-      // Position the magnifier lens near the cursor
-      let lensLeft = e.clientX + 20;
-      let lensTop = e.clientY - lensH / 2;
-      if (lensLeft + lensW > window.innerWidth - 10) lensLeft = e.clientX - lensW - 20;
-      if (lensLeft < 10) lensLeft = e.clientX + 20;
-      lensTop = Math.min(Math.max(lensTop, 10), window.innerHeight - lensH - 10);
+      // Position the magnifier near the cursor
+      let leftPos = e.clientX + 20;
+      let topPos = e.clientY - lensH / 2;
       
-      magEl.style.left = lensLeft + "px";
-      magEl.style.top = lensTop + "px";
-      magEl.style.display = "block";
+      // Adjust if off-screen right
+      if (leftPos + lensW > window.innerWidth - 10) {
+        leftPos = e.clientX - lensW - 20;
+      }
+      // Adjust if off-screen left
+      if (leftPos < 10) {
+        leftPos = e.clientX + 20;
+      }
+      // Adjust vertical boundaries
+      topPos = Math.min(Math.max(topPos, 10), window.innerHeight - lensH - 10);
       
-      // Calculate zoom: we want the lens to show a zoomed area
-      const zoomFactor = 3.2;
+      magnifier.style.left = leftPos + "px";
+      magnifier.style.top = topPos + "px";
+      magnifier.style.display = "block";
       
-      // Get the actual displayed image dimensions and the original image dimensions
-      const imgNaturalW = magImgEl.naturalWidth;
-      const imgNaturalH = magImgEl.naturalHeight;
-      if (!imgNaturalW || !imgNaturalH) return;
+      // Calculate zoom (3x magnification)
+      const zoom = 3;
       
-      // The main displayed image uses object-fit: cover. We need to find the actual source rectangle.
+      // Get natural dimensions of the high-res image
+      const imgW = magnifierImg.naturalWidth;
+      const imgH = magnifierImg.naturalHeight;
+      
+      if (imgW === 0 || imgH === 0) return;
+      
+      // The displayed image uses object-fit: cover, so we need to find the actual visible area
       const containerAspect = rect.width / rect.height;
-      const imgAspect = imgNaturalW / imgNaturalH;
-      let srcX, srcY, srcW, srcH;
+      const imgAspect = imgW / imgH;
+      
+      let visibleX, visibleY, visibleW, visibleH;
       
       if (imgAspect > containerAspect) {
-        // Image is wider than container - letterboxed horizontally
-        const scale = imgNaturalH / rect.height;
-        srcW = rect.width * scale;
-        srcX = (imgNaturalW - srcW) / 2;
-        srcY = 0;
-        srcH = imgNaturalH;
+        // Image is wider than container - centered horizontally
+        const scale = imgH / rect.height;
+        visibleW = rect.width * scale;
+        visibleX = (imgW - visibleW) / 2;
+        visibleY = 0;
+        visibleH = imgH;
       } else {
-        // Image is taller than container - letterboxed vertically
-        const scale = imgNaturalW / rect.width;
-        srcH = rect.height * scale;
-        srcY = (imgNaturalH - srcH) / 2;
-        srcX = 0;
-        srcW = imgNaturalW;
+        // Image is taller than container - centered vertically
+        const scale = imgW / rect.width;
+        visibleH = rect.height * scale;
+        visibleY = (imgH - visibleH) / 2;
+        visibleX = 0;
+        visibleW = imgW;
       }
       
-      // Calculate the point in the original image that the mouse is over
-      const imgX = srcX + mouseX * srcW;
-      const imgY = srcY + mouseY * srcH;
+      // Calculate the exact pixel coordinates in the original image
+      const imgX = visibleX + mouseX * visibleW;
+      const imgY = visibleY + mouseY * visibleH;
       
-      // The region to show in the magnifier (in original image coordinates)
-      const regionW = lensW / zoomFactor;
-      const regionH = lensH / zoomFactor;
+      // Calculate the region to show in the magnifier
+      const regionW = lensW / zoom;
+      const regionH = lensH / zoom;
       
       let regionLeft = imgX - regionW / 2;
       let regionTop = imgY - regionH / 2;
-      regionLeft = Math.min(Math.max(regionLeft, srcX), srcX + srcW - regionW);
-      regionTop = Math.min(Math.max(regionTop, srcY), srcY + srcH - regionH);
       
-      // Scale the magnifier image so the selected region fills the lens
-      const displayScaleW = lensW / regionW;
-      const displayScaleH = lensH / regionH;
-      const displayW = imgNaturalW * displayScaleW;
-      const displayH = imgNaturalH * displayScaleH;
+      // Clamp to image boundaries
+      regionLeft = Math.min(Math.max(regionLeft, visibleX), visibleX + visibleW - regionW);
+      regionTop = Math.min(Math.max(regionTop, visibleY), visibleY + visibleH - regionH);
       
-      magImgEl.style.width = displayW + "px";
-      magImgEl.style.height = displayH + "px";
+      // Set the magnifier image dimensions and position
+      // We want the selected region to fill the lens
+      const scaleX = lensW / regionW;
+      const scaleY = lensH / regionH;
       
-      // Position the image so the selected region is visible
-      const leftOffset = -regionLeft * displayScaleW;
-      const topOffset = -regionTop * displayScaleH;
-      magImgEl.style.left = leftOffset + "px";
-      magImgEl.style.top = topOffset + "px";
+      magnifierImg.style.width = (imgW * scaleX) + "px";
+      magnifierImg.style.height = (imgH * scaleY) + "px";
+      magnifierImg.style.left = (-regionLeft * scaleX) + "px";
+      magnifierImg.style.top = (-regionTop * scaleY) + "px";
     });
     
     mainWrap.addEventListener("mouseleave", function() {
-      magEl.style.display = "none";
+      magnifier.style.display = "none";
     });
     
-    // Ensure magnifier hides when not hovering
-    mainWrap.addEventListener("mouseenter", function() {
-      updateMagnifierSize();
+    // Update magnifier size on window resize
+    window.addEventListener('resize', function() {
+      setMagnifierSize();
     });
 
     // Main image click opens lightbox
@@ -451,7 +466,7 @@
           let highSrc = v.image;
           if (highSrc.includes('w=800')) highSrc = highSrc.replace('w=800', 'w=1600');
           else if (!highSrc.includes('w=')) highSrc = highSrc + '?w=1600&q=90';
-          magImgEl.src = highSrc;
+          magnifierImg.src = highSrc;
         }
         updatePrice();
       });
@@ -558,10 +573,9 @@
       Shop.toast(`${PRODUCT.name} + bundle added to cart`);
     });
 
-    // Related products with "BUY NOW" (no underscore, proper spacing)
+    // Related products with "BUY NOW"
     const relatedEl = document.getElementById("related-grid");
     const relatedFiltered = PRODUCT.related.filter(r => r.flag === PRODUCT.relatedFlag);
-    // Hardcoded "BUY NOW" as requested - no underscore, proper display
     const buyNowText = "BUY NOW";
     relatedEl.innerHTML = relatedFiltered.map(r => `
       <div class="pdp-related-card">
