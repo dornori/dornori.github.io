@@ -4,55 +4,49 @@
  * Bridges language preference from the main Dornori site into the shop.
  *
  * HOW IT WORKS:
- *   Main site stores language in localStorage key: 'dornori-lang'  (e.g. 'nl')
- *   Shop reads language from:  CONFIG.language  (set from 'lumio_lang')
+ *   All localStorage key names come from CONFIG.storageKeys (config.js):
+ *     CONFIG.storageKeys.parentLangKey  — key the parent site writes
+ *     CONFIG.storageKeys.shopLangKey    — key the shop reads/writes
  *
- *   This script reads 'dornori-lang' and, if it's a language the shop supports,
- *   writes it into both CONFIG.language and 'lumio_lang' so shop.js picks it up.
+ *   By default both are "dornori-lang" so there is no mismatch.
+ *   To bridge from a different parent key, change parentLangKey in config.js.
  *
  * LOAD ORDER — include AFTER config.js, BEFORE shop.js:
  *   <script src="js/config.js"></script>
  *   <script src="js/lang-bridge.js"></script>
  *   <script src="js/shop.js"></script>
  *
- * TO EXTEND to new languages:
- *   1. Add lang code to SUPPORTED below (must match a file in data/lang/)
- *   2. Add the dornori-lang → shop-lang mapping to LANG_MAP if codes differ
- *      (currently they're identical: 'en'→'en', 'nl'→'nl', 'de'→'de', 'fr'→'fr')
- *   3. Create data/lang/{code}.json in the shop
+ * NOTE: Supported languages are set by the Shipping module at runtime
+ *   (derived from shipping.csv). Lang-bridge runs before modules load,
+ *   so it uses CONFIG.supportedLanguages if already set, or falls back
+ *   to a safe default list matching available translation files.
  */
 (function () {
-    // Languages the shop has translation files for (data/lang/{code}.json)
-    var SUPPORTED = ['en', 'nl', 'no', 'de', 'fr'];
+  var keys      = (typeof CONFIG !== "undefined" && CONFIG.storageKeys) || {};
+  var parentKey = keys.parentLangKey || "dornori-lang";
+  var shopKey   = keys.shopLangKey   || "dornori-lang";
 
-    // Map main-site lang codes → shop lang codes (add entries if they differ)
-    var LANG_MAP = {
-        'en': 'en',
-        'nl': 'nl',
-        'de': 'de',
-        'fr': 'fr',
-        // 'no' is shop-only; 'de'/'fr' fall back to 'en' if no shop file exists
-    };
+  // Safe fallback before Shipping module sets CONFIG.supportedLanguages
+  var supported = (typeof CONFIG !== "undefined" && CONFIG.supportedLanguages)
+    || ["en", "nl", "no", "de"];
 
-    var siteLang  = localStorage.getItem('dornori-lang');
-    var shopLang  = siteLang && LANG_MAP[siteLang] ? LANG_MAP[siteLang] : null;
+  var siteLang = localStorage.getItem(parentKey);
 
-    // Verify the mapped lang is actually supported (has a data/lang file)
-    if (shopLang && SUPPORTED.indexOf(shopLang) === -1) {
-        shopLang = null;
-    }
+  // Validate the parent-site lang is one the shop supports
+  var validLang = (siteLang && supported.indexOf(siteLang) !== -1) ? siteLang : null;
 
-    // Fallback chain: dornori-lang → lumio_lang → CONFIG default → 'en'
-    var finalLang = shopLang
-        || localStorage.getItem('lumio_lang')
-        || (typeof CONFIG !== 'undefined' && CONFIG.language)
-        || 'en';
+  // Fallback chain: parentLangKey → shopLangKey → CONFIG default → "en"
+  var shopSaved = (shopKey !== parentKey) ? localStorage.getItem(shopKey) : null;
+  var finalLang = validLang
+    || (shopSaved && supported.indexOf(shopSaved) !== -1 ? shopSaved : null)
+    || (typeof CONFIG !== "undefined" && CONFIG.defaultLanguage)
+    || "en";
 
-    // Write into CONFIG (which shop.js reads via loadLang())
-    if (typeof CONFIG !== 'undefined') {
-        CONFIG.language = finalLang;
-    }
+  // Write into CONFIG (which shop.js reads via resolveLanguage / loadLang)
+  if (typeof CONFIG !== "undefined") {
+    CONFIG.language = finalLang;
+  }
 
-    // Keep lumio_lang in sync so shop's own language switcher reflects it
-    localStorage.setItem('lumio_lang', finalLang);
+  // Keep shopLangKey in sync
+  localStorage.setItem(shopKey, finalLang);
 })();

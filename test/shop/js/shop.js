@@ -42,8 +42,8 @@ const Shop = (() => {
   }
 
   function resolveLanguage() {
-    const supported = CONFIG.supportedLanguages || ["en", "no", "nl"];
-    const langKey   = CONFIG.userPrefs?.langKey || "lumio_lang";
+    const supported = CONFIG.supportedLanguages || ["en", "no", "nl", "de"];
+    const langKey   = CONFIG.storageKeys?.shopLangKey || CONFIG.userPrefs?.langKey || "dornori-lang";
 
     const urlLang = new URLSearchParams(window.location.search).get("lang");
     if (urlLang && supported.includes(urlLang)) {
@@ -64,7 +64,7 @@ const Shop = (() => {
 
   async function switchLanguage(code) {
     if (code === CONFIG.language && _langLoaded) return;
-    const langKey = CONFIG.userPrefs?.langKey || "lumio_lang";
+    const langKey = CONFIG.storageKeys?.shopLangKey || CONFIG.userPrefs?.langKey || "dornori-lang";
     CONFIG.language = code;
     localStorage.setItem(langKey, code);
     _langLoaded = false; _langLoadPromise = null; LANG = {};
@@ -126,9 +126,9 @@ const Shop = (() => {
   function variantInStock(product, variantId) { return variantStock(product, variantId) > 0; }
 
   /* ─── CART ──────────────────────────────────────────── */
-  function getCart() { try { return JSON.parse(localStorage.getItem("lumio_cart") || "[]"); } catch { return []; } }
+  function getCart() { try { return JSON.parse(localStorage.getItem(CONFIG.storageKeys?.cartKey || "lumio_cart") || "[]"); } catch { return []; } }
   function saveCart(cart) {
-    localStorage.setItem("lumio_cart", JSON.stringify(cart));
+    localStorage.setItem(CONFIG.storageKeys?.cartKey || "lumio_cart", JSON.stringify(cart));
     document.dispatchEvent(new CustomEvent("shop:cartUpdated", { detail: { cart } }));
   }
   function addToCart(product, qty = 1, variantId = null, selectedColor = null, imageOverride = null) {
@@ -153,7 +153,7 @@ const Shop = (() => {
     item.qty = qty; saveCart(cart);
   }
   function clearCart() {
-    localStorage.removeItem("lumio_cart");
+    localStorage.removeItem(CONFIG.storageKeys?.cartKey || "lumio_cart");
     document.dispatchEvent(new CustomEvent("shop:cartUpdated", { detail: { cart: [] } }));
   }
 
