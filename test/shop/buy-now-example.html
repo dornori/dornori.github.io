@@ -225,7 +225,7 @@ function onImgError(img, mockSrc) {
 Promise.all([
   Shipping.load(),
   Currency.init(),    <span class="c-cm">// IP detect + currencies.csv</span>
-  Shop.loadLang(),    <span class="c-cm">// browser detect + lang JSON</span>
+  Shop.loadLang(),    <span class="c-cm">// loads ui/{lang}.json + products/{lang}.json</span>
 ]).then(() => {
   <span class="c-cm">// Wire hidden lang buttons (URL / programmatic still work)</span>
   Shop.wireLanguageSwitcher(<span class="c-str">".lumio-lang-btn"</span>);
@@ -240,6 +240,17 @@ CONFIG.features.showCurrencySelector = <span class="c-kw">true</span>;
 
 <span class="c-cm">// Storage keys (match your wider site):</span>
 CONFIG.userPrefs.langKey     = <span class="c-str">"lumio_lang"</span>;
+<span class="c-cm">
+// Language file structure:
+// data/lang/ui/en.json        ← UI strings (buttons, labels, messages)
+// data/lang/ui/nl.json        ← Dutch UI strings
+// data/lang/ui/no.json        ← Norwegian UI strings
+// data/lang/products/en.json  ← Product text (name, description, category)
+// data/lang/products/nl.json  ← Dutch product text
+// data/lang/products/no.json  ← Norwegian product text
+//
+// Each file contains ONLY human-readable text — safe to send to
+// a translator without risking breakage of IDs, prices or config.</span>
 CONFIG.userPrefs.currencyKey = <span class="c-str">"lumio_currency"</span>;</pre></div>
         </div>
       </div>
@@ -616,7 +627,7 @@ document.addEventListener(<span class="c-str">"payment:cancel"</span>,  e =&gt; 
         <div class="demo-code" style="margin-top:16px;"><pre><span class="c-cm">/* Full product JSON schema (data/products/my-product.json) */</span>
 {
   <span class="c-hl">"id"</span>: <span class="c-str">"my-product"</span>,
-  <span class="c-hl">"name"</span>: <span class="c-str">"My Product"</span>,            <span class="c-cm">← fallback when no i18n</span>
+  <span class="c-hl">"name"</span>: <span class="c-str">"My Product"</span>,            <span class="c-cm">← English fallback (no i18n block needed)</span>
   <span class="c-hl">"price"</span>: 89,                   <span class="c-cm">← base EUR price</span>
   <span class="c-hl">"weight"</span>: 1.5,                 <span class="c-cm">← kg</span>
   <span class="c-hl">"dimensions"</span>: { <span class="c-hl">"l"</span>:20, <span class="c-hl">"w"</span>:15, <span class="c-hl">"h"</span>:40 },
@@ -881,6 +892,8 @@ document.addEventListener(<span class="c-str">"payment:cancel"</span>,  e =&gt; 
       const el = document.getElementById("lang-live-output");
       if (!el) return;
       el.innerHTML = `
+        <strong>UI file:</strong> <code style="background:var(--c-accent-light);padding:1px 7px;border-radius:4px;">data/lang/ui/${CONFIG.language}.json</code><br>
+        <strong>Products file:</strong> <code style="background:var(--c-accent-light);padding:1px 7px;border-radius:4px;">data/lang/products/${CONFIG.language}.json</code><br>
         <strong>Active language:</strong>
         <code style="background:var(--c-accent-light);padding:2px 8px;border-radius:4px;">${CONFIG.language}</code><br>
         <strong>Active currency:</strong>
