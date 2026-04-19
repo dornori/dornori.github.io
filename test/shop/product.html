@@ -1,5 +1,3 @@
-You're right, let me go back to your original code and properly debug the magnifier. The issue is that the magnifier image wasn't properly sized and positioned relative to the main image. Here's the fixed version with a working magnifier:
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,7 +6,7 @@ You're right, let me go back to your original code and properly debug the magnif
   <title>LUMIO – Arc Floor Lamp</title>
   <link rel="stylesheet" href="css/shop.css">
   <style>
-    /* Magnifier styles - critical fixes */
+    /* Magnifier styles - based on original, just fixed aspect ratio */
     .pdp-magnifier {
       position: fixed;
       pointer-events: none;
@@ -316,11 +314,7 @@ You're right, let me go back to your original code and properly debug the magnif
       currentImgIdx = idx;
       const src = PRODUCT.images[idx];
       mainImg.src = src;
-      // Update magnifier high-res image
-      let highSrc = src;
-      if (highSrc.includes('w=800')) highSrc = highSrc.replace('w=800', 'w=1600');
-      else if (!highSrc.includes('w=')) highSrc = highSrc + '?w=1600&q=90';
-      document.getElementById("magnifier-img").src = highSrc;
+      document.getElementById("magnifier-img").src = src;
       buildThumbs();
       const lbMain = document.getElementById("lb-main-img");
       if (lbMain) lbMain.src = src;
@@ -328,125 +322,83 @@ You're right, let me go back to your original code and properly debug the magnif
     }
     buildThumbs();
 
-    // ========== MAGNIFIER - FIXED VERSION ==========
-    const magnifier = document.getElementById("magnifier");
-    const magnifierImg = document.getElementById("magnifier-img");
+    // ========== MAGNIFIER - BASED ON ORIGINAL, JUST FIXED ZOOM & ASPECT RATIO ==========
+    const magEl = document.getElementById("magnifier");
+    const magImg = document.getElementById("magnifier-img");
     const mainWrap = document.getElementById("gallery-main-wrap");
     
-    // Set initial high-res image
-    let initialHighSrc = PRODUCT.images[0];
-    if (initialHighSrc.includes('w=800')) initialHighSrc = initialHighSrc.replace('w=800', 'w=1600');
-    else if (!initialHighSrc.includes('w=')) initialHighSrc = initialHighSrc + '?w=1600&q=90';
-    magnifierImg.src = initialHighSrc;
+    // Set initial high-res image (larger for better zoom)
+    let fullResSrc = PRODUCT.images[0];
+    if (fullResSrc.includes('w=800')) fullResSrc = fullResSrc.replace('w=800', 'w=1600');
+    magImg.src = fullResSrc;
     
-    // Set magnifier size
-    function setMagnifierSize() {
-      const maxSize = Math.min(window.innerWidth * 0.4, 400);
-      const containerRect = mainWrap.getBoundingClientRect();
-      const size = Math.min(maxSize, containerRect.width * 0.8);
-      magnifier.style.width = size + "px";
-      magnifier.style.height = size + "px";
-    }
-    setMagnifierSize();
-    window.addEventListener('resize', setMagnifierSize);
-    
-    // Magnifier logic
-    mainWrap.addEventListener("mousemove", function(e) {
+    mainWrap.addEventListener("mousemove", (e) => {
       const rect = mainWrap.getBoundingClientRect();
-      const lensW = magnifier.offsetWidth;
-      const lensH = magnifier.offsetHeight;
+      const xPct = (e.clientX - rect.left) / rect.width;
+      const yPct = (e.clientY - rect.top) / rect.height;
       
-      if (lensW === 0 || lensH === 0) return;
+      // Magnifier size - bigger lens for better viewing
+      const lensSize = Math.min(rect.width * 0.6, window.innerWidth * 0.35, 450);
+      magEl.style.width = lensSize + "px";
+      magEl.style.height = lensSize + "px";
       
-      // Get mouse position relative to the image (0 to 1)
-      let mouseX = (e.clientX - rect.left) / rect.width;
-      let mouseY = (e.clientY - rect.top) / rect.height;
-      mouseX = Math.min(Math.max(mouseX, 0), 1);
-      mouseY = Math.min(Math.max(mouseY, 0), 1);
+      // Position magnifier next to cursor
+      let mLeft = rect.right + 16;
+      let mTop = rect.top + (rect.height / 2) - (lensSize / 2);
       
-      // Position the magnifier near the cursor
-      let leftPos = e.clientX + 20;
-      let topPos = e.clientY - lensH / 2;
-      
-      // Adjust if off-screen right
-      if (leftPos + lensW > window.innerWidth - 10) {
-        leftPos = e.clientX - lensW - 20;
+      if (mLeft + lensSize > window.innerWidth - 10) {
+        mLeft = rect.left - lensSize - 16;
       }
-      // Adjust if off-screen left
-      if (leftPos < 10) {
-        leftPos = e.clientX + 20;
+      mTop = Math.max(10, Math.min(mTop, window.innerHeight - lensSize - 10));
+      
+      magEl.style.left = mLeft + "px";
+      magEl.style.top = mTop + "px";
+      magEl.style.display = "block";
+      
+      // Zoom factor - 3.5x for good magnification without distortion
+      const zoom = 3.5;
+      
+      // Get the natural dimensions of the high-res image
+      const naturalW = magImg.naturalWidth;
+      const naturalH = magImg.naturalHeight;
+      
+      if (naturalW && naturalH) {
+        // Calculate displayed image dimensions to maintain aspect ratio
+        const containerAspect = rect.width / rect.height;
+        const imgAspect = naturalW / naturalH;
+        
+        let displayW, displayH, offsetX = 0, offsetY = 0;
+        
+        if (imgAspect > containerAspect) {
+          // Image is wider than container - fit to height
+          displayH = rect.height;
+          displayW = displayH * imgAspect;
+          offsetX = (rect.width - displayW) / 2;
+        } else {
+          // Image is taller than container - fit to width
+          displayW = rect.width;
+          displayH = displayW / imgAspect;
+          offsetY = (rect.height - displayH) / 2;
+        }
+        
+        // Calculate the actual pixel position on the original image
+        const imgX = (xPct * displayW - offsetX) / displayW * naturalW;
+        const imgY = (yPct * displayH - offsetY) / displayH * naturalH;
+        
+        // Set magnifier image size (zoom * lens size)
+        const zoomW = naturalW * zoom;
+        const zoomH = naturalH * zoom;
+        magImg.style.width = zoomW + "px";
+        magImg.style.height = zoomH + "px";
+        
+        // Position the image to show the zoomed area around the cursor
+        magImg.style.left = -(imgX * zoom - lensSize / 2) + "px";
+        magImg.style.top = -(imgY * zoom - lensSize / 2) + "px";
       }
-      // Adjust vertical boundaries
-      topPos = Math.min(Math.max(topPos, 10), window.innerHeight - lensH - 10);
-      
-      magnifier.style.left = leftPos + "px";
-      magnifier.style.top = topPos + "px";
-      magnifier.style.display = "block";
-      
-      // Calculate zoom (3x magnification)
-      const zoom = 3;
-      
-      // Get natural dimensions of the high-res image
-      const imgW = magnifierImg.naturalWidth;
-      const imgH = magnifierImg.naturalHeight;
-      
-      if (imgW === 0 || imgH === 0) return;
-      
-      // The displayed image uses object-fit: cover, so we need to find the actual visible area
-      const containerAspect = rect.width / rect.height;
-      const imgAspect = imgW / imgH;
-      
-      let visibleX, visibleY, visibleW, visibleH;
-      
-      if (imgAspect > containerAspect) {
-        // Image is wider than container - centered horizontally
-        const scale = imgH / rect.height;
-        visibleW = rect.width * scale;
-        visibleX = (imgW - visibleW) / 2;
-        visibleY = 0;
-        visibleH = imgH;
-      } else {
-        // Image is taller than container - centered vertically
-        const scale = imgW / rect.width;
-        visibleH = rect.height * scale;
-        visibleY = (imgH - visibleH) / 2;
-        visibleX = 0;
-        visibleW = imgW;
-      }
-      
-      // Calculate the exact pixel coordinates in the original image
-      const imgX = visibleX + mouseX * visibleW;
-      const imgY = visibleY + mouseY * visibleH;
-      
-      // Calculate the region to show in the magnifier
-      const regionW = lensW / zoom;
-      const regionH = lensH / zoom;
-      
-      let regionLeft = imgX - regionW / 2;
-      let regionTop = imgY - regionH / 2;
-      
-      // Clamp to image boundaries
-      regionLeft = Math.min(Math.max(regionLeft, visibleX), visibleX + visibleW - regionW);
-      regionTop = Math.min(Math.max(regionTop, visibleY), visibleY + visibleH - regionH);
-      
-      // Set the magnifier image dimensions and position
-      // We want the selected region to fill the lens
-      const scaleX = lensW / regionW;
-      const scaleY = lensH / regionH;
-      
-      magnifierImg.style.width = (imgW * scaleX) + "px";
-      magnifierImg.style.height = (imgH * scaleY) + "px";
-      magnifierImg.style.left = (-regionLeft * scaleX) + "px";
-      magnifierImg.style.top = (-regionTop * scaleY) + "px";
     });
     
-    mainWrap.addEventListener("mouseleave", function() {
-      magnifier.style.display = "none";
-    });
-    
-    // Update magnifier size on window resize
-    window.addEventListener('resize', function() {
-      setMagnifierSize();
+    mainWrap.addEventListener("mouseleave", () => {
+      magEl.style.display = "none";
     });
 
     // Main image click opens lightbox
@@ -467,8 +419,7 @@ You're right, let me go back to your original code and properly debug the magnif
           mainImg.src = v.image; 
           let highSrc = v.image;
           if (highSrc.includes('w=800')) highSrc = highSrc.replace('w=800', 'w=1600');
-          else if (!highSrc.includes('w=')) highSrc = highSrc + '?w=1600&q=90';
-          magnifierImg.src = highSrc;
+          magImg.src = highSrc;
         }
         updatePrice();
       });
@@ -615,7 +566,7 @@ You're right, let me go back to your original code and properly debug the magnif
         <div class="pdp-accordion-body">
           <table class="pdp-spec-table">
             <tbody>
-              ${section.rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join("")}
+              ${section.rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td><tr>`).join("")}
             </tbody>
           </table>
         </div>
@@ -632,4 +583,3 @@ You're right, let me go back to your original code and properly debug the magnif
   </script>
 </body>
 </html>
-```
