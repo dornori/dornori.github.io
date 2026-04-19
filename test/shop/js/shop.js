@@ -327,17 +327,31 @@ const Shop = (() => {
   /* ═══════════════════════════════════════════════════════
      RELATED PRODUCTS STRIP
   ═══════════════════════════════════════════════════════ */
+  /* Resolve a related entry: accepts either a string ID or a legacy inline object */
+  function _resolveRelated(entry) {
+    if (typeof entry === "string") return _products[entry] || null;
+    if (entry && typeof entry === "object") {
+      /* prefer cached version if available (has translated name etc) */
+      return _products[entry.id] || entry;
+    }
+    return null;
+  }
+
   function buildRelatedStrip(product, context = "card") {
-    if (!product.related?.length) return "";
+    /* support addons array for the card strip; fall back to related */
+    const ids = product.addons || product.related;
+    if (!ids?.length) return "";
+    const items = ids.map(_resolveRelated).filter(Boolean);
+    if (!items.length) return "";
     return `<div class="lumio-related${context === "info" ? " lumio-related--info" : ""}">
         <h4 class="lumio-related__title">${t("related_products", "You may also need")}</h4>
         <div class="lumio-related__list">
-          ${product.related.map(r => `
+          ${items.map(r => `
             <div class="lumio-related__item" data-related-id="${r.id}">
-              <img class="lumio-related__img" src="${r.image || "images/placeholder.svg"}" alt="${r.name}" onerror="this.src='images/placeholder.svg'">
+              <img class="lumio-related__img" src="${r.image || "images/placeholder.svg"}" alt="${pName(r)}" onerror="this.src='images/placeholder.svg'">
               <div class="lumio-related__info">
-                <span class="lumio-related__name">${r.name}</span>
-                ${r.description ? `<span class="lumio-related__desc">${r.description}</span>` : ""}
+                <span class="lumio-related__name">${pName(r)}</span>
+                ${pDesc(r) ? `<span class="lumio-related__desc">${pDesc(r)}</span>` : ""}
                 <span class="lumio-related__price">${fmt(r.price)}</span>
               </div>
               <button class="lumio-related__add lumio-btn lumio-btn--sm lumio-btn--outline" data-related-id="${r.id}">+ ${t("add_to_cart", "Add")}</button>
@@ -347,14 +361,15 @@ const Shop = (() => {
   }
 
   function wireRelatedStrip(container, product) {
-    if (!product.related?.length) return;
+    const ids = product.addons || product.related;
+    if (!ids?.length) return;
     container.querySelectorAll(".lumio-related__add").forEach(btn => {
       btn.addEventListener("click", e => {
         e.stopPropagation();
-        const rel = product.related.find(r => r.id === btn.dataset.relatedId);
+        const rel = _resolveRelated(btn.dataset.relatedId) || ids.map(_resolveRelated).find(r => r?.id === btn.dataset.relatedId);
         if (!rel) return;
-        addToCart({ id: rel.id, name: rel.name, price: rel.price, weight: rel.weight || 0, image: rel.image || "images/placeholder.svg", stock: 99 }, 1);
-        toast(`${rel.name} ${t("added", "added to cart")}`);
+        addToCart(rel, 1);
+        toast(`${pName(rel)} ${t("added", "added to cart")}`);
       });
     });
   }
