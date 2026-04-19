@@ -1,36 +1,21 @@
 /* =========================================================
-   LUMIO SHOP ENGINE  –  shop.js  (v4)
+   LUMIO SHOP ENGINE  –  shop.js  (v4 - FIXED)
    =========================================================
    Language file structure (v4):
      data/lang/ui/{lang}.json       — UI strings only
      data/lang/products/{lang}.json — product text only
-
-   Both are translator-safe: no IDs, paths, prices, or config.
-   Both fall back to English if the file is missing or a key
-   is absent. Product JSON i18n blocks remain as a last fallback.
-
-   Priority for product text:
-     1. data/lang/products/{lang}.json
-     2. product.i18n[lang] (inline JSON block)
-     3. product.name / product.description (root fields)
-
-   Priority for UI strings:
-     1. data/lang/ui/{lang}.json
-     2. data/lang/ui/en.json (English fallback)
-     3. t() inline fallback argument
    ========================================================= */
 
 const Shop = (() => {
   let LANG = {};
-  let PRODUCT_LANG    = {};  // active-language product text
-  let PRODUCT_LANG_EN = {};  // English product text (fallback)
+  let PRODUCT_LANG    = {};
+  let PRODUCT_LANG_EN = {};
   let _langLoaded = false;
   let _langLoadPromise = null;
   let _products = {};
 
   /* ═══════════════════════════════════════════════════════
      LANGUAGE RESOLUTION
-     Priority: URL ?lang= → stored pref → browser → config default → "en"
   ═══════════════════════════════════════════════════════ */
   function detectBrowserLanguage() {
     const supported = CONFIG.supportedLanguages || ["en", "no", "nl"];
@@ -73,12 +58,8 @@ const Shop = (() => {
     document.dispatchEvent(new CustomEvent("shop:langChanged", { detail: { lang: code } }));
   }
 
-  /* ─── i18n helpers: pName, pDesc, pCategory defined below in language section ─── */
-
   /* ═══════════════════════════════════════════════════════
      IMAGE NAMING CONVENTION
-     <imageDir><productId>_<variantId>_<colorSlug>.<imageExt>
-     e.g. images/products/dornori_star-a_red-blue.webp
   ═══════════════════════════════════════════════════════ */
   function slugify(str) {
     return (str || "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -107,9 +88,6 @@ const Shop = (() => {
     const v = getVariant(product, variantId);
     return (v && v.weight != null) ? v.weight : (product.weight || 0);
   }
-  /**
-   * Priority: 1. variant.image (explicit JSON) 2. naming convention 3. product.image
-   */
   function variantImage(product, variantId) {
     const v = getVariant(product, variantId);
     if (v?.image) return v.image;
@@ -141,7 +119,6 @@ const Shop = (() => {
     const image  = imageOverride || (variantId ? variantImage(product, variantId) : selectedColor ? colorImageSrc(product, selectedColor) : product.image);
     const label  = variantId ? (getVariant(product, variantId)?.label || variantId) : selectedColor;
     const maxQty = variantId ? variantStock(product, variantId) : (product.stock || 99);
-    // Always resolve name via pName() so cart items are never blank regardless of product JSON structure
     const resolvedName = pName(product) || product.name || product.id;
     if (existing) { existing.qty = Math.min(existing.qty + qty, maxQty || 99); }
     else cart.push({ ...product, name: resolvedName, cartKey: key, qty, price, weight, image, selectedColor: label, variantId });
@@ -172,11 +149,6 @@ const Shop = (() => {
   }
 
   /* ─── LANG LOADER ───────────────────────────────────── */
-  /* ─── PRODUCT TRANSLATIONS ─────────────────────────────
-   * Loaded from data/lang/products/{lang}.json.
-   * Keyed by product ID: { "arc-floor-lamp": { name, description, category } }
-   * Falls back to English, then to inline product.i18n, then product root fields.
-   */
   function pName(p) {
     return PRODUCT_LANG[p.id]?.name || PRODUCT_LANG_EN[p.id]?.name
       || p.i18n?.[CONFIG.language]?.name || p.i18n?.en?.name || p.name || "";
@@ -195,22 +167,17 @@ const Shop = (() => {
     if (_langLoadPromise) return _langLoadPromise;
     const lang = resolveLanguage();
 
-    // Fetch helper — resolves to {} on any error (file not found = fallback)
     const safeFetch = url => fetch(url)
       .then(r => { if (!r.ok) throw 0; return r.json(); })
       .catch(() => ({}));
 
     _langLoadPromise = Promise.all([
-      // UI strings: lang version, then English fallback
       safeFetch("data/lang/ui/" + lang + ".json"),
       safeFetch("data/lang/ui/en.json"),
-      // Product strings: lang version, then English fallback
       safeFetch("data/lang/products/" + lang + ".json"),
       safeFetch("data/lang/products/en.json"),
     ]).then(([ui, uiEn, prod, prodEn]) => {
-      // Merge: English base, then lang on top (lang wins on any shared key)
       LANG = { ...uiEn, ...ui };
-      // Store product lang dicts (strip _readme meta key)
       const clean = obj => { const r = { ...obj }; delete r._readme; return r; };
       PRODUCT_LANG    = clean(prod);
       PRODUCT_LANG_EN = clean(prodEn);
@@ -223,15 +190,15 @@ const Shop = (() => {
 
   /* ─── FORMAT ────────────────────────────────────────── */
   function fmt(eurAmount) {
-    if (typeof Currency !== "undefined" && Currency.getActive() !== "EUR") return Currency.fmt(eurAmount);
-    return CONFIG.currency + eurAmount.toFixed(2);
+    // FIXED: Provide immediate Euro fallback if Currency not ready
+    if (typeof Currency !== "undefined" && Currency.getActive && Currency.isReady && Currency.isReady()) {
+      if (Currency.getActive() !== "EUR") return Currency.fmt(eurAmount);
+    }
+    return "€" + eurAmount.toFixed(2);
   }
   function fmtWeight(kg) { return kg >= 1 ? kg.toFixed(1) + " kg" : (kg * 1000).toFixed(0) + " g"; }
 
   /* ─── PRODUCT LOADER ────────────────────────────────── */
-  /* Reads data/products.json (non-text fields: price, stock, images, variants…)
-   * then overlays name/description/category from data/lang/products/{lang}.json.
-   * Text always comes from lang files — the products.json is translator-safe. */
   async function loadProducts() {
     await loadLang();
     const src = CONFIG.data?.productsJson || "data/products.json";
@@ -260,10 +227,9 @@ const Shop = (() => {
     setTimeout(() => { el.classList.remove("lumio-toast--visible"); setTimeout(() => el.remove(), 400); }, duration);
   }
 
-  /* ─── SWAP IMAGE (fade + convention fallback) ────────── */
+  /* ─── SWAP IMAGE ────────────────────────────────────── */
   function swapMainImg(imgEl, src, fallback = null) {
     if (!imgEl || !src) return;
-    // Data URIs are always valid — skip preload, swap directly
     if (src.startsWith("data:")) {
       imgEl.style.opacity = "0";
       setTimeout(() => { imgEl.src = src; imgEl.style.opacity = ""; }, 50);
@@ -281,7 +247,9 @@ const Shop = (() => {
     if (CONFIG.features?.showCurrencySelector === false) return;
     const container = typeof target === "string" ? document.querySelector(target) : target;
     if (!container || typeof Currency === "undefined") return;
-    function build() {
+    
+    async function build() {
+      if (Currency.waitForReady) await Currency.waitForReady();
       const active = Currency.getActive();
       container.className = "lumio-currency-selector";
       container.innerHTML = `
@@ -295,6 +263,7 @@ const Shop = (() => {
         </select>`;
       container.querySelector("select").addEventListener("change", e => Currency.setActive(e.target.value));
     }
+    
     build();
     document.addEventListener("currency:changed", build);
   }
@@ -392,8 +361,6 @@ const Shop = (() => {
 
   /* ═══════════════════════════════════════════════════════
      PRODUCT CARD
-     FIX v3: ATC button is .lumio-card-atc in card body.
-     Image area is clean — qty controls always reachable.
   ═══════════════════════════════════════════════════════ */
   function buildProductCard(p) {
     const hasVariants  = p.variants?.length > 0;
@@ -523,7 +490,7 @@ const Shop = (() => {
   }
 
   /* ═══════════════════════════════════════════════════════
-     PRODUCT INFO (standalone embed)
+     PRODUCT INFO
   ═══════════════════════════════════════════════════════ */
   async function renderProductInfo(divId, productId) {
     await loadLang();
@@ -682,6 +649,7 @@ const Shop = (() => {
       });
     });
   }
+  
   async function submitOrderDetails(orderRef, formData, cart, captchaEl = null) {
     const totals = calculateTotals(cart, formData.isBusiness, formData.country);
     let captchaToken = captchaEl ? await renderTurnstile(captchaEl) : null;
@@ -695,6 +663,7 @@ const Shop = (() => {
     payload.append("total_eur","€"+totals.total.toFixed(2)); payload.append("total_display",fmt(totals.total)); payload.append("total_weight",fmtWeight(totals.totalWeight||0));
     try { const r = await fetch(CONFIG.formspree.endpoint,{method:"POST",body:payload,headers:{"Accept":"application/json"}}); return r.ok; } catch(e) { console.warn("Formspree failed",e); return false; }
   }
+  
   async function submitOrderStatus(orderRef, status) {
     const payload = new FormData(); payload.append("_subject",`Order ${status}: ${orderRef}`); payload.append("order_ref",orderRef); payload.append("status",status);
     try { await fetch(CONFIG.formspree.endpoint,{method:"POST",body:payload,headers:{"Accept":"application/json"}}); } catch {}
