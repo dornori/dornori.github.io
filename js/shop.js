@@ -35,7 +35,7 @@ const Shop = (() => {
   }
 
   function resolveLanguage() {
-    const supported = CONFIG.supportedLanguages || ["en", "no", "nl"];
+    const supported = CONFIG.supportedLanguages || ["en", "no", "nl","de"];
     const langKey   = CONFIG.userPrefs?.langKey || "lumio_lang";
 
     const urlLang = new URLSearchParams(window.location.search).get("lang");
