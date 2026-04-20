@@ -545,11 +545,20 @@ const Shop = (() => {
 
       container.innerHTML = `
         <div class="lumio-product-gallery">
-          <div class="lumio-product-main-img-wrap">
+          <div class="lumio-product-main-img-wrap" style="position:relative;">
             ${p.url?`<a href="${p.url}">`:""}<img id="pinfo-main-${productId}" class="lumio-product-main-img"
               src="${hasVariants?variantImage(p,selectedVariantId):images[0]}" alt="${pName(p)}" onerror="this.src='images/placeholder.svg'">${p.url?"</a>":""}
+            <div id="pinfo-video-${productId}" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
+              <video id="pinfo-vplayer-${productId}" style="width:100%;height:100%;object-fit:contain;" controls></video>
+              <div id="pinfo-ytframe-${productId}" style="display:none;position:absolute;inset:0;">
+                <iframe id="pinfo-ytiframe-${productId}" style="width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture"></iframe>
+              </div>
+            </div>
           </div>
-          ${images.length>1?`<div class="lumio-product-thumbs">${images.map((src,i)=>`<img class="lumio-product-thumb${i===0?" active":""}" src="${src}" data-idx="${i}" alt="${t("image_of","Image of")} ${pName(p)} ${i+1}" onerror="this.src='images/placeholder.svg'">`).join("")}</div>`:""}
+          <div class="lumio-product-thumbs">
+            ${images.map((src,i)=>`<img class="lumio-product-thumb${i===0?" active":""}" src="${src}" data-idx="${i}" data-type="image" alt="${t("image_of","Image of")} ${pName(p)} ${i+1}" onerror="this.src='images/placeholder.svg'">`).join("")}
+            ${(p.videos||[]).map((vsrc)=>{const isYT=/youtube\.com|youtu\.be/.test(vsrc);const ytId=isYT?((vsrc.match(/embed\/([^?]+)/)||vsrc.match(/youtu\.be\/([^?]+)/)||["",""])[1]):"";const tbStyle=isYT?`background-image:url('https://img.youtube.com/vi/${ytId}/mqdefault.jpg');background-size:cover;background-position:center;`:`background:#222;`;return `<div class="lumio-product-thumb lumio-product-thumb--video" data-vsrc="${vsrc}" data-isyt="${isYT}" data-type="video" style="position:relative;${tbStyle}" title="Play video"><span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:1.3rem;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7);pointer-events:none;">▶</span></div>`;}).join("")}
+          </div>
         </div>
         <div class="lumio-product-details">
           <p class="lumio-product-category">${pCategory(p)}</p>
@@ -592,7 +601,33 @@ const Shop = (() => {
       }
 
       container.querySelectorAll(".lumio-product-thumb").forEach(thumb => {
-        thumb.addEventListener("click", () => { container.querySelectorAll(".lumio-product-thumb").forEach(t=>t.classList.remove("active")); thumb.classList.add("active"); swapMainImg(mainImg, images[+thumb.dataset.idx]); });
+        thumb.addEventListener("click", () => {
+          container.querySelectorAll(".lumio-product-thumb").forEach(t=>t.classList.remove("active"));
+          thumb.classList.add("active");
+          const videoWrap  = container.querySelector("#pinfo-video-"+productId);
+          const vplayer    = container.querySelector("#pinfo-vplayer-"+productId);
+          const ytFrameDiv = container.querySelector("#pinfo-ytframe-"+productId);
+          const ytIframe   = container.querySelector("#pinfo-ytiframe-"+productId);
+          if (thumb.dataset.type === "video") {
+            const vsrc = thumb.dataset.vsrc, isYT = thumb.dataset.isyt === "true";
+            if (mainImg) mainImg.style.opacity = "0";
+            if (videoWrap) videoWrap.style.display = "block";
+            if (isYT) {
+              if (vplayer) { vplayer.pause(); vplayer.style.display="none"; }
+              if (ytFrameDiv) ytFrameDiv.style.display = "block";
+              if (ytIframe)   ytIframe.src = vsrc + "?autoplay=1";
+            } else {
+              if (ytFrameDiv) { ytFrameDiv.style.display="none"; if (ytIframe) ytIframe.src=""; }
+              if (vplayer) { vplayer.style.display="block"; vplayer.src=vsrc; vplayer.play().catch(()=>{}); }
+            }
+          } else {
+            // Image thumb — hide video, show image
+            if (vplayer) { vplayer.pause(); vplayer.src=""; }
+            if (ytIframe) ytIframe.src = "";
+            if (videoWrap) videoWrap.style.display = "none";
+            if (mainImg) { mainImg.style.opacity="1"; swapMainImg(mainImg, images[+thumb.dataset.idx]); }
+          }
+        });
       });
       container.querySelectorAll(".lumio-product-variant-btn:not([disabled])").forEach(btn => {
         btn.addEventListener("click", () => { container.querySelectorAll(".lumio-product-variant-btn").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); selectedVariantId=btn.dataset.variantId; refreshInfo(); });
