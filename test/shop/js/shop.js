@@ -306,22 +306,76 @@ const Shop = (() => {
   /* ─── CART ICON ─────────────────────────────────────── */
   function renderCartIcon(options = {}) {
     const { target = "body", fixed = true, cartUrl = "cart.html" } = options;
+
+    /* Outer wrapper — positions the dropdown relative to the icon */
+    const outer = document.createElement("div");
+    outer.className = "webshop-cart-icon-wrap" + (fixed ? " webshop-cart-icon-wrap--fixed" : "");
+
     const wrapper = document.createElement("a");
     wrapper.href = cartUrl;
-    wrapper.className = "webshop-cart-icon" + (fixed ? " webshop-cart-icon--fixed" : "");
+    wrapper.className = "webshop-cart-icon";
     wrapper.setAttribute("aria-label", "Shopping cart");
     wrapper.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
       <span class="webshop-cart-icon__badge" aria-live="polite">0</span>`;
+
+    /* Hover dropdown */
+    const dropdown = document.createElement("div");
+    dropdown.className = "webshop-cart-hover-panel";
+
+    outer.appendChild(wrapper);
+    outer.appendChild(dropdown);
+
     const mount = target === "body" ? document.body : document.querySelector(target);
-    mount?.appendChild(wrapper);
+    mount?.appendChild(outer);
+
+    function renderDropdown() {
+      loadLang().then(() => {
+        const cart = getCart();
+        const { subtotal, total, shipping, isFreeShipping } = calculateTotals(cart);
+        if (!cart.length) {
+          dropdown.innerHTML = `<p class="webshop-cart-hover-panel__empty">${t("cart_empty", "Your cart is empty")}</p>`;
+          return;
+        }
+        dropdown.innerHTML = `
+          <ul class="webshop-cart-hover-panel__list">
+            ${cart.map(item => `
+              <li class="webshop-cart-hover-panel__item">
+                <a class="webshop-cart-hover-panel__item-link" href="product.html?id=${item.id}">
+                  <img class="webshop-cart-hover-panel__img" src="${item.image}" alt="${item.name}" onerror="this.src='images/placeholder.svg'">
+                  <div class="webshop-cart-hover-panel__info">
+                    <span class="webshop-cart-hover-panel__name">${item.name}${item.selectedColor ? ` <em>${item.selectedColor}</em>` : ""}</span>
+                    <span class="webshop-cart-hover-panel__qty">${item.qty} × ${fmt(item.price)}</span>
+                  </div>
+                </a>
+                <button class="webshop-cart-hover-panel__remove" data-key="${item.cartKey}" aria-label="${t("remove","Remove")}">✕</button>
+              </li>`).join("")}
+          </ul>
+          <div class="webshop-cart-hover-panel__footer">
+            <div class="webshop-cart-hover-panel__totals">
+              <span>${t("subtotal","Subtotal")}</span><span>${fmt(subtotal)}</span>
+            </div>
+            <div class="webshop-cart-hover-panel__totals webshop-cart-hover-panel__totals--shipping">
+              <span>${t("shipping","Shipping")}</span><span>${isFreeShipping ? t("free","FREE") : fmt(shipping)}</span>
+            </div>
+            <a class="webshop-btn webshop-btn--primary" href="${cartUrl}">${t("checkout","Checkout")}</a>
+          </div>`;
+        dropdown.querySelectorAll(".webshop-cart-hover-panel__remove").forEach(btn => {
+          btn.addEventListener("click", e => { e.preventDefault(); removeFromCart(btn.dataset.key); });
+        });
+      });
+    }
+
     function updateBadge() {
       const count = getCart().reduce((a, i) => a + i.qty, 0);
       const badge = wrapper.querySelector(".webshop-cart-icon__badge");
       if (badge) { badge.textContent = count; badge.classList.toggle("webshop-cart-icon__badge--hidden", count === 0); }
+      renderDropdown();
     }
+
     updateBadge();
     document.addEventListener("shop:cartUpdated", updateBadge);
-    return wrapper;
+    document.addEventListener("shop:langChanged", updateBadge);
+    return outer;
   }
 
   /* ═══════════════════════════════════════════════════════
