@@ -28,6 +28,9 @@
       position: relative;
       overflow: hidden;
     }
+    .pdp-gallery__main-wrap.video-active {
+      cursor: pointer;
+    }
     .pdp-gallery__main-img {
       width: 100%; height: 100%;
       object-fit: cover;
@@ -96,6 +99,12 @@
           <div class="pdp-gallery" id="pdp-gallery">
             <div class="pdp-gallery__main-wrap" id="gallery-main-wrap">
               <img class="pdp-gallery__main-img" id="gallery-main-img" src="" alt="">
+              <div class="pdp-gallery__main-video" id="gallery-main-video" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
+                <video id="gallery-video-player" style="width:100%;height:100%;object-fit:contain;" controls></video>
+                <div id="gallery-yt-frame" style="display:none;position:absolute;inset:0;">
+                  <iframe id="gallery-yt-iframe" style="width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+                </div>
+              </div>
             </div>
             <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
             <button class="pdp-fullview-btn" id="fullview-btn" aria-hidden="true" tabindex="-1"></button>
@@ -297,41 +306,134 @@
     }
 
     /* ════════════════════════════════════════════════════
-       GALLERY
+       GALLERY  (images + video thumbnails)
     ════════════════════════════════════════════════════ */
     function renderGallery() {
-      const mainImg  = document.getElementById("gallery-main-img");
-      const thumbsEl = document.getElementById("gallery-thumbs");
-      mainImg.src = PRODUCT.images[0];
-      mainImg.alt = Shop.pName(PRODUCT);
+      const mainImg      = document.getElementById("gallery-main-img");
+      const mainVideoWrap= document.getElementById("gallery-main-video");
+      const videoPlayer  = document.getElementById("gallery-video-player");
+      const ytFrame      = document.getElementById("gallery-yt-frame");
+      const ytIframe     = document.getElementById("gallery-yt-iframe");
+      const thumbsEl     = document.getElementById("gallery-thumbs");
+      const mainWrap     = document.getElementById("gallery-main-wrap");
 
-      function selectImage(idx) {
+      // Combined media list: images first, then videos
+      const images = PRODUCT.images || [];
+      const videos = PRODUCT.videos || [];
+      // Each item: { type: 'image'|'video', src, thumb }
+      const mediaItems = [
+        ...images.map(src => ({ type: "image", src, thumb: src })),
+        ...videos.map(src => {
+          const isYT = /youtube\.com|youtu\.be/.test(src);
+          return { type: "video", src, isYT,
+            thumb: isYT
+              ? `https://img.youtube.com/vi/${extractYTId(src)}/mqdefault.jpg`
+              : null
+          };
+        })
+      ];
+
+      function extractYTId(url) {
+        const m = url.match(/embed\/([^?]+)/) || url.match(/youtu\.be\/([^?]+)/);
+        return m ? m[1] : "";
+      }
+
+      let activeIdx = 0;
+      let activeType = "image"; // 'image' or 'video'
+
+      function showImage(idx) {
+        activeIdx = idx; activeType = "image";
         currentImgIdx = idx;
-        const src = PRODUCT.images[idx];
+        const src = mediaItems[idx].src;
+        // Stop any playing video
+        videoPlayer.pause(); videoPlayer.src = "";
+        ytIframe.src = "";
+        mainVideoWrap.style.display = "none";
+        mainWrap.classList.remove("video-active");
+        mainImg.style.opacity = "1";
         mainImg.src = src;
-        document.getElementById("magnifier-img").src = src.replace("w=800", "w=1600");
-        buildThumbs();
+        document.getElementById("magnifier-img").src = src.replace("w=800","w=1600");
+        // Sync lightbox image
         const lbMain = document.getElementById("lb-main-img");
         if (lbMain) lbMain.src = src;
         document.querySelectorAll(".pdp-lightbox-thumb").forEach((t, i) =>
           t.classList.toggle("active", i === idx)
         );
+        buildThumbs();
       }
-      window._selectImage = selectImage;
+
+      function showVideo(idx) {
+        activeIdx = idx; activeType = "video";
+        const item = mediaItems[idx];
+        // Hide image, show video overlay
+        mainImg.style.opacity = "0";
+        mainVideoWrap.style.display = "block";
+        mainWrap.classList.add("video-active");
+        if (item.isYT) {
+          videoPlayer.style.display = "none";
+          ytFrame.style.display = "block";
+          ytIframe.src = item.src + "?autoplay=1";
+        } else {
+          ytFrame.style.display = "none";
+          ytIframe.src = "";
+          videoPlayer.style.display = "block";
+          videoPlayer.src = item.src;
+          videoPlayer.play().catch(()=>{});
+        }
+        buildThumbs();
+      }
 
       function buildThumbs() {
-        thumbsEl.innerHTML = PRODUCT.images.map((src, i) =>
-          `<img class="pdp-gallery__thumb${i === currentImgIdx ? " active" : ""}" src="${src}" alt="View ${i+1}" data-idx="${i}">`
-        ).join("");
-        thumbsEl.querySelectorAll(".pdp-gallery__thumb").forEach(img => {
-          img.addEventListener("click", () => selectImage(+img.dataset.idx));
+        thumbsEl.innerHTML = mediaItems.map((item, i) => {
+          const isActive = i === activeIdx;
+          if (item.type === "image") {
+            return `<div class="pdp-gallery__thumb-wrap${isActive?" active":""}" data-idx="${i}" data-type="image">
+              <img class="pdp-gallery__thumb" src="${item.src}" alt="View ${i+1}">
+            </div>`;
+          } else {
+            // Video thumb — play icon overlay
+            const thumbStyle = item.thumb
+              ? `style="background-image:url('${item.thumb}');background-size:cover;background-position:center;"`
+              : `style="background:var(--c-surface-2);"`;
+            return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive?" active":""}" data-idx="${i}" data-type="video" ${thumbStyle}>
+              <span class="pdp-thumb-play">▶</span>
+            </div>`;
+          }
+        }).join("");
+
+        thumbsEl.querySelectorAll(".pdp-gallery__thumb-wrap").forEach(el => {
+          el.addEventListener("click", () => {
+            const idx = +el.dataset.idx;
+            if (el.dataset.type === "video") showVideo(idx);
+            else showImage(idx);
+          });
         });
       }
 
+      // Expose for variant switching
+      window._selectImage = function(idx) { showImage(idx); };
+
+      // Init
+      if (images.length) {
+        mainImg.src = images[0];
+        mainImg.alt = Shop.pName(PRODUCT);
+        document.getElementById("magnifier-img").src = (images[0]||"").replace("w=800","w=1600");
+      }
       buildThumbs();
 
-      // Main image click → lightbox
-      document.getElementById("gallery-main-wrap").addEventListener("click", () => openLightbox("images"));
+      // Main wrap click: image → lightbox images, video → lightbox video tab
+      mainWrap.addEventListener("click", e => {
+        // Don't open lightbox if clicking video controls
+        if (e.target.closest("video") || e.target.closest("iframe")) return;
+        if (activeType === "video") {
+          // Stop inline playback and open lightbox video tab
+          videoPlayer.pause();
+          ytIframe.src = "";
+          openLightbox("video");
+        } else {
+          openLightbox("images");
+        }
+      });
     }
 
     /* ════════════════════════════════════════════════════
@@ -350,6 +452,10 @@
       }
 
       mainWrap.addEventListener("mousemove", e => {
+        // Don't show magnifier when a video is active
+        if (document.getElementById("gallery-main-video").style.display !== "none") {
+          magEl.style.display = "none"; return;
+        }
         const rect = mainWrap.getBoundingClientRect();
         const xPct = (e.clientX - rect.left)  / rect.width;
         const yPct = (e.clientY - rect.top)   / rect.height;
