@@ -1,5 +1,5 @@
 /* =========================================================
-   LUMIO Product Viewer - Reusable Quick View Component
+   WEBSHOP Product Viewer - Reusable Quick View Component
    =========================================================
    Usage:
      <div class="product-viewer-trigger" data-product-id="arc-floor-lamp">
@@ -103,12 +103,12 @@ const ProductViewer = (() => {
             </div>
 
             <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;">
-              <div class="lumio-qty-control lumio-qty-control--lg">
-                <button class="lumio-qty-btn lumio-qty-btn--minus" id="viewer-qty-minus">−</button>
-                <span class="lumio-qty-val" id="viewer-qty-val">1</span>
-                <button class="lumio-qty-btn lumio-qty-btn--plus" id="viewer-qty-plus">+</button>
+              <div class="webshop-qty-control webshop-qty-control--lg">
+                <button class="webshop-qty-btn webshop-qty-btn--minus" id="viewer-qty-minus">−</button>
+                <span class="webshop-qty-val" id="viewer-qty-val">1</span>
+                <button class="webshop-qty-btn webshop-qty-btn--plus" id="viewer-qty-plus">+</button>
               </div>
-              <button class="lumio-btn lumio-btn--primary pdp-atc-btn" id="viewer-atc-btn">
+              <button class="webshop-btn webshop-btn--primary pdp-atc-btn" id="viewer-atc-btn">
                 ${(typeof Shop !== "undefined" ? Shop.t("add_to_cart","Add to Cart") : "Add to Cart")}
               </button>
             </div>
@@ -137,7 +137,7 @@ const ProductViewer = (() => {
               </div>`).join("")}
           </div>
           <div class="pdp-bundle-actions">
-            <button class="lumio-btn lumio-btn--primary" id="viewer-bundle-add-all">
+            <button class="webshop-btn webshop-btn--primary" id="viewer-bundle-add-all">
               ${(typeof Shop !== "undefined" ? Shop.t("add_both_to_cart","Add Bundle to Cart") : "Add Bundle to Cart")}
             </button>
           </div>
