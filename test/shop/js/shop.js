@@ -354,7 +354,7 @@ const Shop = (() => {
                 ${pDesc(r) ? `<span class="webshop-related__desc">${pDesc(r)}</span>` : ""}
                 <span class="webshop-related__price">${fmt(r.price)}</span>
               </div>
-              <button class="webshop-related__add webshop-btn webshop-btn--sm webshop-btn--outline" data-related-id="${r.id}">+ ${t("add_to_cart", "Add")}</button>
+              <button class="webshop-related__add webshop-btn webshop-btn--sm webshop-btn--outline" data-related-id="${r.id}">${t("add_to_cart", "Add")}</button>
             </div>`).join("")}
         </div>
       </div>`;
