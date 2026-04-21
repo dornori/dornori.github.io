@@ -181,6 +181,12 @@ export function initNavigation() {
         langWrap.appendChild(langSelect);
         topBar.appendChild(langWrap);
 
+        // Currency selector slot — filled by shop scripts after webshop:ready
+        const currencySlot     = document.createElement('div');
+        currencySlot.className = 'profile-selector-wrap';
+        currencySlot.id        = 'topbar-currency-slot';
+        topBar.appendChild(currencySlot);
+
         // Settings gear tab
         const tab = document.createElement('button');
         tab.id    = 'topBar-tab';

@@ -87,6 +87,13 @@ export function initPageLoader() {
             homeView.innerHTML = html;
             homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
+            homeView.querySelectorAll('script').forEach(oldScript => {
+                const s = document.createElement('script');
+                [...oldScript.attributes].forEach(a => s.setAttribute(a.name, a.value));
+                s.textContent = oldScript.textContent;
+                oldScript.replaceWith(s);
+            });
+            document.dispatchEvent(new CustomEvent('dornori:pageLoaded', { detail: { slug: '' } }));
         } catch {
             // Silently fail — home.html may not be translated yet
         }
@@ -120,6 +127,17 @@ export function initPageLoader() {
             pageContent.innerHTML = html;
             pageContent.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
+
+            // Re-execute any <script> tags injected via innerHTML (browsers skip them)
+            pageContent.querySelectorAll('script').forEach(oldScript => {
+                const s = document.createElement('script');
+                [...oldScript.attributes].forEach(a => s.setAttribute(a.name, a.value));
+                s.textContent = oldScript.textContent;
+                oldScript.replaceWith(s);
+            });
+
+            // Notify shop integration so it can mount into [data-shop-mount] slots
+            document.dispatchEvent(new CustomEvent('dornori:pageLoaded', { detail: { slug } }));
 
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
