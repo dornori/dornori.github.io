@@ -55,8 +55,8 @@ const SITE_CONFIG = {
             returns:             'returns',
             contact:             'contact',
             gallery:             'gallery',
+            cart:                'cart',
         },
-        nl: {
             about:               'over-ons',
             built:               'kant-en-klaar',
             kit:                 'bouwpakket',
@@ -72,6 +72,7 @@ const SITE_CONFIG = {
             returns:             'retourbeleid',
             contact:             'contact',
             gallery:             'galerij',
+            cart:                'winkelwagen',
         },
         de: {
             about:               'ueber-uns',
@@ -89,6 +90,7 @@ const SITE_CONFIG = {
             returns:             'rueckgabe',
             contact:             'kontakt',
             gallery:             'galerie',
+            cart:                'warenkorb',
         },
         fr: {
             about:               'a-propos',
@@ -106,6 +108,7 @@ const SITE_CONFIG = {
             returns:             'politique-retour',
             contact:             'contact',
             gallery:             'galerie',
+            cart:                'panier',
         },
     },
 
@@ -159,6 +162,7 @@ const SITE_CONFIG = {
         returns:             { file: 'returns.html'            },
         contact:             { file: 'gallery-1.html'          },
         gallery:             { file: 'gallery-1.html'          },
+        cart:                { file: 'cart.html'               },
     },
 
     // ─── SOCIALS ─────────────────────────────────────────────────────────────
