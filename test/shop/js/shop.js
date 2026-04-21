@@ -256,7 +256,7 @@ const Shop = (() => {
       if (inTopBar) {
         // Render as a plain profile-select to inherit all profile CSS variables
         container.className = "profile-selector-wrap";
-        container.innerHTML = `CURRENCY <span><select class="profile-select" aria-label="Currency"></span>
+        container.innerHTML = `CURRENCY <select class="profile-select" aria-label="Currency">
           ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
         </select>`;
       } else {
