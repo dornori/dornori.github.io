@@ -54,10 +54,9 @@ window.renderNav = () => {
     /* ── Desktop nav ── */
     const desktopNav = document.querySelector('.top-nav');
     if (desktopNav) {
-        desktopNav.innerHTML = '';
-        // Re-append cart slot if it exists (shop integration adds it)
+        // Save cart slot before wiping
         const cartSlot = document.getElementById('cart-icon-slot');
-        if (cartSlot && cartSlot.parentElement !== desktopNav) desktopNav.appendChild(cartSlot);
+        desktopNav.innerHTML = '';
         SITE_CONFIG.navigation.forEach(item => {
             if (!item.enabled) return;
 
@@ -82,6 +81,8 @@ window.renderNav = () => {
 
             if (item.icon) fetchSVG(SITE_CONFIG.appearance.base_path + item.icon).then(svg => { iconEl.innerHTML = svg; });
         });
+        // Re-append cart slot AFTER nav links so it sits at the right end
+        if (cartSlot) desktopNav.appendChild(cartSlot);
     }
 
     /* ── Mobile nav ── */
