@@ -8,8 +8,6 @@
     <link rel="icon" href="/assets/icons/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/test/css/profiles.css">
     <link rel="stylesheet" href="/test/css/main.css">
-    <link rel="stylesheet" href="/test/shop/css/shop.css">
-
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
@@ -51,15 +49,14 @@
         </div>
     </footer>
     <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
-    <!-- Shop integration: cart icon + currency in settings topBar -->
+    <!-- Shop integration -->
     <script src="/test/shop/js/config.js"></script>
     <script>
     (function () {
         function loadScript(src) {
             return new Promise(function (resolve) {
                 var s = document.createElement('script');
-                s.src = src; s.onload = resolve;
-                s.onerror = function () { resolve(); };
+                s.src = src; s.onload = resolve; s.onerror = resolve;
                 document.head.appendChild(s);
             });
         }
@@ -70,44 +67,30 @@
     })();
     </script>
     <script>
+    function mountShopComponents() {
+        if (typeof Shop === 'undefined') return;
+        document.querySelectorAll('[data-shop-mount="grid"]').forEach(function (el, i) {
+            if (el.dataset.shopMounted) return;
+            el.dataset.shopMounted = '1';
+            if (!el.id) el.id = 'shop-grid-' + Date.now() + '-' + i;
+            Shop.renderShop(el.id, { showFilter: el.getAttribute('data-filter') !== 'false' });
+        });
+        document.querySelectorAll('[data-shop-mount="product"]').forEach(function (el, i) {
+            if (el.dataset.shopMounted) return;
+            el.dataset.shopMounted = '1';
+            if (!el.id) el.id = 'shop-product-' + Date.now() + '-' + i;
+            var pid = el.getAttribute('data-product-id');
+            if (pid) Shop.renderProductInfo(el.id, pid);
+        });
+    }
     document.addEventListener('webshop:ready', function () {
         Promise.all([Shipping.load(), Currency.init(), Shop.loadLang()]).then(function () {
             Shop.renderCartIcon({ target: '#cart-icon-slot', fixed: false, cartUrl: '/test/shop/cart.html' });
             Shop.renderCurrencySelector('#topbar-currency-slot');
+            mountShopComponents();
         });
     });
-
-    document.addEventListener('dornori:pageLoaded', function () {
-        if (typeof Shop === 'undefined') return;
-        document.querySelectorAll('[data-shop-mount="grid"]').forEach(function (el, i) {
-            if (!el.id) el.id = 'shop-grid-' + Date.now() + '-' + i;
-            var showFilter = el.getAttribute('data-filter') !== 'false';
-            Shop.renderShop(el.id, { showFilter: showFilter });
-        });
-        document.querySelectorAll('[data-shop-mount="product"]').forEach(function (el, i) {
-            if (!el.id) el.id = 'shop-product-' + Date.now() + '-' + i;
-            var productId = el.getAttribute('data-product-id');
-            if (productId) Shop.renderProductInfo(el.id, productId);
-        });
-    });
-    </script>
-
-    <script>window.__PAGE_LANG__ = 'de';</script>
-    <script type="module">
-        import { initI18n }        from '/test/js/i18n.js';
-        import { initNavigation }  from '/test/js/nav-loader.js';
-        import { initStickyBanner } from '/test/js/sticky-banner.js';
-        import { initSocials }     from '/test/js/social-loader.js';
-        import { initEmbedForms }  from '/test/js/embed-form.js';
-        import { initPageLoader }  from '/test/js/page-loader.js';
-        import { initFooter }      from '/test/js/footer-loader.js';
-        async function init() {
-            localStorage.setItem('dornori-lang', 'de');
-            await initI18n();
-            initNavigation(); initStickyBanner(); initSocials();
-            initFooter(); initEmbedForms(); initPageLoader();
-        }
-        init();
+    document.addEventListener('dornori:pageLoaded', mountShopComponents);
     </script>
 </body>
 </html>

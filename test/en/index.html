@@ -68,15 +68,14 @@
         init();
     </script>
 
-    <!-- Shop integration: cart icon + currency in settings topBar -->
+    <!-- Shop integration -->
     <script src="/test/shop/js/config.js"></script>
     <script>
     (function () {
         function loadScript(src) {
             return new Promise(function (resolve) {
                 var s = document.createElement('script');
-                s.src = src; s.onload = resolve;
-                s.onerror = function () { resolve(); };
+                s.src = src; s.onload = resolve; s.onerror = resolve;
                 document.head.appendChild(s);
             });
         }
@@ -87,25 +86,30 @@
     })();
     </script>
     <script>
+    function mountShopComponents() {
+        if (typeof Shop === 'undefined') return;
+        document.querySelectorAll('[data-shop-mount="grid"]').forEach(function (el, i) {
+            if (el.dataset.shopMounted) return;
+            el.dataset.shopMounted = '1';
+            if (!el.id) el.id = 'shop-grid-' + Date.now() + '-' + i;
+            Shop.renderShop(el.id, { showFilter: el.getAttribute('data-filter') !== 'false' });
+        });
+        document.querySelectorAll('[data-shop-mount="product"]').forEach(function (el, i) {
+            if (el.dataset.shopMounted) return;
+            el.dataset.shopMounted = '1';
+            if (!el.id) el.id = 'shop-product-' + Date.now() + '-' + i;
+            var pid = el.getAttribute('data-product-id');
+            if (pid) Shop.renderProductInfo(el.id, pid);
+        });
+    }
     document.addEventListener('webshop:ready', function () {
         Promise.all([Shipping.load(), Currency.init(), Shop.loadLang()]).then(function () {
             Shop.renderCartIcon({ target: '#cart-icon-slot', fixed: false, cartUrl: '/test/shop/cart.html' });
             Shop.renderCurrencySelector('#topbar-currency-slot');
+            mountShopComponents();
         });
     });
-    document.addEventListener('dornori:pageLoaded', function () {
-        if (typeof Shop === 'undefined') return;
-        document.querySelectorAll('[data-shop-mount="grid"]').forEach(function (el, i) {
-            if (!el.id) el.id = 'shop-grid-' + Date.now() + '-' + i;
-            var showFilter = el.getAttribute('data-filter') !== 'false';
-            Shop.renderShop(el.id, { showFilter: showFilter });
-        });
-        document.querySelectorAll('[data-shop-mount="product"]').forEach(function (el, i) {
-            if (!el.id) el.id = 'shop-product-' + Date.now() + '-' + i;
-            var productId = el.getAttribute('data-product-id');
-            if (productId) Shop.renderProductInfo(el.id, productId);
-        });
-    });
+    document.addEventListener('dornori:pageLoaded', mountShopComponents);
     </script>
 </body>
 </html>
