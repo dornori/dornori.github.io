@@ -8,7 +8,6 @@
     <link rel="icon" href="/assets/icons/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/test/css/profiles.css">
     <link rel="stylesheet" href="/test/css/main.css">
-    <link rel="stylesheet" href="/test/shop/css/shop.css">
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
@@ -19,14 +18,6 @@
             <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
         </div>
         <nav class="top-nav" aria-label="Main navigation"></nav>
-        <div class="header-shop-actions">
-            <div id="currency-selector-slot"></div>
-            <div id="cart-icon-slot"></div>
-            <a href="/test/shop/index.html" class="header-shop-btn" aria-label="Go to shop">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-                <span>Shop</span>
-            </a>
-        </div>
     </header>
     <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
     <main id="viewport">
@@ -72,39 +63,6 @@
             initFooter(); initEmbedForms(); initPageLoader();
         }
         init();
-    </script>
-
-    <!-- Shop cart icon integration -->
-    <script src="/test/shop/js/config.js"></script>
-    <script>
-    (function() {
-        function loadScript(src) {
-            return new Promise(function(resolve) {
-                var s = document.createElement('script');
-                s.src = src;
-                s.onload = resolve;
-                s.onerror = function() { console.warn('[WEBSHOP] Module failed:', src); resolve(); };
-                document.head.appendChild(s);
-            });
-        }
-        var modules = (CONFIG.modules || []).concat(['/test/shop/js/lang-bridge.js', '/test/shop/js/shop.js']);
-        modules = modules.map(function(m) { return m.startsWith('/') ? m : '/test/shop/' + m; });
-        var chain = Promise.resolve();
-        modules.forEach(function(src) { chain = chain.then(function() { return loadScript(src); }); });
-        chain.then(function() { document.dispatchEvent(new Event('webshop:ready')); });
-    })();
-    </script>
-    <script>
-    document.addEventListener('webshop:ready', function() {
-        Promise.all([
-            typeof Shipping !== 'undefined' ? Shipping.load() : Promise.resolve(),
-            typeof Currency !== 'undefined' ? Currency.init() : Promise.resolve(),
-            Shop.loadLang(),
-        ]).then(function() {
-            Shop.renderCartIcon({ target: '#cart-icon-slot', fixed: false, cartUrl: '/test/shop/cart.html' });
-            if (typeof Currency !== 'undefined') Shop.renderCurrencySelector('#currency-selector-slot');
-        });
-    });
     </script>
 </body>
 </html>
