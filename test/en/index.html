@@ -8,6 +8,7 @@
     <link rel="icon" href="/assets/icons/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/test/css/profiles.css">
     <link rel="stylesheet" href="/test/css/main.css">
+    <link rel="stylesheet" href="/test/shop/css/shop.css">
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
@@ -17,7 +18,9 @@
             <img src="/test/assets/images/dornori-logo-transparent.webp" class="billboard-logo" alt="Dornori" id="banner-img">
             <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
         </div>
-        <nav class="top-nav" aria-label="Main navigation"></nav>
+        <nav class="top-nav" aria-label="Main navigation">
+            <div id="cart-icon-slot"></div>
+        </nav>
     </header>
     <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
     <main id="viewport">
@@ -63,6 +66,46 @@
             initFooter(); initEmbedForms(); initPageLoader();
         }
         init();
+    </script>
+
+    <!-- Shop integration: cart icon + currency in settings topBar -->
+    <script src="/test/shop/js/config.js"></script>
+    <script>
+    (function () {
+        function loadScript(src) {
+            return new Promise(function (resolve) {
+                var s = document.createElement('script');
+                s.src = src; s.onload = resolve;
+                s.onerror = function () { resolve(); };
+                document.head.appendChild(s);
+            });
+        }
+        var modules = CONFIG.modules.concat(['/test/shop/js/lang-bridge.js', '/test/shop/js/shop.js']);
+        var chain = Promise.resolve();
+        modules.forEach(function (src) { chain = chain.then(function () { return loadScript(src); }); });
+        chain.then(function () { document.dispatchEvent(new Event('webshop:ready')); });
+    })();
+    </script>
+    <script>
+    document.addEventListener('webshop:ready', function () {
+        Promise.all([Shipping.load(), Currency.init(), Shop.loadLang()]).then(function () {
+            Shop.renderCartIcon({ target: '#cart-icon-slot', fixed: false, cartUrl: '/test/shop/cart.html' });
+            Shop.renderCurrencySelector('#topbar-currency-slot');
+        });
+    });
+    document.addEventListener('dornori:pageLoaded', function () {
+        if (typeof Shop === 'undefined') return;
+        document.querySelectorAll('[data-shop-mount="grid"]').forEach(function (el, i) {
+            if (!el.id) el.id = 'shop-grid-' + Date.now() + '-' + i;
+            var showFilter = el.getAttribute('data-filter') !== 'false';
+            Shop.renderShop(el.id, { showFilter: showFilter });
+        });
+        document.querySelectorAll('[data-shop-mount="product"]').forEach(function (el, i) {
+            if (!el.id) el.id = 'shop-product-' + Date.now() + '-' + i;
+            var productId = el.getAttribute('data-product-id');
+            if (productId) Shop.renderProductInfo(el.id, productId);
+        });
+    });
     </script>
 </body>
 </html>
