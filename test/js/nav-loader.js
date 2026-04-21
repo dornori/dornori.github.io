@@ -55,6 +55,9 @@ window.renderNav = () => {
     const desktopNav = document.querySelector('.top-nav');
     if (desktopNav) {
         desktopNav.innerHTML = '';
+        // Re-append cart slot if it exists (shop integration adds it)
+        const cartSlot = document.getElementById('cart-icon-slot');
+        if (cartSlot && cartSlot.parentElement !== desktopNav) desktopNav.appendChild(cartSlot);
         SITE_CONFIG.navigation.forEach(item => {
             if (!item.enabled) return;
 
