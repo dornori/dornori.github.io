@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Dornori — Build Your Own Rising Star Lamp</title>
     <meta name="description" content="Discover Dornori's Star-A: a real kinetic outdoor lamp you build yourself. DC motor, 3D-printed parts, real electronics. For kids 7–12 and their grown-ups.">
 
@@ -25,7 +24,6 @@
     <link rel="icon"             href="/assets/icons/favicon-32x32.png" type="image/png" sizes="32x32">
     <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
     <link rel="manifest"         href="/assets/icons/site.webmanifest">
-
     <link rel="canonical" href="https://dornori.com">
 
     <!-- Structured data — Organisation -->
@@ -47,117 +45,145 @@
 
     <link rel="stylesheet" href="/test/css/profiles.css">
     <link rel="stylesheet" href="/test/css/main.css">
+    <link rel="stylesheet" href="/test/shop/css/shop.css">
 
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
-
+    
     <style>
-        .site-cart-btn {
-            position: relative;
-            display: flex; align-items: center; gap: 6px;
-            padding: 6px 12px;
-            border: 1px solid var(--border); border-radius: 4px;
-            color: var(--text); text-decoration: none;
-            font-family: var(--font-mono); font-size: 0.78rem;
-            letter-spacing: 0.06em;
-            transition: background 0.15s, border-color 0.15s;
-            cursor: pointer; background: transparent;
+        /* Just positioning — all component styles come from shop.css */
+        .banner-cart-edge {
+            position: absolute;
+            top: 20px;
+            right: 24px;
+            z-index: 100;
         }
-        .site-cart-btn:hover { background: var(--surface-hover, rgba(255,255,255,.06)); border-color: var(--accent); }
-        .site-cart-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
-        .site-cart-badge { display: none; min-width: 18px; height: 18px; padding: 0 4px; background: var(--accent, #F5F29B); color: #000; border-radius: 100px; font-size: 0.68rem; font-weight: 700; line-height: 18px; text-align: center; }
-        .site-cart-badge.has-items { display: inline-block; }
+        @media (max-width: 768px) {
+            .banner-cart-edge {
+                top: 12px;
+                right: 16px;
+            }
+        }
+        #main-header {
+            position: relative;
+        }
     </style>
 </head>
 <body>
 
-    <div id="topBar"></div>
+<div id="topBar"></div>
 
-    <header id="main-header">
-        <div class="billboard-logo-wrap" onclick="window.showHome()">
-            <img src="/test/assets/images/dornori-logo-transparent.webp" class="billboard-logo" alt="Dornori" id="banner-img">
-            <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
+<header id="main-header">
+    <!-- Cart icon positioned at banner edge — slot will be filled by Shop.renderCartIcon() -->
+    <div class="banner-cart-edge" id="cart-icon-slot"></div>
+
+    <div class="billboard-logo-wrap" onclick="window.showHome()">
+        <img src="/test/assets/images/dornori-logo-transparent.webp" class="billboard-logo" alt="Dornori" id="banner-img">
+        <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
+    </div>
+    <nav class="top-nav" aria-label="Main navigation"></nav>
+</header>
+
+<nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
+
+<main id="viewport">
+    <div id="home-view">
+        <div style="text-align: center; padding: 60px 20px;">
+            <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid var(--border); border-radius: 50%; border-top-color: var(--accent); animation: spin 0.8s linear infinite;"></div>
+            <p style="margin-top: 20px; font-family: var(--font-mono);">Loading Dornori...</p>
         </div>
-        <nav class="top-nav" aria-label="Main navigation"></nav>
+        <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+    </div>
 
-        <a href="shop/cart.html" class="site-cart-btn" id="site-cart-btn" aria-label="Shopping cart">
-            <svg viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-            <span id="site-cart-badge" class="site-cart-badge" aria-live="polite"></span>
-        </a>
-    </header>
-
-    <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
-
-    <main id="viewport">
-        <div id="home-view">
-            <div style="text-align: center; padding: 60px 20px;">
-                <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid var(--border); border-radius: 50%; border-top-color: var(--accent); animation: spin 0.8s linear infinite;"></div>
-                <p style="margin-top: 20px; font-family: var(--font-mono);">Loading Dornori...</p>
-            </div>
-            <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+    <div id="page-view" class="hidden">
+        <div id="page-content-inner" class="view-inner"></div>
+        <div style="margin-top: 50px;">
+            <button class="nav-link" style="border:1px solid var(--border); padding:10px 20px;" onclick="window.showHome()">Return Home</button>
         </div>
+    </div>
 
-        <div id="page-view" class="hidden">
-            <div id="page-content-inner" class="view-inner"></div>
-            <div style="margin-top: 50px;">
-                <button class="nav-link" style="border:1px solid var(--border); padding:10px 20px;" onclick="window.showHome()">Return Home</button>
-            </div>
-        </div>
+    <div class="social-dock" id="social-dock"></div>
+</main>
 
-        <div class="social-dock" id="social-dock"></div>
-    </main>
-
-    <footer class="site-footer">
-        <div class="footer-container">
-            <div id="footer-links" class="footer-links"></div>
-            <div class="footer-bottom">
-                <p class="copyright-text">&copy; 2026 DORNORI. ALL RIGHTS RESERVED.</p>
-                <div class="technical-credits">
-                    <span class="credit-item">
-                        <span class="status-dot"></span>Performance &amp; Security by <strong>Cloudflare</strong>
-                    </span>
-                </div>
+<footer class="site-footer">
+    <div class="footer-container">
+        <div id="footer-links" class="footer-links"></div>
+        <div class="footer-bottom">
+            <p class="copyright-text">&copy; 2026 DORNORI. ALL RIGHTS RESERVED.</p>
+            <div class="technical-credits">
+                <span class="credit-item">
+                    <span class="status-dot"></span>Performance &amp; Security by <strong>Cloudflare</strong>
+                </span>
             </div>
         </div>
-    </footer>
+    </div>
+</footer>
 
-    <script>
-        ;(function () {
-            function updateCartBadge() {
-                try {
-                    var cart = JSON.parse(localStorage.getItem('webshop_cart') || '[]');
-                    var count = cart.reduce(function(a,i){ return a+(i.qty||1); }, 0);
-                    var badge = document.getElementById('site-cart-badge');
-                    if (!badge) return;
-                    badge.textContent = count || '';
-                    badge.classList.toggle('has-items', count > 0);
-                } catch(e) {}
+<!-- Load all required JS in correct order -->
+<script src="shop/js/config.js"></script>
+<script src="shop/js/lang-bridge.js"></script>
+<script src="shop/js/modules/currency.js"></script>
+<script src="shop/js/modules/shipping.js"></script>
+<script src="shop/js/modules/payment.js"></script>
+<script src="shop/js/shop.js"></script>
+
+<script>
+    // Initialize everything and render the cart icon
+    (async function initWebshop() {
+        try {
+            // Initialize currency (loads rates from CSV)
+            if (typeof Currency !== 'undefined') {
+                await Currency.init();
+                await Currency.waitForReady();
             }
-            updateCartBadge();
-            window.addEventListener('storage', function(e){ if(e.key==='webshop_cart') updateCartBadge(); });
-            document.addEventListener('shop:cartUpdated', updateCartBadge);
-        })();
-    </script>
-
-    <script type="module">
-        import { initI18n }         from '/test/js/i18n.js';
-        import { initNavigation }   from '/test/js/nav-loader.js';
-        import { initStickyBanner } from '/test/js/sticky-banner.js';
-        import { initSocials }      from '/test/js/social-loader.js';
-        import { initEmbedForms }   from '/test/js/embed-form.js';
-        import { initPageLoader }   from '/test/js/page-loader.js';
-        import { initFooter }       from '/test/js/footer-loader.js';
-
-        async function init() {
-            await initI18n();
-            initNavigation();
-            initStickyBanner();
-            initSocials();
-            initFooter();
-            initEmbedForms();
-            initPageLoader();
+            
+            // Initialize shipping (loads countries from CSV)
+            if (typeof Shipping !== 'undefined') {
+                await Shipping.load();
+            }
+            
+            // Load language and products for Shop
+            if (typeof Shop !== 'undefined') {
+                await Shop.loadLang();
+                
+                // Now render the cart icon in the banner slot
+                // renderCartIcon creates the floating cart button with hover dropdown
+                Shop.renderCartIcon({ 
+                    target: "#cart-icon-slot", 
+                    fixed: false,      // not fixed, positioned by our .banner-cart-edge
+                    cartUrl: "cart.html" 
+                });
+            }
+        } catch (e) {
+            console.warn("[Init] Error during webshop initialization:", e);
+            // Fallback: show simple cart link if Shop failed to load
+            const slot = document.getElementById('cart-icon-slot');
+            if (slot) {
+                slot.innerHTML = '<a href="cart.html" class="webshop-cart-icon" style="display:inline-flex;width:48px;height:48px;background:var(--c-text);border-radius:50%;align-items:center;justify-content:center;color:white;">🛒</a>';
+            }
         }
+    })();
+</script>
 
-        init();
-    </script>
+<script type="module">
+    import { initI18n } from '/test/js/i18n.js';
+    import { initNavigation } from '/test/js/nav-loader.js';
+    import { initStickyBanner } from '/test/js/sticky-banner.js';
+    import { initSocials } from '/test/js/social-loader.js';
+    import { initEmbedForms } from '/test/js/embed-form.js';
+    import { initPageLoader } from '/test/js/page-loader.js';
+    import { initFooter } from '/test/js/footer-loader.js';
+
+    async function init() {
+        await initI18n();
+        initNavigation();
+        initStickyBanner();
+        initSocials();
+        initFooter();
+        initEmbedForms();
+        initPageLoader();
+    }
+
+    init();
+</script>
 </body>
 </html>
