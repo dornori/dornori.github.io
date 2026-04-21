@@ -172,10 +172,10 @@ const Shop = (() => {
       .catch(() => ({}));
 
     _langLoadPromise = Promise.all([
-      safeFetch((CONFIG.data?.langUiDir || "data/lang/ui/") + lang + ".json"),
-      safeFetch((CONFIG.data?.langUiDir || "data/lang/ui/") + "en.json"),
-      safeFetch((CONFIG.data?.langProductsDir || "data/lang/products/") + lang + ".json"),
-      safeFetch((CONFIG.data?.langProductsDir || "data/lang/products/") + "en.json"),
+      safeFetch("data/lang/ui/" + lang + ".json"),
+      safeFetch("data/lang/ui/en.json"),
+      safeFetch("data/lang/products/" + lang + ".json"),
+      safeFetch("data/lang/products/en.json"),
     ]).then(([ui, uiEn, prod, prodEn]) => {
       LANG = { ...uiEn, ...ui };
       const clean = obj => { const r = { ...obj }; delete r._readme; return r; };
@@ -247,33 +247,23 @@ const Shop = (() => {
     if (CONFIG.features?.showCurrencySelector === false) return;
     const container = typeof target === "string" ? document.querySelector(target) : target;
     if (!container || typeof Currency === "undefined") return;
-
-    const inTopBar = container.id === "topbar-currency-slot";
-
+    
     async function build() {
       if (Currency.waitForReady) await Currency.waitForReady();
       const active = Currency.getActive();
-      if (inTopBar) {
-        // Render as a plain profile-select to inherit all profile CSS variables
-        container.className = "profile-selector-wrap";
-        container.innerHTML = `CURRENCY <select class="profile-select" aria-label="Currency">
+      container.className = "webshop-currency-selector";
+      container.innerHTML = `
+        <label class="webshop-currency-selector__label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14">
+            <circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 0 0 20M12 2a15 15 0 0 1 0 20M2 12h20"/>
+          </svg>
+        </label>
+        <select class="webshop-currency-selector__select" aria-label="Currency">
           ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
         </select>`;
-      } else {
-        container.className = "webshop-currency-selector";
-        container.innerHTML = `
-          <label class="webshop-currency-selector__label">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14">
-              <circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 0 0 20M12 2a15 15 0 0 1 0 20M2 12h20"/>
-            </svg>
-          </label>
-          <select class="webshop-currency-selector__select" aria-label="Currency">
-            ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
-          </select>`;
-      }
       container.querySelector("select").addEventListener("change", e => Currency.setActive(e.target.value));
     }
-
+    
     build();
     document.addEventListener("currency:changed", build);
   }
