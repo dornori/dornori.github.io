@@ -3,51 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Dornori — Build Your Own Rising Star Lamp</title>
     <meta name="description" content="Discover Dornori's Star-A: a real kinetic outdoor lamp you build yourself. DC motor, 3D-printed parts, real electronics. For kids 7–12 and their grown-ups.">
-
-    <!-- Open Graph -->
     <meta property="og:type"        content="website">
     <meta property="og:url"         content="https://dornori.com">
     <meta property="og:title"       content="Dornori — Build Your Own Rising Star Lamp">
     <meta property="og:description" content="A kinetic outdoor lamp you build yourself. Real components, real engineering, for kids 7–12.">
     <meta property="og:image"       content="https://dornori.com/assets/images/preview-image.jpg">
-
-    <!-- Twitter / X card -->
     <meta name="twitter:card"        content="summary_large_image">
     <meta name="twitter:title"       content="Dornori — Build Your Own Rising Star Lamp">
     <meta name="twitter:description" content="A kinetic outdoor lamp you build yourself. Real components, real engineering, for kids 7–12.">
     <meta name="twitter:image"       content="https://dornori.com/assets/images/preview-image.jpg">
-
-    <!-- Favicons -->
     <link rel="icon"             href="/assets/icons/favicon.ico" sizes="any">
     <link rel="icon"             href="/assets/icons/favicon-32x32.png" type="image/png" sizes="32x32">
     <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
     <link rel="manifest"         href="/assets/icons/site.webmanifest">
-
     <link rel="canonical" href="https://dornori.com">
-
-    <!-- Structured data — Organisation -->
     <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        "name": "Dornori",
-        "url": "https://dornori.com",
-        "logo": "https://dornori.com/assets/images/dornori-logo-transparent.webp",
-        "sameAs": [
-            "https://instagram.com/dornori.info",
-            "https://x.com/dornori_info",
-            "https://youtube.com/@dornori_info",
-            "https://facebook.com/Dornori.info"
-        ]
-    }
+    {"@context":"https://schema.org","@type":"Organization","name":"Dornori","url":"https://dornori.com","logo":"https://dornori.com/assets/images/dornori-logo-transparent.webp","sameAs":["https://instagram.com/dornori.info","https://x.com/dornori_info","https://youtube.com/@dornori_info","https://facebook.com/Dornori.info"]}
     </script>
-
     <link rel="stylesheet" href="/test/css/profiles.css">
     <link rel="stylesheet" href="/test/css/main.css">
-
+    <link rel="stylesheet" href="/test/shop/css/shop.css">
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
@@ -59,7 +36,9 @@
             <img src="/test/assets/images/dornori-logo-transparent.webp" class="billboard-logo" alt="Dornori" id="banner-img">
             <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
         </div>
-        <nav class="top-nav" aria-label="Main navigation"></nav>
+        <nav class="top-nav" aria-label="Main navigation">
+            <div id="cart-icon-slot"></div>
+        </nav>
     </header>
 
     <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
@@ -117,6 +96,47 @@
         }
 
         init();
+    </script>
+
+    <!-- Shop integration: cart icon + currency in settings topBar -->
+    <script src="/test/shop/js/config.js"></script>
+    <script>
+    (function () {
+        function loadScript(src) {
+            return new Promise(function (resolve) {
+                var s = document.createElement('script');
+                s.src = src; s.onload = resolve;
+                s.onerror = function () { resolve(); };
+                document.head.appendChild(s);
+            });
+        }
+        var modules = CONFIG.modules.concat(['/test/shop/js/lang-bridge.js', '/test/shop/js/shop.js']);
+        var chain = Promise.resolve();
+        modules.forEach(function (src) { chain = chain.then(function () { return loadScript(src); }); });
+        chain.then(function () { document.dispatchEvent(new Event('webshop:ready')); });
+    })();
+    </script>
+    <script>
+    document.addEventListener('webshop:ready', function () {
+        Promise.all([Shipping.load(), Currency.init(), Shop.loadLang()]).then(function () {
+            Shop.renderCartIcon({ target: '#cart-icon-slot', fixed: false, cartUrl: '/test/shop/cart.html' });
+            Shop.renderCurrencySelector('#topbar-currency-slot');
+        });
+    });
+
+    document.addEventListener('dornori:pageLoaded', function () {
+        if (typeof Shop === 'undefined') return;
+        document.querySelectorAll('[data-shop-mount="grid"]').forEach(function (el, i) {
+            if (!el.id) el.id = 'shop-grid-' + Date.now() + '-' + i;
+            var showFilter = el.getAttribute('data-filter') !== 'false';
+            Shop.renderShop(el.id, { showFilter: showFilter });
+        });
+        document.querySelectorAll('[data-shop-mount="product"]').forEach(function (el, i) {
+            if (!el.id) el.id = 'shop-product-' + Date.now() + '-' + i;
+            var productId = el.getAttribute('data-product-id');
+            if (productId) Shop.renderProductInfo(el.id, productId);
+        });
+    });
     </script>
 </body>
 </html>
