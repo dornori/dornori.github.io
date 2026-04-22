@@ -56,7 +56,6 @@ const SITE_CONFIG = {
             contact:             'contact',
             gallery:             'gallery',
         },
-        nl: {
             about:               'over-ons',
             built:               'kant-en-klaar',
             kit:                 'bouwpakket',
