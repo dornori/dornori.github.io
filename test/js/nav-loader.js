@@ -271,53 +271,41 @@ export function initNavigation() {
     window.renderNav();
 
     // ── Cart icon in header ──────────────────────────────────────────────────
-    // Inject once; update badge on cart changes via localStorage + custom event
+    // Rendered as a plain <a> so it links directly to /shop/cart.html.
+    // Badge count is kept in sync via localStorage + shop:cartUpdated events.
     (function injectCartIcon() {
         const header = document.getElementById('main-header');
         if (!header || document.getElementById('site-cart-btn')) return;
 
-        const lang   = window.LANG || 'en';
-        const base   = SITE_CONFIG.appearance.base_path;
-        // Cart URL → SPA route (JS navigation), href is the pretty URL fallback
-        const cartUrlSlug = SITE_CONFIG.pageUrlSlug('cart', lang);
-        const cartHref    = lang === 'en'
-            ? `${base}en/${cartUrlSlug}/`
-            : `${base}${lang}/${cartUrlSlug}/`;
+        const base     = SITE_CONFIG.appearance.base_path;
+        const cartHref = `${base}shop/cart.html`;
 
-        const btn = document.createElement('button');
-        btn.id        = 'site-cart-btn';
-        btn.className = 'site-cart-btn';
-        btn.setAttribute('aria-label', 'Shopping cart');
-        btn.setAttribute('type', 'button');
-        btn.innerHTML = `
-            <svg viewBox="0 0 24 24">
+        const a = document.createElement('a');
+        a.id        = 'site-cart-btn';
+        a.className = 'lumio-cart-icon';          // uses shop.css styles
+        a.href      = cartHref;
+        a.setAttribute('aria-label', 'Shopping cart');
+        a.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
                 <line x1="3" y1="6" x2="21" y2="6"/>
                 <path d="M16 10a4 4 0 0 1-8 0"/>
             </svg>
-            <span class="site-cart-label">CART</span>
-            <span id="site-cart-badge" class="site-cart-badge" aria-live="polite"></span>
+            <span class="lumio-cart-icon__badge lumio-cart-icon__badge--hidden"
+                  id="site-cart-badge" aria-live="polite">0</span>
         `;
 
-        btn.addEventListener('click', () => {
-            if (typeof window.viewPage === 'function') {
-                window.viewPage('cart');
-            } else {
-                window.location.href = cartHref;
-            }
-        });
-
-        header.appendChild(btn);
+        header.appendChild(a);
 
         function updateCartBadge() {
             try {
-                const cartKey = 'lumio_cart';
-                const cart    = JSON.parse(localStorage.getItem(cartKey) || '[]');
-                const count   = cart.reduce((a, i) => a + (i.qty || 1), 0);
-                const badge   = document.getElementById('site-cart-badge');
+                const cart  = JSON.parse(localStorage.getItem('lumio_cart') || '[]');
+                const count = cart.reduce((s, i) => s + (i.qty || 1), 0);
+                const badge = document.getElementById('site-cart-badge');
                 if (!badge) return;
-                badge.textContent = count || '';
-                badge.classList.toggle('has-items', count > 0);
+                badge.textContent = count;
+                badge.classList.toggle('lumio-cart-icon__badge--hidden', count === 0);
             } catch (e) {}
         }
 
