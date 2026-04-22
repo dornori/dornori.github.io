@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUMIO – UFO Space Blue</title>
+  <link rel="stylesheet" href="css/shop.css">
+</head>
+<body>
+
+  <header class="lumio-page-header">
+    <div class="lumio-container">
+      <div class="lumio-page-header__inner">
+        <a href="index.html" class="lumio-logo">LUM<span>IO</span></a>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <div class="lumio-lang-switcher" id="lang-switcher-slot"></div>
+          <div id="currency-selector-slot"></div>
+          <div id="cart-icon-slot"></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="lumio-page-main">
+    <div class="lumio-container">
+      <div id="back-btn-slot"></div>
+      <div id="product-info"></div>
+    </div>
+  </main>
+
+  <footer style="background:var(--c-text);color:var(--c-white);padding:40px 0;margin-top:40px;">
+    <div class="lumio-container" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+      <span class="lumio-logo" style="font-size:1.2rem;">LUM<span style="color:var(--c-accent)">IO</span></span>
+      <span style="font-size:0.82rem;color:rgba(255,255,255,.45);">© 2025 LUMIO</span>
+    </div>
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script>
+    (function() {
+      function loadScript(src) {
+        return new Promise(function(resolve) {
+          var s = document.createElement("script");
+          s.src = src;
+          s.onload = resolve;
+          s.onerror = function() { console.warn("[LUMIO] Module failed:", src); resolve(); };
+          document.head.appendChild(s);
+        });
+      }
+      var modules = (CONFIG.modules || []).concat(["js/lang-bridge.js", "js/shop.js"]);
+      var chain = Promise.resolve();
+      modules.forEach(function(src) { chain = chain.then(function() { return loadScript(src); }); });
+      chain.then(function() { document.dispatchEvent(new Event("lumio:ready")); });
+    })();
+  </script>
+  <script>
+    document.addEventListener("lumio:ready", function() {
+      Promise.all([
+        Shipping.load(),
+        Currency.init(),
+        Shop.loadLang(),
+      ]).then(() => {
+        Shop.wireLanguageSwitcher(".lumio-lang-btn");
+        Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false });
+        Shop.renderCurrencySelector("#currency-selector-slot");
+        Shop.renderBackButton("#back-btn-slot", { href: "index.html" });
+        Shop.renderProductInfo("product-info", "ufo-blue-blue");
+      });
+    });
+  </script>
+</body>
+</html>
