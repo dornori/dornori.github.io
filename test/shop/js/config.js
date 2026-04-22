@@ -1,5 +1,5 @@
 /* =========================================================
-   WEBSHOP CONFIG  –  config.js  (v4)
+   LUMIO CONFIG  –  config.js  (v4)
    =========================================================
    RULES FOR THIS FILE:
    · Human-readable parameters ONLY — no executable code.
@@ -39,8 +39,8 @@ const CONFIG = {
   storageKeys: {
     parentLangKey:  "dornori-lang",   // key the parent site (Dornori) writes
     shopLangKey:    "dornori-lang",   // key the shop reads/writes for its own pref
-    currencyKey:    "webshop_currency", // key for persisted currency preference
-    cartKey:        "webshop_cart",     // key for cart data
+    currencyKey:    "lumio_currency", // key for persisted currency preference
+    cartKey:        "lumio_cart",     // key for cart data
   },
 
   /* ── Feature flags ─────────────────────────────────── */
@@ -79,11 +79,11 @@ const CONFIG = {
 
   /* ── Data file paths ───────────────────────────────── */
   data: {
-    shippingCsv:     "/test/shop/data/shipping.csv",
-    currenciesCsv:   "/test/shop/data/currencies.csv",
-    langUiDir:       "/test/shop/data/lang/ui/",
-    langProductsDir: "/test/shop/data/lang/products/",
-    productsJson:    "/test/shop/data/products.json",
+    shippingCsv:     "data/shipping.csv",
+    currenciesCsv:   "data/currencies.csv",
+    langUiDir:       "data/lang/ui/",
+    langProductsDir: "data/lang/products/",
+    productsJson:    "data/products.json",
   },
 
   /* ── Modules to load ───────────────────────────────── */
@@ -92,9 +92,9 @@ const CONFIG = {
    * Add new entries to extend with additional processors.
    */
   modules: [
-    "/test/shop/js/modules/currency.js",
-    "/test/shop/js/modules/shipping.js",
-    "/test/shop/js/modules/payment.js",
+    "js/modules/currency.js",
+    "js/modules/shipping.js",
+    "js/modules/payment.js",
   ],
 
   /* ── Payment ───────────────────────────────────────── */
@@ -105,7 +105,7 @@ const CONFIG = {
     activeProcessor: "paypal",
 
     paypal: {
-      clientId:  "<SOME_ID",
+      clientId:  "AaYwnfwpOiekk9jVlaqWJsTKNknCYNWEM6X1-5kav2sNq2t988oBkyr_MGwonIDDKxnTET4VorHpNEnN",
       currency:  "EUR",
       intent:    "capture",
       returnPath: "/success.html",

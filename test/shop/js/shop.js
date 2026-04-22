@@ -1,5 +1,5 @@
 /* =========================================================
-   WEBSHOP SHOP ENGINE  –  shop.js  (v4 - FIXED)
+   LUMIO SHOP ENGINE  –  shop.js  (v4 - FIXED)
    =========================================================
    Language file structure (v4):
      data/lang/ui/{lang}.json       — UI strings only
@@ -104,9 +104,9 @@ const Shop = (() => {
   function variantInStock(product, variantId) { return variantStock(product, variantId) > 0; }
 
   /* ─── CART ──────────────────────────────────────────── */
-  function getCart() { try { return JSON.parse(localStorage.getItem(CONFIG.storageKeys?.cartKey || "webshop_cart") || "[]"); } catch { return []; } }
+  function getCart() { try { return JSON.parse(localStorage.getItem(CONFIG.storageKeys?.cartKey || "lumio_cart") || "[]"); } catch { return []; } }
   function saveCart(cart) {
-    localStorage.setItem(CONFIG.storageKeys?.cartKey || "webshop_cart", JSON.stringify(cart));
+    localStorage.setItem(CONFIG.storageKeys?.cartKey || "lumio_cart", JSON.stringify(cart));
     document.dispatchEvent(new CustomEvent("shop:cartUpdated", { detail: { cart } }));
   }
   function addToCart(product, qty = 1, variantId = null, selectedColor = null, imageOverride = null) {
@@ -132,7 +132,7 @@ const Shop = (() => {
     item.qty = qty; saveCart(cart);
   }
   function clearCart() {
-    localStorage.removeItem(CONFIG.storageKeys?.cartKey || "webshop_cart");
+    localStorage.removeItem(CONFIG.storageKeys?.cartKey || "lumio_cart");
     document.dispatchEvent(new CustomEvent("shop:cartUpdated", { detail: { cart: [] } }));
   }
 
@@ -172,10 +172,10 @@ const Shop = (() => {
       .catch(() => ({}));
 
     _langLoadPromise = Promise.all([
-      safeFetch((CONFIG.data?.langUiDir || "data/lang/ui/") + lang + ".json"),
-      safeFetch((CONFIG.data?.langUiDir || "data/lang/ui/") + "en.json"),
-      safeFetch((CONFIG.data?.langProductsDir || "data/lang/products/") + lang + ".json"),
-      safeFetch((CONFIG.data?.langProductsDir || "data/lang/products/") + "en.json"),
+      safeFetch("data/lang/ui/" + lang + ".json"),
+      safeFetch("data/lang/ui/en.json"),
+      safeFetch("data/lang/products/" + lang + ".json"),
+      safeFetch("data/lang/products/en.json"),
     ]).then(([ui, uiEn, prod, prodEn]) => {
       LANG = { ...uiEn, ...ui };
       const clean = obj => { const r = { ...obj }; delete r._readme; return r; };
@@ -218,13 +218,13 @@ const Shop = (() => {
 
   /* ─── TOAST ─────────────────────────────────────────── */
   function toast(text, duration = 2800) {
-    document.querySelector(".webshop-toast")?.remove();
+    document.querySelector(".lumio-toast")?.remove();
     const el = document.createElement("div");
-    el.className = "webshop-toast";
-    el.innerHTML = `<span class="webshop-toast-icon">✓</span>${text}`;
+    el.className = "lumio-toast";
+    el.innerHTML = `<span class="lumio-toast-icon">✓</span>${text}`;
     document.body.appendChild(el);
-    requestAnimationFrame(() => el.classList.add("webshop-toast--visible"));
-    setTimeout(() => { el.classList.remove("webshop-toast--visible"); setTimeout(() => el.remove(), 400); }, duration);
+    requestAnimationFrame(() => el.classList.add("lumio-toast--visible"));
+    setTimeout(() => { el.classList.remove("lumio-toast--visible"); setTimeout(() => el.remove(), 400); }, duration);
   }
 
   /* ─── SWAP IMAGE ────────────────────────────────────── */
@@ -247,39 +247,29 @@ const Shop = (() => {
     if (CONFIG.features?.showCurrencySelector === false) return;
     const container = typeof target === "string" ? document.querySelector(target) : target;
     if (!container || typeof Currency === "undefined") return;
-
-    const inTopBar = container.id === "topbar-currency-slot";
-
+    
     async function build() {
       if (Currency.waitForReady) await Currency.waitForReady();
       const active = Currency.getActive();
-      if (inTopBar) {
-        // Render as a plain profile-select to inherit all profile CSS variables
-        container.className = "profile-selector-wrap";
-        container.innerHTML = `CURRENCY <select class="profile-select" aria-label="Currency">
+      container.className = "lumio-currency-selector";
+      container.innerHTML = `
+        <label class="lumio-currency-selector__label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14">
+            <circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 0 0 20M12 2a15 15 0 0 1 0 20M2 12h20"/>
+          </svg>
+        </label>
+        <select class="lumio-currency-selector__select" aria-label="Currency">
           ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
         </select>`;
-      } else {
-        container.className = "webshop-currency-selector";
-        container.innerHTML = `
-          <label class="webshop-currency-selector__label">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14">
-              <circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 0 0 20M12 2a15 15 0 0 1 0 20M2 12h20"/>
-            </svg>
-          </label>
-          <select class="webshop-currency-selector__select" aria-label="Currency">
-            ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
-          </select>`;
-      }
       container.querySelector("select").addEventListener("change", e => Currency.setActive(e.target.value));
     }
-
+    
     build();
     document.addEventListener("currency:changed", build);
   }
 
   /* ─── LANGUAGE SWITCHER ─────────────────────────────── */
-  function wireLanguageSwitcher(selector = ".webshop-lang-btn") {
+  function wireLanguageSwitcher(selector = ".lumio-lang-btn") {
     const show = CONFIG.features?.showLanguageSwitcher !== false;
     document.querySelectorAll(selector).forEach(btn => {
       if (!show) { btn.style.display = "none"; btn.setAttribute("aria-hidden", "true"); }
@@ -302,90 +292,36 @@ const Shop = (() => {
     const container = typeof target === "string" ? document.querySelector(target) : target;
     if (!container) return;
     const el = document.createElement(href ? "a" : "button");
-    el.className = "webshop-back-btn";
+    el.className = "lumio-back-btn";
     if (href) el.href = href;
     el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="15" height="15"><polyline points="15 18 9 12 15 6"/></svg>
-      <span class="webshop-back-btn__label">${label || t("back_to_shop")}</span>`;
+      <span class="lumio-back-btn__label">${label || t("back_to_shop")}</span>`;
     if (!href && !onClick) el.addEventListener("click", () => window.history.back());
     else if (onClick) el.addEventListener("click", onClick);
     container.prepend(el);
-    document.addEventListener("shop:langChanged", () => { el.querySelector(".webshop-back-btn__label").textContent = label || t("back_to_shop"); });
+    document.addEventListener("shop:langChanged", () => { el.querySelector(".lumio-back-btn__label").textContent = label || t("back_to_shop"); });
     return el;
   }
 
   /* ─── CART ICON ─────────────────────────────────────── */
   function renderCartIcon(options = {}) {
     const { target = "body", fixed = true, cartUrl = "cart.html" } = options;
-
-    /* Outer wrapper — positions the dropdown relative to the icon */
-    const outer = document.createElement("div");
-    outer.className = "webshop-cart-icon-wrap" + (fixed ? " webshop-cart-icon-wrap--fixed" : "");
-
     const wrapper = document.createElement("a");
     wrapper.href = cartUrl;
-    wrapper.className = "webshop-cart-icon";
+    wrapper.className = "lumio-cart-icon" + (fixed ? " lumio-cart-icon--fixed" : "");
     wrapper.setAttribute("aria-label", "Shopping cart");
     wrapper.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-      <span class="webshop-cart-icon__badge" aria-live="polite">0</span>`;
-
-    /* Hover dropdown */
-    const dropdown = document.createElement("div");
-    dropdown.className = "webshop-cart-hover-panel";
-
-    outer.appendChild(wrapper);
-    outer.appendChild(dropdown);
-
+      <span class="lumio-cart-icon__badge" aria-live="polite">0</span>`;
     const mount = target === "body" ? document.body : document.querySelector(target);
-    mount?.appendChild(outer);
-
-    function renderDropdown() {
-      loadLang().then(() => {
-        const cart = getCart();
-        const { subtotal, total, shipping, isFreeShipping } = calculateTotals(cart);
-        if (!cart.length) {
-          dropdown.innerHTML = `<p class="webshop-cart-hover-panel__empty">${t("cart_empty", "Your cart is empty")}</p>`;
-          return;
-        }
-        dropdown.innerHTML = `
-          <ul class="webshop-cart-hover-panel__list">
-            ${cart.map(item => `
-              <li class="webshop-cart-hover-panel__item">
-                <a class="webshop-cart-hover-panel__item-link" href="product.html?id=${item.id}">
-                  <img class="webshop-cart-hover-panel__img" src="${item.image}" alt="${item.name}" onerror="this.src='images/placeholder.svg'">
-                  <div class="webshop-cart-hover-panel__info">
-                    <span class="webshop-cart-hover-panel__name">${item.name}${item.selectedColor ? ` <em>${item.selectedColor}</em>` : ""}</span>
-                    <span class="webshop-cart-hover-panel__qty">${item.qty} × ${fmt(item.price)}</span>
-                  </div>
-                </a>
-                <button class="webshop-cart-hover-panel__remove" data-key="${item.cartKey}" aria-label="${t("remove","Remove")}">✕</button>
-              </li>`).join("")}
-          </ul>
-          <div class="webshop-cart-hover-panel__footer">
-            <div class="webshop-cart-hover-panel__totals">
-              <span>${t("subtotal","Subtotal")}</span><span>${fmt(subtotal)}</span>
-            </div>
-            <div class="webshop-cart-hover-panel__totals webshop-cart-hover-panel__totals--shipping">
-              <span>${t("shipping","Shipping")}</span><span>${isFreeShipping ? t("free","FREE") : fmt(shipping)}</span>
-            </div>
-            <a class="webshop-btn webshop-btn--primary" href="${cartUrl}">${t("checkout","Checkout")}</a>
-          </div>`;
-        dropdown.querySelectorAll(".webshop-cart-hover-panel__remove").forEach(btn => {
-          btn.addEventListener("click", e => { e.preventDefault(); removeFromCart(btn.dataset.key); });
-        });
-      });
-    }
-
+    mount?.appendChild(wrapper);
     function updateBadge() {
       const count = getCart().reduce((a, i) => a + i.qty, 0);
-      const badge = wrapper.querySelector(".webshop-cart-icon__badge");
-      if (badge) { badge.textContent = count; badge.classList.toggle("webshop-cart-icon__badge--hidden", count === 0); }
-      renderDropdown();
+      const badge = wrapper.querySelector(".lumio-cart-icon__badge");
+      if (badge) { badge.textContent = count; badge.classList.toggle("lumio-cart-icon__badge--hidden", count === 0); }
     }
-
     updateBadge();
     document.addEventListener("shop:cartUpdated", updateBadge);
-    document.addEventListener("shop:langChanged", updateBadge);
-    return outer;
+    return wrapper;
   }
 
   /* ═══════════════════════════════════════════════════════
@@ -407,18 +343,18 @@ const Shop = (() => {
     if (!ids?.length) return "";
     const items = ids.map(_resolveRelated).filter(Boolean);
     if (!items.length) return "";
-    return `<div class="webshop-related${context === "info" ? " webshop-related--info" : ""}">
-        <h4 class="webshop-related__title">${t("related_products", "You may also need")}</h4>
-        <div class="webshop-related__list">
+    return `<div class="lumio-related${context === "info" ? " lumio-related--info" : ""}">
+        <h4 class="lumio-related__title">${t("related_products", "You may also need")}</h4>
+        <div class="lumio-related__list">
           ${items.map(r => `
-            <div class="webshop-related__item" data-related-id="${r.id}">
-              <img class="webshop-related__img" src="${r.image || "images/placeholder.svg"}" alt="${pName(r)}" onerror="this.src='images/placeholder.svg'">
-              <div class="webshop-related__info">
-                <span class="webshop-related__name">${pName(r)}</span>
-                ${pDesc(r) ? `<span class="webshop-related__desc">${pDesc(r)}</span>` : ""}
-                <span class="webshop-related__price">${fmt(r.price)}</span>
+            <div class="lumio-related__item" data-related-id="${r.id}">
+              <img class="lumio-related__img" src="${r.image || "images/placeholder.svg"}" alt="${pName(r)}" onerror="this.src='images/placeholder.svg'">
+              <div class="lumio-related__info">
+                <span class="lumio-related__name">${pName(r)}</span>
+                ${pDesc(r) ? `<span class="lumio-related__desc">${pDesc(r)}</span>` : ""}
+                <span class="lumio-related__price">${fmt(r.price)}</span>
               </div>
-              <button class="webshop-related__add webshop-btn webshop-btn--sm webshop-btn--outline" data-related-id="${r.id}">${t("add_to_cart", "Add")}</button>
+              <button class="lumio-related__add lumio-btn lumio-btn--sm lumio-btn--outline" data-related-id="${r.id}">+ ${t("add_to_cart", "Add")}</button>
             </div>`).join("")}
         </div>
       </div>`;
@@ -427,7 +363,7 @@ const Shop = (() => {
   function wireRelatedStrip(container, product) {
     const ids = product.addons || product.related;
     if (!ids?.length) return;
-    container.querySelectorAll(".webshop-related__add").forEach(btn => {
+    container.querySelectorAll(".lumio-related__add").forEach(btn => {
       btn.addEventListener("click", e => {
         e.stopPropagation();
         const rel = _resolveRelated(btn.dataset.relatedId) || ids.map(_resolveRelated).find(r => r?.id === btn.dataset.relatedId);
@@ -449,15 +385,15 @@ const Shop = (() => {
 
     let selectorHtml = "";
     if (hasVariants) {
-      selectorHtml = `<div class="webshop-variants">${p.variants.map((v, i) => {
+      selectorHtml = `<div class="lumio-variants">${p.variants.map((v, i) => {
         const so = v.stock != null && v.stock === 0;
-        return `<button class="webshop-variant-btn${i===0?" active":""}${so?" soldout":""}" data-variant-id="${v.id}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${v.label}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
+        return `<button class="lumio-variant-btn${i===0?" active":""}${so?" soldout":""}" data-variant-id="${v.id}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${v.label}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
       }).join("")}</div>`;
     } else if (p.colors?.length) {
       const so = p.colors_soldout || [];
-      selectorHtml = `<div class="webshop-colors">${p.colors.map((c,i) => {
+      selectorHtml = `<div class="lumio-colors">${p.colors.map((c,i) => {
         const s = so.includes(c);
-        return `<button class="webshop-color${i===0?" webshop-color--active":""}${s?" webshop-color--soldout":""}" data-color="${c}" title="${c}${s?" ("+t("sold_out","Sold Out")+")" :""}" ${s?'disabled aria-disabled="true"':""}></button>`;
+        return `<button class="lumio-color${i===0?" lumio-color--active":""}${s?" lumio-color--soldout":""}" data-color="${c}" title="${c}${s?" ("+t("sold_out","Sold Out")+")" :""}" ${s?'disabled aria-disabled="true"':""}></button>`;
       }).join("")}</div>`;
     }
 
@@ -466,22 +402,22 @@ const Shop = (() => {
     const wEnd = hasUrl ? "a" : "div";
 
     return `
-      <${wTag} class="webshop-card-img-wrap${hasUrl?" webshop-card-img-link":""}"${hasUrl?` title="${pName(p)}"`:""}>
-        <img class="webshop-card-img" src="${p.image}" alt="${pName(p)}" loading="lazy" onerror="this.src='images/placeholder.svg'">
-        ${p.featured?`<span class="webshop-badge">${t("featured","Featured")}</span>`:""}
+      <${wTag} class="lumio-card-img-wrap${hasUrl?" lumio-card-img-link":""}"${hasUrl?` title="${pName(p)}"`:""}>
+        <img class="lumio-card-img" src="${p.image}" alt="${pName(p)}" loading="lazy" onerror="this.src='images/placeholder.svg'">
+        ${p.featured?`<span class="lumio-badge">${t("featured","Featured")}</span>`:""}
       </${wEnd}>
-      <div class="webshop-card-body">
-        <h3 class="webshop-card-title">${pName(p)}</h3>
+      <div class="lumio-card-body">
+        <h3 class="lumio-card-title">${pName(p)}</h3>
         ${selectorHtml}
-        <div class="webshop-card-footer">
-          <span class="webshop-card-price">${fmt(displayPrice)}</span>
-          <div class="webshop-qty-control">
-            <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease">−</button>
-            <span class="webshop-qty-val">1</span>
-            <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase">+</button>
+        <div class="lumio-card-footer">
+          <span class="lumio-card-price">${fmt(displayPrice)}</span>
+          <div class="lumio-qty-control">
+            <button class="lumio-qty-btn lumio-qty-btn--minus" aria-label="Decrease">−</button>
+            <span class="lumio-qty-val">1</span>
+            <button class="lumio-qty-btn lumio-qty-btn--plus" aria-label="Increase">+</button>
           </div>
         </div>
-        <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
+        <button class="lumio-card-atc lumio-btn lumio-btn--primary lumio-btn--full" ${inStock?"":"disabled"}>
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>
         ${buildRelatedStrip(p, "card")}
@@ -493,9 +429,9 @@ const Shop = (() => {
     const hasVariants     = p.variants?.length > 0;
     let selectedVariantId = hasVariants ? p.variants[0]?.id : null;
     let selectedColor     = !hasVariants && p.colors ? p.colors[0] : null;
-    const img    = card.querySelector(".webshop-card-img");
-    const priceEl = card.querySelector(".webshop-card-price");
-    const addBtn  = card.querySelector(".webshop-card-atc");
+    const img    = card.querySelector(".lumio-card-img");
+    const priceEl = card.querySelector(".lumio-card-price");
+    const addBtn  = card.querySelector(".lumio-card-atc");
 
     function refresh() {
       if (!hasVariants) return;
@@ -505,22 +441,22 @@ const Shop = (() => {
       if (img) swapMainImg(img, variantImage(p, selectedVariantId), p.image);
     }
 
-    card.querySelectorAll(".webshop-variant-btn:not([disabled])").forEach(btn => {
+    card.querySelectorAll(".lumio-variant-btn:not([disabled])").forEach(btn => {
       btn.addEventListener("click", () => {
-        card.querySelectorAll(".webshop-variant-btn").forEach(b => b.classList.remove("active"));
+        card.querySelectorAll(".lumio-variant-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active"); selectedVariantId = btn.dataset.variantId; refresh();
       });
     });
-    card.querySelectorAll(".webshop-color:not([disabled])").forEach(btn => {
+    card.querySelectorAll(".lumio-color:not([disabled])").forEach(btn => {
       btn.addEventListener("click", () => {
-        card.querySelectorAll(".webshop-color").forEach(b => b.classList.remove("webshop-color--active"));
-        btn.classList.add("webshop-color--active"); selectedColor = btn.dataset.color;
+        card.querySelectorAll(".lumio-color").forEach(b => b.classList.remove("lumio-color--active"));
+        btn.classList.add("lumio-color--active"); selectedColor = btn.dataset.color;
         if (img) swapMainImg(img, colorImageSrc(p, selectedColor), p.image);
       });
     });
-    const qv = card.querySelector(".webshop-qty-val");
-    card.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const max = hasVariants ? variantStock(p, selectedVariantId) : (p.stock||99); qty = Math.min(qty+1, max||99); qv.textContent = qty; });
-    card.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty = Math.max(1, qty-1); qv.textContent = qty; });
+    const qv = card.querySelector(".lumio-qty-val");
+    card.querySelector(".lumio-qty-btn--plus")?.addEventListener("click", () => { const max = hasVariants ? variantStock(p, selectedVariantId) : (p.stock||99); qty = Math.min(qty+1, max||99); qv.textContent = qty; });
+    card.querySelector(".lumio-qty-btn--minus")?.addEventListener("click", () => { qty = Math.max(1, qty-1); qv.textContent = qty; });
     addBtn?.addEventListener("click", () => { addToCart(p, qty, selectedVariantId, selectedColor, null); toast(`${pName(p)} ${t("added","added to cart")}`); });
     wireRelatedStrip(card, p);
   }
@@ -536,35 +472,35 @@ const Shop = (() => {
     const { columns = "auto", showFilter = true } = options;
 
     function buildGrid() {
-      container.innerHTML = ""; container.classList.add("webshop-shop");
+      container.innerHTML = ""; container.classList.add("lumio-shop");
       if (showFilter) {
         const cats = [...new Set(products.map(p => p.category).filter(Boolean))];
         if (cats.length > 1) {
           const filterEl = document.createElement("div");
-          filterEl.className = "webshop-filter";
-          filterEl.innerHTML = `<button class="webshop-filter__btn webshop-filter__btn--active" data-cat="all">${t("category_all","All")}</button>
-            ${cats.map(c => `<button class="webshop-filter__btn" data-cat="${c}">${t("category_"+c)||(c.charAt(0).toUpperCase()+c.slice(1))}</button>`).join("")}`;
+          filterEl.className = "lumio-filter";
+          filterEl.innerHTML = `<button class="lumio-filter__btn lumio-filter__btn--active" data-cat="all">${t("category_all","All")}</button>
+            ${cats.map(c => `<button class="lumio-filter__btn" data-cat="${c}">${t("category_"+c)||(c.charAt(0).toUpperCase()+c.slice(1))}</button>`).join("")}`;
           filterEl.addEventListener("click", e => {
-            const btn = e.target.closest(".webshop-filter__btn"); if (!btn) return;
-            filterEl.querySelectorAll(".webshop-filter__btn").forEach(b => b.classList.remove("webshop-filter__btn--active")); btn.classList.add("webshop-filter__btn--active");
+            const btn = e.target.closest(".lumio-filter__btn"); if (!btn) return;
+            filterEl.querySelectorAll(".lumio-filter__btn").forEach(b => b.classList.remove("lumio-filter__btn--active")); btn.classList.add("lumio-filter__btn--active");
             const cat = btn.dataset.cat;
-            container.querySelectorAll(".webshop-product-card").forEach(card => { card.style.display = (cat==="all"||card.dataset.cat===cat)?"":"none"; });
+            container.querySelectorAll(".lumio-product-card").forEach(card => { card.style.display = (cat==="all"||card.dataset.cat===cat)?"":"none"; });
           });
           container.appendChild(filterEl);
         }
       }
-      const grid = document.createElement("div"); grid.className = "webshop-grid";
+      const grid = document.createElement("div"); grid.className = "lumio-grid";
       if (columns !== "auto") grid.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
       container.appendChild(grid);
       products.forEach(p => {
-        const card = document.createElement("div"); card.className = "webshop-product-card"; card.dataset.cat = p.category || "";
+        const card = document.createElement("div"); card.className = "lumio-product-card"; card.dataset.cat = p.category || "";
         card.innerHTML = buildProductCard(p); grid.appendChild(card); wireProductCard(card, p);
       });
     }
     buildGrid();
     document.addEventListener("shop:langChanged", buildGrid);
     document.addEventListener("currency:changed", () => {
-      container.querySelectorAll(".webshop-card-price").forEach((el, i) => { if (products[i]) el.textContent = fmt(products[i].price); });
+      container.querySelectorAll(".lumio-card-price").forEach((el, i) => { if (products[i]) el.textContent = fmt(products[i].price); });
     });
   }
 
@@ -576,7 +512,7 @@ const Shop = (() => {
     const p = await getProduct(productId);
     const container = document.getElementById(divId);
     if (!container) return;
-    container.classList.add("webshop-product-info");
+    container.classList.add("lumio-product-info");
     const hasVariants = p.variants?.length > 0;
     let selectedVariantId = hasVariants ? p.variants[0]?.id : null;
     let selectedColor = !hasVariants && p.colors ? p.colors[0] : null;
@@ -590,61 +526,52 @@ const Shop = (() => {
 
       let variantHtml = "";
       if (hasVariants) {
-        variantHtml = `<div class="webshop-product-option-group">
-          <label class="webshop-product-option-label">${t("variant","Option")}</label>
-          <div class="webshop-product-variants">
+        variantHtml = `<div class="lumio-product-option-group">
+          <label class="lumio-product-option-label">${t("variant","Option")}</label>
+          <div class="lumio-product-variants">
             ${p.variants.map((v,i) => { const so=v.stock!=null&&v.stock===0, active=(v.id===selectedVariantId)||(i===0&&!selectedVariantId);
-              return `<button class="webshop-product-variant-btn${active?" active":""}${so?" soldout":""}" data-variant-id="${v.id}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${v.label}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
+              return `<button class="lumio-product-variant-btn${active?" active":""}${so?" soldout":""}" data-variant-id="${v.id}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${v.label}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
             }).join("")}
           </div></div>`;
       } else if (p.colors?.length) {
-        variantHtml = `<div class="webshop-product-option-group">
-          <label class="webshop-product-option-label">${t("color","Color")}</label>
-          <div class="webshop-product-colors">
+        variantHtml = `<div class="lumio-product-option-group">
+          <label class="lumio-product-option-label">${t("color","Color")}</label>
+          <div class="lumio-product-colors">
             ${p.colors.map((c,i) => { const so=soldOut.includes(c);
-              return `<button class="webshop-product-color${i===0?" active":""}${so?" soldout":""}" data-color="${c}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${c}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
+              return `<button class="lumio-product-color${i===0?" active":""}${so?" soldout":""}" data-color="${c}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${c}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
             }).join("")}
           </div></div>`;
       }
 
       container.innerHTML = `
-        <div class="webshop-product-gallery">
-          <div class="webshop-product-main-img-wrap" style="position:relative;">
-            ${p.url?`<a href="${p.url}">`:""}<img id="pinfo-main-${productId}" class="webshop-product-main-img"
+        <div class="lumio-product-gallery">
+          <div class="lumio-product-main-img-wrap">
+            ${p.url?`<a href="${p.url}">`:""}<img id="pinfo-main-${productId}" class="lumio-product-main-img"
               src="${hasVariants?variantImage(p,selectedVariantId):images[0]}" alt="${pName(p)}" onerror="this.src='images/placeholder.svg'">${p.url?"</a>":""}
-            <div id="pinfo-video-${productId}" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
-              <video id="pinfo-vplayer-${productId}" style="width:100%;height:100%;object-fit:contain;" controls></video>
-              <div id="pinfo-ytframe-${productId}" style="display:none;position:absolute;inset:0;">
-                <iframe id="pinfo-ytiframe-${productId}" style="width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture"></iframe>
-              </div>
-            </div>
           </div>
-          <div class="webshop-product-thumbs">
-            ${images.map((src,i)=>`<img class="webshop-product-thumb${i===0?" active":""}" src="${src}" data-idx="${i}" data-type="image" alt="${t("image_of","Image of")} ${pName(p)} ${i+1}" onerror="this.src='images/placeholder.svg'">`).join("")}
-            ${(p.videos||[]).map((vsrc)=>{const isYT=/youtube\.com|youtu\.be/.test(vsrc);const ytId=isYT?((vsrc.match(/embed\/([^?]+)/)||vsrc.match(/youtu\.be\/([^?]+)/)||["",""])[1]):"";const tbStyle=isYT?`background-image:url('https://img.youtube.com/vi/${ytId}/mqdefault.jpg');background-size:cover;background-position:center;`:`background:#222;`;return `<div class="webshop-product-thumb webshop-product-thumb--video" data-vsrc="${vsrc}" data-isyt="${isYT}" data-type="video" style="position:relative;${tbStyle}" title="Play video"><span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:1.3rem;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7);pointer-events:none;">▶</span></div>`;}).join("")}
-          </div>
+          ${images.length>1?`<div class="lumio-product-thumbs">${images.map((src,i)=>`<img class="lumio-product-thumb${i===0?" active":""}" src="${src}" data-idx="${i}" alt="${t("image_of","Image of")} ${pName(p)} ${i+1}" onerror="this.src='images/placeholder.svg'">`).join("")}</div>`:""}
         </div>
-        <div class="webshop-product-details">
-          <p class="webshop-product-category">${pCategory(p)}</p>
-          <h1 class="webshop-product-name">${pName(p)}</h1>
-          <p class="webshop-product-price" id="pinfo-price-${productId}">${fmt(displayPrice)}</p>
-          <p class="webshop-product-desc">${pDesc(p)}</p>
+        <div class="lumio-product-details">
+          <p class="lumio-product-category">${pCategory(p)}</p>
+          <h1 class="lumio-product-name">${pName(p)}</h1>
+          <p class="lumio-product-price" id="pinfo-price-${productId}">${fmt(displayPrice)}</p>
+          <p class="lumio-product-desc">${pDesc(p)}</p>
           ${variantHtml}
-          <div class="webshop-product-option-group">
-            <label class="webshop-product-option-label">${t("quantity","Qty")}</label>
-            <div class="webshop-qty-control webshop-qty-control--lg">
-              <button class="webshop-qty-btn webshop-qty-btn--minus">−</button>
-              <span class="webshop-qty-val">1</span>
-              <button class="webshop-qty-btn webshop-qty-btn--plus">+</button>
+          <div class="lumio-product-option-group">
+            <label class="lumio-product-option-label">${t("quantity","Qty")}</label>
+            <div class="lumio-qty-control lumio-qty-control--lg">
+              <button class="lumio-qty-btn lumio-qty-btn--minus">−</button>
+              <span class="lumio-qty-val">1</span>
+              <button class="lumio-qty-btn lumio-qty-btn--plus">+</button>
             </div>
           </div>
-          <div class="webshop-product-meta">
-            <span id="pinfo-stock-${productId}" class="${inStock?"webshop-in-stock":"webshop-out-of-stock"}">${inStock?t("in_stock","In Stock"):t("out_of_stock","Out of Stock")}</span>
-            <span class="webshop-weight-info">${t("weight","Weight")}: ${fmtWeight(hasVariants?variantWeight(p,selectedVariantId):(p.weight||0))}</span>
-            ${p.dimensions?`<span class="webshop-dim-info">${p.dimensions.l}×${p.dimensions.w}×${p.dimensions.h} cm</span>`:""}
+          <div class="lumio-product-meta">
+            <span id="pinfo-stock-${productId}" class="${inStock?"lumio-in-stock":"lumio-out-of-stock"}">${inStock?t("in_stock","In Stock"):t("out_of_stock","Out of Stock")}</span>
+            <span class="lumio-weight-info">${t("weight","Weight")}: ${fmtWeight(hasVariants?variantWeight(p,selectedVariantId):(p.weight||0))}</span>
+            ${p.dimensions?`<span class="lumio-dim-info">${p.dimensions.l}×${p.dimensions.w}×${p.dimensions.h} cm</span>`:""}
           </div>
-          <button id="pinfo-atc-${productId}" class="webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>${t("add_to_cart","Add to Cart")}</button>
-          <a class="webshop-btn webshop-btn--outline webshop-btn--full" href="cart.html" style="margin-top:10px;display:flex;align-items:center;justify-content:center;">${t("view_cart","View Cart")}</a>
+          <button id="pinfo-atc-${productId}" class="lumio-btn lumio-btn--primary lumio-btn--full" ${inStock?"":"disabled"}>${t("add_to_cart","Add to Cart")}</button>
+          <a class="lumio-btn lumio-btn--outline lumio-btn--full" href="cart.html" style="margin-top:10px;display:flex;align-items:center;justify-content:center;">${t("view_cart","View Cart")}</a>
           ${buildRelatedStrip(p,"info")}
         </div>`;
 
@@ -652,56 +579,30 @@ const Shop = (() => {
       const priceEl = container.querySelector("#pinfo-price-"+productId);
       const stockEl = container.querySelector("#pinfo-stock-"+productId);
       const atcBtn  = container.querySelector("#pinfo-atc-"+productId);
-      const wtEl    = container.querySelector(".webshop-weight-info");
+      const wtEl    = container.querySelector(".lumio-weight-info");
 
       function refreshInfo() {
         if (!hasVariants) return;
         const price=variantPrice(p,selectedVariantId), inStk=variantInStock(p,selectedVariantId), wt=variantWeight(p,selectedVariantId);
         if (priceEl) priceEl.textContent = fmt(price);
-        if (stockEl) { stockEl.textContent=inStk?t("in_stock","In Stock"):t("out_of_stock","Out of Stock"); stockEl.className=inStk?"webshop-in-stock":"webshop-out-of-stock"; }
+        if (stockEl) { stockEl.textContent=inStk?t("in_stock","In Stock"):t("out_of_stock","Out of Stock"); stockEl.className=inStk?"lumio-in-stock":"lumio-out-of-stock"; }
         if (atcBtn)  { atcBtn.disabled=!inStk; atcBtn.textContent=inStk?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock"); }
         if (mainImg) swapMainImg(mainImg, variantImage(p,selectedVariantId), p.image);
         if (wtEl)    wtEl.textContent = `${t("weight","Weight")}: ${fmtWeight(wt)}`;
       }
 
-      container.querySelectorAll(".webshop-product-thumb").forEach(thumb => {
-        thumb.addEventListener("click", () => {
-          container.querySelectorAll(".webshop-product-thumb").forEach(t=>t.classList.remove("active"));
-          thumb.classList.add("active");
-          const videoWrap  = container.querySelector("#pinfo-video-"+productId);
-          const vplayer    = container.querySelector("#pinfo-vplayer-"+productId);
-          const ytFrameDiv = container.querySelector("#pinfo-ytframe-"+productId);
-          const ytIframe   = container.querySelector("#pinfo-ytiframe-"+productId);
-          if (thumb.dataset.type === "video") {
-            const vsrc = thumb.dataset.vsrc, isYT = thumb.dataset.isyt === "true";
-            if (mainImg) mainImg.style.opacity = "0";
-            if (videoWrap) videoWrap.style.display = "block";
-            if (isYT) {
-              if (vplayer) { vplayer.pause(); vplayer.style.display="none"; }
-              if (ytFrameDiv) ytFrameDiv.style.display = "block";
-              if (ytIframe)   ytIframe.src = vsrc + "?autoplay=1";
-            } else {
-              if (ytFrameDiv) { ytFrameDiv.style.display="none"; if (ytIframe) ytIframe.src=""; }
-              if (vplayer) { vplayer.style.display="block"; vplayer.src=vsrc; vplayer.play().catch(()=>{}); }
-            }
-          } else {
-            // Image thumb — hide video, show image
-            if (vplayer) { vplayer.pause(); vplayer.src=""; }
-            if (ytIframe) ytIframe.src = "";
-            if (videoWrap) videoWrap.style.display = "none";
-            if (mainImg) { mainImg.style.opacity="1"; swapMainImg(mainImg, images[+thumb.dataset.idx]); }
-          }
-        });
+      container.querySelectorAll(".lumio-product-thumb").forEach(thumb => {
+        thumb.addEventListener("click", () => { container.querySelectorAll(".lumio-product-thumb").forEach(t=>t.classList.remove("active")); thumb.classList.add("active"); swapMainImg(mainImg, images[+thumb.dataset.idx]); });
       });
-      container.querySelectorAll(".webshop-product-variant-btn:not([disabled])").forEach(btn => {
-        btn.addEventListener("click", () => { container.querySelectorAll(".webshop-product-variant-btn").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); selectedVariantId=btn.dataset.variantId; refreshInfo(); });
+      container.querySelectorAll(".lumio-product-variant-btn:not([disabled])").forEach(btn => {
+        btn.addEventListener("click", () => { container.querySelectorAll(".lumio-product-variant-btn").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); selectedVariantId=btn.dataset.variantId; refreshInfo(); });
       });
-      container.querySelectorAll(".webshop-product-color:not([disabled])").forEach(btn => {
-        btn.addEventListener("click", () => { container.querySelectorAll(".webshop-product-color").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); selectedColor=btn.dataset.color; if (mainImg) swapMainImg(mainImg, colorImageSrc(p,selectedColor), p.image); });
+      container.querySelectorAll(".lumio-product-color:not([disabled])").forEach(btn => {
+        btn.addEventListener("click", () => { container.querySelectorAll(".lumio-product-color").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); selectedColor=btn.dataset.color; if (mainImg) swapMainImg(mainImg, colorImageSrc(p,selectedColor), p.image); });
       });
-      const qv = container.querySelector(".webshop-qty-val");
-      container.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const max=hasVariants?variantStock(p,selectedVariantId):(p.stock||99); qty=Math.min(qty+1,max||99); qv.textContent=qty; });
-      container.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty=Math.max(1,qty-1); qv.textContent=qty; });
+      const qv = container.querySelector(".lumio-qty-val");
+      container.querySelector(".lumio-qty-btn--plus")?.addEventListener("click", () => { const max=hasVariants?variantStock(p,selectedVariantId):(p.stock||99); qty=Math.min(qty+1,max||99); qv.textContent=qty; });
+      container.querySelector(".lumio-qty-btn--minus")?.addEventListener("click", () => { qty=Math.max(1,qty-1); qv.textContent=qty; });
       atcBtn?.addEventListener("click", () => { addToCart(p,qty,selectedVariantId,selectedColor,mainImg?.src||null); toast(`${pName(p)} ${t("added","added to cart")}`); });
       wireRelatedStrip(container, p);
     }
@@ -715,33 +616,33 @@ const Shop = (() => {
     const { cartUrl = "cart.html" } = options;
     const container = document.getElementById(divId);
     if (!container) return;
-    container.classList.add("webshop-mini-cart");
+    container.classList.add("lumio-mini-cart");
     function render() {
       loadLang().then(() => {
         const cart = getCart();
         const { subtotal, shipping, total, totalWeight, isFreeShipping } = calculateTotals(cart);
         const count = cart.reduce((a, i) => a + i.qty, 0);
-        if (!cart.length) { container.innerHTML = `<p class="webshop-mini-cart__empty">${t("cart_empty","Your cart is empty")}</p>`; return; }
+        if (!cart.length) { container.innerHTML = `<p class="lumio-mini-cart__empty">${t("cart_empty","Your cart is empty")}</p>`; return; }
         container.innerHTML = `
-          <h3 class="webshop-mini-cart__title">${t("cart","Cart")} <span>(${count})</span></h3>
-          <ul class="webshop-mini-cart__list">${cart.map(item=>`<li class="webshop-mini-cart__item">
+          <h3 class="lumio-mini-cart__title">${t("cart","Cart")} <span>(${count})</span></h3>
+          <ul class="lumio-mini-cart__list">${cart.map(item=>`<li class="lumio-mini-cart__item">
             <img src="${item.image}" alt="${item.name}" onerror="this.src='images/placeholder.svg'">
-            <div class="webshop-mini-cart__item-info">
-              <span class="webshop-mini-cart__item-name">${item.name}</span>
-              ${item.selectedColor?`<span class="webshop-mini-cart__item-color">${item.selectedColor}</span>`:""}
-              <span class="webshop-mini-cart__item-price">${item.qty} × ${fmt(item.price)}</span>
-              <span class="webshop-mini-cart__item-weight">${fmtWeight((item.weight||0)*item.qty)}</span>
+            <div class="lumio-mini-cart__item-info">
+              <span class="lumio-mini-cart__item-name">${item.name}</span>
+              ${item.selectedColor?`<span class="lumio-mini-cart__item-color">${item.selectedColor}</span>`:""}
+              <span class="lumio-mini-cart__item-price">${item.qty} × ${fmt(item.price)}</span>
+              <span class="lumio-mini-cart__item-weight">${fmtWeight((item.weight||0)*item.qty)}</span>
             </div>
-            <button class="webshop-mini-cart__remove" data-key="${item.cartKey}" aria-label="${t("remove","Remove")}">✕</button>
+            <button class="lumio-mini-cart__remove" data-key="${item.cartKey}" aria-label="${t("remove","Remove")}">✕</button>
           </li>`).join("")}</ul>
-          <div class="webshop-mini-cart__totals">
-            <div class="webshop-mini-cart__row"><span>${t("subtotal","Subtotal")}</span><span>${fmt(subtotal)}</span></div>
-            <div class="webshop-mini-cart__row"><span>${t("shipping","Shipping")}</span><span>${isFreeShipping?t("free","FREE"):fmt(shipping)}</span></div>
-            <div class="webshop-mini-cart__row"><span>${t("weight","Weight")}</span><span>${fmtWeight(totalWeight)}</span></div>
-            <div class="webshop-mini-cart__row webshop-mini-cart__row--total"><span>${t("total","Total")}</span><span>${fmt(total)}</span></div>
+          <div class="lumio-mini-cart__totals">
+            <div class="lumio-mini-cart__row"><span>${t("subtotal","Subtotal")}</span><span>${fmt(subtotal)}</span></div>
+            <div class="lumio-mini-cart__row"><span>${t("shipping","Shipping")}</span><span>${isFreeShipping?t("free","FREE"):fmt(shipping)}</span></div>
+            <div class="lumio-mini-cart__row"><span>${t("weight","Weight")}</span><span>${fmtWeight(totalWeight)}</span></div>
+            <div class="lumio-mini-cart__row lumio-mini-cart__row--total"><span>${t("total","Total")}</span><span>${fmt(total)}</span></div>
           </div>
-          <a class="webshop-btn webshop-btn--primary" href="${cartUrl}">${t("checkout","Proceed to Checkout")}</a>`;
-        container.querySelectorAll(".webshop-mini-cart__remove").forEach(btn => { btn.addEventListener("click", () => removeFromCart(btn.dataset.key)); });
+          <a class="lumio-btn lumio-btn--primary" href="${cartUrl}">${t("checkout","Proceed to Checkout")}</a>`;
+        container.querySelectorAll(".lumio-mini-cart__remove").forEach(btn => { btn.addEventListener("click", () => removeFromCart(btn.dataset.key)); });
       });
     }
     render();
