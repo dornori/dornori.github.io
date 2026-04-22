@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dornori — Shop Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/views.css">
+</head>
+<body>
+<div id="app">
+
+  <header id="topbar">
+    <div class="tb-logo">Dornori <span>Manager</span></div>
+    <span id="tb-status" class="tb-status">All saved</span>
+    <button class="tb-btn" onclick="App.save()" title="Ctrl+S">💾 Save</button>
+    <button class="tb-btn" onclick="App.toggleTheme()">◐ Theme</button>
+    <button class="tb-btn" onclick="window.open('../index.html','_blank')">↗ Shop</button>
+  </header>
+
+  <nav id="sidebar">
+    <div class="nav-group">
+      <div class="nav-label">Overview</div>
+      <div class="nav-item active" data-view="dashboard" onclick="App.nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">Content</div>
+      <div class="nav-item" data-view="products" onclick="App.nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Products
+      </div>
+      <div class="nav-item" data-view="translations" onclick="App.nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>Translations
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">Settings</div>
+      <div class="nav-item" data-view="currencies" onclick="App.nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M8 9h8M8 15h8"/></svg>Currencies
+      </div>
+      <div class="nav-item" data-view="shipping" onclick="App.nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3"/><rect x="9" y="11" width="14" height="10" rx="1"/><circle cx="12" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg>Shipping
+      </div>
+      <div class="nav-item" data-view="config" onclick="App.nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>Configuration
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">Tools</div>
+      <div class="nav-item" data-view="files" onclick="App.nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>File Manager
+      </div>
+      <div class="nav-item" data-view="wysiwyg" onclick="App.nav(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>HTML Editor
+      </div>
+    </div>
+  </nav>
+
+  <main id="main">
+
+    <!-- FS SETUP -->
+    <div id="fs-setup">
+      <div class="fs-card">
+        <div style="font-size:2.5rem;margin-bottom:16px">📂</div>
+        <h2>Connect Shop Folder</h2>
+        <p>Grant one-time access to your shop root directory. Files are read and written directly — nothing leaves your machine.</p>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px 0;font-size:.95rem" onclick="FS.pick()">Select Shop Folder</button>
+        <p class="hint" id="fs-hint">Requires Chrome, Edge, or Brave (Chromium 86+).</p>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="view active" id="view-dashboard">
+      <div class="page-header">
+        <div class="page-eyebrow">Overview</div>
+        <div class="page-title">Dashboard</div>
+      </div>
+      <div class="card-grid" id="dash-stats"></div>
+      <div class="card">
+        <div class="card-section-label">Quick Actions</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary" onclick="Products.openNew()">+ New Product</button>
+          <button class="btn btn-secondary" onclick="App.nav(document.querySelector('[data-view=translations]'))">🌐 Translations</button>
+          <button class="btn btn-secondary" onclick="App.nav(document.querySelector('[data-view=config]'))">⚙ Config</button>
+          <button class="btn btn-secondary" onclick="window.open('../index.html','_blank')">↗ View Shop</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRODUCTS -->
+    <div class="view" id="view-products">
+      <div class="page-header">
+        <div class="page-eyebrow">Content</div>
+        <div class="page-title">Products</div>
+        <div class="page-actions"><button class="btn btn-primary" onclick="Products.openNew()">+ New Product</button></div>
+      </div>
+      <div class="toolbar">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" placeholder="Search…" id="product-search" oninput="Products.filter()">
+        </div>
+        <select class="filter-select" id="product-cat" onchange="Products.filter()"><option value="">All Categories</option></select>
+        <select class="filter-select" id="product-stock" onchange="Products.filter()">
+          <option value="">All Stock</option><option value="low">Low (≤5)</option><option value="out">Out of Stock</option><option value="ok">In Stock</option>
+        </select>
+      </div>
+      <div class="card tbl-wrap">
+        <table>
+          <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+          <tbody id="products-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TRANSLATIONS -->
+    <div class="view" id="view-translations">
+      <div class="page-header">
+        <div class="page-eyebrow">Content</div>
+        <div class="page-title">Translations</div>
+        <div class="page-actions">
+          <button class="btn btn-primary" onclick="Translations.translateAll()">✨ Translate All Missing</button>
+        </div>
+      </div>
+      <div class="toolbar">
+        <select class="filter-select" id="trans-type" onchange="Translations.render()"><option value="ui">UI Strings</option><option value="products">Product Content</option></select>
+        <select class="filter-select" id="trans-lang" onchange="Translations.render()">
+          <option value="de">German (de)</option><option value="nl">Dutch (nl)</option><option value="no">Norwegian (no)</option>
+        </select>
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" placeholder="Filter keys…" id="trans-search" oninput="Translations.render()">
+        </div>
+        <label class="form-check" style="margin-left:auto;white-space:nowrap"><input type="checkbox" id="trans-missing-only" onchange="Translations.render()"> Missing only</label>
+        <span id="trans-progress" style="display:none;font-size:.75rem;color:var(--gold);white-space:nowrap"></span>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="trans-header"><span>Key</span><span>English</span><span id="trans-lang-label">Target</span></div>
+        <div id="trans-body" style="padding:8px 12px"></div>
+      </div>
+    </div>
+
+    <!-- CURRENCIES -->
+    <div class="view" id="view-currencies">
+      <div class="page-header">
+        <div class="page-eyebrow">Settings</div>
+        <div class="page-title">Currencies</div>
+        <div class="page-actions"><button class="btn btn-primary" onclick="Currencies.addRow()">+ Add Currency</button></div>
+      </div>
+      <div class="card tbl-wrap">
+        <table>
+          <thead><tr><th>Code</th><th>Symbol</th><th>Name</th><th>Rate to EUR</th><th>Buffer</th><th>Decimals</th><th>Locale</th><th>Preview (€100)</th><th></th></tr></thead>
+          <tbody id="currencies-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SHIPPING -->
+    <div class="view" id="view-shipping">
+      <div class="page-header"><div class="page-eyebrow">Settings</div><div class="page-title">Shipping</div></div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="config-section-title">Global Settings</div>
+        <div class="csv-settings-grid" id="shipping-settings"></div>
+      </div>
+      <div class="card tbl-wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="config-section-title" style="margin:0">Country Rates</div>
+          <button class="btn btn-primary btn-sm" onclick="Shipping.addCountry()">+ Add Country</button>
+        </div>
+        <table>
+          <thead><tr><th>Code</th><th>Country</th><th>Zone</th><th>Base €</th><th>/kg €</th><th>Free Threshold</th><th>Est. Days</th><th>Notes</th><th></th></tr></thead>
+          <tbody id="shipping-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CONFIG -->
+    <div class="view" id="view-config">
+      <div class="page-header"><div class="page-eyebrow">Settings</div><div class="page-title">Configuration</div></div>
+      <div id="config-body"></div>
+    </div>
+
+    <!-- FILES -->
+    <div class="view" id="view-files">
+      <div class="page-header">
+        <div class="page-eyebrow">Tools</div>
+        <div class="page-title">File Manager</div>
+        <div class="page-actions">
+          <button class="btn btn-secondary btn-sm" onclick="FileManager.promptCreate()">+ New File</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('fm-upload-input').click()">↑ Upload</button>
+          <input type="file" id="fm-upload-input" style="display:none" multiple onchange="FileManager.handleUpload(this)">
+        </div>
+      </div>
+      <div class="files-layout">
+        <div class="card files-tree-panel"><div id="file-tree"></div></div>
+        <div class="card files-editor-panel">
+          <div id="file-editor-header">
+            <span id="file-editor-path" style="color:var(--text-3);font-size:.78rem">Select a file…</span>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-sm btn-secondary" id="fm-rename-btn" style="display:none" onclick="FileManager.promptRename()">Rename</button>
+              <button class="btn btn-sm btn-danger" id="fm-delete-btn" style="display:none" onclick="FileManager.deleteFile()">Delete</button>
+              <button class="btn btn-sm btn-primary" id="file-save-btn" style="display:none" onclick="FileManager.saveFile()">Save</button>
+            </div>
+          </div>
+          <textarea id="file-editor" placeholder="Select a text file to edit…"></textarea>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- WYSIWYG HTML EDITOR -->
+    <div class="view" id="view-wysiwyg">
+      <div class="page-header">
+        <div class="page-eyebrow">Tools</div>
+        <div class="page-title">HTML Editor</div>
+      </div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:16px;height:calc(100vh - 180px)">
+        <!-- File list -->
+        <div class="card" style="overflow-y:auto;padding:12px">
+          <div class="card-section-label">HTML Files</div>
+          <div id="wysiwyg-file-list" style="font-size:.82rem;display:flex;flex-direction:column;gap:2px"></div>
+        </div>
+        <!-- Editor panel -->
+        <div class="card" style="display:flex;flex-direction:column;padding:0;overflow:hidden">
+          <!-- Toolbar -->
+          <div id="wysiwyg-toolbar" style="display:flex;flex-wrap:wrap;gap:4px;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--ink-3);flex-shrink:0">
+            <span style="font-size:.7rem;color:var(--text-3);align-self:center;margin-right:4px" id="wysiwyg-filename">No file open</span>
+            <div style="flex:1"></div>
+            <button class="wy-btn" onclick="WY.exec('bold')" title="Bold"><b>B</b></button>
+            <button class="wy-btn" onclick="WY.exec('italic')" title="Italic"><i>I</i></button>
+            <button class="wy-btn" onclick="WY.exec('underline')" title="Underline"><u>U</u></button>
+            <button class="wy-btn" onclick="WY.exec('strikeThrough')" title="Strikethrough"><s>S</s></button>
+            <div class="wy-sep"></div>
+            <select class="wy-select" onchange="WY.exec('formatBlock',this.value);this.selectedIndex=0">
+              <option value="">Heading</option>
+              <option value="h1">H1</option>
+              <option value="h2">H2</option>
+              <option value="h3">H3</option>
+              <option value="h4">H4</option>
+              <option value="p">Paragraph</option>
+              <option value="pre">Preformat</option>
+            </select>
+            <div class="wy-sep"></div>
+            <button class="wy-btn" onclick="WY.exec('insertUnorderedList')" title="Bullet list">≡</button>
+            <button class="wy-btn" onclick="WY.exec('insertOrderedList')" title="Numbered list">1.</button>
+            <button class="wy-btn" onclick="WY.exec('outdent')" title="Outdent">←</button>
+            <button class="wy-btn" onclick="WY.exec('indent')" title="Indent">→</button>
+            <div class="wy-sep"></div>
+            <button class="wy-btn" onclick="WY.insertLink()" title="Insert link">🔗</button>
+            <button class="wy-btn" onclick="WY.insertImage()" title="Insert image">🖼</button>
+            <button class="wy-btn" onclick="WY.exec('removeFormat')" title="Clear formatting">✕f</button>
+            <div class="wy-sep"></div>
+            <button class="wy-btn" onclick="WY.exec('justifyLeft')" title="Align left">⬛▭▭</button>
+            <button class="wy-btn" onclick="WY.exec('justifyCenter')" title="Center">▭⬛▭</button>
+            <button class="wy-btn" onclick="WY.exec('justifyRight')" title="Align right">▭▭⬛</button>
+            <div class="wy-sep"></div>
+            <button class="wy-btn" onclick="WY.undo()" title="Undo">↩</button>
+            <button class="wy-btn" onclick="WY.redo()" title="Redo">↪</button>
+            <div class="wy-sep"></div>
+            <button class="wy-btn active" id="wy-mode-visual" onclick="WY.setMode('visual')" title="Visual">Visual</button>
+            <button class="wy-btn" id="wy-mode-source" onclick="WY.setMode('source')" title="Source HTML">Source</button>
+            <div class="wy-sep"></div>
+            <button class="wy-btn" style="background:var(--gold);color:var(--ink);font-weight:600" onclick="WY.save()">Save</button>
+          </div>
+          <!-- Visual canvas -->
+          <div id="wysiwyg-canvas" contenteditable="true" spellcheck="true"
+               style="flex:1;padding:24px 32px;overflow-y:auto;outline:none;font-family:var(--sans);font-size:15px;line-height:1.7;color:var(--text);background:var(--ink-2)"
+               oninput="WY.onEdit()">
+            <p style="color:var(--text-3)">Open an HTML file from the list to start editing.</p>
+          </div>
+          <!-- Source textarea (hidden by default) -->
+          <textarea id="wysiwyg-source" style="display:none;flex:1;background:var(--ink-3);border:none;color:var(--text);font-family:var(--mono);font-size:.78rem;padding:16px;resize:none;outline:none;line-height:1.7" oninput="WY.onSourceEdit()"></textarea>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- PRODUCT MODAL — full-screen, all params, expandable sections -->
+<div id="product-modal" class="modal-overlay" onclick="if(event.target===this)Products.closeModal()">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <div class="modal-title" id="product-modal-title">Product</div>
+      <button class="modal-close" onclick="Products.closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tabs" id="product-tabs">
+        <div class="tab active" onclick="Products.tab(this,'general')">General</div>
+        <div class="tab" onclick="Products.tab(this,'media')">Media</div>
+        <div class="tab" onclick="Products.tab(this,'variants')">Variants</div>
+        <div class="tab" onclick="Products.tab(this,'colors')">Colors</div>
+        <div class="tab" onclick="Products.tab(this,'relations')">Relations</div>
+        <div class="tab" onclick="Products.tab(this,'specs')">Specs</div>
+      </div>
+
+      <div id="product-tab-general">
+        <div class="form-grid">
+          <div class="form-group"><label>Product ID <span class="label-hint">(kebab-case)</span></label><input type="text" id="p-id" placeholder="arc-floor-lamp" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9-]/g,'-')"></div>
+          <div class="form-group"><label>Category</label><input type="text" id="p-category" placeholder="floor, pendant, desk…"></div>
+          <div class="form-group"><label>Price (EUR)</label><input type="number" id="p-price" step="0.01" min="0"></div>
+          <div class="form-group"><label>Weight (kg)</label><input type="number" id="p-weight" step="0.01" min="0"></div>
+          <div class="form-group"><label>Stock <span class="label-hint">(ignored when variants present)</span></label><input type="number" id="p-stock" min="0"></div>
+          <div class="form-group"><label>Card URL</label><input type="text" id="p-url" placeholder="product.html"></div>
+          <div class="form-group"><label>Bundle Discount %</label><input type="number" id="p-bundleDiscount" min="0" max="100"></div>
+          <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:8px"><label class="form-check"><input type="checkbox" id="p-featured"> Featured</label></div>
+        </div>
+        <div class="divider"></div>
+        <div class="section-label">Dimensions (cm)</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Length</label><input type="number" id="p-dim-l" min="0"></div>
+          <div class="form-group"><label>Width</label><input type="number" id="p-dim-w" min="0"></div>
+          <div class="form-group"><label>Height</label><input type="number" id="p-dim-h" min="0"></div>
+        </div>
+      </div>
+
+      <div id="product-tab-media" style="display:none">
+        <div class="form-grid cols-1">
+          <div class="form-group"><label>Main Image URL</label><input type="url" id="p-image" placeholder="https://…" oninput="Products.previewImage(this.value)"></div>
+          <div id="p-image-preview" style="margin-bottom:8px"></div>
+          <div class="form-group"><label>Gallery Images <span class="label-hint">(one URL per line)</span></label><textarea id="p-images" rows="5" placeholder="https://image1.jpg&#10;https://image2.jpg"></textarea></div>
+          <div class="form-group"><label>Video URLs <span class="label-hint">(YouTube embed or .mp4, one per line)</span></label><textarea id="p-videos" rows="3" placeholder="https://www.youtube.com/embed/VIDEO_ID"></textarea></div>
+        </div>
+      </div>
+
+      <div id="product-tab-variants" style="display:none">
+        <div class="tab-toolbar"><span class="label-hint">Each variant can have its own price, stock and image.</span><button class="btn btn-secondary btn-sm" onclick="Products.addVariant()">+ Add Variant</button></div>
+        <div class="dyn-list-header" style="grid-template-columns:1fr 1fr 80px 80px 1fr 32px"><span>ID</span><span>Label</span><span>Price €</span><span>Stock</span><span>Image URL</span><span></span></div>
+        <div class="dyn-list" id="variants-list"></div>
+      </div>
+
+      <div id="product-tab-colors" style="display:none">
+        <div class="tab-toolbar"><span class="label-hint">Color swatches — no price difference. Do not combine with Variants.</span><button class="btn btn-secondary btn-sm" onclick="Products.addColor()">+ Add Color</button></div>
+        <div class="dyn-list" id="colors-list"></div>
+      </div>
+
+      <div id="product-tab-relations" style="display:none">
+        <div class="form-grid cols-1">
+          <div class="form-group"><label>Bundled Products <span class="label-hint">(comma-separated IDs)</span></label><input type="text" id="p-bundled" placeholder="dimmer-switch, replacement-bulb-e27"></div>
+          <div class="form-group"><label>Related Products <span class="label-hint">(comma-separated IDs)</span></label><input type="text" id="p-related" placeholder="globe-pendant, half-moon-sconce"></div>
+          <div class="form-group"><label>Add-ons <span class="label-hint">(comma-separated IDs)</span></label><input type="text" id="p-addons" placeholder="lamp-cable-3m"></div>
+        </div>
+        <div class="available-ids-box">
+          <div class="card-section-label">Available IDs <span class="label-hint">(click to copy)</span></div>
+          <div id="available-ids"></div>
+        </div>
+      </div>
+
+      <div id="product-tab-specs" style="display:none">
+        <div class="tab-toolbar"><span class="label-hint">Collapsible accordion sections. Format rows as: Key | Value</span><button class="btn btn-secondary btn-sm" onclick="Products.addSpec()">+ Add Section</button></div>
+        <div class="dyn-list" id="specs-list"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="Products.closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="Products.saveProduct()">Save Product</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM -->
+<div id="confirm-modal" class="modal-overlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-body" style="padding:28px 24px 20px">
+      <div style="font-size:1.05rem;font-weight:600;margin-bottom:8px" id="confirm-title">Confirm</div>
+      <div style="color:var(--text-2);font-size:.85rem" id="confirm-msg"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="confirm-cancel">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- INPUT DIALOG -->
+<div id="input-modal" class="modal-overlay">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-body" style="padding:28px 24px 20px">
+      <div style="font-size:1.05rem;font-weight:600;margin-bottom:12px" id="input-modal-title">Input</div>
+      <input type="text" id="input-modal-value" style="width:100%">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="input-cancel">Cancel</button>
+      <button class="btn btn-primary" id="input-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="js/state.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/fs.js"></script>
+<script src="js/csv.js"></script>
+<script src="js/config-parser.js"></script>
+<script src="js/app.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/products.js"></script>
+<script src="js/translations.js"></script>
+<script src="js/currencies.js"></script>
+<script src="js/shipping.js"></script>
+<script src="js/config-editor.js"></script>
+<script src="js/file-manager.js"></script>
+<script src="js/wysiwyg.js"></script>
+<script src="js/init.js"></script>
+</body>
+</html>

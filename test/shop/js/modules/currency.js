@@ -1,5 +1,5 @@
 /* =========================================================
-   LUMIO — Currency Module  (js/modules/currency.js)
+   WEBSHOP — Currency Module  (js/modules/currency.js)
    =========================================================
    Reads:  CONFIG.data.currenciesCsv
            CONFIG.storageKeys.currencyKey
