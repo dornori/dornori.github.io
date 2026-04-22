@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUMIO – Single Product | Arc Floor Lamp</title>
+  <link rel="stylesheet" href="css/shop.css">
+  <style>
+    .pdp-magnifier {
+      position: fixed;
+      pointer-events: none;
+      z-index: 1000;
+      background: var(--c-surface);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid var(--c-accent);
+      display: none;
+    }
+    .pdp-magnifier img {
+      position: absolute;
+      top: 0; left: 0;
+      max-width: none;
+      display: block;
+    }
+    .pdp-gallery__main-wrap {
+      cursor: crosshair;
+      position: relative;
+      overflow: hidden;
+    }
+    .pdp-gallery__main-img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .pdp-accordion-item .pdp-accordion-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s ease;
+    }
+    .pdp-accordion-item.open .pdp-accordion-body { max-height: 600px; }
+    .pdp-accordion-item.open .pdp-accordion-trigger svg { transform: rotate(180deg); }
+  </style>
+</head>
+<body>
+
+  <div class="pdp-magnifier" id="magnifier">
+    <img id="magnifier-img" src="" alt="">
+  </div>
+
+  <div class="pdp-lightbox" id="lightbox" role="dialog" aria-modal="true">
+    <div class="pdp-lightbox__inner">
+      <button class="pdp-lightbox__close" id="lightbox-close" aria-label="Close">✕</button>
+      <div class="pdp-lightbox__tabs">
+        <button class="pdp-lightbox__tab active" data-tab="images">Images</button>
+        <button class="pdp-lightbox__tab" data-tab="video">Video</button>
+      </div>
+      <div class="pdp-lightbox__body">
+        <div id="tab-images">
+          <div class="pdp-lightbox-gallery">
+            <div class="pdp-lightbox-main"><img id="lb-main-img" src="" alt=""></div>
+            <div class="pdp-lightbox-thumbs" id="lb-thumbs"></div>
+            <div class="pdp-lightbox-details" id="lb-details"></div>
+          </div>
+        </div>
+        <div id="tab-video" style="display:none;">
+          <div class="pdp-video-wrap" id="video-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <header class="lumio-page-header">
+    <div class="lumio-container">
+      <div class="lumio-page-header__inner">
+        <a href="index.html" class="lumio-logo">LUM<span>IO</span></a>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <div class="lumio-lang-switcher" id="lang-switcher-slot"></div>
+          <div id="currency-selector-slot"></div>
+          <div id="cart-icon-slot"></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="lumio-page-main">
+    <div class="lumio-container">
+      <div id="back-btn-slot"></div>
+      <div class="pdp-wrapper" id="pdp-root"></div>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script>
+    (function() {
+      function loadScript(src) {
+        return new Promise(function(resolve) {
+          var s = document.createElement("script"); s.src = src;
+          s.onload = resolve; s.onerror = function(){ resolve(); };
+          document.head.appendChild(s);
+        });
+      }
+      var modules = (CONFIG.modules || []).concat(["js/lang-bridge.js", "js/shop.js"]);
+      var chain = Promise.resolve();
+      modules.forEach(function(src){ chain = chain.then(function(){ return loadScript(src); }); });
+      chain.then(function(){ document.dispatchEvent(new Event("lumio:ready")); });
+    })();
+  </script>
+  <script>
+  document.addEventListener("lumio:ready", async function() {
+    await Promise.all([Shipping.load(), Currency.init(), Shop.loadLang()]);
+    const allProducts = await Shop.loadProducts();
+    const PRODUCT = allProducts.find(p => p.id === "arc-floor-lamp");
+
+    Shop.wireLanguageSwitcher(".lumio-lang-btn");
+    Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false });
+    Shop.renderCurrencySelector("#currency-selector-slot");
+    Shop.renderBackButton("#back-btn-slot", { href: "index.html" });
+
+    let selectedVariant = PRODUCT.variants?.[0]?.id || null;
+    let qty = 1;
+    let currentImgIdx = 0;
+
+    function fmt(n) { return Shop.fmt(n); }
+    function updatePrice() {
+      const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
+      document.getElementById("pdp-price").textContent = fmt(v ? v.price : PRODUCT.price);
+    }
+
+    function render() {
+      const container = document.getElementById("pdp-root");
+      container.innerHTML = `
+        <div class="pdp-main lumio-fade-in">
+          <div class="pdp-gallery">
+            <div class="pdp-gallery__main-wrap" id="gallery-main-wrap">
+              <img class="pdp-gallery__main-img" id="gallery-main-img" src="${PRODUCT.images[0]}" alt="${Shop.pName(PRODUCT)}">
+            </div>
+            <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
+          </div>
+          <div class="pdp-details">
+            <p class="pdp-category">${Shop.pCategory(PRODUCT)}</p>
+            <h1 class="pdp-name">${Shop.pName(PRODUCT)}</h1>
+            <p class="pdp-price" id="pdp-price">${fmt(PRODUCT.variants?.[0]?.price || PRODUCT.price)}</p>
+            <p class="pdp-desc">${Shop.pDesc(PRODUCT)}</p>
+            <div id="pdp-variants-wrap" style="${!PRODUCT.variants?.length ? 'display:none' : ''}">
+              <p class="pdp-option-label">Finish</p>
+              <div class="pdp-variants" id="pdp-variants"></div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;">
+              <div class="lumio-qty-control lumio-qty-control--lg">
+                <button class="lumio-qty-btn lumio-qty-btn--minus" id="qty-minus">−</button>
+                <span class="lumio-qty-val" id="qty-val">1</span>
+                <button class="lumio-qty-btn lumio-qty-btn--plus" id="qty-plus">+</button>
+              </div>
+              <button class="lumio-btn lumio-btn--primary pdp-atc-btn" id="atc-btn">Add to Cart</button>
+            </div>
+            <div class="pdp-perks" id="pdp-perks"></div>
+          </div>
+        </div>
+        <div class="pdp-section lumio-fade-in lumio-fade-in-1" id="bundle-section" style="display:none;"></div>
+        <div class="pdp-section lumio-fade-in lumio-fade-in-2" id="related-section" style="display:none;"></div>
+        <div class="pdp-section lumio-fade-in lumio-fade-in-3" id="specs-section" style="display:none;"></div>
+      `;
+
+      renderPerks();
+      renderVariants();
+      renderGallery();
+      renderBundle();
+      renderRelated();
+      renderSpecs();
+      initMagnifier();
+      initLightbox();
+      initQty();
+      initAtc();
+      updatePrice();
+    }
+
+    function renderVariants() {
+      const wrap = document.getElementById("pdp-variants-wrap");
+      const el = document.getElementById("pdp-variants");
+      if (!PRODUCT.variants?.length) { if(wrap) wrap.style.display = "none"; return; }
+      wrap.style.display = "";
+      el.innerHTML = PRODUCT.variants.map(v =>
+        `<button class="pdp-variant-btn${v.id === selectedVariant ? " active" : ""}" data-vid="${v.id}">${v.label}</button>`
+      ).join("");
+      el.querySelectorAll(".pdp-variant-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          selectedVariant = btn.dataset.vid;
+          el.querySelectorAll(".pdp-variant-btn").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          const v = PRODUCT.variants.find(v => v.id === selectedVariant);
+          if (v?.image) {
+            document.getElementById("gallery-main-img").src = v.image;
+            document.getElementById("magnifier-img").src = v.image.replace("w=800", "w=1600");
+          }
+          updatePrice();
+        });
+      });
+    }
+
+    function renderPerks() {
+      const el = document.getElementById("pdp-perks");
+      if(el) el.innerHTML = `<span>✓ Free shipping over €150</span><span>✓ 30-day returns</span><span>✓ 2-year warranty</span>`;
+    }
+
+    function renderGallery() {
+      const mainImg = document.getElementById("gallery-main-img");
+      const thumbsEl = document.getElementById("gallery-thumbs");
+      function buildThumbs() {
+        thumbsEl.innerHTML = PRODUCT.images.map((src, i) =>
+          `<img class="pdp-gallery__thumb${i === currentImgIdx ? " active" : ""}" src="${src}" alt="View ${i+1}" data-idx="${i}">`
+        ).join("");
+        thumbsEl.querySelectorAll(".pdp-gallery__thumb").forEach(img => {
+          img.addEventListener("click", () => selectImage(+img.dataset.idx));
+        });
+      }
+      window.selectImage = function(idx) {
+        currentImgIdx = idx;
+        mainImg.src = PRODUCT.images[idx];
+        document.getElementById("magnifier-img").src = PRODUCT.images[idx].replace("w=800", "w=1600");
+        buildThumbs();
+      };
+      buildThumbs();
+      document.getElementById("gallery-main-wrap").addEventListener("click", () => openLightbox("images"));
+    }
+
+    function initMagnifier() {
+      const magEl = document.getElementById("magnifier");
+      const magImg = document.getElementById("magnifier-img");
+      const mainWrap = document.getElementById("gallery-main-wrap");
+      if(!magEl || !mainWrap) return;
+      mainWrap.addEventListener("mousemove", e => {
+        const rect = mainWrap.getBoundingClientRect();
+        const xPct = (e.clientX - rect.left) / rect.width;
+        const yPct = (e.clientY - rect.top) / rect.height;
+        const size = Math.min(Math.min(window.innerWidth * 0.45, 500), rect.width * 1.2);
+        magEl.style.width = size + "px"; magEl.style.height = size + "px";
+        let mLeft = rect.right + 20, mTop = rect.top + (rect.height/2) - (size/2);
+        if (mLeft + size > window.innerWidth - 20) mLeft = rect.left - size - 20;
+        mLeft = Math.max(10, Math.min(mLeft, window.innerWidth - size - 10));
+        mTop = Math.max(10, Math.min(mTop, window.innerHeight - size - 10));
+        magEl.style.left = mLeft + "px"; magEl.style.top = mTop + "px";
+        magEl.style.display = "block";
+        const nW = magImg.naturalWidth, nH = magImg.naturalHeight;
+        if (nW && nH) {
+          const zoom = 4;
+          magImg.style.width = (nW * zoom) + "px";
+          magImg.style.height = (nH * zoom) + "px";
+          magImg.style.left = -(xPct * nW * zoom - size/2) + "px";
+          magImg.style.top = -(yPct * nH * zoom - size/2) + "px";
+        }
+      });
+      mainWrap.addEventListener("mouseleave", () => { magEl.style.display = "none"; });
+    }
+
+    function initLightbox() {
+      const lightbox = document.getElementById("lightbox");
+      window.openLightbox = function(tab) {
+        document.getElementById("lb-main-img").src = PRODUCT.images[currentImgIdx];
+        const lbThumbs = document.getElementById("lb-thumbs");
+        lbThumbs.innerHTML = PRODUCT.images.map((src, i) =>
+          `<img class="pdp-lightbox-thumb${i === currentImgIdx ? " active" : ""}" src="${src}" data-idx="${i}">`
+        ).join("");
+        lbThumbs.querySelectorAll(".pdp-lightbox-thumb").forEach(t => {
+          t.addEventListener("click", () => {
+            currentImgIdx = +t.dataset.idx;
+            document.getElementById("lb-main-img").src = PRODUCT.images[currentImgIdx];
+            lbThumbs.querySelectorAll(".pdp-lightbox-thumb").forEach((x, j) => x.classList.toggle("active", j === currentImgIdx));
+          });
+        });
+        lightbox.classList.add("open");
+        document.body.style.overflow = "hidden";
+      };
+      document.getElementById("lightbox-close").addEventListener("click", () => {
+        lightbox.classList.remove("open");
+        document.body.style.overflow = "";
+      });
+      lightbox.addEventListener("click", e => { if (e.target === lightbox) { lightbox.classList.remove("open"); document.body.style.overflow = ""; } });
+    }
+
+    function initQty() {
+      const qtyVal = document.getElementById("qty-val");
+      document.getElementById("qty-minus").addEventListener("click", () => { if (qty > 1) { qty--; qtyVal.textContent = qty; } });
+      document.getElementById("qty-plus").addEventListener("click", () => { const max = PRODUCT.stock || 99; if (qty < max) { qty++; qtyVal.textContent = qty; } });
+    }
+
+    function initAtc() {
+      document.getElementById("atc-btn").addEventListener("click", () => {
+        const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
+        Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
+        Shop.toast(`${Shop.pName(PRODUCT)} added to cart`);
+      });
+    }
+
+    function renderBundle() {
+      const section = document.getElementById("bundle-section");
+      const bundleIds = PRODUCT.bundled || [];
+      if (!bundleIds.length) { if(section) section.style.display = "none"; return; }
+      const bundleProducts = bundleIds.map(id => allProducts.find(p => p.id === id)).filter(Boolean);
+      if (!bundleProducts.length) { section.style.display = "none"; return; }
+      section.style.display = "";
+      section.innerHTML = `
+        <h2 class="pdp-section-title">Frequently Bought Together</h2>
+        <div class="pdp-bundle-items-list">
+          ${bundleProducts.map(item => `
+            <div class="pdp-bundle-item">
+              <img src="${item.image}" alt="${Shop.pName(item)}">
+              <div class="pdp-bundle-item__info">
+                <div class="pdp-bundle-item__name">${Shop.pName(item)}</div>
+                <div class="pdp-bundle-item__price">${fmt(item.price)}</div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+        <div class="pdp-bundle-actions">
+          <button class="lumio-btn lumio-btn--primary" id="bundle-add-all">Add Bundle to Cart</button>
+        </div>
+      `;
+      document.getElementById("bundle-add-all").onclick = () => {
+        Shop.addToCart(PRODUCT, 1, selectedVariant, null, PRODUCT.image);
+        bundleProducts.forEach(item => Shop.addToCart(item, 1, null, null, item.image));
+        Shop.toast(`Bundle added to cart`);
+      };
+    }
+
+    function renderRelated() {
+      const section = document.getElementById("related-section");
+      const relatedIds = PRODUCT.related || [];
+      const relatedProducts = relatedIds.map(id => allProducts.find(p => p.id === id)).filter(Boolean);
+      if (!relatedProducts.length) { section.style.display = "none"; return; }
+      section.style.display = "";
+      section.innerHTML = `
+        <h2 class="pdp-section-title">You May Also Like</h2>
+        <div class="pdp-related-grid">
+          ${relatedProducts.map(r => `
+            <div class="pdp-related-card">
+              <div class="pdp-related-card__img-wrap">
+                <img src="${r.image}" alt="${Shop.pName(r)}">
+                <div class="pdp-related-card__overlay">
+                  <button class="pdp-related-card__buy-btn" data-rid="${r.id}">BUY NOW</button>
+                </div>
+              </div>
+              <div class="pdp-related-card__info">
+                <div class="pdp-related-card__name">${Shop.pName(r)}</div>
+                <div class="pdp-related-card__price">${fmt(r.price)}</div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+      section.querySelectorAll(".pdp-related-card__buy-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const item = allProducts.find(p => p.id === btn.dataset.rid);
+          if(item) { Shop.addToCart(item, 1); Shop.toast(`${Shop.pName(item)} added to cart`); }
+        });
+      });
+    }
+
+    function renderSpecs() {
+      const section = document.getElementById("specs-section");
+      const specs = PRODUCT.specs || [];
+      if (!specs.length) { section.style.display = "none"; return; }
+      section.style.display = "";
+      section.innerHTML = `<div id="specs-accordion">${specs.map(sec => `
+        <div class="pdp-accordion-item">
+          <button class="pdp-accordion-trigger">
+            <span>${sec.title}</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="pdp-accordion-body">
+            <table class="pdp-spec-table"><tbody>
+              ${sec.rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("")}
+            </tbody></table>
+          </div>
+        </div>
+      `).join("")}</div>`;
+      document.querySelectorAll(".pdp-accordion-trigger").forEach(btn => {
+        btn.addEventListener("click", () => btn.closest(".pdp-accordion-item").classList.toggle("open"));
+      });
+    }
+
+    render();
+    document.addEventListener("currency:changed", updatePrice);
+    document.addEventListener("shop:langChanged", render);
+  });
+  </script>
+</body>
+</html>
