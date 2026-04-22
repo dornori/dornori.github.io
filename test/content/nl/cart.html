@@ -1,0 +1,546 @@
+<style>
+.cp { --cp-gap: clamp(14px, 3vw, 28px); }
+
+/* Steps */
+.cp-steps {
+  display: flex; align-items: center; margin-bottom: 32px;
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+}
+.cp-step { display: flex; align-items: center; gap: 8px; color: var(--text-muted); opacity: 0.4; transition: opacity .2s; }
+.cp-step.active  { opacity: 1; color: var(--accent); }
+.cp-step.done    { opacity: 0.65; }
+.cp-step__num {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1px solid currentColor; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 10px;
+}
+.cp-step.done .cp-step__num  { background: var(--accent); border-color: var(--accent); color: var(--bg); font-size: 0; }
+.cp-step.done .cp-step__num::after { content: '✓'; font-size: 10px; }
+.cp-step.done .cp-step__label { display: none; }
+.cp-sep { width: 28px; height: 1px; background: var(--border); margin: 0 6px; flex-shrink: 0; }
+
+/* Panel */
+.cp-panel {
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: var(--cp-gap); margin-bottom: 16px;
+}
+.cp-panel-title {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--text-muted);
+  margin: 0 0 20px; padding-bottom: 14px; border-bottom: 1px solid var(--border);
+}
+
+/* Table */
+.cp-table { width: 100%; border-collapse: collapse; }
+.cp-table th {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-muted);
+  text-align: left; padding: 0 8px 10px; border-bottom: 1px solid var(--border);
+}
+.cp-table td { padding: 12px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.cp-table tbody tr:last-child td { border-bottom: none; }
+.cp-item-img { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border); display: block; }
+.cp-item-name { font-size: .875rem; font-weight: 500; color: var(--text); }
+.cp-item-variant { font-family: var(--font-mono); font-size: .75rem; color: var(--text-muted); margin-top: 2px; }
+.cp-item-price { font-family: var(--font-mono); font-size: .875rem; color: var(--text); white-space: nowrap; }
+
+/* Qty */
+.cp-qty { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.cp-qty-btn {
+  width: 28px; height: 28px; background: transparent; border: none;
+  color: var(--text-muted); cursor: pointer; font-size: 16px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+}
+.cp-qty-btn:hover { background: var(--accent); color: var(--bg); }
+.cp-qty-val { min-width: 28px; text-align: center; font-family: var(--font-mono); font-size: .8rem; color: var(--text); }
+.cp-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 8px; border-radius: 4px; font-size: 13px; transition: color .15s, background .15s; }
+.cp-remove:hover { color: var(--accent); background: var(--border); }
+
+/* Empty */
+.cp-empty { text-align: center; padding: 50px 20px; }
+.cp-empty-icon { font-size: 44px; margin-bottom: 12px; }
+.cp-empty h3 { font-family: var(--font-mono); font-size: .85rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 10px; }
+.cp-empty p { color: var(--text-muted); font-size: .875rem; margin-bottom: 20px; }
+
+/* Totaals */
+.cp-totals { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 7px; align-items: flex-end; }
+.cp-totals-row { display: flex; gap: 20px; justify-content: flex-end; font-family: var(--font-mono); font-size: .78rem; color: var(--text-muted); width: 100%; max-width: 260px; }
+.cp-totals-row span:last-child { text-align: right; min-width: 72px; }
+.cp-totals-row.total { color: var(--text); font-size: .9rem; padding-top: 7px; border-top: 1px solid var(--border); margin-top: 3px; }
+
+/* Actions */
+.cp-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; flex-wrap: wrap; }
+
+/* Buttons */
+.cp-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 22px; font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  border-radius: 4px; cursor: pointer; border: 1px solid var(--border);
+  background: transparent; color: var(--text-muted); transition: all .2s;
+}
+.cp-btn:hover { border-color: var(--accent); color: var(--accent); }
+.cp-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.cp-btn.primary:hover { opacity: .85; }
+.cp-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* Form */
+.cp-form { display: flex; flex-direction: column; gap: 16px; }
+.cp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.cp-group { display: flex; flex-direction: column; gap: 5px; }
+.cp-group label { font-family: var(--font-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); }
+.cp-group input, .cp-group select {
+  background: transparent; border: 1px solid var(--border); border-radius: 4px;
+  padding: 9px 11px; color: var(--text); font-size: .875rem;
+  width: 100%; box-sizing: border-box; transition: border-color .2s;
+}
+.cp-group input:focus, .cp-group select:focus { outline: none; border-color: var(--accent); }
+.cp-group input.error { border-color: #d44; }
+.cp-err { font-size: .75rem; color: #d44; margin: 0; }
+.cp-check { display: flex; align-items: center; gap: 9px; cursor: pointer; }
+.cp-check input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+.cp-check span { font-size: .875rem; color: var(--text-muted); }
+.cp-section-title { font-family: var(--font-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); margin: 24px 0 12px; padding-top: 18px; border-top: 1px solid var(--border); }
+
+/* Billing options */
+.cp-billing-opts { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.cp-billing-opt {
+  flex: 1; min-width: 170px; display: flex; align-items: center; gap: 9px;
+  padding: 10px 14px; border: 1px solid var(--border); border-radius: 6px;
+  cursor: pointer; font-size: .85rem; color: var(--text-muted); transition: all .2s;
+}
+.cp-billing-opt.selected { border-color: var(--accent); color: var(--text); }
+.cp-billing-opt input { accent-color: var(--accent); }
+
+/* Step 3 layout */
+.cp-step3-grid { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
+.cp-payment-panel { border: 1px solid var(--border); border-radius: 8px; padding: var(--cp-gap); }
+.cp-ship-chip { display: flex; align-items: center; gap: 7px; font-family: var(--font-mono); font-size: .78rem; color: var(--text-muted); background: var(--border); border-radius: 20px; padding: 5px 13px; width: fit-content; margin-bottom: 18px; }
+.cp-secure { display: flex; align-items: center; gap: 7px; font-family: var(--font-mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-top: 14px; }
+.cp-secure svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+/* Summary sidebar */
+.cp-summary { border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+.cp-summary h3 { font-family: var(--font-mono); font-size: 9px; letter-spacing: .15em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 16px; }
+.cp-sum-item { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.cp-sum-item img { width: 38px; height: 38px; object-fit: cover; border-radius: 3px; border: 1px solid var(--border); flex-shrink: 0; }
+.cp-sum-item-name { font-size: .78rem; color: var(--text); flex: 1; }
+.cp-sum-item-price { font-family: var(--font-mono); font-size: .78rem; color: var(--text-muted); white-space: nowrap; }
+.cp-sum-totals { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 6px; display: flex; flex-direction: column; gap: 7px; }
+.cp-sum-row { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: .75rem; color: var(--text-muted); }
+.cp-sum-row.total { color: var(--text); font-size: .875rem; padding-top: 7px; border-top: 1px solid var(--border); margin-top: 3px; }
+.cp-sum-addr { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); font-size: .78rem; color: var(--text-muted); line-height: 1.7; }
+.cp-sum-addr h4 { font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 7px; }
+
+@media (max-width: 680px) {
+  .cp-row { grid-template-columns: 1fr; }
+  .cp-step3-grid { grid-template-columns: 1fr; }
+  .cp-summary { order: -1; }
+  .cp-actions .cp-btn { flex: 1; justify-content: center; }
+}
+</style>
+
+<div class="cp">
+
+  <!-- Step indicator -->
+  <div class="cp-steps" id="cp-steps">
+    <div class="cp-step active" id="cp-ind-1"><div class="cp-step__num">1</div><div class="cp-step__label">Winkelwagen</div></div>
+    <div class="cp-sep"></div>
+    <div class="cp-step" id="cp-ind-2"><div class="cp-step__num">2</div><div class="cp-step__label">Gegevens</div></div>
+    <div class="cp-sep"></div>
+    <div class="cp-step" id="cp-ind-3"><div class="cp-step__num">3</div><div class="cp-step__label">Betalen</div></div>
+  </div>
+
+  <!-- ── STEP 1: CART ── -->
+  <div id="cp-s1">
+    <div class="cp-panel">
+      <p class="cp-panel-title">Winkelwagen</p>
+      <div id="cp-empty" class="cp-empty" style="display:none;">
+        <div class="cp-empty-icon">🛒</div>
+        <h3>Je winkelwagen is leeg</h3>
+        <p>Je hebt nog niets toegevoegd.</p>
+        <button class="cp-btn primary" onclick="window.showHome()">← Verder winkelen</button>
+      </div>
+      <table class="cp-table" id="cp-table">
+        <thead><tr>
+          <th style="width:68px"></th>
+          <th>Item</th>
+          <th>Qty</th>
+          <th>Price</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="cp-tbody"></tbody>
+      </table>
+      <div class="cp-totals" id="cp-totals">
+        <div class="cp-totals-row"><span>Subtotaal</span><span id="cp-sub">€0.00</span></div>
+        <div class="cp-totals-row"><span>VAT</span><span id="cp-tax">€0.00</span></div>
+        <div class="cp-totals-row"><span>Shipping</span><span>Berekend bij afrekenen</span></div>
+        <div class="cp-totals-row total"><span>Totaal</span><span id="cp-total">€0.00</span></div>
+      </div>
+    </div>
+    <div class="cp-actions">
+      <button class="cp-btn" onclick="window.showHome()">← Verder winkelen</button>
+      <button class="cp-btn primary" id="cp-to2">Afrekenen →</button>
+    </div>
+  </div>
+
+  <!-- ── STEP 2: DETAILS ── -->
+  <div id="cp-s2" style="display:none;">
+    <div class="cp-panel">
+      <p class="cp-panel-title">Verzendgegevens</p>
+      <label class="cp-check" style="margin-bottom:18px;">
+        <input type="checkbox" id="cp-biz"><span>Dit is een zakelijke bestelling</span>
+      </label>
+      <div id="cp-biz-fields" style="display:none;margin-bottom:18px;">
+        <div class="cp-row">
+          <div class="cp-group"><label>Bedrijfsnaam</label><input type="text" id="cp-company" autocomplete="organization"></div>
+          <div class="cp-group"><label>BTW-nummer</label><input type="text" id="cp-vat"></div>
+        </div>
+      </div>
+      <div class="cp-form" id="cp-ship-form">
+        <div class="cp-row">
+          <div class="cp-group"><label>Voornaam</label><input type="text" id="cp-fname" required autocomplete="given-name"></div>
+          <div class="cp-group"><label>Achternaam</label><input type="text" id="cp-lname" required autocomplete="family-name"></div>
+        </div>
+        <div class="cp-row">
+          <div class="cp-group"><label>E-mailadres</label><input type="email" id="cp-email" required autocomplete="email"></div>
+          <div class="cp-group"><label>Phone</label><input type="tel" id="cp-phone" autocomplete="tel"></div>
+        </div>
+        <div class="cp-group"><label>Straat en huisnummer</label><input type="text" id="cp-addr" required autocomplete="street-address"></div>
+        <div class="cp-row">
+          <div class="cp-group"><label>City</label><input type="text" id="cp-city" required autocomplete="address-level2"></div>
+          <div class="cp-group"><label>Postcode</label><input type="text" id="cp-zip" required autocomplete="postal-code"></div>
+        </div>
+        <div class="cp-group"><label>Country</label><select id="cp-country" required autocomplete="country"><option value="">Kies land…</option></select></div>
+      </div>
+      <p class="cp-section-title">Factuuradres</p>
+      <div class="cp-billing-opts">
+        <label class="cp-billing-opt selected" id="cp-bill-same"><input type="radio" name="cp-bill" value="same" checked> Zelfde als verzendadres</label>
+        <label class="cp-billing-opt" id="cp-bill-diff"><input type="radio" name="cp-bill" value="different"> Ander factuuradres gebruiken</label>
+      </div>
+      <div id="cp-bill-form" style="display:none;">
+        <div class="cp-form">
+          <div class="cp-row">
+            <div class="cp-group"><label>Voornaam</label><input type="text" id="cp-bfname" autocomplete="billing given-name"></div>
+            <div class="cp-group"><label>Achternaam</label><input type="text" id="cp-blname" autocomplete="billing family-name"></div>
+          </div>
+          <div class="cp-group"><label>Straat en huisnummer</label><input type="text" id="cp-baddr" autocomplete="billing street-address"></div>
+          <div class="cp-row">
+            <div class="cp-group"><label>City</label><input type="text" id="cp-bcity" autocomplete="billing address-level2"></div>
+            <div class="cp-group"><label>Postcode</label><input type="text" id="cp-bzip" autocomplete="billing postal-code"></div>
+          </div>
+          <div class="cp-group"><label>Country</label><select id="cp-bcountry" autocomplete="billing country"><option value="">Kies land…</option></select></div>
+        </div>
+      </div>
+    </div>
+    <div class="cp-actions">
+      <button class="cp-btn" id="cp-back1">← Terug</button>
+      <button class="cp-btn primary" id="cp-to3">Controleren &amp; betalen →</button>
+    </div>
+  </div>
+
+  <!-- ── STEP 3: PAYMENT ── -->
+  <div id="cp-s3" style="display:none;">
+    <div class="cp-step3-grid">
+      <div>
+        <div class="cp-payment-panel">
+          <p class="cp-panel-title">Betaling</p>
+          <div class="cp-ship-chip">🚚 Geschatte levering: <strong id="cp-delivery">3–5 werkdagen</strong></div>
+          <div id="cp-captcha" style="margin-bottom:12px;min-height:0;"></div>
+          <div id="cp-pay-mount"></div>
+          <div class="cp-secure">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span id="cp-sec-label">Beveiligd · 256-bit SSL-versleuteling</span>
+          </div>
+        </div>
+        <div class="cp-actions" style="justify-content:flex-start;margin-top:12px;">
+          <button class="cp-btn" id="cp-back2">← Terug</button>
+        </div>
+      </div>
+      <div class="cp-summary">
+        <h3>Besteloverzicht</h3>
+        <div id="cp-sum-items"></div>
+        <div class="cp-sum-addr" id="cp-sum-ship"><h4>Verzending naar</h4><div id="cp-sum-ship-addr"></div></div>
+        <div class="cp-sum-addr" id="cp-sum-bill" style="display:none;"><h4>Factuuradres</h4><div id="cp-sum-bill-addr"></div></div>
+        <div class="cp-sum-totals">
+          <div class="cp-sum-row"><span>Subtotaal</span><span id="cp-ss">€0.00</span></div>
+          <div class="cp-sum-row"><span>VAT</span><span id="cp-st">€0.00</span></div>
+          <div class="cp-sum-row"><span>Shipping</span><span id="cp-ssh">—</span></div>
+          <div class="cp-sum-row total"><span>Totaal</span><span id="cp-stot">€0.00</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.cp -->
+
+<script>
+(function () {
+  'use strict';
+
+  // Wait for Shop globals (loaded async in index.html)
+  function boot() {
+    if (typeof Shop === 'undefined' || typeof Shipping === 'undefined' || typeof Betaling === 'undefined') {
+      return setTimeout(boot, 80);
+    }
+    init();
+  }
+  boot();
+
+  function init() {
+    var FORM_KEY = 'webshop_checkout_form';
+    var step = 1, formData = {}, isBusiness = false, billingChoice = 'same', orderRef = null;
+
+    function q(id) { return document.getElementById(id); }
+    function getSaved() { try { return JSON.parse(localStorage.getItem(FORM_KEY) || '{}'); } catch(e) { return {}; } }
+    function save(k, v) { var d = getSaved(); d[k] = v; localStorage.setItem(FORM_KEY, JSON.stringify(d)); }
+
+    // ── Boot async ────────────────────────────────────────────────────────────
+    (async function setup() {
+      try {
+        if (typeof Currency !== 'undefined') { await Currency.init(); await Currency.waitForReady(); }
+        await Shipping.load();
+        await Shop.loadLang();
+        Shipping.populateCountrySelect(q('cp-country'), 'Kies land…');
+        Shipping.populateCountrySelect(q('cp-bcountry'), 'Kies land…');
+        restoreForm();
+      } catch(e) { console.warn('[Cart]', e); }
+      renderTable();
+      renderTotaals();
+    })();
+
+    // ── Form persistence ──────────────────────────────────────────────────────
+    var fieldMap = {
+      'cp-fname':'first_name','cp-lname':'last_name','cp-email':'email','cp-phone':'phone',
+      'cp-addr':'address','cp-city':'city','cp-zip':'postal_code','cp-country':'country',
+      'cp-company':'company','cp-vat':'vat_number',
+      'cp-bfname':'billing_first_name','cp-blname':'billing_last_name',
+      'cp-baddr':'billing_address','cp-bcity':'billing_city',
+      'cp-bzip':'billing_postal_code','cp-bcountry':'billing_country'
+    };
+    Object.keys(fieldMap).forEach(function(id) {
+      var el = q(id); if (!el) return;
+      el.addEventListener('input',  function() { save(fieldMap[id], el.value); });
+      el.addEventListener('change', function() { save(fieldMap[id], el.value); if (id === 'cp-country') renderTotaals(); });
+    });
+
+    function restoreForm() {
+      var s = getSaved();
+      Object.keys(fieldMap).forEach(function(id) {
+        var el = q(id); if (el && s[fieldMap[id]]) el.value = s[fieldMap[id]];
+      });
+      if (s._isBusiness) { q('cp-biz').checked = true; isBusiness = true; q('cp-biz-fields').style.display = 'block'; }
+      if (s._billingChoice === 'different') setBilling('different');
+    }
+
+    q('cp-biz').addEventListener('change', function() {
+      isBusiness = this.checked;
+      q('cp-biz-fields').style.display = this.checked ? 'block' : 'none';
+      save('_isBusiness', this.checked);
+      renderTotaals();
+    });
+
+    function setBilling(c) {
+      billingChoice = c;
+      q('cp-bill-same').classList.toggle('selected', c === 'same');
+      q('cp-bill-diff').classList.toggle('selected', c === 'different');
+      q('cp-bill-form').style.display = c === 'different' ? 'block' : 'none';
+      save('_billingChoice', c);
+    }
+    q('cp-bill-same').addEventListener('click', function() { document.querySelector('input[name="cp-bill"][value="same"]').checked = true; setBilling('same'); });
+    q('cp-bill-diff').addEventListener('click', function() { document.querySelector('input[name="cp-bill"][value="different"]').checked = true; setBilling('different'); });
+
+    // ── Render cart table ─────────────────────────────────────────────────────
+    function renderTable() {
+      var cart = Shop.getCart();
+      var table = q('cp-table'), empty = q('cp-empty'), totals = q('cp-totals'), btn = q('cp-to2');
+      if (!cart.length) {
+        table.style.display = 'none'; empty.style.display = 'block';
+        totals.style.display = 'none'; if (btn) btn.disabled = true;
+        return;
+      }
+      table.style.display = ''; empty.style.display = 'none';
+      totals.style.display = ''; if (btn) btn.disabled = false;
+
+      var ph = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 72'%3E%3Crect fill='%23ede9e3' width='72' height='72'/%3E%3C/svg%3E";
+      q('cp-tbody').innerHTML = cart.map(function(item) {
+        return '<tr>' +
+          '<td><img class="cp-item-img" src="' + item.image + '" alt="' + item.name + '" onerror="this.src=\'' + ph + '\'"></td>' +
+          '<td><div class="cp-item-name">' + item.name + '</div>' + (item.selectedColor ? '<div class="cp-item-variant">' + item.selectedColor + '</div>' : '') + '</td>' +
+          '<td><div class="cp-qty">' +
+            '<button class="cp-qty-btn" data-act="minus" data-key="' + item.cartKey + '">−</button>' +
+            '<span class="cp-qty-val">' + item.qty + '</span>' +
+            '<button class="cp-qty-btn" data-act="plus" data-key="' + item.cartKey + '" data-stock="' + (item.stock || 99) + '">+</button>' +
+          '</div></td>' +
+          '<td class="cp-item-price">' + Shop.fmt(item.price * item.qty) + '</td>' +
+          '<td><button class="cp-remove" data-key="' + item.cartKey + '">✕</button></td>' +
+        '</tr>';
+      }).join('');
+
+      q('cp-tbody').querySelectorAll('.cp-qty-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var item = Shop.getCart().find(function(i) { return i.cartKey === btn.dataset.key; });
+          if (!item) return;
+          var qty = btn.dataset.act === 'plus' ? Math.min(item.qty + 1, +btn.dataset.stock) : item.qty - 1;
+          Shop.updateQty(btn.dataset.key, qty);
+        });
+      });
+      q('cp-tbody').querySelectorAll('.cp-remove').forEach(function(btn) {
+        btn.addEventListener('click', function() { Shop.removeFromCart(btn.dataset.key); });
+      });
+    }
+
+    function renderTotaals() {
+      var t = Shop.calculateTotaals(Shop.getCart(), isBusiness, null);
+      q('cp-sub').textContent   = Shop.fmt(t.subtotal);
+      q('cp-tax').textContent   = isBusiness ? Shop.fmt(0) + ' (B2B)' : Shop.fmt(t.tax);
+      q('cp-total').textContent = Shop.fmt(t.subtotal + (isBusiness ? 0 : t.tax));
+    }
+
+    // ── Step navigation ───────────────────────────────────────────────────────
+    function goStep(n) {
+      step = n;
+      q('cp-s1').style.display = n === 1 ? 'block' : 'none';
+      q('cp-s2').style.display = n === 2 ? 'block' : 'none';
+      q('cp-s3').style.display = n === 3 ? 'block' : 'none';
+      for (var i = 1; i <= 3; i++) {
+        var el = q('cp-ind-' + i); if (!el) continue;
+        el.classList.remove('active','done');
+        if (i < n) el.classList.add('done');
+        if (i === n) el.classList.add('active');
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    q('cp-to2').addEventListener('click', function() { if (Shop.getCart().length) goStep(2); });
+    q('cp-back1').addEventListener('click', function() { goStep(1); });
+    q('cp-back2').addEventListener('click', function() { goStep(2); });
+
+    q('cp-to3').addEventListener('click', async function() {
+      var required = ['cp-fname','cp-lname','cp-email','cp-addr','cp-city','cp-zip','cp-country'];
+      var valid = true;
+      required.forEach(function(id) {
+        var el = q(id); el.classList.remove('error');
+        var old = el.nextElementSibling; if (old && old.classList.contains('cp-err')) old.remove();
+        if (!el.value.trim()) {
+          valid = false; el.classList.add('error');
+          var e = document.createElement('p'); e.className = 'cp-err'; e.textContent = 'Verplicht'; el.after(e);
+        } else if (id === 'cp-email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(el.value)) {
+          valid = false; el.classList.add('error');
+          var e = document.createElement('p'); e.className = 'cp-err'; e.textContent = 'Ongeldig e-mailadres'; el.after(e);
+        }
+      });
+      if (!valid) { q('cp-ship-form').querySelector('.error').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+
+      formData = {
+        first_name: q('cp-fname').value.trim(),    last_name: q('cp-lname').value.trim(),
+        email:      q('cp-email').value.trim(),    phone:     q('cp-phone').value.trim(),
+        address:    q('cp-addr').value.trim(),     city:      q('cp-city').value.trim(),
+        postal_code:q('cp-zip').value.trim(),      country:   q('cp-country').value,
+        company:    q('cp-company').value.trim(),  vat_number:q('cp-vat').value.trim(),
+        isBusiness: isBusiness, billingChoice: billingChoice,
+        billing_first_name: billingChoice === 'different' ? q('cp-bfname').value.trim() : null,
+        billing_last_name:  billingChoice === 'different' ? q('cp-blname').value.trim() : null,
+        billing_address:    billingChoice === 'different' ? q('cp-baddr').value.trim()  : null,
+        billing_city:       billingChoice === 'different' ? q('cp-bcity').value.trim()  : null,
+        billing_postal_code:billingChoice === 'different' ? q('cp-bzip').value.trim()   : null,
+        billing_country:    billingChoice === 'different' ? q('cp-bcountry').value      : null,
+      };
+
+      var rate = Shipping.getRate(formData.country);
+      q('cp-delivery').textContent = rate.estimatedDays + ' ' + (Shop.t('days') || 'werkdagen');
+      var proc = CONFIG.payment.activeProcessor || 'paypal';
+      q('cp-sec-label').textContent = proc === 'paypal' ? 'Beveiligd door PayPal · 256-bit SSL encryption'
+        : proc === 'stripe' ? 'Beveiligd door Stripe · 256-bit SSL encryption' : '256-bit SSL encryption';
+
+      goStep(3);
+      renderSummary();
+      orderRef = Shop.generateOrderRef();
+      localStorage.setItem('webshop_order_ref', orderRef);
+      localStorage.setItem('webshop_order_email', formData.email);
+      Shop.submitOrderDetails(orderRef, formData, Shop.getCart(), null).catch(function(){});
+      await renderBetaling(Shop.getCart());
+    });
+
+    // ── Summary ───────────────────────────────────────────────────────────────
+    function renderSummary() {
+      var cart = Shop.getCart();
+      var t = Shop.calculateTotaals(cart, isBusiness, formData.country);
+      q('cp-ss').textContent   = Shop.fmt(t.subtotal);
+      q('cp-st').textContent   = isBusiness ? Shop.fmt(0) + ' (B2B)' : Shop.fmt(t.tax);
+      q('cp-ssh').textContent  = t.isFreeShipping ? 'FREE' : Shop.fmt(t.shipping);
+      q('cp-stot').textContent = Shop.fmt(t.total);
+
+      var ph = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect fill='%23ede9e3' width='40' height='40'/%3E%3C/svg%3E";
+      q('cp-sum-items').innerHTML = cart.map(function(item) {
+        return '<div class="cp-sum-item">' +
+          '<img src="' + item.image + '" alt="' + item.name + '" onerror="this.src=\'' + ph + '\'">' +
+          '<span class="cp-sum-item-name">' + item.qty + '× ' + item.name + '</span>' +
+          '<span class="cp-sum-item-price">' + Shop.fmt(item.price * item.qty) + '</span>' +
+        '</div>';
+      }).join('');
+
+      var cEl = q('cp-country');
+      var cName = cEl.options[cEl.selectedIndex] ? cEl.options[cEl.selectedIndex].text : formData.country;
+      q('cp-sum-ship-addr').innerHTML =
+        '<strong>' + formData.first_name + ' ' + formData.last_name + '</strong>' +
+        (formData.company ? ' · ' + formData.company : '') + '<br>' +
+        formData.address + '<br>' + formData.postal_code + ' ' + formData.city + '<br>' + cName +
+        (formData.phone ? '<br>📞 ' + formData.phone : '') +
+        (formData.email ? '<br>✉️ ' + formData.email : '');
+
+      var billBlock = q('cp-sum-bill');
+      if (billingChoice === 'different' && formData.billing_first_name && formData.billing_address) {
+        var bcEl = q('cp-bcountry');
+        var bcName = bcEl.options[bcEl.selectedIndex] ? bcEl.options[bcEl.selectedIndex].text : (formData.billing_country || '');
+        q('cp-sum-bill-addr').innerHTML =
+          '<strong>' + formData.billing_first_name + ' ' + (formData.billing_last_name || '') + '</strong><br>' +
+          formData.billing_address + '<br>' +
+          (formData.billing_postal_code ? formData.billing_postal_code + ' ' : '') +
+          (formData.billing_city || '') + '<br>' + bcName;
+        billBlock.style.display = 'block';
+      } else { billBlock.style.display = 'none'; }
+    }
+
+    // ── Betaling ───────────────────────────────────────────────────────────────
+    async function renderBetaling(cart) {
+      var mount = q('cp-pay-mount');
+      mount.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:.85rem;">Betaling laden…</div>';
+      var t = Shop.calculateTotaals(cart, isBusiness, formData.country);
+      try {
+        await Betaling.init();
+        await Betaling.render(cart, { subtotal: t.subtotal, shipping: t.isFreeShipping ? 0 : t.shipping, tax: t.tax, total: t.total }, orderRef, mount);
+      } catch(e) {
+        var cfg = e.message && (e.message.includes('Script load failed') || e.message.includes('client-id'));
+        mount.innerHTML = '<div style="padding:20px;text-align:center;border:1px dashed var(--border);border-radius:6px;color:var(--text-muted);font-size:.85rem;line-height:1.6;">' +
+          '<strong style="display:block;margin-bottom:6px;">' + (cfg ? 'Betaling not configured' : 'Betaling could not be loaded') + '</strong>' +
+          (cfg ? 'Set <code>CONFIG.payment.paypal.clientId</code> in <code>shop/js/config.js</code>.' : 'Vernieuw de pagina of neem contact op.') + '</div>';
+      }
+    }
+
+    // ── Live updates ──────────────────────────────────────────────────────────
+    document.addEventListener('shop:cartUpdated', function() { renderTable(); if (step === 3) renderSummary(); });
+    document.addEventListener('currency:changed',  function() { renderTotaals(); if (step === 3) renderSummary(); });
+
+    // ── Betaling events ────────────────────────────────────────────────────────
+    document.addEventListener('payment:success', async function() {
+      Shop.clearCart(); localStorage.removeItem(FORM_KEY);
+      try { await Shop.submitOrderStatus(orderRef, 'PAYMENT_SUCCESS'); } catch(e) {}
+      localStorage.setItem('webshop_last_order', orderRef);
+      localStorage.removeItem('webshop_order_ref');
+      window.location.href = '/test/shop/success.html?ref=' + encodeURIComponent(orderRef) + '&status=success';
+    });
+    document.addEventListener('payment:cancel', async function() {
+      try { await Shop.submitOrderStatus(orderRef, 'PAYMENT_CANCELLED'); } catch(e) {}
+      if (typeof Shop.toast === 'function') Shop.toast('Betaling cancelled — your cart is saved.', 4000);
+      goStep(2);
+    });
+    document.addEventListener('payment:error', async function() {
+      try { await Shop.submitOrderStatus(orderRef, 'PAYMENT_ERROR'); } catch(e) {}
+      if (typeof Shop.toast === 'function') Shop.toast('Er is een betalingsfout opgetreden. Probeer opnieuw.', 4000);
+    });
+  }
+})();
+</script>

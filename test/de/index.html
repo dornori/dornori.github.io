@@ -3,60 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dornori — Build Your Own Rising Star Lamp</title>
-    <meta name="description" content="Dornori — Build Your Own Rising Star Lamp">
-    <link rel="icon" href="/assets/icons/favicon.ico" sizes="any">
+    <title>Dornori — Bau Deine Eigene Rising Star Lampe</title>
+    <meta name="description" content="Dornori Star-A: eine echte kinetische Außenlampe, die du selbst baust. DC-Motor, 3D-gedruckte Teile, echte Elektronik.">
+    <link rel="icon"             href="/assets/icons/favicon.ico" sizes="any">
+    <link rel="icon"             href="/assets/icons/favicon-32x32.png" type="image/png" sizes="32x32">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+    <link rel="manifest"         href="/assets/icons/site.webmanifest">
     <link rel="stylesheet" href="/test/css/profiles.css">
     <link rel="stylesheet" href="/test/css/main.css">
+    <link rel="stylesheet" href="/test/shop/css/shop.css">
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
+
     <div id="topBar"></div>
+
     <header id="main-header">
         <div class="billboard-logo-wrap" onclick="window.showHome()">
             <img src="/test/assets/images/dornori-logo-transparent.webp" class="billboard-logo" alt="Dornori" id="banner-img">
             <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
         </div>
-        <nav class="top-nav" aria-label="Main navigation">
+        <nav class="top-nav" aria-label="Hauptnavigation">
             <div id="cart-icon-slot"></div>
         </nav>
     </header>
-    <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
+
+    <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile Navigation"></nav>
+
     <main id="viewport">
         <div id="home-view">
             <div style="text-align:center;padding:60px 20px;">
                 <div style="display:inline-block;width:40px;height:40px;border:3px solid var(--border);border-radius:50%;border-top-color:var(--accent);animation:spin .8s linear infinite;"></div>
-                <p style="margin-top:20px;font-family:var(--font-mono);">Loading&hellip;</p>
+                <p style="margin-top:20px;font-family:var(--font-mono);">Laden&hellip;</p>
             </div>
+            <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
         </div>
+
         <div id="page-view" class="hidden">
             <div id="page-content-inner" class="view-inner"></div>
             <div style="margin-top:50px;">
-                <button class="nav-link" style="border:1px solid var(--border);padding:10px 20px;" onclick="window.showHome()">Return Home</button>
+                <button class="nav-link" style="border:1px solid var(--border);padding:10px 20px;" onclick="window.showHome()">Zur Startseite</button>
             </div>
         </div>
+
         <div class="social-dock" id="social-dock"></div>
     </main>
+
     <footer class="site-footer">
         <div class="footer-container">
             <div id="footer-links" class="footer-links"></div>
             <div class="footer-bottom">
-                <p class="copyright-text">&copy; 2026 DORNORI. ALL RIGHTS RESERVED.</p>
+                <p class="copyright-text">&copy; 2026 DORNORI. ALLE RECHTE VORBEHALTEN.</p>
                 <div class="technical-credits">
-                    <span class="credit-item"><span class="status-dot"></span>Performance &amp; Security by <strong>Cloudflare</strong></span>
+                    <span class="credit-item">
+                        <span class="status-dot"></span>Performance &amp; Security by <strong>Cloudflare</strong>
+                    </span>
                 </div>
             </div>
         </div>
     </footer>
-    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
-    <!-- Shop integration -->
+
+    <script>window.__PAGE_LANG__ = 'de';</script>
+    <script type="module">
+        import { initI18n }         from '/test/js/i18n.js';
+        import { initNavigation }   from '/test/js/nav-loader.js';
+        import { initStickyBanner } from '/test/js/sticky-banner.js';
+        import { initSocials }      from '/test/js/social-loader.js';
+        import { initEmbedForms }   from '/test/js/embed-form.js';
+        import { initPageLoader }   from '/test/js/page-loader.js';
+        import { initFooter }       from '/test/js/footer-loader.js';
+
+        async function init() {
+            localStorage.setItem('dornori-lang', 'de');
+            await initI18n();
+            initNavigation(); initStickyBanner(); initSocials();
+            initFooter(); initEmbedForms(); initPageLoader();
+        }
+        init();
+    </script>
+
+    <!-- Shop integration: cart icon + currency in settings topBar -->
     <script src="/test/shop/js/config.js"></script>
     <script>
     (function () {
         function loadScript(src) {
             return new Promise(function (resolve) {
                 var s = document.createElement('script');
-                s.src = src; s.onload = resolve; s.onerror = resolve;
+                s.src = src; s.onload = resolve;
+                s.onerror = function () { resolve(); };
                 document.head.appendChild(s);
             });
         }
@@ -67,30 +101,26 @@
     })();
     </script>
     <script>
-    function mountShopComponents() {
-        if (typeof Shop === 'undefined') return;
-        document.querySelectorAll('[data-shop-mount="grid"]').forEach(function (el, i) {
-            if (el.dataset.shopMounted) return;
-            el.dataset.shopMounted = '1';
-            if (!el.id) el.id = 'shop-grid-' + Date.now() + '-' + i;
-            Shop.renderShop(el.id, { showFilter: el.getAttribute('data-filter') !== 'false' });
-        });
-        document.querySelectorAll('[data-shop-mount="product"]').forEach(function (el, i) {
-            if (el.dataset.shopMounted) return;
-            el.dataset.shopMounted = '1';
-            if (!el.id) el.id = 'shop-product-' + Date.now() + '-' + i;
-            var pid = el.getAttribute('data-product-id');
-            if (pid) Shop.renderProductInfo(el.id, pid);
-        });
-    }
     document.addEventListener('webshop:ready', function () {
         Promise.all([Shipping.load(), Currency.init(), Shop.loadLang()]).then(function () {
             Shop.renderCartIcon({ target: '#cart-icon-slot', fixed: false, cartUrl: '/test/shop/cart.html' });
             Shop.renderCurrencySelector('#topbar-currency-slot');
-            mountShopComponents();
         });
     });
-    document.addEventListener('dornori:pageLoaded', mountShopComponents);
+
+    document.addEventListener('dornori:pageLoaded', function () {
+        if (typeof Shop === 'undefined') return;
+        document.querySelectorAll('[data-shop-mount="grid"]').forEach(function (el, i) {
+            if (!el.id) el.id = 'shop-grid-' + Date.now() + '-' + i;
+            var showFilter = el.getAttribute('data-filter') !== 'false';
+            Shop.renderShop(el.id, { showFilter: showFilter });
+        });
+        document.querySelectorAll('[data-shop-mount="product"]').forEach(function (el, i) {
+            if (!el.id) el.id = 'shop-product-' + Date.now() + '-' + i;
+            var productId = el.getAttribute('data-product-id');
+            if (productId) Shop.renderProductInfo(el.id, productId);
+        });
+    });
     </script>
 </body>
 </html>
