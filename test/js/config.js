@@ -55,6 +55,8 @@ const SITE_CONFIG = {
             returns:             'returns',
             contact:             'contact',
             gallery:             'gallery',
+            shop:                'shop',
+            cart:                'cart',
         },
         nl: {
             about:               'over-ons',
@@ -72,6 +74,8 @@ const SITE_CONFIG = {
             returns:             'retourbeleid',
             contact:             'contact',
             gallery:             'galerij',
+            shop:                'winkel',
+            cart:                'winkelwagen',
         },
         de: {
             about:               'ueber-uns',
@@ -89,6 +93,8 @@ const SITE_CONFIG = {
             returns:             'rueckgabe',
             contact:             'kontakt',
             gallery:             'galerie',
+            shop:                'shop',
+            cart:                'warenkorb',
         },
         fr: {
             about:               'a-propos',
@@ -106,6 +112,8 @@ const SITE_CONFIG = {
             returns:             'politique-retour',
             contact:             'contact',
             gallery:             'galerie',
+            shop:                'boutique',
+            cart:                'panier',
         },
     },
 
@@ -116,6 +124,7 @@ const SITE_CONFIG = {
         { slug: 'kit',    icon: 'assets/icons/building-kit-icon-200x200.svg',   type: 'standard', enabled: true  },
         { slug: 'parts',  icon: 'assets/icons/3d-printer-icon-200x200.svg',     type: 'standard', enabled: true  },
         { slug: 'files',  icon: 'assets/icons/3d-file-icon-200x200.svg',        type: 'standard', enabled: true  },
+        { slug: 'shop',   icon: 'assets/icons/shop-icon-200x200.svg',           type: 'button',   enabled: true  },
     ],
 
     // ─── FOOTER ──────────────────────────────────────────────────────────────
@@ -123,6 +132,7 @@ const SITE_CONFIG = {
         {
             label: 'Company',
             links: [
+                { slug: 'shop',     enabled: true  },
                 { slug: 'gallery',  enabled: true  },
                 { slug: 'about',    enabled: true  },
                 { slug: 'contact',  enabled: true  },
@@ -159,6 +169,8 @@ const SITE_CONFIG = {
         returns:             { file: 'returns.html'            },
         contact:             { file: 'gallery-1.html'          },
         gallery:             { file: 'gallery-1.html'          },
+        shop:                { file: 'shop.html',   isShop: true },
+        cart:                { file: 'cart.html',   isCart: true },
     },
 
     // ─── SOCIALS ─────────────────────────────────────────────────────────────

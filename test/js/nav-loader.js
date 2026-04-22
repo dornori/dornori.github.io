@@ -181,6 +181,23 @@ export function initNavigation() {
         langWrap.appendChild(langSelect);
         topBar.appendChild(langWrap);
 
+        // Currency selector — populated once shop scripts load
+        const currencyWrap       = document.createElement('label');
+        currencyWrap.className   = 'profile-selector-wrap site-currency-wrap';
+        currencyWrap.id          = 'site-currency-wrap';
+        currencyWrap.textContent = (T.currency || 'CURRENCY') + ' ';
+        currencyWrap.style.display = 'none'; // hidden until shop engine boots
+
+        const currencySlot   = document.createElement('div');
+        currencySlot.id      = 'topBar-currency-slot';
+        currencyWrap.appendChild(currencySlot);
+        topBar.appendChild(currencyWrap);
+
+        // Reveal currency row once shop is booted
+        document.addEventListener('lumio:booted', () => {
+            currencyWrap.style.display = '';
+        }, { once: true });
+
         // Settings gear tab
         const tab = document.createElement('button');
         tab.id    = 'topBar-tab';
@@ -211,6 +228,8 @@ export function initNavigation() {
             tab.setAttribute('aria-label', 'Close settings');
             profileSelect.setAttribute('tabindex', '0');
             langSelect.setAttribute('tabindex', '0');
+            const cSel = topBar.querySelector('#topBar-currency-slot select');
+            if (cSel) cSel.setAttribute('tabindex', '0');
             profileSelect.focus();
         };
         const closeBar = () => {
@@ -219,6 +238,8 @@ export function initNavigation() {
             tab.setAttribute('aria-label', 'Open settings');
             profileSelect.setAttribute('tabindex', '-1');
             langSelect.setAttribute('tabindex', '-1');
+            const cSel = topBar.querySelector('#topBar-currency-slot select');
+            if (cSel) cSel.setAttribute('tabindex', '-1');
         };
 
         tab.addEventListener('click', e => {
@@ -248,4 +269,62 @@ export function initNavigation() {
 
     // Render nav links
     window.renderNav();
+
+    // ── Cart icon in header ──────────────────────────────────────────────────
+    // Inject once; update badge on cart changes via localStorage + custom event
+    (function injectCartIcon() {
+        const header = document.getElementById('main-header');
+        if (!header || document.getElementById('site-cart-btn')) return;
+
+        const lang   = window.LANG || 'en';
+        const base   = SITE_CONFIG.appearance.base_path;
+        // Cart URL → SPA route (JS navigation), href is the pretty URL fallback
+        const cartUrlSlug = SITE_CONFIG.pageUrlSlug('cart', lang);
+        const cartHref    = lang === 'en'
+            ? `${base}en/${cartUrlSlug}/`
+            : `${base}${lang}/${cartUrlSlug}/`;
+
+        const btn = document.createElement('button');
+        btn.id        = 'site-cart-btn';
+        btn.className = 'site-cart-btn';
+        btn.setAttribute('aria-label', 'Shopping cart');
+        btn.setAttribute('type', 'button');
+        btn.innerHTML = `
+            <svg viewBox="0 0 24 24">
+                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <path d="M16 10a4 4 0 0 1-8 0"/>
+            </svg>
+            <span class="site-cart-label">CART</span>
+            <span id="site-cart-badge" class="site-cart-badge" aria-live="polite"></span>
+        `;
+
+        btn.addEventListener('click', () => {
+            if (typeof window.viewPage === 'function') {
+                window.viewPage('cart');
+            } else {
+                window.location.href = cartHref;
+            }
+        });
+
+        header.appendChild(btn);
+
+        function updateCartBadge() {
+            try {
+                const cartKey = 'lumio_cart';
+                const cart    = JSON.parse(localStorage.getItem(cartKey) || '[]');
+                const count   = cart.reduce((a, i) => a + (i.qty || 1), 0);
+                const badge   = document.getElementById('site-cart-badge');
+                if (!badge) return;
+                badge.textContent = count || '';
+                badge.classList.toggle('has-items', count > 0);
+            } catch (e) {}
+        }
+
+        updateCartBadge();
+        window.addEventListener('storage', e => {
+            if (e.key === 'lumio_cart') updateCartBadge();
+        });
+        document.addEventListener('shop:cartUpdated', updateCartBadge);
+    })();
 }

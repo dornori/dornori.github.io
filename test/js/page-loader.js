@@ -97,11 +97,124 @@ export function initPageLoader() {
         updateSEO('');
     };
 
+    // ── SHOP PAGE RENDERER ────────────────────────────────────────────────────
+    // Waits for lumio:ready then calls Shop.renderShop / Cart render.
+    async function renderShopPage(slug) {
+        const base = SITE_CONFIG.appearance.base_path;
+
+        // Show loading state immediately
+        pageContent.innerHTML = `
+            <div style="text-align:center;padding:80px 20px;">
+                <div style="display:inline-block;width:36px;height:36px;border:3px solid var(--border);
+                            border-radius:50%;border-top-color:var(--accent);
+                            animation:spin .8s linear infinite;"></div>
+                <p style="margin-top:20px;font-family:var(--font-mono);font-size:.8rem;
+                           color:var(--text-muted);">Loading shop…</p>
+            </div>`;
+        homeView.classList.add('hidden');
+        pageView.classList.remove('hidden');
+
+        // Hide "Return Home" bar on shop/cart pages — they have their own back nav
+        const returnBar = pageView.querySelector('[style*="margin-top: 50px"], [style*="margin-top:50px"]');
+        if (returnBar) returnBar.style.display = 'none';
+
+        // Wait for lumio:booted (fully initialised) or lumio:ready as fallback
+        await new Promise(resolve => {
+            if (typeof Shop !== 'undefined' && typeof Currency !== 'undefined') { resolve(); return; }
+            let resolved = false;
+            const done = () => { if (!resolved) { resolved = true; resolve(); } };
+            document.addEventListener('lumio:booted', done, { once: true });
+            document.addEventListener('lumio:ready',  done, { once: true });
+            setTimeout(done, 10000);
+        });
+
+        if (typeof Shop === 'undefined') {
+            pageContent.innerHTML = `<p style="padding:40px;font-family:var(--font-mono);color:var(--text-muted);">
+                Shop could not be loaded. Please refresh.</p>`;
+            return;
+        }
+
+        if (slug === 'cart') {
+            // ── Cart page: load the cart.html content from the shop directory ──
+            try {
+                const res  = await fetch(base + 'shop/cart.html');
+                const html = await res.text();
+
+                // Extract just the <main> content from cart.html, stripping its
+                // standalone <head>, <header>, and <script> bootstrap tags since
+                // the scripts are already loaded globally by shop-loader.js
+                const parser  = new DOMParser();
+                const doc     = parser.parseFromString(html, 'text/html');
+                const main    = doc.querySelector('main.lumio-page-main');
+
+                if (main) {
+                    pageContent.innerHTML = main.outerHTML;
+                } else {
+                    // Fallback: grab everything inside <body>, strip header
+                    const body = doc.body;
+                    const hdr  = body.querySelector('.lumio-page-header');
+                    if (hdr) hdr.remove();
+                    // Remove the standalone bootstrap <script> tags
+                    body.querySelectorAll('script').forEach(s => s.remove());
+                    pageContent.innerHTML = body.innerHTML;
+                }
+
+                // Re-run any inline <script> tags that were in the cart body
+                // by extracting and eval-ing the lumio:ready listener block
+                const scripts = doc.querySelectorAll('script:not([src])');
+                scripts.forEach(origScript => {
+                    const src = origScript.textContent;
+                    // Skip the bootstrap loader (already loaded)
+                    if (src.includes('loadScript') || src.includes('CONFIG.modules')) return;
+                    const s = document.createElement('script');
+                    s.textContent = src;
+                    document.body.appendChild(s);
+                });
+
+                // Fire lumio:ready again so the cart listener wakes up
+                document.dispatchEvent(new Event('lumio:ready'));
+
+            } catch (e) {
+                pageContent.innerHTML = `<p style="padding:40px;font-family:var(--font-mono);">
+                    Cart could not be loaded. <a href="${base}shop/cart.html" style="color:var(--accent);">Open cart directly</a></p>`;
+            }
+        } else {
+            // ── Shop page: use Shop.renderShop() ──────────────────────────────
+            pageContent.innerHTML = `<div id="shop-embed-root"></div>`;
+            try {
+                await Shop.loadProducts();
+                Shop.renderShop('shop-embed-root', {
+                    cartUrl: '#',   // handled by goToCart()
+                    onCartClick: () => window.viewPage('cart'),
+                });
+            } catch (e) {
+                console.error('[page-loader] shop render error:', e);
+                pageContent.innerHTML = `<p style="padding:40px;font-family:var(--font-mono);color:var(--text-muted);">
+                    Shop could not be loaded. Please refresh.</p>`;
+            }
+        }
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     // ── VIEW PAGE ────────────────────────────────────────────────────────────
     window.viewPage = async (slug) => {
         const page = SITE_CONFIG.pages[slug];
         if (!page) {
             console.error(`Page "${slug}" not found in config`);
+            return;
+        }
+
+        // ── Restore "Return Home" bar visibility for normal pages ─────────────
+        const returnBar = pageView.querySelector('[style*="margin-top: 50px"], [style*="margin-top:50px"]');
+        if (returnBar) returnBar.style.display = '';
+
+        // ── Shop & cart pages bypass the normal HTML fetch ────────────────────
+        if (page.isShop || page.isCart) {
+            const lang = window.LANG || 'en';
+            window.history.replaceState({ slug, lang }, '', pageUrl(slug, lang));
+            updateSEO(slug);
+            await renderShopPage(slug);
             return;
         }
 
