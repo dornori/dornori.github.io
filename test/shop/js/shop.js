@@ -172,10 +172,10 @@ const Shop = (() => {
       .catch(() => ({}));
 
     _langLoadPromise = Promise.all([
-      safeFetch((CONFIG.data?.langUiDir || "data/lang/ui/") + lang + ".json"),
-      safeFetch((CONFIG.data?.langUiDir || "data/lang/ui/") + "en.json"),
-      safeFetch((CONFIG.data?.langProductsDir || "data/lang/products/") + lang + ".json"),
-      safeFetch((CONFIG.data?.langProductsDir || "data/lang/products/") + "en.json"),
+      safeFetch("data/lang/ui/" + lang + ".json"),
+      safeFetch("data/lang/ui/en.json"),
+      safeFetch("data/lang/products/" + lang + ".json"),
+      safeFetch("data/lang/products/en.json"),
     ]).then(([ui, uiEn, prod, prodEn]) => {
       LANG = { ...uiEn, ...ui };
       const clean = obj => { const r = { ...obj }; delete r._readme; return r; };
@@ -256,7 +256,7 @@ const Shop = (() => {
       if (inTopBar) {
         // Render as a plain profile-select to inherit all profile CSS variables
         container.className = "profile-selector-wrap";
-        container.innerHTML = `CURRENCY <select class="profile-select" aria-label="Currency">
+        container.innerHTML = `CURRENCY <span><select class="profile-select" aria-label="Currency"></span>
           ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
         </select>`;
       } else {
