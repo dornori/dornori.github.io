@@ -1,0 +1,223 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   shop-bridge.css — Dornori × Lumio theme bridge
+   ─────────────────────────────────────────────────────────────────────────────
+   Maps the shop's --c-* variables onto the site's active profile tokens so
+   the shop always inherits whatever colour scheme the user has selected.
+   This file is loaded AFTER profiles.css and AFTER shop.css so it wins.
+
+   Also overrides the shop's standalone header/footer so they are hidden when
+   the shop is embedded inside the site SPA (they are still shown on direct
+   access to /shop/ pages).
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Variable bridge (always active) ───────────────────────────────────────── */
+:root,
+[data-theme] {
+    /* Map shop vars onto site profile tokens */
+    --c-bg:           var(--bg);
+    --c-surface:      color-mix(in srgb, var(--bg) 85%, var(--accent) 15%);
+    --c-surface-2:    color-mix(in srgb, var(--bg) 70%, var(--accent) 30%);
+    --c-border:       var(--border);
+    --c-text:         var(--text);
+    --c-text-2:       var(--text-muted);
+    --c-text-3:       color-mix(in srgb, var(--text-muted) 60%, transparent 40%);
+    --c-accent:       var(--accent);
+    --c-accent-dark:  color-mix(in srgb, var(--accent) 75%, #000 25%);
+    --c-accent-light: color-mix(in srgb, var(--accent) 15%, transparent 85%);
+    --c-black:        var(--text);
+    --c-white:        var(--bg);
+    --c-success:      #4a7c59;
+    --c-error:        #9b3a3a;
+
+    /* Use site fonts inside shop elements */
+    --font-display:   var(--font-mono, Impact, monospace);
+    --font-body:      var(--font-sans, system-ui, sans-serif);
+}
+
+/* ── Dark profile overrides (shop needs slightly lighter surface) ───────────── */
+[data-theme="dark"] {
+    --c-surface:   #0e0e0e;
+    --c-surface-2: #181818;
+}
+
+/* ── Cutting-mat profile ────────────────────────────────────────────────────── */
+[data-theme="cutting-mat"] {
+    --c-surface:   color-mix(in srgb, #1a3a2a 80%, #fff 20%);
+    --c-surface-2: color-mix(in srgb, #1a3a2a 65%, #fff 35%);
+    --c-text:      #e8f5ee;
+    --c-text-2:    #a0c8ad;
+    --c-text-3:    #7aad8e;
+}
+
+/* ── Cutting-blue profile ───────────────────────────────────────────────────── */
+[data-theme="cutting-blue"] {
+    --c-surface:   color-mix(in srgb, #4EC6FF 80%, #fff 20%);
+    --c-surface-2: color-mix(in srgb, #4EC6FF 65%, #fff 35%);
+    --c-text:      #001a2e;
+    --c-text-2:    #003a5c;
+    --c-text-3:    #0060a0;
+}
+
+/* ── Light profile ──────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+    --c-surface:   #fafaf8;
+    --c-surface-2: #efefeb;
+}
+
+/* ── Hide the shop's standalone header when embedded in the SPA ─────────────── */
+/* The .lumio-page-header is shown on /shop/index.html direct access,           */
+/* but when its content is injected into #page-content-inner we hide it.        */
+#page-content-inner .lumio-page-header,
+#home-view .lumio-page-header {
+    display: none !important;
+}
+
+/* ── Cart page: hide back-to-shop button's href that points to shop/index.html  */
+/* (the SPA handles navigation via window.viewPage / window.showHome)           */
+#page-content-inner .lumio-btn--back-shop {
+    cursor: pointer;
+}
+
+/* ── Shop grid / product cards: respect site's overall max-width ────────────── */
+#page-content-inner .lumio-container,
+#home-view .lumio-container {
+    padding-left: clamp(12px, 3vw, 40px);
+    padding-right: clamp(12px, 3vw, 40px);
+}
+
+/* ── Currency selector styled to match settings topBar ─────────────────────── */
+.site-currency-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.site-currency-wrap .lumio-currency-selector {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
+.site-currency-wrap .lumio-currency-selector__label {
+    color: var(--text-muted);
+    line-height: 1;
+}
+
+.site-currency-wrap .lumio-currency-selector__select {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    padding: 2px 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.site-currency-wrap .lumio-currency-selector__select:focus {
+    border-color: var(--accent);
+}
+
+/* ── Cart icon in header ────────────────────────────────────────────────────── */
+.site-cart-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    text-decoration: none;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    transition: background 0.15s, border-color 0.15s;
+    cursor: pointer;
+    background: transparent;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.site-cart-btn:hover {
+    background: var(--glass, rgba(255,255,255,.06));
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.site-cart-btn svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+}
+
+.site-cart-badge {
+    display: none;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    background: var(--accent);
+    color: var(--bg);
+    border-radius: 100px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    transition: transform 0.15s;
+}
+
+.site-cart-badge.has-items {
+    display: inline-block;
+    animation: cart-pop 0.2s ease;
+}
+
+@keyframes cart-pop {
+    0%   { transform: scale(0.6); }
+    70%  { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+/* ── Responsive: shrink cart text on small screens ──────────────────────────── */
+@media (max-width: 600px) {
+    .site-cart-btn .site-cart-label { display: none; }
+    .site-cart-btn { padding: 6px 8px; }
+}
+
+/* ── Toast notification inherits theme ──────────────────────────────────────── */
+.lumio-toast {
+    background: var(--text) !important;
+    color: var(--bg) !important;
+    border: 1px solid var(--border) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 0.8rem !important;
+    letter-spacing: 0.04em !important;
+}
+
+/* ── Product card hover uses site accent ────────────────────────────────────── */
+.lumio-product-card:hover {
+    border-color: var(--accent) !important;
+}
+
+.lumio-product-card__add-btn:hover,
+.lumio-btn--primary:hover {
+    background: var(--accent) !important;
+    color: var(--bg) !important;
+}
+
+/* ── Fix shop body background when embedded (body bg already set by profiles) ── */
+#page-content-inner .lumio-page-main,
+#page-content-inner .lumio-grid-section {
+    background: transparent;
+}
