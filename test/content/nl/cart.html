@@ -1,9 +1,102 @@
-<!-- cart.html (NL)
-     ─────────────────────────────────────────────────────────────────────
-     Dit bestand is opzettelijk minimaal. De shop-engine (shop.js) wordt
-     globaal geladen door de index.html-shell via shop-loader.js.
-     page-loader.js detecteert isCart:true en haalt de volledige
-     winkelwagen/checkout op uit shop/cart.html.
-     Geen code nodig hier.
-     ───────────────────────────────────────────────────────────────────── -->
-<div id="cart-embed-root" class="lumio-cart-embed"></div>
+<!DOCTYPE html>
+<html lang="nl" data-theme="cutting-mat">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dornori – Winkelwagen</title>
+    <link rel="icon" href="/assets/icons/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/test/css/profiles.css">
+    <link rel="stylesheet" href="/test/css/main.css">
+    <link rel="stylesheet" href="/test/shop/css/shop.css">
+</head>
+<body>
+    <div id="topBar"><div id="currency-selector-slot"></div></div>
+
+    <header id="main-header">
+        <div class="billboard-logo-wrap" onclick="window.location.href='/test/nl/'">
+            <img src="/test/assets/images/dornori-logo-transparent.webp" class="billboard-logo" alt="Dornori" id="banner-img">
+            <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
+        </div>
+        <nav class="top-nav" aria-label="Main navigation"></nav>
+        <div id="cart-icon-slot"></div>
+    </header>
+
+    <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
+
+    <main id="viewport" style="padding: 40px 0;">
+        <!-- The full cart/checkout UI is rendered by shop.js into #lumio-cart-root -->
+        <div id="lumio-cart-root" class="lumio-container"></div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div id="footer-links" class="footer-links"></div>
+            <div class="footer-bottom">
+                <p class="copyright-text">&copy; 2026 DORNORI. ALL RIGHTS RESERVED.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>window.__PAGE_LANG__ = 'nl';</script>
+
+    <!-- Load site modules -->
+    <script type="module">
+        import { initI18n }        from '/test/js/i18n.js';
+        import { initNavigation }  from '/test/js/nav-loader.js';
+        import { initStickyBanner } from '/test/js/sticky-banner.js';
+        import { initSocials }     from '/test/js/social-loader.js';
+        import { initFooter }      from '/test/js/footer-loader.js';
+        localStorage.setItem('dornori-lang', 'nl');
+        await initI18n();
+        initNavigation();
+        initStickyBanner();
+        initSocials();
+        initFooter();
+    </script>
+
+    <!-- Load shop modules -->
+    <script src="/test/shop/js/config.js"></script>
+    <script>
+      (function() {
+        function loadScript(src) {
+          return new Promise(function(resolve) {
+            var s = document.createElement("script");
+            s.src = src; s.onload = resolve;
+            s.onerror = function(){ console.warn("[Shop] failed:", src); resolve(); };
+            document.head.appendChild(s);
+          });
+        }
+        var modules = (typeof CONFIG !== "undefined" && CONFIG.modules || [])
+          .concat(["/test/shop/js/lang-bridge.js", "/test/shop/js/shop.js"]);
+        var chain = Promise.resolve();
+        modules.forEach(function(src){ chain = chain.then(function(){ return loadScript(src); }); });
+        chain.then(function(){ document.dispatchEvent(new Event("lumio:ready")); });
+      })();
+    </script>
+    <script>
+      document.addEventListener("lumio:ready", function() {
+        if (typeof Shipping === "undefined" || typeof Currency === "undefined" || typeof Shop === "undefined") return;
+        Promise.all([Shipping.load(), Currency.init(), Shop.loadLang()]).then(function() {
+          Shop.renderCurrencySelector("#currency-selector-slot");
+          Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false, cartUrl: "/test/cart.html?lang=nl" });
+          // Render the cart/checkout inline using the shop's iframe cart module
+          const root = document.getElementById('lumio-cart-root');
+          if (root) {
+            // Load the cart HTML from shop into a wrapper
+            fetch('/test/shop/cart.html')
+              .then(r => r.text())
+              .then(html => {
+                // Extract only the <main> body content
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const mainContent = doc.querySelector('main');
+                if (mainContent) root.innerHTML = mainContent.innerHTML;
+                // Re-run scripts that shop.js needs — trigger its cart render
+                document.dispatchEvent(new Event('shop:cartReady'));
+              });
+          }
+        });
+      });
+    </script>
+</body>
+</html>
