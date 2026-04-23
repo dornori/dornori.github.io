@@ -181,23 +181,6 @@ export function initNavigation() {
         langWrap.appendChild(langSelect);
         topBar.appendChild(langWrap);
 
-        // Currency selector — populated once shop scripts load
-        const currencyWrap       = document.createElement('label');
-        currencyWrap.className   = 'profile-selector-wrap site-currency-wrap';
-        currencyWrap.id          = 'site-currency-wrap';
-        currencyWrap.textContent = (T.currency || 'CURRENCY') + ' ';
-        currencyWrap.style.display = 'none'; // hidden until shop engine boots
-
-        const currencySlot   = document.createElement('div');
-        currencySlot.id      = 'topBar-currency-slot';
-        currencyWrap.appendChild(currencySlot);
-        topBar.appendChild(currencyWrap);
-
-        // Reveal currency row once shop is booted
-        document.addEventListener('lumio:booted', () => {
-            currencyWrap.style.display = '';
-        }, { once: true });
-
         // Settings gear tab
         const tab = document.createElement('button');
         tab.id    = 'topBar-tab';
@@ -228,8 +211,6 @@ export function initNavigation() {
             tab.setAttribute('aria-label', 'Close settings');
             profileSelect.setAttribute('tabindex', '0');
             langSelect.setAttribute('tabindex', '0');
-            const cSel = topBar.querySelector('#topBar-currency-slot select');
-            if (cSel) cSel.setAttribute('tabindex', '0');
             profileSelect.focus();
         };
         const closeBar = () => {
@@ -238,8 +219,6 @@ export function initNavigation() {
             tab.setAttribute('aria-label', 'Open settings');
             profileSelect.setAttribute('tabindex', '-1');
             langSelect.setAttribute('tabindex', '-1');
-            const cSel = topBar.querySelector('#topBar-currency-slot select');
-            if (cSel) cSel.setAttribute('tabindex', '-1');
         };
 
         tab.addEventListener('click', e => {
@@ -269,50 +248,4 @@ export function initNavigation() {
 
     // Render nav links
     window.renderNav();
-
-    // ── Cart icon in header ──────────────────────────────────────────────────
-    // Rendered as a plain <a> so it links directly to /shop/cart.html.
-    // Badge count is kept in sync via localStorage + shop:cartUpdated events.
-    (function injectCartIcon() {
-        const header = document.getElementById('main-header');
-        if (!header || document.getElementById('site-cart-btn')) return;
-
-        const base     = SITE_CONFIG.appearance.base_path;
-        const cartHref = `${base}shop/cart.html`;
-
-        const a = document.createElement('a');
-        a.id        = 'site-cart-btn';
-        a.className = 'lumio-cart-icon';          // uses shop.css styles
-        a.href      = cartHref;
-        a.setAttribute('aria-label', 'Shopping cart');
-        a.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <path d="M16 10a4 4 0 0 1-8 0"/>
-            </svg>
-            <span class="lumio-cart-icon__badge lumio-cart-icon__badge--hidden"
-                  id="site-cart-badge" aria-live="polite">0</span>
-        `;
-
-        header.appendChild(a);
-
-        function updateCartBadge() {
-            try {
-                const cart  = JSON.parse(localStorage.getItem('lumio_cart') || '[]');
-                const count = cart.reduce((s, i) => s + (i.qty || 1), 0);
-                const badge = document.getElementById('site-cart-badge');
-                if (!badge) return;
-                badge.textContent = count;
-                badge.classList.toggle('lumio-cart-icon__badge--hidden', count === 0);
-            } catch (e) {}
-        }
-
-        updateCartBadge();
-        window.addEventListener('storage', e => {
-            if (e.key === 'lumio_cart') updateCartBadge();
-        });
-        document.addEventListener('shop:cartUpdated', updateCartBadge);
-    })();
 }

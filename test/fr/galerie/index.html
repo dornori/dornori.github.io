@@ -25,10 +25,15 @@
     <link rel="stylesheet" href="/test/css/main.css">
 
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+    <style>
+        /* ── Cart icon in header ── */
+        #cart-icon-slot .lumio-cart-icon { position:static; transform:none; background:transparent; border:1px solid var(--border); border-radius:4px; padding:6px 10px; }
+        #cart-icon-slot .lumio-cart-icon__badge { background:var(--accent,#F5F29B); color:#000; }
+    </style>
 </head>
 <body>
 
-    <div id="topBar"></div>
+    <div id="topBar"><div id="currency-selector-slot"></div></div>
 
     <header id="main-header">
         <div class="billboard-logo-wrap" onclick="window.showHome()">
@@ -36,10 +41,7 @@
             <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
         </div>
         <nav class="top-nav" aria-label="Main navigation"></nav>
-        <a id="site-cart-btn" class="site-cart-btn" href="/test/fr/panier/" aria-label="Panier" onclick="event.preventDefault();window.viewPage('cart')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-            <span class="site-cart-badge" id="site-cart-badge" aria-live="polite"></span>
-        </a>
+        <div id="cart-icon-slot"></div>
     </header>
 
     <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
@@ -115,6 +117,38 @@
             document.getElementById('page-content-inner').innerHTML =
                 '<h1>Error</h1><p>Could not load page. <a href="/test/">Return home</a></p>';
         });
+    </script>
+
+    <!-- ── Shop integration ── -->
+    <link rel="stylesheet" href="/test/shop/css/shop.css">
+    <script src="/test/shop/js/config.js"></script>
+    <script>
+      (function() {
+        function loadScript(src) {
+          return new Promise(function(resolve) {
+            var s = document.createElement("script");
+            s.src = src; s.onload = resolve;
+            s.onerror = function(){ console.warn("[Shop] failed:", src); resolve(); };
+            document.head.appendChild(s);
+          });
+        }
+        var modules = (typeof CONFIG !== "undefined" && CONFIG.modules || [])
+          .concat(["/test/shop/js/lang-bridge.js", "/test/shop/js/shop.js"]);
+        var chain = Promise.resolve();
+        modules.forEach(function(src){ chain = chain.then(function(){ return loadScript(src); }); });
+        chain.then(function(){
+          document.dispatchEvent(new Event("lumio:ready"));
+        });
+      })();
+    </script>
+    <script>
+      document.addEventListener("lumio:ready", function() {
+        if (typeof Shipping === "undefined" || typeof Currency === "undefined" || typeof Shop === "undefined") return;
+        Promise.all([Shipping.load(), Currency.init(), Shop.loadLang()]).then(function() {
+          Shop.renderCurrencySelector("#currency-selector-slot");
+          Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false, cartUrl: "/test/fr/panier/" });
+        });
+      });
     </script>
 </body>
 </html>
