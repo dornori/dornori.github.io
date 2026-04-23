@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dornori - test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 450px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .turnstile-wrapper {
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        /* Hide iframe */
+        .hidden-iframe {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border: 0;
+            visibility: hidden;
+        }
+    </style>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Subscribe to Dornori</h1>
+        <p class="subtitle">Stay updated with our latest news and offers</p>
+        
+        <!-- Hidden iframe to capture the response without page reload -->
+        <iframe name="hiddenFrame" class="hidden-iframe"></iframe>
+
+        <form 
+            id="subscriptionForm"
+            method="POST" 
+            action="https://formspree.io/f/xwvaleqz"
+            target="hiddenFrame"
+            enctype="application/x-www-form-urlencoded"
+        >
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    placeholder="your@email.com" 
+                    required 
+                />
+            </div>
+
+            <div class="turnstile-wrapper">
+                <div 
+                    class="cf-turnstile" 
+                    data-sitekey="0x4AAAAAACxsga5y-bJ_qkzC"
+                    data-theme="light"
+                ></div>
+            </div>
+
+            <button type="submit" id="submitBtn">
+                Subscribe Now
+            </button>
+        </form>
+
+        <div id="message" class="message"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('subscriptionForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const messageDiv = document.getElementById('message');
+
+        // Listen for messages from the hidden iframe
+        window.addEventListener('message', function(event) {
+            // Formspree sends messages about form submission status
+            if (event.data && typeof event.data === 'string') {
+                if (event.data.includes('success') || event.data.includes('thanks')) {
+                    showMessage('Thanks for subscribing! Check your email.', 'success');
+                    form.reset();
+                    // Reset Turnstile
+                    if (typeof turnstile !== 'undefined') {
+                        turnstile.reset();
+                    }
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Subscribe Now';
+                }
+            }
+        });
+
+        // Alternative: detect iframe load to check response
+        const iframe = document.querySelector('iframe[name="hiddenFrame"]');
+        iframe.addEventListener('load', function() {
+            // Try to read the iframe content (may be restricted by CORS)
+            try {
+                const iframeContent = iframe.contentWindow.document;
+                const bodyText = iframeContent.body.innerText;
+                
+                if (bodyText && bodyText.toLowerCase().includes('success')) {
+                    showMessage('Thanks for subscribing! Check your email.', 'success');
+                    form.reset();
+                    if (typeof turnstile !== 'undefined') {
+                        turnstile.reset();
+                    }
+                } else if (bodyText && bodyText.toLowerCase().includes('error')) {
+                    showMessage('Submission failed. Please try again.', 'error');
+                    if (typeof turnstile !== 'undefined') {
+                        turnstile.reset();
+                    }
+                }
+            } catch (e) {
+                // CORS prevents reading iframe content - this is expected
+                console.log('Cannot read iframe due to CORS, but submission likely succeeded');
+                // Assume success since we can't read due to CORS
+                showMessage('Form submitted! You will receive a confirmation.', 'success');
+                form.reset();
+                if (typeof turnstile !== 'undefined') {
+                    turnstile.reset();
+                }
+            }
+            
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Subscribe Now';
+        });
+
+        // Handle form submission
+        form.addEventListener('submit', function(event) {
+            // Check if Turnstile is completed
+            const turnstileToken = document.querySelector('[name="cf-turnstile-response"]')?.value;
+            
+            if (!turnstileToken) {
+                event.preventDefault();
+                showMessage('Please complete the security check first.', 'error');
+                return false;
+            }
+
+            // Disable button and show loading
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span style="display:inline-block;width:16px;height:16px;border:2px solid white;border-radius:50%;border-top-color:transparent;animation:spin 0.6s linear infinite;margin-right:8px;vertical-align:middle;"></span> Submitting...';
+            
+            // Add spin animation style
+            if (!document.querySelector('#spinner-style')) {
+                const style = document.createElement('style');
+                style.id = 'spinner-style';
+                style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+                document.head.appendChild(style);
+            }
+
+            // Clear previous message
+            messageDiv.className = 'message';
+            messageDiv.style.display = 'none';
+            
+            // Let the form submit normally to the iframe
+            // The iframe's load event will handle the response
+            return true;
+        });
+
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type}`;
+            messageDiv.style.display = 'block';
+            
+            // Auto-hide success message after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    messageDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>
