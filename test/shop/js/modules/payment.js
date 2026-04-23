@@ -1,5 +1,5 @@
 /* =========================================================
-   LUMIO — Payment Module  (js/modules/payment.js)
+   WEBSHOP — Payment Module  (js/modules/payment.js)
    =========================================================
    Reads:  CONFIG.payment
    Emits:  CustomEvent "payment:success" { orderRef, processor, details }
@@ -139,7 +139,7 @@ const Payment = (() => {
       this._elements = this._instance.elements({ clientSecret, appearance: cfg.appearance });
       el.innerHTML   = `
         <div id="stripe-pe" style="margin-bottom:14px;"></div>
-        <button class="lumio-btn lumio-btn--primary lumio-btn--full" id="stripe-pay">Pay Now</button>
+        <button class="webshop-btn webshop-btn--primary webshop-btn--full" id="stripe-pay">Pay Now</button>
         <p id="stripe-err" style="color:#c0392b;font-size:0.82rem;margin-top:8px;display:none;"></p>`;
       this._elements.create("payment").mount("#stripe-pe");
 

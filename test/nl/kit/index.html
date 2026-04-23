@@ -102,16 +102,11 @@
     <link rel="stylesheet" href="css/main.css">
 
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
-    <style>
-        /* ── Cart icon in header ── */
-        #cart-icon-slot .lumio-cart-icon { position:static; transform:none; background:transparent; border:1px solid var(--border); border-radius:4px; padding:6px 10px; }
-        #cart-icon-slot .lumio-cart-icon__badge { background:var(--accent,#F5F29B); color:#000; }
-    </style>
 </head>
 <body>
 
     <!-- Settings bar (profile + language selectors rendered by nav-loader) -->
-    <div id="topBar"><div id="currency-selector-slot"></div></div>
+    <div id="topBar"></div>
 
      <!-- Header -->
     <header id="main-header">
@@ -119,7 +114,7 @@
             <img src="assets/images/dornori-logo-transparent.webp" class="billboard-logo" alt="Dornori" id="banner-img">
             <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
         </div>
-        <nav class="top-nav" aria-label="Main navigation"><div id="cart-icon-slot"></div></nav>
+        <nav class="top-nav" aria-label="Main navigation"></nav>
     </header>
 
     <!-- Mobile nav -->
@@ -191,45 +186,6 @@
         }
 
         init();
-    </script>
-
-    <!-- ── Shop integration ── -->
-    <link rel="stylesheet" href="/test/shop/css/shop.css">
-    <script src="/test/shop/js/config.js"></script>
-    <script>
-      (function() {
-        function loadScript(src) {
-          return new Promise(function(resolve) {
-            var s = document.createElement("script");
-            s.src = src; s.onload = resolve;
-            s.onerror = function(){ console.warn("[Shop] failed:", src); resolve(); };
-            document.head.appendChild(s);
-          });
-        }
-        var shopBase = "/test/shop/";
-        if (typeof CONFIG !== "undefined" && CONFIG.data) {
-          Object.keys(CONFIG.data).forEach(function(k) {
-            if (!CONFIG.data[k].startsWith("/")) CONFIG.data[k] = shopBase + CONFIG.data[k];
-          });
-        }
-        var modules = (typeof CONFIG !== "undefined" && CONFIG.modules || [])
-          .map(function(src){ return src.startsWith("/") ? src : shopBase + src; })
-          .concat(["/test/shop/js/lang-bridge.js", "/test/shop/js/shop.js"]);
-        var chain = Promise.resolve();
-        modules.forEach(function(src){ chain = chain.then(function(){ return loadScript(src); }); });
-        chain.then(function(){
-          document.dispatchEvent(new Event("lumio:ready"));
-        });
-      })();
-    </script>
-    <script>
-      document.addEventListener("lumio:ready", function() {
-        if (typeof Shipping === "undefined" || typeof Currency === "undefined" || typeof Shop === "undefined") return;
-        Promise.all([Shipping.load(), Currency.init(), Shop.loadLang()]).then(function() {
-          Shop.renderCurrencySelector("#currency-selector-slot");
-          Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false, cartUrl: "/test/cart.html?lang=" + (window.__PAGE_LANG__ || localStorage.getItem("dornori-lang") || "en") });
-        });
-      });
     </script>
 </body>
 </html>

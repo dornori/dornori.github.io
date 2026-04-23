@@ -1,5 +1,5 @@
 /* =========================================================
-   LUMIO — Shipping Module  (js/modules/shipping.js)
+   WEBSHOP — Shipping Module  (js/modules/shipping.js)
    =========================================================
    Reads:  CONFIG.data.shippingCsv
    Populates:
