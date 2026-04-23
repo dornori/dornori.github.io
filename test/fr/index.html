@@ -18,6 +18,7 @@
             <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
         </div>
         <nav class="top-nav" aria-label="Main navigation"></nav>
+        <a href="/test/en/cart/" class="cart-icon-slot" id="cart-icon-slot" aria-label="Shopping cart"></a>
     </header>
     <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
     <main id="viewport">
@@ -48,6 +49,7 @@
     </footer>
     <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
     <script>window.__PAGE_LANG__ = 'fr';</script>
+    <script src="/test/shop/shop/js/config.js"></script>
     <script type="module">
         import { initI18n }        from '/test/js/i18n.js';
         import { initNavigation }  from '/test/js/nav-loader.js';
@@ -61,6 +63,24 @@
             await initI18n();
             initNavigation(); initStickyBanner(); initSocials();
             initFooter(); initEmbedForms(); initPageLoader();
+            // Load shop modules then initialise cart icon
+            const shopModules = (CONFIG.modules || []).concat(['js/shop.js']);
+            const base = '/test/shop/shop/';
+            let chain = Promise.resolve();
+            shopModules.forEach(src => {
+                chain = chain.then(() => new Promise(resolve => {
+                    const s = document.createElement('script');
+                    s.src = base + src;
+                    s.onload = resolve; s.onerror = resolve;
+                    document.head.appendChild(s);
+                }));
+            });
+            chain.then(() => {
+                document.dispatchEvent(new Event('webshop:ready'));
+                if (typeof Shop !== 'undefined') {
+                    Shop.renderCartIcon({ target: '#cart-icon-slot', fixed: false });
+                }
+            });
         }
         init();
     </script>
