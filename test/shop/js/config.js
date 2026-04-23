@@ -1,5 +1,5 @@
 /* =========================================================
-   LUMIO CONFIG  –  config.js  (v4)
+   WEBSHOP CONFIG  –  config.js  (v4)
    =========================================================
    RULES FOR THIS FILE:
    · Human-readable parameters ONLY — no executable code.
@@ -39,8 +39,8 @@ const CONFIG = {
   storageKeys: {
     parentLangKey:  "dornori-lang",   // key the parent site (Dornori) writes
     shopLangKey:    "dornori-lang",   // key the shop reads/writes for its own pref
-    currencyKey:    "lumio_currency", // key for persisted currency preference
-    cartKey:        "lumio_cart",     // key for cart data
+    currencyKey:    "webshop_currency", // key for persisted currency preference
+    cartKey:        "webshop_cart",     // key for cart data
   },
 
   /* ── Feature flags ─────────────────────────────────── */
