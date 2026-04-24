@@ -79,11 +79,11 @@ const CONFIG = {
 
   /* ── Data file paths ───────────────────────────────── */
   data: {
-    shippingCsv:     "data/shipping.csv",
-    currenciesCsv:   "data/currencies.csv",
-    langUiDir:       "data/lang/ui/",
-    langProductsDir: "data/lang/products/",
-    productsJson:    "data/products.json",
+    shippingCsv:     "/test/shop/data/shipping.csv",
+    currenciesCsv:   "/test/shop/data/currencies.csv",
+    langUiDir:       "/test/shop/data/lang/ui/",
+    langProductsDir: "/test/shop/data/lang/products/",
+    productsJson:    "/test/shop/data/products.json",
   },
 
   /* ── Modules to load ───────────────────────────────── */
@@ -92,9 +92,9 @@ const CONFIG = {
    * Add new entries to extend with additional processors.
    */
   modules: [
-    "js/modules/currency.js",
-    "js/modules/shipping.js",
-    "js/modules/payment.js",
+    "/test/shop/js/modules/currency.js",
+    "/test/shop/js/modules/shipping.js",
+    "/test/shop/js/modules/payment.js",
   ],
 
   /* ── Payment ───────────────────────────────────────── */
