@@ -172,10 +172,10 @@ const Shop = (() => {
       .catch(() => ({}));
 
     _langLoadPromise = Promise.all([
-      safeFetch("data/lang/ui/" + lang + ".json"),
-      safeFetch("data/lang/ui/en.json"),
-      safeFetch("data/lang/products/" + lang + ".json"),
-      safeFetch("data/lang/products/en.json"),
+      safeFetch("/test/shop/data/lang/ui/" + lang + ".json"),
+      safeFetch("/test/shop/data/lang/ui/en.json"),
+      safeFetch("/test/shop/data/lang/products/" + lang + ".json"),
+      safeFetch("/test/shop/data/lang/products/en.json"),
     ]).then(([ui, uiEn, prod, prodEn]) => {
       LANG = { ...uiEn, ...ui };
       const clean = obj => { const r = { ...obj }; delete r._readme; return r; };
