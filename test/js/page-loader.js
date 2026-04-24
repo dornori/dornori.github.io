@@ -3,6 +3,7 @@ import SITE_CONFIG from './config.js';
 import { mountSlideshow } from './slideshow.js';
 import { initEmbedForms }  from './embed-form.js';
 import { injectHreflangTags } from './i18n.js';
+import { mountShopEmbeds } from './shop-loader.js';
 
 export function initPageLoader() {
     const homeView    = document.getElementById('home-view');
@@ -87,6 +88,7 @@ export function initPageLoader() {
             homeView.innerHTML = html;
             homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
+            await mountShopEmbeds(homeView);
         } catch {
             // Silently fail — home.html may not be translated yet
         }
@@ -120,6 +122,7 @@ export function initPageLoader() {
             pageContent.innerHTML = html;
             pageContent.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
+            await mountShopEmbeds(pageContent);
 
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');

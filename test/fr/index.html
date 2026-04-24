@@ -100,6 +100,22 @@
                         cartUrl: '/test/en/cart/'
                     });
                     Shop.renderCurrencySelector('#currency-selector-slot');
+
+                    // Keep shop language in sync when the parent site switches language
+                    var _origSetLang = window.setLang;
+                    window.setLang = async function (code) {
+                        if (_origSetLang) await _origSetLang(code);
+                        if (typeof Shop !== 'undefined') {
+                            try { await Shop.switchLanguage(code); } catch (e) {}
+                        }
+                    };
+
+                    // Also catch cross-tab / same-tab storage writes
+                    window.addEventListener('storage', function (e) {
+                        if (e.key === 'dornori-lang' && e.newValue && typeof Shop !== 'undefined') {
+                            Shop.switchLanguage(e.newValue).catch(function () {});
+                        }
+                    });
                 }
             })();
         }

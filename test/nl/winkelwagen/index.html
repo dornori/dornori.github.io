@@ -146,6 +146,21 @@
         Promise.all([Shipping.load(), Currency.init(), Shop.loadLang()]).then(function() {
           Shop.renderCurrencySelector("#currency-selector-slot");
           Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false, cartUrl: "/test/nl/winkelwagen/" });
+          // Keep shop language in sync when the parent site switches language
+          var _origSetLang = window.setLang;
+          window.setLang = async function (code) {
+            if (_origSetLang) await _origSetLang(code);
+            if (typeof Shop !== 'undefined') {
+              try { await Shop.switchLanguage(code); } catch (e) {}
+            }
+          };
+
+          // Also catch cross-tab / same-tab storage writes
+          window.addEventListener('storage', function (e) {
+            if (e.key === 'dornori-lang' && e.newValue && typeof Shop !== 'undefined') {
+              Shop.switchLanguage(e.newValue).catch(function () {});
+            }
+          });
           // Also wire the cart init once the content fragment has been injected
           document.addEventListener("lumio:cartPageReady", function onCartReady() {
             document.removeEventListener("lumio:cartPageReady", onCartReady);
