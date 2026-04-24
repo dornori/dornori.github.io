@@ -181,21 +181,7 @@ export function initNavigation() {
         langWrap.appendChild(langSelect);
         topBar.appendChild(langWrap);
 
-        // Currency selector (shop integration)
-        const currencyWrap     = document.createElement('label');
-        currencyWrap.className = 'profile-selector-wrap';
-        currencyWrap.id        = 'currency-selector-slot';
-        topBar.appendChild(currencyWrap);
-
-        // Render shop currency selector once shop is ready
-        const attachCurrency = () => {
-            if (typeof Shop !== 'undefined' && typeof Shop.renderCurrencySelector === 'function') {
-                Shop.renderCurrencySelector('#currency-selector-slot');
-            }
-        };
-        document.addEventListener('webshop:ready', attachCurrency, { once: true });
-        // Also try immediately in case shop already loaded
-        attachCurrency();
+        // Settings gear tab
         const tab = document.createElement('button');
         tab.id    = 'topBar-tab';
         tab.setAttribute('aria-label', 'Open settings');
