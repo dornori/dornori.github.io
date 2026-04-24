@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WEBSHOP – Curated Lighting</title>
+  <link rel="stylesheet" href="css/shop.css">
+  <style>
+    .webshop-hero {
+      background: var(--c-surface);
+      border-bottom: 1px solid var(--c-border);
+      padding: 72px 0 60px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .webshop-hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 70% 80% at 50% 120%, var(--c-accent-light) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .webshop-hero-eyebrow {
+      font-size: 0.72rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--c-accent);
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .webshop-hero-title {
+      font-family: var(--font-display);
+      font-size: clamp(2.8rem, 6vw, 5rem);
+      font-weight: 400;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+    .webshop-hero-title em { font-style: italic; color: var(--c-accent); }
+    .webshop-hero-sub {
+      color: var(--c-text-3);
+      font-size: 1.05rem;
+      max-width: 420px;
+      margin: 0 auto 32px;
+      line-height: 1.6;
+    }
+    .webshop-free-ship-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--c-accent-light);
+      border: 1px solid var(--c-accent);
+      color: var(--c-accent-dark);
+      padding: 8px 18px;
+      border-radius: 100px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="webshop-page-header">
+    <div class="webshop-container">
+      <div class="webshop-page-header__inner">
+        <a href="index.html" class="webshop-logo">WEBSHOP</a>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <!--
+            Language buttons: hidden by CONFIG.features.showLanguageSwitcher = false (default).
+            Language is auto-detected from browser Accept-Language → stored pref → URL ?lang=.
+            Set CONFIG.features.showLanguageSwitcher = true in config.js to show these.
+          -->
+          <div class="webshop-lang-switcher" aria-hidden="true" style="display:none;">
+            <button class="webshop-lang-btn" data-lang="en">EN</button>
+            <button class="webshop-lang-btn" data-lang="no">NO</button>
+            <button class="webshop-lang-btn" data-lang="nl">NL</button>
+          </div>
+          <div id="currency-selector-slot"></div>
+          <div id="cart-icon-slot"></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="webshop-hero">
+    <div class="webshop-container">
+      <p class="webshop-hero-eyebrow">New Collection 2025</p>
+      <h1 class="webshop-hero-title">Light that <em>lives</em><br>with you</h1>
+      <p class="webshop-hero-sub">Handpicked lamps and luminaires for every corner of your home.</p>
+      <div class="webshop-free-ship-badge">✦ Free shipping on orders over €150</div>
+    </div>
+  </section>
+
+  <main class="webshop-page-main">
+    <div class="webshop-container">
+      <div id="shop"></div>
+    </div>
+  </main>
+
+  <footer style="background:var(--c-text);color:var(--c-white);padding:40px 0;margin-top:40px;">
+    <div class="webshop-container" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+      <span class="webshop-logo" style="font-size:1.2rem;">WEBSHOP</span>
+      <span style="font-size:0.82rem;color:rgba(255,255,255,.45);">© 2025 WEBSHOP. All rights reserved.</span>
+    </div>
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script>
+    (function() {
+      function loadScript(src) {
+        return new Promise(function(resolve) {
+          var s = document.createElement("script");
+          s.src = src;
+          s.onload = resolve;
+          s.onerror = function() { console.warn("[WEBSHOP] Module failed:", src); resolve(); };
+          document.head.appendChild(s);
+        });
+      }
+      var modules = (CONFIG.modules || []).concat(["js/lang-bridge.js", "js/shop.js"]);
+      var chain = Promise.resolve();
+      modules.forEach(function(src) { chain = chain.then(function() { return loadScript(src); }); });
+      chain.then(function() { document.dispatchEvent(new Event("webshop:ready")); });
+    })();
+  </script>
+  <script>
+    document.addEventListener("webshop:ready", function() {
+      Promise.all([
+        Shipping.load(),
+        Currency.init(),
+        Shop.loadLang(),
+      ]).then(() => {
+        Shop.wireLanguageSwitcher(".webshop-lang-btn");
+        Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false });
+        Shop.renderCurrencySelector("#currency-selector-slot");
+        Shop.renderShop("shop", { showFilter: true });
+      });
+    });
+  </script>
+</body>
+</html>
