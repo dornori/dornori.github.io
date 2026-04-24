@@ -118,6 +118,15 @@ export function initPageLoader() {
             if (spinner) spinner.remove();
 
             pageContent.innerHTML = html;
+
+            // Re-execute <script> tags — browsers skip scripts set via innerHTML
+            pageContent.querySelectorAll('script').forEach(orig => {
+                const s = document.createElement('script');
+                [...orig.attributes].forEach(a => s.setAttribute(a.name, a.value));
+                if (!orig.src) s.textContent = orig.textContent;
+                orig.replaceWith(s);
+            });
+
             pageContent.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
 
