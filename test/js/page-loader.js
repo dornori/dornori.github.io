@@ -4,16 +4,6 @@ import { mountSlideshow } from './slideshow.js';
 import { initEmbedForms }  from './embed-form.js';
 import { injectHreflangTags } from './i18n.js';
 
-function ensureShopCSS() {
-    const shopCSS = '/test/shop/shop/css/shop.css';
-    if (!document.querySelector(`link[href="${shopCSS}"]`)) {
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = shopCSS;
-        document.head.appendChild(link);
-    }
-}
-
 export function initPageLoader() {
     const homeView    = document.getElementById('home-view');
     const pageView    = document.getElementById('page-view');
@@ -123,23 +113,18 @@ export function initPageLoader() {
 
             const html = await res.text();
 
-            // Ensure shop CSS is loaded (content pages may use shop components)
-            ensureShopCSS();
-
             // Remove the static loading spinner if present
             const spinner = document.getElementById('page-loading-spinner');
             if (spinner) spinner.remove();
 
             pageContent.innerHTML = html;
 
-            // Re-execute <script> tags (innerHTML does not run them)
-            pageContent.querySelectorAll('script').forEach(oldScript => {
-                const newScript = document.createElement('script');
-                [...oldScript.attributes].forEach(attr => newScript.setAttribute(attr.name, attr.value));
-                if (!oldScript.src) {
-                    newScript.textContent = oldScript.textContent;
-                }
-                oldScript.parentNode.replaceChild(newScript, oldScript);
+            // Re-execute <script> tags — browsers skip scripts set via innerHTML
+            pageContent.querySelectorAll('script').forEach(orig => {
+                const s = document.createElement('script');
+                [...orig.attributes].forEach(a => s.setAttribute(a.name, a.value));
+                if (!orig.src) s.textContent = orig.textContent;
+                orig.replaceWith(s);
             });
 
             pageContent.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
