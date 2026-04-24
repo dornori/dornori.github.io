@@ -23,8 +23,24 @@
 
     <link rel="stylesheet" href="/test/css/profiles.css">
     <link rel="stylesheet" href="/test/css/main.css">
+    <!-- Shop CSS -->
+    <link rel="stylesheet" href="/test/shop/css/shop.css">
 
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+    <style>
+        /* Cart icon integration */
+        #main-header { display: flex !important; align-items: center !important; justify-content: space-between !important; flex-wrap: wrap; }
+        .cart-icon-header-slot { margin-left: auto; display: inline-flex; align-items: center; }
+        .webshop-cart-icon-wrap { position: relative !important; top: auto !important; right: auto !important; display: inline-block; }
+        .webshop-cart-icon { width: 44px; height: 44px; background: rgba(0,0,0,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s; text-decoration: none; color: var(--c-text); }
+        .webshop-cart-icon:hover { background: var(--accent); color: white; }
+        .webshop-cart-icon-wrap:hover .webshop-cart-hover-panel,
+        .webshop-cart-hover-panel:hover { opacity: 1 !important; visibility: visible !important; pointer-events: auto !important; transform: translateY(0) !important; }
+        .webshop-cart-hover-panel { position: absolute; top: calc(100% + 8px); right: 0; left: auto; width: 300px; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.13); padding: 12px; opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-6px); transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s; z-index: 10000; }
+        .webshop-cart-hover-panel::before { content: ''; position: absolute; top: -6px; right: 16px; width: 12px; height: 12px; background: var(--c-surface); border-left: 1px solid var(--c-border); border-top: 1px solid var(--c-border); transform: rotate(45deg); }
+        .webshop-currency-selector { display: inline-flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.05); border: 1px solid var(--border); border-radius: 20px; padding: 4px 8px; margin-left: 8px; }
+        .webshop-currency-selector__select { background: transparent; border: none; font-family: var(--font-mono); font-size: 0.7rem; font-weight: 500; cursor: pointer; }
+    </style>
 </head>
 <body>
 
@@ -36,6 +52,7 @@
             <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
         </div>
         <nav class="top-nav" aria-label="Main navigation"></nav>
+        <div id="cart-icon-slot" class="cart-icon-header-slot"></div>
     </header>
 
     <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
@@ -82,6 +99,92 @@
         window.__PAGE_LANG__ = 'de';
         window.__PAGE_SLUG__ = 'privacy';
     </script>
+    <!-- Shop modules -->
+    <script src="/test/shop/js/config.js"></script>
+    <script src="/test/shop/js/lang-bridge.js"></script>
+    <script>
+        (function() {
+            if (typeof CONFIG !== 'undefined') {
+                CONFIG.data.shippingCsv = '/test/shop/data/shipping.csv';
+                CONFIG.data.currenciesCsv = '/test/shop/data/currencies.csv';
+                CONFIG.data.langUiDir = '/test/shop/data/lang/ui/';
+                CONFIG.data.langProductsDir = '/test/shop/data/lang/products/';
+                CONFIG.data.productsJson = '/test/shop/data/products.json';
+                CONFIG.modules = [
+                    '/test/shop/js/modules/currency.js',
+                    '/test/shop/js/modules/shipping.js',
+                    '/test/shop/js/modules/payment.js'
+                ];
+                CONFIG.storageKeys.parentLangKey = 'dornori-lang';
+                CONFIG.storageKeys.shopLangKey = 'dornori-lang';
+                CONFIG.defaultLanguage = window.__PAGE_LANG__ || 'en';
+                CONFIG.language = window.__PAGE_LANG__ || 'en';
+                CONFIG.features.showLanguageSwitcher = false;
+                CONFIG.features.showCurrencySelector = true;
+            }
+        })();
+    </script>
+    <script>
+        (function() {
+            function loadScript(src) {
+                return new Promise(function(resolve) {
+                    var s = document.createElement("script");
+                    s.src = src;
+                    s.onload = resolve;
+                    s.onerror = function() { console.warn("[Shop] Module failed:", src); resolve(); };
+                    document.head.appendChild(s);
+                });
+            }
+            var modules = (typeof CONFIG !== 'undefined' && CONFIG.modules) || [];
+            modules = modules.concat(['/test/shop/js/shop.js']);
+            var chain = Promise.resolve();
+            modules.forEach(function(src) { 
+                chain = chain.then(function() { return loadScript(src); }); 
+            });
+            chain.then(function() { 
+                document.dispatchEvent(new Event("webshop:ready")); 
+            });
+        })();
+    </script>
+
+    <script>
+        document.addEventListener("webshop:ready", async function() {
+            try {
+                if (typeof Currency !== 'undefined') {
+                    await Currency.init();
+                    await Currency.waitForReady();
+                }
+                if (typeof Shipping !== 'undefined') {
+                    await Shipping.load();
+                }
+                await Shop.loadLang();
+                
+                if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
+                    Shop.renderCartIcon({ 
+                        target: "#cart-icon-slot", 
+                        fixed: false,
+                        cartUrl: "/test/shop/cart.html"
+                    });
+                }
+                
+                const topBar = document.getElementById('topBar');
+                if (topBar && typeof Currency !== 'undefined' && CONFIG.features.showCurrencySelector !== false) {
+                    if (!topBar.querySelector('.webshop-currency-selector')) {
+                        const currencyContainer = document.createElement('div');
+                        currencyContainer.id = 'currency-selector-slot';
+                        topBar.appendChild(currencyContainer);
+                        if (typeof Shop !== 'undefined' && typeof Shop.renderCurrencySelector === 'function') {
+                            Shop.renderCurrencySelector('#currency-selector-slot');
+                        }
+                    }
+                }
+                console.log("[Shop] Cart initialized for", window.__PAGE_LANG__);
+            } catch(e) {
+                console.warn("[Shop] Init error:", e);
+            }
+        });
+    </script>
+
 
     <script type="module">
         import { initI18n }        from '/test/js/i18n.js';
