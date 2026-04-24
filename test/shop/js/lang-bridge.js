@@ -12,9 +12,9 @@
  *   To bridge from a different parent key, change parentLangKey in config.js.
  *
  * LOAD ORDER — include AFTER config.js, BEFORE shop.js:
- *   <script src="js/config.js"></script>
- *   <script src="js/lang-bridge.js"></script>
- *   <script src="js/shop.js"></script>
+ *   <script src="/test/shop/js/config.js"></script>
+ *   <script src="/test/shop/js/lang-bridge.js"></script>
+ *   <script src="/test/shop/js/shop.js"></script>
  *
  * NOTE: Supported languages are set by the Shipping module at runtime
  *   (derived from shipping.csv). Lang-bridge runs before modules load,
