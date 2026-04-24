@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dornori — Baue Deine eigene Rising Star Lampe</title>
-    <meta name="description" content="Dornori — Baue Deine eigene Rising Star Lampe">
+    <title>Dornori — Build Your Own Rising Star Lamp</title>
+    <meta name="description" content="Dornori — Build Your Own Rising Star Lamp">
     <link rel="icon" href="/assets/icons/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/test/css/profiles.css">
     <link rel="stylesheet" href="/test/css/main.css">
@@ -18,7 +18,6 @@
             <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
         </div>
         <nav class="top-nav" aria-label="Main navigation"></nav>
-        <div class="cart-icon-slot" id="cart-icon-slot"></div>
     </header>
     <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
     <main id="viewport">
@@ -49,21 +48,6 @@
     </footer>
     <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
     <script>window.__PAGE_LANG__ = 'de';</script>
-
-    <!-- Shop: fix relative data paths to absolute before modules load -->
-    <script src="/test/shop/js/config.js"></script>
-    <script>
-        (function(){
-            var base = '/test/shop/';
-            var d = CONFIG.data;
-            d.shippingCsv     = base + d.shippingCsv;
-            d.currenciesCsv   = base + d.currenciesCsv;
-            d.productsJson    = base + d.productsJson;
-            d.langUiDir       = base + d.langUiDir;
-            d.langProductsDir = base + d.langProductsDir;
-        })();
-    </script>
-
     <script type="module">
         import { initI18n }        from '/test/js/i18n.js';
         import { initNavigation }  from '/test/js/nav-loader.js';
@@ -73,55 +57,10 @@
         import { initPageLoader }  from '/test/js/page-loader.js';
         import { initFooter }      from '/test/js/footer-loader.js';
         async function init() {
+            localStorage.setItem('dornori-lang', 'de');
             await initI18n();
-            initNavigation();
-            initStickyBanner();
-            initSocials();
-            initFooter();
-            initEmbedForms();
-            initPageLoader();
-
-            // ── Shop: load modules in order, then render cart icon + currency ──
-            var shopBase = '/test/shop/';
-            function loadScript(src) {
-                return new Promise(function(resolve) {
-                    var s = document.createElement('script');
-                    s.src = src; s.onload = resolve; s.onerror = resolve;
-                    document.head.appendChild(s);
-                });
-            }
-            (async function loadShop() {
-                for (var i = 0; i < CONFIG.modules.length; i++) {
-                    await loadScript(shopBase + CONFIG.modules[i]);
-                }
-                await loadScript(shopBase + 'js/lang-bridge.js');
-                await loadScript(shopBase + 'js/shop.js');
-                document.dispatchEvent(new Event('webshop:ready'));
-                if (typeof Shop !== 'undefined') {
-                    Shop.renderCartIcon({
-                        target: '#cart-icon-slot',
-                        fixed: false,
-                        cartUrl: '/test/en/cart/'
-                    });
-                    Shop.renderCurrencySelector('#currency-selector-slot');
-
-                    // Keep shop language in sync when the parent site switches language
-                    var _origSetLang = window.setLang;
-                    window.setLang = async function (code) {
-                        if (_origSetLang) await _origSetLang(code);
-                        if (typeof Shop !== 'undefined') {
-                            try { await Shop.switchLanguage(code); } catch (e) {}
-                        }
-                    };
-
-                    // Also catch cross-tab / same-tab storage writes
-                    window.addEventListener('storage', function (e) {
-                        if (e.key === 'dornori-lang' && e.newValue && typeof Shop !== 'undefined') {
-                            Shop.switchLanguage(e.newValue).catch(function () {});
-                        }
-                    });
-                }
-            })();
+            initNavigation(); initStickyBanner(); initSocials();
+            initFooter(); initEmbedForms(); initPageLoader();
         }
         init();
     </script>
