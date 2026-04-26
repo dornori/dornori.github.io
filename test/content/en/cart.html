@@ -272,7 +272,7 @@
   // ── Render cart table ─────────────────────────────────────────────────────
   function renderCartTable() {
     if (typeof Shop === 'undefined') return;
-    var cart    = Shop.getCart();
+    var cart    = cleanCart(Shop.getCart());
     var tbody   = document.getElementById('cart-tbody');
     var empty   = document.getElementById('cart-empty-state');
     var table   = document.getElementById('cart-table');
@@ -308,7 +308,7 @@
           '<span class="webshop-qty-val">' + item.qty + '</span>' +
           '<button class="webshop-qty-btn webshop-qty-btn--plus" data-key="' + item.cartKey + '">+</button>' +
         '</div></td>' +
-        '<td class="webshop-cart-item-total">' + Shop.fmt(item.price * item.qty) + '</td>' +
+        '<td class="webshop-cart-item-total">' + Shop.fmt((parseFloat(item.price) || 0) * item.qty) + '</td>' +
         '<td><button class="webshop-cart-remove" data-key="' + item.cartKey + '">✕</button></td>' +
       '</tr>';
     }).join('');
@@ -331,9 +331,16 @@
   }
 
   // ── Render totals ─────────────────────────────────────────────────────────
+  function cleanCart(cart) {
+    // Guard against old items with undefined price (stored before fix)
+    return cart.map(function(item) {
+      return Object.assign({}, item, { price: parseFloat(item.price) || 0, weight: parseFloat(item.weight) || 0 });
+    });
+  }
+
   function renderCartTotals() {
     if (typeof Shop === 'undefined') return;
-    var cart = Shop.getCart();
+    var cart = cleanCart(Shop.getCart());
     var t = Shop.calculateTotals(cart, isBusiness, null);
     var sub = document.getElementById('cart-subtotal-val');
     var tax = document.getElementById('cart-tax-val');
@@ -346,7 +353,7 @@
   // ── Render step 3 summary ─────────────────────────────────────────────────
   function renderStep3Summary() {
     if (typeof Shop === 'undefined') return;
-    var cart = Shop.getCart();
+    var cart = cleanCart(Shop.getCart());
     var t = Shop.calculateTotals(cart, isBusiness, formData.country);
     var el = function(id) { return document.getElementById(id); };
     if (el('cart-step3-subtotal')) el('cart-step3-subtotal').textContent = Shop.fmt(t.subtotal);
@@ -360,7 +367,7 @@
         return '<div class="webshop-step3-summary__item">' +
           '<img src="' + (item.image || fb) + '" alt="' + item.name + '" onerror="this.src='' + fb + ''">' +
           '<div class="webshop-step3-summary__item-name">' + item.qty + '× ' + item.name + '</div>' +
-          '<div class="webshop-step3-summary__item-price">' + Shop.fmt(item.price * item.qty) + '</div>' +
+          '<div class="webshop-step3-summary__item-price">' + Shop.fmt((parseFloat(item.price) || 0) * item.qty) + '</div>' +
         '</div>';
       }).join('');
     }

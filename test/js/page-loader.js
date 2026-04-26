@@ -6,27 +6,43 @@ import { injectHreflangTags } from './i18n.js';
 
 
 // ── GLOBAL SHOP CARD WIRER ────────────────────────────────────────────────────
-// Called after every content injection. Wires ALL .webshop-card-atc buttons
-// found in the injected container, reading price from data-base-price so it
-// works even when the product ID is not in products.json.
+// Queue of containers waiting for Shop to be ready
+const _pendingWire = [];
+let   _shopReady   = false;
+
+document.addEventListener('webshop:ready', () => {
+    _shopReady = true;
+    _pendingWire.forEach(c => _doWireShopCards(c));
+    _pendingWire.length = 0;
+});
+
+// Public entry point — safe to call at any time
 function wireShopCards(container) {
+    if (_shopReady && typeof Shop !== 'undefined') {
+        _doWireShopCards(container);
+    } else {
+        _pendingWire.push(container);
+    }
+}
+
+function _doWireShopCards(container) {
     if (typeof Shop === 'undefined') return;
 
     container.querySelectorAll('.webshop-product-card[data-product-id]').forEach(card => {
-        if (card._wired) return;          // already wired by previous injection
+        if (card._wired) return;
         card._wired = true;
 
-        const productId = card.dataset.productId;
-        const priceEl   = card.querySelector('[data-base-price]');
-        const basePrice = priceEl ? parseFloat(priceEl.dataset.basePrice) : 0;
-        const titleEl   = card.querySelector('.webshop-card-title');
-        const name      = titleEl ? titleEl.textContent.trim() : productId;
+        const productId  = card.dataset.productId;
+        const priceEl    = card.querySelector('[data-base-price]');
+        const basePrice  = priceEl ? parseFloat(priceEl.dataset.basePrice) : 0;
+        const titleEl    = card.querySelector('.webshop-card-title');
+        const name       = titleEl ? titleEl.textContent.trim() : productId;
 
-        let qty = 1;
+        let qty               = 1;
         let selectedVariantId = null;
         let selectedColor     = null;
 
-        // Variant buttons
+        // Initialise from active state + wire variant buttons
         const variantBtns = card.querySelectorAll('.webshop-variant-btn:not([disabled])');
         variantBtns.forEach(btn => {
             if (btn.classList.contains('active')) selectedVariantId = btn.dataset.variantId;
@@ -59,44 +75,47 @@ function wireShopCards(container) {
             if (qtySpan) qtySpan.textContent = qty;
         });
 
-        // Quick-add button
+        // Quick-add
         card.querySelector('.webshop-card-quick-add')?.addEventListener('click', () => {
             Shop.addToCart({ id: productId, name, price: basePrice, weight: 0 }, 1, selectedVariantId, selectedColor);
-            Shop.toast(name + ' added!');
+            if (typeof Shop.toast === 'function') Shop.toast(name + ' added!');
         });
 
-        // Add-to-cart buttons (card + any modal inside the card)
+        // Add-to-cart (card + modal)
         card.querySelectorAll('.webshop-card-atc, .webshop-modal-atc').forEach(btn => {
             if (btn._wired) return;
             btn._wired = true;
             btn.addEventListener('click', () => {
-                // Re-read price in case currency changed the display (price stored in EUR)
-                const product = { id: productId, name, price: basePrice, weight: 0 };
-                Shop.addToCart(product, qty, selectedVariantId, selectedColor);
-                Shop.toast(name + (typeof Shop.t === 'function' ? ' ' + Shop.t('added', 'added to cart') : ' added to cart'));
+                Shop.addToCart(
+                    { id: productId, name, price: basePrice, weight: 0 },
+                    qty, selectedVariantId, selectedColor
+                );
+                if (typeof Shop.toast === 'function')
+                    Shop.toast(name + (Shop.t ? ' ' + Shop.t('added', 'added to cart') : ' added to cart'));
             });
         });
 
-        // Update displayed price when currency changes
+        // Re-render price element when currency changes
         if (priceEl) {
             document.addEventListener('currency:changed', () => {
                 priceEl.textContent = Shop.fmt(basePrice);
             });
+            // Render immediately in current currency
+            priceEl.textContent = Shop.fmt(basePrice);
         }
     });
 
-    // Also re-render any standalone [data-base-price] elements (not inside product cards)
-    // Use a delegated approach — one listener on the container
+    // Wire standalone [data-base-price] elements not inside product cards
     container.querySelectorAll('[data-base-price]:not([data-currency-wired])').forEach(el => {
         el.dataset.currencyWired = '1';
         const base = parseFloat(el.dataset.basePrice);
         if (!isNaN(base)) {
-            document.addEventListener('currency:changed', () => {
-                el.textContent = Shop.fmt(base);
-            });
+            document.addEventListener('currency:changed', () => { el.textContent = Shop.fmt(base); });
+            el.textContent = Shop.fmt(base);
         }
     });
 }
+
 
 export function initPageLoader() {
     const homeView    = document.getElementById('home-view');
