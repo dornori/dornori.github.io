@@ -276,6 +276,17 @@
                     }
                 }
                 console.log("[Integration] Shop components initialized");
+
+                // When currency changes: re-render all visible prices + cart hover panel
+                document.addEventListener("currency:changed", function() {
+                    // Re-render all data-base-price elements loaded into page content
+                    document.querySelectorAll("[data-base-price]").forEach(function(el) {
+                        var base = parseFloat(el.dataset.basePrice);
+                        if (!isNaN(base)) el.textContent = Shop.fmt(base);
+                    });
+                    // Re-render cart hover panel by triggering cartUpdated
+                    document.dispatchEvent(new CustomEvent("shop:cartUpdated", { detail: { cart: Shop.getCart() } }));
+                });
             } catch(e) {
                 console.warn("[Integration] Shop init error:", e);
             }
