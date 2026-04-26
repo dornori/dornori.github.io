@@ -4,6 +4,100 @@ import { mountSlideshow } from './slideshow.js';
 import { initEmbedForms }  from './embed-form.js';
 import { injectHreflangTags } from './i18n.js';
 
+
+// ── GLOBAL SHOP CARD WIRER ────────────────────────────────────────────────────
+// Called after every content injection. Wires ALL .webshop-card-atc buttons
+// found in the injected container, reading price from data-base-price so it
+// works even when the product ID is not in products.json.
+function wireShopCards(container) {
+    if (typeof Shop === 'undefined') return;
+
+    container.querySelectorAll('.webshop-product-card[data-product-id]').forEach(card => {
+        if (card._wired) return;          // already wired by previous injection
+        card._wired = true;
+
+        const productId = card.dataset.productId;
+        const priceEl   = card.querySelector('[data-base-price]');
+        const basePrice = priceEl ? parseFloat(priceEl.dataset.basePrice) : 0;
+        const titleEl   = card.querySelector('.webshop-card-title');
+        const name      = titleEl ? titleEl.textContent.trim() : productId;
+
+        let qty = 1;
+        let selectedVariantId = null;
+        let selectedColor     = null;
+
+        // Variant buttons
+        const variantBtns = card.querySelectorAll('.webshop-variant-btn:not([disabled])');
+        variantBtns.forEach(btn => {
+            if (btn.classList.contains('active')) selectedVariantId = btn.dataset.variantId;
+            btn.addEventListener('click', () => {
+                variantBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedVariantId = btn.dataset.variantId;
+            });
+        });
+
+        // Colour swatches
+        const colorBtns = card.querySelectorAll('.webshop-color:not([disabled])');
+        colorBtns.forEach(btn => {
+            if (btn.classList.contains('webshop-color--active')) selectedColor = btn.dataset.color;
+            btn.addEventListener('click', () => {
+                colorBtns.forEach(b => b.classList.remove('webshop-color--active'));
+                btn.classList.add('webshop-color--active');
+                selectedColor = btn.dataset.color;
+            });
+        });
+
+        // Qty controls
+        const qtySpan = card.querySelector('.webshop-qty-val');
+        card.querySelector('.webshop-qty-btn--minus')?.addEventListener('click', () => {
+            qty = Math.max(1, qty - 1);
+            if (qtySpan) qtySpan.textContent = qty;
+        });
+        card.querySelector('.webshop-qty-btn--plus')?.addEventListener('click', () => {
+            qty = Math.min(99, qty + 1);
+            if (qtySpan) qtySpan.textContent = qty;
+        });
+
+        // Quick-add button
+        card.querySelector('.webshop-card-quick-add')?.addEventListener('click', () => {
+            Shop.addToCart({ id: productId, name, price: basePrice, weight: 0 }, 1, selectedVariantId, selectedColor);
+            Shop.toast(name + ' added!');
+        });
+
+        // Add-to-cart buttons (card + any modal inside the card)
+        card.querySelectorAll('.webshop-card-atc, .webshop-modal-atc').forEach(btn => {
+            if (btn._wired) return;
+            btn._wired = true;
+            btn.addEventListener('click', () => {
+                // Re-read price in case currency changed the display (price stored in EUR)
+                const product = { id: productId, name, price: basePrice, weight: 0 };
+                Shop.addToCart(product, qty, selectedVariantId, selectedColor);
+                Shop.toast(name + (typeof Shop.t === 'function' ? ' ' + Shop.t('added', 'added to cart') : ' added to cart'));
+            });
+        });
+
+        // Update displayed price when currency changes
+        if (priceEl) {
+            document.addEventListener('currency:changed', () => {
+                priceEl.textContent = Shop.fmt(basePrice);
+            });
+        }
+    });
+
+    // Also re-render any standalone [data-base-price] elements (not inside product cards)
+    // Use a delegated approach — one listener on the container
+    container.querySelectorAll('[data-base-price]:not([data-currency-wired])').forEach(el => {
+        el.dataset.currencyWired = '1';
+        const base = parseFloat(el.dataset.basePrice);
+        if (!isNaN(base)) {
+            document.addEventListener('currency:changed', () => {
+                el.textContent = Shop.fmt(base);
+            });
+        }
+    });
+}
+
 export function initPageLoader() {
     const homeView    = document.getElementById('home-view');
     const pageView    = document.getElementById('page-view');
@@ -87,6 +181,7 @@ export function initPageLoader() {
             homeView.innerHTML = html;
             homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
+            wireShopCards(homeView);
         } catch {
             // Silently fail — home.html may not be translated yet
         }
@@ -129,6 +224,7 @@ export function initPageLoader() {
 
             pageContent.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
+            wireShopCards(pageContent);
 
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
