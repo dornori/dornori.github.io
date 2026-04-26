@@ -71,7 +71,7 @@
             window.__PAGE_LANG__ = forcedLang;
             var slugMatch = path.match(/\/test\/[a-z]{2}\/([^\/]+)/);
             var pageSlug = slugMatch ? slugMatch[1] : '';
-            window.__PAGE_SLUG__ = (pageSlug && pageSlug !== 'index.html') ? pageSlug : 'winkelwagen';
+            window.__PAGE_SLUG__ = 'cart'; // canonical slug; URL slug is 'winkelwagen'
         })();
     </script>
 
@@ -124,7 +124,7 @@
                 if (typeof Shipping !== 'undefined') { await Shipping.load(); }
                 await Shop.loadLang();
                 if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
-                    Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false, cartUrl: "/test/shop/cart.html" });
+                    Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false, cartUrl: "/test/nl/winkelwagen/" });
                 }
                 const topBar = document.getElementById('topBar');
                 if (topBar && typeof Currency !== 'undefined' && CONFIG.features.showCurrencySelector !== false) {
@@ -137,6 +137,38 @@
                         }
                     }
                 }
+
+                // ── Reactive: re-render data-base-price on currency change ──
+                document.addEventListener('currency:changed', function() {
+                    document.querySelectorAll('[data-base-price]').forEach(function(el) {
+                        var base = parseFloat(el.dataset.basePrice);
+                        if (!isNaN(base) && typeof Shop !== 'undefined') {
+                            el.textContent = Shop.fmt(base);
+                        }
+                    });
+                    // Also re-render cart totals if cart content is loaded
+                    document.querySelectorAll('#cart-subtotal-val,#cart-tax-val,#cart-total-val').forEach(function(el) {
+                        // Trigger by dispatching a synthetic cart update
+                        // (the cart content script handles this via its own listener)
+                    });
+                });
+
+                // ── Reactive: reload page content on lang change ──
+                document.addEventListener('shop:langChanged', function(e) {
+                    var lang = e.detail && e.detail.lang;
+                    if (lang && typeof window.setLang === 'function') {
+                        // setLang already calls viewPage/loadHome — avoid double call
+                        // This listener is a safety net for when setLang isn't called
+                        // but shop fires langChanged directly
+                        return;
+                    }
+                    // Re-render current page in new lang if viewPage is available
+                    if (lang && window.CURRENT_SLUG && typeof window.viewPage === 'function') {
+                        window.__PAGE_LANG__ = lang;
+                        window.LANG = lang;
+                        window.viewPage(window.CURRENT_SLUG);
+                    }
+                });
             } catch(e) { console.warn("[Shop] Init error:", e); }
         });
     </script>
