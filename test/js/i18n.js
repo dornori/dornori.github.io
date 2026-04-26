@@ -82,6 +82,11 @@ window.setLang = async (code) => {
     if (typeof window.renderNav    === 'function') window.renderNav();
     if (typeof window.renderFooter === 'function') window.renderFooter();
 
+    // Sync language into the shop engine so the cart panel and all shop UI re-render
+    if (typeof Shop !== 'undefined' && typeof Shop.switchLanguage === 'function') {
+        try { await Shop.switchLanguage(code); } catch (e) {}
+    }
+
     // Reload content in new language and update URL
     const slug = window.CURRENT_SLUG || '';
     if (slug) {
