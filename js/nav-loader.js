@@ -4,6 +4,7 @@
  * Reads labels from window.T (loaded by i18n.js from lang/{code}.json).
  * Exposes window.renderNav() so setLang() can re-render without a page reload.
  * Uses <a href> tags so Google can crawl all pages.
+ * Generates language-specific pretty URLs via SITE_CONFIG.pageUrlSlug().
  */
 
 import SITE_CONFIG from './config.js';
@@ -12,6 +13,7 @@ const PROFILES = [
     { id: 'dark',        label: 'Dark'        },
     { id: 'light',       label: 'Light'       },
     { id: 'cutting-mat', label: 'Cutting Mat' },
+    { id: 'cutting-blue',label: 'Cutting Blue' },
 ];
 
 const FALLBACK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -37,13 +39,15 @@ async function fetchSVG(path) {
 }
 
 function navHref(slug) {
-    const lang = window.LANG || 'en';
-    const base = SITE_CONFIG.appearance.base_path;
-    return lang === 'en' ? `${base}${slug}` : `${base}${lang}/${slug}`;
+    const lang     = window.LANG || 'en';
+    const base     = SITE_CONFIG.appearance.base_path;
+    const urlSlug  = SITE_CONFIG.pageUrlSlug(slug, lang);
+    return lang === 'en'
+        ? `${base}en/${urlSlug}/`
+        : `${base}${lang}/${urlSlug}/`;
 }
 
 // ── NAV RENDER ───────────────────────────────────────────────────────────────
-// Separated so i18n can call window.renderNav() on language switch
 window.renderNav = () => {
     const T = window.T || {};
 
@@ -73,7 +77,7 @@ window.renderNav = () => {
             a.addEventListener('click', e => { e.preventDefault(); window.viewPage(item.slug); });
             desktopNav.appendChild(a);
 
-            if (item.icon) fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
+            if (item.icon) fetchSVG(SITE_CONFIG.appearance.base_path + item.icon).then(svg => { iconEl.innerHTML = svg; });
         });
     }
 
@@ -104,7 +108,7 @@ window.renderNav = () => {
             a.addEventListener('click', e => { e.preventDefault(); window.viewPage(item.slug); });
             mobileNav.appendChild(a);
 
-            if (item.icon) fetchSVG(item.icon).then(svg => { iconEl.innerHTML = svg; });
+            if (item.icon) fetchSVG(SITE_CONFIG.appearance.base_path + item.icon).then(svg => { iconEl.innerHTML = svg; });
         });
     }
 };
@@ -224,6 +228,21 @@ export function initNavigation() {
         document.addEventListener('click', e => { if (!topBar.contains(e.target)) closeBar(); });
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape' && topBar.classList.contains('active')) { closeBar(); tab.focus(); }
+        });
+
+        const isFinePonter = window.matchMedia('(pointer: fine)');
+        if (isFinePonter.matches) {
+            topBar.addEventListener('mouseenter', () => openBar());
+            topBar.addEventListener('mouseleave', () => closeBar());
+        }
+        isFinePonter.addEventListener('change', e => {
+            if (e.matches) {
+                topBar.addEventListener('mouseenter', openBar);
+                topBar.addEventListener('mouseleave', closeBar);
+            } else {
+                topBar.removeEventListener('mouseenter', openBar);
+                topBar.removeEventListener('mouseleave', closeBar);
+            }
         });
     }
 

@@ -1,48 +1,65 @@
+/**
+ * footer-loader.js
+ * Reads labels from window.T (loaded by i18n.js from lang/{code}.json).
+ * Exposes window.renderFooter() so setLang() can re-render on language switch.
+ * Uses language-specific pretty URLs via SITE_CONFIG.pageUrlSlug().
+ */
+
 import SITE_CONFIG from './config.js';
 
-/**
- * FOOTER LOADER MODULE
- * ─────────────────────────────────────────────────────────────────────────────
- * Reads SITE_CONFIG.footer and renders link columns into #footer-links.
- * Each column is only rendered if it has at least one enabled link.
- * Clicking a link calls window.viewPage(slug) — the same page-loader used
- * by the top nav — so no extra routing is needed.
- * ─────────────────────────────────────────────────────────────────────────────
- */
-export function initFooter() {
+window.renderFooter = () => {
     const container = document.getElementById('footer-links');
     if (!container) return;
 
+    const T       = window.T?.footer || {};
     const columns = SITE_CONFIG.footer;
-    if (!columns || !columns.length) return;
+    if (!columns?.length) return;
 
     container.innerHTML = '';
 
-    columns.forEach(column => {
-        // Filter to enabled links only
+    columns.forEach((column, colIndex) => {
         const visibleLinks = column.links.filter(l => l.enabled);
-        if (!visibleLinks.length) return; // skip empty columns entirely
+        if (!visibleLinks.length) return;
 
-        const col = document.createElement('div');
+        const tCol    = T.columns?.[colIndex] || {};
+        const tLinks  = tCol.links || {};
+
+        const col     = document.createElement('div');
         col.className = 'footer-col';
 
-        // Column heading (optional)
         if (column.label) {
-            const heading = document.createElement('p');
-            heading.className = 'footer-col-heading';
-            heading.textContent = column.label;
+            const heading       = document.createElement('p');
+            heading.className   = 'footer-col-heading';
+            heading.textContent = tCol.heading || column.label;
             col.appendChild(heading);
         }
 
-        // Links
         visibleLinks.forEach(link => {
-            const btn = document.createElement('button');
-            btn.className = 'footer-link';
-            btn.textContent = link.label;
-            btn.onclick = () => window.viewPage(link.slug);
-            col.appendChild(btn);
+            const lang    = window.LANG || 'en';
+            const base    = SITE_CONFIG.appearance.base_path;
+            const urlSlug = SITE_CONFIG.pageUrlSlug(link.slug, lang);
+            const href    = lang === 'en'
+                ? `${base}en/${urlSlug}/`
+                : `${base}${lang}/${urlSlug}/`;
+
+            const a         = document.createElement('a');
+            a.href          = href;
+            a.className     = 'footer-link';
+            a.textContent   = tLinks[link.slug] || link.label;
+            a.setAttribute('data-slug', link.slug);
+
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                window.viewPage(link.slug);
+            });
+
+            col.appendChild(a);
         });
 
         container.appendChild(col);
     });
+};
+
+export function initFooter() {
+    if (window.T) window.renderFooter();
 }

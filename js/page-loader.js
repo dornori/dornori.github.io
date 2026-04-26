@@ -1,12 +1,103 @@
-// page-loader.js - UPDATED VERSION
+// page-loader.js
 import SITE_CONFIG from './config.js';
+import { mountSlideshow } from './slideshow.js';
+import { initEmbedForms }  from './embed-form.js';
+import { injectHreflangTags } from './i18n.js';
 
 export function initPageLoader() {
-    const homeView = document.getElementById('home-view');
-    const pageView = document.getElementById('page-view');
+    const homeView    = document.getElementById('home-view');
+    const pageView    = document.getElementById('page-view');
     const pageContent = document.getElementById('page-content-inner');
-    const emailInput = document.querySelector('#waitlist-form input[type="email"]');
 
+    // ── SEO ──────────────────────────────────────────────────────────────────
+    function updateSEO(slug = '') {
+        const base = SITE_CONFIG.appearance.root_url;
+        const lang = window.LANG || 'en';
+
+        let canonical = document.querySelector('link[rel="canonical"]');
+        if (!canonical) {
+            canonical = document.createElement('link');
+            canonical.rel = 'canonical';
+            document.head.appendChild(canonical);
+        }
+        if (slug) {
+            const urlSlug = SITE_CONFIG.pageUrlSlug(slug, lang);
+            canonical.href = lang === 'en'
+                ? `${base}/en/${urlSlug}/`
+                : `${base}/${lang}/${urlSlug}/`;
+        } else {
+            canonical.href = base + '/';
+        }
+
+        const tPage = window.T?.pages?.[slug];
+        document.title = tPage
+            ? `${tPage.title} — Dornori`
+            : 'Dornori — Build Your Own Rising Star Lamp';
+
+        let descTag = document.querySelector('meta[name="description"]');
+        if (!descTag) {
+            descTag = document.createElement('meta');
+            descTag.name = 'description';
+            document.head.appendChild(descTag);
+        }
+        descTag.content = tPage?.description
+            || 'Dornori — revolutionary outdoor lighting you build yourself.';
+
+        const setOG = (prop, val) => {
+            let tag = document.querySelector(`meta[property="${prop}"]`);
+            if (!tag) {
+                tag = document.createElement('meta');
+                tag.setAttribute('property', prop);
+                document.head.appendChild(tag);
+            }
+            tag.setAttribute('content', val);
+        };
+        setOG('og:url',   canonical.href);
+        setOG('og:title', document.title);
+        setOG('og:description', descTag.content);
+
+        injectHreflangTags(slug);
+        window.CURRENT_SLUG = slug;
+    }
+
+    // ── CONTENT PATH ─────────────────────────────────────────────────────────
+    function contentPath(page) {
+        const lang = window.LANG || 'en';
+        const base = SITE_CONFIG.appearance.base_path;
+        return `${base}content/${lang}/${page.file}`;
+    }
+
+    // ── BUILD CLEAN URL for history pushState ─────────────────────────────────
+    function pageUrl(slug, lang) {
+        const base    = SITE_CONFIG.appearance.base_path;
+        const urlSlug = SITE_CONFIG.pageUrlSlug(slug, lang);
+        return lang === 'en'
+            ? `${base}en/${urlSlug}/`
+            : `${base}${lang}/${urlSlug}/`;
+    }
+
+    // ── LOAD HOME ─────────────────────────────────────────────────────────────
+    window.loadHome = async () => {
+        try {
+            const lang = window.LANG || 'en';
+            const base = SITE_CONFIG.appearance.base_path;
+            const res  = await fetch(`${base}content/${lang}/home.html`);
+            if (!res.ok) throw new Error();
+            const html = await res.text();
+            homeView.innerHTML = html;
+            homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
+            initEmbedForms();
+        } catch {
+            // Silently fail — home.html may not be translated yet
+        }
+        homeView.classList.remove('hidden');
+        pageView.classList.add('hidden');
+        const base = SITE_CONFIG.appearance.base_path;
+        window.history.replaceState({}, '', base);
+        updateSEO('');
+    };
+
+    // ── VIEW PAGE ────────────────────────────────────────────────────────────
     window.viewPage = async (slug) => {
         const page = SITE_CONFIG.pages[slug];
         if (!page) {
@@ -14,95 +105,140 @@ export function initPageLoader() {
             return;
         }
 
+        const fetchUrl = contentPath(page);
+
         try {
-            // Construct full path - adjust based on your folder structure
-            // If your HTML files are in root/content/, use page.file directly
-            // If they're elsewhere, modify this path
-            const filePath = page.file; // Already includes "content/about.html" etc.
-            
-            const res = await fetch(filePath);
-            if (!res.ok) throw new Error(`Failed to load ${filePath}: ${res.status}`);
+            const res = await fetch(fetchUrl);
+            if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${fetchUrl}`);
+
             const html = await res.text();
-            
-            // Inject the content with title
-         //   pageContent.innerHTML = `<h1>${page.title}</h1>` + html;
+
+            // Remove the static loading spinner if present
+            const spinner = document.getElementById('page-loading-spinner');
+            if (spinner) spinner.remove();
+
             pageContent.innerHTML = html;
-            
-            // Update browser URL without page reload
-            window.history.pushState({ slug: slug }, page.title, `/${slug}`);
-            
+
+            // Re-execute <script> tags — browsers skip scripts set via innerHTML
+            pageContent.querySelectorAll('script').forEach(orig => {
+                const s = document.createElement('script');
+                [...orig.attributes].forEach(a => s.setAttribute(a.name, a.value));
+                if (!orig.src) s.textContent = orig.textContent;
+                orig.replaceWith(s);
+            });
+
+            pageContent.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
+            initEmbedForms();
+
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
+
+            const lang = window.LANG || 'en';
+            window.history.replaceState({ slug, lang }, '', pageUrl(slug, lang));
+
+            updateSEO(slug);
             window.scrollTo({ top: 0, behavior: 'smooth' });
+
         } catch (err) {
             console.error('Page load error:', err);
-            pageContent.innerHTML = `<h1>Error</h1><p>Content could not be loaded: ${err.message}</p>`;
+            const T = window.T?.ui || {};
+
+            const spinner = document.getElementById('page-loading-spinner');
+            if (spinner) spinner.remove();
+
+            pageContent.innerHTML = `
+                <h1>${T.errorTitle || 'Error'}</h1>
+                <p>${T.errorMsg || 'Sorry, this content could not be loaded.'}</p>
+                <p style="font-family:var(--font-mono);font-size:.8rem;color:var(--muted);">${err.message}</p>
+                <button onclick="window.showHome()">${T.returnHome || 'Return Home'}</button>
+            `;
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
         }
     };
 
-    // Handle internal links in loaded content
-    document.addEventListener('click', async (e) => {
-        // Check if clicked element or its parent is a link
-        const link = e.target.closest('a');
-        if (!link) return;
-        
-        // Check if it's an internal link (data-page attribute or special class)
-        const slug = link.getAttribute('data-page');
-        
-        if (slug) {
-            // Option 1: Using data-page attribute
-            e.preventDefault();
-            if (SITE_CONFIG.pages[slug]) {
-                window.viewPage(slug);
-            } else {
-                console.error(`Page slug "${slug}" not found in config`);
-            }
-        } 
-        else if (link.classList && link.classList.contains('internal-link')) {
-            // Option 2: Using class="internal-link"
-            e.preventDefault();
-            const href = link.getAttribute('href');
-            // Extract slug from href like "/terms" or "/page/terms"
-            let extractedSlug = href.replace(/^\/|\/page\//g, '');
-            if (SITE_CONFIG.pages[extractedSlug]) {
-                window.viewPage(extractedSlug);
-            }
-        }
-        // External links will open normally (no e.preventDefault)
-    });
-
-    // Handle browser back/forward buttons
-    window.addEventListener('popstate', (event) => {
-        if (event.state && event.state.slug) {
-            window.viewPage(event.state.slug);
-        } else {
-            window.showHome();
-        }
-    });
-
-    window.showHome = (shouldFocus = false) => {
+    // ── SHOW HOME ────────────────────────────────────────────────────────────
+    window.showHome = () => {
         pageView.classList.add('hidden');
         homeView.classList.remove('hidden');
-        
-        // Update URL without page reload
-        window.history.pushState({}, '', '/');
-        
-        if (shouldFocus && emailInput) {
-            setTimeout(() => {
-                emailInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                emailInput.focus();
-            }, 100);
-        } else {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        const base = SITE_CONFIG.appearance.base_path;
+        window.history.pushState({}, '', base);
+        updateSEO('');
+        window.loadHome();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // Escape key handler
-    window.addEventListener('keydown', (e) => {
-        if (e.key === "Escape" && !pageView.classList.contains('hidden')) {
+    // ── HANDLE DIRECT URL ON FIRST LOAD ──────────────────────────────────────
+    // Priority 1: use __PAGE_SLUG__ baked into the HTML shell at build time
+    // Priority 2: parse the URL path
+    function handleInitialURL() {
+        // Fast path: shell tells us exactly what page this is
+        if (window.__PAGE_SLUG__) {
+            const slug = window.__PAGE_SLUG__;
+            if (SITE_CONFIG.pages[slug]) {
+                window.viewPage(slug);
+                return;
+            }
+        }
+
+        // Fallback: parse the URL
+        const basePath    = SITE_CONFIG.appearance.base_path; // e.g. '/test/'
+        const rawPath     = window.location.pathname;
+
+        let relativePath = rawPath;
+        if (basePath && basePath !== '/' && rawPath.startsWith(basePath)) {
+            relativePath = rawPath.slice(basePath.length);
+        }
+
+        const parts = relativePath
+            .replace(/^\/+|\/+$/g, '')
+            .split('/')
+            .filter(Boolean);
+
+        const langCodes = new Set(SITE_CONFIG.languages.map(l => l.code));
+
+        let lang = null;
+        let urlSegment = null;
+
+        if (parts.length >= 2 && langCodes.has(parts[0])) {
+            lang       = parts[0];
+            urlSegment = parts[1];
+        } else if (parts.length === 1 && langCodes.has(parts[0])) {
+            lang = parts[0];
+        } else if (parts.length === 1) {
+            lang       = 'en';
+            urlSegment = parts[0];
+        }
+
+        if (urlSegment) {
+            const detectedLang = lang || window.LANG || 'en';
+            const slug = SITE_CONFIG.canonicalSlug(urlSegment, detectedLang) || urlSegment;
+            if (SITE_CONFIG.pages[slug]) {
+                window.viewPage(slug);
+                return;
+            }
+        }
+
+        // No page detected — show home
+        window.loadHome();
+        updateSEO('');
+    }
+
+    // ── BACK / FORWARD ───────────────────────────────────────────────────────
+    window.addEventListener('popstate', (e) => {
+        if (e.state?.slug) {
+            window.viewPage(e.state.slug);
+        } else {
             window.showHome();
         }
     });
+
+    // ── ESCAPE KEY ───────────────────────────────────────────────────────────
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !pageView.classList.contains('hidden')) {
+            window.showHome();
+        }
+    });
+
+    handleInitialURL();
 }

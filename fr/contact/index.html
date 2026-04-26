@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="cutting-mat">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dornori — Build Your Own Rising Star Lamp</title>
+    <meta name="description" content="Dornori — Build Your Own Rising Star Lamp">
+    <link rel="icon" href="/assets/icons/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/test/css/profiles.css">
+    <link rel="stylesheet" href="/test/css/main.css">
+    <!-- Shop CSS -->
+    <link rel="stylesheet" href="/test/shop/css/shop.css">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+</head>
+<body>
+
+    <div id="topBar"></div>
+
+    <header id="main-header">
+        <div class="billboard-logo-wrap" onclick="window.showHome()">
+            <img src="/test/assets/images/dornori-logo-transparent.webp" class="billboard-logo" alt="Dornori" id="banner-img">
+            <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
+        </div>
+        <nav class="top-nav" aria-label="Main navigation"></nav>
+        <div id="cart-icon-slot" class="cart-icon-header-slot"></div>
+    </header>
+
+    <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
+
+    <main id="viewport">
+        <div id="home-view" class="hidden">
+            <div style="text-align:center;padding:60px 20px;">
+                <div style="display:inline-block;width:40px;height:40px;border:3px solid var(--border);border-radius:50%;border-top-color:var(--accent);animation:spin .8s linear infinite;"></div>
+                <p style="margin-top:20px;font-family:var(--font-mono);">Loading&hellip;</p>
+            </div>
+        </div>
+        <div id="page-view" >
+            <div id="page-content-inner" class="view-inner">
+                                <!-- Loading spinner shown until JS injects page content -->
+                <div id="page-loading-spinner" style="text-align:center;padding:60px 20px;">
+                    <div style="display:inline-block;width:40px;height:40px;border:3px solid var(--border);border-radius:50%;border-top-color:var(--accent);animation:spin .8s linear infinite;"></div>
+                    <p style="margin-top:20px;font-family:var(--font-mono);">Loading&hellip;</p>
+                </div>
+            </div>
+            <div style="margin-top:50px;">
+                <button class="nav-link" style="border:1px solid var(--border);padding:10px 20px;" onclick="window.showHome()">Return Home</button>
+            </div>
+        </div>
+        <div class="social-dock" id="social-dock"></div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div id="footer-links" class="footer-links"></div>
+            <div class="footer-bottom">
+                <p class="copyright-text">&copy; 2026 DORNORI. ALL RIGHTS RESERVED.</p>
+                <div class="technical-credits">
+                    <span class="credit-item"><span class="status-dot"></span>Performance &amp; Security by <strong>Cloudflare</strong></span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+
+    <script>
+        (function() {
+            var path = window.location.pathname;
+            var match = path.match(/\/test\/([a-z]{2})\//);            var forcedLang = match ? match[1] : 'fr';
+            localStorage.setItem('dornori-lang', forcedLang);
+            window.__PAGE_LANG__ = forcedLang;
+            var slugMatch = path.match(/\/test\/[a-z]{2}\/([^\/]+)/);
+            var pageSlug = slugMatch ? slugMatch[1] : '';
+            window.__PAGE_SLUG__ = (pageSlug && pageSlug !== 'index.html') ? pageSlug : 'contact';
+        })();
+    </script>
+
+    <!-- Shop modules -->
+    <script src="/test/shop/js/config.js"></script>
+    <script src="/test/shop/js/lang-bridge.js"></script>
+    <script>
+        (function() {
+            if (typeof CONFIG !== 'undefined') {
+                CONFIG.data.shippingCsv = '/test/shop/data/shipping.csv';
+                CONFIG.data.currenciesCsv = '/test/shop/data/currencies.csv';
+                CONFIG.data.langUiDir = '/test/shop/data/lang/ui/';
+                CONFIG.data.langProductsDir = '/test/shop/data/lang/products/';
+                CONFIG.data.productsJson = '/test/shop/data/products.json';
+                CONFIG.modules = [
+                    '/test/shop/js/modules/currency.js',
+                    '/test/shop/js/modules/shipping.js',
+                    '/test/shop/js/modules/payment.js'
+                ];
+                CONFIG.storageKeys.parentLangKey = 'dornori-lang';
+                CONFIG.storageKeys.shopLangKey = 'dornori-lang';
+                CONFIG.defaultLanguage = window.__PAGE_LANG__ || 'fr';
+                CONFIG.language = window.__PAGE_LANG__ || 'fr';
+                CONFIG.features.showLanguageSwitcher = false;
+                CONFIG.features.showCurrencySelector = true;
+            }
+        })();
+    </script>
+    <script>
+        (function() {
+            function loadScript(src) {
+                return new Promise(function(resolve) {
+                    var s = document.createElement("script");
+                    s.src = src; s.onload = resolve;
+                    s.onerror = function() { console.warn("[Shop] Module failed:", src); resolve(); };
+                    document.head.appendChild(s);
+                });
+            }
+            var modules = (typeof CONFIG !== 'undefined' && CONFIG.modules) || [];
+            modules = modules.concat(['/test/shop/js/shop.js']);
+            var chain = Promise.resolve();
+            modules.forEach(function(src) { chain = chain.then(function() { return loadScript(src); }); });
+            chain.then(function() { document.dispatchEvent(new Event("webshop:ready")); });
+        })();
+    </script>
+    <script>
+        document.addEventListener("webshop:ready", async function() {
+            try {
+                if (typeof Currency !== 'undefined') { await Currency.init(); await Currency.waitForReady(); }
+                if (typeof Shipping !== 'undefined') { await Shipping.load(); }
+                await Shop.loadLang();
+                if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
+                    Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false, cartUrl: "/test/fr/panier/" });
+                }
+                const topBar = document.getElementById('topBar');
+                if (topBar && typeof Currency !== 'undefined' && CONFIG.features.showCurrencySelector !== false) {
+                    if (!topBar.querySelector('.webshop-currency-selector')) {
+                        const c = document.createElement('div');
+                        c.id = 'currency-selector-slot';
+                        topBar.appendChild(c);
+                        if (typeof Shop !== 'undefined' && typeof Shop.renderCurrencySelector === 'function') {
+                            Shop.renderCurrencySelector('#currency-selector-slot');
+                        }
+                    }
+                }
+
+                // ── Reactive: re-render data-base-price on currency change ──
+                document.addEventListener('currency:changed', function() {
+                    document.querySelectorAll('[data-base-price]').forEach(function(el) {
+                        var base = parseFloat(el.dataset.basePrice);
+                        if (!isNaN(base) && typeof Shop !== 'undefined') {
+                            el.textContent = Shop.fmt(base);
+                        }
+                    });
+                    // Also re-render cart totals if cart content is loaded
+                    document.querySelectorAll('#cart-subtotal-val,#cart-tax-val,#cart-total-val').forEach(function(el) {
+                        // Trigger by dispatching a synthetic cart update
+                        // (the cart content script handles this via its own listener)
+                    });
+                });
+
+                // ── Reactive: reload page content on lang change ──
+                document.addEventListener('shop:langChanged', function(e) {
+                    var lang = e.detail && e.detail.lang;
+                    if (lang && typeof window.setLang === 'function') {
+                        // setLang already calls viewPage/loadHome — avoid double call
+                        // This listener is a safety net for when setLang isn't called
+                        // but shop fires langChanged directly
+                        return;
+                    }
+                    // Re-render current page in new lang if viewPage is available
+                    if (lang && window.CURRENT_SLUG && typeof window.viewPage === 'function') {
+                        window.__PAGE_LANG__ = lang;
+                        window.LANG = lang;
+                        window.viewPage(window.CURRENT_SLUG);
+                    }
+                });
+            } catch(e) { console.warn("[Shop] Init error:", e); }
+        });
+    </script>
+
+    <script type="module">
+        import { initI18n }        from '/test/js/i18n.js';
+        import { initNavigation }  from '/test/js/nav-loader.js';
+        import { initStickyBanner } from '/test/js/sticky-banner.js';
+        import { initSocials }     from '/test/js/social-loader.js';
+        import { initEmbedForms }  from '/test/js/embed-form.js';
+        import { initPageLoader }  from '/test/js/page-loader.js';
+        import { initFooter }      from '/test/js/footer-loader.js';
+        async function init() {
+            await initI18n();
+            initNavigation(); initStickyBanner(); initSocials();
+            initFooter(); initEmbedForms(); initPageLoader();
+        }
+        init().catch(err => {
+            console.error('Init error:', err);
+            const pc = document.getElementById('page-content-inner');
+            if (pc) pc.innerHTML = '<h1>Error</h1><p>Could not load page. <a href="/test/">Return home</a></p>';
+        });
+    </script>
+</body>
+</html>
