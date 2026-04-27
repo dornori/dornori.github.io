@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="nl" data-theme="cutting-mat">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dornori — Build Your Own Rising Star Lamp</title>
+    <meta name="description" content="Dornori — Build Your Own Rising Star Lamp">
+    <link rel="icon" href="/assets/icons/favicon.ico" sizes="any">
+    <link rel="stylesheet" href="/test/css/profiles.css">
+    <link rel="stylesheet" href="/test/css/main.css">
+    <!-- Shop CSS -->
+    <link rel="stylesheet" href="/test/shop/css/shop.css">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+</head>
+<body>
+
+    <div id="topBar"></div>
+
+    <header id="main-header">
+        <div class="billboard-logo-wrap" onclick="window.showHome()">
+            <img src="/test/assets/images/dornori-logo-transparent.webp" class="billboard-logo" alt="Dornori" id="banner-img">
+            <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
+        </div>
+        <nav class="top-nav" aria-label="Main navigation"></nav>
+        <!-- Cart icon slot – will be populated by shop.js -->
+        <div id="cart-icon-slot" class="cart-icon-header-slot"></div>
+    </header>
+
+    <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
+
+    <main id="viewport">
+        <div id="home-view" class="hidden">
+            <div style="text-align:center;padding:60px 20px;">
+                <div style="display:inline-block;width:40px;height:40px;border:3px solid var(--border);border-radius:50%;border-top-color:var(--accent);animation:spin .8s linear infinite;"></div>
+                <p style="margin-top:20px;font-family:var(--font-mono);">Loading&hellip;</p>
+            </div>
+        </div>
+        <div id="page-view">
+            <div id="page-content-inner" class="view-inner"><div id="page-loading-spinner" style="text-align:center;padding:60px 20px;"><div style="display:inline-block;width:40px;height:40px;border:3px solid var(--border);border-radius:50%;border-top-color:var(--accent);animation:spin .8s linear infinite;"></div><p style="margin-top:20px;font-family:var(--font-mono);">Loading&hellip;</p></div></div>
+            <div style="margin-top:50px;">
+                <button class="nav-link" style="border:1px solid var(--border);padding:10px 20px;" onclick="window.showHome()">Return Home</button>
+            </div>
+        </div>
+        <div class="social-dock" id="social-dock"></div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div id="footer-links" class="footer-links"></div>
+            <div class="footer-bottom">
+                <p class="copyright-text">&copy; 2026 DORNORI. ALL RIGHTS RESERVED.</p>
+                <div class="technical-credits">
+                    <span class="credit-item"><span class="status-dot"></span>Performance &amp; Security by <strong>Cloudflare</strong></span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <style>
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* =========================================================
+           INTEGRATION CSS – Cart icon (right side) + Currency selector
+           ========================================================= */
+        
+        /* Force header to use flex and push cart to the right */
+        #main-header {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            flex-wrap: wrap;
+        }
+        
+        /* Cart container – push to right edge */
+        .cart-icon-header-slot {
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+        }
+        
+        /* Cart icon wrapper – remove fixed positioning, keep relative for dropdown */
+        .webshop-cart-icon-wrap {
+            position: relative !important;
+            top: auto !important;
+            right: auto !important;
+            display: inline-block;
+        }
+        
+        /* Style the cart icon button */
+        .webshop-cart-icon {
+            width: 44px;
+            height: 44px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(4px);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            text-decoration: none;
+            color: var(--text);
+        }
+        .webshop-cart-icon:hover {
+            background: var(--accent);
+            transform: scale(1.02);
+        }
+        
+        /* Hover dropdown panel – ensure it's visible on hover */
+        .webshop-cart-icon-wrap:hover .webshop-cart-hover-panel,
+        .webshop-cart-hover-panel:hover {
+            opacity: 1 !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+            transform: translateY(0) !important;
+        }
+        
+        .webshop-cart-hover-panel {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            left: auto;
+            width: 300px;
+            background: var(--c-surface, #faf8f5);
+            border: 1px solid var(--c-border, #d8d0c4);
+            border-radius: var(--radius, 8px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.13);
+            padding: 12px;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transform: translateY(-6px);
+            transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+            z-index: 10000;
+        }
+        
+        /* Arrow pointing up */
+        .webshop-cart-hover-panel::before {
+            content: '';
+            position: absolute;
+            top: -6px;
+            right: 16px;
+            width: 12px;
+            height: 12px;
+            background: var(--c-surface, #faf8f5);
+            border-left: 1px solid var(--c-border, #d8d0c4);
+            border-top: 1px solid var(--c-border, #d8d0c4);
+            transform: rotate(45deg);
+        }
+        
+        /* Currency selector in topBar */
+        .webshop-currency-selector {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 20px;
+            padding: 4px 8px;
+            margin-left: 8px;
+        }
+        .webshop-currency-selector__label svg {
+            stroke: var(--text);
+            opacity: 0.7;
+        }
+        .webshop-currency-selector__select {
+            background: transparent;
+            border: none;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: var(--text);
+            cursor: pointer;
+            letter-spacing: 0.04em;
+            padding: 2px 4px;
+        }
+        .webshop-currency-selector__select:focus {
+            outline: none;
+        }
+        .webshop-currency-selector__select option {
+            background: var(--bg);
+            color: var(--text);
+        }
+    </style>
+
+    <script>
+        window.__PAGE_LANG__ = 'nl';
+        window.__PAGE_SLUG__ = 'built';
+        
+        window.SHOP_CONFIG = {
+            basePath: '/test/shop/',
+            dataPath: '/test/shop/data/',
+            jsPath: '/test/shop/js/'
+        };
+    </script>
+
+    <!-- Shop modules -->
+    <script src="/test/shop/js/config.js"></script>
+    <script src="/test/shop/js/lang-bridge.js"></script>
+    
+    <script>
+        (function() {
+            if (typeof CONFIG !== 'undefined') {
+                CONFIG.data.shippingCsv = '/test/shop/data/shipping.csv';
+                CONFIG.data.currenciesCsv = '/test/shop/data/currencies.csv';
+                CONFIG.data.langUiDir = '/test/shop/data/lang/ui/';
+                CONFIG.data.langProductsDir = '/test/shop/data/lang/products/';
+                CONFIG.data.productsJson = '/test/shop/data/products.json';
+                CONFIG.modules = [
+                    '/test/shop/js/modules/currency.js',
+                    '/test/shop/js/modules/shipping.js',
+                    '/test/shop/js/modules/payment.js'
+                ];
+                CONFIG.storageKeys.parentLangKey = 'dornori-lang';
+                CONFIG.storageKeys.shopLangKey = 'dornori-lang';
+                CONFIG.defaultLanguage = 'nl';
+                CONFIG.features.showLanguageSwitcher = false;
+                CONFIG.features.showCurrencySelector = true;
+            }
+        })();
+    </script>
+    
+    <script>
+        (function() {
+            function loadScript(src) {
+                return new Promise(function(resolve) {
+                    var s = document.createElement("script");
+                    s.src = src;
+                    s.onload = resolve;
+                    s.onerror = function() { console.warn("[Shop] Module failed:", src); resolve(); };
+                    document.head.appendChild(s);
+                });
+            }
+            var modules = (typeof CONFIG !== 'undefined' && CONFIG.modules) || [
+                '/test/shop/js/modules/currency.js',
+                '/test/shop/js/modules/shipping.js',
+                '/test/shop/js/modules/payment.js'
+            ];
+            Promise.all(modules.map(loadScript)).then(function() {
+                return loadScript('/test/shop/js/shop.js');
+            }).then(function() {
+                document.dispatchEvent(new Event("webshop:ready"));
+            });
+        })();
+    </script>
+    
+    <script>
+        document.addEventListener("webshop:ready", async function() {
+            try {
+                await Promise.all([
+                    typeof Currency !== 'undefined' ? Currency.init().then(function() { return Currency.waitForReady(); }) : Promise.resolve(),
+                    typeof Shipping !== 'undefined' ? Shipping.load() : Promise.resolve(),
+                    Shop.loadLang()
+                ]);
+                
+                if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
+                    Shop.renderCartIcon({ 
+                        target: "#cart-icon-slot", 
+                        fixed: false,
+                        cartUrl: "/test/nl/winkelwagen/"
+                    });
+                }
+                
+                const topBar = document.getElementById('topBar');
+                if (topBar && typeof Currency !== 'undefined' && CONFIG.features.showCurrencySelector !== false) {
+                    if (!topBar.querySelector('.webshop-currency-selector')) {
+                        const currencyContainer = document.createElement('div');
+                        currencyContainer.id = 'currency-selector-slot';
+                        topBar.appendChild(currencyContainer);
+                        if (typeof Shop !== 'undefined' && typeof Shop.renderCurrencySelector === 'function') {
+                            Shop.renderCurrencySelector('#currency-selector-slot');
+                        } else {
+                            renderBasicCurrencySelector(currencyContainer);
+                        }
+                    }
+                }
+                console.log("[Integration] Shop components initialized");
+
+                // When currency changes: re-render all visible prices + cart hover panel
+                document.addEventListener("currency:changed", function() {
+                    // Re-render all data-base-price elements loaded into page content
+                    document.querySelectorAll("[data-base-price]").forEach(function(el) {
+                        var base = parseFloat(el.dataset.basePrice);
+                        if (!isNaN(base)) el.textContent = Shop.fmt(base);
+                    });
+                    // Re-render cart hover panel by triggering cartUpdated
+                    document.dispatchEvent(new CustomEvent("shop:cartUpdated", { detail: { cart: Shop.getCart() } }));
+                });
+            } catch(e) {
+                console.warn("[Integration] Shop init error:", e);
+            }
+        });
+        
+        function renderBasicCurrencySelector(container) {
+            if (!container || typeof Currency === 'undefined') return;
+            async function build() {
+                await Currency.waitForReady();
+                const active = Currency.getActive();
+                container.className = "webshop-currency-selector";
+                container.innerHTML = `
+                    <label class="webshop-currency-selector__label">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14">
+                            <circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 0 0 20M12 2a15 15 0 0 1 0 20M2 12h20"/>
+                        </svg>
+                    </label>
+                    <select class="webshop-currency-selector__select" aria-label="Currency">
+                        ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
+                    </select>`;
+                container.querySelector("select").addEventListener("change", e => Currency.setActive(e.target.value));
+            }
+            build();
+            document.addEventListener("currency:changed", build);
+        }
+    </script>
+
+    <script type="module">
+        import { initI18n }        from '/test/js/i18n.js';
+        import { initNavigation }  from '/test/js/nav-loader.js';
+        import { initStickyBanner } from '/test/js/sticky-banner.js';
+        import { initSocials }     from '/test/js/social-loader.js';
+        import { initEmbedForms }  from '/test/js/embed-form.js';
+        import { initPageLoader }  from '/test/js/page-loader.js';
+        import { initFooter }      from '/test/js/footer-loader.js';
+
+        async function init() {
+            const savedLang = localStorage.getItem('dornori-lang');
+            if (savedLang) window.__PAGE_LANG__ = savedLang;
+            else localStorage.setItem('dornori-lang', window.__PAGE_LANG__ || 'en');
+            await initI18n();
+            initNavigation();
+            initStickyBanner();
+            initSocials();
+            initFooter();
+            initEmbedForms();
+            initPageLoader();
+        }
+        init().catch(err => console.error('Init error:', err));
+    </script>
+</body>
+</html>
