@@ -272,6 +272,19 @@
 
   <script src="js/config.js"></script>
   <script>
+    // ── Language bootstrap: URL param → localStorage → CONFIG ────────────────
+    (function() {
+      var urlLang = new URLSearchParams(window.location.search).get('lang');
+      var supported = (typeof CONFIG !== 'undefined' && CONFIG.supportedLanguages) || ['en','nl','de','fr'];
+      var lang = (urlLang && supported.includes(urlLang))
+        ? urlLang
+        : (localStorage.getItem('dornori-lang') || 'en');
+      localStorage.setItem('dornori-lang', lang);
+      if (typeof CONFIG !== 'undefined') CONFIG.language = lang;
+      document.documentElement.lang = lang;
+    })();
+  </script>
+  <script>
     (function() {
       function loadScript(src) {
         return new Promise(function(resolve) {
