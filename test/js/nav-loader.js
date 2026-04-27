@@ -54,7 +54,10 @@ window.renderNav = () => {
     /* ── Desktop nav ── */
     const desktopNav = document.querySelector('.top-nav');
     if (desktopNav) {
+        // Preserve the cart slot before clearing — it lives inside the nav
+        const cartSlot = desktopNav.querySelector('#cart-icon-slot');
         desktopNav.innerHTML = '';
+        if (cartSlot) desktopNav.appendChild(cartSlot);
         SITE_CONFIG.navigation.forEach(item => {
             if (!item.enabled) return;
 
