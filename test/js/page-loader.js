@@ -213,7 +213,9 @@ export function initPageLoader() {
         homeView.classList.remove('hidden');
         pageView.classList.add('hidden');
         const base = SITE_CONFIG.appearance.base_path;
-        window.history.replaceState({}, '', base);
+        const homeLang = window.LANG || 'en';
+        const homeUrl = homeLang === 'en' ? base : `${base}${homeLang}/`;
+        window.history.replaceState({}, '', homeUrl);
         updateSEO('');
     };
 
@@ -283,7 +285,9 @@ export function initPageLoader() {
         pageView.classList.add('hidden');
         homeView.classList.remove('hidden');
         const base = SITE_CONFIG.appearance.base_path;
-        window.history.pushState({}, '', base);
+        const homeLang = window.LANG || 'en';
+        const homeUrl = homeLang === 'en' ? base : `${base}${homeLang}/`;
+        window.history.pushState({}, '', homeUrl);
         updateSEO('');
         window.loadHome();
         window.scrollTo({ top: 0, behavior: 'smooth' });
