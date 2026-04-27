@@ -51,6 +51,37 @@ function navHref(slug) {
 window.renderNav = () => {
     const T = window.T || {};
 
+    // Update settings tab label if it already exists
+    const existingTab = document.getElementById('topBar-tab');
+    if (existingTab) {
+        const span = existingTab.querySelector('span');
+        if (span) span.textContent = T.ui?.settings || T.settings || 'SETTINGS';
+    }
+
+    // Update profile/language labels in topBar if they exist
+    const topBar = document.getElementById('topBar');
+    if (topBar) {
+        const profileWrapLabel = topBar.querySelector('.profile-selector-wrap:first-child');
+        if (profileWrapLabel) {
+            // Update only the text node (before the select child)
+            for (const node of profileWrapLabel.childNodes) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    node.textContent = (T.ui?.profile || T.profile || 'PROFILE') + ' ';
+                    break;
+                }
+            }
+        }
+        const langWrapLabel = topBar.querySelector('.profile-selector-wrap:nth-child(2)');
+        if (langWrapLabel) {
+            for (const node of langWrapLabel.childNodes) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    node.textContent = (T.ui?.language || T.language || 'LANGUAGE') + ' ';
+                    break;
+                }
+            }
+        }
+    }
+
     /* ── Desktop nav ── */
     const desktopNav = document.querySelector('.top-nav');
     if (desktopNav) {
