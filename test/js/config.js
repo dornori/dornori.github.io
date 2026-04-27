@@ -165,6 +165,7 @@ const SITE_CONFIG = {
         contact:             { file: 'gallery-1.html'          },
         gallery:             { file: 'gallery-1.html'          },
         cart:                { file: 'cart.html'               },
+        product:             { file: 'product.html'            },
     },
 
     // ─── SOCIALS ─────────────────────────────────────────────────────────────
