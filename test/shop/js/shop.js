@@ -341,7 +341,7 @@ const Shop = (() => {
             ${cart.map(item => `
               <li class="webshop-cart-hover-panel__item">
                 <a class="webshop-cart-hover-panel__item-link" href="product.html?id=${item.id}">
-                  <img class="webshop-cart-hover-panel__img" src="${item.image}" alt="${item.name}" onerror="this.src='images/placeholder.svg'">
+                  <img class="webshop-cart-hover-panel__img" src="${item.image}" alt="${item.name}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
                   <div class="webshop-cart-hover-panel__info">
                     <span class="webshop-cart-hover-panel__name">${item.name}${item.selectedColor ? ` <em>${item.selectedColor}</em>` : ""}</span>
                     <span class="webshop-cart-hover-panel__qty">${item.qty} × ${fmt(item.price)}</span>
@@ -402,7 +402,7 @@ const Shop = (() => {
         <div class="webshop-related__list">
           ${items.map(r => `
             <div class="webshop-related__item" data-related-id="${r.id}">
-              <img class="webshop-related__img" src="${r.image || "images/placeholder.svg"}" alt="${pName(r)}" onerror="this.src='images/placeholder.svg'">
+              <img class="webshop-related__img" src="${r.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'}" alt="${pName(r)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
               <div class="webshop-related__info">
                 <span class="webshop-related__name">${pName(r)}</span>
                 ${pDesc(r) ? `<span class="webshop-related__desc">${pDesc(r)}</span>` : ""}
@@ -457,7 +457,7 @@ const Shop = (() => {
 
     return `
       <${wTag} class="webshop-card-img-wrap${hasUrl?" webshop-card-img-link":""}"${hasUrl?` title="${pName(p)}"`:""}>
-        <img class="webshop-card-img" src="${p.image}" alt="${pName(p)}" loading="lazy" onerror="this.src='images/placeholder.svg'">
+        <img class="webshop-card-img" src="${p.image}" alt="${pName(p)}" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
         ${p.featured?`<span class="webshop-badge">${t("featured","Featured")}</span>`:""}
       </${wEnd}>
       <div class="webshop-card-body">
@@ -601,7 +601,7 @@ const Shop = (() => {
         <div class="webshop-product-gallery">
           <div class="webshop-product-main-img-wrap" style="position:relative;">
             ${p.url?`<a href="${p.url}">`:""}<img id="pinfo-main-${productId}" class="webshop-product-main-img"
-              src="${hasVariants?variantImage(p,selectedVariantId):images[0]}" alt="${pName(p)}" onerror="this.src='images/placeholder.svg'">${p.url?"</a>":""}
+              src="${hasVariants?variantImage(p,selectedVariantId):images[0]}" alt="${pName(p)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">${p.url?"</a>":""}
             <div id="pinfo-video-${productId}" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
               <video id="pinfo-vplayer-${productId}" style="width:100%;height:100%;object-fit:contain;" controls></video>
               <div id="pinfo-ytframe-${productId}" style="display:none;position:absolute;inset:0;">
@@ -610,7 +610,7 @@ const Shop = (() => {
             </div>
           </div>
           <div class="webshop-product-thumbs">
-            ${images.map((src,i)=>`<img class="webshop-product-thumb${i===0?" active":""}" src="${src}" data-idx="${i}" data-type="image" alt="${t("image_of","Image of")} ${pName(p)} ${i+1}" onerror="this.src='images/placeholder.svg'">`).join("")}
+            ${images.map((src,i)=>`<img class="webshop-product-thumb${i===0?" active":""}" src="${src}" data-idx="${i}" data-type="image" alt="${t("image_of","Image of")} ${pName(p)} ${i+1}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">`).join("")}
             ${(p.videos||[]).map((vsrc)=>{const isYT=/youtube\.com|youtu\.be/.test(vsrc);const ytId=isYT?((vsrc.match(/embed\/([^?]+)/)||vsrc.match(/youtu\.be\/([^?]+)/)||["",""])[1]):"";const tbStyle=isYT?`background-image:url('https://img.youtube.com/vi/${ytId}/mqdefault.jpg');background-size:cover;background-position:center;`:`background:#222;`;return `<div class="webshop-product-thumb webshop-product-thumb--video" data-vsrc="${vsrc}" data-isyt="${isYT}" data-type="video" style="position:relative;${tbStyle}" title="Play video"><span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:1.3rem;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7);pointer-events:none;">▶</span></div>`;}).join("")}
           </div>
         </div>
@@ -715,7 +715,7 @@ const Shop = (() => {
         container.innerHTML = `
           <h3 class="webshop-mini-cart__title">${t("cart","Cart")} <span>(${count})</span></h3>
           <ul class="webshop-mini-cart__list">${cart.map(item=>`<li class="webshop-mini-cart__item">
-            <img src="${item.image}" alt="${item.name}" onerror="this.src='images/placeholder.svg'">
+            <img src="${item.image}" alt="${item.name}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
             <div class="webshop-mini-cart__item-info">
               <span class="webshop-mini-cart__item-name">${item.name}</span>
               ${item.selectedColor?`<span class="webshop-mini-cart__item-color">${item.selectedColor}</span>`:""}
