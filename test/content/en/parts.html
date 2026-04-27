@@ -79,3 +79,97 @@
   <li><a data-page="electronics-bundle">Electronics Bundle</a></li>
   <li><a data-page="children">Child Safety Guidelines</a></li>
 </ul>
+
+<!-- ── PARTS SHOP INTEGRATION ───────────────────────────────────────────────
+     Shop functions used:
+       • buildProductCard()   — renders a shoppable card for each spare part
+       • wireProductCard()    — attaches variant switching, qty controls, ATC
+       • colorImageSrc()      — swaps the card image when a colour swatch is chosen
+       • variantStock()       — used in the "stock remaining" badge per variant
+       • buildImagePath()     — constructs image URLs for product thumbnails
+     ──────────────────────────────────────────────────────────────────────── -->
+
+<hr>
+
+<h3>Order Parts</h3>
+<p style="font-size:.88rem;opacity:.7;margin-bottom:1.75rem;line-height:1.6;">
+  Individual components available below. Select a variant where applicable, set quantity,
+  and add directly to your bag. Prices update with your selected currency.
+</p>
+
+<!-- Grid container — buildProductCard() / wireProductCard() inject cards here -->
+<div id="parts-cards-grid" class="webshop-grid" style="margin-bottom:2rem;"></div>
+
+<!-- Image-path debug strip — shows buildImagePath() output for each product -->
+<div id="parts-img-paths" style="font-size:.72rem;font-family:var(--font-mono);opacity:.45;line-height:1.8;margin-top:1rem;border-top:1px solid var(--border);padding-top:.75rem;"></div>
+
+<script>
+(function initPartsShop() {
+  // Products we want to surface on this page — parts + accessories
+  var PART_IDS = ['concrete-desk-lamp', 'half-moon-sconce', 'lamp-cable-3m', 'dimmer-switch', 'replacement-bulb-e27'];
+
+  function run() {
+    if (typeof Shop === 'undefined') return;
+
+    fetch('/test/shop/data/products.json')
+      .then(function(r){ return r.json(); })
+      .then(function(products) {
+        var grid     = document.getElementById('parts-cards-grid');
+        var pathsEl  = document.getElementById('parts-img-paths');
+        if (!grid) return;
+
+        var filtered = products.filter(function(p){ return PART_IDS.indexOf(p.id) !== -1; });
+
+        // Sort to match PART_IDS order
+        filtered.sort(function(a, b){
+          return PART_IDS.indexOf(a.id) - PART_IDS.indexOf(b.id);
+        });
+
+        filtered.forEach(function(p) {
+          // 1. buildProductCard — generates the full card HTML
+          var card      = document.createElement('div');
+          card.className = 'webshop-product-card';
+          card.dataset.cat = p.category || '';
+          card.innerHTML   = Shop.buildProductCard(p);
+          grid.appendChild(card);
+
+          // 2. wireProductCard — attaches all interactivity
+          Shop.wireProductCard(card, p);
+
+          // 3. colorImageSrc — if product has colours, show initial colour image
+          if (p.colors && p.colors.length) {
+            var img = card.querySelector('.webshop-card-img');
+            var src = Shop.colorImageSrc(p, p.colors[0]);
+            if (img && src) img.src = src;
+          }
+
+          // 4. variantStock — render a "stock remaining" badge for each variant
+          if (p.variants && p.variants.length) {
+            var variantBtns = card.querySelectorAll('.webshop-variant-btn');
+            variantBtns.forEach(function(btn) {
+              var stock = Shop.variantStock(p, btn.dataset.variantId);
+              if (typeof stock === 'number' && stock > 0 && stock <= 5) {
+                btn.setAttribute('title', 'Only ' + stock + ' left');
+                var badge = document.createElement('sup');
+                badge.textContent = stock;
+                badge.style.cssText = 'font-size:.6em;margin-left:3px;opacity:.6;';
+                btn.appendChild(badge);
+              }
+            });
+          }
+
+          // 5. buildImagePath — build and display the canonical image path
+          if (pathsEl) {
+            var firstVariantId = p.variants && p.variants[0] ? p.variants[0].id : null;
+            var imgPath = Shop.buildImagePath(p.id, firstVariantId);
+            pathsEl.innerHTML += '<span style="margin-right:1.5rem;">'
+              + p.id + ': ' + imgPath + '</span>';
+          }
+        });
+      });
+  }
+
+  if (typeof Shop !== 'undefined') { run(); }
+  else { document.addEventListener('webshop:ready', run); }
+})();
+</script>

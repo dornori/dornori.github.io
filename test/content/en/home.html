@@ -1,24 +1,107 @@
-<div class="slideshow-root" 
-     gallery-size="800x400" 
-     gallery-border="yes" 
-     gallery-shape="rounded" 
-     gallery-images="family-beach,couple-lake,family-park,couple-park-day,couple-park-night,family-table" 
-     gallery-folder="https://dornori.com/test/assets/images/pages/about/" 
+<!-- home.html (EN) ─────────────────────────────────────────────────────────
+     Shop functions used:
+       • renderShop()        — full featured product grid below the fold
+       • renderMiniCart()    — live cart summary in the "your bag" section
+       • pName / pDesc / pCategory — surface product text in the hero cards
+       • getProductLang()    — pull localised copy for the editorial spotlight
+     ──────────────────────────────────────────────────────────────────────── -->
+
+<!-- ── HERO SLIDESHOW ────────────────────────────────────────────────────── -->
+<div class="slideshow-root"
+     gallery-size="800x400"
+     gallery-border="yes"
+     gallery-shape="rounded"
+     gallery-images="family-beach,couple-lake,family-park,couple-park-day,couple-park-night,family-table"
+     gallery-folder="https://dornori.com/test/assets/images/pages/about/"
      gallery-interval="2000">
 </div>
 
-
-
-
-
-
-
-
-
-
-
-
+<!-- ── EDITORIAL HEADLINE ─────────────────────────────────────────────────── -->
 <h2 class="headline">"In darkness let's shine a light,</h2>
-    <h2 class="headline">to brighten the world and illuminate minds."</h2>
-    <!-- Embeddable subscribe form — rendered by js/embed-form.js -->
-    <div class="embed-form-root"></div>
+<h2 class="headline">to brighten the world and illuminate minds."</h2>
+
+<!-- ── PRODUCT SPOTLIGHT — driven by pName / pDesc / pCategory / getProductLang ── -->
+<section style="margin: 3rem 0 2rem;">
+  <h3 style="font-size:1.05rem;letter-spacing:.12em;text-transform:uppercase;opacity:.55;margin-bottom:1.5rem;">
+    Spotlight — Our Collection
+  </h3>
+  <div id="home-spotlight-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.5rem;margin-bottom:0.5rem;">
+    <div class="home-spotlight-card" style="border:1px solid var(--border);border-radius:12px;padding:1.25rem;background:var(--surface,#faf8f5);">
+      <p id="spot-cat-0" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;opacity:.5;margin:0 0 .4rem;"></p>
+      <h4 id="spot-name-0" style="margin:0 0 .5rem;font-size:1rem;"></h4>
+      <p id="spot-desc-0" style="font-size:.82rem;opacity:.7;margin:0 0 1rem;line-height:1.5;"></p>
+      <button id="spot-btn-0" class="webshop-btn webshop-btn--outline" style="width:100%;">View Product</button>
+    </div>
+    <div class="home-spotlight-card" style="border:1px solid var(--border);border-radius:12px;padding:1.25rem;background:var(--surface,#faf8f5);">
+      <p id="spot-cat-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;opacity:.5;margin:0 0 .4rem;"></p>
+      <h4 id="spot-name-1" style="margin:0 0 .5rem;font-size:1rem;"></h4>
+      <p id="spot-desc-1" style="font-size:.82rem;opacity:.7;margin:0 0 1rem;line-height:1.5;"></p>
+      <button id="spot-btn-1" class="webshop-btn webshop-btn--outline" style="width:100%;">View Product</button>
+    </div>
+    <div class="home-spotlight-card" style="border:1px solid var(--border);border-radius:12px;padding:1.25rem;background:var(--surface,#faf8f5);">
+      <p id="spot-cat-2" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;opacity:.5;margin:0 0 .4rem;"></p>
+      <h4 id="spot-name-2" style="margin:0 0 .5rem;font-size:1rem;"></h4>
+      <p id="spot-desc-2" style="font-size:.82rem;opacity:.7;margin:0 0 1rem;line-height:1.5;"></p>
+      <button id="spot-btn-2" class="webshop-btn webshop-btn--outline" style="width:100%;">View Product</button>
+    </div>
+  </div>
+</section>
+
+<!-- ── SUBSCRIBE FORM ─────────────────────────────────────────────────────── -->
+<div class="embed-form-root"></div>
+
+<!-- ── SHOP SECTION — renderShop() ─────────────────────────────────────── -->
+<section style="margin:3.5rem 0 1rem;">
+  <h3 style="font-size:1.05rem;letter-spacing:.12em;text-transform:uppercase;opacity:.55;margin-bottom:.25rem;">
+    Shop — Full Collection
+  </h3>
+  <p style="font-size:.88rem;opacity:.65;margin-bottom:1.75rem;line-height:1.5;">
+    Every piece is available individually. Select your finish, adjust quantity, add to bag.
+  </p>
+  <div id="home-shop-root"></div>
+</section>
+
+<!-- ── YOUR BAG — renderMiniCart() ─────────────────────────────────────── -->
+<section style="margin:3rem 0;">
+  <h3 style="font-size:1.05rem;letter-spacing:.12em;text-transform:uppercase;opacity:.55;margin-bottom:1rem;">
+    Your Bag
+  </h3>
+  <div id="home-mini-cart"></div>
+</section>
+
+<script>
+(function initHomeShop() {
+  function run() {
+    if (typeof Shop === 'undefined') return;
+
+    // 1. renderShop — full product grid with category filter
+    Shop.renderShop('home-shop-root', { columns: 'auto', showFilter: true });
+
+    // 2. renderMiniCart — live cart summary panel
+    Shop.renderMiniCart('home-mini-cart', { cartUrl: '/test/en/cart/' });
+
+    // 3. Spotlight cards using getProductLang(), pName, pDesc, pCategory
+    var lang = Shop.getProductLang();
+    var ids  = ['arc-floor-lamp', 'globe-pendant', 'concrete-desk-lamp'];
+    ids.forEach(function(id, i) {
+      var entry = lang[id];
+      if (!entry) return;
+      var catEl  = document.getElementById('spot-cat-'  + i);
+      var nameEl = document.getElementById('spot-name-' + i);
+      var descEl = document.getElementById('spot-desc-' + i);
+      var btnEl  = document.getElementById('spot-btn-'  + i);
+      if (catEl)  catEl.textContent  = entry.category || '';
+      if (nameEl) nameEl.textContent = entry.name     || id;
+      if (descEl) descEl.textContent = entry.description
+        ? entry.description.slice(0, 120) + (entry.description.length > 120 ? '\u2026' : '')
+        : '';
+      if (btnEl) btnEl.addEventListener('click', function() {
+        if (typeof window.viewPage === 'function') window.viewPage('built');
+      });
+    });
+  }
+
+  if (typeof Shop !== 'undefined') { run(); }
+  else { document.addEventListener('webshop:ready', run); }
+})();
+</script>

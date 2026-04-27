@@ -101,3 +101,140 @@
   <li>🎓 <a data-page="parents-educators">Parents &amp; Educators STEM Guide</a> — learning outcomes, curriculum links, classroom notes.</li>
   <li>🔒 <a data-page="children">Child Safety Guidelines</a></li>
 </ul>
+
+<!-- ── BUILT SHOP INTEGRATION ──────────────────────────────────────────────
+     Shop functions used:
+       • renderProductInfo()  — full hero product panel with gallery, variants, ATC
+       • variantPrice()       — price label updates per colourway selection
+       • variantInStock()     — live stock status badge per colourway
+       • variantWeight()      — shows shipping weight per chosen variant
+       • variantImage()       — swaps the hero image when a variant is selected
+       • colorImageSrc()      — swaps image on colour swatch clicks (color products)
+       • buildRelatedStrip()  — "Complete the look" strip of related products
+       • wireRelatedStrip()   — makes those related items interactive
+     ──────────────────────────────────────────────────────────────────────── -->
+
+<hr>
+
+<h3>Add to Bag — Ready to Ship</h3>
+<p style="font-size:.88rem;opacity:.7;margin-bottom:1.5rem;line-height:1.6;">
+  Choose your model and colourway below. The gallery, price, and stock indicator update
+  live as you switch between variants. Free shipping threshold calculated automatically
+  at checkout.
+</p>
+
+<!-- renderProductInfo mounts the complete product panel here -->
+<div id="built-product-root"></div>
+
+<!-- Live variant summary — populated by variantPrice / variantInStock / variantWeight / variantImage -->
+<div id="built-variant-summary" style="display:none;margin:1.25rem 0;padding:1rem 1.25rem;
+     border:1px solid var(--border);border-radius:12px;
+     background:var(--surface,#faf8f5);font-size:.84rem;line-height:1.8;">
+  <div style="display:flex;flex-wrap:wrap;gap:.5rem 2rem;align-items:center;">
+    <span>Selected: <strong id="bvs-name"></strong></span>
+    <span>Price: <strong id="bvs-price"></strong></span>
+    <span>Ships at: <strong id="bvs-weight"></strong></span>
+    <span id="bvs-stock-wrap">Status: <strong id="bvs-stock"></strong></span>
+    <img id="bvs-thumb" src="" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:8px;display:none;">
+  </div>
+</div>
+
+<!-- Related products — buildRelatedStrip + wireRelatedStrip will be called by renderProductInfo internally,
+     but we also expose a standalone "Complete the look" strip here -->
+<div id="built-related-strip" style="margin-top:2.5rem;"></div>
+
+<script>
+(function initBuiltShop() {
+  var PRODUCT_ID = 'arc-floor-lamp';
+
+  function run() {
+    if (typeof Shop === 'undefined') return;
+
+    // 1. renderProductInfo — full product panel (gallery + variants + ATC + related)
+    Shop.renderProductInfo('built-product-root', PRODUCT_ID);
+
+    // 2. After the panel renders, hook the variant summary strip
+    //    using variantPrice / variantInStock / variantWeight / variantImage
+    fetch('/test/shop/data/products.json')
+      .then(function(r){ return r.json(); })
+      .then(function(products) {
+        var p = products.find(function(x){ return x.id === PRODUCT_ID; });
+        if (!p) return;
+
+        // 3. buildRelatedStrip + wireRelatedStrip — "Complete the look"
+        var relatedContainer = document.getElementById('built-related-strip');
+        if (relatedContainer && p.related && p.related.length) {
+          var heading = document.createElement('h4');
+          heading.style.cssText = 'font-size:1rem;letter-spacing:.1em;text-transform:uppercase;opacity:.55;margin-bottom:1rem;';
+          heading.textContent   = 'Complete the Look';
+          relatedContainer.appendChild(heading);
+          var strip = document.createElement('div');
+          strip.innerHTML = Shop.buildRelatedStrip(p, 'info');
+          relatedContainer.appendChild(strip);
+          Shop.wireRelatedStrip(relatedContainer, p);
+        }
+
+        // Hook variant buttons once they exist
+        var attempts = 0;
+        var poll = setInterval(function() {
+          attempts++;
+          var root = document.getElementById('built-product-root');
+          if (!root) { if (attempts > 30) clearInterval(poll); return; }
+          var variantBtns = root.querySelectorAll('.webshop-product-variant-btn');
+          if (!variantBtns.length) { if (attempts > 30) clearInterval(poll); return; }
+          clearInterval(poll);
+
+          var summary  = document.getElementById('built-variant-summary');
+          var nameEl   = document.getElementById('bvs-name');
+          var priceEl  = document.getElementById('bvs-price');
+          var weightEl = document.getElementById('bvs-weight');
+          var stockEl  = document.getElementById('bvs-stock');
+          var thumbEl  = document.getElementById('bvs-thumb');
+
+          function updateSummary(variantId) {
+            var v = p.variants && p.variants.find(function(x){ return x.id === variantId; });
+            if (!v) return;
+            if (summary)  summary.style.display  = 'block';
+            if (nameEl)   nameEl.textContent      = v.label;
+            // variantPrice — price for this specific variant
+            if (priceEl)  priceEl.textContent     = Shop.fmt(Shop.variantPrice(p, variantId));
+            // variantWeight — shipping weight for this variant
+            if (weightEl) weightEl.textContent    = Shop.variantWeight(p, variantId) + ' kg';
+            // variantInStock — live stock check
+            var inStock = Shop.variantInStock(p, variantId);
+            if (stockEl) {
+              stockEl.textContent = inStock ? '\u2713 In Stock' : '\u00d7 Out of Stock';
+              stockEl.style.color = inStock ? 'var(--accent,#5b7b3d)' : '#c0392b';
+            }
+            // variantImage — swap thumbnail to match chosen variant
+            var imgSrc = Shop.variantImage(p, variantId);
+            if (thumbEl && imgSrc) { thumbEl.src = imgSrc; thumbEl.style.display = 'block'; }
+          }
+
+          // Show summary for initial active variant
+          var active = root.querySelector('.webshop-product-variant-btn.active');
+          if (active) updateSummary(active.dataset.variantId);
+
+          // Update on every variant click
+          variantBtns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+              updateSummary(btn.dataset.variantId);
+            });
+          });
+
+          // Also wire color swatches via colorImageSrc (for color-based products)
+          var colorBtns = root.querySelectorAll('.webshop-product-color');
+          colorBtns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+              var src = Shop.colorImageSrc(p, btn.dataset.color);
+              if (thumbEl && src) { thumbEl.src = src; thumbEl.style.display = 'block'; }
+            });
+          });
+        }, 120);
+      });
+  }
+
+  if (typeof Shop !== 'undefined') { run(); }
+  else { document.addEventListener('webshop:ready', run); }
+})();
+</script>

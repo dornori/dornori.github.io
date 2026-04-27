@@ -130,3 +130,130 @@
   <li><a data-page="parents-educators">Parents &amp; Educators STEM guide</a></li>
   <li><a data-page="children">Child Safety Guidelines</a></li>
 </ul>
+
+<!-- ── FILES SHOP INTEGRATION ───────────────────────────────────────────────
+     Shop functions used:
+       • getProductLang()     — fetch localised product names + descriptions
+       • getProductLangEn()   — English fallback for the "original spec" column
+       • buildImagePath()     — construct canonical image URLs for the file listing
+       • pName()              — resolve display name of the Electronics Bundle product
+       • pDesc()              — resolve description for the bundle CTA card
+       • buildProductCard()   — render the Electronics Bundle as a shoppable card
+       • wireProductCard()    — attach ATC and qty controls to that card
+     ──────────────────────────────────────────────────────────────────────── -->
+
+<hr>
+
+<h3>Electronics Bundle — skip the sourcing</h3>
+<p style="font-size:.88rem;opacity:.7;margin-bottom:.5rem;line-height:1.6;">
+  The 3D files are free. Everything physical ships in one box.
+</p>
+
+<!-- pName() / pDesc() drive this editorial card; buildProductCard/wireProductCard make it shoppable -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin:1.5rem 0 2rem;align-items:start;">
+  <!-- Editorial side — pName + pDesc -->
+  <div>
+    <h4 id="files-bundle-name" style="margin:0 0 .6rem;font-size:1.05rem;"></h4>
+    <p id="files-bundle-desc" style="font-size:.85rem;opacity:.75;line-height:1.6;margin:0;"></p>
+  </div>
+  <!-- Shoppable card side — buildProductCard + wireProductCard -->
+  <div id="files-bundle-card" class="webshop-product-card"></div>
+</div>
+
+<!-- Product catalogue reference — getProductLang() / getProductLangEn() / buildImagePath() -->
+<h3 style="margin-top:2.5rem;">Component Catalogue Reference</h3>
+<p style="font-size:.83rem;opacity:.65;margin-bottom:1.25rem;">
+  All parts listed below match the Bill of Materials in your download. Names and descriptions
+  are shown in your current language alongside the original English specification.
+</p>
+
+<div id="files-catalogue" style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:.5rem;"></div>
+
+<script>
+(function initFilesShop() {
+  // The product we use for the editorial + shoppable card sections
+  var BUNDLE_ID = 'globe-pendant';          // closest to "Electronics Bundle" in demo dataset
+  var CATALOGUE_IDS = ['arc-floor-lamp', 'globe-pendant', 'concrete-desk-lamp',
+                        'half-moon-sconce', 'lamp-cable-3m', 'dimmer-switch', 'replacement-bulb-e27'];
+
+  function fmtWeight(kg) {
+    return kg >= 1 ? kg.toFixed(1) + ' kg' : (kg * 1000).toFixed(0) + ' g';
+  }
+
+  function run() {
+    if (typeof Shop === 'undefined') return;
+
+    fetch('/test/shop/data/products.json')
+      .then(function(r){ return r.json(); })
+      .then(function(products) {
+
+        // ── A. getProductLang + getProductLangEn ─────────────────────────
+        var localLang = Shop.getProductLang();    // current language
+        var enLang    = Shop.getProductLangEn();  // English reference
+
+        // ── B. pName + pDesc — populate editorial copy ───────────────────
+        var bundle = products.find(function(p){ return p.id === BUNDLE_ID; });
+        if (bundle) {
+          var nameEl = document.getElementById('files-bundle-name');
+          var descEl = document.getElementById('files-bundle-desc');
+          if (nameEl) nameEl.textContent = Shop.pName(bundle);
+          if (descEl) descEl.textContent = Shop.pDesc(bundle);
+
+          // ── C. buildProductCard + wireProductCard ────────────────────
+          var cardEl = document.getElementById('files-bundle-card');
+          if (cardEl) {
+            cardEl.innerHTML = Shop.buildProductCard(bundle);
+            Shop.wireProductCard(cardEl, bundle);
+          }
+        }
+
+        // ── D. Component catalogue using getProductLang / getProductLangEn / buildImagePath ──
+        var catalogue = document.getElementById('files-catalogue');
+        if (!catalogue) return;
+
+        var rows = CATALOGUE_IDS.map(function(id, idx) {
+          var p     = products.find(function(x){ return x.id === id; });
+          if (!p) return '';
+          var loc   = localLang[id] || {};
+          var en    = enLang[id]    || {};
+          // buildImagePath — canonical URL for first variant (or no variant)
+          var firstVId = p.variants && p.variants[0] ? p.variants[0].id : null;
+          var imgPath  = Shop.buildImagePath(p.id, firstVId);
+          var bg = idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,.025)';
+
+          return '<div style="display:grid;grid-template-columns:48px 1fr 1fr auto;gap:.75rem 1rem;'
+            + 'align-items:center;padding:.75rem 1rem;background:' + bg + ';border-bottom:1px solid var(--border);">'
+            + '<img src="' + (imgPath || p.image) + '" alt="' + (loc.name || en.name || id) + '"'
+            + ' style="width:44px;height:44px;object-fit:cover;border-radius:6px;" onerror="this.style.display=\'none\'">'
+            + '<div>'
+            + '<div style="font-weight:600;font-size:.88rem;">' + (loc.name || en.name || id) + '</div>'
+            + '<div style="font-size:.72rem;opacity:.5;text-transform:uppercase;letter-spacing:.07em;">'
+            + (loc.category || en.category || p.category || '') + '</div>'
+            + '</div>'
+            + '<div style="font-size:.78rem;opacity:.65;line-height:1.5;">'
+            + (en.name !== (loc.name || en.name) ? ('<em style="opacity:.6">' + en.name + '</em><br>') : '')
+            + (en.description ? en.description.slice(0, 80) + '\u2026' : '') + '</div>'
+            + '<div style="text-align:right;font-size:.8rem;white-space:nowrap;">'
+            + '<div style="font-weight:600;">' + Shop.fmt(p.price) + '</div>'
+            + '<div style="opacity:.5;">' + fmtWeight(p.weight || 0) + '</div>'
+            + '</div>'
+            + '</div>';
+        });
+
+        catalogue.innerHTML = rows.join('');
+
+        // Re-render prices when currency changes
+        document.addEventListener('currency:changed', function() {
+          var priceEls = catalogue.querySelectorAll('[data-file-price]');
+          priceEls.forEach(function(el) {
+            var base = parseFloat(el.dataset.filePrice);
+            if (!isNaN(base)) el.textContent = Shop.fmt(base);
+          });
+        });
+      });
+  }
+
+  if (typeof Shop !== 'undefined') { run(); }
+  else { document.addEventListener('webshop:ready', run); }
+})();
+</script>
