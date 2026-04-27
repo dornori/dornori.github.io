@@ -66,7 +66,7 @@ const Currency = (() => {
   function fmt(eurAmount, code = _active) {
     // CRITICAL FIX: If rates aren't loaded yet, return Euro format as fallback
     if (!_loaded || Object.keys(_rates).length === 0) {
-      return "€" + eurAmount.toFixed(2);
+      return "€\u00A0" + eurAmount.toFixed(2);
     }
     
     const c = _rates[code];
@@ -74,9 +74,9 @@ const Currency = (() => {
       // If the requested currency isn't found, fall back to EUR
       const eur = _rates["EUR"];
       if (eur) {
-        return eur.symbol + eurAmount.toFixed(eur.decimals);
+        return eur.symbol + '\u00A0' + eurAmount.toFixed(eur.decimals);
       }
-      return "€" + eurAmount.toFixed(2);
+      return "€\u00A0" + eurAmount.toFixed(2);
     }
     
     const val = convert(eurAmount, code);
@@ -88,7 +88,7 @@ const Currency = (() => {
       textarea.innerHTML = symbol;
       symbol = textarea.value;
     }
-    return symbol + val.toFixed(c.decimals);
+    return symbol + '\u00A0' + val.toFixed(c.decimals);
   }
 
   function setActive(code) {
