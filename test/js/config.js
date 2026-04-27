@@ -74,6 +74,7 @@ const SITE_CONFIG = {
             contact:             'contact',
             gallery:             'galerij',
             cart:                'winkelwagen',
+            product:             'product',
         },
         de: {
             about:               'ueber-uns',
