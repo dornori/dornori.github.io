@@ -54,10 +54,8 @@ window.renderNav = () => {
     /* ── Desktop nav ── */
     const desktopNav = document.querySelector('.top-nav');
     if (desktopNav) {
-        // Preserve the cart slot before clearing — it lives inside the nav
         const cartSlot = desktopNav.querySelector('#cart-icon-slot');
         desktopNav.innerHTML = '';
-        if (cartSlot) desktopNav.appendChild(cartSlot);
         SITE_CONFIG.navigation.forEach(item => {
             if (!item.enabled) return;
 
@@ -82,6 +80,8 @@ window.renderNav = () => {
 
             if (item.icon) fetchSVG(SITE_CONFIG.appearance.base_path + item.icon).then(svg => { iconEl.innerHTML = svg; });
         });
+        // Re-append cart slot LAST — sits right after the final nav item
+        if (cartSlot) desktopNav.appendChild(cartSlot);
     }
 
     /* ── Mobile nav ── */
