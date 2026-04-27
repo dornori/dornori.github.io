@@ -10,11 +10,17 @@ import { injectHreflangTags } from './i18n.js';
 const _pendingWire = [];
 let   _shopReady   = false;
 
-document.addEventListener('webshop:ready', () => {
+function _onShopReady() {
     _shopReady = true;
     _pendingWire.forEach(c => _doWireShopCards(c));
     _pendingWire.length = 0;
-});
+}
+
+document.addEventListener('webshop:ready', _onShopReady);
+
+// webshop:ready may have already fired before this ES module loaded (parallel loading
+// makes the shop scripts finish faster). Check immediately and catch up if so.
+if (typeof Shop !== 'undefined') _onShopReady();
 
 // Public entry point — safe to call at any time
 function wireShopCards(container) {

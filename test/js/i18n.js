@@ -10,6 +10,14 @@ const supported   = new Set(SITE_CONFIG.languages.map(l => l.code));
 
 // ── DETECT ───────────────────────────────────────────────────────────────────
 function detectLang() {
+    // The page itself knows what language it is (set by each shell's __PAGE_LANG__).
+    // Always trust it — this prevents /fr/ from redirecting to English.
+    const pageLang = window.__PAGE_LANG__;
+    if (pageLang && supported.has(pageLang)) {
+        localStorage.setItem(STORAGE_KEY, pageLang);
+        return pageLang;
+    }
+
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved && supported.has(saved)) return saved;
 
