@@ -295,10 +295,17 @@
                 if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
                     var skel = document.getElementById('cart-skeleton');
                     if (skel) skel.remove();
+                    var _cartUrls = {"en":"/test/en/cart/","nl":"/test/nl/winkelwagen/","de":"/test/de/warenkorb/","fr":"/test/fr/panier/"};
+                    function _getCartUrl() { var l=window.LANG||localStorage.getItem("dornori-lang")||"en"; return _cartUrls[l]||"/test/en/cart/"; }
                     Shop.renderCartIcon({ 
                         target: "#cart-icon-slot", 
                         fixed: false,
-                        cartUrl: (function(){ var l=window.LANG||window.__PAGE_LANG__||localStorage.getItem("dornori-lang")||"en"; var m={"en":"/test/en/cart/","nl":"/test/nl/winkelwagen/","de":"/test/de/warenkorb/","fr":"/test/fr/panier/"}; return m[l]||"/test/en/cart/"; })()
+                        cartUrl: _getCartUrl()
+                    });
+                    // Keep cart icon href in sync when language changes
+                    document.addEventListener("shop:langChanged", function() {
+                        var cartAnchor = document.querySelector("#cart-icon-slot .webshop-cart-icon");
+                        if (cartAnchor) cartAnchor.href = _getCartUrl();
                     });
                 }
                 
