@@ -6,10 +6,26 @@
     <title>Dornori — Build Your Own Rising Star Lamp</title>
     <meta name="description" content="Dornori — Build Your Own Rising Star Lamp">
     <link rel="icon" href="/assets/icons/favicon.ico" sizes="any">
+    <link rel="preconnect" href="https://challenges.cloudflare.com">
+    <link rel="preload" href="/test/css/main.css" as="style">
+    <link rel="preload" href="/test/shop/css/shop.css" as="style">
     <link rel="stylesheet" href="/test/css/profiles.css">
     <link rel="stylesheet" href="/test/css/main.css">
-    <!-- Shop CSS -->
     <link rel="stylesheet" href="/test/shop/css/shop.css">
+    <meta property="og:type"        content="website">
+    <meta property="og:title"       content="Dornori — Build Your Own Rising Star Lamp">
+    <meta property="og:description" content="Design and build your own Dornori Rising Star lamp.">
+    <meta property="og:url"         content="https://dornori.com/en/">
+    <meta property="og:image"       content="https://dornori.com/assets/images/dornori-og.webp">
+    <meta name="twitter:card"        content="summary_large_image">
+    <meta name="twitter:title"       content="Dornori — Build Your Own Rising Star Lamp">
+    <meta name="twitter:description" content="Design and build your own Dornori Rising Star lamp.">
+    <meta name="twitter:image"       content="https://dornori.com/assets/images/dornori-og.webp">
+    <link rel="canonical" href="https://dornori.com/en/">
+    <meta name="robots" content="index, follow">
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"WebSite","name":"Dornori","url":"https://dornori.com"}
+    </script>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
@@ -22,8 +38,12 @@
             <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
         </div>
         <nav class="top-nav" aria-label="Main navigation"></nav>
-        <!-- Cart icon slot – will be populated by shop.js -->
-        <div id="cart-icon-slot" class="cart-icon-header-slot"></div>
+        <!-- Cart icon slot – skeleton shown immediately -->
+        <div id="cart-icon-slot" class="cart-icon-header-slot">
+            <a id="cart-skeleton" href="/test/en/cart/" aria-label="Cart" style="width:44px;height:44px;background:rgba(255,255,255,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center;text-decoration:none;color:inherit;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+            </a>
+        </div>
     </header>
 
     <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
@@ -183,9 +203,14 @@
     </style>
 
     <script>
-        window.__PAGE_LANG__ = 'en';
+        (function(){
+            var l = localStorage.getItem('dornori-lang') || 'en';
+            window.__PAGE_LANG__ = l;
+            document.documentElement.setAttribute('lang', l);
+            var cartUrls = {"en":"/test/en/cart/","nl":"/test/nl/winkelwagen/","de":"/test/de/warenkorb/","fr":"/test/fr/panier/"};
+            window.__CART_URL__ = cartUrls[l] || '/test/en/cart/';
+        })();
         window.__PAGE_SLUG__ = '';
-        
         window.SHOP_CONFIG = {
             basePath: '/test/shop/',
             dataPath: '/test/shop/data/',
@@ -194,8 +219,8 @@
     </script>
 
     <!-- Shop modules -->
-    <script src="/test/shop/js/config.js"></script>
-    <script src="/test/shop/js/lang-bridge.js"></script>
+    <script src="/test/shop/js/config.js" defer></script>
+    <script src="/test/shop/js/lang-bridge.js" defer></script>
     
     <script>
         (function() {
@@ -219,7 +244,7 @@
         })();
     </script>
     
-    <script>
+    <script defer>
         (function() {
             function loadScript(src) {
                 return new Promise(function(resolve) {
@@ -230,14 +255,15 @@
                     document.head.appendChild(s);
                 });
             }
-            var modules = (typeof CONFIG !== 'undefined' && CONFIG.modules) || [];
-            modules = modules.concat(['/test/shop/js/shop.js']);
-            var chain = Promise.resolve();
-            modules.forEach(function(src) { 
-                chain = chain.then(function() { return loadScript(src); }); 
-            });
-            chain.then(function() { 
-                document.dispatchEvent(new Event("webshop:ready")); 
+            var modules = (typeof CONFIG !== 'undefined' && CONFIG.modules) || [
+                '/test/shop/js/modules/currency.js',
+                '/test/shop/js/modules/shipping.js',
+                '/test/shop/js/modules/payment.js'
+            ];
+            Promise.all(modules.map(loadScript)).then(function() {
+                return loadScript('/test/shop/js/shop.js');
+            }).then(function() {
+                document.dispatchEvent(new Event("webshop:ready"));
             });
         })();
     </script>
@@ -245,16 +271,15 @@
     <script>
         document.addEventListener("webshop:ready", async function() {
             try {
-                if (typeof Currency !== 'undefined') {
-                    await Currency.init();
-                    await Currency.waitForReady();
-                }
-                if (typeof Shipping !== 'undefined') {
-                    await Shipping.load();
-                }
-                await Shop.loadLang();
+                await Promise.all([
+                    typeof Currency !== 'undefined' ? Currency.init().then(function() { return Currency.waitForReady(); }) : Promise.resolve(),
+                    typeof Shipping !== 'undefined' ? Shipping.load() : Promise.resolve(),
+                    Shop.loadLang()
+                ]);
                 
                 if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
+                    var skel = document.getElementById('cart-skeleton');
+                    if (skel) skel.remove();
                     Shop.renderCartIcon({ 
                         target: "#cart-icon-slot", 
                         fixed: false,

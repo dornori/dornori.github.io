@@ -230,14 +230,15 @@
                     document.head.appendChild(s);
                 });
             }
-            var modules = (typeof CONFIG !== 'undefined' && CONFIG.modules) || [];
-            modules = modules.concat(['/test/shop/js/shop.js']);
-            var chain = Promise.resolve();
-            modules.forEach(function(src) { 
-                chain = chain.then(function() { return loadScript(src); }); 
-            });
-            chain.then(function() { 
-                document.dispatchEvent(new Event("webshop:ready")); 
+            var modules = (typeof CONFIG !== 'undefined' && CONFIG.modules) || [
+                '/test/shop/js/modules/currency.js',
+                '/test/shop/js/modules/shipping.js',
+                '/test/shop/js/modules/payment.js'
+            ];
+            Promise.all(modules.map(loadScript)).then(function() {
+                return loadScript('/test/shop/js/shop.js');
+            }).then(function() {
+                document.dispatchEvent(new Event("webshop:ready"));
             });
         })();
     </script>
@@ -245,14 +246,11 @@
     <script>
         document.addEventListener("webshop:ready", async function() {
             try {
-                if (typeof Currency !== 'undefined') {
-                    await Currency.init();
-                    await Currency.waitForReady();
-                }
-                if (typeof Shipping !== 'undefined') {
-                    await Shipping.load();
-                }
-                await Shop.loadLang();
+                await Promise.all([
+                    typeof Currency !== 'undefined' ? Currency.init().then(function() { return Currency.waitForReady(); }) : Promise.resolve(),
+                    typeof Shipping !== 'undefined' ? Shipping.load() : Promise.resolve(),
+                    Shop.loadLang()
+                ]);
                 
                 if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
                     Shop.renderCartIcon({ 
