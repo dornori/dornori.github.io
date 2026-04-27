@@ -259,7 +259,7 @@
                     Shop.renderCartIcon({ 
                         target: "#cart-icon-slot", 
                         fixed: false,
-                        cartUrl: "/test/en/cart/"
+                        cartUrl: (function(){ var m={"en":"/test/en/cart/","nl":"/test/nl/winkelwagen/","de":"/test/de/warenkorb/","fr":"/test/fr/panier/"}; return m[localStorage.getItem("dornori-lang")||"en"]||"/test/en/cart/"; })()
                     });
                 }
                 
@@ -276,6 +276,12 @@
                         }
                     }
                 }
+                // Keep cart icon href in sync when language changes
+                document.addEventListener("shop:langChanged", function() {
+                    var _cartUrls = {"en":"/test/en/cart/","nl":"/test/nl/winkelwagen/","de":"/test/de/warenkorb/","fr":"/test/fr/panier/"};
+                    var cartAnchor = document.querySelector("#cart-icon-slot .webshop-cart-icon");
+                    if (cartAnchor) cartAnchor.href = _cartUrls[localStorage.getItem("dornori-lang")||"en"]||"/test/en/cart/";
+                });
                 console.log("[Integration] Shop components initialized");
 
                 // When currency changes: re-render all visible prices + cart hover panel
