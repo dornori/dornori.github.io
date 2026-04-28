@@ -150,8 +150,31 @@
   function run() {
     if (typeof Shop === 'undefined') return;
 
+    // loadLang() must resolve before renderProductInfo so pName/pDesc/pCategory are populated
+    Shop.loadLang().then(function() {
+
     // 1. renderProductInfo — full product panel (gallery + variants + ATC + related)
     Shop.renderProductInfo('built-product-root', PRODUCT_ID);
+
+    // Rewrite internal cart.html / product.html links rendered by the shop module
+    setTimeout(function patchLinks() {
+      var root = document.getElementById('built-product-root');
+      if (!root) return;
+      root.querySelectorAll('a[href]').forEach(function(a) {
+        var h = a.getAttribute('href');
+        if (!h) return;
+        if (h.indexOf('product.html?id=') !== -1) {
+          a.setAttribute('href', '/test/en/product/?id=' + h.split('product.html?id=')[1]);
+          a.addEventListener('click', function(e) {
+            var id = a.getAttribute('href').split('?id=')[1];
+            if (typeof window.openProduct === 'function') { e.preventDefault(); window.openProduct(id); }
+          });
+        }
+        if (h === 'cart.html' || h.endsWith('/cart.html')) {
+          a.setAttribute('href', '/test/en/cart/');
+        }
+      });
+    }, 300);
 
     // 2. After the panel renders, hook the variant summary strip
     //    using variantPrice / variantInStock / variantWeight / variantImage
@@ -232,7 +255,8 @@
           });
         }, 120);
       });
-  }
+    }); // end loadLang().then
+  } // end run
 
   if (typeof Shop !== 'undefined') { run(); }
   else { document.addEventListener('webshop:ready', run); }
