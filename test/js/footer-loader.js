@@ -35,7 +35,7 @@ window.renderFooter = () => {
         }
 
         visibleLinks.forEach(link => {
-            const lang    = window.LANG || 'en';
+            const lang    = window.LANG || SITE_CONFIG.fallbackLang();
             const base    = SITE_CONFIG.appearance.base_path;
             const urlSlug = SITE_CONFIG.pageUrlSlug(link.slug, lang);
             const href    = lang === 'en'
