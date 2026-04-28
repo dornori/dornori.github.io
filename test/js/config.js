@@ -6,7 +6,9 @@
  *
  * This file contains only structural config:
  * - appearance settings
- * - supported languages (code, hreflang, flag — for the UI selector)
+ * - path configuration (all hardcoded paths centralised here)
+ * - storage keys (centralised here)
+ * - supported languages loaded from languages.json (see languages_file)
  * - navigation slugs + icons + enabled flags
  * - footer slugs + enabled flags
  * - page file mappings
@@ -21,18 +23,33 @@ const SITE_CONFIG = {
         bannerStickyOffset: 0.35,
         root_url:           'https://dornori.com',
         // Change to '/' when deployed to root. Must include trailing slash.
-        base_path:          '/test/'
+        base_path:          '/test/',
     },
 
-    // ─── SUPPORTED LANGUAGES ─────────────────────────────────────────────────
-    // First entry = fallback language (English).
-    // `hreflang` must be a valid BCP-47 tag.
-    languages: [
-        { code: 'en', hreflang: 'en', label: 'English',    flag: '🇬🇧' },
-        { code: 'de', hreflang: 'de', label: 'Deutsch',    flag: '🇩🇪' },
-        { code: 'nl', hreflang: 'nl', label: 'Nederlands', flag: '🇳🇱' },
-        { code: 'fr', hreflang: 'fr', label: 'Français',   flag: '🇫🇷' },
-    ],
+    // ─── PATHS ────────────────────────────────────────────────────────────────
+    // All filesystem/URL paths centralised here.
+    paths: {
+        languages_file: 'languages.json',   // relative to base_path
+        lang_dir:       'lang/',            // relative to base_path
+        content_dir:    'content/',         // relative to base_path
+        icons_dir:      'assets/icons/',    // relative to base_path
+        shop_dir:       'shop/',            // relative to base_path
+        js_dir:         'js/',              // relative to base_path
+    },
+
+    // ─── STORAGE KEYS ─────────────────────────────────────────────────────────
+    // All localStorage key names centralised here.
+    storageKeys: {
+        lang:  'dornori-lang',
+        theme: 'dornori-theme',
+    },
+
+    // ─── SUPPORTED LANGUAGES ──────────────────────────────────────────────────
+    // Loaded at runtime from paths.languages_file via initLanguages().
+    // First entry = fallback language.
+    // Populated by initLanguages() — do not access SITE_CONFIG.languages
+    // until initLanguages() has resolved.
+    languages: null,
 
     // ─── LANGUAGE URL SLUGS ──────────────────────────────────────────────────
     // Maps canonical (English) page slugs → per-language URL segments.
@@ -116,11 +133,11 @@ const SITE_CONFIG = {
 
     // ─── NAVIGATION ──────────────────────────────────────────────────────────
     navigation: [
-        { slug: 'about',  icon: 'assets/icons/about-icon-200x200.svg',   type: 'standard', enabled: true  },
-        { slug: 'built',  icon: 'assets/icons/assembled-lamp-icon-200x200.svg', type: 'standard', enabled: true  },
-        { slug: 'kit',    icon: 'assets/icons/building-kit-icon-200x200.svg',   type: 'standard', enabled: true  },
-        { slug: 'parts',  icon: 'assets/icons/3d-printer-icon-200x200.svg',     type: 'standard', enabled: true  },
-        { slug: 'files',  icon: 'assets/icons/3d-file-icon-200x200.svg',        type: 'standard', enabled: true  },
+        { slug: 'about',  icon: 'about-icon-200x200.svg',          type: 'standard', enabled: true  },
+        { slug: 'built',  icon: 'assembled-lamp-icon-200x200.svg',  type: 'standard', enabled: true  },
+        { slug: 'kit',    icon: 'building-kit-icon-200x200.svg',    type: 'standard', enabled: true  },
+        { slug: 'parts',  icon: 'assets/icons/3d-printer-icon-200x200.svg', type: 'standard', enabled: true  },
+        { slug: 'files',  icon: '3d-file-icon-200x200.svg',         type: 'standard', enabled: true  },
     ],
 
     // ─── FOOTER ──────────────────────────────────────────────────────────────
@@ -181,22 +198,57 @@ const SITE_CONFIG = {
     turnstile_sitekey: '0x4AAAAAACxsga5y-bJ_qkzC',
 };
 
+// ─── LANGUAGE INIT ────────────────────────────────────────────────────────────
+// Fetches languages.json and populates SITE_CONFIG.languages.
+// Must be awaited before accessing SITE_CONFIG.languages, SITE_CONFIG.fallbackLang(),
+// or SITE_CONFIG.supportedLangCodes().
+SITE_CONFIG.initLanguages = async function () {
+    if (this.languages) return; // already loaded
+    const base = this.appearance.base_path;
+    const url  = base + this.paths.languages_file;
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status} loading ${url}`);
+        this.languages = await res.json();
+    } catch (err) {
+        console.warn('[config] Could not load languages.json, using empty list:', err);
+        this.languages = [];
+    }
+};
+
+// ─── CONVENIENCE HELPERS ──────────────────────────────────────────────────────
+
+// Returns the fallback (first) language code, e.g. 'en'.
+SITE_CONFIG.fallbackLang = function () {
+    return (this.languages && this.languages[0]?.code) || 'en';
+};
+
+// Returns a Set of supported language codes.
+SITE_CONFIG.supportedLangCodes = function () {
+    return new Set((this.languages || []).map(l => l.code));
+};
+
+// Returns the full icon URL for a nav icon filename.
+SITE_CONFIG.iconPath = function (iconFilename) {
+    return this.appearance.base_path + this.paths.icons_dir + iconFilename;
+};
+
 // ─── URL SLUG HELPERS ─────────────────────────────────────────────────────────
 // Returns the URL segment for a page in a given language.
 // e.g. pageUrlSlug('about', 'nl') → 'over-ons'
 SITE_CONFIG.pageUrlSlug = function(slug, lang) {
-    const langSlugs = this.url_slugs[lang] || this.url_slugs['en'];
-    return langSlugs[slug] || this.url_slugs['en'][slug] || slug;
+    const langSlugs = this.url_slugs[lang] || this.url_slugs[this.fallbackLang()];
+    return langSlugs[slug] || this.url_slugs[this.fallbackLang()][slug] || slug;
 };
 
 // Reverse lookup: given a URL segment and language, return canonical slug.
 // e.g. canonicalSlug('over-ons', 'nl') → 'about'
 SITE_CONFIG.canonicalSlug = function(urlSegment, lang) {
-    const langSlugs = this.url_slugs[lang] || this.url_slugs['en'];
+    const fallback  = this.fallbackLang();
+    const langSlugs = this.url_slugs[lang] || this.url_slugs[fallback];
     const entry = Object.entries(langSlugs).find(([, v]) => v === urlSegment);
     if (entry) return entry[0];
-    // Also try English
-    const enEntry = Object.entries(this.url_slugs['en']).find(([, v]) => v === urlSegment);
+    const enEntry = Object.entries(this.url_slugs[fallback]).find(([, v]) => v === urlSegment);
     return enEntry ? enEntry[0] : null;
 };
 
