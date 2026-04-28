@@ -18,7 +18,7 @@ const Shop = (() => {
      LANGUAGE RESOLUTION
   ═══════════════════════════════════════════════════════ */
   function detectBrowserLanguage() {
-    const supported = CONFIG.supportedLanguages || [CONFIG.defaultLanguage || "en"];
+    const supported = CONFIG.supportedLanguages || ["en", "no", "nl"];
     for (const lang of (navigator.languages || [navigator.language || "en"])) {
       const code = lang.split("-")[0].toLowerCase();
       if (supported.includes(code)) return code;
@@ -27,8 +27,8 @@ const Shop = (() => {
   }
 
   function resolveLanguage() {
-    const supported = CONFIG.supportedLanguages || [CONFIG.defaultLanguage || "en"];
-    const langKey   = CONFIG.storageKeys?.shopLangKey || CONFIG.storageKeys?.parentLangKey || "dornori-lang";
+    const supported = CONFIG.supportedLanguages || ["en", "no", "nl", "de"];
+    const langKey   = CONFIG.storageKeys?.shopLangKey || CONFIG.userPrefs?.langKey || "dornori-lang";
 
     const urlLang = new URLSearchParams(window.location.search).get("lang");
     if (urlLang && supported.includes(urlLang)) {
@@ -49,7 +49,7 @@ const Shop = (() => {
 
   async function switchLanguage(code) {
     if (code === CONFIG.language && _langLoaded) return;
-    const langKey = CONFIG.storageKeys?.shopLangKey || CONFIG.storageKeys?.parentLangKey || "dornori-lang";
+    const langKey = CONFIG.storageKeys?.shopLangKey || CONFIG.userPrefs?.langKey || "dornori-lang";
     CONFIG.language = code;
     localStorage.setItem(langKey, code);
     _langLoaded = false; _langLoadPromise = null; LANG = {};
@@ -172,10 +172,10 @@ const Shop = (() => {
       .catch(() => ({}));
 
     _langLoadPromise = Promise.all([
-      safeFetch(CONFIG.data.langUiDir + lang + ".json"),
-      safeFetch(CONFIG.data.langUiDir + (CONFIG.defaultLanguage || "en") + ".json"),
-      safeFetch(CONFIG.data.langProductsDir + lang + ".json"),
-      safeFetch(CONFIG.data.langProductsDir + (CONFIG.defaultLanguage || "en") + ".json"),
+      safeFetch("/test/shop/data/lang/ui/" + lang + ".json"),
+      safeFetch("/test/shop/data/lang/ui/en.json"),
+      safeFetch("/test/shop/data/lang/products/" + lang + ".json"),
+      safeFetch("/test/shop/data/lang/products/en.json"),
     ]).then(([ui, uiEn, prod, prodEn]) => {
       LANG = { ...uiEn, ...ui };
       const clean = obj => { const r = { ...obj }; delete r._readme; return r; };

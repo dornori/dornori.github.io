@@ -4,13 +4,12 @@
 
 import SITE_CONFIG from './config.js';
 
-const STORAGE_KEY = SITE_CONFIG.storageKeys.lang;
+const STORAGE_KEY = 'dornori-lang';
+const FALLBACK    = SITE_CONFIG.languages[0].code;
+const supported   = new Set(SITE_CONFIG.languages.map(l => l.code));
 
 // ── DETECT ───────────────────────────────────────────────────────────────────
 function detectLang() {
-    const FALLBACK = SITE_CONFIG.fallbackLang();
-    const supported = SITE_CONFIG.supportedLangCodes();
-
     // The page itself knows what language it is (set by each shell's __PAGE_LANG__).
     // Always trust it — this prevents /fr/ from redirecting to English.
     const pageLang = window.__PAGE_LANG__;
@@ -36,16 +35,14 @@ function detectLang() {
 
 // ── LOAD JSON ─────────────────────────────────────────────────────────────────
 async function loadTranslations(code) {
-    const FALLBACK = SITE_CONFIG.fallbackLang();
-    const base     = SITE_CONFIG.appearance.base_path;
-    const langDir  = SITE_CONFIG.paths.lang_dir;
+    const base = SITE_CONFIG.appearance.base_path;
     try {
-        const res = await fetch(`${base}${langDir}${code}.json`);
+        const res = await fetch(`${base}lang/${code}.json`);
         if (!res.ok) throw new Error();
         return await res.json();
     } catch {
         if (code !== FALLBACK) {
-            const res = await fetch(`${base}${langDir}${FALLBACK}.json`);
+            const res = await fetch(`${base}lang/${FALLBACK}.json`);
             return await res.json();
         }
         return {};
@@ -54,8 +51,7 @@ async function loadTranslations(code) {
 
 // ── HREFLANG ─────────────────────────────────────────────────────────────────
 export function injectHreflangTags(slug = '') {
-    const base     = SITE_CONFIG.appearance.root_url;
-    const FALLBACK = SITE_CONFIG.fallbackLang();
+    const base = SITE_CONFIG.appearance.root_url;
 
     document.querySelectorAll('link[rel="alternate"][hreflang]').forEach(el => el.remove());
 
@@ -66,7 +62,7 @@ export function injectHreflangTags(slug = '') {
         if (slug) {
             const urlSlug = SITE_CONFIG.pageUrlSlug(slug, code);
             link.href = code === FALLBACK
-                ? `${base}/${FALLBACK}/${urlSlug}/`
+                ? `${base}/en/${urlSlug}/`
                 : `${base}/${code}/${urlSlug}/`;
         } else {
             link.href = `${base}/`;
@@ -77,13 +73,12 @@ export function injectHreflangTags(slug = '') {
     const xDef    = document.createElement('link');
     xDef.rel      = 'alternate';
     xDef.hreflang = 'x-default';
-    xDef.href     = slug ? `${base}/${FALLBACK}/${SITE_CONFIG.pageUrlSlug(slug, FALLBACK)}/` : `${base}/`;
+    xDef.href     = slug ? `${base}/en/${SITE_CONFIG.pageUrlSlug(slug, 'en')}/` : `${base}/`;
     document.head.appendChild(xDef);
 }
 
 // ── SET LANG (called from settings UI) ───────────────────────────────────────
 window.setLang = async (code) => {
-    const supported = SITE_CONFIG.supportedLangCodes();
     if (!supported.has(code)) return;
     localStorage.setItem(STORAGE_KEY, code);
     window.LANG = code;
@@ -103,11 +98,11 @@ window.setLang = async (code) => {
     // Reload content in new language and update URL
     const slug = window.CURRENT_SLUG || '';
     if (slug) {
-        const FALLBACK = SITE_CONFIG.fallbackLang();
-        const base     = SITE_CONFIG.appearance.base_path;
-        const urlSlug  = SITE_CONFIG.pageUrlSlug(slug, code);
-        const newUrl   = code === FALLBACK
-            ? `${base}${FALLBACK}/${urlSlug}/`
+        // Update URL to match the new language's pretty URL for this page
+        const base    = SITE_CONFIG.appearance.base_path;
+        const urlSlug = SITE_CONFIG.pageUrlSlug(slug, code);
+        const newUrl  = code === 'en'
+            ? `${base}en/${urlSlug}/`
             : `${base}${code}/${urlSlug}/`;
         window.history.replaceState({ slug, lang: code }, '', newUrl);
 
@@ -123,7 +118,6 @@ window.setLang = async (code) => {
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 export async function initI18n() {
-    await SITE_CONFIG.initLanguages();
     const lang = detectLang();
     window.LANG = lang;
     document.documentElement.setAttribute('lang', lang);

@@ -16,7 +16,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import SITE_CONFIG from './config.js';
+import SITE_CONFIG from '/test/js/config.js';
 
 const SHOP_BASE = SITE_CONFIG.appearance.base_path + 'shop/';
 
@@ -100,9 +100,9 @@ export async function initShop() {
     CONFIG.modules = (CONFIG.modules || []).map(m => SHOP_BASE + m);
 
     // ── 4. Sync language from parent site ────────────────────────────────
-    const siteLang = localStorage.getItem(SITE_CONFIG.storageKeys.lang) || window.__PAGE_LANG__ || SITE_CONFIG.fallbackLang();
+    const siteLang = localStorage.getItem('dornori-lang') || window.__PAGE_LANG__ || 'en';
     CONFIG.language = siteLang;
-    localStorage.setItem(SITE_CONFIG.storageKeys.lang, siteLang);
+    localStorage.setItem('dornori-lang', siteLang);
 
     // ── 5. Load modules sequentially ─────────────────────────────────────
     for (const src of CONFIG.modules) {
@@ -148,7 +148,7 @@ export async function initShop() {
 
     // ── 13. Keep language in sync when parent site switches ───────────────
     window.addEventListener('storage', e => {
-        if (e.key === SITE_CONFIG.storageKeys.lang && e.newValue && typeof Shop !== 'undefined') {
+        if (e.key === 'dornori-lang' && e.newValue && typeof Shop !== 'undefined') {
             Shop.switchLanguage(e.newValue).catch(() => {});
             wireCurrencySlot();
         }

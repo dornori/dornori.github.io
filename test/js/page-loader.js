@@ -131,7 +131,7 @@ export function initPageLoader() {
     // ── SEO ──────────────────────────────────────────────────────────────────
     function updateSEO(slug = '') {
         const base = SITE_CONFIG.appearance.root_url;
-        const lang = window.LANG || SITE_CONFIG.fallbackLang();
+        const lang = window.LANG || 'en';
 
         let canonical = document.querySelector('link[rel="canonical"]');
         if (!canonical) {
@@ -141,7 +141,7 @@ export function initPageLoader() {
         }
         if (slug) {
             const urlSlug = SITE_CONFIG.pageUrlSlug(slug, lang);
-            canonical.href = lang === SITE_CONFIG.fallbackLang()
+            canonical.href = lang === 'en'
                 ? `${base}/en/${urlSlug}/`
                 : `${base}/${lang}/${urlSlug}/`;
         } else {
@@ -181,7 +181,7 @@ export function initPageLoader() {
 
     // ── CONTENT PATH ─────────────────────────────────────────────────────────
     function contentPath(page) {
-        const lang = window.LANG || SITE_CONFIG.fallbackLang();
+        const lang = window.LANG || 'en';
         const base = SITE_CONFIG.appearance.base_path;
         return `${base}content/${lang}/${page.file}`;
     }
@@ -190,7 +190,7 @@ export function initPageLoader() {
     function pageUrl(slug, lang) {
         const base    = SITE_CONFIG.appearance.base_path;
         const urlSlug = SITE_CONFIG.pageUrlSlug(slug, lang);
-        return lang === SITE_CONFIG.fallbackLang()
+        return lang === 'en'
             ? `${base}en/${urlSlug}/`
             : `${base}${lang}/${urlSlug}/`;
     }
@@ -198,7 +198,7 @@ export function initPageLoader() {
     // ── LOAD HOME ─────────────────────────────────────────────────────────────
     window.loadHome = async () => {
         try {
-            const lang = window.LANG || SITE_CONFIG.fallbackLang();
+            const lang = window.LANG || 'en';
             const base = SITE_CONFIG.appearance.base_path;
             const res  = await fetch(`${base}content/${lang}/home.html`);
             if (!res.ok) throw new Error();
@@ -213,8 +213,8 @@ export function initPageLoader() {
         homeView.classList.remove('hidden');
         pageView.classList.add('hidden');
         const base = SITE_CONFIG.appearance.base_path;
-        const homeLang = window.LANG || SITE_CONFIG.fallbackLang();
-        const homeUrl = homeLang === SITE_CONFIG.fallbackLang() ? base : `${base}${homeLang}/`;
+        const homeLang = window.LANG || 'en';
+        const homeUrl = homeLang === 'en' ? base : `${base}${homeLang}/`;
         window.history.replaceState({}, '', homeUrl);
         updateSEO('');
     };
@@ -256,7 +256,7 @@ export function initPageLoader() {
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
 
-            const lang = window.LANG || SITE_CONFIG.fallbackLang();
+            const lang = window.LANG || 'en';
             window.history.replaceState({ slug, lang }, '', pageUrl(slug, lang));
 
             updateSEO(slug);
@@ -285,8 +285,8 @@ export function initPageLoader() {
         pageView.classList.add('hidden');
         homeView.classList.remove('hidden');
         const base = SITE_CONFIG.appearance.base_path;
-        const homeLang = window.LANG || SITE_CONFIG.fallbackLang();
-        const homeUrl = homeLang === SITE_CONFIG.fallbackLang() ? base : `${base}${homeLang}/`;
+        const homeLang = window.LANG || 'en';
+        const homeUrl = homeLang === 'en' ? base : `${base}${homeLang}/`;
         window.history.pushState({}, '', homeUrl);
         updateSEO('');
         window.loadHome();
@@ -336,7 +336,7 @@ export function initPageLoader() {
         }
 
         if (urlSegment) {
-            const detectedLang = lang || window.LANG || SITE_CONFIG.fallbackLang();
+            const detectedLang = lang || window.LANG || 'en';
             const slug = SITE_CONFIG.canonicalSlug(urlSegment, detectedLang) || urlSegment;
             if (SITE_CONFIG.pages[slug]) {
                 window.viewPage(slug);

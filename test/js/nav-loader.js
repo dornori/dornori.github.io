@@ -39,7 +39,7 @@ async function fetchSVG(path) {
 }
 
 function navHref(slug) {
-    const lang     = window.LANG || SITE_CONFIG.fallbackLang();
+    const lang     = window.LANG || 'en';
     const base     = SITE_CONFIG.appearance.base_path;
     const urlSlug  = SITE_CONFIG.pageUrlSlug(slug, lang);
     return lang === 'en'
@@ -109,7 +109,7 @@ window.renderNav = () => {
             a.addEventListener('click', e => { e.preventDefault(); window.viewPage(item.slug); });
             desktopNav.appendChild(a);
 
-            if (item.icon) fetchSVG(SITE_CONFIG.iconPath(item.icon)).then(svg => { iconEl.innerHTML = svg; });
+            if (item.icon) fetchSVG(SITE_CONFIG.appearance.base_path + item.icon).then(svg => { iconEl.innerHTML = svg; });
         });
         // Re-append cart slot LAST — sits right after the final nav item
         if (cartSlot) desktopNav.appendChild(cartSlot);
@@ -142,7 +142,7 @@ window.renderNav = () => {
             a.addEventListener('click', e => { e.preventDefault(); window.viewPage(item.slug); });
             mobileNav.appendChild(a);
 
-            if (item.icon) fetchSVG(SITE_CONFIG.iconPath(item.icon)).then(svg => { iconEl.innerHTML = svg; });
+            if (item.icon) fetchSVG(SITE_CONFIG.appearance.base_path + item.icon).then(svg => { iconEl.innerHTML = svg; });
         });
     }
 };
@@ -151,7 +151,7 @@ window.renderNav = () => {
 export function initNavigation() {
 
     /* ── Theme ── */
-    const THEME_KEY = SITE_CONFIG.storageKeys.theme;
+    const THEME_KEY = 'dornori-theme';
     const root      = document.documentElement;
     const saved     = localStorage.getItem(THEME_KEY) || 'cutting-mat';
     root.setAttribute('data-theme', saved);
@@ -198,13 +198,13 @@ export function initNavigation() {
         langSelect.className = 'profile-select';
         langSelect.setAttribute('aria-label', 'Choose language');
         langSelect.setAttribute('tabindex', '-1');
-        langSelect.value     = window.LANG || SITE_CONFIG.fallbackLang();
+        langSelect.value     = window.LANG || 'en';
 
         SITE_CONFIG.languages.forEach(l => {
             const opt       = document.createElement('option');
             opt.value       = l.code;
             opt.textContent = `${l.flag} ${l.label}`;
-            if (l.code === (window.LANG || SITE_CONFIG.fallbackLang())) opt.selected = true;
+            if (l.code === (window.LANG || 'en')) opt.selected = true;
             langSelect.appendChild(opt);
         });
 
