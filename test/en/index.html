@@ -293,9 +293,7 @@
                     if (!topBar.querySelector('.webshop-currency-selector')) {
                         const currencyContainer = document.createElement('div');
                         currencyContainer.id = 'currency-selector-slot';
-                        const topBarTab = topBar.querySelector('#topBar-tab');
-                        if (topBarTab) topBar.insertBefore(currencyContainer, topBarTab);
-                        else topBar.appendChild(currencyContainer);
+                        topBar.appendChild(currencyContainer);
                         if (typeof Shop !== 'undefined' && typeof Shop.renderCurrencySelector === 'function') {
                             Shop.renderCurrencySelector('#currency-selector-slot');
                         } else {
@@ -303,6 +301,37 @@
                         }
                     }
                 }
+                
+                // Rewrite shop-internal product.html?id= links to the site product page
+                (function patchProductLinks() {
+                    function rewrite(root) {
+                        (root || document).querySelectorAll('a[href]').forEach(function(a) {
+                            var h = a.getAttribute('href');
+                            if (h && h.indexOf('product.html?id=') !== -1) {
+                                var id = h.split('product.html?id=')[1];
+                                a.setAttribute('href', '/test/en/product/?id=' + id);
+                            }
+                        });
+                    }
+                    rewrite(document);
+                    var obs = new MutationObserver(function(mutations) {
+                        mutations.forEach(function(m) {
+                            m.addedNodes.forEach(function(n) { if (n.nodeType === 1) rewrite(n); });
+                        });
+                    });
+                    obs.observe(document.body, { childList: true, subtree: true });
+                    document.addEventListener('shop:cartUpdated', function() { rewrite(document); });
+                })();
+                
+                // openProduct(id) — navigate to the product page with the correct ID
+                window.openProduct = function(id) {
+                    window.__PRODUCT_ID__ = id;
+                    if (typeof window.viewPage === 'function') {
+                        window.viewPage('product');
+                    } else {
+                        window.location.href = '/test/en/product/?id=' + id;
+                    }
+                };
                 console.log("[Integration] Shop components initialized");
 
                 // When currency changes: re-render all visible prices + cart hover panel
