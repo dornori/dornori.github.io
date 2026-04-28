@@ -257,3 +257,30 @@
   else { document.addEventListener('webshop:ready', run); }
 })();
 </script>
+
+<script>
+/* Wire all product image/card links to SPA openProduct() — runs after shop renders */
+(function wirePdpLinks() {
+  function patch(root) {
+    (root || document).querySelectorAll('a[href*="/test/en/product/?id="]').forEach(function(a) {
+      if (a._pdpWired) return;
+      a._pdpWired = true;
+      a.addEventListener('click', function(e) {
+        var id = new URLSearchParams(a.getAttribute('href').split('?')[1]).get('id');
+        if (!id) return;
+        if (typeof window.openProduct === 'function') {
+          e.preventDefault();
+          window.openProduct(id);
+        }
+      });
+    });
+  }
+  /* Poll for async-rendered shop panels (renderShop, renderProductInfo, buildProductCard) */
+  var ticks = 0;
+  var iv = setInterval(function() {
+    patch(document);
+    if (++ticks > 40) clearInterval(iv);
+  }, 250);
+  document.addEventListener('shop:cartUpdated', function() { patch(document); });
+})();
+</script>
