@@ -29,7 +29,7 @@ const SITE_CONFIG = {
     // ─── PATHS ────────────────────────────────────────────────────────────────
     // All filesystem/URL paths centralised here.
     paths: {
-        languages_file: 'languages.json',   // relative to base_path
+        languages_file: 'data/languages.json',   // relative to base_path
         lang_dir:       'lang/',            // relative to base_path
         content_dir:    'content/',         // relative to base_path
         icons_dir:      'assets/icons/',    // relative to base_path
@@ -73,6 +73,7 @@ const SITE_CONFIG = {
             contact:             'contact',
             gallery:             'gallery',
             cart:                'cart',
+            shop:                'shop',
         },
         nl: {
             about:               'over-ons',
@@ -91,6 +92,7 @@ const SITE_CONFIG = {
             contact:             'contact',
             gallery:             'galerij',
             cart:                'winkelwagen',
+            shop:                'winkel',
             product:             'product',
         },
         de: {
@@ -110,6 +112,7 @@ const SITE_CONFIG = {
             contact:             'kontakt',
             gallery:             'galerie',
             cart:                'warenkorb',
+            shop:                'shop',
         },
         fr: {
             about:               'a-propos',
@@ -128,6 +131,7 @@ const SITE_CONFIG = {
             contact:             'contact',
             gallery:             'galerie',
             cart:                'panier',
+            shop:                'boutique',
         },
     },
 
@@ -136,7 +140,7 @@ const SITE_CONFIG = {
         { slug: 'about',  icon: 'about-icon-200x200.svg',          type: 'standard', enabled: true  },
         { slug: 'built',  icon: 'assembled-lamp-icon-200x200.svg',  type: 'standard', enabled: true  },
         { slug: 'kit',    icon: 'building-kit-icon-200x200.svg',    type: 'standard', enabled: true  },
-        { slug: 'parts',  icon: 'assets/icons/3d-printer-icon-200x200.svg', type: 'standard', enabled: true  },
+        { slug: 'parts',  icon: '3d-printer-icon-200x200.svg',              type: 'standard', enabled: true  },
         { slug: 'files',  icon: '3d-file-icon-200x200.svg',         type: 'standard', enabled: true  },
     ],
 
@@ -182,6 +186,7 @@ const SITE_CONFIG = {
         contact:             { file: 'gallery-1.html'          },
         gallery:             { file: 'gallery-1.html'          },
         cart:                { file: 'cart.html'               },
+        shop:                { file: 'shop.html'                },
         product:             { file: 'product.html'            },
     },
 
