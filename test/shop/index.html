@@ -118,38 +118,18 @@
       <span style="font-size:0.82rem;color:rgba(255,255,255,.45);">© 2025 WEBSHOP. All rights reserved.</span>
     </div>
   </footer>
-
-  <script src="js/config.js"></script>
-  <script>
-    (function() {
-      function loadScript(src) {
-        return new Promise(function(resolve) {
-          var s = document.createElement("script");
-          s.src = src;
-          s.onload = resolve;
-          s.onerror = function() { console.warn("[WEBSHOP] Module failed:", src); resolve(); };
-          document.head.appendChild(s);
-        });
-      }
-      var modules = (CONFIG.modules || []).concat(["js/lang-bridge.js", "js/shop.js"]);
-      var chain = Promise.resolve();
-      modules.forEach(function(src) { chain = chain.then(function() { return loadScript(src); }); });
-      chain.then(function() { document.dispatchEvent(new Event("webshop:ready")); });
-    })();
-  </script>
-  <script>
-    document.addEventListener("webshop:ready", function() {
-      Promise.all([
-        Shipping.load(),
-        Currency.init(),
-        Shop.loadLang(),
-      ]).then(() => {
-        Shop.wireLanguageSwitcher(".webshop-lang-btn");
-        Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false });
-        Shop.renderCurrencySelector("#currency-selector-slot");
-        Shop.renderShop("shop", { showFilter: true });
-      });
-    });
-  </script>
+    <!--
+        Boot sequence — all logic in external files.
+        Only __PAGE_LANG__ and __PAGE_SLUG__ are set inline here.
+    -->
+    <script>
+        window.__PAGE_LANG__ = 'en';
+        window.__PAGE_SLUG__ = '';
+    </script>
+    <script src="/test/js/site-boot.js"></script>
+    <script src="/test/shop/js/config.js"></script>
+    <script src="/test/shop/js/lang-bridge.js"></script>
+    <script src="/test/js/shop-init.js"></script>
+    <script type="module" src="/test/js/site-main.js"></script>
 </body>
 </html>

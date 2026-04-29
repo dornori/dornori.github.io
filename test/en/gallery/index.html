@@ -182,157 +182,18 @@
             color: var(--text);
         }
     </style>
-
+    <!--
+        Boot sequence — all logic in external files.
+        Only __PAGE_LANG__ and __PAGE_SLUG__ are set inline here.
+    -->
     <script>
         window.__PAGE_LANG__ = 'en';
         window.__PAGE_SLUG__ = 'gallery';
-        
-        window.SHOP_CONFIG = {
-            basePath: '/test/shop/',
-            dataPath: '/test/shop/data/',
-            jsPath: '/test/shop/js/'
-        };
     </script>
-
-    <!-- Shop modules -->
+    <script src="/test/js/site-boot.js"></script>
     <script src="/test/shop/js/config.js"></script>
     <script src="/test/shop/js/lang-bridge.js"></script>
-    
-    <script>
-        (function() {
-            if (typeof CONFIG !== 'undefined') {
-                CONFIG.data.shippingCsv = '/test/shop/data/shipping.csv';
-                CONFIG.data.currenciesCsv = '/test/shop/data/currencies.csv';
-                CONFIG.data.langUiDir = '/test/shop/data/lang/ui/';
-                CONFIG.data.langProductsDir = '/test/shop/data/lang/products/';
-                CONFIG.data.productsJson = '/test/shop/data/products.json';
-                CONFIG.modules = [
-                    '/test/shop/js/modules/currency.js',
-                    '/test/shop/js/modules/shipping.js',
-                    '/test/shop/js/modules/payment.js'
-                ];
-                CONFIG.storageKeys.parentLangKey = 'dornori-lang';
-                CONFIG.storageKeys.shopLangKey = 'dornori-lang';
-                CONFIG.defaultLanguage = 'en';
-                CONFIG.features.showLanguageSwitcher = false;
-                CONFIG.features.showCurrencySelector = true;
-            }
-        })();
-    </script>
-    
-    <script>
-        (function() {
-            function loadScript(src) {
-                return new Promise(function(resolve) {
-                    var s = document.createElement("script");
-                    s.src = src;
-                    s.onload = resolve;
-                    s.onerror = function() { console.warn("[Shop] Module failed:", src); resolve(); };
-                    document.head.appendChild(s);
-                });
-            }
-            var modules = (typeof CONFIG !== 'undefined' && CONFIG.modules) || [];
-            modules = modules.concat(['/test/shop/js/shop.js']);
-            var chain = Promise.resolve();
-            modules.forEach(function(src) { 
-                chain = chain.then(function() { return loadScript(src); }); 
-            });
-            chain.then(function() { 
-                document.dispatchEvent(new Event("webshop:ready")); 
-            });
-        })();
-    </script>
-    
-    <script>
-        document.addEventListener("webshop:ready", async function() {
-            try {
-                if (typeof Currency !== 'undefined') {
-                    await Currency.init();
-                    await Currency.waitForReady();
-                }
-                if (typeof Shipping !== 'undefined') {
-                    await Shipping.load();
-                }
-                await Shop.loadLang();
-                
-                if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
-                    Shop.renderCartIcon({ 
-                        target: "#cart-icon-slot", 
-                        fixed: false,
-                        cartUrl: "/test/en/cart/"
-                    });
-                }
-                
-                const topBar = document.getElementById('topBar');
-                if (topBar && typeof Currency !== 'undefined' && CONFIG.features.showCurrencySelector !== false) {
-                    if (!topBar.querySelector('#currency-selector-slot')) {
-                        const currencyContainer = document.createElement('div');
-                        currencyContainer.id = 'currency-selector-slot';
-                        const topBarTab = topBar.querySelector('#topBar-tab');
-                        if (topBarTab) topBar.insertBefore(currencyContainer, topBarTab);
-                        else topBar.appendChild(currencyContainer);
-                        if (typeof Shop !== 'undefined' && typeof Shop.renderCurrencySelector === 'function') {
-                            Shop.renderCurrencySelector('#currency-selector-slot');
-                        } else {
-                            renderBasicCurrencySelector(currencyContainer);
-                        }
-                    }
-                }
-                console.log("[Integration] Shop components initialized");
-
-                // When currency changes: re-render all visible prices + cart hover panel
-                document.addEventListener("currency:changed", function() {
-                    // Re-render all data-base-price elements loaded into page content
-                    document.querySelectorAll("[data-base-price]").forEach(function(el) {
-                        var base = parseFloat(el.dataset.basePrice);
-                        if (!isNaN(base)) el.textContent = Shop.fmt(base);
-                    });
-                    // Re-render cart hover panel by triggering cartUpdated
-                    document.dispatchEvent(new CustomEvent("shop:cartUpdated", { detail: { cart: Shop.getCart() } }));
-                });
-            } catch(e) {
-                console.warn("[Integration] Shop init error:", e);
-            }
-        });
-        
-        function renderBasicCurrencySelector(container) {
-            if (!container || typeof Currency === 'undefined') return;
-            async function build() {
-                await Currency.waitForReady();
-                const active = Currency.getActive();
-                container.className = "profile-selector-wrap";
-                container.innerHTML = "CURRENCY " +
-                    `<select class="profile-select" aria-label="Currency">
-                        ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
-                    </select>`;
-                container.querySelector("select").addEventListener("change", e => Currency.setActive(e.target.value));
-            }
-            build();
-            document.addEventListener("currency:changed", build);
-        }
-    </script>
-
-    <script type="module">
-        import { initI18n }        from '/test/js/i18n.js';
-        import { initNavigation }  from '/test/js/nav-loader.js';
-        import { initStickyBanner } from '/test/js/sticky-banner.js';
-        import { initSocials }     from '/test/js/social-loader.js';
-        import { initEmbedForms }  from '/test/js/embed-form.js';
-        import { initPageLoader }  from '/test/js/page-loader.js';
-        import { initFooter }      from '/test/js/footer-loader.js';
-
-        async function init() {
-            // Language-specific page: URL lang wins, update localStorage to match
-            if (window.__PAGE_LANG__) localStorage.setItem('dornori-lang', window.__PAGE_LANG__);
-            await initI18n();
-            initNavigation();
-            initStickyBanner();
-            initSocials();
-            initFooter();
-            initEmbedForms();
-            initPageLoader();
-        }
-        init().catch(err => console.error('Init error:', err));
-    </script>
+    <script src="/test/js/shop-init.js"></script>
+    <script type="module" src="/test/js/site-main.js"></script>
 </body>
 </html>
