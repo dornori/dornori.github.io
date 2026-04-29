@@ -39,7 +39,7 @@ const Shipping = (() => {
 
   /* Languages the shop actually has translation files for.
    * Derived at load time from COUNTRY_LANG + available files. */
-  const AVAILABLE_LANG_FILES = ["en", "no", "nl", "de"];
+  const AVAILABLE_LANG_FILES = ["en", "no", "nl", "de", "fr"];
 
   function parseCSV(text) {
     const lines = text.trim().split("\n").filter(l => l && !l.startsWith("#") && !l.startsWith("["));
