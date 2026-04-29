@@ -337,8 +337,13 @@
         import { initFooter }      from '/test/js/footer-loader.js';
 
         async function init() {
-            // Language-specific page: URL lang wins, update localStorage to match
-            if (window.__PAGE_LANG__) localStorage.setItem('dornori-lang', window.__PAGE_LANG__);
+            // Only sync localStorage from __PAGE_LANG__ on a true direct URL load,
+            // not on every SPA shell boot — otherwise it resets the user's language.
+            const _saved = localStorage.getItem('dornori-lang');
+            const _pageLang = window.__PAGE_LANG__;
+            if (_pageLang && !_saved) {
+                localStorage.setItem('dornori-lang', _pageLang);
+            }
             await initI18n();
             initNavigation();
             initStickyBanner();

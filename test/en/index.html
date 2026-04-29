@@ -285,7 +285,7 @@
                     var skel = document.getElementById('cart-skeleton');
                     if (skel) skel.remove();
                     var _enCartUrls = {"en":"/test/en/cart/","nl":"/test/nl/winkelwagen/","de":"/test/de/warenkorb/","fr":"/test/fr/panier/"};
-                    var _enL = window.LANG || window.__PAGE_LANG__ || localStorage.getItem("dornori-lang") || "en";
+                    var _enL = window.LANG || localStorage.getItem("dornori-lang") || window.__PAGE_LANG__ || "en";
                     Shop.renderCartIcon({ 
                         target: "#cart-icon-slot", 
                         fixed: false,
@@ -370,8 +370,14 @@
         import { initFooter }      from '/test/js/footer-loader.js';
 
         async function init() {
-            // Language-specific page: URL lang wins, update localStorage to match
-            if (window.__PAGE_LANG__) localStorage.setItem('dornori-lang', window.__PAGE_LANG__);
+            // Only sync localStorage from __PAGE_LANG__ on a true direct URL load,
+            // not on every SPA shell boot — otherwise it resets the user's language.
+            // Direct load = no saved preference yet, or the URL path matches the lang.
+            const _saved = localStorage.getItem('dornori-lang');
+            const _pageLang = window.__PAGE_LANG__;
+            if (_pageLang && !_saved) {
+                localStorage.setItem('dornori-lang', _pageLang);
+            }
             await initI18n();
             initNavigation();
             initStickyBanner();
