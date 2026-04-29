@@ -226,30 +226,27 @@
     <script src="/test/shop/js/config.js" defer></script>
     <script src="/test/shop/js/lang-bridge.js" defer></script>
     
-    <script>
+    <script defer>
         (function() {
+            // CONFIG patch — runs here (inside defer) so config.js has already executed.
             if (typeof CONFIG !== 'undefined') {
-                CONFIG.data.shippingCsv = '/test/shop/data/shipping.csv';
-                CONFIG.data.currenciesCsv = '/test/shop/data/currencies.csv';
-                CONFIG.data.langUiDir = '/test/shop/data/lang/ui/';
-                CONFIG.data.langProductsDir = '/test/shop/data/lang/products/';
-                CONFIG.data.productsJson = '/test/shop/data/products.json';
+                CONFIG.data.shippingCsv     = window.SHOP_CONFIG.dataPath + 'shipping.csv';
+                CONFIG.data.currenciesCsv   = window.SHOP_CONFIG.dataPath + 'currencies.csv';
+                CONFIG.data.langUiDir       = window.SHOP_CONFIG.dataPath + 'lang/ui/';
+                CONFIG.data.langProductsDir = window.SHOP_CONFIG.dataPath + 'lang/products/';
+                CONFIG.data.productsJson    = window.SHOP_CONFIG.dataPath + 'products.json';
                 CONFIG.modules = [
-                    '/test/shop/js/modules/currency.js',
-                    '/test/shop/js/modules/shipping.js',
-                    '/test/shop/js/modules/payment.js'
+                    window.SHOP_CONFIG.jsPath + 'modules/currency.js',
+                    window.SHOP_CONFIG.jsPath + 'modules/shipping.js',
+                    window.SHOP_CONFIG.jsPath + 'modules/payment.js'
                 ];
-                CONFIG.storageKeys.parentLangKey = 'dornori-lang';
-                CONFIG.storageKeys.shopLangKey = 'dornori-lang';
-                CONFIG.defaultLanguage = 'en';
+                CONFIG.storageKeys.parentLangKey  = 'dornori-lang';
+                CONFIG.storageKeys.shopLangKey    = 'dornori-lang';
+                CONFIG.defaultLanguage            = 'en';
                 CONFIG.features.showLanguageSwitcher = false;
                 CONFIG.features.showCurrencySelector = true;
             }
-        })();
-    </script>
-    
-    <script defer>
-        (function() {
+
             function loadScript(src) {
                 return new Promise(function(resolve) {
                     var s = document.createElement("script");
@@ -260,12 +257,12 @@
                 });
             }
             var modules = (typeof CONFIG !== 'undefined' && CONFIG.modules) || [
-                '/test/shop/js/modules/currency.js',
-                '/test/shop/js/modules/shipping.js',
-                '/test/shop/js/modules/payment.js'
+                window.SHOP_CONFIG.jsPath + 'modules/currency.js',
+                window.SHOP_CONFIG.jsPath + 'modules/shipping.js',
+                window.SHOP_CONFIG.jsPath + 'modules/payment.js'
             ];
             Promise.all(modules.map(loadScript)).then(function() {
-                return loadScript('/test/shop/js/shop.js');
+                return loadScript(window.SHOP_CONFIG.jsPath + 'shop.js');
             }).then(function() {
                 document.dispatchEvent(new Event("webshop:ready"));
             });
