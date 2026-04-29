@@ -114,21 +114,20 @@
     
     <script>
         (function() {
-            if (typeof CONFIG !== 'undefined' && typeof SITE_CONFIG !== 'undefined') {
-                var base = SITE_CONFIG.appearance.base_path + SITE_CONFIG.paths.shop_dir;
-                CONFIG.data.shippingCsv      = base + 'data/shipping.csv';
-                CONFIG.data.currenciesCsv    = base + 'data/currencies.csv';
-                CONFIG.data.langUiDir        = base + 'data/lang/ui/';
-                CONFIG.data.langProductsDir  = base + 'data/lang/products/';
-                CONFIG.data.productsJson     = base + 'data/products.json';
+            if (typeof CONFIG !== 'undefined') {
+                CONFIG.data.shippingCsv = '/test/shop/data/shipping.csv';
+                CONFIG.data.currenciesCsv = '/test/shop/data/currencies.csv';
+                CONFIG.data.langUiDir = '/test/shop/data/lang/ui/';
+                CONFIG.data.langProductsDir = '/test/shop/data/lang/products/';
+                CONFIG.data.productsJson = '/test/shop/data/products.json';
                 CONFIG.modules = [
-                    base + 'js/modules/currency.js',
-                    base + 'js/modules/shipping.js',
-                    base + 'js/modules/payment.js'
+                    '/test/shop/js/modules/currency.js',
+                    '/test/shop/js/modules/shipping.js',
+                    '/test/shop/js/modules/payment.js'
                 ];
-                CONFIG.storageKeys.parentLangKey = SITE_CONFIG.storageKeys.lang;
-                CONFIG.storageKeys.shopLangKey   = SITE_CONFIG.storageKeys.lang;
-                CONFIG.defaultLanguage           = SITE_CONFIG.fallbackLang ? SITE_CONFIG.fallbackLang() : 'en';
+                CONFIG.storageKeys.parentLangKey = 'dornori-lang';
+                CONFIG.storageKeys.shopLangKey = 'dornori-lang';
+                CONFIG.defaultLanguage = 'en';
                 CONFIG.features.showLanguageSwitcher = false;
                 CONFIG.features.showCurrencySelector = true;
             }
@@ -147,13 +146,10 @@
                 });
             }
             // Load all modules in PARALLEL (was sequential before)
-            var base = (typeof SITE_CONFIG !== 'undefined')
-                ? SITE_CONFIG.appearance.base_path + SITE_CONFIG.paths.shop_dir
-                : '/test/shop/';
             var modules = (typeof CONFIG !== 'undefined' && CONFIG.modules) || [
-                base + 'js/modules/currency.js',
-                base + 'js/modules/shipping.js',
-                base + 'js/modules/payment.js'
+                '/test/shop/js/modules/currency.js',
+                '/test/shop/js/modules/shipping.js',
+                '/test/shop/js/modules/payment.js'
             ];
             Promise.all(modules.map(loadScript)).then(function() {
                 return loadScript('/test/shop/js/shop.js');
@@ -176,13 +172,10 @@
                 if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
                     var skel = document.getElementById('cart-skeleton');
                     if (skel) skel.remove();
-                    var _l = window.LANG || window.__PAGE_LANG__ || localStorage.getItem(SITE_CONFIG.storageKeys.lang) || SITE_CONFIG.fallbackLang();
-                    var _cartSlug = SITE_CONFIG.pageUrlSlug('cart', _l);
-                    var _base = SITE_CONFIG.appearance.base_path;
                     Shop.renderCartIcon({ 
-                        target:  "#cart-icon-slot", 
-                        fixed:   false,
-                        cartUrl: _base + _l + '/' + _cartSlug + '/'
+                        target: "#cart-icon-slot", 
+                        fixed: false,
+                        cartUrl: (function(){ var l=window.LANG||window.__PAGE_LANG__||localStorage.getItem("dornori-lang")||"en"; var m={"en":"/test/en/cart/","nl":"/test/nl/winkelwagen/","de":"/test/de/warenkorb/","fr":"/test/fr/panier/"}; return m[l]||"/test/en/cart/"; })()
                     });
                 }
 
