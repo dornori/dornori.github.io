@@ -275,8 +275,11 @@
     <script>
         document.addEventListener("webshop:ready", async function() {
             try {
+                // Kick off currency init immediately — non-blocking.
+                // CSV loads fast; IP detection runs in background and fires currency:changed when done.
+                if (typeof Currency !== 'undefined') Currency.init();
+
                 await Promise.all([
-                    typeof Currency !== 'undefined' ? Currency.init().then(function() { return Currency.waitForReady(); }) : Promise.resolve(),
                     typeof Shipping !== 'undefined' ? Shipping.load() : Promise.resolve(),
                     Shop.loadLang()
                 ]);

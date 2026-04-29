@@ -39,7 +39,6 @@ const Currency = (() => {
           locale:   row.locale || "en-US",
         };
       });
-      // Ensure EUR is always present as fallback
       if (!_rates["EUR"]) {
         _rates["EUR"] = { symbol: "€", name: "Euro", rate: 1, buffer: 0, decimals: 2, locale: "de-DE" };
       }
@@ -61,36 +60,28 @@ const Currency = (() => {
 
   function convert(eurAmount, code = _active) {
     const c = _rates[code];
-    if (!c) return eurAmount; // fallback to raw amount
+    if (!c) return eurAmount;
     return eurAmount * (c.rate + c.buffer);
   }
 
   function fmt(eurAmount, code = _active) {
-    // CRITICAL FIX: If rates aren't loaded yet, return Euro format as fallback
     if (!_loaded || Object.keys(_rates).length === 0) {
       return "€\u00A0" + eurAmount.toFixed(2);
     }
-    
     const c = _rates[code];
     if (!c) {
-      // If the requested currency isn't found, fall back to EUR
       const eur = _rates["EUR"];
-      if (eur) {
-        return eur.symbol + '\u00A0' + eurAmount.toFixed(eur.decimals);
-      }
+      if (eur) return eur.symbol + "\u00A0" + eurAmount.toFixed(eur.decimals);
       return "€\u00A0" + eurAmount.toFixed(2);
     }
-    
     const val = convert(eurAmount, code);
-    // Handle symbol that might be HTML entity or raw character
     let symbol = c.symbol;
-    // If symbol is HTML entity (like &euro;), decode it
-    if (symbol && typeof symbol === 'string' && symbol.includes('&')) {
-      const textarea = document.createElement('textarea');
+    if (symbol && typeof symbol === "string" && symbol.includes("&")) {
+      const textarea = document.createElement("textarea");
       textarea.innerHTML = symbol;
       symbol = textarea.value;
     }
-    return symbol + '\u00A0' + val.toFixed(c.decimals);
+    return symbol + "\u00A0" + val.toFixed(c.decimals);
   }
 
   function setActive(code) {
@@ -103,64 +94,61 @@ const Currency = (() => {
     document.dispatchEvent(new CustomEvent("currency:changed", { detail: { code } }));
   }
 
-  function list() { 
-    return Object.entries(_rates).map(([code, c]) => ({ code, ...c })); 
-  }
-  
-  function getActive() { 
-    // Return the stored preference even if rates aren't loaded yet
-    if (_active) return _active;
-    return "EUR";
-  }
-  
+  function list()      { return Object.entries(_rates).map(([code, c]) => ({ code, ...c })); }
+  function getActive() { return _active; }
   function getRates()  { return _rates; }
   function isReady()   { return _loaded && _rates[_active] !== undefined; }
 
   async function init() {
     if (_initPromise) return _initPromise;
     _initPromise = (async () => {
+      // Phase 1 — load CSV (local file, fast). Resolves in ~50ms.
       try {
         await load();
       } catch (e) {
         console.warn("[Currency] Init failed, using EUR fallback", e);
-        // Ensure EUR is always available as fallback
         _rates["EUR"] = { symbol: "€", name: "Euro", rate: 1, buffer: 0, decimals: 2, locale: "de-DE" };
         _loaded = true;
       }
-      const key = CONFIG.storageKeys.currencyKey;
+
+      // Phase 2 — pick active currency.
+      // Returning visitor: use saved pref instantly (no network).
+      // First visit: set EUR now, detect from IP in background and update silently.
+      const key   = CONFIG.storageKeys.currencyKey;
       const saved = localStorage.getItem(key);
-      let code = "EUR";
       if (saved && _rates[saved]) {
-        code = saved;
+        setActive(saved);
       } else {
-        try {
-          code = await detectFromIP();
-          if (!_rates[code]) code = "EUR";
-        } catch { code = "EUR"; }
+        setActive("EUR"); // render immediately with EUR
+        detectFromIP().then(code => {
+          if (code && _rates[code] && code !== _active) {
+            setActive(code); // fires currency:changed → selector re-renders automatically
+          }
+        }).catch(() => {});
       }
-      setActive(code);
-      return code;
+      return _active;
     })();
     return _initPromise;
   }
 
-  // Wait for initialization (useful for modules that depend on Currency)
+  // Resolves once CSV is loaded and initial currency is set.
+  // Does NOT wait for background IP detection — that updates via currency:changed.
   async function waitForReady() {
     await init();
     return isReady();
   }
 
-  return { 
-    load, 
-    init, 
-    waitForReady, 
-    detect: detectFromIP, 
-    convert, 
-    fmt, 
-    setActive, 
-    getActive, 
-    list, 
-    getRates, 
-    isReady 
+  return {
+    load,
+    init,
+    waitForReady,
+    detect: detectFromIP,
+    convert,
+    fmt,
+    setActive,
+    getActive,
+    list,
+    getRates,
+    isReady
   };
 })();
