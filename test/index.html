@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dornori — 1 - Build Your Own Rising Star Lamp</title>
+    <title>Dornori — Build Your Own Rising Star Lamp</title>
     <meta name="description" content="Design and build your own Dornori Rising Star lamp. Available as a full DIY kit, pre-printed parts, or ready-assembled. Ships worldwide.">
     <link rel="icon" href="/test/assets/icons/favicon.ico" sizes="any">
     <!-- Preconnect to speed up 3rd-party origins -->
@@ -121,6 +121,7 @@
             align-items: center;
             margin-left: 12px;
             margin-right: 16px;
+            position: relative;
         }
         
         /* Cart icon wrapper – remove fixed positioning, keep relative for dropdown */
@@ -259,6 +260,9 @@
             dataPath: '/test/shop/data/',
             jsPath: '/test/shop/js/'
         };
+        
+        // Keep track of cart icon instance to prevent duplicates
+        window.__cartIconInstance = null;
     </script>
 
     <!-- Shop modules -->
@@ -313,23 +317,44 @@
             }
         };
         
-        // Retry mechanism for price updates
-        function startPriceUpdateRetry() {
-            var retries = 0;
-            var maxRetries = 20; // Try for up to 10 seconds (20 * 500ms)
-            var interval = setInterval(function() {
-                var success = window.updateAllPrices();
-                retries++;
-                if (success || retries >= maxRetries) {
-                    clearInterval(interval);
-                    if (retries >= maxRetries && !success) {
-                        console.warn('[Currency] Max retries reached, removing loading indicators');
-                        document.querySelectorAll('[data-base-price].currency-loading').forEach(function(el) {
-                            el.classList.remove('currency-loading');
-                        });
-                    }
-                }
-            }, 500);
+        // Clean cart icon before re-rendering
+        function cleanupCartIcon() {
+            var cartSlot = document.getElementById('cart-icon-slot');
+            if (cartSlot) {
+                // Remove all existing cart icons
+                var existingIcons = cartSlot.querySelectorAll('.webshop-cart-icon-wrap');
+                existingIcons.forEach(function(icon) {
+                    icon.remove();
+                });
+            }
+            window.__cartIconInstance = null;
+        }
+        
+        // Render cart icon with cleanup
+        function renderCartIconWithCleanup() {
+            if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
+                cleanupCartIcon();
+                
+                var getCartUrl = function() {
+                    var l = window.LANG || localStorage.getItem("dornori-lang") || window.__PAGE_LANG__ || "en";
+                    var m = {
+                        "en": "/test/en/cart/",
+                        "nl": "/test/nl/winkelwagen/",
+                        "de": "/test/de/warenkorb/",
+                        "fr": "/test/fr/panier/"
+                    };
+                    return m[l] || "/test/en/cart/";
+                };
+                
+                Shop.renderCartIcon({ 
+                    target: "#cart-icon-slot", 
+                    fixed: false,
+                    cartUrl: getCartUrl()
+                });
+                console.log('[Shop] Cart icon rendered for language:', getCartUrl());
+                return true;
+            }
+            return false;
         }
         
         // Load all shop modules in parallel
@@ -364,14 +389,17 @@
                 // Initialize Currency FIRST and ensure it's COMPLETELY ready
                 if (typeof Currency !== 'undefined') {
                     console.log('[Shop] Initializing Currency...');
-                    await Currency.init();
-                    console.log('[Shop] Currency.init() completed');
                     
-                    // Extra safety: wait for rates and additional delay
-                    await Currency.waitForReady();
-                    console.log('[Shop] Currency.waitForReady() completed');
+                    // Check if currency already initialized (for language switches)
+                    if (!Currency.ready) {
+                        await Currency.init();
+                        console.log('[Shop] Currency.init() completed');
+                        await Currency.waitForReady();
+                        console.log('[Shop] Currency.waitForReady() completed');
+                    } else {
+                        console.log('[Shop] Currency already initialized, reusing');
+                    }
                     
-                    // Small delay to ensure DOM is ready
                     await new Promise(resolve => setTimeout(resolve, 100));
                 } else {
                     console.warn('[Shop] Currency module not found');
@@ -385,29 +413,8 @@
                 
                 console.log('[Shop] All modules initialized');
                 
-                // Render cart icon after currency is ready
-                if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
-                    var skel = document.getElementById('cart-skeleton');
-                    if (skel) skel.remove();
-                    
-                    var getCartUrl = function() {
-                        var l = window.LANG || localStorage.getItem("dornori-lang") || window.__PAGE_LANG__ || "en";
-                        var m = {
-                            "en": "/test/en/cart/",
-                            "nl": "/test/nl/winkelwagen/",
-                            "de": "/test/de/warenkorb/",
-                            "fr": "/test/fr/panier/"
-                        };
-                        return m[l] || "/test/en/cart/";
-                    };
-                    
-                    Shop.renderCartIcon({ 
-                        target: "#cart-icon-slot", 
-                        fixed: false,
-                        cartUrl: getCartUrl()
-                    });
-                    console.log('[Shop] Cart icon rendered');
-                }
+                // Render cart icon with cleanup
+                renderCartIconWithCleanup();
                 
                 // Fix product links in cart hover panel
                 (function() {
@@ -427,16 +434,16 @@
                             });
                         });
                     }).observe(document.body, { childList: true, subtree: true });
-                    document.addEventListener('shop:cartUpdated', function() { 
-                        fixProductLinks(document); 
-                    });
                 })();
                 
                 // Mount currency selector
                 function mountCurrencySelector() {
                     var slot = document.getElementById('topBar-currency-slot') || document.getElementById('currency-selector-slot');
                     if (!slot) return false;
+                    
+                    // Don't remount if already mounted
                     if (slot.querySelector('select, .webshop-currency-selector')) return true;
+                    
                     if (typeof Currency === 'undefined' || typeof Shop === 'undefined') return false;
                     if (typeof Shop.renderCurrencySelector === 'function') {
                         Shop.renderCurrencySelector(slot);
@@ -454,47 +461,52 @@
                     setTimeout(function() { _currencyObserver.disconnect(); }, 10000);
                 }
                 
-                // Re-render cart icon when language changes
+                // Handle language changes - CLEANUP and RE-RENDER properly
                 document.addEventListener("shop:langChanged", function() {
-                    var _cartUrls = {
-                        "en": "/test/en/cart/",
-                        "nl": "/test/nl/winkelwagen/",
-                        "de": "/test/de/warenkorb/",
-                        "fr": "/test/fr/panier/"
-                    };
-                    var _l = window.LANG || localStorage.getItem("dornori-lang") || "en";
-                    if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
-                        Shop.renderCartIcon({ 
-                            target: "#cart-icon-slot", 
-                            fixed: false, 
-                            cartUrl: _cartUrls[_l] || "/test/en/cart/" 
-                        });
-                    }
+                    console.log('[Shop] Language changed, re-rendering cart icon...');
+                    
+                    // Small delay to ensure language is fully applied
+                    setTimeout(function() {
+                        // Re-render cart icon (cleanup happens inside the function)
+                        renderCartIconWithCleanup();
+                        
+                        // Also re-render any prices on the page
+                        window.updateAllPrices();
+                    }, 50);
                 });
                 
                 // Update prices when currency changes
                 document.addEventListener("currency:changed", function() {
                     window.updateAllPrices();
-                    document.dispatchEvent(new CustomEvent("shop:cartUpdated", { 
-                        detail: { cart: Shop.getCart() } 
-                    }));
+                    if (typeof Shop !== 'undefined' && Shop.getCart) {
+                        document.dispatchEvent(new CustomEvent("shop:cartUpdated", { 
+                            detail: { cart: Shop.getCart() } 
+                        }));
+                    }
                 });
                 
                 // Initial price update
                 window.updateAllPrices();
                 
-                // Start retry mechanism for any late-loading elements
-                startPriceUpdateRetry();
+                // Retry price updates for any late-loading elements
+                var retryCount = 0;
+                var priceInterval = setInterval(function() {
+                    var success = window.updateAllPrices();
+                    retryCount++;
+                    if (success || retryCount > 20) {
+                        clearInterval(priceInterval);
+                    }
+                }, 500);
                 
                 console.log("[Integration] Shop components initialized successfully");
                 
             } catch(e) {
                 console.warn("[Integration] Shop init error:", e);
-                // Still try to update prices even if initialization had issues
                 setTimeout(function() {
                     if (typeof window.updateAllPrices === 'function') {
                         window.updateAllPrices();
                     }
+                    renderCartIconWithCleanup();
                 }, 1000);
             }
         });
@@ -522,6 +534,8 @@
         
         // Expose to global scope
         window.renderBasicCurrencySelector = renderBasicCurrencySelector;
+        window.renderCartIconWithCleanup = renderCartIconWithCleanup;
+        window.cleanupCartIcon = cleanupCartIcon;
     </script>
 
     <script type="module">
