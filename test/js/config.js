@@ -1,19 +1,15 @@
 /**
  * DORNORI SITE CONFIGURATION
  * ─────────────────────────────────────────────────────────────────────────────
- * Labels and translated text are NOT stored here.
- * They live in lang/en.json, lang/de.json etc.
+ * THIS IS THE SINGLE SOURCE OF TRUTH for every path, key, and constant used
+ * by the site and the shop integration.
  *
- * This file contains only structural config:
- * - appearance settings
- * - path configuration (all hardcoded paths centralised here)
- * - storage keys (centralised here)
- * - supported languages loaded from languages.json (see languages_file)
- * - navigation slugs + icons + enabled flags
- * - footer slugs + enabled flags
- * - page file mappings
- * - url_slugs: per-language pretty URL segment for each page slug
- * - socials, formspree, turnstile
+ * To move the site from /test/ to /:
+ *   Set  appearance.base_path  to  '/'
+ *   That's it — every other path is derived from it at runtime.
+ *
+ * Labels and translated text live in lang/en.json, lang/de.json etc.
+ * This file contains only structural config.
  */
 
 const SITE_CONFIG = {
@@ -22,23 +18,27 @@ const SITE_CONFIG = {
         bgDark:             '#050505',
         bannerStickyOffset: 0.35,
         root_url:           'https://dornori.com',
-        // Change to '/' when deployed to root. Must include trailing slash.
+        /**
+         * !! CHANGE THIS TO MOVE THE WHOLE SITE !!
+         * Must start and end with '/'.
+         * Examples:  '/test/'  |  '/'  |  '/lamp/'
+         */
         base_path:          '/test/',
     },
 
     // ─── PATHS ────────────────────────────────────────────────────────────────
-    // All filesystem/URL paths centralised here.
+    // All filesystem/URL paths relative to base_path.
+    // Absolute URLs are built at runtime: base_path + paths.XXX
     paths: {
-        languages_file: 'js/languages.json',   // relative to base_path
-        lang_dir:       'lang/',            // relative to base_path
-        content_dir:    'content/',         // relative to base_path
-        icons_dir:      'assets/icons/',    // relative to base_path
-        shop_dir:       'shop/',            // relative to base_path
-        js_dir:         'js/',              // relative to base_path
+        languages_file: 'js/languages.json',
+        lang_dir:       'lang/',
+        content_dir:    'content/',
+        icons_dir:      'assets/icons/',
+        shop_dir:       'shop/',
+        js_dir:         'js/',
     },
 
     // ─── STORAGE KEYS ─────────────────────────────────────────────────────────
-    // All localStorage key names centralised here.
     storageKeys: {
         lang:  'dornori-lang',
         theme: 'dornori-theme',
@@ -46,15 +46,9 @@ const SITE_CONFIG = {
 
     // ─── SUPPORTED LANGUAGES ──────────────────────────────────────────────────
     // Loaded at runtime from paths.languages_file via initLanguages().
-    // First entry = fallback language.
-    // Populated by initLanguages() — do not access SITE_CONFIG.languages
-    // until initLanguages() has resolved.
     languages: null,
 
     // ─── LANGUAGE URL SLUGS ──────────────────────────────────────────────────
-    // Maps canonical (English) page slugs → per-language URL segments.
-    // English slugs are also listed so we have a single source of truth.
-    // If a language entry is missing for a slug, falls back to English slug.
     url_slugs: {
         en: {
             about:               'about',
@@ -140,7 +134,7 @@ const SITE_CONFIG = {
         { slug: 'about',  icon: 'about-icon-200x200.svg',          type: 'standard', enabled: true  },
         { slug: 'built',  icon: 'assembled-lamp-icon-200x200.svg',  type: 'standard', enabled: true  },
         { slug: 'kit',    icon: 'building-kit-icon-200x200.svg',    type: 'standard', enabled: true  },
-        { slug: 'parts',  icon: '3d-printer-icon-200x200.svg',              type: 'standard', enabled: true  },
+        { slug: 'parts',  icon: '3d-printer-icon-200x200.svg',      type: 'standard', enabled: true  },
         { slug: 'files',  icon: '3d-file-icon-200x200.svg',         type: 'standard', enabled: true  },
     ],
 
@@ -170,24 +164,24 @@ const SITE_CONFIG = {
 
     // ─── PAGES ───────────────────────────────────────────────────────────────
     pages: {
-        built:               { file: 'built.html'              },
-        kit:                 { file: 'kit.html'                },
-        parts:               { file: 'parts.html'              },
-        files:               { file: 'files.html'              },
-        'mission-statement': { file: 'mission-statement.html'  },
-        about:               { file: 'about-us.html'           },
-        terms:               { file: 'terms.html'              },
-        privacy:             { file: 'privacy.html'            },
-        children:            { file: 'children.html'           },
-        security:            { file: 'security.html'           },
-        cookies:             { file: 'cookies.html'            },
-        imprint:             { file: 'imprint.html'            },
-        returns:             { file: 'returns.html'            },
-        contact:             { file: 'form.html'            },
-        gallery:             { file: 'gallery-1.html'          },
-        cart:                { file: 'cart.html'               },
-        shop:                { file: 'shop.html'                },
-        product:             { file: 'product.html'            },
+        built:               { file: 'built.html'             },
+        kit:                 { file: 'kit.html'               },
+        parts:               { file: 'parts.html'             },
+        files:               { file: 'files.html'             },
+        'mission-statement': { file: 'mission-statement.html' },
+        about:               { file: 'about-us.html'          },
+        terms:               { file: 'terms.html'             },
+        privacy:             { file: 'privacy.html'           },
+        children:            { file: 'children.html'          },
+        security:            { file: 'security.html'          },
+        cookies:             { file: 'cookies.html'           },
+        imprint:             { file: 'imprint.html'           },
+        returns:             { file: 'returns.html'           },
+        contact:             { file: 'form.html'              },
+        gallery:             { file: 'gallery-1.html'         },
+        cart:                { file: 'cart.html'              },
+        shop:                { file: 'shop.html'              },
+        product:             { file: 'product.html'           },
     },
 
     // ─── SOCIALS ─────────────────────────────────────────────────────────────
@@ -204,11 +198,8 @@ const SITE_CONFIG = {
 };
 
 // ─── LANGUAGE INIT ────────────────────────────────────────────────────────────
-// Fetches languages.json and populates SITE_CONFIG.languages.
-// Must be awaited before accessing SITE_CONFIG.languages, SITE_CONFIG.fallbackLang(),
-// or SITE_CONFIG.supportedLangCodes().
 SITE_CONFIG.initLanguages = async function () {
-    if (this.languages) return; // already loaded
+    if (this.languages) return;
     const base = this.appearance.base_path;
     const url  = base + this.paths.languages_file;
     try {
@@ -217,7 +208,6 @@ SITE_CONFIG.initLanguages = async function () {
         this.languages = await res.json();
     } catch (err) {
         console.warn('[config] Could not load languages.json, using built-in fallback:', err);
-        // Hardcoded fallback so the site never breaks even if languages.json is missing
         this.languages = [
             { code: 'en', hreflang: 'en', label: 'English',    flag: '🇬🇧' },
             { code: 'de', hreflang: 'de', label: 'Deutsch',    flag: '🇩🇪' },
@@ -229,38 +219,55 @@ SITE_CONFIG.initLanguages = async function () {
 
 // ─── CONVENIENCE HELPERS ──────────────────────────────────────────────────────
 
-// Returns the fallback (first) language code, e.g. 'en'.
 SITE_CONFIG.fallbackLang = function () {
     return (this.languages && this.languages[0]?.code) || 'en';
 };
 
-// Returns a Set of supported language codes.
 SITE_CONFIG.supportedLangCodes = function () {
     return new Set((this.languages || []).map(l => l.code));
 };
 
-// Returns the full icon URL for a nav icon filename.
 SITE_CONFIG.iconPath = function (iconFilename) {
     return this.appearance.base_path + this.paths.icons_dir + iconFilename;
 };
 
 // ─── URL SLUG HELPERS ─────────────────────────────────────────────────────────
-// Returns the URL segment for a page in a given language.
-// e.g. pageUrlSlug('about', 'nl') → 'over-ons'
-SITE_CONFIG.pageUrlSlug = function(slug, lang) {
+SITE_CONFIG.pageUrlSlug = function (slug, lang) {
     const langSlugs = this.url_slugs[lang] || this.url_slugs[this.fallbackLang()];
     return langSlugs[slug] || this.url_slugs[this.fallbackLang()][slug] || slug;
 };
 
-// Reverse lookup: given a URL segment and language, return canonical slug.
-// e.g. canonicalSlug('over-ons', 'nl') → 'about'
-SITE_CONFIG.canonicalSlug = function(urlSegment, lang) {
+SITE_CONFIG.canonicalSlug = function (urlSegment, lang) {
     const fallback  = this.fallbackLang();
     const langSlugs = this.url_slugs[lang] || this.url_slugs[fallback];
     const entry = Object.entries(langSlugs).find(([, v]) => v === urlSegment);
     if (entry) return entry[0];
     const enEntry = Object.entries(this.url_slugs[fallback]).find(([, v]) => v === urlSegment);
     return enEntry ? enEntry[0] : null;
+};
+
+/**
+ * Returns the full cart URL for a given language code.
+ * Derived entirely from base_path + url_slugs — no hardcoded paths.
+ * Safe to call before initLanguages() resolves.
+ *
+ * e.g. cartUrl('nl') → '/test/nl/winkelwagen/'
+ */
+SITE_CONFIG.cartUrl = function (lang) {
+    const base     = this.appearance.base_path;
+    const fallback = 'en';
+    const slug     = (this.url_slugs[lang] || this.url_slugs[fallback])?.cart
+                   || this.url_slugs[fallback].cart
+                   || 'cart';
+    return `${base}${lang}/${slug}/`;
+};
+
+/**
+ * Returns the absolute URL for a shop sub-path.
+ * e.g. shopUrl('data/shipping.csv') → '/test/shop/data/shipping.csv'
+ */
+SITE_CONFIG.shopUrl = function (subPath) {
+    return this.appearance.base_path + this.paths.shop_dir + subPath;
 };
 
 export default SITE_CONFIG;

@@ -82,213 +82,25 @@
             </div>
         </div>
     </footer>
-<script>
-        // Detect saved lang before paint to prevent flash of wrong state
-        // NOTE: storageKey and base_path are kept in sync with SITE_CONFIG.
-        // If you rename the key or move the site, update js/config.js only.
-        (function(){
-            var STORAGE_KEY = 'dornori-lang';   // mirrors SITE_CONFIG.storageKeys.lang
-            var BASE        = '/test/';         // mirrors SITE_CONFIG.appearance.base_path
-            var l = localStorage.getItem(STORAGE_KEY) || 'en';
-            window.__PAGE_LANG__ = l;
-            document.documentElement.setAttribute('lang', l);
-            // Cart URL derived from SITE_CONFIG.url_slugs — kept in sync there.
-            // This early copy avoids a flash before the ES module loads.
-            var cartSlugs = {"en":"cart","nl":"winkelwagen","de":"warenkorb","fr":"panier"};
-            var slug = cartSlugs[l] || 'cart';
-            window.__CART_URL__ = BASE + l + '/' + slug + '/';
-        })();
-        window.__PAGE_SLUG__ = '';
-        // SHOP_CONFIG paths derived from SITE_CONFIG at runtime (see ES module below).
-        // Set here as fallback so shop scripts have a value before the module resolves.
-        window.SHOP_CONFIG = {
-            basePath: '/test/shop/',
-            dataPath: '/test/shop/data/',
-            jsPath:   '/test/shop/js/'
-        };
-    </script>
 
-    <!-- Shop modules -->
+    <!--
+        Boot sequence (3 external files replace all previous inline scripts):
+
+        1. site-boot.js     — detects lang, sets __PAGE_LANG__, __CART_URL__, SHOP_CONFIG
+        2. shop/js/config.js  — sets global CONFIG
+        3. shop/js/lang-bridge.js
+        4. shop-init.js     — patches CONFIG paths, loads shop modules, handles webshop:ready
+        5. site-main.js     — ES module entry point (i18n, nav, page-loader, …)
+
+        To relocate the site change ONLY:
+          · SITE_CONFIG.appearance.base_path  in  js/config.js
+          · BASE_PATH                         in  js/site-boot.js
+        (Both must match.)
+    -->
+    <script src="/test/js/site-boot.js"></script>
     <script src="/test/shop/js/config.js"></script>
     <script src="/test/shop/js/lang-bridge.js"></script>
-    
-    <script>
-        (function() {
-            if (typeof CONFIG !== 'undefined') {
-                CONFIG.data.shippingCsv = '/test/shop/data/shipping.csv';
-                CONFIG.data.currenciesCsv = '/test/shop/data/currencies.csv';
-                CONFIG.data.langUiDir = '/test/shop/data/lang/ui/';
-                CONFIG.data.langProductsDir = '/test/shop/data/lang/products/';
-                CONFIG.data.productsJson = '/test/shop/data/products.json';
-                CONFIG.modules = [
-                    '/test/shop/js/modules/currency.js',
-                    '/test/shop/js/modules/shipping.js',
-                    '/test/shop/js/modules/payment.js'
-                ];
-                CONFIG.storageKeys.parentLangKey = 'dornori-lang';
-                CONFIG.storageKeys.shopLangKey = 'dornori-lang';
-                CONFIG.defaultLanguage = 'en';
-                CONFIG.features.showLanguageSwitcher = false;
-                CONFIG.features.showCurrencySelector = true;
-            }
-        })();
-    </script>
-    
-    <script>
-        (function() {
-            function loadScript(src) {
-                return new Promise(function(resolve) {
-                    var s = document.createElement("script");
-                    s.src = src;
-                    s.onload = resolve;
-                    s.onerror = function() { console.warn("[Shop] Module failed:", src); resolve(); };
-                    document.head.appendChild(s);
-                });
-            }
-            // Load all modules in PARALLEL (was sequential before)
-            var modules = (typeof CONFIG !== 'undefined' && CONFIG.modules) || [
-                '/test/shop/js/modules/currency.js',
-                '/test/shop/js/modules/shipping.js',
-                '/test/shop/js/modules/payment.js'
-            ];
-            Promise.all(modules.map(loadScript)).then(function() {
-                return loadScript('/test/shop/js/shop.js');
-            }).then(function() {
-                document.dispatchEvent(new Event("webshop:ready"));
-            });
-        })();
-    </script>
-    
-    <script>
-        document.addEventListener("webshop:ready", async function() {
-            try {
-                // Initialize all shop modules in PARALLEL (was sequential before)
-                // Start currency init non-blocking (CSV fast, IP detect in background).
-                if (typeof Currency !== 'undefined') Currency.init();
-
-                // Load Shipping first — it sets CONFIG.supportedLanguages.
-                // Shop.loadLang() calls resolveLanguage() which needs that list
-                // to validate the saved lang pref (e.g. 'nl', 'de', 'fr').
-                if (typeof Shipping !== 'undefined') await Shipping.load();
-                await Shop.loadLang();
-                
-                if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
-                    var skel = document.getElementById('cart-skeleton');
-                    if (skel) skel.remove();
-                    Shop.renderCartIcon({ 
-                        target: "#cart-icon-slot", 
-                        fixed: false,
-                        cartUrl: (function(){ var l=window.LANG||localStorage.getItem("dornori-lang")||window.__PAGE_LANG__||"en"; var m={"en":"/test/en/cart/","nl":"/test/nl/winkelwagen/","de":"/test/de/warenkorb/","fr":"/test/fr/panier/"}; return m[l]||"/test/en/cart/"; })()
-                    });
-                }
-
-                // Fix shop.js cart hover panel links: rewrites product.html?id= → correct product URL
-                (function() {
-                    function fixProductLinks(root) {
-                        (root || document).querySelectorAll('a[href*="product.html?id="]').forEach(function(a) {
-                            var id = a.getAttribute('href').split('product.html?id=')[1];
-                            a.setAttribute('href', '/test/en/product/?id=' + id);
-                        });
-                    }
-                    fixProductLinks(document);
-                    new MutationObserver(function(mutations) {
-                        mutations.forEach(function(m) {
-                            m.addedNodes.forEach(function(n) { if (n.nodeType === 1) fixProductLinks(n); });
-                        });
-                    }).observe(document.body, { childList: true, subtree: true });
-                    document.addEventListener('shop:cartUpdated', function() { fixProductLinks(document); });
-                })();
-
-                // Wire currency selector.
-                // nav-loader (ES module) runs AFTER this classic defer script, so the slot
-                // may not exist yet. Use MutationObserver to mount as soon as it appears.
-                function mountCurrencySelector() {
-                    var slot = document.getElementById('topBar-currency-slot')
-                            || document.getElementById('currency-selector-slot');
-                    if (!slot) return false;
-                    if (slot.querySelector('select, .webshop-currency-selector')) return true;
-                    if (typeof Currency === 'undefined' || typeof Shop === 'undefined') return false;
-                    if (typeof Shop.renderCurrencySelector === 'function') {
-                        Shop.renderCurrencySelector(slot);
-                    } else {
-                        renderBasicCurrencySelector(slot);
-                    }
-                    return true;
-                }
-                if (!mountCurrencySelector()) {
-                    // Slot not in DOM yet — watch for it
-                    var _currencyObserver = new MutationObserver(function() {
-                        if (mountCurrencySelector()) _currencyObserver.disconnect();
-                    });
-                    _currencyObserver.observe(document.body, { childList: true, subtree: true });
-                    // Safety timeout: stop observing after 10s
-                    setTimeout(function() { _currencyObserver.disconnect(); }, 10000);
-                }
-                console.log("[Integration] Shop components initialized");
-
-                // Re-render cart icon with correct language URL when language changes
-                document.addEventListener("shop:langChanged", function() {
-                    var _cartUrls = {"en":"/test/en/cart/","nl":"/test/nl/winkelwagen/","de":"/test/de/warenkorb/","fr":"/test/fr/panier/"};
-                    var _l = window.LANG || localStorage.getItem("dornori-lang") || "en";
-                    if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
-                        Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false, cartUrl: _cartUrls[_l] || "/test/en/cart/" });
-                    }
-                });
-
-                // When currency changes: re-render all visible prices + cart hover panel
-                document.addEventListener("currency:changed", function() {
-                    // Re-render all data-base-price elements loaded into page content
-                    document.querySelectorAll("[data-base-price]").forEach(function(el) {
-                        var base = parseFloat(el.dataset.basePrice);
-                        if (!isNaN(base)) el.textContent = Shop.fmt(base);
-                    });
-                    // Re-render cart hover panel by triggering cartUpdated
-                    document.dispatchEvent(new CustomEvent("shop:cartUpdated", { detail: { cart: Shop.getCart() } }));
-                });
-            } catch(e) {
-                console.warn("[Integration] Shop init error:", e);
-            }
-        });
-        
-        function renderBasicCurrencySelector(container) {
-            if (!container || typeof Currency === 'undefined') return;
-            async function build() {
-                await Currency.waitForReady();
-                const active = Currency.getActive();
-                container.className = "profile-selector-wrap";
-                container.innerHTML = "CURRENCY " +
-                    `<select class="profile-select" aria-label="Currency">
-                        ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
-                    </select>`;
-                container.querySelector("select").addEventListener("change", e => Currency.setActive(e.target.value));
-            }
-            build();
-            document.addEventListener("currency:changed", build);
-        }
-    </script>
-
-    <script type="module">
-        import { initI18n }        from '/test/js/i18n.js';
-        import { initNavigation }  from '/test/js/nav-loader.js';
-        import { initStickyBanner } from '/test/js/sticky-banner.js';
-        import { initSocials }     from '/test/js/social-loader.js';
-        import { initEmbedForms }  from '/test/js/embed-form.js';
-        import { initPageLoader }  from '/test/js/page-loader.js';
-        import { initFooter }      from '/test/js/footer-loader.js';
-
-        async function init() {
-            // Root page: respect user's saved language preference
-            const savedLang = localStorage.getItem('dornori-lang');
-            if (!savedLang) localStorage.setItem('dornori-lang', 'en');
-            await initI18n();
-            initNavigation();
-            initStickyBanner();
-            initSocials();
-            initFooter();
-            initEmbedForms();
-            initPageLoader();
-        }
-        init().catch(err => console.error('Init error:', err));
-    </script>
+    <script src="/test/js/shop-init.js"></script>
+    <script type="module" src="/test/js/site-main.js"></script>
 </body>
 </html>
