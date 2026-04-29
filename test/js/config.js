@@ -183,7 +183,7 @@ const SITE_CONFIG = {
         cookies:             { file: 'cookies.html'            },
         imprint:             { file: 'imprint.html'            },
         returns:             { file: 'returns.html'            },
-        contact:             { file: 'gallery-1.html'          },
+        contact:             { file: 'form.html'            },
         gallery:             { file: 'gallery-1.html'          },
         cart:                { file: 'cart.html'               },
         shop:                { file: 'shop.html'                },

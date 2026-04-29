@@ -60,8 +60,8 @@ const CONFIG = {
   },
 
   /* ── Tax ───────────────────────────────────────────── */
-  taxRate:            0.25,
-  taxLabel:           "VAT (25%)",
+  taxRate:            0.21,  /* NL standard rate; override per country via taxExemptCountries or shipping module */
+  taxLabel:           "VAT (21%)",
   taxExemptCountries: [],   // ISO 3166-1 alpha-2 codes exempt from VAT
   businessVatExempt:  false,
 
@@ -132,8 +132,8 @@ const CONFIG = {
 
   /* ── Form submission (Formspree) ───────────────────── */
   formspree: {
-    id:       "xwvaleqz",
-    endpoint: "https://formspree.io/f/xwvaleqz",
+    id:       "xnjopbbb",
+    endpoint: "https://formspree.io/f/xnjopbbb",
   },
 
   /* ── Bot protection (Cloudflare Turnstile) ─────────── */
