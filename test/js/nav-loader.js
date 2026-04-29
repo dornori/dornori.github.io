@@ -215,6 +215,13 @@ export function initNavigation() {
         langWrap.appendChild(langSelect);
         topBar.appendChild(langWrap);
 
+        // Currency selector slot — filled by shop-loader after shop engine boots
+        if (!topBar.querySelector('#topBar-currency-slot')) {
+            const currencySlot = document.createElement('div');
+            currencySlot.id = 'topBar-currency-slot';
+            topBar.appendChild(currencySlot);
+        }
+
         // Settings gear tab
         const tab = document.createElement('button');
         tab.id    = 'topBar-tab';

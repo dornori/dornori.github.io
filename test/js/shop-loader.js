@@ -44,8 +44,12 @@ function absolutify(obj) {
 
 // ── Wire currency selector into the topBar slot ───────────────────────────────
 function wireCurrencySlot() {
-    const slot = document.getElementById('topBar-currency-slot');
-    if (!slot || !slot.innerHTML.trim() === false) return; // already wired
+    // Try both slot IDs — shop-loader uses topBar-currency-slot,
+    // but inline-script pages create currency-selector-slot
+    const slot = document.getElementById('topBar-currency-slot')
+               || document.getElementById('currency-selector-slot');
+    if (!slot) return;
+    if (slot.querySelector('select, .webshop-currency-selector')) return; // already wired
     if (typeof Currency === 'undefined' || typeof Shop === 'undefined') return;
 
     Shop.renderCurrencySelector(slot);
@@ -197,7 +201,9 @@ export async function mountShopEmbeds(root) {
     if (typeof Shop === 'undefined') return;
 
     const base = SITE_CONFIG.appearance.base_path;
-    const cartHref = `${base}shop/cart.html`;
+    const lang = window.LANG || localStorage.getItem(SITE_CONFIG.storageKeys.lang) || SITE_CONFIG.fallbackLang();
+    const cartSlug = SITE_CONFIG.pageUrlSlug('cart', lang);
+    const cartHref = `${base}${lang}/${cartSlug}/`;
 
     let allProducts;
     try {

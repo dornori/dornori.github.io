@@ -196,19 +196,22 @@
                     document.addEventListener('shop:cartUpdated', function() { fixProductLinks(document); });
                 })();
 
-                const topBar = document.getElementById('topBar');
-                if (topBar && typeof Currency !== 'undefined' && CONFIG.features.showCurrencySelector !== false) {
-                    if (!topBar.querySelector('#currency-selector-slot')) {
-                        const currencyContainer = document.createElement('div');
-                        currencyContainer.id = 'currency-selector-slot';
-                        topBar.appendChild(currencyContainer);
-                        if (typeof Shop !== 'undefined' && typeof Shop.renderCurrencySelector === 'function') {
-                            Shop.renderCurrencySelector('#currency-selector-slot');
-                        } else {
-                            renderBasicCurrencySelector(currencyContainer);
-                        }
+                // Wire currency selector — slot is created by nav-loader as #topBar-currency-slot
+                function mountCurrencySelector() {
+                    var slot = document.getElementById('topBar-currency-slot')
+                            || document.getElementById('currency-selector-slot');
+                    if (!slot) return;
+                    if (slot.querySelector('select, .webshop-currency-selector')) return; // already mounted
+                    if (typeof Currency === 'undefined' || typeof Shop === 'undefined') return;
+                    if (typeof Shop.renderCurrencySelector === 'function') {
+                        Shop.renderCurrencySelector(slot);
+                    } else {
+                        renderBasicCurrencySelector(slot);
                     }
                 }
+                mountCurrencySelector();
+                // Retry after lumio:booted in case shop engine wasn't ready yet
+                document.addEventListener('lumio:booted', mountCurrencySelector);
                 console.log("[Integration] Shop components initialized");
 
                 // When currency changes: re-render all visible prices + cart hover panel
