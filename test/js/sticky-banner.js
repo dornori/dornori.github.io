@@ -17,7 +17,10 @@ export function initStickyBanner() {
     const mobileNav = document.getElementById('mobile-nav');
     if (!header || !bannerImg) return;
 
-    bannerImg.onclick = () => window.location.href = SITE_CONFIG.appearance.root_url;
+    bannerImg.onclick = () => {
+        if (typeof window.showHome === 'function') window.showHome();
+        else window.location.href = SITE_CONFIG.appearance.root_url;
+    };
 
     let maxOffset = 0;
 

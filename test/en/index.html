@@ -293,22 +293,31 @@
                     });
                 }
                 
-                // Wire currency selector — slot is created by nav-loader as #topBar-currency-slot
+                // Wire currency selector.
+                // nav-loader (ES module) runs AFTER this classic defer script, so the slot
+                // may not exist yet. Use MutationObserver to mount as soon as it appears.
                 function mountCurrencySelector() {
                     var slot = document.getElementById('topBar-currency-slot')
                             || document.getElementById('currency-selector-slot');
-                    if (!slot) return;
-                    if (slot.querySelector('select, .webshop-currency-selector')) return; // already mounted
-                    if (typeof Currency === 'undefined' || typeof Shop === 'undefined') return;
+                    if (!slot) return false;
+                    if (slot.querySelector('select, .webshop-currency-selector')) return true;
+                    if (typeof Currency === 'undefined' || typeof Shop === 'undefined') return false;
                     if (typeof Shop.renderCurrencySelector === 'function') {
                         Shop.renderCurrencySelector(slot);
                     } else {
                         renderBasicCurrencySelector(slot);
                     }
+                    return true;
                 }
-                mountCurrencySelector();
-                // Retry after lumio:booted in case shop engine wasn't ready yet
-                document.addEventListener('lumio:booted', mountCurrencySelector);
+                if (!mountCurrencySelector()) {
+                    // Slot not in DOM yet — watch for it
+                    var _currencyObserver = new MutationObserver(function() {
+                        if (mountCurrencySelector()) _currencyObserver.disconnect();
+                    });
+                    _currencyObserver.observe(document.body, { childList: true, subtree: true });
+                    // Safety timeout: stop observing after 10s
+                    setTimeout(function() { _currencyObserver.disconnect(); }, 10000);
+                }
                 console.log("[Integration] Shop components initialized");
 
                 // Re-render cart icon with correct language URL when language changes
