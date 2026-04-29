@@ -26,7 +26,9 @@ const Currency = (() => {
   async function load() {
     if (_loaded) return;
     try {
-      const text = await fetch(CONFIG.data.currenciesCsv).then(r => r.text());
+      const res = await fetch(CONFIG.data.currenciesCsv);
+      if (!res.ok) throw new Error(`HTTP ${res.status} loading ${CONFIG.data.currenciesCsv}`);
+      const text = await res.text();
       parseCSV(text).forEach(row => {
         _rates[row.code] = {
           symbol:   row.symbol,

@@ -29,7 +29,7 @@ const SITE_CONFIG = {
     // ─── PATHS ────────────────────────────────────────────────────────────────
     // All filesystem/URL paths centralised here.
     paths: {
-        languages_file: 'data/languages.json',   // relative to base_path
+        languages_file: 'js/languages.json',   // relative to base_path
         lang_dir:       'lang/',            // relative to base_path
         content_dir:    'content/',         // relative to base_path
         icons_dir:      'assets/icons/',    // relative to base_path
@@ -216,8 +216,14 @@ SITE_CONFIG.initLanguages = async function () {
         if (!res.ok) throw new Error(`HTTP ${res.status} loading ${url}`);
         this.languages = await res.json();
     } catch (err) {
-        console.warn('[config] Could not load languages.json, using empty list:', err);
-        this.languages = [];
+        console.warn('[config] Could not load languages.json, using built-in fallback:', err);
+        // Hardcoded fallback so the site never breaks even if languages.json is missing
+        this.languages = [
+            { code: 'en', hreflang: 'en', label: 'English',    flag: '🇬🇧' },
+            { code: 'de', hreflang: 'de', label: 'Deutsch',    flag: '🇩🇪' },
+            { code: 'nl', hreflang: 'nl', label: 'Nederlands', flag: '🇳🇱' },
+            { code: 'fr', hreflang: 'fr', label: 'Français',   flag: '🇫🇷' },
+        ];
     }
 };
 
