@@ -275,14 +275,14 @@
     <script>
         document.addEventListener("webshop:ready", async function() {
             try {
-                // Kick off currency init immediately — non-blocking.
-                // CSV loads fast; IP detection runs in background and fires currency:changed when done.
+                // Start currency init non-blocking (CSV fast, IP detect in background).
                 if (typeof Currency !== 'undefined') Currency.init();
 
-                await Promise.all([
-                    typeof Shipping !== 'undefined' ? Shipping.load() : Promise.resolve(),
-                    Shop.loadLang()
-                ]);
+                // Load Shipping first — it sets CONFIG.supportedLanguages.
+                // Shop.loadLang() calls resolveLanguage() which needs that list
+                // to validate the saved lang pref (e.g. 'nl', 'de', 'fr').
+                if (typeof Shipping !== 'undefined') await Shipping.load();
+                await Shop.loadLang();
                 
                 if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
                     Shop.renderCartIcon({ 

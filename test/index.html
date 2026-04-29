@@ -109,10 +109,10 @@
     </script>
 
     <!-- Shop modules -->
-    <script src="/test/shop/js/config.js" defer></script>
-    <script src="/test/shop/js/lang-bridge.js" defer></script>
+    <script src="/test/shop/js/config.js"></script>
+    <script src="/test/shop/js/lang-bridge.js"></script>
     
-    <script defer>
+    <script>
         (function() {
             if (typeof CONFIG !== 'undefined') {
                 CONFIG.data.shippingCsv = '/test/shop/data/shipping.csv';
@@ -134,7 +134,7 @@
         })();
     </script>
     
-    <script defer>
+    <script>
         (function() {
             function loadScript(src) {
                 return new Promise(function(resolve) {
@@ -163,14 +163,14 @@
         document.addEventListener("webshop:ready", async function() {
             try {
                 // Initialize all shop modules in PARALLEL (was sequential before)
-                // Kick off currency init immediately — non-blocking.
-                // CSV loads fast; IP detection runs in background and fires currency:changed when done.
+                // Start currency init non-blocking (CSV fast, IP detect in background).
                 if (typeof Currency !== 'undefined') Currency.init();
 
-                await Promise.all([
-                    typeof Shipping !== 'undefined' ? Shipping.load() : Promise.resolve(),
-                    Shop.loadLang()
-                ]);
+                // Load Shipping first — it sets CONFIG.supportedLanguages.
+                // Shop.loadLang() calls resolveLanguage() which needs that list
+                // to validate the saved lang pref (e.g. 'nl', 'de', 'fr').
+                if (typeof Shipping !== 'undefined') await Shipping.load();
+                await Shop.loadLang();
                 
                 if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
                     var skel = document.getElementById('cart-skeleton');
