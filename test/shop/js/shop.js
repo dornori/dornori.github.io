@@ -302,6 +302,17 @@ const Shop = (() => {
   function renderCartIcon(options = {}) {
     const { target = "body", fixed = true, cartUrl = "cart.html" } = options;
 
+    const mount = target === "body" ? document.body : document.querySelector(target);
+    if (!mount) return;
+
+    /* ── Idempotent: if an icon already exists in this slot, just update its href ── */
+    const existing = mount.querySelector(".webshop-cart-icon-wrap");
+    if (existing) {
+      const link = existing.querySelector(".webshop-cart-icon");
+      if (link) link.href = cartUrl;
+      return;
+    }
+
     /* Outer wrapper — positions the dropdown relative to the icon */
     const outer = document.createElement("div");
     outer.className = "webshop-cart-icon-wrap" + (fixed ? " webshop-cart-icon-wrap--fixed" : "");
@@ -320,8 +331,7 @@ const Shop = (() => {
     outer.appendChild(wrapper);
     outer.appendChild(dropdown);
 
-    const mount = target === "body" ? document.body : document.querySelector(target);
-    mount?.appendChild(outer);
+    mount.appendChild(outer);
 
     function renderDropdown() {
       loadLang().then(() => {
