@@ -11,8 +11,6 @@ function detectLang() {
     const FALLBACK = SITE_CONFIG.fallbackLang();
     const supported = SITE_CONFIG.supportedLangCodes();
 
-    // The page itself knows what language it is (set by each shell's __PAGE_LANG__).
-    // Always trust it — this prevents /fr/ from redirecting to English.
     const pageLang = window.__PAGE_LANG__;
     if (pageLang && supported.has(pageLang)) {
         localStorage.setItem(STORAGE_KEY, pageLang);
@@ -65,9 +63,7 @@ export function injectHreflangTags(slug = '') {
         link.hreflang = hreflang;
         if (slug) {
             const urlSlug = SITE_CONFIG.pageUrlSlug(slug, code);
-            link.href = code === FALLBACK
-                ? `${base}/${FALLBACK}/${urlSlug}/`
-                : `${base}/${code}/${urlSlug}/`;
+            link.href = `${base}/${code}/${urlSlug}/`;
         } else {
             link.href = `${base}/`;
         }
@@ -81,7 +77,7 @@ export function injectHreflangTags(slug = '') {
     document.head.appendChild(xDef);
 }
 
-// ── SET LANG (called from settings UI) ───────────────────────────────────────
+// ── SET LANG (called from settings UI and geo-popup) ─────────────────────────
 window.setLang = async (code) => {
     const supported = SITE_CONFIG.supportedLangCodes();
     if (!supported.has(code)) return;
@@ -91,39 +87,32 @@ window.setLang = async (code) => {
 
     window.T = await loadTranslations(code);
 
-    // Re-render nav and footer with new labels and new URLs
     if (typeof window.renderNav    === 'function') window.renderNav();
     if (typeof window.renderFooter === 'function') window.renderFooter();
 
-    // Sync language into the shop engine so the cart panel and all shop UI re-render
     if (typeof Shop !== 'undefined' && typeof Shop.switchLanguage === 'function') {
         try { await Shop.switchLanguage(code); } catch (e) {}
     }
 
-    // Reload content in new language and update URL
     const slug = window.CURRENT_SLUG || '';
     if (slug) {
         const FALLBACK = SITE_CONFIG.fallbackLang();
         const base     = SITE_CONFIG.appearance.base_path;
         const urlSlug  = SITE_CONFIG.pageUrlSlug(slug, code);
-        const newUrl   = code === FALLBACK
-            ? `${base}${FALLBACK}/${urlSlug}/`
-            : `${base}${code}/${urlSlug}/`;
+        const newUrl   = `${base}${code}/${urlSlug}/`;
         window.history.replaceState({ slug, lang: code }, '', newUrl);
-
         window.viewPage(slug);
     } else {
         window.loadHome();
     }
 
-    // Update lang select to reflect new choice
     const langSelect = document.getElementById('langSelect');
     if (langSelect) langSelect.value = code;
 };
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 export async function initI18n() {
-    await SITE_CONFIG.initLanguages();
+    await SITE_CONFIG.initCountries();      // load countries.json → derives languages
     const lang = detectLang();
     window.LANG = lang;
     document.documentElement.setAttribute('lang', lang);
