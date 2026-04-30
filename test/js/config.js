@@ -1,13 +1,15 @@
 /**
  * DORNORI SITE CONFIGURATION
  * ─────────────────────────────────────────────────────────────────────────────
- * Single source of truth for every path, key, and constant used by the site.
+ * THIS IS THE SINGLE SOURCE OF TRUTH for every path, key, and constant used
+ * by the site and the shop integration.
  *
- * Language/country data is loaded from data/countries.json at runtime.
- * Records with a `siteLang` field participate in geo-popup suggestions.
- * The site language list is derived from SITE_CONFIG.initCountries().
+ * To move the site from /test/ to /:
+ *   Set  appearance.base_path  to  '/'
+ *   That's it — every other path is derived from it at runtime.
  *
- * To move the site:  set  appearance.base_path  —  everything else derives.
+ * Labels and translated text live in lang/en.json, lang/de.json etc.
+ * This file contains only structural config.
  */
 
 const SITE_CONFIG = {
@@ -19,13 +21,16 @@ const SITE_CONFIG = {
         /**
          * !! CHANGE THIS TO MOVE THE WHOLE SITE !!
          * Must start and end with '/'.
+         * Examples:  '/test/'  |  '/'  |  '/lamp/'
          */
-        base_path: '/test/',
+        base_path:          '/test/',
     },
 
     // ─── PATHS ────────────────────────────────────────────────────────────────
+    // All filesystem/URL paths relative to base_path.
+    // Absolute URLs are built at runtime: base_path + paths.XXX
     paths: {
-        countries_file: 'data/countries.json',
+        languages_file: 'js/languages.json',
         lang_dir:       'lang/',
         content_dir:    'content/',
         icons_dir:      'assets/icons/',
@@ -39,9 +44,9 @@ const SITE_CONFIG = {
         theme: 'dornori-theme',
     },
 
-    // ─── RUNTIME DATA (populated by initCountries) ────────────────────────────
-    countries:  null,   // full countries.json array
-    languages:  null,   // unique site languages [{code, hreflang, label, flag}]
+    // ─── SUPPORTED LANGUAGES ──────────────────────────────────────────────────
+    // Loaded at runtime from paths.languages_file via initLanguages().
+    languages: null,
 
     // ─── LANGUAGE URL SLUGS ──────────────────────────────────────────────────
     url_slugs: {
@@ -192,65 +197,25 @@ const SITE_CONFIG = {
     turnstile_sitekey: '0x4AAAAAACxsga5y-bJ_qkzC',
 };
 
-// ─── COUNTRY / LANGUAGE INIT ──────────────────────────────────────────────────
-/**
- * Loads data/countries.json and derives:
- *   SITE_CONFIG.countries  — full array
- *   SITE_CONFIG.languages  — unique site-supported languages
- *   SITE_CONFIG.countryMap — Map<code, record> for O(1) lookup
- */
-SITE_CONFIG.initCountries = async function () {
-    if (this.countries) return;
-    const url = this.appearance.base_path + this.paths.countries_file;
+// ─── LANGUAGE INIT ────────────────────────────────────────────────────────────
+SITE_CONFIG.initLanguages = async function () {
+    if (this.languages) return;
+    const base = this.appearance.base_path;
+    const url  = base + this.paths.languages_file;
     try {
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        this.countries = await res.json();
+        if (!res.ok) throw new Error(`HTTP ${res.status} loading ${url}`);
+        this.languages = await res.json();
     } catch (err) {
-        console.warn('[config] Could not load countries.json, using built-in fallback:', err);
-        this.countries = [
-            { code: 'GB', language: 'en', siteLang: 'en', label: 'United Kingdom', flag: '🇬🇧', hreflang: 'en', currency: 'GBP' },
-            { code: 'DE', language: 'de', siteLang: 'de', label: 'Deutschland',    flag: '🇩🇪', hreflang: 'de', currency: 'EUR' },
-            { code: 'NL', language: 'nl', siteLang: 'nl', label: 'Nederland',      flag: '🇳🇱', hreflang: 'nl', currency: 'EUR' },
-            { code: 'FR', language: 'fr', siteLang: 'fr', label: 'France',         flag: '🇫🇷', hreflang: 'fr', currency: 'EUR' },
+        console.warn('[config] Could not load languages.json, using built-in fallback:', err);
+        this.languages = [
+            { code: 'en', hreflang: 'en', label: 'English',    flag: '🇬🇧' },
+            { code: 'de', hreflang: 'de', label: 'Deutsch',    flag: '🇩🇪' },
+            { code: 'nl', hreflang: 'nl', label: 'Nederlands', flag: '🇳🇱' },
+            { code: 'fr', hreflang: 'fr', label: 'Français',   flag: '🇫🇷' },
         ];
     }
-
-    // Build O(1) lookup map
-    this.countryMap = new Map(this.countries.map(c => [c.code, c]));
-
-    // Derive unique site languages (records that have a siteLang matching a url_slugs key)
-    const seen = new Set();
-    const siteLangCodes = new Set(Object.keys(this.url_slugs));
-    this.languages = this.countries
-        .filter(c => c.siteLang && siteLangCodes.has(c.siteLang) && !seen.has(c.siteLang) && seen.add(c.siteLang))
-        .map(c => ({
-            code:     c.siteLang,
-            hreflang: c.siteLang,
-            label:    this._siteLangLabel(c.siteLang),
-            flag:     this._siteLangFlag(c.siteLang),
-        }));
-
-    // Ensure all url_slugs languages are represented even if no country has siteLang set
-    for (const code of siteLangCodes) {
-        if (!this.languages.find(l => l.code === code)) {
-            this.languages.push({ code, hreflang: code, label: code.toUpperCase(), flag: '' });
-        }
-    }
 };
-
-// Canonical labels/flags for site languages (used only for the language switcher)
-SITE_CONFIG._siteLangLabel = function (code) {
-    const map = { en: 'English', de: 'Deutsch', nl: 'Nederlands', fr: 'Français' };
-    return map[code] || code.toUpperCase();
-};
-SITE_CONFIG._siteLangFlag = function (code) {
-    const map = { en: '🇬🇧', de: '🇩🇪', nl: '🇳🇱', fr: '🇫🇷' };
-    return map[code] || '';
-};
-
-// ─── BACKWARD COMPAT: initLanguages → initCountries ───────────────────────────
-SITE_CONFIG.initLanguages = function () { return this.initCountries(); };
 
 // ─── CONVENIENCE HELPERS ──────────────────────────────────────────────────────
 
@@ -266,27 +231,7 @@ SITE_CONFIG.iconPath = function (iconFilename) {
     return this.appearance.base_path + this.paths.icons_dir + iconFilename;
 };
 
-/** Returns country record for ISO code, or null. */
-SITE_CONFIG.country = function (code) {
-    return (this.countryMap && this.countryMap.get(code.toUpperCase())) || null;
-};
-
-/** Returns the site language suggested for a given country code, or null. */
-SITE_CONFIG.suggestedLangForCountry = function (code) {
-    const rec = this.country(code);
-    if (!rec || !rec.siteLang) return null;
-    if (!this.supportedLangCodes().has(rec.siteLang)) return null;
-    return rec.siteLang;
-};
-
-/** Returns the country's display name (its own label field). */
-SITE_CONFIG.localisedCountryName = function (code) {
-    const rec = this.country(code);
-    return rec ? rec.label : code;
-};
-
 // ─── URL SLUG HELPERS ─────────────────────────────────────────────────────────
-
 SITE_CONFIG.pageUrlSlug = function (slug, lang) {
     const langSlugs = this.url_slugs[lang] || this.url_slugs[this.fallbackLang()];
     return langSlugs[slug] || this.url_slugs[this.fallbackLang()][slug] || slug;
@@ -301,6 +246,13 @@ SITE_CONFIG.canonicalSlug = function (urlSegment, lang) {
     return enEntry ? enEntry[0] : null;
 };
 
+/**
+ * Returns the full cart URL for a given language code.
+ * Derived entirely from base_path + url_slugs — no hardcoded paths.
+ * Safe to call before initLanguages() resolves.
+ *
+ * e.g. cartUrl('nl') → '/test/nl/winkelwagen/'
+ */
 SITE_CONFIG.cartUrl = function (lang) {
     const base     = this.appearance.base_path;
     const fallback = 'en';
@@ -310,6 +262,10 @@ SITE_CONFIG.cartUrl = function (lang) {
     return `${base}${lang}/${slug}/`;
 };
 
+/**
+ * Returns the absolute URL for a shop sub-path.
+ * e.g. shopUrl('data/shipping.csv') → '/test/shop/data/shipping.csv'
+ */
 SITE_CONFIG.shopUrl = function (subPath) {
     return this.appearance.base_path + this.paths.shop_dir + subPath;
 };

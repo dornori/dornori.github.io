@@ -2,24 +2,50 @@
  * geo-popup.js
  * ─────────────────────────────────────────────────────────────────────────────
  * Shows a one-time language-suggestion popup when the visitor's geo country
- * suggests a site language different from the current page language.
+ * suggests a language different from the current page language.
  *
- * All country→language mapping and localised country names are read from
- * SITE_CONFIG (which loads data/countries.json) — no hardcoded tables here.
- *
- * Integration points:
- *   • window.__geoData  — set by currency.js detectFromIP() (ipapi.co)
+ * Integration points (no extra network requests):
+ *   • window.__geoData  — set by currency.js detectFromIP() (ipapi.co response)
  *   • window.LANG       — current active language code (set by i18n.js)
  *   • window.setLang()  — existing language switcher (i18n.js)
- *   • window.SITE_CONFIG_READY — Promise resolved after SITE_CONFIG.initCountries()
+ *
+ * Popup text is fetched from the *suggested* language's lang/*.json file so
+ * the visitor is always addressed in their own language.
+ *
+ * Add to index.html just before </body>:
+ *   <script src="/test/js/geo-popup.js"></script>
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 
 (function () {
   'use strict';
 
-  var STORAGE_KEY = 'dornori-geo-popup-seen';
+  var STORAGE_KEY = 'dornori-geo-popup-seen'; // sessionStorage — ask once per tab
+  var BASE_PATH   = '/test/';
 
-  // ── Guard ─────────────────────────────────────────────────────────────────
+  // ── Country → suggested language ─────────────────────────────────────────────
+  // Only languages the site actually supports (en / de / nl / fr).
+  var COUNTRY_LANG = {
+    DE: 'de', AT: 'de', CH: 'de',
+    NL: 'nl', BE: 'nl',
+    FR: 'fr', LU: 'fr',
+  };
+
+  // ── Country display names ────────────────────────────────────────────────────
+  var COUNTRY_NAMES = {
+    DE: 'Deutschland', AT: 'Österreich', CH: 'der Schweiz',
+    NL: 'Nederland',   BE: 'België',
+    FR: 'France',      LU: 'Luxemburg',
+  };
+
+  // Country name in the suggested language (for the message string)
+  var COUNTRY_NAMES_LOCALISED = {
+    de: { DE: 'Deutschland', AT: 'Österreich', CH: 'der Schweiz', NL: 'den Niederlanden', BE: 'Belgien',    FR: 'Frankreich', LU: 'Luxemburg' },
+    nl: { DE: 'Duitsland',   AT: 'Oostenrijk', CH: 'Zwitserland', NL: 'Nederland',        BE: 'België',     FR: 'Frankrijk',  LU: 'Luxemburg' },
+    fr: { DE: 'Allemagne',   AT: 'Autriche',   CH: 'Suisse',      NL: 'Pays-Bas',         BE: 'Belgique',   FR: 'France',     LU: 'Luxembourg' },
+  };
+
+  // ── Guard ────────────────────────────────────────────────────────────────────
   function shouldShow(suggestedLang) {
     if (!suggestedLang) return false;
     if (suggestedLang === window.LANG) return false;
@@ -28,7 +54,7 @@
     return true;
   }
 
-  // ── Styles ────────────────────────────────────────────────────────────────
+  // ── Styles ───────────────────────────────────────────────────────────────────
   function injectStyles() {
     if (document.getElementById('geo-popup-style')) return;
     var s = document.createElement('style');
@@ -63,13 +89,11 @@
     document.head.appendChild(s);
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────────
   function render(suggestedLang, countryCode, strings) {
     strings = strings || {};
-    var SC = window.SITE_CONFIG;
-    var countryName = (SC && SC.localisedCountryName)
-      ? SC.localisedCountryName(countryCode)
-      : countryCode;
+    var names = COUNTRY_NAMES_LOCALISED[suggestedLang] || {};
+    var countryName = names[countryCode] || COUNTRY_NAMES[countryCode] || countryCode;
 
     var message    = (strings.message    || 'It looks like you\'re visiting from {country}.').replace('{country}', countryName);
     var suggestion = strings.suggestion  || 'Would you like to switch languages?';
@@ -95,7 +119,9 @@
 
     popup.querySelector('.gp-confirm').addEventListener('click', function () {
       dismiss(popup);
-      if (typeof window.setLang === 'function') window.setLang(suggestedLang);
+      if (typeof window.setLang === 'function') {
+        window.setLang(suggestedLang);
+      }
     });
     popup.querySelector('.gp-dismiss').addEventListener('click', function () {
       dismiss(popup);
@@ -118,38 +144,36 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  // ── Boot ──────────────────────────────────────────────────────────────────
+  // ── Boot ─────────────────────────────────────────────────────────────────────
   function tryInit() {
     var geo = window.__geoData;
     if (!geo || !geo.country_code) return false;
-    if (!window.LANG) return false;
-    var SC = window.SITE_CONFIG;
-    if (!SC || !SC.countries) return false;  // countries not loaded yet
+    if (!window.LANG) return false; // i18n not ready yet
 
     var countryCode   = geo.country_code.toUpperCase();
-    var suggestedLang = SC.suggestedLangForCountry(countryCode);
+    var suggestedLang = COUNTRY_LANG[countryCode] || null;
 
-    if (!shouldShow(suggestedLang)) return true;
+    if (!shouldShow(suggestedLang)) return true; // no popup needed — stop polling
 
-    var basePath = (SC.appearance && SC.appearance.base_path) || '/';
-    fetch(basePath + 'lang/' + suggestedLang + '.json')
+    // Fetch the *suggested* language's JSON so the popup speaks the visitor's language
+    fetch(BASE_PATH + 'lang/' + suggestedLang + '.json')
       .then(function (r) { return r.json(); })
       .then(function (t) {
-        if (!shouldShow(suggestedLang)) return;
+        if (!shouldShow(suggestedLang)) return; // guard: user may have switched in the meantime
         render(suggestedLang, countryCode, t.geoPopup || {});
       })
       .catch(function () {
         render(suggestedLang, countryCode, {});
       });
 
-    return true;
+    return true; // stop polling — fetch is in flight
   }
 
   function boot() {
     if (tryInit()) return;
     var attempts = 0;
     var timer = setInterval(function () {
-      if (tryInit() || ++attempts > 50) clearInterval(timer);
+      if (tryInit() || ++attempts > 30) clearInterval(timer);
     }, 100);
   }
 
