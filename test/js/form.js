@@ -98,6 +98,8 @@ function renderCurrentQuestion() {
   document.getElementById('progressText').innerHTML = 'Step 2: Troubleshooting';
 }
 
+// Only the critical changed parts - the rest stays the same
+
 window.selectAnswer = function(optionIndex) {
   const question = currentCategory.questions[currentQuestionIndex];
   const selected = question.options[optionIndex];
@@ -105,23 +107,21 @@ window.selectAnswer = function(optionIndex) {
   issueSummary.push(`Q: ${question.text}`);
   issueSummary.push(`A: ${selected.text}`);
   
-  // Check if this answer leads to resolution (contains keywords like "found", "worked", "fixed", "thanks")
-  const resolutionKeywords = ['found', 'worked', 'fixed', 'thanks', 'resolved', 'solved', 'found it', 'all good', 'never mind', 'keep', 'wait', 'understood', 'will do'];
-  const isResolved = resolutionKeywords.some(keyword => 
-    selected.text.toLowerCase().includes(keyword) || 
-    (selected.summary && selected.summary.toLowerCase().includes(keyword))
-  );
-  
-  // Also check if next is 'resolved_end' or if summary indicates resolution
-  const nextTarget = selected.next || '';
-  
-  if (nextTarget === 'resolved_end' || isResolved) {
-    // ISSUE RESOLVED - redirect to homepage
+  // Check if this answer resolves the issue (using the 'resolves' flag from JSON)
+  if (selected.resolves === true) {
+    // ISSUE RESOLVED - redirect immediately
     showResolvedAndRedirect();
     return;
   }
   
-  if (selected.next === "contact" || currentQuestionIndex + 1 >= currentCategory.questions.length) {
+  // Also check if next is 'resolved_end' (legacy support)
+  if (selected.next === 'resolved_end') {
+    showResolvedAndRedirect();
+    return;
+  }
+  
+  // Otherwise continue troubleshooting or go to contact
+  if (selected.next === "contact") {
     showContactForm();
   } else if (selected.next && selected.next !== "contact" && selected.next !== "resolved_end") {
     // Handle custom next question ID
@@ -140,23 +140,21 @@ window.selectAnswer = function(optionIndex) {
 };
 
 function showResolvedAndRedirect() {
-  // Store that issue was resolved
-  localStorage.setItem('dornori_last_resolved', new Date().toISOString());
-  localStorage.setItem('dornori_resolved_category', currentCategory?.title || 'Unknown');
+  // Get redirect URL from JSON or use default
+  const redirectUrl = currentData?.endpoints?.resolved_end?.redirect_url || '/test/';
+  const delay = currentData?.endpoints?.resolved_end?.delay_seconds || 2;
+  const message = currentData?.endpoints?.resolved_end?.message || "✓ Issue resolved! Redirecting...";
   
-  // Show toast then redirect
-  showToast("✓ Issue resolved! Redirecting to homepage...", 2000);
+  showToast(message, 1500);
   
-  // Small delay to show toast, then redirect
   setTimeout(() => {
-    if (typeof window.showResolvedModal === 'function') {
-      window.showResolvedModal();
-    } else {
-      // Fallback redirect
-      const redirectUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + 'index.html';
-      window.location.href = redirectUrl;
+    // Build full redirect URL
+    let fullUrl = redirectUrl;
+    if (redirectUrl.startsWith('/')) {
+      fullUrl = window.location.origin + redirectUrl;
     }
-  }, 1500);
+    window.location.href = fullUrl;
+  }, delay * 1000);
 }
 
 function showContactForm() {
