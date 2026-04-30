@@ -1,0 +1,62 @@
+<style>
+  .support-iframe-wrap { width: 100%; border: none; margin: 0; padding: 0; }
+  .support-iframe-wrap iframe { width: 100%; border: none; min-height: 700px; display: block; }
+</style>
+<div class="support-iframe-wrap">
+  <iframe
+    id="support-form-frame"
+    src="/test/form.html"
+    title="Dornori Support Center"
+    scrolling="no"
+    allowtransparency="true">
+  </iframe>
+</div>
+<script>
+(function () {
+  var frame = document.getElementById('support-form-frame');
+  if (!frame) return;
+
+  // Pass current language into iframe via URL param so form.js can use it
+  var lang = localStorage.getItem('dornori-lang') || 'en';
+  var theme = localStorage.getItem('dornori-theme') || '';
+  var src = frame.src.split('?')[0] + '?lang=' + encodeURIComponent(lang);
+  if (theme) src += '&theme=' + encodeURIComponent(theme);
+  frame.src = src;
+
+  // Auto-resize iframe to content height
+  function resize() {
+    try {
+      var h = frame.contentWindow.document.body.scrollHeight;
+      if (h && h > 200) frame.style.height = h + 'px';
+    } catch(e) {}
+  }
+  frame.addEventListener('load', function () {
+    resize();
+    // Re-check after animations settle
+    setTimeout(resize, 400);
+    setTimeout(resize, 1200);
+
+    // Listen for height messages from the iframe
+    window.addEventListener('message', function (e) {
+      if (e.data && e.data.type === 'dornori-support-height') {
+        frame.style.height = e.data.height + 'px';
+      }
+      // Relay language-change events into the iframe
+      if (e.data && e.data.type === 'dornori-lang-change') {
+        frame.contentWindow.postMessage(e.data, '*');
+      }
+    });
+  });
+
+  // If language changes in parent shell, forward to iframe
+  var _origSetItem = localStorage.setItem.bind(localStorage);
+  Storage.prototype.setItem = function (key, value) {
+    _origSetItem(key, value);
+    if (key === 'dornori-lang' && frame.contentWindow) {
+      try {
+        frame.contentWindow.postMessage({ type: 'dornori-lang-change', lang: value }, '*');
+      } catch(e) {}
+    }
+  };
+})();
+</script>
