@@ -105,7 +105,7 @@ const CONFIG = {
     activeProcessor: "paypal",
 
     paypal: {
-      clientId:  "AaYwnfwpOiekk9jVlaqWJsTKNknCYNWEM6X1-5kav2sNq2t988oBkyr_MGwonIDDKxnTET4VorHpNEnN",
+      clientId:  "",
       currency:  "EUR",
       intent:    "capture",
       returnPath: "/success.html",
