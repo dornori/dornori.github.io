@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>Dornori Enterprise Support</title>
+  <title>Dornori Enterprise Support Center</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -13,6 +13,9 @@
     .bg-dornori { background: linear-gradient(135deg, #F59E0B 0%, #EA580C 100%); }
     .toast-notify { position: fixed; bottom: 20px; right: 20px; z-index: 1000; background: #1f2937; color: white; padding: 12px 20px; border-radius: 40px; font-size: 0.9rem; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 9999; }
     .loading { text-align: center; padding: 40px; }
+    .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000; }
+    .modal-content { background: white; border-radius: 24px; max-width: 500px; width: 90%; padding: 32px; text-align: center; }
+    .redirect-countdown { font-size: 48px; font-weight: bold; color: #F59E0B; margin: 16px 0; }
   </style>
 </head>
 <body class="bg-gradient-to-br from-zinc-50 to-zinc-100 font-sans antialiased">
@@ -25,12 +28,11 @@
         <i class="fas fa-star-of-life text-3xl text-amber-600"></i>
         <div>
           <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-gray-800">Dornori<span class="text-amber-600"> Support</span></h1>
-          <p class="text-gray-500 text-sm" id="tagline">Enterprise helpdesk · 24/7 troubleshooting</p>
+          <p class="text-gray-500 text-sm" id="tagline">Smart diagnostics · Self-service resolution</p>
         </div>
       </div>
       <div class="flex gap-2 mt-3 md:mt-0">
-        <button onclick="window.openKnowledgeBase()" class="text-sm bg-white/70 hover:bg-amber-50 rounded-full px-4 py-2 shadow-sm border"><i class="far fa-file-alt mr-1"></i> Knowledge base</button>
-        <button onclick="window.resetFullSession()" class="text-sm bg-white/70 hover:bg-gray-100 rounded-full px-4 py-2 shadow-sm border"><i class="fas fa-redo-alt mr-1"></i> New ticket</button>
+        <button onclick="window.resetFullSession()" class="text-sm bg-white/70 hover:bg-gray-100 rounded-full px-4 py-2 shadow-sm border"><i class="fas fa-redo-alt mr-1"></i> Start over</button>
       </div>
     </div>
 
@@ -54,7 +56,7 @@
         <div id="appContent" style="display: none;">
           <div class="mb-10">
             <div class="flex justify-between text-sm text-gray-500 mb-2">
-              <span><i class="far fa-clock mr-1"></i> <span id="avgResolution">Avg. resolution 4.2min</span></span>
+              <span><i class="far fa-clock mr-1"></i> <span id="avgResolution">Avg. resolution 2min</span></span>
               <span id="progressText" class="font-medium">Step 1: Choose category</span>
             </div>
             <div class="h-2.5 bg-gray-200 rounded-full overflow-hidden">
@@ -63,70 +65,100 @@
           </div>
 
           <div id="step1" class="step">
-            <h3 class="text-xl font-semibold mb-5">Select your product issue <span class="text-orange-500">▼</span></h3>
+            <h3 class="text-xl font-semibold mb-5">Select your issue <span class="text-orange-500">▼</span></h3>
             <div id="categoryButtons" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-            <div class="mt-8 text-center text-gray-400 text-sm"><i class="fas fa-shield-alt"></i> Secure & encrypted · GDPR compliant</div>
+            <div class="mt-8 text-center text-gray-400 text-sm"><i class="fas fa-shield-alt"></i> Most issues resolved in under 2 minutes</div>
           </div>
 
           <div id="troubleshooting" class="step hidden"></div>
 
-          <div id="emailForm" class="step hidden">
+          <div id="contactForm" class="step hidden">
             <div class="flex items-center gap-2 mb-2">
               <i class="fas fa-headset text-2xl text-orange-500"></i>
-              <h2 class="text-2xl font-bold text-gray-800">Still unresolved?</h2>
+              <h2 class="text-2xl font-bold text-gray-800">Need human help?</h2>
             </div>
-            <p class="text-gray-600 mb-6">Our support engineers typically reply within 2 hours (business days).</p>
+            <p class="text-gray-600 mb-6">Our support team responds within 4 hours (Mon-Fri). Please provide your details below.</p>
             
-            <form id="contactForm" class="space-y-6">
+            <form id="supportForm" class="space-y-6">
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-1">Full name <span class="text-red-500">*</span></label>
-                  <input type="text" id="name" required placeholder="e.g. Alex Johnson" class="w-full px-5 py-3.5 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-orange-300 outline-none">
+                  <input type="text" id="name" required class="w-full px-5 py-3.5 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-orange-300 outline-none">
                 </div>
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-1">Email address <span class="text-red-500">*</span></label>
-                  <input type="email" id="email" required placeholder="hello@dornori.com" class="w-full px-5 py-3.5 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-orange-300">
+                  <input type="email" id="email" required class="w-full px-5 py-3.5 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-orange-300">
                 </div>
               </div>
               <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Order number (optional)</label>
-                <input type="text" id="orderNumber" placeholder="DOR-12345" class="w-full px-5 py-3 border border-gray-300 rounded-2xl">
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Order number (helps us help you faster)</label>
+                <input type="text" id="orderNumber" class="w-full px-5 py-3 border border-gray-300 rounded-2xl">
               </div>
               <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Priority assessment</label>
-                <select id="priority" class="w-full px-5 py-3 border border-gray-300 rounded-2xl bg-white">
-                  <option value="normal">🚀 Normal (response less than 24h)</option>
-                  <option value="high">⚠️ High – lamp not working, safety issue</option>
-                  <option value="urgent">🔥 Urgent – business/production stop</option>
-                </select>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Issue description</label>
+                <textarea id="issueDescription" rows="5" required class="w-full px-5 py-3.5 border border-gray-300 rounded-2xl bg-gray-50"></textarea>
               </div>
-              <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Message</label>
-                <textarea id="message" rows="6" required class="w-full px-5 py-3.5 border border-gray-300 rounded-2xl bg-gray-50"></textarea>
-              </div>
-              <div class="flex gap-4 flex-wrap">
-                <button type="submit" class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold py-3.5 px-8 rounded-2xl text-lg shadow-md transition flex-1"><i class="fas fa-paper-plane mr-2"></i> Send Support Request</button>
-                <button type="button" onclick="window.startLiveChat()" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-3 px-6 rounded-2xl border"><i class="fab fa-rocketchat mr-2"></i> Live chat</button>
-              </div>
+              <button type="submit" class="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold py-3.5 rounded-2xl text-lg shadow-md transition">
+                <i class="fas fa-paper-plane mr-2"></i> Submit Support Request
+              </button>
             </form>
-          </div>
-
-          <div id="successMessage" class="step hidden text-center py-12">
-            <div class="text-7xl mb-5">✅</div>
-            <h2 class="text-3xl font-bold text-green-600">Thank You!</h2>
-            <p class="mt-3 text-gray-600">Your message was sent successfully.<br>We will reply within 24-48 hours.</p>
-            <div class="mt-8 flex gap-4 justify-center flex-wrap">
-              <button onclick="window.resetFullSession()" class="px-7 py-2.5 bg-amber-100 text-amber-800 rounded-full font-medium"><i class="fas fa-plus-circle"></i> New Request</button>
-            </div>
-          </div>
-
-          <div id="adminPanel" class="step hidden border-t-2 border-dashed border-gray-200 mt-8 pt-8">
-            <h3 class="text-lg font-bold flex items-center gap-2"><i class="fas fa-chart-line text-amber-600"></i> Support analytics</h3>
-            <canvas id="issuesChart" width="400" height="200" class="max-h-64 w-full mt-2"></canvas>
           </div>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- Redirect Modal (shown when issue is resolved) -->
+  <div id="redirectModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <i class="fas fa-check-circle text-6xl text-green-500 mb-4"></i>
+      <h2 class="text-2xl font-bold text-gray-800 mb-2">Issue Resolved!</h2>
+      <p class="text-gray-600 mb-4">We're glad we could help. Redirecting you to the homepage...</p>
+      <div id="countdown" class="redirect-countdown">3</div>
+      <button onclick="window.redirectNow()" class="mt-4 px-6 py-2 bg-amber-500 text-white rounded-full">Redirect now</button>
+    </div>
+  </div>
+
+  <script>
+    // Global redirect function
+    window.redirectToHomepage = function() {
+      // Redirect to dornori.com/test/ or current root
+      const redirectUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + 'index.html';
+      window.location.href = redirectUrl;
+    };
+    
+    window.redirectNow = function() {
+      window.redirectToHomepage();
+    };
+    
+    window.showResolvedModal = function() {
+      let countdown = 3;
+      const modal = document.getElementById('redirectModal');
+      const countdownEl = document.getElementById('countdown');
+      modal.style.display = 'flex';
+      
+      const interval = setInterval(function() {
+        countdown--;
+        countdownEl.textContent = countdown;
+        if (countdown <= 0) {
+          clearInterval(interval);
+          window.redirectToHomepage();
+        }
+      }, 1000);
+    };
+    
+    window.resetFullSession = function() {
+      if (window.currentCategory) {
+        window.currentCategory = null;
+        window.currentQuestionIndex = 0;
+        window.issueSummary = [];
+      }
+      if (window.renderCategories) window.renderCategories();
+      if (window.updateProgress) window.updateProgress(5);
+      if (document.getElementById('progressText')) {
+        document.getElementById('progressText').innerHTML = 'Step 1: Choose category';
+      }
+    };
+  </script>
 </body>
 </html>
