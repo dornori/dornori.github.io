@@ -6,16 +6,13 @@
  *
  * Integration points (no extra network requests):
  *   • window.__geoData  — set by currency.js detectFromIP() (ipapi.co response)
- *   • window.T          — already-loaded translation object (set by i18n.js)
  *   • window.LANG       — current active language code (set by i18n.js)
  *   • window.setLang()  — existing language switcher (i18n.js)
  *
- * Load order (already correct in index.html):
- *   site-boot.js → config.js → lang-bridge.js → shop-init.js → site-main.js
- *   site-main.js calls initI18n() which sets window.T and window.LANG, then
- *   this module self-initialises via a 'i18n:ready' event dispatched below.
+ * Popup text is fetched from the *suggested* language's lang/*.json file so
+ * the visitor is always addressed in their own language.
  *
- * Add one line to index.html just before </body>:
+ * Add to index.html just before </body>:
  *   <script src="/test/js/geo-popup.js"></script>
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -24,36 +21,36 @@
   'use strict';
 
   var STORAGE_KEY = 'dornori-geo-popup-seen'; // sessionStorage — ask once per tab
+  var BASE_PATH   = '/test/';
 
-  // ── Country → suggested language ────────────────────────────────────────────
+  // ── Country → suggested language ─────────────────────────────────────────────
   // Only languages the site actually supports (en / de / nl / fr).
   var COUNTRY_LANG = {
-    // German
-    DE: 'de', AT: 'de',
-    // Dutch
-    NL: 'nl',
-    // French
+    DE: 'de', AT: 'de', CH: 'de',
+    NL: 'nl', BE: 'nl',
     FR: 'fr', LU: 'fr',
-    // Belgian split: dutch-speaking BE → nl  (best guess; no sub-region from ipapi free tier)
-    BE: 'nl',
-    // Swiss split: default to de (largest share)
-    CH: 'de',
   };
 
-  // ── Country display names (shown in popup message) ───────────────────────────
+  // ── Country display names ────────────────────────────────────────────────────
   var COUNTRY_NAMES = {
-    DE: 'Germany',    AT: 'Austria',     NL: 'Netherlands',
-    FR: 'France',     LU: 'Luxembourg',  BE: 'Belgium',
-    CH: 'Switzerland',
+    DE: 'Deutschland', AT: 'Österreich', CH: 'der Schweiz',
+    NL: 'Nederland',   BE: 'België',
+    FR: 'France',      LU: 'Luxemburg',
+  };
+
+  // Country name in the suggested language (for the message string)
+  var COUNTRY_NAMES_LOCALISED = {
+    de: { DE: 'Deutschland', AT: 'Österreich', CH: 'der Schweiz', NL: 'den Niederlanden', BE: 'Belgien',    FR: 'Frankreich', LU: 'Luxemburg' },
+    nl: { DE: 'Duitsland',   AT: 'Oostenrijk', CH: 'Zwitserland', NL: 'Nederland',        BE: 'België',     FR: 'Frankrijk',  LU: 'Luxemburg' },
+    fr: { DE: 'Allemagne',   AT: 'Autriche',   CH: 'Suisse',      NL: 'Pays-Bas',         BE: 'Belgique',   FR: 'France',     LU: 'Luxembourg' },
   };
 
   // ── Guard ────────────────────────────────────────────────────────────────────
   function shouldShow(suggestedLang) {
     if (!suggestedLang) return false;
-    if (suggestedLang === window.LANG) return false;               // already correct language
-    try { if (sessionStorage.getItem(STORAGE_KEY)) return false; } // already seen this tab
-    catch (e) {}
-    if (document.getElementById('geo-lang-popup')) return false;   // already in DOM
+    if (suggestedLang === window.LANG) return false;
+    try { if (sessionStorage.getItem(STORAGE_KEY)) return false; } catch (e) {}
+    if (document.getElementById('geo-lang-popup')) return false;
     return true;
   }
 
@@ -93,9 +90,10 @@
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────
-  function render(suggestedLang, countryCode) {
-    var strings = (window.T && window.T.geoPopup) || {};
-    var countryName = COUNTRY_NAMES[countryCode] || countryCode;
+  function render(suggestedLang, countryCode, strings) {
+    strings = strings || {};
+    var names = COUNTRY_NAMES_LOCALISED[suggestedLang] || {};
+    var countryName = names[countryCode] || COUNTRY_NAMES[countryCode] || countryCode;
 
     var message    = (strings.message    || 'It looks like you\'re visiting from {country}.').replace('{country}', countryName);
     var suggestion = strings.suggestion  || 'Would you like to switch languages?';
@@ -147,30 +145,32 @@
   }
 
   // ── Boot ─────────────────────────────────────────────────────────────────────
-  // currency.js fires detectFromIP() in the background after init().
-  // We wait for __geoData to be populated, then act.
-  // Worst case: poll briefly (ipapi.co usually responds in < 400ms).
-
   function tryInit() {
     var geo = window.__geoData;
     if (!geo || !geo.country_code) return false;
+    if (!window.LANG) return false; // i18n not ready yet
 
     var countryCode   = geo.country_code.toUpperCase();
     var suggestedLang = COUNTRY_LANG[countryCode] || null;
 
-    if (!shouldShow(suggestedLang)) return true; // done — no popup needed
+    if (!shouldShow(suggestedLang)) return true; // no popup needed — stop polling
 
-    // window.T is set by initI18n() in site-main.js (ES module).
-    // If LANG already matches suggestion, nothing to do.
-    if (!window.T || !window.LANG) return false; // i18n not ready yet — retry
+    // Fetch the *suggested* language's JSON so the popup speaks the visitor's language
+    fetch(BASE_PATH + 'lang/' + suggestedLang + '.json')
+      .then(function (r) { return r.json(); })
+      .then(function (t) {
+        if (!shouldShow(suggestedLang)) return; // guard: user may have switched in the meantime
+        render(suggestedLang, countryCode, t.geoPopup || {});
+      })
+      .catch(function () {
+        render(suggestedLang, countryCode, {});
+      });
 
-    render(suggestedLang, countryCode);
-    return true;
+    return true; // stop polling — fetch is in flight
   }
 
   function boot() {
     if (tryInit()) return;
-    // Poll until __geoData and window.T are both available (max ~3 s).
     var attempts = 0;
     var timer = setInterval(function () {
       if (tryInit() || ++attempts > 30) clearInterval(timer);
