@@ -3,144 +3,151 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>Dornori Enterprise Support | Troubleshooting Center</title>
+  <title>Dornori Enterprise Support</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="../js/form.js" defer></script>
+  <script src="js/form.js" defer></script>
   <style>
     .step { transition: opacity 0.2s ease; }
-    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -12px rgba(0,0,0,0.15); }
     .bg-dornori { background: linear-gradient(135deg, #F59E0B 0%, #EA580C 100%); }
-    .loader { border-top-color: #F59E0B; }
-    .toast-notify { position: fixed; bottom: 20px; right: 20px; z-index: 1000; background: #1f2937; color: white; padding: 12px 20px; border-radius: 40px; font-size: 0.9rem; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
-    .progress-step-active { background: linear-gradient(135deg, #F59E0B, #EA580C); }
+    .toast-notify { position: fixed; bottom: 20px; right: 20px; z-index: 1000; background: #1f2937; color: white; padding: 12px 20px; border-radius: 40px; font-size: 0.9rem; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 9999; }
+    .loading { text-align: center; padding: 40px; }
+    .language-selector { position: fixed; top: 20px; right: 20px; z-index: 100; background: white; padding: 8px 12px; border-radius: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
   </style>
 </head>
 <body class="bg-gradient-to-br from-zinc-50 to-zinc-100 font-sans antialiased">
 
   <div id="toastMsg" class="toast-notify shadow-lg"></div>
+  
+  <!-- Language Selector -->
+  <div class="language-selector">
+    <select id="languageSelect" onchange="switchLanguage(this.value)" class="text-sm border rounded-lg px-2 py-1">
+      <option value="en">🇬🇧 English</option>
+      <option value="es">🇪🇸 Español</option>
+      <option value="fr">🇫🇷 Français</option>
+      <option value="de">🇩🇪 Deutsch</option>
+      <option value="zh">🇨🇳 中文</option>
+    </select>
+  </div>
 
   <div class="max-w-5xl mx-auto px-4 py-8 md:py-12">
-    <!-- Header -->
     <div class="flex flex-wrap justify-between items-center mb-6">
       <div class="flex items-center gap-3">
         <i class="fas fa-star-of-life text-3xl text-amber-600"></i>
         <div>
-          <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-gray-800">Dornori<span class="text-amber-600"> Support</span></h1>
-          <p class="text-gray-500 text-sm">Enterprise helpdesk · 24/7 troubleshooting intelligence</p>
+          <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-gray-800">Dornori<span class="text-amber-600" id="brandName"> Support</span></h1>
+          <p class="text-gray-500 text-sm" id="tagline">Enterprise helpdesk</p>
         </div>
       </div>
       <div class="flex gap-2 mt-3 md:mt-0">
-        <button onclick="window.openKnowledgeBase()" class="text-sm bg-white/70 hover:bg-amber-50 rounded-full px-4 py-2 shadow-sm border"><i class="far fa-file-alt mr-1"></i> Knowledge base</button>
-        <button onclick="window.resetFullSession()" class="text-sm bg-white/70 hover:bg-gray-100 rounded-full px-4 py-2 shadow-sm border"><i class="fas fa-redo-alt mr-1"></i> New ticket</button>
+        <button onclick="window.openKnowledgeBase()" class="text-sm bg-white/70 hover:bg-amber-50 rounded-full px-4 py-2 shadow-sm border" id="kbBtn"><i class="far fa-file-alt mr-1"></i> Knowledge base</button>
+        <button onclick="window.resetFullSession()" class="text-sm bg-white/70 hover:bg-gray-100 rounded-full px-4 py-2 shadow-sm border" id="newTicketBtn"><i class="fas fa-redo-alt mr-1"></i> New ticket</button>
       </div>
     </div>
 
-    <!-- Main Card -->
     <div class="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
       <div class="bg-dornori px-8 py-8 text-white">
         <div class="flex items-center gap-4 flex-wrap">
           <i class="fas fa-microphone-alt text-4xl"></i>
           <div>
-            <h2 id="mainTitle" class="text-2xl md:text-3xl font-bold">Dornori Support Assistant</h2>
-            <p id="subtitle" class="text-amber-100 text-md mt-1">AI-powered diagnostics · real-time agent routing</p>
+            <h2 id="mainTitle" class="text-2xl md:text-3xl font-bold">Loading...</h2>
+            <p id="subtitle" class="text-amber-100 text-md mt-1">Loading support system...</p>
           </div>
         </div>
       </div>
 
       <div class="p-6 md:p-10">
-        <!-- Progress Tracker -->
-        <div class="mb-10">
-          <div class="flex justify-between text-sm text-gray-500 mb-2">
-            <span><i class="far fa-clock mr-1"></i> Avg. resolution 4.2min</span>
-            <span id="progressText" class="font-medium">Step 1: issue category</span>
-          </div>
-          <div class="h-2.5 bg-gray-200 rounded-full overflow-hidden">
-            <div id="progressBar" class="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-300" style="width: 5%"></div>
-          </div>
+        <!-- Loading indicator -->
+        <div id="loadingIndicator" class="loading">
+          <i class="fas fa-spinner fa-spin text-3xl text-amber-500"></i>
+          <p class="mt-2">Loading support data...</p>
         </div>
 
-        <!-- STEP 1: Category Selection -->
-        <div id="step1" class="step">
-          <h3 class="text-xl font-semibold mb-5">Select your product issue <span class="text-orange-500">▼</span></h3>
-          <div id="categoryButtons" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-          <div class="mt-8 text-center text-gray-400 text-sm"><i class="fas fa-shield-alt"></i> Secure & encrypted · GDPR compliant</div>
-        </div>
-
-        <!-- STEP 2: Troubleshooting Questions -->
-        <div id="troubleshooting" class="step hidden"></div>
-
-        <!-- STEP 3: Enhanced Support Form -->
-        <div id="emailForm" class="step hidden">
-          <div class="flex items-center gap-2 mb-2">
-            <i class="fas fa-headset text-2xl text-orange-500"></i>
-            <h2 class="text-2xl font-bold text-gray-800">Still unresolved?</h2>
+        <div id="appContent" style="display: none;">
+          <div class="mb-10">
+            <div class="flex justify-between text-sm text-gray-500 mb-2">
+              <span><i class="far fa-clock mr-1"></i> <span id="avgResolution">Avg. resolution 4.2min</span></span>
+              <span id="progressText" class="font-medium">Step 1: issue category</span>
+            </div>
+            <div class="h-2.5 bg-gray-200 rounded-full overflow-hidden">
+              <div id="progressBar" class="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-300" style="width: 5%"></div>
+            </div>
           </div>
-          <p class="text-gray-600 mb-6">Our support engineers typically reply <strong class="text-orange-700">within 2 hours</strong> (business days). Attach photos/videos for faster diagnosis.</p>
-          
-          <form id="contactForm" class="space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Full name <span class="text-red-500">*</span></label>
-                <input type="text" id="name" required placeholder="e.g. Alex Johnson" class="w-full px-5 py-3.5 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-orange-300 outline-none">
+
+          <div id="step1" class="step">
+            <h3 class="text-xl font-semibold mb-5" id="selectIssueText">Select your product issue</h3>
+            <div id="categoryButtons" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            <div class="mt-8 text-center text-gray-400 text-sm"><i class="fas fa-shield-alt"></i> <span id="secureText">Secure & encrypted · GDPR compliant</span></div>
+          </div>
+
+          <div id="troubleshooting" class="step hidden"></div>
+
+          <div id="emailForm" class="step hidden">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="fas fa-headset text-2xl text-orange-500"></i>
+              <h2 class="text-2xl font-bold text-gray-800" id="stillNeedHelp">Still unresolved?</h2>
+            </div>
+            <p class="text-gray-600 mb-6" id="responseTimeText">Our support engineers typically reply within 2 hours (business days).</p>
+            
+            <form id="contactForm" class="space-y-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-1" id="nameLabel">Full name <span class="text-red-500">*</span></label>
+                  <input type="text" id="name" required class="w-full px-5 py-3.5 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-orange-300 outline-none">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-1" id="emailLabel">Email address <span class="text-red-500">*</span></label>
+                  <input type="email" id="email" required class="w-full px-5 py-3.5 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-orange-300">
+                </div>
               </div>
               <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">Email address <span class="text-red-500">*</span></label>
-                <input type="email" id="email" required placeholder="hello@dornori.com" class="w-full px-5 py-3.5 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-orange-300">
+                <label class="block text-sm font-semibold text-gray-700 mb-1" id="orderLabel">Order number (optional)</label>
+                <input type="text" id="orderNumber" class="w-full px-5 py-3 border border-gray-300 rounded-2xl">
               </div>
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-1">Order number (optional, speeds up support)</label>
-              <input type="text" id="orderNumber" placeholder="DOR-12345" class="w-full px-5 py-3 border border-gray-300 rounded-2xl">
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-1">Priority assessment</label>
-              <select id="priority" class="w-full px-5 py-3 border border-gray-300 rounded-2xl bg-white">
-                <option value="normal">🚀 Normal (response < 24h)</option>
-                <option value="high">⚠️ High – lamp not working, safety issue</option>
-                <option value="urgent">🔥 Urgent – business/production stop</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-1">Attach diagnostic media (photo / video)</label>
-              <input type="file" id="attachment" accept="image/*,video/mp4,image/jpeg,image/png" class="w-full text-sm border border-dashed border-gray-300 rounded-2xl p-3">
-              <p class="text-xs text-gray-400 mt-1">Max 20MB, JPEG/PNG/MP4. Helps us identify hardware defects.</p>
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-gray-700 mb-1">Detailed description (auto-filled with diagnostics)</label>
-              <textarea id="message" rows="6" required class="w-full px-5 py-3.5 border border-gray-300 rounded-2xl bg-gray-50"></textarea>
-            </div>
-            <div class="flex gap-4 flex-wrap">
-              <button type="submit" class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold py-3.5 px-8 rounded-2xl text-lg shadow-md transition flex-1"><i class="fas fa-paper-plane mr-2"></i> Submit & get support</button>
-              <button type="button" onclick="window.startLiveChat()" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-3 px-6 rounded-2xl border"><i class="fab fa-rocketchat mr-2"></i> Live chat</button>
-            </div>
-          </form>
-        </div>
-
-        <!-- STEP 4: Success Message -->
-        <div id="successMessage" class="step hidden text-center py-12">
-          <div class="text-7xl mb-5">🎫</div>
-          <h2 class="text-3xl font-bold text-green-600">Ticket #<span id="ticketIdDisplay">DOR-</span> created</h2>
-          <p class="mt-3 text-gray-600 max-w-md mx-auto">Our team has been notified. You'll receive updates at your email. Meanwhile, check our video guides.</p>
-          <div class="mt-8 flex gap-4 justify-center flex-wrap">
-            <button onclick="window.resetFullSession()" class="px-7 py-2.5 bg-amber-100 text-amber-800 rounded-full font-medium"><i class="fas fa-plus-circle"></i> New request</button>
-            <button onclick="window.open('https://help.dornori.com','_blank')" class="px-7 py-2.5 bg-gray-100 rounded-full"><i class="fas fa-graduation-cap"></i> Video tutorials</button>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1" id="priorityLabel">Priority assessment</label>
+                <select id="priority" class="w-full px-5 py-3 border border-gray-300 rounded-2xl bg-white">
+                  <option value="normal" id="priorityNormal">🚀 Normal (response less than 24h)</option>
+                  <option value="high" id="priorityHigh">⚠️ High – lamp not working, safety issue</option>
+                  <option value="urgent" id="priorityUrgent">🔥 Urgent – business/production stop</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1" id="messageLabel">Message</label>
+                <textarea id="message" rows="6" required class="w-full px-5 py-3.5 border border-gray-300 rounded-2xl bg-gray-50"></textarea>
+              </div>
+              <div class="flex gap-4 flex-wrap">
+                <button type="submit" class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold py-3.5 px-8 rounded-2xl text-lg shadow-md transition flex-1" id="submitBtn">Send Support Request</button>
+                <button type="button" onclick="window.startLiveChat()" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-3 px-6 rounded-2xl border" id="liveChatBtn">Live chat</button>
+              </div>
+            </form>
           </div>
-        </div>
 
-        <!-- Admin Analytics Panel (hidden by default, accessible via ?admin=true) -->
-        <div id="adminPanel" class="step hidden border-t-2 border-dashed border-gray-200 mt-8 pt-8">
-          <h3 class="text-lg font-bold flex items-center gap-2"><i class="fas fa-chart-line text-amber-600"></i> Support analytics (live demo)</h3>
-          <canvas id="issuesChart" width="400" height="200" class="max-h-64 w-full mt-2"></canvas>
-          <p class="text-xs text-gray-400 mt-3">Real-time issue classification from last 50 sessions</p>
+          <div id="successMessage" class="step hidden text-center py-12">
+            <div class="text-7xl mb-5">✅</div>
+            <h2 class="text-3xl font-bold text-green-600" id="thankYouText">Thank You!</h2>
+            <p class="mt-3 text-gray-600" id="successText">Your message was sent successfully. We will reply within 24-48 hours.</p>
+            <div class="mt-8 flex gap-4 justify-center flex-wrap">
+              <button onclick="window.resetFullSession()" class="px-7 py-2.5 bg-amber-100 text-amber-800 rounded-full font-medium" id="newRequestBtn">New Request</button>
+            </div>
+          </div>
+
+          <div id="adminPanel" class="step hidden border-t-2 border-dashed border-gray-200 mt-8 pt-8">
+            <h3 class="text-lg font-bold flex items-center gap-2"><i class="fas fa-chart-line text-amber-600"></i> <span id="analyticsTitle">Support analytics</span></h3>
+            <canvas id="issuesChart" width="400" height="200" class="max-h-64 w-full mt-2"></canvas>
+          </div>
         </div>
       </div>
     </div>
-
-    <div class="text-center text-gray-400 text-xs mt-6">
-      <i class="fas fa-lock"></i> Secure connection · Dornori support v4.0 · ISO 27001 certified
-    </div>
   </div>
+
+  <script>
+    window.switchLanguage = function(lang) {
+      if (window.currentLanguage && window.currentLanguage !== lang) {
+        window.loadFormData(lang);
+      }
+    };
+  </script>
 </body>
 </html>
