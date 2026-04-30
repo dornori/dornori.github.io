@@ -1,10 +1,9 @@
-// Dornori Support System - Enterprise Edition
+// Dornori Support System - With Redirect on Resolution
 let currentData = null;
 let currentCategory = null;
 let currentQuestionIndex = 0;
 let issueSummary = [];
 let sessionId = 'SID-' + Math.random().toString(36).substring(2, 10);
-let categoryClickCount = JSON.parse(localStorage.getItem('dornori_analytics') || '{}');
 
 function showToast(msg, duration = 3000) {
   const toast = document.getElementById('toastMsg');
@@ -19,13 +18,8 @@ async function loadFormData() {
   document.getElementById('appContent').style.display = 'none';
   
   try {
-    // FIXED PATH - works for your structure
     const response = await fetch('data/form.json');
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     currentData = await response.json();
     
     document.getElementById('mainTitle').textContent = currentData.title;
@@ -35,20 +29,13 @@ async function loadFormData() {
     document.getElementById('appContent').style.display = 'block';
     
     renderCategories();
-    
-    if (window.location.hash === '#admin' || new URLSearchParams(window.location.search).get('admin') === 'true') {
-      document.getElementById('adminPanel').classList.remove('hidden');
-      renderAnalyticsChart();
-    }
   } catch (error) {
-    console.error("Error loading form.json:", error);
+    console.error("Error:", error);
     document.getElementById('loadingIndicator').innerHTML = `
       <i class="fas fa-exclamation-triangle text-3xl text-red-500"></i>
       <p class="mt-2">Failed to load support data.</p>
-      <p class="text-sm text-gray-500 mt-2">Error: ${error.message}</p>
       <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-amber-500 text-white rounded-lg">Retry</button>
     `;
-    showToast("Failed to load support data. Please refresh the page.", 5000);
   }
 }
 
@@ -73,23 +60,13 @@ function renderCategories() {
 function startCategory(category) {
   currentCategory = category;
   currentQuestionIndex = 0;
-  issueSummary = [
-    `Category: ${category.title}`,
-    `Session ID: ${sessionId}`,
-    `Timestamp: ${new Date().toISOString()}`,
-    `--- Diagnostic Log ---`
-  ];
-  
-  if (!categoryClickCount[category.id]) categoryClickCount[category.id] = 0;
-  categoryClickCount[category.id]++;
-  localStorage.setItem('dornori_analytics', JSON.stringify(categoryClickCount));
-  
+  issueSummary = [`Category: ${category.title}`, `Session: ${sessionId}`, `---`];
   renderCurrentQuestion();
 }
 
 function renderCurrentQuestion() {
   if (!currentCategory || currentQuestionIndex >= currentCategory.questions.length) {
-    showEmailForm();
+    showContactForm();
     return;
   }
   
@@ -113,20 +90,12 @@ function renderCurrentQuestion() {
     `;
   });
   
-  html += `
-      </div>
-      <div class="mt-6">
-        <button onclick="resetFullSession()" class="text-sm text-gray-400 hover:text-gray-600">
-          <i class="fas fa-undo-alt"></i> Restart diagnostic
-        </button>
-      </div>
-    </div>
-  `;
+  html += `</div><div class="mt-6"><button onclick="resetFullSession()" class="text-sm text-gray-400 hover:text-gray-600"><i class="fas fa-undo-alt"></i> Start over</button></div></div>`;
   
   document.getElementById('troubleshooting').innerHTML = html;
   showStep('troubleshooting');
   updateProgress(45);
-  document.getElementById('progressText').innerHTML = 'Step 2: Diagnosing issue';
+  document.getElementById('progressText').innerHTML = 'Step 2: Troubleshooting';
 }
 
 window.selectAnswer = function(optionIndex) {
@@ -135,40 +104,80 @@ window.selectAnswer = function(optionIndex) {
   
   issueSummary.push(`Q: ${question.text}`);
   issueSummary.push(`A: ${selected.text}`);
-  if (selected.summary && selected.summary !== "") {
-    issueSummary.push(`→ ${selected.summary}`);
+  
+  // Check if this answer leads to resolution (contains keywords like "found", "worked", "fixed", "thanks")
+  const resolutionKeywords = ['found', 'worked', 'fixed', 'thanks', 'resolved', 'solved', 'found it', 'all good', 'never mind', 'keep', 'wait', 'understood', 'will do'];
+  const isResolved = resolutionKeywords.some(keyword => 
+    selected.text.toLowerCase().includes(keyword) || 
+    (selected.summary && selected.summary.toLowerCase().includes(keyword))
+  );
+  
+  // Also check if next is 'resolved_end' or if summary indicates resolution
+  const nextTarget = selected.next || '';
+  
+  if (nextTarget === 'resolved_end' || isResolved) {
+    // ISSUE RESOLVED - redirect to homepage
+    showResolvedAndRedirect();
+    return;
   }
-  issueSummary.push('---');
   
   if (selected.next === "contact" || currentQuestionIndex + 1 >= currentCategory.questions.length) {
-    showEmailForm();
+    showContactForm();
+  } else if (selected.next && selected.next !== "contact" && selected.next !== "resolved_end") {
+    // Handle custom next question ID
+    const nextIndex = currentCategory.questions.findIndex(q => q.id === selected.next);
+    if (nextIndex !== -1) {
+      currentQuestionIndex = nextIndex;
+      renderCurrentQuestion();
+    } else {
+      currentQuestionIndex++;
+      renderCurrentQuestion();
+    }
   } else {
     currentQuestionIndex++;
     renderCurrentQuestion();
   }
 };
 
-function showEmailForm() {
-  const finalSummary = issueSummary.join('\n') + 
-    `\n\n---\nUser Agent: ${navigator.userAgent}\nPlatform: ${navigator.platform}`;
+function showResolvedAndRedirect() {
+  // Store that issue was resolved
+  localStorage.setItem('dornori_last_resolved', new Date().toISOString());
+  localStorage.setItem('dornori_resolved_category', currentCategory?.title || 'Unknown');
   
-  document.getElementById('message').value = finalSummary;
-  showStep('emailForm');
+  // Show toast then redirect
+  showToast("✓ Issue resolved! Redirecting to homepage...", 2000);
+  
+  // Small delay to show toast, then redirect
+  setTimeout(() => {
+    if (typeof window.showResolvedModal === 'function') {
+      window.showResolvedModal();
+    } else {
+      // Fallback redirect
+      const redirectUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + 'index.html';
+      window.location.href = redirectUrl;
+    }
+  }, 1500);
+}
+
+function showContactForm() {
+  const summary = issueSummary.join('\n') + `\n\n---\nUser Agent: ${navigator.userAgent}`;
+  document.getElementById('issueDescription').value = summary;
+  showStep('contactForm');
   updateProgress(85);
   document.getElementById('progressText').innerHTML = 'Step 3: Contact support';
 }
 
-document.getElementById('contactForm')?.addEventListener('submit', async function(e) {
+// Handle support form submission
+document.getElementById('supportForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
   
   const name = document.getElementById('name').value.trim();
   const email = document.getElementById('email').value.trim();
   const orderNumber = document.getElementById('orderNumber').value.trim();
-  const priority = document.getElementById('priority').value;
-  const message = document.getElementById('message').value;
+  const description = document.getElementById('issueDescription').value;
   
   if (!name || !email) {
-    showToast("Please fill in all fields.", 3000);
+    showToast("Please provide your name and email.", 3000);
     return;
   }
   
@@ -177,8 +186,8 @@ document.getElementById('contactForm')?.addEventListener('submit', async functio
   submitBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Sending...';
   submitBtn.disabled = true;
   
-  // CHANGE THIS EMAIL TO YOUR ACTUAL SUPPORT EMAIL
-  const submitUrl = "https://formsubmit.co/ajax/your-email@dornori.com";
+  // FormSubmit endpoint - CHANGE THIS TO YOUR EMAIL
+  const submitUrl = "https://formsubmit.co/ajax/support@dornori.com";
   
   try {
     const response = await fetch(submitUrl, {
@@ -187,26 +196,32 @@ document.getElementById('contactForm')?.addEventListener('submit', async functio
       body: JSON.stringify({
         name: name,
         email: email,
+        order: orderNumber,
         subject: `Dornori Support: ${currentCategory?.title || 'General'} Issue`,
-        message: `Name: ${name}\nEmail: ${email}\nOrder: ${orderNumber || 'N/A'}\nPriority: ${priority}\nCategory: ${currentCategory?.title || 'General'}\n\n--- DIAGNOSTICS ---\n${message}`,
+        message: `Name: ${name}\nEmail: ${email}\nOrder: ${orderNumber || 'N/A'}\nCategory: ${currentCategory?.title}\n\nIssue Details:\n${description}`,
         _captcha: "false",
         _template: "table",
-        _autoresponse: "Thank you for contacting Dornori Support. We will reply within 24 hours."
+        _autoresponse: "Thank you for contacting Dornori Support. We'll respond within 4 hours."
       })
     });
     
     if (response.ok) {
-      showStep('successMessage');
-      updateProgress(100);
-      document.getElementById('progressText').innerHTML = 'Complete!';
-      showToast("Ticket created! Check your email.", 4000);
+      showToast("Support request sent! Check your email for confirmation.", 3000);
+      // After submitting contact form, redirect to homepage
+      setTimeout(() => {
+        if (typeof window.showResolvedModal === 'function') {
+          window.showResolvedModal();
+        } else {
+          const redirectUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + 'index.html';
+          window.location.href = redirectUrl;
+        }
+      }, 2000);
     } else {
       throw new Error("Server error");
     }
   } catch (err) {
     console.error(err);
-    showToast("Failed to send. Please try again.", 3000);
-  } finally {
+    showToast("Failed to send. Please try again or email support@dornori.com directly.", 4000);
     submitBtn.disabled = false;
     submitBtn.innerHTML = originalText;
   }
@@ -216,7 +231,8 @@ function showStep(stepId) {
   document.querySelectorAll('.step').forEach(step => {
     step.classList.add('hidden');
   });
-  document.getElementById(stepId).classList.remove('hidden');
+  const target = document.getElementById(stepId);
+  if (target) target.classList.remove('hidden');
 }
 
 function updateProgress(percent) {
@@ -224,46 +240,14 @@ function updateProgress(percent) {
   if (bar) bar.style.width = `${percent}%`;
 }
 
-window.resetFullSession = function() {
+function resetFullSession() {
   currentCategory = null;
   currentQuestionIndex = 0;
   issueSummary = [];
-  document.getElementById('contactForm')?.reset();
   renderCategories();
   updateProgress(5);
   document.getElementById('progressText').innerHTML = 'Step 1: Choose category';
-  showToast("Session reset", 2000);
-};
-
-window.openKnowledgeBase = function() {
-  window.open("https://help.dornori.com", "_blank");
-};
-
-window.startLiveChat = function() {
-  showToast("Connecting to live agent...", 3000);
-  setTimeout(() => window.open("https://dornori.com/live-chat", "_blank"), 500);
-};
-
-function renderAnalyticsChart() {
-  const ctx = document.getElementById('issuesChart')?.getContext('2d');
-  if (!ctx || Object.keys(categoryClickCount).length === 0) return;
-  
-  const labels = Object.keys(categoryClickCount);
-  const data = Object.values(categoryClickCount);
-  
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Issues reported',
-        data: data,
-        backgroundColor: '#F59E0B',
-        borderRadius: 8
-      }]
-    },
-    options: { responsive: true, maintainAspectRatio: true }
-  });
+  showToast("Session reset", 1500);
 }
 
 function escapeHtml(str) {
@@ -275,5 +259,13 @@ function escapeHtml(str) {
     return m;
   });
 }
+
+// Expose functions globally
+window.renderCategories = renderCategories;
+window.updateProgress = updateProgress;
+window.resetFullSession = resetFullSession;
+window.currentCategory = null;
+window.currentQuestionIndex = 0;
+window.issueSummary = [];
 
 document.addEventListener('DOMContentLoaded', loadFormData);
