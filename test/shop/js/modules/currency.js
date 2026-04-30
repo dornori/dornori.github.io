@@ -52,7 +52,12 @@ const Currency = (() => {
 
   async function detectFromIP() {
     try {
-      const data = await fetch("https://ipapi.co/json/").then(r => r.json());
+      // Cache the full response on window.__geoData so other modules
+      // (e.g. geo-popup.js) can read country / currency without a second fetch.
+      if (!window.__geoData) {
+        window.__geoData = await fetch("https://ipapi.co/json/").then(r => r.json());
+      }
+      const data = window.__geoData;
       if (data.currency && _rates[data.currency]) return data.currency;
     } catch { console.warn("[Currency] IP detect failed."); }
     return "EUR";
