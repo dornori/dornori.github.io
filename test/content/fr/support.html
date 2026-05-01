@@ -1,120 +1,304 @@
 <style>
-  .support-iframe-wrap { width: 100%; border: none; margin: 0; padding: 0; }
-  .support-iframe-wrap iframe {
-    width: 100%; border: none;
-    min-height: 680px;
-    display: block;
-    transition: height 0.2s ease;
-  }
+/* Support form — uses parent shell's CSS variable tokens from profiles.css */
+.sf-wrap        { font-family: ui-sans-serif, system-ui, sans-serif; color: var(--text); }
+.sf-header      { background: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 55%, #000 45%) 100%);
+                  padding: 2rem; border-radius: 1.25rem 1.25rem 0 0; color: #fff; display:flex; align-items:center; gap:1rem; }
+.sf-header i    { font-size: 2.25rem; }
+.sf-body        { background: var(--glass); border: 1px solid var(--border); border-top:none;
+                  border-radius: 0 0 1.25rem 1.25rem; padding: 2rem; }
+.sf-progress-track { height:.5rem; background:color-mix(in srgb,var(--border) 50%,transparent 50%);
+                     border-radius:9999px; overflow:hidden; margin-bottom:2rem; }
+.sf-progress-fill  { height:100%; background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 60%,#ea580c 40%));
+                     transition:width .3s; }
+.sf-progress-row   { display:flex; justify-content:space-between; margin-bottom:.5rem; font-size:.85rem; }
+.sf-progress-step  { color:var(--accent); font-weight:600; }
+.sf-progress-note  { color:var(--text-muted); }
+.sf-cat-grid    { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:.85rem; }
+.sf-btn         { width:100%; text-align:left; padding:1rem 1.25rem; border:1px solid var(--border);
+                  border-radius:.875rem; background:transparent; color:var(--text); cursor:pointer;
+                  display:flex; align-items:center; gap:.75rem; font-weight:500; font-size:.95rem;
+                  transition:border-color .15s, background .15s; }
+.sf-btn:hover   { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 8%,transparent 92%); }
+.sf-btn i       { color:var(--accent); flex-shrink:0; }
+.sf-opt         { width:100%; text-align:left; padding:.9rem 1.2rem; border:1px solid var(--border);
+                  border-radius:.875rem; background:transparent; color:var(--text); cursor:pointer;
+                  display:flex; justify-content:space-between; align-items:center; font-size:.95rem;
+                  transition:border-color .15s, background .15s; margin-bottom:.6rem; }
+.sf-opt:hover   { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 8%,transparent 92%); }
+.sf-opt i       { color:var(--accent); flex-shrink:0; }
+.sf-q-label     { font-size:.8rem; color:var(--accent); margin-bottom:.5rem; }
+.sf-q-text      { font-size:1.1rem; font-weight:600; color:var(--text); margin-bottom:1.25rem; }
+.sf-input       { width:100%; padding:.8rem 1.1rem; border:1px solid var(--border); border-radius:.875rem;
+                  background:color-mix(in srgb,var(--bg) 70%,transparent 30%); color:var(--text);
+                  font-size:.95rem; outline:none; transition:border-color .15s, box-shadow .15s;
+                  box-sizing:border-box; }
+.sf-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 20%,transparent 80%); }
+.sf-label       { display:block; font-size:.85rem; font-weight:600; color:var(--text); margin-bottom:.25rem; }
+.sf-submit      { width:100%; background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#ea580c 45%));
+                  color:var(--bg); font-weight:700; padding:.875rem; border-radius:.875rem; border:none;
+                  font-size:1rem; cursor:pointer; transition:opacity .15s; }
+.sf-submit:hover { opacity:.88; }
+.sf-reset       { font-size:.82rem; background:transparent; border:1px solid var(--border); color:var(--text-muted);
+                  border-radius:9999px; padding:.35rem .9rem; cursor:pointer; transition:color .15s; }
+.sf-reset:hover { color:var(--text); }
+.sf-hidden      { display:none !important; }
+.sf-grid2       { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; }
+.sf-field       { display:flex; flex-direction:column; gap:.25rem; margin-bottom:1.25rem; }
+.sf-note        { font-size:.82rem; color:var(--text-muted); text-align:center; margin-top:1.5rem; }
+.sf-loading     { text-align:center; padding:2.5rem; color:var(--text-muted); }
+.sf-toast       { position:fixed; bottom:20px; right:20px; z-index:9999; background:var(--header-bg);
+                  color:var(--text); border:1px solid var(--border); padding:10px 18px;
+                  border-radius:40px; font-size:.88rem; opacity:0; transition:opacity .2s; pointer-events:none; }
+@media(max-width:520px){ .sf-grid2{ grid-template-columns:1fr; } .sf-cat-grid{ grid-template-columns:1fr; } }
 </style>
 
-<div class="support-iframe-wrap">
-  <iframe
-    id="support-form-frame"
-    src=""
-    title="Dornori Support"
-    scrolling="no"
-    allowtransparency="true">
-  </iframe>
-</div>
+<div id="sf-toast" class="sf-toast"></div>
+
+<div class="sf-wrap">
+
+  <!-- Header -->
+  <div class="sf-header">
+    <i class="fas fa-headset"></i>
+    <div>
+      <div id="sf-title" style="font-size:1.4rem;font-weight:700;">…</div>
+      <div id="sf-subtitle" style="opacity:.8;font-size:.9rem;margin-top:.2rem;">…</div>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="sf-body">
+
+    <!-- Progress -->
+    <div class="sf-progress-row">
+      <span class="sf-progress-note"><i class="far fa-clock"></i> Résolution moy. 2 min</span>
+      <span id="sf-step-label" class="sf-progress-step">Étape 1 : Choisir une catégorie</span>
+    </div>
+    <div class="sf-progress-track"><div id="sf-prog" class="sf-progress-fill" style="width:5%"></div></div>
+
+    <!-- Loading -->
+    <div id="sf-loading" class="sf-loading">
+      <i class="fas fa-spinner fa-spin" style="font-size:1.75rem;color:var(--accent)"></i>
+      <p style="margin-top:.75rem">Loading…</p>
+    </div>
+
+    <!-- Step 1: categories -->
+    <div id="sf-s1" class="sf-hidden">
+      <div style="font-size:1.1rem;font-weight:600;margin-bottom:1rem;">
+        Select your issue <span style="color:var(--accent)">▼</span>
+      </div>
+      <div id="sf-cats" class="sf-cat-grid"></div>
+      <p class="sf-note"><i class="fas fa-shield-alt"></i> La plupart des problèmes résolus en moins de 2 minutes</p>
+    </div>
+
+    <!-- Step 2: troubleshooting -->
+    <div id="sf-s2" class="sf-hidden"></div>
+
+    <!-- Step 3: contact form -->
+    <div id="sf-s3" class="sf-hidden">
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;">
+        <i class="fas fa-headset" style="font-size:1.4rem;color:var(--accent)"></i>
+        <span style="font-size:1.25rem;font-weight:700;">Besoin d'aide humaine ?</span>
+      </div>
+      <p style="color:var(--text-muted);font-size:.9rem;margin-bottom:1.5rem;">Notre équipe répond sous 4 heures (lun–ven).</p>
+      <div class="sf-grid2">
+        <div class="sf-field">
+          <label class="sf-label">Nom complet <span style="color:#ef4444">*</span></label>
+          <input id="sf-name" type="text" class="sf-input" required>
+        </div>
+        <div class="sf-field">
+          <label class="sf-label">Adresse e-mail <span style="color:#ef4444">*</span></label>
+          <input id="sf-email" type="email" class="sf-input" required>
+        </div>
+      </div>
+      <div class="sf-field">
+        <label class="sf-label">Numéro de commande</label>
+        <input id="sf-order" type="text" class="sf-input">
+      </div>
+      <div class="sf-field">
+        <label class="sf-label">Description du problème</label>
+        <textarea id="sf-desc" rows="5" class="sf-input" style="resize:vertical"></textarea>
+      </div>
+      <button id="sf-submit" class="sf-submit" onclick="sfSubmit(event)">
+        <i class="fas fa-paper-plane" style="margin-right:.4rem"></i> Envoyer la demande d'assistance
+      </button>
+    </div>
+
+  </div><!-- /sf-body -->
+
+  <div style="text-align:right;margin-top:.75rem;">
+    <button class="sf-reset" onclick="sfReset()"><i class="fas fa-redo-alt"></i> Recommencer</button>
+  </div>
+
+</div><!-- /sf-wrap -->
+
+<!-- FA icons (if not already loaded by shell) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
 <script>
-(function () {
-  var frame = document.getElementById('support-form-frame');
-  if (!frame) return;
-
-  var LANG_KEY  = 'dornori-lang';
-  var THEME_KEY = 'dornori-theme';
-
-  function getLang()  { return localStorage.getItem(LANG_KEY)  || document.documentElement.lang || 'en'; }
-  function getTheme() { return localStorage.getItem(THEME_KEY) || document.documentElement.getAttribute('data-theme') || 'cutting-mat'; }
-
-  function buildSrc() {
-    return '/test/form.html?lang=' + encodeURIComponent(getLang()) + '&theme=' + encodeURIComponent(getTheme());
-  }
-
-  // Set initial src
-  frame.src = buildSrc();
-
-  // Auto-resize to content
-  function applyHeight(h) {
-    if (h && h > 200) frame.style.height = h + 'px';
-  }
-  frame.addEventListener('load', function () {
-    setTimeout(function () {
-      try { applyHeight(frame.contentWindow.document.body.scrollHeight); } catch(e) {}
-    }, 300);
-  });
-
-  // Listen for height + resolved messages from iframe
-  window.addEventListener('message', function (e) {
-    if (!e.data || typeof e.data !== 'object') return;
-    if (e.data.type === 'dornori-support-height') {
-      applyHeight(e.data.height);
-    }
-    if (e.data.type === 'dornori-support-resolved') {
-      // Navigate shell to home when iframe reports resolution
-      if (typeof window.showHome === 'function') window.showHome();
-    }
-  });
-
-  // ── Theme relay ──────────────────────────────────────────────────────────
-  // Watch profileSelect changes in parent shell and forward to iframe
-  function relayTheme(theme) {
-    if (frame.contentWindow) {
-      try {
-        frame.contentWindow.postMessage({ type: 'dornori-theme-change', theme: theme }, '*');
-      } catch(e) {}
-    }
-  }
-
-  function relayLang(lang) {
-    if (frame.contentWindow) {
-      try {
-        frame.contentWindow.postMessage({ type: 'dornori-lang-change', lang: lang }, '*');
-      } catch(e) {}
-    }
-  }
-
-  // Observe profileSelect in the document (nav-loader renders it into topBar)
-  function attachProfileListener() {
-    var sel = document.getElementById('profileSelect');
-    if (sel && !sel.__supportRelayAttached) {
-      sel.addEventListener('change', function () { relayTheme(sel.value); });
-      sel.__supportRelayAttached = true;
-    }
-  }
-
-  // MutationObserver picks up when nav-loader injects topBar content
-  if (typeof MutationObserver !== 'undefined') {
-    var observer = new MutationObserver(function () { attachProfileListener(); });
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
-  // Also try immediately (in case nav rendered before this script runs)
-  attachProfileListener();
-
-  // Intercept localStorage writes so theme/lang changes hit the iframe
-  // even when triggered programmatically (not via the select element)
-  var _origSet = Storage.prototype.setItem;
-  Storage.prototype.setItem = function (key, value) {
-    _origSet.call(this, key, value);
-    if (key === THEME_KEY) relayTheme(value);
-    if (key === LANG_KEY)  relayLang(value);
+(function(){
+  // ── constants injected per-language ────────────────────────────────────
+  var DATA_URL   = '/test/data/form.fr.json';
+  var L = {
+    step1:        'Étape 1 : Choisir une catégorie',
+    step2:        'Étape 2 : Dépannage',
+    step3:        'Étape 3 : Contacter le support',
+    qLabel:       'Question',
+    startOver:    'Recommencer',
+    reset:        'Session réinitialisée',
+    nameReq:      'Veuillez fournir votre nom et votre e-mail.',
+    sentOk:       'Demande envoyée ! Vérifiez votre e-mail.',
+    sendFail:     'Échec de l'envoi. Écrivez à support@dornori.com.',
+    loadFail:     'Impossible de charger les données de support.',
+    retry:        'Réessayer',
+    sending:      'Envoi en cours...',
   };
 
-  // ── data-theme attribute observer on <html> ─────────────────────────────
-  // nav-loader sets data-theme directly on document.documentElement; catch that too
-  if (typeof MutationObserver !== 'undefined') {
-    new MutationObserver(function (mutations) {
-      mutations.forEach(function (m) {
-        if (m.attributeName === 'data-theme') {
-          relayTheme(document.documentElement.getAttribute('data-theme'));
-        }
-        if (m.attributeName === 'lang') {
-          relayLang(document.documentElement.getAttribute('lang'));
-        }
-      });
-    }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'lang'] });
+  // ── state ───────────────────────────────────────────────────────────────
+  var data = null, cat = null, qIdx = 0, summary = [];
+  var sid  = 'SID-' + Math.random().toString(36).slice(2,10);
+
+  // ── helpers ─────────────────────────────────────────────────────────────
+  function $id(id){ return document.getElementById(id); }
+  function esc(s){ return String(s||'').replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+
+  function showToast(msg, ms){
+    var t=$id('sf-toast'); if(!t) return;
+    t.textContent=msg; t.style.opacity='1';
+    setTimeout(function(){ t.style.opacity='0'; }, ms||3000);
   }
+
+  function show(id){
+    ['sf-loading','sf-s1','sf-s2','sf-s3'].forEach(function(x){
+      var el=$id(x); if(el) el.classList.add('sf-hidden');
+    });
+    var el=$id(id); if(el) el.classList.remove('sf-hidden');
+  }
+
+  function setProgress(pct, label){
+    var b=$id('sf-prog'); if(b) b.style.width=pct+'%';
+    var l=$id('sf-step-label'); if(l) l.textContent=label;
+  }
+
+  // ── load JSON ───────────────────────────────────────────────────────────
+  function load(){
+    show('sf-loading');
+    fetch(DATA_URL)
+      .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function(d){
+        data = d;
+        $id('sf-title').textContent    = d.title    || '';
+        $id('sf-subtitle').textContent = d.subtitle || '';
+        renderCats();
+      })
+      .catch(function(){
+        $id('sf-loading').innerHTML =
+          '<i class="fas fa-exclamation-triangle" style="font-size:1.75rem;color:#ef4444"></i>' +
+          '<p style="margin-top:.5rem">'+esc(L.loadFail)+'</p>' +
+          '<button onclick="sfLoad()" style="margin-top:.75rem;padding:.4rem 1rem;background:var(--accent);color:var(--bg);border:none;border-radius:9999px;cursor:pointer;">'+esc(L.retry)+'</button>';
+      });
+  }
+  window.sfLoad = load;
+
+  // ── Step 1 ──────────────────────────────────────────────────────────────
+  function renderCats(){
+    var c=$id('sf-cats'); if(!c) return;
+    c.innerHTML='';
+    data.categories.forEach(function(cat){
+      var b=document.createElement('button');
+      b.className='sf-btn';
+      b.innerHTML='<i class="fas fa-chevron-circle-right"></i> '+esc(cat.title);
+      b.onclick=function(){ startCat(cat); };
+      c.appendChild(b);
+    });
+    show('sf-s1');
+    setProgress(5, L.step1);
+  }
+
+  function startCat(c){
+    cat=c; qIdx=0;
+    summary=['Cat: '+c.title, 'SID: '+sid, '---'];
+    renderQ();
+  }
+
+  // ── Step 2 ──────────────────────────────────────────────────────────────
+  function renderQ(){
+    if(!cat||qIdx>=cat.questions.length){ showContact(); return; }
+    var q=cat.questions[qIdx];
+    var html='<div class="sf-q-label"><i class="fas fa-question-circle"></i> '+
+      esc(L.qLabel)+' '+(qIdx+1)+'/'+cat.questions.length+'</div>'+
+      '<div class="sf-q-text">'+esc(q.text)+'</div>';
+    q.options.forEach(function(opt,i){
+      html+='<button class="sf-opt" onclick="sfAns('+i+')"><span>'+esc(opt.text)+'</span><i class="fas fa-arrow-right"></i></button>';
+    });
+    html+='<div style="margin-top:1rem"><button class="sf-reset" onclick="sfReset()"><i class="fas fa-undo-alt"></i> '+esc(L.startOver)+'</button></div>';
+    $id('sf-s2').innerHTML=html;
+    show('sf-s2');
+    setProgress(45, L.step2);
+  }
+
+  window.sfAns = function(i){
+    var q=cat.questions[qIdx], opt=q.options[i];
+    summary.push('Q: '+q.text, 'A: '+opt.text);
+    if(opt.resolves===true || opt.next==='resolved_end'){ sfResolved(); return; }
+    if(opt.next==='contact'){ showContact(); return; }
+    var nx=cat.questions.findIndex(function(x){ return x.id===opt.next; });
+    qIdx = nx!==-1 ? nx : qIdx+1;
+    renderQ();
+  };
+
+  function sfResolved(){
+    var url  = (data.endpoints&&data.endpoints.resolved_end&&data.endpoints.resolved_end.redirect_url)||'/test/';
+    var ms   = ((data.endpoints&&data.endpoints.resolved_end&&data.endpoints.resolved_end.delay_seconds)||2)*1000;
+    var msg  = (data.endpoints&&data.endpoints.resolved_end&&data.endpoints.resolved_end.message)||'✓ Resolved!';
+    showToast(msg, ms-200);
+    setTimeout(function(){ window.location.href=url; }, ms);
+  }
+
+  // ── Step 3 ──────────────────────────────────────────────────────────────
+  function showContact(){
+    var desc=$id('sf-desc');
+    if(desc) desc.value=summary.join('\n')+'\n\nUA: '+navigator.userAgent;
+    show('sf-s3');
+    setProgress(85, L.step3);
+  }
+
+  window.sfSubmit = function(e){
+    e.preventDefault();
+    var name=$id('sf-name').value.trim();
+    var email=$id('sf-email').value.trim();
+    if(!name||!email){ showToast(L.nameReq, 3000); return; }
+    var btn=$id('sf-submit');
+    btn.textContent=L.sending; btn.disabled=true;
+    fetch('https://formsubmit.co/ajax/support@dornori.com',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        name:name, email:email, order:$id('sf-order').value.trim(),
+        subject:'Dornori Support: '+((cat&&cat.title)||'General'),
+        message:'Name: '+name+'\nEmail: '+email+'\nCat: '+((cat&&cat.title)||'')+'\n\n'+$id('sf-desc').value,
+        _captcha:'false', _template:'table',
+        _autoresponse:'Thank you for contacting Dornori Support. We will respond within 4 hours.'
+      })
+    }).then(function(r){
+      if(!r.ok) throw new Error(r.status);
+      showToast(L.sentOk, 4000);
+      setTimeout(function(){ window.location.href='/test/'; }, 3000);
+    }).catch(function(){
+      showToast(L.sendFail, 4000);
+      btn.textContent=''; 
+      btn.innerHTML='<i class="fas fa-paper-plane" style="margin-right:.4rem"></i> Envoyer la demande d'assistance';
+      btn.disabled=false;
+    });
+  };
+
+  window.sfReset = function(){
+    cat=null; qIdx=0; summary=[];
+    renderCats();
+    showToast(L.reset, 1500);
+  };
+
+  // ── boot ────────────────────────────────────────────────────────────────
+  // page-loader injects this fragment then re-runs inline scripts
+  load();
 })();
 </script>
