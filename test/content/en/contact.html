@@ -1,34 +1,147 @@
-<form id="contact-form">
-  <input id="email" type="email" placeholder="Email" required />
-  <textarea id="message" placeholder="Message" required></textarea>
-  <button type="submit">Send</button>
-</form>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event API Examples</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+        .form-card { border: 1px solid #ccc; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; }
+        input, textarea, button { display: block; margin: 0.5rem 0; padding: 0.5rem; width: 100%; max-width: 300px; }
+        button { background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; width: auto; }
+        button:hover { background: #0055aa; }
+        hr { margin: 2rem 0; }
+        pre { background: #f4f4f4; padding: 1rem; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+
+<h1>Event API Examples</h1>
+<p>Sends data to: <code>https://edge-form-handler-api.dornori-info.workers.dev</code></p>
+
+<!-- NEWSLETTER -->
+<div class="form-card">
+    <h3>📧 Newsletter Subscription</h3>
+    <input type="email" id="news_email" placeholder="Email address">
+    <button onclick="sendEvent('newsletter', { email: news_email.value })">Subscribe</button>
+</div>
+
+<!-- TICKET -->
+<div class="form-card">
+    <h3>🎫 Create Ticket</h3>
+    <input type="text" id="ticket_name" placeholder="Name">
+    <input type="email" id="ticket_email" placeholder="Email">
+    <textarea id="ticket_issue" rows="3" placeholder="Describe your issue..."></textarea>
+    <button onclick="sendEvent('ticket', {
+        name: ticket_name.value,
+        email: ticket_email.value,
+        issue: ticket_issue.value
+    })">Submit Ticket</button>
+</div>
+
+<!-- BUSINESS -->
+<div class="form-card">
+    <h3>💼 Business Inquiry</h3>
+    <input type="email" id="biz_email" placeholder="Business email">
+    <button onclick="sendEvent('business', { email: biz_email.value })">Contact Sales</button>
+</div>
+
+<!-- PAYMENT -->
+<div class="form-card">
+    <h3>💰 Payment Event</h3>
+    <input type="text" id="payment_id" placeholder="Transaction ID">
+    <input type="number" id="payment_amount" placeholder="Amount">
+    <button onclick="sendEvent('payment', {
+        id: payment_id.value,
+        amount: parseFloat(payment_amount.value)
+    })">Record Payment</button>
+</div>
+
+<hr>
+
+<!-- CUSTOM (any category, any fields) -->
+<div class="form-card">
+    <h3>🔧 Custom Event</h3>
+    <input type="text" id="custom_category" placeholder="Category (e.g., feedback, support)">
+    <textarea id="custom_data" rows="3" placeholder='JSON data e.g., {"message": "hello", "rating": 5}'></textarea>
+    <button onclick="sendCustom()">Send Custom Event</button>
+</div>
+
+<hr>
+
+<div id="status" style="padding: 1rem; border-radius: 4px;"></div>
 
 <script>
-document.getElementById("contact-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
+    const WORKER_URL = "https://edge-form-handler-api.dornori-info.workers.dev";
 
-  const payload = {
-    email: document.getElementById("email").value,
-    message: document.getElementById("message").value
-  };
+    async function sendEvent(category, data) {
+        const statusDiv = document.getElementById("status");
+        statusDiv.textContent = "Sending...";
+        statusDiv.style.background = "#fff3cd";
 
-  console.log("SENDING:", payload);
+        try {
+            const payload = { category, ...data };
+            
+            // Remove empty values
+            Object.keys(payload).forEach(key => {
+                if (payload[key] === undefined || payload[key] === "") delete payload[key];
+            });
 
-  try {
-    const res = await fetch("https://edge-form-handler-api.dornori-info.workers.dev", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
+            const response = await fetch(WORKER_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
 
-    const text = await res.text();
-    console.log("RESPONSE:", text);
+            const result = await response.text();
 
-  } catch (err) {
-    console.error("NETWORK ERROR:", err);
-  }
-});
+            if (response.ok) {
+                statusDiv.textContent = "✓ Sent successfully!";
+                statusDiv.style.background = "#d4edda";
+                // Clear inputs
+                clearInputs();
+            } else {
+                statusDiv.textContent = "✗ Error: " + result;
+                statusDiv.style.background = "#f8d7da";
+            }
+        } catch (err) {
+            statusDiv.textContent = "✗ Network error: " + err.message;
+            statusDiv.style.background = "#f8d7da";
+        }
+    }
+
+    async function sendCustom() {
+        const category = document.getElementById("custom_category").value.trim();
+        const dataStr = document.getElementById("custom_data").value.trim();
+
+        if (!category) {
+            alert("Please enter a category");
+            return;
+        }
+
+        let data = {};
+        if (dataStr) {
+            try {
+                data = JSON.parse(dataStr);
+            } catch (e) {
+                alert("Invalid JSON in custom data field");
+                return;
+            }
+        }
+
+        sendEvent(category, data);
+    }
+
+    function clearInputs() {
+        // Optional: clear all inputs after successful send
+        const inputs = document.querySelectorAll("input, textarea");
+        inputs.forEach(input => {
+            if (input.id !== "custom_category" && input.id !== "custom_data") {
+                input.value = "";
+            }
+        });
+    }
 </script>
+
+</body>
+</html>
