@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Contact</title>
+</head>
+<body>
+
+<h2>Contact</h2>
+
+<form id="contact-form">
+  <label>Email:</label><br>
+  <input type="email" name="email" required><br><br>
+
+  <label>Message:</label><br>
+  <textarea name="message" required></textarea><br><br>
+
+  <button type="submit">Send</button>
+</form>
+
+<p id="status"></p>
+
+<script>
+const form = document.getElementById("contact-form");
+const status = document.getElementById("status");
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  status.textContent = "Sending...";
+
+  const formData = {
+    email: form.email.value,
+    message: form.message.value
+  };
+
+  try {
+    const res = await fetch("https://edge-form-handler-api.dornori-info.workers.dev", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(formData)
+    });
+
+    const text = await res.text();
+
+    if (res.ok) {
+      status.textContent = "Sent successfully";
+      form.reset();
+    } else {
+      status.textContent = "Error: " + text;
+    }
+
+  } catch (err) {
+    status.textContent = "Network error";
+  }
+});
+</script>
+
+</body>
+</html>
