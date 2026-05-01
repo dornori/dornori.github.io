@@ -761,21 +761,21 @@ const Shop = (() => {
   
   async function submitOrderDetails(orderRef, formData, cart, captchaEl = null) {
     const totals = calculateTotals(cart, formData.isBusiness, formData.country);
-    let captchaToken = captchaEl ? await renderTurnstile(captchaEl) : null;
-    const payload = new FormData();
-    payload.append("_subject", `New Order ${orderRef}`); payload.append("order_ref", orderRef); payload.append("status", "PENDING_PAYMENT"); payload.append("display_currency", CONFIG.currencyCode);
-    if (captchaToken) payload.append("cf-turnstile-response", captchaToken);
-    Object.entries(formData).forEach(([k,v]) => { if (v!=null&&v!=="") payload.append(k,v); });
-    payload.append("cart_items", cart.map(i=>`${i.qty}× ${i.name}${i.selectedColor?` (${i.selectedColor})`:""} @ ${fmt(i.price)} | ${fmtWeight((i.weight||0)*i.qty)}`).join("\n"));
-    payload.append("subtotal_eur","€"+totals.subtotal.toFixed(2)); payload.append("subtotal_display",fmt(totals.subtotal));
-    payload.append("tax",fmt(totals.tax)); payload.append("shipping",totals.isFreeShipping?"FREE":fmt(totals.shipping));
-    payload.append("total_eur","€"+totals.total.toFixed(2)); payload.append("total_display",fmt(totals.total)); payload.append("total_weight",fmtWeight(totals.totalWeight||0));
-    try { const r = await fetch(CONFIG.formspree.endpoint,{method:"POST",body:payload,headers:{"Accept":"application/json"}}); return r.ok; } catch(e) { console.warn("Formspree failed",e); return false; }
+    const cartSummary = cart.map(i=>`${i.qty}× ${i.name}${i.selectedColor?` (${i.selectedColor})`:""} @ ${fmt(i.price)} | ${fmtWeight((i.weight||0)*i.qty)}`).join("\n");
+    const filtered = {}; Object.entries(formData).forEach(([k,v]) => { if (v!=null&&v!=="") filtered[k]=v; });
+    const data = {
+      _subject: `New Order ${orderRef}`, order_ref: orderRef, status: "PENDING_PAYMENT",
+      display_currency: CONFIG.currencyCode, ...filtered, cart_items: cartSummary,
+      subtotal_eur: "€"+totals.subtotal.toFixed(2), subtotal_display: fmt(totals.subtotal),
+      tax: fmt(totals.tax), shipping: totals.isFreeShipping?"FREE":fmt(totals.shipping),
+      total_eur: "€"+totals.total.toFixed(2), total_display: fmt(totals.total),
+      total_weight: fmtWeight(totals.totalWeight||0),
+    };
+    try { const r = await sendToQueue("order-pre-payment", data); return !r.error; } catch(e) { console.warn("Queue failed",e); return false; }
   }
   
   async function submitOrderStatus(orderRef, status) {
-    const payload = new FormData(); payload.append("_subject",`Order ${status}: ${orderRef}`); payload.append("order_ref",orderRef); payload.append("status",status);
-    try { await fetch(CONFIG.formspree.endpoint,{method:"POST",body:payload,headers:{"Accept":"application/json"}}); } catch {}
+    try { await sendToQueue("order-post-payment", { _subject:`Order ${status}: ${orderRef}`, order_ref:orderRef, status }); } catch {}
   }
 
   /* ─── PUBLIC API ────────────────────────────────────── */

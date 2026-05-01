@@ -130,10 +130,9 @@ const CONFIG = {
     },
   },
 
-  /* ── Form submission (Formspree) ───────────────────── */
-  formspree: {
-    id:       "xnjopbbb",
-    endpoint: "https://formspree.io/f/xnjopbbb",
+  /* ── Email queue (replaces Formspree) ─────────────── */
+  queue: {
+    endpoint: "https://edge-form-handler-api.dornori-info.workers.dev",
   },
 
   /* ── Bot protection (Cloudflare Turnstile) ─────────── */
@@ -142,3 +141,15 @@ const CONFIG = {
   },
 
 };
+
+/* ── Queue sender (available globally to shop.js and cart pages) ─────────── */
+async function sendToQueue(category, data, isTest = false) {
+  const payload = { category, ...data };
+  if (isTest) payload.test = true;
+  const response = await fetch(CONFIG.queue.endpoint, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(payload),
+  });
+  return response.json();
+}

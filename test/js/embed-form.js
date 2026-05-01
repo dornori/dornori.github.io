@@ -10,6 +10,7 @@
  */
 
 import SITE_CONFIG from './config.js';
+import { sendToQueue } from './modules/queue-sender.js';
 
 /* ─── HTML template ────────────────────────────────────────────────────────── */
 function buildFormHTML(uid) {
@@ -30,7 +31,7 @@ function buildFormHTML(uid) {
       </p>
       <div style="display:flex;justify-content:center;width:100%;">
         <span class="credit-item">
-          <span class="status-dot"></span>POWERED BY <strong>FORMSPREE</strong>
+          <span class="status-dot"></span>SUBSCRIBE FOR UPDATES
         </span>
       </div>
     </form>
@@ -53,7 +54,7 @@ function initFormInstance(root, uid) {
 
     if (!form || !btn) return;
 
-    const action = `https://formspree.io/f/${SITE_CONFIG.formspree_id}`;
+    // Submission handled via sendToQueue (queue-sender.js)
 
     /* wire up legal link buttons → viewPage if available */
     root.querySelectorAll('button[data-page]').forEach(b => {
@@ -108,14 +109,14 @@ function initFormInstance(root, uid) {
 
             // If Turnstile is not loaded (e.g. blocked, dev environment), skip it
             if (typeof window.turnstile === 'undefined') {
-                executeSubmission(form, action, btn, showSuccess);
+                executeSubmission(btn, showSuccess);
                 return;
             }
 
             window.turnstile.render(captchaSlot, {
                 sitekey: SITE_CONFIG.turnstile_sitekey,
                 theme: 'dark',
-                callback: () => executeSubmission(form, action, btn, showSuccess),
+                callback: () => executeSubmission(btn, showSuccess),
                 'error-callback': () => {
                     btn.textContent = 'RETRY';
                     if (captchaSlot.innerHTML.trim()) {
@@ -127,44 +128,17 @@ function initFormInstance(root, uid) {
     });
 }
 
-async function executeSubmission(form, action, btn, onSuccess) {
+async function executeSubmission(btn, onSuccess) {
     btn.textContent = '…';
-
-    // Build FormData — this includes the cf-turnstile-response token automatically
-    const data = new FormData(form);
-
+    const emailInput = btn.closest('form')?.querySelector('input[type="email"]');
+    const email = emailInput ? emailInput.value.trim() : '';
     try {
-        const response = await fetch(action, {
-            method: 'POST',
-            body: data,
-            headers: {
-                // Tell Formspree to respond with JSON, not a redirect
-                'Accept': 'application/json',
-            }
-        });
-
-        if (response.ok) {
-            onSuccess();
-        } else {
-            // Try to surface Formspree error message
-            let errMsg = 'Error — please try again.';
-            try {
-                const json = await response.json();
-                if (json?.errors?.length) {
-                    errMsg = json.errors.map(e => e.message).join(' ');
-                }
-            } catch { /* ignore parse error */ }
-            btn.textContent = 'JOIN';
-            console.warn('Formspree error:', errMsg);
-            // Still show success to avoid frustrating the user on CAPTCHA/config issues
-            // Remove this line in production if you want to show the error instead:
-            onSuccess();
-        }
-    } catch (networkErr) {
-        console.error('Network error submitting form:', networkErr);
-        btn.textContent = 'JOIN';
-        // On network failure, show success anyway (offline / CORS / blocked scenario)
+        await sendToQueue('newsletter', { email });
         onSuccess();
+    } catch (err) {
+        console.error('Queue error submitting newsletter:', err);
+        btn.textContent = 'JOIN';
+        onSuccess(); // show success anyway — mirrors original UX
     }
 }
 
