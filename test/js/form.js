@@ -18,7 +18,17 @@ async function loadFormData() {
   document.getElementById('appContent').style.display = 'none';
   
   try {
-    const response = await fetch('data/form.json');
+    // Use lang-specific JSON if available, fallback to base
+  const lang = window.__SUPPORT_LANG__ || new URLSearchParams(window.location.search).get('lang') || 'en';
+  const langFile = `/test/data/form.${lang}.json`;
+  const baseFile = '/test/data/form.json';
+  let response;
+  try {
+    response = await fetch(langFile);
+    if (!response.ok) throw new Error('no lang file');
+  } catch(_) {
+    response = await fetch(baseFile);
+  }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     currentData = await response.json();
     
@@ -266,4 +276,9 @@ window.currentCategory = null;
 window.currentQuestionIndex = 0;
 window.issueSummary = [];
 
+// Expose for postMessage lang-change reloads
+window.reloadSupportData = function(lang) {
+  window.__SUPPORT_LANG__ = lang;
+  loadFormData();
+};
 document.addEventListener('DOMContentLoaded', loadFormData);
