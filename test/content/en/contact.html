@@ -1,38 +1,19 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Contact</title>
-</head>
-<body>
-
-<h2>Contact</h2>
-
 <form id="contact-form">
-  <label>Email:</label><br>
-  <input type="email" name="email" required><br><br>
-
-  <label>Message:</label><br>
-  <textarea name="message" required></textarea><br><br>
-
+  <input id="email" type="email" placeholder="Email" required />
+  <textarea id="message" placeholder="Message" required></textarea>
   <button type="submit">Send</button>
 </form>
 
-<p id="status"></p>
-
 <script>
-const form = document.getElementById("contact-form");
-const status = document.getElementById("status");
-
-form.addEventListener("submit", async (e) => {
+document.getElementById("contact-form").addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  status.textContent = "Sending...";
-
-  const formData = {
-    email: form.email.value,
-    message: form.message.value
+  const payload = {
+    email: document.getElementById("email").value,
+    message: document.getElementById("message").value
   };
+
+  console.log("SENDING:", payload);
 
   try {
     const res = await fetch("https://edge-form-handler-api.dornori-info.workers.dev", {
@@ -40,56 +21,14 @@ form.addEventListener("submit", async (e) => {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(formData)
+      body: JSON.stringify(payload)
     });
 
     const text = await res.text();
-
-    if (res.ok) {
-      status.textContent = "Sent successfully";
-      form.reset();
-    } else {
-      status.textContent = "Error: " + text;
-    }
+    console.log("RESPONSE:", text);
 
   } catch (err) {
-    status.textContent = "Network error";
+    console.error("NETWORK ERROR:", err);
   }
 });
 </script>
-<form id="contact-form">
-  <input id="email" type="email" placeholder="email" required>
-  <textarea id="message" placeholder="message" required></textarea>
-  <button type="submit">Send</button>
-</form>
-
-<script>
-console.log("SCRIPT LOADED");
-
-document.addEventListener("DOMContentLoaded", () => {
-  const form = document.getElementById("contact-form");
-
-  console.log("FORM FOUND:", form);
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    console.log("SUBMIT FIRED");
-
-    const res = await fetch("https://edge-form-handler-api.dornori-info.workers.dev", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        email: document.getElementById("email").value,
-        message: document.getElementById("message").value
-      })
-    });
-
-    console.log("RESPONSE:", await res.text());
-  });
-});
-</script>
-</body>
-</html>
