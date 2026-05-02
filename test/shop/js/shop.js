@@ -771,7 +771,7 @@ const Shop = (() => {
       total_eur: "€"+totals.total.toFixed(2), total_display: fmt(totals.total),
       total_weight: fmtWeight(totals.totalWeight||0),
     };
-    try { const r = await sendToQueue("order-pre-payment", data); return !r.error; } catch(e) { console.warn("Queue failed",e); return false; }
+    try { const ok = await sendToQueue("order-pre-payment", data); return ok; } catch(e) { console.warn("Queue failed",e); return false; }
   }
   
   async function submitOrderStatus(orderRef, status) {

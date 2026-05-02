@@ -214,8 +214,8 @@ document.getElementById('supportForm')?.addEventListener('submit', async functio
       })
     });
     
-    const result = await response.json();
-    if (response.ok && !result.error) {
+    const result = await response.text();
+    if (response.ok) {
       showToast("Support request sent! Check your email for confirmation.", 3000);
       // After submitting contact form, redirect to homepage
       setTimeout(() => {

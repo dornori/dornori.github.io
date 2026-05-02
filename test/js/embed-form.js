@@ -133,8 +133,17 @@ async function executeSubmission(btn, onSuccess) {
     const emailInput = btn.closest('form')?.querySelector('input[type="email"]');
     const email = emailInput ? emailInput.value.trim() : '';
     try {
-        await sendToQueue('newsletter', { email });
-        onSuccess();
+        const response = await fetch('https://edge-form-handler-api.dornori-info.workers.dev', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category: 'newsletter', email })
+        });
+        await response.text();
+        if (response.ok) {
+            onSuccess();
+        } else {
+            throw new Error(response.status);
+        }
     } catch (err) {
         console.error('Queue error submitting newsletter:', err);
         btn.textContent = 'JOIN';

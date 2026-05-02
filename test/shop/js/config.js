@@ -151,5 +151,6 @@ async function sendToQueue(category, data, isTest = false) {
     headers: { "Content-Type": "application/json" },
     body:    JSON.stringify(payload),
   });
-  return response.json();
+  await response.text();
+  return response.ok;
 }
