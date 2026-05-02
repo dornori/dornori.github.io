@@ -35,7 +35,7 @@
         .sf-field { margin-bottom: 1.25rem; }
         .sf-note { font-size: .82rem; color: #6b7280; text-align: center; margin-top: 1.5rem; }
         .sf-loading { text-align: center; padding: 2.5rem; color: #6b7280; }
-        .sf-toast { position: fixed; bottom: 20px; right: 20px; background: #1f2937; color: #fff; padding: 10px 18px; border-radius: 40px; font-size: .88rem; opacity: 0; transition: opacity .2s; pointer-events: none; }
+        .sf-toast { position: fixed; bottom: 20px; right: 20px; background: #1f2937; color: #fff; padding: 10px 18px; border-radius: 40px; font-size: .88rem; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 9999; }
         @media(max-width:520px){ .sf-grid2 { grid-template-columns: 1fr; } .sf-cat-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
@@ -110,7 +110,11 @@
 <script>
 const API_URL = 'https://edge-form-handler-api.dornori-info.workers.dev';
 
-// Simple toast function
+let currentCategory = null;
+let currentQuestions = [];
+let currentQIndex = 0;
+let summary = [];
+
 function showToast(msg, ms) {
     var t = document.getElementById('sf-toast');
     if (!t) return;
@@ -119,7 +123,6 @@ function showToast(msg, ms) {
     setTimeout(function() { t.style.opacity = '0'; }, ms || 3000);
 }
 
-// Load form data
 async function loadFormData() {
     try {
         const response = await fetch('/test/data/form.json');
@@ -130,7 +133,6 @@ async function loadFormData() {
         
         document.getElementById('sf-loading').style.display = 'none';
         
-        // Render categories
         const container = document.getElementById('sf-cats');
         container.innerHTML = '';
         data.categories.forEach(cat => {
@@ -148,11 +150,6 @@ async function loadFormData() {
         document.getElementById('sf-loading').innerHTML = '<p style="color:red">Failed to load. Please refresh.</p>';
     }
 }
-
-let currentCategory = null;
-let currentQuestions = [];
-let currentQIndex = 0;
-let summary = [];
 
 function startCategory(cat, data) {
     currentCategory = cat;
@@ -175,7 +172,7 @@ function showQuestion() {
     q.options.forEach((opt, idx) => {
         html += '<button class="sf-opt" onclick="selectAnswer(' + idx + ')"><span>' + escapeHtml(opt.text) + '</span><i class="fas fa-arrow-right"></i></button>';
     });
-    html += '<div style="margin-top:1rem"><button class="sf-reset" onclick="resetSession()"><i class="fas fa-undo-alt"></i> Start over</button></div>';
+    html += '<div style="margin-top:1rem"><button class="sf-reset" onclick="sfReset()"><i class="fas fa-undo-alt"></i> Start over</button></div>';
     
     document.getElementById('sf-s2').innerHTML = html;
     document.getElementById('sf-s1').classList.add('sf-hidden');
@@ -218,6 +215,65 @@ function showContactForm() {
     document.getElementById('sf-s3').classList.remove('sf-hidden');
     document.getElementById('sf-prog').style.width = '85%';
     document.getElementById('sf-step-label').textContent = 'Step 3: Contact support';
+    
+    // 🔥 FIX: Attach button event listener AFTER form is visible
+    const submitBtn = document.getElementById('sf-submit');
+    if (submitBtn) {
+        // Remove old listeners to avoid duplicates
+        const newBtn = submitBtn.cloneNode(true);
+        submitBtn.parentNode.replaceChild(newBtn, submitBtn);
+        
+        newBtn.addEventListener('click', submitHandler);
+    }
+}
+
+// 🔥 FIX: Separate handler function
+async function submitHandler(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('sf-name').value.trim();
+    const email = document.getElementById('sf-email').value.trim();
+    
+    if (!name || !email) {
+        showToast('Please provide your name and email.', 3000);
+        return;
+    }
+    
+    const btn = this;
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    
+    const payload = {
+        category: 'ticket',
+        name: name,
+        email: email,
+        order: document.getElementById('sf-order').value.trim(),
+        subject: 'Dornori Support: ' + (currentCategory ? currentCategory.title : 'General'),
+        message: document.getElementById('sf-desc').value
+    };
+    
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        await response.text();
+        
+        if (response.ok) {
+            showToast('Support request sent! Check your email.', 3000);
+            setTimeout(() => { window.location.href = '/test/'; }, 2000);
+        } else {
+            throw new Error('HTTP ' + response.status);
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Failed to send. Email support@dornori.com directly.', 4000);
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
 }
 
 window.sfReset = function() {
@@ -232,60 +288,6 @@ window.sfReset = function() {
     document.getElementById('sf-step-label').textContent = 'Step 1: Choose category';
     showToast('Session reset', 1500);
 };
-
-// THE WORKING SUBMIT FUNCTION (copied from your contact form pattern)
-document.addEventListener('DOMContentLoaded', function() {
-    const submitBtn = document.getElementById('sf-submit');
-    if (submitBtn) {
-        submitBtn.addEventListener('click', async function(e) {
-            e.preventDefault();
-            
-            const name = document.getElementById('sf-name').value.trim();
-            const email = document.getElementById('sf-email').value.trim();
-            
-            if (!name || !email) {
-                showToast('Please provide your name and email.', 3000);
-                return;
-            }
-            
-            const btn = this;
-            const originalText = btn.textContent;
-            btn.disabled = true;
-            btn.textContent = 'Sending...';
-            
-            const payload = {
-                category: 'ticket',
-                name: name,
-                email: email,
-                order: document.getElementById('sf-order').value.trim(),
-                subject: 'Dornori Support: ' + (currentCategory ? currentCategory.title : 'General'),
-                message: document.getElementById('sf-desc').value
-            };
-            
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                
-                await response.text(); // Just consume the response
-                
-                if (response.ok) {
-                    showToast('Support request sent! Check your email.', 3000);
-                    setTimeout(() => { window.location.href = '/test/'; }, 2000);
-                } else {
-                    throw new Error('HTTP ' + response.status);
-                }
-            } catch (err) {
-                console.error(err);
-                showToast('Failed to send. Email support@dornori.com directly.', 4000);
-                btn.disabled = false;
-                btn.textContent = originalText;
-            }
-        });
-    }
-});
 
 function escapeHtml(str) {
     if (!str) return '';
