@@ -194,26 +194,28 @@ document.getElementById('supportForm')?.addEventListener('submit', async functio
   submitBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Sending...';
   submitBtn.disabled = true;
   
-  // FormSubmit endpoint - CHANGE THIS TO YOUR EMAIL
-  const submitUrl = "https://formsubmit.co/ajax/support@dornori.com";
-  
+  const category = currentCategory?.title || 'General';
+
+  // Submit via Cloudflare edge queue (replaces formsubmit.co)
+  const API_URL = 'https://edge-form-handler-api.dornori-info.workers.dev';
+
   try {
-    const response = await fetch(submitUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: name,
-        email: email,
+        category: 'ticket',
+        name,
+        email,
         order: orderNumber,
-        subject: `Dornori Support: ${currentCategory?.title || 'General'} Issue`,
-        message: `Name: ${name}\nEmail: ${email}\nOrder: ${orderNumber || 'N/A'}\nCategory: ${currentCategory?.title}\n\nIssue Details:\n${description}`,
-        _captcha: "false",
-        _template: "table",
+        subject: `Dornori Support: ${category}`,
+        message: `Name: ${name}\nEmail: ${email}\nOrder: ${orderNumber || 'N/A'}\nCategory: ${category}\n\nIssue Details:\n${description}`,
         _autoresponse: "Thank you for contacting Dornori Support. We'll respond within 4 hours."
       })
     });
     
-    if (response.ok) {
+    const result = await response.json();
+    if (response.ok && !result.error) {
       showToast("Support request sent! Check your email for confirmation.", 3000);
       // After submitting contact form, redirect to homepage
       setTimeout(() => {

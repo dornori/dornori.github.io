@@ -269,18 +269,18 @@
     if(!name||!email){ showToast(L.nameReq, 3000); return; }
     var btn=$id('sf-submit');
     btn.textContent=L.sending; btn.disabled=true;
-    fetch('https://formsubmit.co/ajax/support@dornori.com',{
+    fetch('https://edge-form-handler-api.dornori-info.workers.dev',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
+        category:'ticket',
         name:name, email:email, order:$id('sf-order').value.trim(),
         subject:'Dornori Support: '+((cat&&cat.title)||'General'),
         message:'Name: '+name+'\nEmail: '+email+'\nCat: '+((cat&&cat.title)||'')+'\n\n'+$id('sf-desc').value,
-        _captcha:'false', _template:'table',
         _autoresponse:'Thank you for contacting Dornori Support. We will respond within 4 hours.'
       })
-    }).then(function(r){
-      if(!r.ok) throw new Error(r.status);
+    }).then(function(r){ return r.json(); }).then(function(r){
+      if(r.error) throw new Error(r.error);
       showToast(L.sentOk, 4000);
       setTimeout(function(){ window.location.href='/test/'; }, 3000);
     }).catch(function(){
