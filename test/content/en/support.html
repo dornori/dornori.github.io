@@ -118,7 +118,9 @@
         <label class="sf-label">Issue description</label>
         <textarea id="sf-desc" rows="5" class="sf-input" style="resize:vertical"></textarea>
       </div>
-      <button id="sf-submit" class="sf-submit">Submit Support Request</button>
+      <button id="sf-submit" class="sf-submit" onclick="sfSubmit(event)">
+        <i class="fas fa-paper-plane" style="margin-right:.4rem"></i> Submit Support Request
+      </button>
     </div>
 
   </div><!-- /sf-body -->
@@ -129,16 +131,13 @@
 
 </div><!-- /sf-wrap -->
 
-<!-- FA icons -->
+<!-- FA icons (if not already loaded by shell) -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
 <script>
-const API_URL = 'https://edge-form-handler-api.dornori-info.workers.dev';
-</script>
-
-<script>
 (function(){
-  // ── constants ────────────────────────────────────────────────────
+  var API_URL = 'https://edge-form-handler-api.dornori-info.workers.dev';
+  // ── constants injected per-language ────────────────────────────────────
   var DATA_URL   = '/test/data/form.json';
   var L = {
     step1:        'Step 1: Choose category',
@@ -153,14 +152,13 @@ const API_URL = 'https://edge-form-handler-api.dornori-info.workers.dev';
     loadFail:     'Failed to load support data.',
     retry:        'Retry',
     sending:      'Sending...',
-    submitBtnText: 'Submit Support Request',
   };
 
-  // ── state ───────────────────────────────────────────────────────
+  // ── state ───────────────────────────────────────────────────────────────
   var data = null, cat = null, qIdx = 0, summary = [];
   var sid  = 'SID-' + Math.random().toString(36).slice(2,10);
 
-  // ── helpers ─────────────────────────────────────────────────────
+  // ── helpers ─────────────────────────────────────────────────────────────
   function $id(id){ return document.getElementById(id); }
   function esc(s){ return String(s||'').replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
 
@@ -182,7 +180,7 @@ const API_URL = 'https://edge-form-handler-api.dornori-info.workers.dev';
     var l=$id('sf-step-label'); if(l) l.textContent=label;
   }
 
-  // ── load JSON ───────────────────────────────────────────────────
+  // ── load JSON ───────────────────────────────────────────────────────────
   function load(){
     show('sf-loading');
     fetch(DATA_URL)
@@ -202,7 +200,7 @@ const API_URL = 'https://edge-form-handler-api.dornori-info.workers.dev';
   }
   window.sfLoad = load;
 
-  // ── Step 1 ──────────────────────────────────────────────────────
+  // ── Step 1 ──────────────────────────────────────────────────────────────
   function renderCats(){
     var c=$id('sf-cats'); if(!c) return;
     c.innerHTML='';
@@ -223,7 +221,7 @@ const API_URL = 'https://edge-form-handler-api.dornori-info.workers.dev';
     renderQ();
   }
 
-  // ── Step 2 ──────────────────────────────────────────────────────
+  // ── Step 2 ──────────────────────────────────────────────────────────────
   function renderQ(){
     if(!cat||qIdx>=cat.questions.length){ showContact(); return; }
     var q=cat.questions[qIdx];
@@ -257,7 +255,7 @@ const API_URL = 'https://edge-form-handler-api.dornori-info.workers.dev';
     setTimeout(function(){ window.location.href=url; }, ms);
   }
 
-  // ── Step 3 ──────────────────────────────────────────────────────
+  // ── Step 3 ──────────────────────────────────────────────────────────────
   function showContact(){
     var desc=$id('sf-desc');
     if(desc) desc.value=summary.join('\n')+'\n\nUA: '+navigator.userAgent;
@@ -265,38 +263,34 @@ const API_URL = 'https://edge-form-handler-api.dornori-info.workers.dev';
     setProgress(85, L.step3);
   }
 
-  // FIXED: sfSubmit with proper response handling
-  window.sfSubmit = function(e){
+        window.sfSubmit = function(e){
     e.preventDefault();
     var name=$id('sf-name').value.trim();
     var email=$id('sf-email').value.trim();
     if(!name||!email){ showToast(L.nameReq, 3000); return; }
     var btn=$id('sf-submit');
-    var originalText = btn.innerHTML;
     btn.textContent=L.sending; btn.disabled=true;
-    var category = (cat&&cat.title)||'General';
-    
-    fetch(API_URL, {
+    var category=(cat&&cat.title)||'General';
+    fetch('https://edge-form-handler-api.dornori-info.workers.dev',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         category:'ticket',
-        name:name, 
-        email:email, 
-        order:$id('sf-order').value.trim(),
+        name:name, email:email, order:$id('sf-order').value.trim(),
         subject:'Dornori Support: '+category,
-        message:'Name: '+name+'\nEmail: '+email+'\nCat: '+category+'\n\n'+$id('sf-desc').value
+        message:'Name: '+name+'
+Email: '+email+'
+Cat: '+category+'
+
+'+$id('sf-desc').value
       })
-    }).then(function(r){ 
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.text();
-    }).then(function(){
+    }).then(function(r){
+      if(!r.ok) throw new Error(r.status);
       showToast(L.sentOk, 4000);
       setTimeout(function(){ window.location.href='/test/'; }, 3000);
-    }).catch(function(err){
-      console.error('Submit error:', err);
+    }).catch(function(){
       showToast(L.sendFail, 4000);
-      btn.innerHTML=originalText;
+      btn.innerHTML='<i class="fas fa-paper-plane" style="margin-right:.4rem"></i> Submit Support Request';
       btn.disabled=false;
     });
   };
@@ -307,13 +301,8 @@ const API_URL = 'https://edge-form-handler-api.dornori-info.workers.dev';
     showToast(L.reset, 1500);
   };
 
-  // Wire up submit button after DOM ready
-  document.addEventListener('DOMContentLoaded', function(){
-    var btn = document.getElementById('sf-submit');
-    if(btn) btn.onclick = window.sfSubmit;
-  });
-
-  // ── boot ────────────────────────────────────────────────────────
+  // ── boot ────────────────────────────────────────────────────────────────
+  // page-loader injects this fragment then re-runs inline scripts
   load();
 })();
 </script>

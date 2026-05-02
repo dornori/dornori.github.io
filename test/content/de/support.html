@@ -262,30 +262,33 @@
     setProgress(85, L.step3);
   }
 
-  window.sfSubmit = function(e){
+        window.sfSubmit = function(e){
     e.preventDefault();
     var name=$id('sf-name').value.trim();
     var email=$id('sf-email').value.trim();
     if(!name||!email){ showToast(L.nameReq, 3000); return; }
     var btn=$id('sf-submit');
     btn.textContent=L.sending; btn.disabled=true;
+    var category=(cat&&cat.title)||'General';
     fetch('https://edge-form-handler-api.dornori-info.workers.dev',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         category:'ticket',
         name:name, email:email, order:$id('sf-order').value.trim(),
-        subject:'Dornori Support: '+((cat&&cat.title)||'General'),
-        message:'Name: '+name+'\nEmail: '+email+'\nCat: '+((cat&&cat.title)||'')+'\n\n'+$id('sf-desc').value,
-        _autoresponse:'Thank you for contacting Dornori Support. We will respond within 4 hours.'
+        subject:'Dornori Support: '+category,
+        message:'Name: '+name+'
+Email: '+email+'
+Cat: '+category+'
+
+'+$id('sf-desc').value
       })
-    }).then(function(r){ return r.json(); }).then(function(r){
-      if(r.error) throw new Error(r.error);
+    }).then(function(r){
+      if(!r.ok) throw new Error(r.status);
       showToast(L.sentOk, 4000);
       setTimeout(function(){ window.location.href='/test/'; }, 3000);
     }).catch(function(){
       showToast(L.sendFail, 4000);
-      btn.textContent=''; 
       btn.innerHTML='<i class="fas fa-paper-plane" style="margin-right:.4rem"></i> Support-Anfrage senden';
       btn.disabled=false;
     });
