@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dornori Support</title>
+    <title>Dornori Support - 1</title>
     <style>
         /* Support form — uses parent shell's CSS variable tokens from profiles.css */
         .sf-wrap        { font-family: ui-sans-serif, system-ui, sans-serif; color: var(--text); }
@@ -142,206 +142,216 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
 <script>
+// ============================================================
+// SUPPORT FORM - WORKS WITH NESTED/INJECTED PAGES
+// Uses event delegation so button clicks always work
+// ============================================================
+
 const API_URL = 'https://edge-form-handler-api.dornori-info.workers.dev';
 
-(function(){
-    // ── constants ────────────────────────────────────────────────────
-    var DATA_URL   = '/test/data/form.json';
-    var L = {
-        step1:        'Step 1: Choose category',
-        step2:        'Step 2: Troubleshooting',
-        step3:        'Step 3: Contact support',
-        qLabel:       'Question',
-        startOver:    'Start over',
-        reset:        'Session reset',
-        nameReq:      'Please provide your name and email.',
-        sentOk:       'Support request sent! Check your email.',
-        sendFail:     'Failed to send. Email support@dornori.com directly.',
-        loadFail:     'Failed to load support data.',
-        retry:        'Retry',
-        sending:      'Sending...',
-    };
+// ── Toast notification ─────────────────────────────────────
+function showToast(msg, ms) {
+    var t = document.getElementById('sf-toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.style.opacity = '1';
+    setTimeout(function() { t.style.opacity = '0'; }, ms || 3000);
+}
 
-    // ── state ───────────────────────────────────────────────────────
-    var data = null, cat = null, qIdx = 0, summary = [];
-    var sid  = 'SID-' + Math.random().toString(36).slice(2,10);
+// ── Load form data from JSON ──────────────────────────────
+let currentCategory = null;
+let currentQuestions = [];
+let currentQIndex = 0;
+let summary = [];
 
-    // ── helpers ─────────────────────────────────────────────────────
-    function $id(id){ return document.getElementById(id); }
-    function esc(s){ return String(s||'').replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
-
-    function showToast(msg, ms){
-        var t=$id('sf-toast'); if(!t) return;
-        t.textContent=msg; t.style.opacity='1';
-        setTimeout(function(){ t.style.opacity='0'; }, ms||3000);
-    }
-
-    function show(id){
-        ['sf-loading','sf-s1','sf-s2','sf-s3'].forEach(function(x){
-            var el=$id(x); if(el) el.classList.add('sf-hidden');
+async function loadFormData() {
+    try {
+        const response = await fetch('/test/data/form.json');
+        const data = await response.json();
+        
+        document.getElementById('sf-title').textContent = data.title || '';
+        document.getElementById('sf-subtitle').textContent = data.subtitle || '';
+        
+        document.getElementById('sf-loading').style.display = 'none';
+        
+        const container = document.getElementById('sf-cats');
+        container.innerHTML = '';
+        data.categories.forEach(cat => {
+            const btn = document.createElement('button');
+            btn.className = 'sf-btn';
+            btn.innerHTML = '<i class="fas fa-chevron-circle-right"></i> ' + cat.title;
+            btn.onclick = () => startCategory(cat, data);
+            container.appendChild(btn);
         });
-        var el=$id(id); if(el) el.classList.remove('sf-hidden');
+        
+        document.getElementById('sf-s1').classList.remove('sf-hidden');
+        document.getElementById('sf-prog').style.width = '5%';
+        document.getElementById('sf-step-label').textContent = 'Step 1: Choose category';
+    } catch (err) {
+        document.getElementById('sf-loading').innerHTML = '<p style="color:red">Failed to load. Please refresh.</p>';
     }
+}
 
-    function setProgress(pct, label){
-        var b=$id('sf-prog'); if(b) b.style.width=pct+'%';
-        var l=$id('sf-step-label'); if(l) l.textContent=label;
+function startCategory(cat, data) {
+    currentCategory = cat;
+    currentQuestions = cat.questions || [];
+    currentQIndex = 0;
+    summary = ['Category: ' + cat.title, '---'];
+    showQuestion();
+}
+
+function showQuestion() {
+    if (!currentQuestions.length || currentQIndex >= currentQuestions.length) {
+        showContactForm();
+        return;
     }
+    
+    const q = currentQuestions[currentQIndex];
+    let html = '<div class="sf-q-label"><i class="fas fa-question-circle"></i> Question ' + (currentQIndex + 1) + '/' + currentQuestions.length + '</div>';
+    html += '<div class="sf-q-text">' + escapeHtml(q.text) + '</div>';
+    
+    q.options.forEach((opt, idx) => {
+        html += '<button class="sf-opt" onclick="selectAnswer(' + idx + ')"><span>' + escapeHtml(opt.text) + '</span><i class="fas fa-arrow-right"></i></button>';
+    });
+    html += '<div style="margin-top:1rem"><button class="sf-reset" onclick="sfReset()"><i class="fas fa-undo-alt"></i> Start over</button></div>';
+    
+    document.getElementById('sf-s2').innerHTML = html;
+    document.getElementById('sf-s1').classList.add('sf-hidden');
+    document.getElementById('sf-s2').classList.remove('sf-hidden');
+    document.getElementById('sf-s3').classList.add('sf-hidden');
+    document.getElementById('sf-prog').style.width = '45%';
+    document.getElementById('sf-step-label').textContent = 'Step 2: Troubleshooting';
+}
 
-    // ── load JSON ───────────────────────────────────────────────────
-    function load(){
-        show('sf-loading');
-        fetch(DATA_URL)
-            .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
-            .then(function(d){
-                data = d;
-                $id('sf-title').textContent    = d.title    || '';
-                $id('sf-subtitle').textContent = d.subtitle || '';
-                renderCats();
-            })
-            .catch(function(){
-                $id('sf-loading').innerHTML =
-                    '<i class="fas fa-exclamation-triangle" style="font-size:1.75rem;color:#ef4444"></i>' +
-                    '<p style="margin-top:.5rem">'+esc(L.loadFail)+'</p>' +
-                    '<button onclick="sfLoad()" style="margin-top:.75rem;padding:.4rem 1rem;background:var(--accent);color:var(--bg);border:none;border-radius:9999px;cursor:pointer;">'+esc(L.retry)+'</button>';
-            });
+window.selectAnswer = function(optionIndex) {
+    const q = currentQuestions[currentQIndex];
+    const opt = q.options[optionIndex];
+    
+    summary.push('Q: ' + q.text);
+    summary.push('A: ' + opt.text);
+    
+    if (opt.resolves === true || opt.next === 'resolved_end') {
+        showToast('✓ Issue resolved!', 1500);
+        setTimeout(() => { window.location.href = '/test/'; }, 2000);
+        return;
     }
-    window.sfLoad = load;
-
-    // ── Step 1 ──────────────────────────────────────────────────────
-    function renderCats(){
-        var c=$id('sf-cats'); if(!c) return;
-        c.innerHTML='';
-        data.categories.forEach(function(cat){
-            var b=document.createElement('button');
-            b.className='sf-btn';
-            b.innerHTML='<i class="fas fa-chevron-circle-right"></i> '+esc(cat.title);
-            b.onclick=function(){ startCat(cat); };
-            c.appendChild(b);
-        });
-        show('sf-s1');
-        setProgress(5, L.step1);
+    
+    if (opt.next === 'contact') {
+        showContactForm();
+        return;
     }
+    
+    currentQIndex++;
+    showQuestion();
+};
 
-    function startCat(c){
-        cat=c; qIdx=0;
-        summary=['Cat: '+c.title, 'SID: '+sid, '---'];
-        renderQ();
+function showContactForm() {
+    const descField = document.getElementById('sf-desc');
+    if (descField) {
+        descField.value = summary.join('\n') + '\n\nUA: ' + navigator.userAgent;
     }
+    
+    document.getElementById('sf-s1').classList.add('sf-hidden');
+    document.getElementById('sf-s2').classList.add('sf-hidden');
+    document.getElementById('sf-s3').classList.remove('sf-hidden');
+    document.getElementById('sf-prog').style.width = '85%';
+    document.getElementById('sf-step-label').textContent = 'Step 3: Contact support';
+}
 
-    // ── Step 2 ──────────────────────────────────────────────────────
-    function renderQ(){
-        if(!cat||qIdx>=cat.questions.length){ showContact(); return; }
-        var q=cat.questions[qIdx];
-        var html='<div class="sf-q-label"><i class="fas fa-question-circle"></i> '+
-            esc(L.qLabel)+' '+(qIdx+1)+'/'+cat.questions.length+'</div>'+
-            '<div class="sf-q-text">'+esc(q.text)+'</div>';
-        q.options.forEach(function(opt,i){
-            html+='<button class="sf-opt" onclick="sfAns('+i+')"><span>'+esc(opt.text)+'</span><i class="fas fa-arrow-right"></i></button>';
-        });
-        html+='<div style="margin-top:1rem"><button class="sf-reset" onclick="sfReset()"><i class="fas fa-undo-alt"></i> '+esc(L.startOver)+'</button></div>';
-        $id('sf-s2').innerHTML=html;
-        show('sf-s2');
-        setProgress(45, L.step2);
-    }
-
-    window.sfAns = function(i){
-        var q=cat.questions[qIdx], opt=q.options[i];
-        summary.push('Q: '+q.text, 'A: '+opt.text);
-        if(opt.resolves===true || opt.next==='resolved_end'){ sfResolved(); return; }
-        if(opt.next==='contact'){ showContact(); return; }
-        var nx=cat.questions.findIndex(function(x){ return x.id===opt.next; });
-        qIdx = nx!==-1 ? nx : qIdx+1;
-        renderQ();
+// ── Submit handler (simple, same pattern as working form) ──
+async function handleSubmit(name, email, order, message, btn, originalText) {
+    const payload = {
+        category: 'ticket',
+        name: name,
+        email: email,
+        order: order,
+        subject: 'Dornori Support: ' + (currentCategory ? currentCategory.title : 'General'),
+        message: message
     };
-
-    function sfResolved(){
-        var url  = (data.endpoints&&data.endpoints.resolved_end&&data.endpoints.resolved_end.redirect_url)||'/test/';
-        var ms   = ((data.endpoints&&data.endpoints.resolved_end&&data.endpoints.resolved_end.delay_seconds)||2)*1000;
-        var msg  = (data.endpoints&&data.endpoints.resolved_end&&data.endpoints.resolved_end.message)||'✓ Resolved!';
-        showToast(msg, ms-200);
-        setTimeout(function(){ window.location.href=url; }, ms);
+    
+    const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    
+    await response.text();
+    
+    if (response.ok) {
+        showToast('Support request sent! Check your email.', 3000);
+        setTimeout(() => { window.location.href = '/test/'; }, 3000);
+    } else {
+        throw new Error('HTTP ' + response.status);
     }
+}
 
-    // ── Step 3 ──────────────────────────────────────────────────────
-    function showContact(){
-        var desc=$id('sf-desc');
-        if(desc) desc.value=summary.join('\n')+'\n\nUA: '+navigator.userAgent;
-        show('sf-s3');
-        setProgress(85, L.step3);
-        
-        // 🔥 CRITICAL FIX: Attach button handler AFTER form is visible
-        setTimeout(function() {
-            var btn = document.getElementById('sf-submit');
-            if(btn) {
-                // Remove any existing listeners by cloning
-                var newBtn = btn.cloneNode(true);
-                btn.parentNode.replaceChild(newBtn, btn);
-                newBtn.onclick = submitHandler;
-            }
-        }, 50);
+// ── Reset function ─────────────────────────────────────────
+window.sfReset = function() {
+    currentCategory = null;
+    currentQuestions = [];
+    currentQIndex = 0;
+    summary = [];
+    document.getElementById('sf-s1').classList.remove('sf-hidden');
+    document.getElementById('sf-s2').classList.add('sf-hidden');
+    document.getElementById('sf-s3').classList.add('sf-hidden');
+    document.getElementById('sf-prog').style.width = '5%';
+    document.getElementById('sf-step-label').textContent = 'Step 1: Choose category';
+    showToast('Session reset', 1500);
+};
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
+// ============================================================
+// 🔥 CRITICAL: EVENT DELEGATION FOR NESTED/INJECTED PAGES
+// This listens for clicks ANYWHERE and checks if it's our button
+// Works even if content loads after DOMContentLoaded
+// ============================================================
+document.addEventListener('click', async function(e) {
+    // Find if the clicked element is or is inside #sf-submit
+    const btn = e.target.closest('#sf-submit');
+    if (!btn) return;
+    
+    e.preventDefault();
+    
+    const name = document.getElementById('sf-name')?.value.trim();
+    const email = document.getElementById('sf-email')?.value.trim();
+    
+    if (!name || !email) {
+        showToast('Please provide your name and email.', 3000);
+        return;
     }
-
-    // 🔥 SEPARATE SUBMIT HANDLER (not inline, not overwritten)
-    async function submitHandler(e) {
-        e.preventDefault();
-        
-        var name = document.getElementById('sf-name').value.trim();
-        var email = document.getElementById('sf-email').value.trim();
-        
-        if(!name || !email) {
-            showToast(L.nameReq, 3000);
-            return false;
-        }
-        
-        var btn = this;
-        var originalText = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = L.sending;
-        
-        var category = (cat && cat.title) || 'General';
-        
-        try {
-            var response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    category: 'ticket',
-                    name: name,
-                    email: email,
-                    order: document.getElementById('sf-order').value.trim(),
-                    subject: 'Dornori Support: ' + category,
-                    message: document.getElementById('sf-desc').value
-                })
-            });
-            
-            await response.text();
-            
-            if(response.ok) {
-                showToast(L.sentOk, 4000);
-                setTimeout(function(){ window.location.href = '/test/'; }, 3000);
-            } else {
-                throw new Error('HTTP ' + response.status);
-            }
-        } catch(err) {
-            console.error(err);
-            showToast(L.sendFail, 4000);
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-        }
-        
-        return false;
+    
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = 'Sending...';
+    
+    try {
+        await handleSubmit(
+            name,
+            email,
+            document.getElementById('sf-order')?.value.trim() || '',
+            document.getElementById('sf-desc')?.value || '',
+            btn,
+            originalText
+        );
+    } catch (err) {
+        console.error(err);
+        showToast('Failed to send. Email support@dornori.com directly.', 4000);
+        btn.disabled = false;
+        btn.innerHTML = originalText;
     }
+});
 
-    window.sfReset = function(){
-        cat=null; qIdx=0; summary=[];
-        renderCats();
-        showToast(L.reset, 1500);
-    };
-
-    // ── boot ────────────────────────────────────────────────────────
-    load();
-})();
+// ── Load everything ────────────────────────────────────────
+loadFormData();
 </script>
 
 </body>
