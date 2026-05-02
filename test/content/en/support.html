@@ -131,7 +131,10 @@
                 <label class="sf-label">Issue description</label>
                 <textarea id="sf-desc" rows="5" class="sf-input" style="resize:vertical"></textarea>
             </div>
-            <button id="sf-submit" class="sf-submit">Submit Support Request</button>
+            <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
+                <button id="sf-submit" class="sf-submit" style="flex: 2;">📧 Submit (Rate limited ~100/day)</button>
+                <button id="sf-test-submit" class="sf-submit" style="flex: 1; background: linear-gradient(135deg, #28a745, #218838);">🧪 Test (Instant)</button>
+            </div>
             <div id="sf-status"></div>
         </div>
 
@@ -148,8 +151,9 @@
 
 <script>
 // ============================================================
-// SUPPORT FORM - DIRECT SEND (NO QUEUE)
-// Uses the same worker but bypasses queue (direct email)
+// SUPPORT FORM - QUEUE VERSION (Rate limited)
+// - Green "Test" button: bypasses queue (instant)
+// - Blue "Submit" button: goes through queue (~100/day)
 // ============================================================
 
 const workerUrl = "https://edge-form-handler-api.dornori-info.workers.dev";
@@ -274,8 +278,10 @@ function showContactForm() {
     document.getElementById('sf-step-label').textContent = 'Step 3: Contact support';
 }
 
-// ─── DIRECT SEND FUNCTION (SAME PATTERN AS WORKING FORM) ───
-async function sendSupportRequest() {
+// ─── SEND FUNCTIONS ───────────────────────────────────────
+// isTest = true  → bypass queue (instant, no rate limit)
+// isTest = false → go through queue (~100/day)
+async function sendSupportRequest(isTest = false) {
     const name = document.getElementById('sf-name').value.trim();
     const email = document.getElementById('sf-email').value.trim();
     const statusDiv = getStatusDiv();
@@ -287,7 +293,7 @@ async function sendSupportRequest() {
     }
 
     statusDiv.className = "sf-status-sending";
-    statusDiv.textContent = "Sending...";
+    statusDiv.textContent = isTest ? "Sending test (instant)..." : "Queuing request (rate limited)...";
 
     const payload = {
         category: "ticket",
@@ -296,6 +302,10 @@ async function sendSupportRequest() {
         order: document.getElementById('sf-order').value.trim(),
         message: document.getElementById('sf-desc').value
     };
+    
+    if (isTest) {
+        payload.test = true;  // ← bypasses queue rate limit
+    }
 
     try {
         const response = await fetch(workerUrl, {
@@ -308,8 +318,16 @@ async function sendSupportRequest() {
 
         if (response.ok) {
             statusDiv.className = "sf-status-success";
-            statusDiv.textContent = "✓ Support request sent! Check your email.";
-            setTimeout(() => { window.location.href = '/test/'; }, 3000);
+            if (isTest) {
+                statusDiv.textContent = "✓ Test email sent! Check your inbox (instant).";
+            } else {
+                statusDiv.textContent = "✓ Request queued! Will be sent within 24 hours (rate limited to ~100/day).";
+            }
+            // Clear form
+            document.getElementById('sf-name').value = '';
+            document.getElementById('sf-email').value = '';
+            document.getElementById('sf-order').value = '';
+            // Don't clear the description (it has the troubleshooting summary)
         } else {
             statusDiv.className = "sf-status-error";
             statusDiv.textContent = "✗ Error: " + result;
@@ -319,6 +337,25 @@ async function sendSupportRequest() {
         statusDiv.textContent = "✗ Network error: " + err.message;
     }
 }
+
+// ── Event delegation for buttons (works with dynamic content) ──
+document.addEventListener('click', async function(e) {
+    // Blue button - Queue (rate limited)
+    const queueBtn = e.target.closest('#sf-submit');
+    if (queueBtn) {
+        e.preventDefault();
+        await sendSupportRequest(false);
+        return;
+    }
+    
+    // Green button - Test (instant, bypass queue)
+    const testBtn = e.target.closest('#sf-test-submit');
+    if (testBtn) {
+        e.preventDefault();
+        await sendSupportRequest(true);
+        return;
+    }
+});
 
 // ── Reset function ─────────────────────────────────────────
 window.sfReset = function() {
@@ -341,23 +378,6 @@ function escapeHtml(str) {
         if (m === '<') return '&lt;';
         if (m === '>') return '&gt;';
         return m;
-    });
-}
-
-// ─── EVENT DELEGATION (works for nested/injected pages) ───
-document.addEventListener('click', async function(e) {
-    const btn = e.target.closest('#sf-submit');
-    if (!btn) return;
-    
-    e.preventDefault();
-    await sendSupportRequest();
-});
-
-// ─── Also attach directly if button already exists ─────────
-if (document.getElementById('sf-submit')) {
-    document.getElementById('sf-submit').addEventListener('click', function(e) {
-        e.preventDefault();
-        sendSupportRequest();
     });
 }
 
