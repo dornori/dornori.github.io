@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dornori Support</title>
+    <title>Dornori Support - test</title>
     <style>
         /* Support form — uses parent shell's CSS variable tokens from profiles.css */
         .sf-wrap        { font-family: ui-sans-serif, system-ui, sans-serif; color: var(--text); }
@@ -102,7 +102,7 @@
         <!-- Step 2: troubleshooting -->
         <div id="sf-s2" class="sf-hidden"></div>
 
-        <!-- Step 3: contact form (STATIC - always exists) -->
+        <!-- Step 3: contact form -->
         <div id="sf-s3" class="sf-hidden">
             <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;">
                 <i class="fas fa-headset" style="font-size:1.4rem;color:var(--accent)"></i>
@@ -142,18 +142,23 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
 <script>
-const workerUrl = "https://edge-form-handler-api.dornori-info.workers.dev";
+// ============================================================
+// SUPPORT FORM - WORKS WITH NESTED/INJECTED PAGES
+// Uses event delegation so button clicks always work
+// ============================================================
 
-// ── helpers ─────────────────────────────────────────────────────
-function showToast(msg, ms){
+const API_URL = 'https://edge-form-handler-api.dornori-info.workers.dev';
+
+// ── Toast notification ─────────────────────────────────────
+function showToast(msg, ms) {
     var t = document.getElementById('sf-toast');
-    if(!t) return;
+    if (!t) return;
     t.textContent = msg;
     t.style.opacity = '1';
-    setTimeout(function(){ t.style.opacity = '0'; }, ms||3000);
+    setTimeout(function() { t.style.opacity = '0'; }, ms || 3000);
 }
 
-// ── load JSON and render categories ────────────────────────────
+// ── Load form data from JSON ──────────────────────────────
 let currentCategory = null;
 let currentQuestions = [];
 let currentQIndex = 0;
@@ -253,68 +258,34 @@ function showContactForm() {
     document.getElementById('sf-step-label').textContent = 'Step 3: Contact support';
 }
 
-// ─── SUBMIT HANDLER (SAME PATTERN AS YOUR WORKING FORM) ─────────
-async function sendSupportRequest() {
-    const name = document.getElementById('sf-name').value.trim();
-    const email = document.getElementById('sf-email').value.trim();
-    const statusDiv = document.getElementById('sf-status') || createStatusDiv();
-
-    if (!email || !name) {
-        statusDiv.className = "error";
-        statusDiv.textContent = "✗ Please fill in name and email";
-        return;
-    }
-
-    statusDiv.className = "sending";
-    statusDiv.textContent = "Sending...";
-
+// ── Submit handler (simple, same pattern as working form) ──
+async function handleSubmit(name, email, order, message, btn, originalText) {
     const payload = {
-        category: "ticket",
+        category: 'ticket',
         name: name,
         email: email,
-        order: document.getElementById('sf-order').value.trim(),
-        subject: "Dornori Support: " + (currentCategory ? currentCategory.title : "General"),
-        message: document.getElementById('sf-desc').value
+        order: order,
+        subject: 'Dornori Support: ' + (currentCategory ? currentCategory.title : 'General'),
+        message: message
     };
-
-    try {
-        const response = await fetch(workerUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await response.text();
-
-        if (response.ok) {
-            statusDiv.className = "success";
-            statusDiv.textContent = "✓ Support request sent! Check your email.";
-            setTimeout(() => { window.location.href = '/test/'; }, 3000);
-        } else {
-            statusDiv.className = "error";
-            statusDiv.textContent = "✗ Error: " + result;
-        }
-    } catch (err) {
-        statusDiv.className = "error";
-        statusDiv.textContent = "✗ Network error: " + err.message;
+    
+    const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    
+    await response.text();
+    
+    if (response.ok) {
+        showToast('Support request sent! Check your email.', 3000);
+        setTimeout(() => { window.location.href = '/test/'; }, 3000);
+    } else {
+        throw new Error('HTTP ' + response.status);
     }
 }
 
-function createStatusDiv() {
-    const s3 = document.getElementById('sf-s3');
-    let div = document.getElementById('sf-status');
-    if (!div) {
-        div = document.createElement('div');
-        div.id = 'sf-status';
-        div.style.marginTop = '1rem';
-        div.style.padding = '1rem';
-        div.style.borderRadius = '4px';
-        s3.appendChild(div);
-    }
-    return div;
-}
-
-// ─── RESET ──────────────────────────────────────────────────────
+// ── Reset function ─────────────────────────────────────────
 window.sfReset = function() {
     currentCategory = null;
     currentQuestions = [];
@@ -338,15 +309,48 @@ function escapeHtml(str) {
     });
 }
 
-// ─── ATTACH EVENT LISTENER (SAME PATTERN AS WORKING FORM) ───────
-document.addEventListener('DOMContentLoaded', function() {
-    const submitBtn = document.getElementById('sf-submit');
-    if (submitBtn) {
-        submitBtn.addEventListener('click', sendSupportRequest);
+// ============================================================
+// 🔥 CRITICAL: EVENT DELEGATION FOR NESTED/INJECTED PAGES
+// This listens for clicks ANYWHERE and checks if it's our button
+// Works even if content loads after DOMContentLoaded
+// ============================================================
+document.addEventListener('click', async function(e) {
+    // Find if the clicked element is or is inside #sf-submit
+    const btn = e.target.closest('#sf-submit');
+    if (!btn) return;
+    
+    e.preventDefault();
+    
+    const name = document.getElementById('sf-name')?.value.trim();
+    const email = document.getElementById('sf-email')?.value.trim();
+    
+    if (!name || !email) {
+        showToast('Please provide your name and email.', 3000);
+        return;
+    }
+    
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = 'Sending...';
+    
+    try {
+        await handleSubmit(
+            name,
+            email,
+            document.getElementById('sf-order')?.value.trim() || '',
+            document.getElementById('sf-desc')?.value || '',
+            btn,
+            originalText
+        );
+    } catch (err) {
+        console.error(err);
+        showToast('Failed to send. Email support@dornori.com directly.', 4000);
+        btn.disabled = false;
+        btn.innerHTML = originalText;
     }
 });
 
-// Start
+// ── Load everything ────────────────────────────────────────
 loadFormData();
 </script>
 
