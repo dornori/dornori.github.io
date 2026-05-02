@@ -269,11 +269,22 @@ const API_URL = 'https://edge-form-handler-api.dornori-info.workers.dev';
         if(desc) desc.value=summary.join('\n')+'\n\nUA: '+navigator.userAgent;
         show('sf-s3');
         setProgress(85, L.step3);
+        
+        // 🔥 CRITICAL FIX: Attach button handler AFTER form is visible
+        setTimeout(function() {
+            var btn = document.getElementById('sf-submit');
+            if(btn) {
+                // Remove any existing listeners by cloning
+                var newBtn = btn.cloneNode(true);
+                btn.parentNode.replaceChild(newBtn, btn);
+                newBtn.onclick = submitHandler;
+            }
+        }, 50);
     }
 
-    // ─── FIXED SUBMIT FUNCTION (same pattern as working contact form) ───
-    window.sfSubmit = async function(e) {
-        if(e) e.preventDefault();
+    // 🔥 SEPARATE SUBMIT HANDLER (not inline, not overwritten)
+    async function submitHandler(e) {
+        e.preventDefault();
         
         var name = document.getElementById('sf-name').value.trim();
         var email = document.getElementById('sf-email').value.trim();
@@ -283,7 +294,7 @@ const API_URL = 'https://edge-form-handler-api.dornori-info.workers.dev';
             return false;
         }
         
-        var btn = document.getElementById('sf-submit');
+        var btn = this;
         var originalText = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = L.sending;
@@ -320,21 +331,13 @@ const API_URL = 'https://edge-form-handler-api.dornori-info.workers.dev';
         }
         
         return false;
-    };
+    }
 
     window.sfReset = function(){
         cat=null; qIdx=0; summary=[];
         renderCats();
         showToast(L.reset, 1500);
     };
-
-    // ─── FIX: Wire up button after DOM is ready ─────────────────────
-    document.addEventListener('DOMContentLoaded', function() {
-        var btn = document.getElementById('sf-submit');
-        if(btn) {
-            btn.onclick = window.sfSubmit;
-        }
-    });
 
     // ── boot ────────────────────────────────────────────────────────
     load();
