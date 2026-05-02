@@ -148,8 +148,12 @@
             </div>
 
             <div class="sf-field">
-                <label class="sf-label" for="sf-desc">Issue description</label>
-                <textarea id="sf-desc" rows="5" class="sf-input" style="resize:vertical" maxlength="4000"></textarea>
+                <label class="sf-label">Troubleshooting summary</label>
+                <div id="sf-summary-box" style="padding:.8rem 1.1rem;border:1px solid var(--border);border-radius:.875rem;background:color-mix(in srgb,var(--bg) 40%,transparent 60%);font-size:.85rem;color:var(--text-muted);white-space:pre-wrap;line-height:1.6;min-height:80px;"></div>
+            </div>
+            <div class="sf-field">
+                <label class="sf-label" for="sf-desc">Additional comments</label>
+                <textarea id="sf-desc" rows="3" class="sf-input" style="resize:vertical" maxlength="2000" placeholder="Anything else you&#39;d like to add…"></textarea>
                 <span class="sf-field-error" id="sf-desc-err"></span>
             </div>
 
@@ -159,10 +163,7 @@
                 <span class="sf-turnstile-error sf-hidden" id="sf-turnstile-err">Please complete the security check.</span>
             </div>
 
-            <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
-                <button id="sf-submit" class="sf-submit" style="flex: 2;">📧 Submit (Rate limited ~100/day)</button>
-                <button id="sf-test-submit" class="sf-submit" style="flex: 1; background: linear-gradient(135deg, #28a745, #218838);">🧪 Test (Instant)</button>
-            </div>
+            <button id="sf-submit" class="sf-submit" style="margin-top:.5rem;">📧 Submit</button>
             <div id="sf-status"></div>
         </div>
 
@@ -486,10 +487,9 @@ window.selectAnswer = function(optionIndex) {
 };
 
 function showContactForm() {
-    const descField = document.getElementById('sf-desc');
-    if (descField) {
-        // Pre-fill description with troubleshooting summary (plain text, no HTML)
-        descField.value = summary.join('\n') + '\n\nUA: ' + navigator.userAgent;
+    const summaryBox = document.getElementById('sf-summary-box');
+    if (summaryBox) {
+        summaryBox.textContent = summary.join('\n') || '(No troubleshooting steps recorded)';
     }
 
     document.getElementById('sf-s1').classList.add('sf-hidden');
@@ -503,9 +503,7 @@ function showContactForm() {
 }
 
 // ─── SEND FUNCTIONS ───────────────────────────────────────
-// isTest = true  → bypass queue (instant, no rate limit)
-// isTest = false → go through queue (~100/day)
-async function sendSupportRequest(isTest = false) {
+async function sendSupportRequest() {
     const statusDiv = getStatusDiv();
 
     // ── Validate + sanitise ────────────────────────────────
@@ -518,25 +516,22 @@ async function sendSupportRequest(isTest = false) {
 
     // ── Disable buttons while sending ─────────────────────
     const submitBtn = document.getElementById('sf-submit');
-    const testBtn   = document.getElementById('sf-test-submit');
     if (submitBtn) submitBtn.disabled = true;
-    if (testBtn)   testBtn.disabled   = true;
 
     statusDiv.className  = 'sf-status-sending';
-    statusDiv.textContent = isTest ? 'Sending test (instant)…' : 'Queuing request (rate limited)…';
+    statusDiv.textContent = 'Sending…';
 
+    const summaryBox = document.getElementById('sf-summary-box');
     const payload = {
         category:         'ticket',
         name:             sanitised.name,
         email:            sanitised.email,
         order:            sanitised.order,
+        summary:          summaryBox ? summaryBox.textContent : '',
         message:          sanitised.message,
-        cfTurnstileToken: turnstileToken   // ← worker must verify this server-side
+        ua:               navigator.userAgent,
+        cfTurnstileToken: turnstileToken
     };
-
-    if (isTest) {
-        payload.test = true;  // bypasses queue rate limit on the worker
-    }
 
     try {
         const response = await fetch(workerUrl, {
@@ -549,16 +544,12 @@ async function sendSupportRequest(isTest = false) {
 
         if (response.ok) {
             statusDiv.className  = 'sf-status-success';
-            statusDiv.textContent = isTest
-                ? '✓ Test email sent! Check your inbox (instant).'
-                : '✓ Request queued! Will be sent within 24 hours (rate limited to ~100/day).';
+            statusDiv.textContent = '✓ Request received! We aim to respond within 2 business days (EU consumer regulation max: 30 days).';
 
             // Clear form fields
             document.getElementById('sf-name').value  = '';
             document.getElementById('sf-email').value = '';
             document.getElementById('sf-order').value = '';
-            // Keep description (has troubleshooting summary)
-
             // Reset Turnstile for a potential second submission
             turnstileToken = null;
             if (turnstileWidgetId !== null && window.turnstile) {
@@ -574,27 +565,19 @@ async function sendSupportRequest(isTest = false) {
     } finally {
         // Re-enable buttons
         if (submitBtn) submitBtn.disabled = false;
-        if (testBtn)   testBtn.disabled   = false;
     }
 }
 
 // ── Event delegation for buttons ──────────────────────────
 document.addEventListener('click', async function(e) {
-    // Blue button — Queue (rate limited)
     const queueBtn = e.target.closest('#sf-submit');
     if (queueBtn) {
         e.preventDefault();
-        await sendSupportRequest(false);
+        await sendSupportRequest();
         return;
     }
 
-    // Green button — Test (instant, bypass queue)
-    const testBtn = e.target.closest('#sf-test-submit');
-    if (testBtn) {
-        e.preventDefault();
-        await sendSupportRequest(true);
-        return;
-    }
+
 });
 
 // ── Reset function ─────────────────────────────────────────
