@@ -198,13 +198,18 @@
 //      server-side against the Turnstile /siteverify endpoint.
 // ============================================================
 
-// ── Turnstile site key ─────────────────────────────────────
-// Replace with your actual Turnstile site key from the
-// Cloudflare dashboard (dash.cloudflare.com → Turnstile).
-// Use "1x00000000000000000000AA" for local testing (always passes).
-const TURNSTILE_SITE_KEY = '1x00000000000000000000AA'; // ← replace for production
+// ── Turnstile site key — read from CONFIG (config.js) ──────
+// config.js is loaded before this content fragment via the shell's
+// <script src="/test/shop/js/config.js">, so CONFIG is available.
+// Falls back to Cloudflare's always-pass test key just in case.
+const TURNSTILE_SITE_KEY = (typeof CONFIG !== 'undefined' && CONFIG.turnstile && CONFIG.turnstile.sitekey)
+    ? CONFIG.turnstile.sitekey
+    : '1x00000000000000000000AA';
 
-const workerUrl = "https://edge-form-handler-api.dornori-info.workers.dev";
+// ── Worker endpoint — also read from CONFIG ─────────────────
+const workerUrl = (typeof CONFIG !== 'undefined' && CONFIG.queue && CONFIG.queue.endpoint)
+    ? CONFIG.queue.endpoint
+    : "https://edge-form-handler-api.dornori-info.workers.dev";
 
 let turnstileWidgetId = null;
 let turnstileToken    = null;   // set by the Turnstile success callback
