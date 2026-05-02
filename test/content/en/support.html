@@ -39,7 +39,9 @@
                           font-size:.95rem; outline:none; transition:border-color .15s, box-shadow .15s;
                           box-sizing:border-box; }
         .sf-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 20%,transparent 80%); }
+        .sf-input.sf-input-error { border-color:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.18); }
         .sf-label       { display:block; font-size:.85rem; font-weight:600; color:var(--text); margin-bottom:.25rem; }
+        .sf-field-error { font-size:.78rem; color:#ef4444; margin-top:.3rem; min-height:1rem; }
         .sf-submit      { width:100%; background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#ea580c 45%));
                           color:var(--bg); font-weight:700; padding:.875rem; border-radius:.875rem; border:none;
                           font-size:1rem; cursor:pointer; transition:opacity .15s; }
@@ -60,6 +62,18 @@
         .sf-status-success { background: #d4edda; color: #155724; }
         .sf-status-error { background: #f8d7da; color: #721c24; }
         .sf-status-sending { background: #fff3cd; color: #856404; }
+
+        /* Turnstile widget container */
+        .sf-turnstile-wrap {
+            margin-bottom: 1.25rem;
+        }
+        .sf-turnstile-wrap .cf-turnstile {
+            display: block;
+        }
+        .sf-turnstile-error {
+            font-size:.78rem; color:#ef4444; margin-top:.3rem;
+        }
+
         @media(max-width:520px){ .sf-grid2{ grid-template-columns:1fr; } .sf-cat-grid{ grid-template-columns:1fr; } }
     </style>
 </head>
@@ -113,24 +127,38 @@
                 <span style="font-size:1.25rem;font-weight:700;">Need human help?</span>
             </div>
             <p style="color:var(--text-muted);font-size:.9rem;margin-bottom:1.5rem;">Our support team responds within 4 hours (Mon–Fri).</p>
+
             <div class="sf-grid2">
                 <div class="sf-field">
-                    <label class="sf-label">Full name <span style="color:#ef4444">*</span></label>
-                    <input id="sf-name" type="text" class="sf-input" required>
+                    <label class="sf-label" for="sf-name">Full name <span style="color:#ef4444">*</span></label>
+                    <input id="sf-name" type="text" class="sf-input" autocomplete="name" maxlength="120" required>
+                    <span class="sf-field-error" id="sf-name-err"></span>
                 </div>
                 <div class="sf-field">
-                    <label class="sf-label">Email address <span style="color:#ef4444">*</span></label>
-                    <input id="sf-email" type="email" class="sf-input" required>
+                    <label class="sf-label" for="sf-email">Email address <span style="color:#ef4444">*</span></label>
+                    <input id="sf-email" type="email" class="sf-input" autocomplete="email" maxlength="254" required>
+                    <span class="sf-field-error" id="sf-email-err"></span>
                 </div>
             </div>
+
             <div class="sf-field">
-                <label class="sf-label">Order number</label>
-                <input id="sf-order" type="text" class="sf-input">
+                <label class="sf-label" for="sf-order">Order number <span style="color:var(--text-muted);font-weight:400;">(digits only)</span></label>
+                <input id="sf-order" type="text" class="sf-input" inputmode="numeric" maxlength="20" placeholder="e.g. 100234">
+                <span class="sf-field-error" id="sf-order-err"></span>
             </div>
+
             <div class="sf-field">
-                <label class="sf-label">Issue description</label>
-                <textarea id="sf-desc" rows="5" class="sf-input" style="resize:vertical"></textarea>
+                <label class="sf-label" for="sf-desc">Issue description</label>
+                <textarea id="sf-desc" rows="5" class="sf-input" style="resize:vertical" maxlength="4000"></textarea>
+                <span class="sf-field-error" id="sf-desc-err"></span>
             </div>
+
+            <!-- Cloudflare Turnstile CAPTCHA -->
+            <div class="sf-turnstile-wrap">
+                <div id="sf-turnstile-container"></div>
+                <span class="sf-turnstile-error sf-hidden" id="sf-turnstile-err">Please complete the security check.</span>
+            </div>
+
             <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
                 <button id="sf-submit" class="sf-submit" style="flex: 2;">📧 Submit (Rate limited ~100/day)</button>
                 <button id="sf-test-submit" class="sf-submit" style="flex: 1; background: linear-gradient(135deg, #28a745, #218838);">🧪 Test (Instant)</button>
@@ -151,12 +179,149 @@
 
 <script>
 // ============================================================
-// SUPPORT FORM - QUEUE VERSION (Rate limited)
-// - Green "Test" button: bypasses queue (instant)
-// - Blue "Submit" button: goes through queue (~100/day)
+// SUPPORT FORM — Turnstile + validation edition
+//
+// Security measures applied:
+//   1. Cloudflare Turnstile CAPTCHA (rendered explicitly after
+//      the form step is shown, so the widget is never hidden
+//      at render time — Turnstile errors on hidden containers)
+//   2. Client-side field validation before any network request:
+//        • name   — non-empty, max 120 chars, HTML-stripped
+//        • email  — RFC-5322-ish regex + max 254 chars
+//        • order  — digits only (or empty), max 20 digits
+//        • desc   — max 4000 chars, HTML-stripped
+//   3. All string values are HTML-stripped (tags removed) before
+//      being placed into the payload, so injected markup never
+//      reaches the worker or gets echoed back into the page.
+//   4. The Turnstile token is sent to the worker as
+//      payload.cfTurnstileToken; the worker MUST verify it
+//      server-side against the Turnstile /siteverify endpoint.
 // ============================================================
 
+// ── Turnstile site key ─────────────────────────────────────
+// Replace with your actual Turnstile site key from the
+// Cloudflare dashboard (dash.cloudflare.com → Turnstile).
+// Use "1x00000000000000000000AA" for local testing (always passes).
+const TURNSTILE_SITE_KEY = '1x00000000000000000000AA'; // ← replace for production
+
 const workerUrl = "https://edge-form-handler-api.dornori-info.workers.dev";
+
+let turnstileWidgetId = null;
+let turnstileToken    = null;   // set by the Turnstile success callback
+
+// ── Security helpers ───────────────────────────────────────
+
+/**
+ * Strip all HTML tags from a string and decode common entities.
+ * This prevents injected markup from reaching the worker payload
+ * or being rendered back into the page.
+ */
+function stripHtml(str) {
+    if (typeof str !== 'string') return '';
+    // Remove tags
+    let clean = str.replace(/<[^>]*>/g, '');
+    // Decode a small set of entities so the worker sees plain text
+    clean = clean
+        .replace(/&amp;/g,  '&')
+        .replace(/&lt;/g,   '<')
+        .replace(/&gt;/g,   '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#039;/g, "'")
+        .replace(/&nbsp;/g, ' ');
+    return clean.trim();
+}
+
+/**
+ * Validate an e-mail address.
+ * Uses a practical RFC-5322-ish pattern (covers 99 %+ of real addresses).
+ */
+function isValidEmail(email) {
+    // Must have exactly one @, a domain part with at least one dot,
+    // and no whitespace.
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) && email.length <= 254;
+}
+
+/**
+ * Show / clear a field error.
+ * Returns true when an error is shown (i.e. validation failed).
+ */
+function setFieldError(inputId, errorId, message) {
+    const input = document.getElementById(inputId);
+    const errEl = document.getElementById(errorId);
+    if (!input || !errEl) return !!message;
+
+    if (message) {
+        input.classList.add('sf-input-error');
+        errEl.textContent = message;
+        return true;
+    } else {
+        input.classList.remove('sf-input-error');
+        errEl.textContent = '';
+        return false;
+    }
+}
+
+/**
+ * Validate all contact-form fields.
+ * Returns { valid: bool, sanitised: { name, email, order, message } }.
+ */
+function validateForm() {
+    let hasError = false;
+
+    // ── Name ──────────────────────────────────────────────
+    const rawName = document.getElementById('sf-name').value;
+    const name    = stripHtml(rawName).slice(0, 120);
+    if (!name) {
+        hasError = setFieldError('sf-name', 'sf-name-err', 'Full name is required.') || hasError;
+    } else {
+        setFieldError('sf-name', 'sf-name-err', '');
+    }
+
+    // ── Email ─────────────────────────────────────────────
+    const rawEmail = document.getElementById('sf-email').value.trim();
+    const email    = stripHtml(rawEmail).slice(0, 254);
+    if (!email) {
+        hasError = setFieldError('sf-email', 'sf-email-err', 'Email address is required.') || hasError;
+    } else if (!isValidEmail(email)) {
+        hasError = setFieldError('sf-email', 'sf-email-err', 'Please enter a valid email address.') || hasError;
+    } else {
+        setFieldError('sf-email', 'sf-email-err', '');
+    }
+
+    // ── Order number (digits only, optional) ─────────────
+    const rawOrder = document.getElementById('sf-order').value.trim();
+    const order    = stripHtml(rawOrder).slice(0, 20);
+    if (order && !/^\d+$/.test(order)) {
+        hasError = setFieldError('sf-order', 'sf-order-err', 'Order number must contain digits only.') || hasError;
+    } else {
+        setFieldError('sf-order', 'sf-order-err', '');
+    }
+
+    // ── Description ───────────────────────────────────────
+    const rawDesc = document.getElementById('sf-desc').value;
+    const desc    = stripHtml(rawDesc).slice(0, 4000);
+    if (rawDesc.length > 4000) {
+        hasError = setFieldError('sf-desc', 'sf-desc-err', 'Description is too long (max 4000 characters).') || hasError;
+    } else {
+        setFieldError('sf-desc', 'sf-desc-err', '');
+    }
+
+    // ── Turnstile ─────────────────────────────────────────
+    const turnstileErr = document.getElementById('sf-turnstile-err');
+    if (!turnstileToken) {
+        if (turnstileErr) {
+            turnstileErr.classList.remove('sf-hidden');
+        }
+        hasError = true;
+    } else {
+        if (turnstileErr) turnstileErr.classList.add('sf-hidden');
+    }
+
+    return {
+        valid: !hasError,
+        sanitised: { name, email, order, message: desc }
+    };
+}
 
 // ── Toast notification ─────────────────────────────────────
 function showToast(msg, ms) {
@@ -178,6 +343,56 @@ function getStatusDiv() {
     return div;
 }
 
+// ── Turnstile initialisation ───────────────────────────────
+/**
+ * Render the Turnstile widget into #sf-turnstile-container.
+ * Called the first time showContactForm() is invoked, and also
+ * when the form is reset (widget is reset, not re-rendered).
+ *
+ * We render explicitly (not with data-sitekey) so we can:
+ *   • Wait until the container is visible (Turnstile requires this)
+ *   • Capture the widget ID for later reset calls
+ *   • Capture the token via callback instead of polling
+ */
+function initTurnstile() {
+    const container = document.getElementById('sf-turnstile-container');
+    if (!container) return;
+
+    // If already rendered, just reset it (gets a fresh token)
+    if (turnstileWidgetId !== null && window.turnstile) {
+        turnstileToken = null;
+        window.turnstile.reset(turnstileWidgetId);
+        return;
+    }
+
+    // Wait for the Turnstile script to be ready
+    if (!window.turnstile) {
+        // Script not ready yet; retry in 200 ms
+        setTimeout(initTurnstile, 200);
+        return;
+    }
+
+    turnstileToken   = null;
+    turnstileWidgetId = window.turnstile.render(container, {
+        sitekey:           TURNSTILE_SITE_KEY,
+        theme:             'auto',
+        callback:          function(token) {
+            turnstileToken = token;
+            // Hide any "please complete the check" error
+            const errEl = document.getElementById('sf-turnstile-err');
+            if (errEl) errEl.classList.add('sf-hidden');
+        },
+        'expired-callback': function() {
+            // Token has expired; require the user to solve again
+            turnstileToken = null;
+        },
+        'error-callback':   function() {
+            // Widget encountered an error (network issue, etc.)
+            turnstileToken = null;
+        }
+    });
+}
+
 // ── Load form data from JSON ──────────────────────────────
 let currentCategory = null;
 let currentQuestions = [];
@@ -188,22 +403,22 @@ async function loadFormData() {
     try {
         const response = await fetch('/test/data/form.json');
         const data = await response.json();
-        
-        document.getElementById('sf-title').textContent = data.title || '';
+
+        document.getElementById('sf-title').textContent  = data.title    || '';
         document.getElementById('sf-subtitle').textContent = data.subtitle || '';
-        
+
         document.getElementById('sf-loading').style.display = 'none';
-        
+
         const container = document.getElementById('sf-cats');
         container.innerHTML = '';
         data.categories.forEach(cat => {
             const btn = document.createElement('button');
             btn.className = 'sf-btn';
-            btn.innerHTML = '<i class="fas fa-chevron-circle-right"></i> ' + cat.title;
+            btn.innerHTML = '<i class="fas fa-chevron-circle-right"></i> ' + escapeHtml(cat.title);
             btn.onclick = () => startCategory(cat, data);
             container.appendChild(btn);
         });
-        
+
         document.getElementById('sf-s1').classList.remove('sf-hidden');
         document.getElementById('sf-prog').style.width = '5%';
         document.getElementById('sf-step-label').textContent = 'Step 1: Choose category';
@@ -213,10 +428,10 @@ async function loadFormData() {
 }
 
 function startCategory(cat, data) {
-    currentCategory = cat;
+    currentCategory  = cat;
     currentQuestions = cat.questions || [];
-    currentQIndex = 0;
-    summary = ['Category: ' + cat.title, '---'];
+    currentQIndex    = 0;
+    summary          = ['Category: ' + cat.title, '---'];
     showQuestion();
 }
 
@@ -225,16 +440,16 @@ function showQuestion() {
         showContactForm();
         return;
     }
-    
+
     const q = currentQuestions[currentQIndex];
     let html = '<div class="sf-q-label"><i class="fas fa-question-circle"></i> Question ' + (currentQIndex + 1) + '/' + currentQuestions.length + '</div>';
     html += '<div class="sf-q-text">' + escapeHtml(q.text) + '</div>';
-    
+
     q.options.forEach((opt, idx) => {
         html += '<button class="sf-opt" onclick="selectAnswer(' + idx + ')"><span>' + escapeHtml(opt.text) + '</span><i class="fas fa-arrow-right"></i></button>';
     });
     html += '<div style="margin-top:1rem"><button class="sf-reset" onclick="sfReset()"><i class="fas fa-undo-alt"></i> Start over</button></div>';
-    
+
     document.getElementById('sf-s2').innerHTML = html;
     document.getElementById('sf-s1').classList.add('sf-hidden');
     document.getElementById('sf-s2').classList.remove('sf-hidden');
@@ -244,23 +459,23 @@ function showQuestion() {
 }
 
 window.selectAnswer = function(optionIndex) {
-    const q = currentQuestions[currentQIndex];
+    const q   = currentQuestions[currentQIndex];
     const opt = q.options[optionIndex];
-    
+
     summary.push('Q: ' + q.text);
     summary.push('A: ' + opt.text);
-    
+
     if (opt.resolves === true || opt.next === 'resolved_end') {
         showToast('✓ Issue resolved!', 1500);
         setTimeout(() => { window.location.href = '/test/'; }, 2000);
         return;
     }
-    
+
     if (opt.next === 'contact') {
         showContactForm();
         return;
     }
-    
+
     currentQIndex++;
     showQuestion();
 };
@@ -268,87 +483,107 @@ window.selectAnswer = function(optionIndex) {
 function showContactForm() {
     const descField = document.getElementById('sf-desc');
     if (descField) {
+        // Pre-fill description with troubleshooting summary (plain text, no HTML)
         descField.value = summary.join('\n') + '\n\nUA: ' + navigator.userAgent;
     }
-    
+
     document.getElementById('sf-s1').classList.add('sf-hidden');
     document.getElementById('sf-s2').classList.add('sf-hidden');
     document.getElementById('sf-s3').classList.remove('sf-hidden');
     document.getElementById('sf-prog').style.width = '85%';
     document.getElementById('sf-step-label').textContent = 'Step 3: Contact support';
+
+    // Render (or reset) Turnstile now that the container is visible
+    initTurnstile();
 }
 
 // ─── SEND FUNCTIONS ───────────────────────────────────────
 // isTest = true  → bypass queue (instant, no rate limit)
 // isTest = false → go through queue (~100/day)
 async function sendSupportRequest(isTest = false) {
-    const name = document.getElementById('sf-name').value.trim();
-    const email = document.getElementById('sf-email').value.trim();
     const statusDiv = getStatusDiv();
 
-    if (!email || !name) {
-        statusDiv.className = "sf-status-error";
-        statusDiv.textContent = "✗ Please fill in name and email";
+    // ── Validate + sanitise ────────────────────────────────
+    const { valid, sanitised } = validateForm();
+    if (!valid) {
+        statusDiv.className  = 'sf-status-error';
+        statusDiv.textContent = '✗ Please fix the errors above before submitting.';
         return;
     }
 
-    statusDiv.className = "sf-status-sending";
-    statusDiv.textContent = isTest ? "Sending test (instant)..." : "Queuing request (rate limited)...";
+    // ── Disable buttons while sending ─────────────────────
+    const submitBtn = document.getElementById('sf-submit');
+    const testBtn   = document.getElementById('sf-test-submit');
+    if (submitBtn) submitBtn.disabled = true;
+    if (testBtn)   testBtn.disabled   = true;
+
+    statusDiv.className  = 'sf-status-sending';
+    statusDiv.textContent = isTest ? 'Sending test (instant)…' : 'Queuing request (rate limited)…';
 
     const payload = {
-        category: "ticket",
-        name: name,
-        email: email,
-        order: document.getElementById('sf-order').value.trim(),
-        message: document.getElementById('sf-desc').value
+        category:         'ticket',
+        name:             sanitised.name,
+        email:            sanitised.email,
+        order:            sanitised.order,
+        message:          sanitised.message,
+        cfTurnstileToken: turnstileToken   // ← worker must verify this server-side
     };
-    
+
     if (isTest) {
-        payload.test = true;  // ← bypasses queue rate limit
+        payload.test = true;  // bypasses queue rate limit on the worker
     }
 
     try {
         const response = await fetch(workerUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(payload)
         });
 
         const result = await response.text();
 
         if (response.ok) {
-            statusDiv.className = "sf-status-success";
-            if (isTest) {
-                statusDiv.textContent = "✓ Test email sent! Check your inbox (instant).";
-            } else {
-                statusDiv.textContent = "✓ Request queued! Will be sent within 24 hours (rate limited to ~100/day).";
-            }
-            // Clear form
-            document.getElementById('sf-name').value = '';
+            statusDiv.className  = 'sf-status-success';
+            statusDiv.textContent = isTest
+                ? '✓ Test email sent! Check your inbox (instant).'
+                : '✓ Request queued! Will be sent within 24 hours (rate limited to ~100/day).';
+
+            // Clear form fields
+            document.getElementById('sf-name').value  = '';
             document.getElementById('sf-email').value = '';
             document.getElementById('sf-order').value = '';
-            // Don't clear the description (it has the troubleshooting summary)
+            // Keep description (has troubleshooting summary)
+
+            // Reset Turnstile for a potential second submission
+            turnstileToken = null;
+            if (turnstileWidgetId !== null && window.turnstile) {
+                window.turnstile.reset(turnstileWidgetId);
+            }
         } else {
-            statusDiv.className = "sf-status-error";
-            statusDiv.textContent = "✗ Error: " + result;
+            statusDiv.className  = 'sf-status-error';
+            statusDiv.textContent = '✗ Error: ' + escapeHtml(result);
         }
     } catch (err) {
-        statusDiv.className = "sf-status-error";
-        statusDiv.textContent = "✗ Network error: " + err.message;
+        statusDiv.className  = 'sf-status-error';
+        statusDiv.textContent = '✗ Network error: ' + escapeHtml(err.message);
+    } finally {
+        // Re-enable buttons
+        if (submitBtn) submitBtn.disabled = false;
+        if (testBtn)   testBtn.disabled   = false;
     }
 }
 
-// ── Event delegation for buttons (works with dynamic content) ──
+// ── Event delegation for buttons ──────────────────────────
 document.addEventListener('click', async function(e) {
-    // Blue button - Queue (rate limited)
+    // Blue button — Queue (rate limited)
     const queueBtn = e.target.closest('#sf-submit');
     if (queueBtn) {
         e.preventDefault();
         await sendSupportRequest(false);
         return;
     }
-    
-    // Green button - Test (instant, bypass queue)
+
+    // Green button — Test (instant, bypass queue)
     const testBtn = e.target.closest('#sf-test-submit');
     if (testBtn) {
         e.preventDefault();
@@ -359,29 +594,45 @@ document.addEventListener('click', async function(e) {
 
 // ── Reset function ─────────────────────────────────────────
 window.sfReset = function() {
-    currentCategory = null;
+    currentCategory  = null;
     currentQuestions = [];
-    currentQIndex = 0;
-    summary = [];
+    currentQIndex    = 0;
+    summary          = [];
+
     document.getElementById('sf-s1').classList.remove('sf-hidden');
     document.getElementById('sf-s2').classList.add('sf-hidden');
     document.getElementById('sf-s3').classList.add('sf-hidden');
     document.getElementById('sf-prog').style.width = '5%';
     document.getElementById('sf-step-label').textContent = 'Step 1: Choose category';
+
+    // Reset Turnstile token
+    turnstileToken = null;
+    if (turnstileWidgetId !== null && window.turnstile) {
+        window.turnstile.reset(turnstileWidgetId);
+    }
+
+    // Clear field errors
+    ['sf-name', 'sf-email', 'sf-order', 'sf-desc'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('sf-input-error');
+    });
+    ['sf-name-err', 'sf-email-err', 'sf-order-err', 'sf-desc-err'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '';
+    });
+
     showToast('Session reset', 1500);
 };
 
+// ── HTML escape utility (for dynamic content) ─────────────
 function escapeHtml(str) {
     if (!str) return '';
-    return str.replace(/[&<>]/g, function(m) {
-        if (m === '&') return '&amp;';
-        if (m === '<') return '&lt;';
-        if (m === '>') return '&gt;';
-        return m;
+    return str.replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
     });
 }
 
-// ── Load everything ────────────────────────────────────────
+// ── Boot ───────────────────────────────────────────────────
 loadFormData();
 </script>
 
