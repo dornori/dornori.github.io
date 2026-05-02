@@ -771,11 +771,11 @@ const Shop = (() => {
       total_eur: "€"+totals.total.toFixed(2), total_display: fmt(totals.total),
       total_weight: fmtWeight(totals.totalWeight||0),
     };
-    try { const ok = await sendToQueue("order-pre-payment", data); return ok; } catch(e) { console.warn("Queue failed",e); return false; }
+    try { const ok = await sendToQueue("payment-pending", data); return ok; } catch(e) { console.warn("Queue failed",e); return false; }
   }
   
   async function submitOrderStatus(orderRef, status) {
-    try { await sendToQueue("order-post-payment", { _subject:`Order ${status}: ${orderRef}`, order_ref:orderRef, status }); } catch {}
+    try { await sendToQueue("payment-success", { _subject:`Order ${status}: ${orderRef}`, order_ref:orderRef, status }); } catch {}
   }
 
   /* ─── PUBLIC API ────────────────────────────────────── */
