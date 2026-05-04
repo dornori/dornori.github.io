@@ -1,6 +1,145 @@
-<h1>About Dornori</h1>
-<p>Some text...</p>
+<h2>Star&#8209;A — Pre-Printed Parts Kit</h2>
+<p><strong>All the mechanical parts. You supply the electronics.</strong> &nbsp;|&nbsp; Professionally printed in PLA+ &nbsp;|&nbsp; Test-fitted before packing &nbsp;|&nbsp; <em>Coming Soon</em></p>
 
-<div class="embed-form"></div>
+<!-- Parts overview slideshow -->
+<div class="slideshow-root"
+     gallery-size="400x300"
+     gallery-border="yes"
+     gallery-shape="rounded"
+     gallery-images="cutting-mat-parts-UFO-0,cutting-mat-parts-UFO-1,cutting-mat-parts-UFO-2,cutting-mat-parts-UFO-3,cutting-mat-parts-UFO-4,cutting-mat-parts-UFO-5"
+     gallery-folder="/test/assets/images/cutting-mat/"
+     gallery-interval="2000">
+</div>
 
-<p>More text after the form...</p>
+<h3>Already have the electronics. Want to build?</h3>
+<p>If you've sourced the electrical components yourself — or you already own a Star&#8209;A and want to build a second unit in a different colourway — this is your kit. Every structural part professionally printed in PLA+, test-fitted before packing, and ready to assemble.</p>
+<p>No 3D printer needed. No post-processing. No hunting for settings. Just clean, accurate parts and the <a data-page="files">assembly guide from the full 3D Print Files package</a>.</p>
+
+<h3>What's included</h3>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem 2rem;margin:1rem 0 1.5rem;font-size:.9rem;">
+  <div style="border-bottom:1px solid var(--border,#e5e0d8);padding:.5rem 0;">Base housing</div>
+  <div style="border-bottom:1px solid var(--border,#e5e0d8);padding:.5rem 0;">Telescoping tube sections</div>
+  <div style="border-bottom:1px solid var(--border,#e5e0d8);padding:.5rem 0;">Gear housing</div>
+  <div style="border-bottom:1px solid var(--border,#e5e0d8);padding:.5rem 0;">Motor mount</div>
+  <div style="border-bottom:1px solid var(--border,#e5e0d8);padding:.5rem 0;">Lamp head — UFO or Mushroom (your choice)</div>
+  <div style="border-bottom:1px solid var(--border,#e5e0d8);padding:.5rem 0;">All M3 screws and fasteners in labelled bags</div>
+  <div style="padding:.5rem 0;">Full-colour assembly guide (digital)</div>
+</div>
+
+<h3>What you'll need to source</h3>
+<p>Full specifications in the <a data-page="files">Bill of Materials</a>. Standard components available at any electronics retailer.</p>
+<ul>
+  <li>DC motor (12 V)</li>
+  <li>3-position lever switch (Up–0–Down)</li>
+  <li>Power switch with integrated LED indicator</li>
+  <li>3 W LED Star lamp head</li>
+  <li>3× protected 18650 battery cells</li>
+  <li>Wago connectors and Faston crimp connectors</li>
+  <li>Colour-coded wire harness</li>
+</ul>
+
+<p>Want to skip the sourcing entirely? Add our <a data-page="electronics-bundle">Electronics Bundle</a> to get everything in one box — or choose the <a data-page="kit">Complete Assembly Kit</a> which includes printed parts <em>and</em> full electronics.</p>
+
+<h3>Print quality — what to expect</h3>
+<div style="border:1px solid var(--border,#e5e0d8);border-radius:14px;padding:1.25rem 1.5rem;margin:1rem 0 1.5rem;">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;font-size:.88rem;">
+    <div><strong style="display:block;margin-bottom:.3rem;">Material</strong><span style="opacity:.7;">PLA+ — tested for structural integrity and surface quality</span></div>
+    <div><strong style="display:block;margin-bottom:.3rem;">Infill</strong><span style="opacity:.7;">20% for structural parts — same spec as our own kit</span></div>
+    <div><strong style="display:block;margin-bottom:.3rem;">Fit</strong><span style="opacity:.7;">All parts test-assembled before packing — no post-processing needed</span></div>
+  </div>
+</div>
+
+<!-- ── PRE-PRINTED PARTS SHOP INTEGRATION ───────────────────────────────────
+     Shop functions used:
+       • buildProductCard()   — renders the shoppable card for the printed parts product
+       • wireProductCard()    — attaches variant switching, qty controls, ATC
+       • variantPrice()       — shows live price per selected variant
+       • variantInStock()     — stock status per variant
+       • variantImage()       — swaps preview image on variant switch
+     ──────────────────────────────────────────────────────────────────────── -->
+
+<hr>
+
+<h3>Order Pre-Printed Parts</h3>
+<p style="font-size:.88rem;opacity:.7;margin-bottom:1.5rem;line-height:1.6;">
+  Select your lamp head model and colourway. Price updates live with your selected currency.
+</p>
+
+<div id="printed-parts-root" class="webshop-grid" style="margin-bottom:2rem;"></div>
+
+<script>
+(function initPrintedPartsShop() {
+  var PRODUCT_IDS = ['arc-floor-lamp', 'half-moon-sconce'];
+
+  function run() {
+    if (typeof Shop === 'undefined') return;
+
+    fetch('/test/shop/data/products.json')
+      .then(function(r){ return r.json(); })
+      .then(function(products) {
+        var grid = document.getElementById('printed-parts-root');
+        if (!grid) return;
+
+        var filtered = products.filter(function(p){ return PRODUCT_IDS.indexOf(p.id) !== -1; });
+        filtered.sort(function(a, b){ return PRODUCT_IDS.indexOf(a.id) - PRODUCT_IDS.indexOf(b.id); });
+
+        filtered.forEach(function(p) {
+          var card = document.createElement('div');
+          card.className = 'webshop-product-card';
+          card.innerHTML = Shop.buildProductCard(p);
+          grid.appendChild(card);
+          Shop.wireProductCard(card, p);
+
+          if (p.variants && p.variants.length) {
+            var variantBtns = card.querySelectorAll('.webshop-variant-btn');
+            variantBtns.forEach(function(btn) {
+              btn.addEventListener('click', function() {
+                var vid = btn.dataset.variantId;
+                var inStock = Shop.variantInStock(p, vid);
+                var priceEl = card.querySelector('.webshop-card-price');
+                if (priceEl) priceEl.textContent = Shop.fmt(Shop.variantPrice(p, vid));
+                var imgEl = card.querySelector('.webshop-card-img');
+                if (imgEl) {
+                  var src = Shop.variantImage(p, vid);
+                  if (src) imgEl.src = src;
+                }
+              });
+            });
+          }
+        });
+      });
+  }
+
+  if (typeof Shop !== 'undefined') { run(); }
+  else { document.addEventListener('webshop:ready', run); }
+})();
+</script>
+
+<script>
+(function wirePdpLinks() {
+  function patch(root) {
+    (root || document).querySelectorAll('a[href*="/test/en/product/?id="]').forEach(function(a) {
+      if (a._pdpWired) return;
+      a._pdpWired = true;
+      a.addEventListener('click', function(e) {
+        var id = new URLSearchParams(a.getAttribute('href').split('?')[1]).get('id');
+        if (!id) return;
+        if (typeof window.openProduct === 'function') { e.preventDefault(); window.openProduct(id); }
+      });
+    });
+  }
+  var ticks = 0;
+  var iv = setInterval(function() { patch(document); if (++ticks > 40) clearInterval(iv); }, 250);
+  document.addEventListener('shop:cartUpdated', function() { patch(document); });
+})();
+</script>
+
+<h3>Useful links</h3>
+<ul>
+  <li><a data-page="electronics-bundle">Electronics Bundle — all the components, one box</a></li>
+  <li><a data-page="kit">Complete Assembly Kit — printed parts + full electronics + guide</a></li>
+  <li><a data-page="files">3D Print Files — download and print your own parts</a></li>
+  <li><a data-page="built">Fully assembled Star&#8209;A — ready to use out of the box</a></li>
+  <li><a data-page="children">Child Safety Guidelines</a></li>
+</ul>
