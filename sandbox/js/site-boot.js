@@ -19,7 +19,7 @@
 
     // ── The one path constant ──────────────────────────────────────────────────
     // Keep in sync with SITE_CONFIG.appearance.base_path (js/config.js).
-    var BASE_PATH = '/sandbox';
+    var BASE_PATH = '/sandbox/';
 
     // ── Language detection ────────────────────────────────────────────────────
     var LANG_KEY = 'dornori-lang'; // mirrors SITE_CONFIG.storageKeys.lang

@@ -8,7 +8,7 @@ const SITE_CONFIG = {
         bgDark:             '#050505',
         bannerStickyOffset: 0.35,
         root_url:           'https://dornori.com',
-        base_path:          '/sandbox',
+        base_path:          '/sandbox/',
     },
 
     paths: {
