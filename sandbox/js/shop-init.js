@@ -104,7 +104,7 @@
         // Must stay in sync with url_slugs[lang].cart in js/config.js.
         var slugs = { en: 'cart', nl: 'winkelwagen', de: 'warenkorb', fr: 'panier' };
         var base  = cfg.basePath || '/shop/';           // SHOP_CONFIG.basePath
-        // basePath is like '/test/shop/' — strip 'shop/' to get site base
+        // basePath is like '/sandbox/shop/' — strip 'shop/' to get site base
         var siteBase = base.replace(/shop\/$/, '');
         var l        = lang || window.LANG || localStorage.getItem('dornori-lang') || 'en';
         return siteBase + l + '/' + (slugs[l] || 'cart') + '/';

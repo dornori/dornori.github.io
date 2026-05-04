@@ -2,10 +2,11 @@
  * footer-loader.js
  * Reads labels from window.T (loaded by i18n.js from lang/{code}.json).
  * Exposes window.renderFooter() so setLang() can re-render on language switch.
- * Uses language-specific pretty URLs via SITE_CONFIG.pageUrlSlug().
+ * Uses language-specific pretty URLs via getSlug() from i18n.js.
  */
 
 import SITE_CONFIG from './config.js';
+import { getSlug } from './i18n.js';
 
 window.renderFooter = () => {
     const container = document.getElementById('footer-links');
@@ -35,12 +36,10 @@ window.renderFooter = () => {
         }
 
         visibleLinks.forEach(link => {
-            const lang    = window.LANG || SITE_CONFIG.fallbackLang();
+            const lang    = window.LANG || SITE_CONFIG.languages[0].code;
             const base    = SITE_CONFIG.appearance.base_path;
-            const urlSlug = SITE_CONFIG.pageUrlSlug(link.slug, lang);
-            const href    = lang === 'en'
-                ? `${base}en/${urlSlug}/`
-                : `${base}${lang}/${urlSlug}/`;
+            const urlSlug = getSlug(window.T, link.slug);
+            const href    = `${base}${lang}/${urlSlug}/`;
 
             const a         = document.createElement('a');
             a.href          = href;

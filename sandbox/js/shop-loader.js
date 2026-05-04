@@ -104,7 +104,7 @@ export async function initShop() {
     CONFIG.modules = (CONFIG.modules || []).map(m => SHOP_BASE + m);
 
     // ── 4. Sync language from parent site ────────────────────────────────
-    const siteLang = localStorage.getItem(SITE_CONFIG.storageKeys.lang) || window.__PAGE_LANG__ || SITE_CONFIG.fallbackLang();
+    const siteLang = localStorage.getItem(SITE_CONFIG.storageKeys.lang) || window.__PAGE_LANG__ || SITE_CONFIG.languages[0].code;
     CONFIG.language = siteLang;
     localStorage.setItem(SITE_CONFIG.storageKeys.lang, siteLang);
 
@@ -201,8 +201,8 @@ export async function mountShopEmbeds(root) {
     if (typeof Shop === 'undefined') return;
 
     const base = SITE_CONFIG.appearance.base_path;
-    const lang = window.LANG || localStorage.getItem(SITE_CONFIG.storageKeys.lang) || SITE_CONFIG.fallbackLang();
-    const cartSlug = SITE_CONFIG.pageUrlSlug('cart', lang);
+    const lang = window.LANG || localStorage.getItem(SITE_CONFIG.storageKeys.lang) || SITE_CONFIG.languages[0].code;
+    const cartSlug = (window.T?.url_slugs?.cart || 'cart');
     const cartHref = `${base}${lang}/${cartSlug}/`;
 
     let allProducts;
