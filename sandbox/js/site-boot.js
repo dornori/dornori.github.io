@@ -102,7 +102,9 @@
     document.documentElement.setAttribute('lang', lang);
 
     // ── Globals derived from BASE_PATH ────────────────────────────────────────
-    window.__CART_URL__ = BASE_PATH + lang + '/cart/';
+    // NOTE: __CART_URL__ is intentionally NOT set here.
+    // i18n.js sets it correctly via cartUrl() after lang data (url_slugs) loads,
+    // so NL users get /nl/winkelwagen/ rather than a hardcoded /nl/cart/.
 
     window.SHOP_CONFIG = {
         basePath: BASE_PATH + 'shop/',
