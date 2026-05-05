@@ -17,7 +17,8 @@ export function initStickyBanner() {
     const mobileNav = document.getElementById('mobile-nav');
     if (!header || !bannerImg) return;
 
-    bannerImg.onclick = () => {
+    bannerImg.onclick = (e) => {
+        e.stopPropagation();
         if (typeof window.showHome === 'function') window.showHome();
         else window.location.href = SITE_CONFIG.appearance.base_path + (window.LANG || 'en') + '/';
     };
