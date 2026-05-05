@@ -164,7 +164,7 @@ export function initNavigation() {
         profileSelect.setAttribute('aria-label', 'Choose colour profile');
         profileSelect.setAttribute('tabindex', '-1');
 
-        SITE_CONFIG.features.profiles.forEach(id => {
+        SITE_CONFIG.profiles.forEach(id => {
             const opt       = document.createElement('option');
             opt.value       = id;
             opt.textContent = getProfileLabel(window.T, id).toUpperCase();

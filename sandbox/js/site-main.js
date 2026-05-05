@@ -11,7 +11,75 @@ import { initEmbedForms }   from './embed-form.js';
 import { initPageLoader }   from './page-loader.js';
 import { initFooter }       from './footer-loader.js';
 
+/**
+ * Load dynamic configuration from data files
+ * - Languages from countries.json (active countries with siteLang)
+ * - Profiles from profiles.json
+ */
+async function loadDynamicConfig() {
+    const basePath = SITE_CONFIG.appearance.base_path;
+    
+    // Load countries and extract languages
+    try {
+        const countriesRes = await fetch(basePath + SITE_CONFIG.paths.countries_file);
+        const countries = await countriesRes.json();
+        
+        // Extract unique languages from active countries with siteLang
+        const languagesMap = new Map();
+        const languageLabels = {
+            'en': { label: 'English', flag: '🇬🇧' },
+            'de': { label: 'Deutsch', flag: '🇩🇪' },
+            'nl': { label: 'Nederlands', flag: '🇳🇱' },
+            'fr': { label: 'Français', flag: '🇫🇷' },
+            'es': { label: 'Español', flag: '🇪🇸' },
+            'pt': { label: 'Português', flag: '🇵🇹' }
+        };
+        
+        countries.forEach(country => {
+            if (country.active && country.siteLang) {
+                const langCode = country.siteLang;
+                if (!languagesMap.has(langCode)) {
+                    const langInfo = languageLabels[langCode] || { label: langCode.toUpperCase(), flag: '🏳️' };
+                    languagesMap.set(langCode, {
+                        code: langCode,
+                        hreflang: country.hreflang ? country.hreflang.split('-')[0] : langCode,
+                        label: langInfo.label,
+                        flag: langInfo.flag
+                    });
+                }
+            }
+        });
+        
+        // Convert to array and sort (English first, then alphabetically)
+        SITE_CONFIG.languages = Array.from(languagesMap.values()).sort((a, b) => 
+            a.code === 'en' ? -1 : b.code === 'en' ? 1 : a.code.localeCompare(b.code)
+        );
+    } catch (e) {
+        console.error('[site-main] Failed to load languages from countries.json:', e);
+        // Fallback to default languages
+        SITE_CONFIG.languages = [
+            { code: 'en', hreflang: 'en', label: 'English', flag: '🇬🇧' },
+            { code: 'de', hreflang: 'de', label: 'Deutsch', flag: '🇩🇪' },
+            { code: 'nl', hreflang: 'nl', label: 'Nederlands', flag: '🇳🇱' },
+            { code: 'fr', hreflang: 'fr', label: 'Français', flag: '🇫🇷' },
+        ];
+    }
+    
+    // Load profiles
+    try {
+        const profilesRes = await fetch(basePath + SITE_CONFIG.paths.profiles_file);
+        SITE_CONFIG.profiles = await profilesRes.json();
+    } catch (e) {
+        console.error('[site-main] Failed to load profiles.json:', e);
+        // Fallback to default profiles
+        SITE_CONFIG.profiles = ['dark', 'light', 'cutting-mat', 'cutting-blue'];
+    }
+}
+
 async function init() {
+    // Load dynamic configuration first
+    await loadDynamicConfig();
+    
     // Persist page language before anything else (prevents flash)
     const savedLang = localStorage.getItem(SITE_CONFIG.storageKeys.lang);
     const pageLang  = window.__PAGE_LANG__;

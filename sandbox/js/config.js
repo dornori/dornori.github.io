@@ -13,6 +13,7 @@ const SITE_CONFIG = {
 
     paths: {
         countries_file:  'data/countries.json',
+        profiles_file:   'data/profiles.json',
         shipping_file:   'data/shipping.json',
         lang_dir:        'lang/',
         content_dir:    'content/',
@@ -26,15 +27,11 @@ const SITE_CONFIG = {
         theme: 'dornori-theme',
     },
 
-    // Static language list — structural config, not fetched at runtime
-    languages: [
-        { code: 'en', hreflang: 'en', label: 'English',    flag: '🇬🇧' },
-        { code: 'nl', hreflang: 'nl', label: 'Nederlands', flag: '🇳🇱' },
-    ],
-
-    features: {
-        profiles: ['dark', 'light', 'cutting-mat']
-    },
+    // Languages loaded dynamically from countries.json (active countries with siteLang)
+    // Profiles loaded dynamically from data/profiles.json
+    // These are initialized by loadDynamicConfig() in site-boot.js
+    languages: [],
+    profiles: [],
 
     endpoints: {
         formHandler: 'https://edge-form-handler-api.dornori-info.workers.dev',
@@ -96,7 +93,7 @@ const SITE_CONFIG = {
         returns:             { file: 'returns.html'           },
         contact:             { file: 'form.html'              },
         support:             { file: 'support.html'           },
-        gallery:             { file: 'gallery.html'         },
+        gallery:             { file: 'gallery-1.html'         },
         cart:                { file: 'cart.html'              },
         shop:                { file: 'shop.html'              },
         product:             { file: 'product.html'           },
