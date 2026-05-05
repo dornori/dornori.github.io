@@ -19,7 +19,7 @@ export function initStickyBanner() {
 
     bannerImg.onclick = () => {
         if (typeof window.showHome === 'function') window.showHome();
-        else window.location.href = SITE_CONFIG.appearance.root_url;
+        else window.location.href = SITE_CONFIG.appearance.base_path + (window.LANG || 'en') + '/';
     };
 
     let maxOffset = 0;
