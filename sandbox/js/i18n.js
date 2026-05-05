@@ -140,7 +140,10 @@ window.setLang = async (code) => {
     if (typeof window.renderFooter === 'function') window.renderFooter();
 
     if (typeof Shop !== 'undefined' && typeof Shop.switchLanguage === 'function') {
-        try { await Shop.switchLanguage(code); } catch {}
+        try {
+            await Shop.switchLanguage(code);
+            // switchLanguage dispatches shop:langChanged which triggers cart panel re-render
+        } catch (e) { console.warn('[i18n] Shop.switchLanguage failed:', e); }
     }
 
     const slug = window.CURRENT_SLUG || '';

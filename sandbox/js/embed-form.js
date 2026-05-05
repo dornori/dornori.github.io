@@ -10,7 +10,6 @@
  */
 
 import SITE_CONFIG from './config.js';
-import { sendToQueue } from './modules/queue-sender.js';
 
 /* ─── HTML template ────────────────────────────────────────────────────────── */
 function buildFormHTML(uid) {

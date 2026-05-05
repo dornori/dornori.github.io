@@ -1,10 +1,3 @@
-/**
- * footer-loader.js
- * Reads labels from window.T (loaded by i18n.js from lang/{code}.json).
- * Exposes window.renderFooter() so setLang() can re-render on language switch.
- * Uses language-specific pretty URLs via getSlug() from i18n.js.
- */
-
 import SITE_CONFIG from './config.js';
 import { getSlug } from './i18n.js';
 
@@ -22,8 +15,8 @@ window.renderFooter = () => {
         const visibleLinks = column.links.filter(l => l.enabled);
         if (!visibleLinks.length) return;
 
-        const tCol    = T.columns?.[colIndex] || {};
-        const tLinks  = tCol.links || {};
+        const tCol   = T.columns?.[colIndex] || {};
+        const tLinks = tCol.links || {};
 
         const col     = document.createElement('div');
         col.className = 'footer-col';
@@ -41,16 +34,12 @@ window.renderFooter = () => {
             const urlSlug = getSlug(window.T, link.slug);
             const href    = `${base}${lang}/${urlSlug}/`;
 
-            const a         = document.createElement('a');
-            a.href          = href;
-            a.className     = 'footer-link';
-            a.textContent   = tLinks[link.slug] || link.label;
+            const a       = document.createElement('a');
+            a.href        = href;
+            a.className   = 'footer-link';
+            a.textContent = tLinks[link.slug] || link.label || link.slug;
             a.setAttribute('data-slug', link.slug);
-
-            a.addEventListener('click', e => {
-                e.preventDefault();
-                window.viewPage(link.slug);
-            });
+            a.addEventListener('click', e => { e.preventDefault(); window.viewPage(link.slug); });
 
             col.appendChild(a);
         });

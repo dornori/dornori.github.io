@@ -8,13 +8,13 @@ const SITE_CONFIG = {
         bgDark:             '#050505',
         bannerStickyOffset: 0.35,
         root_url:           'https://dornori.com',
-        base_path:          '/sandbox/',
+        base_path:          '/',
     },
 
     paths: {
-        countries_file: 'data/countries.json',
-        shipping_file:  'data/shipping.json',
-        lang_dir:       'lang/',
+        countries_file:  'data/countries.json',
+        shipping_file:   'data/shipping.json',
+        lang_dir:        'lang/',
         content_dir:    'content/',
         icons_dir:      'assets/icons/',
         shop_dir:       'shop/',

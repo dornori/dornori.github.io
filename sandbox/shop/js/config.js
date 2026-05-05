@@ -6,9 +6,9 @@
    · All logic (Currency, Shipping, Payment modules) lives
      in their own .js files under js/modules/.
    · Supported languages are derived at runtime from the
-     shipping.csv country list (see js/modules/shipping.js).
+     shipping.json country list (see js/modules/shipping.js).
    · Supported countries for the shipping form come from
-     shipping.csv — do NOT maintain a separate list here.
+     shipping.json — do NOT maintain a separate list here.
    ========================================================= */
 
 const CONFIG = {
@@ -21,7 +21,7 @@ const CONFIG = {
   baseCurrency: "EUR",
 
   /* ── Language defaults ─────────────────────────────── */
-  /* Supported languages are auto-derived from shipping.csv:
+  /* Supported languages are auto-derived from shipping.json:
    * each country's locale → base language code.
    * Multiple countries sharing a language (en-US, en-GB,
    * en-CA) resolve to the single base code ("en").
@@ -66,7 +66,7 @@ const CONFIG = {
   businessVatExempt:  false,
 
   /* ── Shipping defaults ─────────────────────────────── */
-  /* These are overridden at runtime by shipping.csv values.
+  /* These are overridden at runtime by shipping.json values.
    * They serve as safe fallbacks if the CSV cannot be fetched.
    */
   shipping: {
@@ -79,11 +79,9 @@ const CONFIG = {
 
   /* ── Data file paths ───────────────────────────────── */
   data: {
-    shippingCsv:     "data/shipping.csv",
-    currenciesCsv:   "data/currencies.csv",
-    langUiDir:       "data/lang/ui/",
-    langProductsDir: "data/lang/products/",
-    productsJson:    "data/products.json",
+    shippingJson:    "data/shipping.json",
+    langDir:         "lang/",
+    productsJson:    "../data/products.json",
   },
 
   /* ── Modules to load ───────────────────────────────── */

@@ -1,9 +1,9 @@
 /* =========================================================
    WEBSHOP SHOP ENGINE  –  shop.js  (v4 - FIXED)
    =========================================================
-   Language file structure (v4):
-     data/lang/ui/{lang}.json       — UI strings only
-     data/lang/products/{lang}.json — product text only
+   Language file structure:
+     lang/{lang}/common.json   — UI strings, slugs, profiles
+     lang/{lang}/products.json — product text
    ========================================================= */
 
 const Shop = (() => {
@@ -171,11 +171,13 @@ const Shop = (() => {
       .then(r => { if (!r.ok) throw 0; return r.json(); })
       .catch(() => ({}));
 
+    const langDir = CONFIG.data.langDir || '';
+    const fallback = CONFIG.defaultLanguage || 'en';
     _langLoadPromise = Promise.all([
-      safeFetch(CONFIG.data.langUiDir + lang + ".json"),
-      safeFetch(CONFIG.data.langUiDir + (CONFIG.defaultLanguage || "en") + ".json"),
-      safeFetch(CONFIG.data.langProductsDir + lang + ".json"),
-      safeFetch(CONFIG.data.langProductsDir + (CONFIG.defaultLanguage || "en") + ".json"),
+      safeFetch(langDir + lang    + '/common.json'),
+      safeFetch(langDir + fallback + '/common.json'),
+      safeFetch(langDir + lang    + '/products.json'),
+      safeFetch(langDir + fallback + '/products.json'),
     ]).then(([ui, uiEn, prod, prodEn]) => {
       LANG = { ...uiEn, ...ui };
       const clean = obj => { const r = { ...obj }; delete r._readme; return r; };

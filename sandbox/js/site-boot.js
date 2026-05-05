@@ -19,7 +19,7 @@
 
     // ── The one path constant ──────────────────────────────────────────────────
     // Keep in sync with SITE_CONFIG.appearance.base_path (js/config.js).
-    var BASE_PATH = '/sandbox/';
+    var BASE_PATH = '/';
 
     // ── Language detection ────────────────────────────────────────────────────
     var LANG_KEY = 'dornori-lang'; // mirrors SITE_CONFIG.storageKeys.lang
@@ -40,7 +40,7 @@
 
     window.SHOP_CONFIG = {
         basePath: BASE_PATH + 'shop/',
-        dataPath: BASE_PATH + 'shop/data/',
+        dataPath: BASE_PATH + 'data/',
         jsPath:   BASE_PATH + 'shop/js/',
     };
 

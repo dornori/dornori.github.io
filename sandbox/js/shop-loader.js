@@ -17,6 +17,7 @@
  */
 
 import SITE_CONFIG from './config.js';
+import { getSlug } from './i18n.js';
 
 const SHOP_BASE = SITE_CONFIG.appearance.base_path + 'shop/';
 
@@ -158,14 +159,8 @@ export async function initShop() {
         }
     });
 
-    // Patch setLang so shop re-renders when language switches
-    const _origSetLang = window.setLang;
-    window.setLang = async function (code) {
-        if (_origSetLang) await _origSetLang(code);
-        if (typeof Shop !== 'undefined') {
-            try { await Shop.switchLanguage(code); } catch (e) {}
-        }
-    };
+
+    // i18n.js setLang already calls Shop.switchLanguage — no wrapping needed here
 }
 
 /**
@@ -202,7 +197,7 @@ export async function mountShopEmbeds(root) {
 
     const base = SITE_CONFIG.appearance.base_path;
     const lang = window.LANG || localStorage.getItem(SITE_CONFIG.storageKeys.lang) || SITE_CONFIG.languages[0].code;
-    const cartSlug = (window.T?.url_slugs?.cart || 'cart');
+    const cartSlug = getSlug(window.T, 'cart');
     const cartHref = `${base}${lang}/${cartSlug}/`;
 
     let allProducts;
