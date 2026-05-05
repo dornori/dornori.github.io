@@ -50,7 +50,7 @@ window.renderNav = () => {
     const existingTab = document.getElementById('topBar-tab');
     if (existingTab) {
         const span = existingTab.querySelector('span');
-        if (span) span.textContent = T.ui?.settings || T.settings || 'SETTINGS';
+        if (span) span.textContent = T.ui?.settings || 'SETTINGS';
     }
 
     const topBar = document.getElementById('topBar');
@@ -59,7 +59,7 @@ window.renderNav = () => {
         if (profileWrapLabel) {
             for (const node of profileWrapLabel.childNodes) {
                 if (node.nodeType === Node.TEXT_NODE) {
-                    node.textContent = (T.ui?.profile || T.profile || 'PROFILE') + ' ';
+                    node.textContent = (T.ui?.profile || 'PROFILE') + ' ';
                     break;
                 }
             }
@@ -68,7 +68,7 @@ window.renderNav = () => {
         if (langWrapLabel) {
             for (const node of langWrapLabel.childNodes) {
                 if (node.nodeType === Node.TEXT_NODE) {
-                    node.textContent = (T.ui?.language || T.language || 'LANGUAGE') + ' ';
+                    node.textContent = (T.ui?.language || 'LANGUAGE') + ' ';
                     break;
                 }
             }
@@ -151,12 +151,12 @@ export function initNavigation() {
     /* ── Settings topBar ── */
     const topBar = document.getElementById('topBar');
     if (topBar) {
-        const T = window.T?.ui || {};
+        const T = window.T || {};
 
         // Profile selector
         const profileWrap       = document.createElement('label');
         profileWrap.className   = 'profile-selector-wrap';
-        profileWrap.textContent = (T.profile || 'PROFILE') + ' ';
+        profileWrap.textContent = (T.ui?.profile || 'PROFILE') + ' ';
 
         const profileSelect     = document.createElement('select');
         profileSelect.id        = 'profileSelect';
@@ -183,7 +183,7 @@ export function initNavigation() {
         // Language selector
         const langWrap       = document.createElement('label');
         langWrap.className   = 'profile-selector-wrap';
-        langWrap.textContent = (T.language || 'LANGUAGE') + ' ';
+        langWrap.textContent = (T.ui?.language || 'LANGUAGE') + ' ';
 
         const langSelect     = document.createElement('select');
         langSelect.id        = 'langSelect';
@@ -232,7 +232,7 @@ export function initNavigation() {
                          l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09
                          a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
-            <span>${T.settings || 'SETTINGS'}</span>
+            <span>${T.ui?.settings || 'SETTINGS'}</span>
         `;
         topBar.appendChild(tab);
 
