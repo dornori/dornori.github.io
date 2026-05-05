@@ -30,8 +30,6 @@ const SITE_CONFIG = {
     languages: [
         { code: 'en', hreflang: 'en', label: 'English',    flag: '🇬🇧' },
         { code: 'de', hreflang: 'de', label: 'Deutsch',    flag: '🇩🇪' },
-        { code: 'nl', hreflang: 'nl', label: 'Nederlands', flag: '🇳🇱' },
-        { code: 'fr', hreflang: 'fr', label: 'Français',   flag: '🇫🇷' },
     ],
 
     features: {
