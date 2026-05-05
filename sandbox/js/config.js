@@ -7,8 +7,8 @@ const SITE_CONFIG = {
         icyLemon:           '#F5F29B',
         bgDark:             '#050505',
         bannerStickyOffset: 0.35,
-        root_url:           'https://dornori.com/sandbox',
-        base_path:          '/',
+        root_url:           'https://dornori.com',
+        base_path:          '/sandbox',
     },
 
     paths: {
