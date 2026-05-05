@@ -209,8 +209,24 @@ export function initPageLoader() {
 
     // ── LOAD HOME ─────────────────────────────────────────────────────────────
     window.loadHome = async () => {
+        const lang = window.LANG || fallbackLang();
+        // If English home content was pre-rendered server-side (inlined in index.html),
+        // skip the fetch and just wire up interactive elements.
+        const alreadyPopulated = homeView.querySelector('h2, .slideshow-root, .webshop-product-card');
+        if (lang === 'en' && alreadyPopulated) {
+            rewriteContentPaths(homeView);
+            homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
+            initEmbedForms();
+            wireShopCards(homeView);
+            homeView.classList.remove('hidden');
+            pageView.classList.add('hidden');
+            const base    = SITE_CONFIG.appearance.base_path;
+            const homeUrl = `${base}${lang}/`;
+            window.history.replaceState({}, '', homeUrl);
+            updateSEO('');
+            return;
+        }
         try {
-            const lang = window.LANG || fallbackLang();
             const base = SITE_CONFIG.appearance.base_path;
             const res  = await fetch(`${base}content/${lang}/home.html`);
             if (!res.ok) throw new Error();
@@ -225,7 +241,6 @@ export function initPageLoader() {
         }
         homeView.classList.remove('hidden');
         pageView.classList.add('hidden');
-        const lang    = window.LANG || fallbackLang();
         const base    = SITE_CONFIG.appearance.base_path;
         const homeUrl = `${base}${lang}/`;
         window.history.replaceState({}, '', homeUrl);

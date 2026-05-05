@@ -11,8 +11,21 @@
 
     // Derive BASE_PATH from this script's own URL — zero hardcoding in HTML.
     // Works at any deployment path automatically.
+    // With defer, document.currentScript is null — fall back to searching script tags.
     var BASE_PATH = (function() {
-        var src = (document.currentScript && document.currentScript.src) || '';
+        var src = '';
+        if (document.currentScript && document.currentScript.src) {
+            src = document.currentScript.src;
+        } else {
+            // Deferred script: find ourselves by filename
+            var scripts = document.querySelectorAll('script[src]');
+            for (var i = 0; i < scripts.length; i++) {
+                if (scripts[i].src.indexOf('/js/site-boot.js') !== -1) {
+                    src = scripts[i].src;
+                    break;
+                }
+            }
+        }
         // src is absolute: https://example.com/sandbox/js/site-boot.js
         // Strip everything from /js/site-boot.js onward
         var idx = src.indexOf('/js/site-boot.js');
@@ -28,9 +41,13 @@
     // ── Inject all CSS and JS assets using BASE_PATH ──────────────────────────
     function injectStyles(hrefs) {
         hrefs.forEach(function (href) {
+            var fullHref = BASE_PATH + href;
+            // Skip if already present (e.g. inlined in index.html <head>)
+            var existing = document.querySelector('link[rel="stylesheet"][href="' + fullHref + '"]');
+            if (existing) return;
             var link  = document.createElement('link');
             link.rel  = 'stylesheet';
-            link.href = BASE_PATH + href;
+            link.href = fullHref;
             document.head.appendChild(link);
         });
     }
@@ -102,9 +119,7 @@
     document.documentElement.setAttribute('lang', lang);
 
     // ── Globals derived from BASE_PATH ────────────────────────────────────────
-    // NOTE: __CART_URL__ is intentionally NOT set here.
-    // i18n.js sets it correctly via cartUrl() after lang data (url_slugs) loads,
-    // so NL users get /nl/winkelwagen/ rather than a hardcoded /nl/cart/.
+    window.__CART_URL__ = BASE_PATH + lang + '/cart/';
 
     window.SHOP_CONFIG = {
         basePath: BASE_PATH + 'shop/',
