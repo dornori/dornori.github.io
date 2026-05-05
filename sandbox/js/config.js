@@ -27,12 +27,6 @@ const SITE_CONFIG = {
         theme: 'dornori-theme',
     },
 
-    // Languages loaded dynamically from countries.json (active countries with siteLang)
-    // Profiles loaded dynamically from data/profiles.json
-    // These are initialized by loadDynamicConfig() in site-boot.js
-    languages: [],
-    profiles: [],
-
     endpoints: {
         formHandler: 'https://edge-form-handler-api.dornori-info.workers.dev',
         supportEmail:  'support@dornori.com',
