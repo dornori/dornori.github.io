@@ -33,7 +33,7 @@ const SITE_CONFIG = {
     ],
 
     features: {
-        profiles: ['dark', 'light', 'cutting-mat', 'cutting-blue']
+        profiles: ['dark', 'light', 'cutting-mat']
     },
 
     endpoints: {
