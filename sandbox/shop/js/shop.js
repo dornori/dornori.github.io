@@ -364,7 +364,7 @@ const Shop = (() => {
             <div class="webshop-cart-hover-panel__totals webshop-cart-hover-panel__totals--shipping">
               <span>${t("shipping","Shipping")}</span><span>${isFreeShipping ? t("free","FREE") : fmt(shipping)}</span>
             </div>
-            <a class="webshop-btn webshop-btn--primary" href="${cartUrl}">${t("checkout","Checkout")}</a>
+            <a class="webshop-btn webshop-btn--primary" href="${(typeof window !== 'undefined' && window.__CART_URL__) || cartUrl}">${t("checkout","Checkout")}</a>
           </div>`;
         dropdown.querySelectorAll(".webshop-cart-hover-panel__remove").forEach(btn => {
           btn.addEventListener("click", e => { e.preventDefault(); removeFromCart(btn.dataset.key); });
@@ -737,7 +737,7 @@ const Shop = (() => {
             <div class="webshop-mini-cart__row"><span>${t("weight","Weight")}</span><span>${fmtWeight(totalWeight)}</span></div>
             <div class="webshop-mini-cart__row webshop-mini-cart__row--total"><span>${t("total","Total")}</span><span>${fmt(total)}</span></div>
           </div>
-          <a class="webshop-btn webshop-btn--primary" href="${cartUrl}">${t("checkout","Proceed to Checkout")}</a>`;
+          <a class="webshop-btn webshop-btn--primary" href="${(typeof window !== 'undefined' && window.__CART_URL__) || cartUrl}">${t("checkout","Proceed to Checkout")}</a>`;
         container.querySelectorAll(".webshop-mini-cart__remove").forEach(btn => { btn.addEventListener("click", () => removeFromCart(btn.dataset.key)); });
       });
     }
