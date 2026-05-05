@@ -99,7 +99,7 @@ export function injectHreflangTags(slug, langData) {
     const xDef    = document.createElement('link');
     xDef.rel      = 'alternate';
     xDef.hreflang = 'x-default';
-    xDef.href     = slug ? `${root}/en/${getSlug(langData, slug)}/` : `${root}/`;
+    xDef.href = slug ? `${root}/${SITE_CONFIG.languages[0].code}/${getSlug(langData, slug)}/` : `${root}/`;
     document.head.appendChild(xDef);
 }
 

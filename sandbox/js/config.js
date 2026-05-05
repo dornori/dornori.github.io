@@ -8,7 +8,7 @@ const SITE_CONFIG = {
         bgDark:             '#050505',
         bannerStickyOffset: 0.35,
         root_url:           'https://dornori.com',
-        base_path:          '/sandbox/',
+        base_path:          window.__BASE_PATH__ || '/',
     },
 
     paths: {
@@ -40,6 +40,10 @@ const SITE_CONFIG = {
 
     endpoints: {
         formHandler: 'https://edge-form-handler-api.dornori-info.workers.dev',
+        supportEmail:  'support@dornori.com',
+        privacyEmail:  'privacy@dornori.com',
+        securityEmail: 'security@dornori.com',
+        legalEmail:    'legal@dornori.com',
     },
 
     defaults: {

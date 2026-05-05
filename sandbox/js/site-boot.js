@@ -1,29 +1,97 @@
 /**
  * site-boot.js
  * ─────────────────────────────────────────────────────────────────────────────
- * Runs synchronously (classic <script>, NOT a module) so values are available
- * before the ES module bundle or shop scripts execute.
- *
- * Responsibilities:
- *   1. Apply saved language preference to <html lang> (prevents flash).
- *   2. Expose window.__PAGE_LANG__  — overridden per-shell when needed.
- *   3. Expose window.__CART_URL__   — provisional; overridden by i18n after load.
- *   4. Expose window.SHOP_CONFIG   — derived from BASE_PATH (no hardcoding).
- *
- * !! BASE_PATH is the ONLY variable to change when the site moves. !!
- * It must match SITE_CONFIG.appearance.base_path in js/config.js.
+ * THE ONLY FILE YOU EDIT TO MOVE THE SITE.
+ * Set BASE_PATH below — everything else derives from it.
+ * Must match SITE_CONFIG.appearance.base_path in js/config.js.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 (function () {
     'use strict';
 
-    // ── The one path constant ──────────────────────────────────────────────────
-    // Keep in sync with SITE_CONFIG.appearance.base_path (js/config.js).
-    var BASE_PATH = '/sandbox/';
+    // Derive BASE_PATH from this script's own URL — zero hardcoding in HTML.
+    // Works at any deployment path automatically.
+    var BASE_PATH = (function() {
+        var src = (document.currentScript && document.currentScript.src) || '';
+        // src is absolute: https://example.com/sandbox/js/site-boot.js
+        // Strip everything from /js/site-boot.js onward
+        var idx = src.indexOf('/js/site-boot.js');
+        if (idx === -1) return '/';
+        var abs = src.slice(0, idx + 1); // e.g. https://example.com/sandbox/
+        // Return just the path portion
+        var a = document.createElement('a');
+        a.href = abs;
+        return a.pathname; // e.g. /sandbox/
+    })();
+    window.__BASE_PATH__ = BASE_PATH;
 
-    // ── Language detection ────────────────────────────────────────────────────
-    var LANG_KEY = 'dornori-lang'; // mirrors SITE_CONFIG.storageKeys.lang
-    var lang = localStorage.getItem(LANG_KEY) || 'en';
+    // ── Inject all CSS and JS assets using BASE_PATH ──────────────────────────
+    function injectStyles(hrefs) {
+        hrefs.forEach(function (href) {
+            var link  = document.createElement('link');
+            link.rel  = 'stylesheet';
+            link.href = BASE_PATH + href;
+            document.head.appendChild(link);
+        });
+    }
+
+    function injectPreloads(assets) {
+        assets.forEach(function (a) {
+            var link  = document.createElement('link');
+            link.rel  = 'preload';
+            link.href = BASE_PATH + a.href;
+            link.as   = a.as;
+            if (a.fetchpriority) link.setAttribute('fetchpriority', a.fetchpriority);
+            document.head.appendChild(link);
+        });
+    }
+
+    function injectScript(src, isModule, onload) {
+        var s    = document.createElement('script');
+        s.src    = BASE_PATH + src;
+        if (isModule) s.type = 'module';
+        if (onload)   s.onload = onload;
+        document.head.appendChild(s);
+    }
+
+    function injectFavicons() {
+        var favicons = [
+            { rel: 'icon',             href: 'assets/icons/favicon.ico',         sizes: 'any' },
+            { rel: 'apple-touch-icon', href: 'assets/icons/apple-touch-icon.png'              },
+            { rel: 'manifest',         href: 'assets/icons/site.webmanifest'                  },
+        ];
+        favicons.forEach(function (f) {
+            var link  = document.createElement('link');
+            link.rel  = f.rel;
+            link.href = BASE_PATH + f.href;
+            if (f.sizes) link.setAttribute('sizes', f.sizes);
+            document.head.appendChild(link);
+        });
+    }
+
+    // Only inject assets on full shell pages (not content partials)
+    var isSitePage = !!document.getElementById('home-view')
+                  || !!document.getElementById('appContent')
+                  || document.body === null; // injected before body — always run
+
+    injectFavicons();
+
+    injectPreloads([
+        { href: 'assets/images/dornori-logo-transparent.webp', as: 'image', fetchpriority: 'high' },
+        { href: 'css/main.css',       as: 'style' },
+        { href: 'shop/css/shop.css',  as: 'style' },
+    ]);
+
+    injectStyles([
+        'css/profiles.css',
+        'css/main.css',
+        'shop/css/shop.css',
+        'css/shop-bridge.css',
+    ]);
+
+    // ── Language ──────────────────────────────────────────────────────────────
+    var LANG_KEY = 'dornori-lang';
+    var lang     = localStorage.getItem(LANG_KEY) || 'en';
 
     if (!window.__PAGE_LANG__) {
         window.__PAGE_LANG__ = lang;
@@ -33,9 +101,7 @@
 
     document.documentElement.setAttribute('lang', lang);
 
-    // ── Provisional cart URL ───────────────────────────────────────────────────
-    // Uses only lang code; i18n.js will override with the localised slug once
-    // the lang bundle loads (cartUrl(base, lang, langData)).
+    // ── Globals derived from BASE_PATH ────────────────────────────────────────
     window.__CART_URL__ = BASE_PATH + lang + '/cart/';
 
     window.SHOP_CONFIG = {
@@ -47,4 +113,39 @@
     if (window.__PAGE_SLUG__ === undefined) {
         window.__PAGE_SLUG__ = '';
     }
+
+    // ── Inject remaining scripts in order ─────────────────────────────────────
+    // shop/js/config.js and lang-bridge.js must load before shop-init.js
+    // They are classic scripts (no type=module).
+    function seq(scripts, idx) {
+        if (idx >= scripts.length) return;
+        var s      = scripts[idx];
+        var el     = document.createElement('script');
+        el.src     = BASE_PATH + s.src;
+        if (s.module) el.type = 'module';
+        el.onload  = function () { seq(scripts, idx + 1); };
+        el.onerror = function () { seq(scripts, idx + 1); };
+        document.head.appendChild(el);
+    }
+
+    // Wait for DOM so we don't race with inline __PAGE_LANG__ overrides
+    document.addEventListener('DOMContentLoaded', function () {
+        seq([
+            { src: 'shop/js/config.js'  },
+            { src: 'shop/js/lang-bridge.js' },
+            { src: 'js/shop-init.js'    },
+            { src: 'js/site-main.js',   module: true },
+            { src: 'js/geo-popup.js',   module: true },
+        ], 0);
+    });
+
+    // ── Logo src ──────────────────────────────────────────────────────────────
+    // Shell HTML has <img id="banner-img"> with no src — injected here.
+    document.addEventListener('DOMContentLoaded', function () {
+        var logoEl = document.getElementById('banner-img');
+        if (logoEl && !logoEl.src) {
+            logoEl.src = BASE_PATH + 'assets/images/dornori-logo-transparent.webp';
+        }
+    });
+
 })();

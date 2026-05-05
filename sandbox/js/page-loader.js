@@ -4,6 +4,41 @@ import { mountSlideshow } from './slideshow.js';
 import { initEmbedForms }  from './embed-form.js';
 import { injectHreflangTags, getSlug, canonicalSlug } from './i18n.js';
 
+// Rewrite absolute asset paths in injected content to use BASE_PATH
+function rewriteContentPaths(container) {
+    const base = SITE_CONFIG.appearance.base_path;
+    if (!base || base === '/') return; // nothing to rewrite at root
+
+    // src and srcset attributes: /assets/ → base + assets/
+    container.querySelectorAll('[src]').forEach(el => {
+        const s = el.getAttribute('src');
+        if (s && s.startsWith('/') && !s.startsWith('//') && !s.startsWith(base)) {
+            el.setAttribute('src', base + s.slice(1));
+        }
+    });
+    container.querySelectorAll('[srcset]').forEach(el => {
+        el.setAttribute('srcset', el.getAttribute('srcset').replace(
+            /(^|,\s*)(\/(?!\/))([^ ,]+)/g,
+            (m, pre, slash, rest) => pre + base + rest
+        ));
+    });
+    // href attributes: only internal absolute paths (not http/mailto/#)
+    container.querySelectorAll('[href]').forEach(el => {
+        const h = el.getAttribute('href');
+        if (h && h.startsWith('/') && !h.startsWith('//') && !h.startsWith(base)) {
+            el.setAttribute('href', base + h.slice(1));
+        }
+    });
+    // Inline onclick / data-href
+    container.querySelectorAll('[data-href]').forEach(el => {
+        const h = el.getAttribute('data-href');
+        if (h && h.startsWith('/') && !h.startsWith('//')) {
+            el.setAttribute('data-href', base + h.slice(1));
+        }
+    });
+}
+
+
 // ── GLOBAL SHOP CARD WIRER ────────────────────────────────────────────────────
 const _pendingWire = [];
 let   _shopReady   = false;
@@ -181,6 +216,7 @@ export function initPageLoader() {
             if (!res.ok) throw new Error();
             const html = await res.text();
             homeView.innerHTML = html;
+        rewriteContentPaths(homeView);
             homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
             wireShopCards(homeView);
@@ -210,6 +246,7 @@ export function initPageLoader() {
             if (spinner) spinner.remove();
 
             pageContent.innerHTML = html;
+            rewriteContentPaths(pageContent);
             pageContent.querySelectorAll('script').forEach(orig => {
                 const s = document.createElement('script');
                 [...orig.attributes].forEach(a => s.setAttribute(a.name, a.value));

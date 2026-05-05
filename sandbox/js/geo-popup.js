@@ -13,7 +13,7 @@
  * Popup text is fetched from the suggested language's lang/[lang]/common.json.
  *
  * Add to index.html just before </body>:
- *   <script src="/test/js/geo-popup.js"></script>
+ *   <script src="[base]/js/geo-popup.js"></script>
  */
 
 import { loadLanguage, getLanguageByCountry, getCountryName } from './i18n.js';

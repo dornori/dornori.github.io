@@ -199,7 +199,7 @@ document.getElementById('supportForm')?.addEventListener('submit', async functio
     }
   } catch (err) {
     console.error(err);
-    showToast("Failed to send. Please try again or email support@dornori.com directly.", 4000);
+    showToast(`Failed to send. Please try again or email ${SITE_CONFIG.endpoints.supportEmail} directly.`, 4000);
     submitBtn.disabled = false;
     submitBtn.innerHTML = originalText;
   }
