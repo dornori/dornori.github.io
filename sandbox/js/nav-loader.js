@@ -142,6 +142,13 @@ window.renderNav = () => {
         mobileCartSlot.id        = 'mobile-cart-icon-slot';
         mobileCartSlot.className = 'mobile-nav-item mobile-nav-cart-slot';
         mobileNav.appendChild(mobileCartSlot);
+
+        // If Shop already booted before this nav render, fill the slot immediately.
+        // (Covers the refresh/warm-cache case where webshop:ready fired first.)
+        if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
+            const cartUrl = window.__CART_URL__ || navHref('cart');
+            Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl });
+        }
     }
 };
 

@@ -92,8 +92,29 @@
         var skel = document.getElementById('cart-skeleton');
         if (skel) skel.remove();
         Shop.renderCartIcon({ target: '#cart-icon-slot', fixed: false, cartUrl: _cartUrl(lang) });
-        if (document.getElementById('mobile-cart-icon-slot')) {
+        _renderMobileCartIcon(lang);
+    }
+
+    function _renderMobileCartIcon(lang) {
+        if (typeof Shop === 'undefined' || typeof Shop.renderCartIcon !== 'function') return;
+        var slot = document.getElementById('mobile-cart-icon-slot');
+        if (slot) {
             Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl: _cartUrl(lang) });
+        } else {
+            // Slot not yet created — site-main.js hasn't run yet (cold-cache race).
+            // Watch for it with a MutationObserver and render as soon as it appears.
+            var capturedLang = lang;
+            var obs = new MutationObserver(function () {
+                var s = document.getElementById('mobile-cart-icon-slot');
+                if (s) {
+                    obs.disconnect();
+                    if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
+                        Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl: _cartUrl(capturedLang) });
+                    }
+                }
+            });
+            obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
+            setTimeout(function () { obs.disconnect(); }, 8000);
         }
     }
 
