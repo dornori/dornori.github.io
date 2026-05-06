@@ -3,6 +3,7 @@ import SITE_CONFIG from './config.js';
 import { mountSlideshow } from './slideshow.js';
 import { initEmbedForms }  from './embed-form.js';
 import { injectHreflangTags, getSlug, canonicalSlug } from './i18n.js';
+import { mountShopEmbeds } from './shop-loader.js';
 
 // Rewrite absolute asset paths in injected content to use BASE_PATH
 function rewriteContentPaths(container) {
@@ -218,6 +219,7 @@ export function initPageLoader() {
             homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
             wireShopCards(homeView);
+            mountShopEmbeds(homeView);
             homeView.classList.remove('hidden');
             pageView.classList.add('hidden');
             const base    = SITE_CONFIG.appearance.base_path;
@@ -236,6 +238,7 @@ export function initPageLoader() {
             homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
             wireShopCards(homeView);
+            mountShopEmbeds(homeView);
         } catch {
             // home.html may not exist for every language yet
         }
@@ -272,6 +275,7 @@ export function initPageLoader() {
             pageContent.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
             wireShopCards(pageContent);
+            mountShopEmbeds(pageContent);
 
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
