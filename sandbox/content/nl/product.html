@@ -1,7 +1,5 @@
-<!-- content/en/product.html ─────────────────────────────────────────────────
-     Full Product Detail Page — respects current language (en/nl/de/no)
-     ──────────────────────────────────────────────────────────────────────── -->
-
+<!-- content/en/product.html -->
+<!-- Full Product Detail Page with all features + language override support -->
 <style>
   .pdp-magnifier {
     position: fixed; pointer-events: none; z-index: 9999;
@@ -22,15 +20,88 @@
   .pdp-loading::after { content: ""; display: inline-block; width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .pdp-error { text-align: center; padding: 3rem; color: #c0392b; }
+  .pdp-wrapper { max-width: 1280px; margin: 0 auto; padding: 2rem 1rem; font-family: var(--font-body); }
+  .pdp-main { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start; }
+  @media (max-width: 768px) { .pdp-main { grid-template-columns: 1fr; gap: 2rem; } }
+  .pdp-gallery { position: sticky; top: 2rem; }
+  .pdp-gallery__thumbs { display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }
+  .pdp-gallery__thumb-wrap { width: 70px; height: 70px; border-radius: 12px; cursor: pointer; opacity: 0.6; transition: all 0.2s; border: 2px solid transparent; overflow: hidden; position: relative; }
+  .pdp-gallery__thumb-wrap.active { opacity: 1; border-color: var(--accent); }
+  .pdp-gallery__thumb { width: 100%; height: 100%; object-fit: cover; }
+  .pdp-gallery__thumb-wrap--video { background: #111; display: flex; align-items: center; justify-content: center; }
+  .pdp-thumb-play { position: absolute; color: white; font-size: 1.2rem; text-shadow: 0 1px 2px black; pointer-events: none; }
+  .pdp-category { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.5rem; }
+  .pdp-name { font-family: var(--font-display); font-size: clamp(1.8rem, 3vw, 2.5rem); font-weight: 400; margin-bottom: 0.75rem; }
+  .pdp-price { font-size: 1.8rem; font-weight: 600; color: var(--accent); margin-bottom: 1rem; }
+  .pdp-stock { font-size: 0.85rem; margin-bottom: 1rem; }
+  .pdp-stock--low { color: #e67e22; }
+  .pdp-stock--out { color: #c0392b; }
+  .pdp-desc { color: var(--text-muted); line-height: 1.7; margin-bottom: 1.5rem; }
+  .pdp-option-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem; }
+  .pdp-variants { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
+  .pdp-variant-btn { padding: 0.5rem 1.2rem; border: 1.5px solid var(--border); border-radius: 40px; background: transparent; cursor: pointer; transition: all 0.2s; font-size: 0.85rem; }
+  .pdp-variant-btn.active { border-color: var(--accent); background: var(--accent); color: white; }
+  .pdp-variant-btn.soldout { opacity: 0.4; cursor: not-allowed; text-decoration: line-through; }
+  .pdp-colors { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.5rem; }
+  .pdp-color { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; transition: all 0.2s; border: 2px solid transparent; }
+  .pdp-color.active { border-color: var(--accent); transform: scale(1.1); }
+  .pdp-color.soldout { opacity: 0.3; cursor: not-allowed; position: relative; }
+  .pdp-color.soldout::after { content: "✕"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 1rem; color: red; }
+  .pdp-atc-row { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+  .pdp-atc-btn { flex: 1; background: var(--accent); color: white; border: none; border-radius: 40px; padding: 0.8rem 1.5rem; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .pdp-atc-btn:hover { transform: translateY(-2px); filter: brightness(1.05); }
+  .pdp-atc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .pdp-perks { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1.5rem 0; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 0.8rem; color: var(--text-muted); }
+  .pdp-sticky-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--c-surface); border-top: 1px solid var(--border); padding: 0.75rem 1rem; display: none; gap: 1rem; z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
+  @media (max-width: 768px) { .pdp-sticky-bar { display: flex; } }
+  .pdp-section { margin-top: 3rem; }
+  .pdp-section-title { font-family: var(--font-display); font-size: 1.2rem; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+  .pdp-bundle { background: var(--c-surface-2); border-radius: 24px; padding: 1.5rem; margin: 2rem 0; }
+  .pdp-bundle-items { display: flex; flex-direction: column; gap: 1rem; }
+  .pdp-bundle-item { display: flex; gap: 1rem; align-items: center; }
+  .pdp-bundle-item img { width: 60px; height: 60px; object-fit: cover; border-radius: 12px; }
+  .pdp-bundle-item-info { flex: 1; }
+  .pdp-bundle-item-name { font-weight: 500; }
+  .pdp-bundle-item-price { font-size: 0.8rem; color: var(--text-muted); }
+  .pdp-bundle-total { margin-top: 1rem; text-align: right; font-weight: 600; }
+  .pdp-bundle-btn { width: 100%; margin-top: 1rem; padding: 0.8rem; background: var(--text); color: white; border: none; border-radius: 40px; cursor: pointer; font-weight: 600; }
+  .pdp-related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
+  .pdp-related-card { background: var(--c-surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; cursor: pointer; transition: transform 0.2s; }
+  .pdp-related-card:hover { transform: translateY(-4px); }
+  .pdp-related-card img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+  .pdp-related-card-info { padding: 0.75rem; }
+  .pdp-related-card-name { font-weight: 500; font-size: 0.85rem; }
+  .pdp-related-card-price { font-size: 0.8rem; color: var(--accent); margin-top: 0.25rem; }
+  .pdp-accordion { margin-top: 2rem; }
+  .pdp-accordion-item { border-bottom: 1px solid var(--border); }
+  .pdp-accordion-trigger { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; background: none; border: none; cursor: pointer; font-weight: 600; text-align: left; }
+  .pdp-spec-table { width: 100%; border-collapse: collapse; }
+  .pdp-spec-table td { padding: 0.5rem; border-bottom: 1px solid var(--border); }
+  .pdp-spec-table td:first-child { font-weight: 600; width: 40%; }
+  .pdp-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 10000; display: none; align-items: center; justify-content: center; }
+  .pdp-lightbox.open { display: flex; }
+  .pdp-lightbox__inner { background: var(--c-surface); border-radius: 24px; max-width: 90vw; max-height: 90vh; width: 900px; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+  .pdp-lightbox__close { position: absolute; top: 1rem; right: 1rem; width: 40px; height: 40px; border-radius: 50%; background: white; border: none; font-size: 1.5rem; cursor: pointer; z-index: 1; }
+  .pdp-lightbox__tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 1rem; }
+  .pdp-lightbox__tab { padding: 1rem 1.5rem; background: none; border: none; cursor: pointer; font-weight: 500; }
+  .pdp-lightbox__tab.active { border-bottom: 2px solid var(--accent); color: var(--accent); }
+  .pdp-lightbox__body { padding: 1.5rem; overflow-y: auto; flex: 1; }
+  .pdp-lightbox-gallery { display: grid; grid-template-columns: 1fr 80px 1fr; gap: 1rem; }
+  @media (max-width: 700px) { .pdp-lightbox-gallery { grid-template-columns: 1fr; } }
+  .pdp-lightbox-main img { width: 100%; border-radius: 16px; }
+  .pdp-lightbox-thumbs { display: flex; flex-direction: column; gap: 0.5rem; }
+  .pdp-lightbox-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; cursor: pointer; opacity: 0.6; border: 2px solid transparent; }
+  .pdp-lightbox-thumb.active { opacity: 1; border-color: var(--accent); }
+  .pdp-lightbox-details { padding: 0.5rem; }
+  .pdp-video-wrap { aspect-ratio: 16/9; width: 100%; }
+  .pdp-video-wrap iframe, .pdp-video-wrap video { width: 100%; height: 100%; border: none; border-radius: 16px; }
 </style>
 
 <!-- Magnifier -->
-<div class="pdp-magnifier" id="magnifier">
-  <img id="magnifier-img" src="" alt="">
-</div>
+<div class="pdp-magnifier" id="magnifier"><img id="magnifier-img" src="" alt=""></div>
 
 <!-- Lightbox -->
-<div class="pdp-lightbox" id="lightbox" role="dialog" aria-modal="true" style="display:none;">
+<div class="pdp-lightbox" id="lightbox" role="dialog" aria-modal="true">
   <div class="pdp-lightbox__inner">
     <button class="pdp-lightbox__close" id="lightbox-close" aria-label="Close">✕</button>
     <div class="pdp-lightbox__tabs">
@@ -52,37 +123,32 @@
   </div>
 </div>
 
-<!-- Back button with language-aware URL -->
+<!-- Back button -->
 <div style="margin-bottom:1.5rem;">
   <button class="nav-link" style="font-size:.82rem;opacity:.6;padding:0;border:none;background:none;cursor:pointer;" id="back-button">← Back</button>
 </div>
 
 <!-- PDP Container -->
-<div id="pdp-container">
-  <div class="pdp-loading"></div>
-</div>
+<div id="pdp-container"><div class="pdp-loading"></div></div>
 
 <script>
 (function() {
   const container = document.getElementById('pdp-container');
   let product = null;
+  let allProducts = [];
   let selectedVariantId = null;
+  let selectedColor = null;
   let currentQty = 1;
   let currentImgIdx = 0;
-  let currentLang = 'en';
 
-  // Get current language from URL or window.LANG
+  // Get current language from URL
   function getCurrentLanguage() {
-    // Check URL path for language prefix
-    const pathMatch = window.location.pathname.match(/^\/([a-z]{2})\//);
-    if (pathMatch && ['en', 'nl', 'de', 'no'].includes(pathMatch[1])) {
-      return pathMatch[1];
-    }
-    // Fallback to window.LANG or localStorage
+    const match = window.location.pathname.match(/^\/([a-z]{2})\//);
+    if (match && ['en', 'nl', 'de', 'no'].includes(match[1])) return match[1];
     return window.LANG || localStorage.getItem('dornori-lang') || 'en';
   }
 
-  currentLang = getCurrentLanguage();
+  const currentLang = getCurrentLanguage();
 
   // Get product ID from URL
   function getProductId() {
@@ -100,19 +166,17 @@
     return;
   }
 
-  // Build language-aware product URL
-  function getProductUrl(pid) {
-    return '/' + currentLang + '/product/?id=' + pid;
-  }
-
-  // Build language-aware cart URL
-  function getCartUrl() {
-    return '/' + currentLang + '/cart/';
-  }
-
   function fmt(price) {
     if (typeof Shop !== 'undefined' && Shop.fmt) return Shop.fmt(price);
     return '€' + Number(price).toFixed(2);
+  }
+
+  function getColorHex(color) {
+    const colors = { 'Red': '#e74c3c', 'Racing Red': '#e74c3c', 'Blue': '#3498db', 'Ocean Blue': '#3498db',
+      'Green': '#2ecc71', 'Forest Green': '#2ecc71', 'Black': '#2c3e50', 'Midnight Black': '#2c3e50',
+      'White': '#ecf0f1', 'Arctic White': '#ecf0f1', 'Orange': '#e67e22', 'Sunset Orange': '#e67e22',
+      'Yellow': '#f1c40f', 'Sunrise Yellow': '#f1c40f' };
+    return colors[color] || '#95a5a6';
   }
 
   async function loadAndRender() {
@@ -122,38 +186,37 @@
     if (typeof Shop === 'undefined') {
       await new Promise(resolve => {
         const check = setInterval(() => {
-          if (typeof Shop !== 'undefined') {
-            clearInterval(check);
-            resolve();
-          }
+          if (typeof Shop !== 'undefined') { clearInterval(check); resolve(); }
         }, 50);
         setTimeout(() => clearInterval(check), 5000);
       });
     }
 
     if (typeof Shop === 'undefined') {
-      container.innerHTML = '<div class="pdp-error">Shop engine not loaded. Please refresh the page.</div>';
+      container.innerHTML = '<div class="pdp-error">Shop engine not loaded. Refresh the page.</div>';
       return;
     }
 
     try {
-      // Ensure language is loaded for currentLang
+      // CRITICAL: Switch language first to load translations
       await Shop.switchLanguage(currentLang);
       await Shop.loadLang();
       
-      // Load product using Shop.getProduct (respects language)
+      // Load product
       product = await Shop.getProduct(productId);
+      if (!product) throw new Error('Product not found: ' + productId);
       
-      if (!product) {
-        throw new Error('Product not found: ' + productId);
-      }
-
-      // Set up initial variant
+      // Load all products for bundle/related
+      allProducts = await Shop.loadProducts();
+      
+      // Set initial variant/color
       if (product.variants && product.variants.length) {
         selectedVariantId = product.variants[0].id;
       }
+      if (product.colors && product.colors.length) {
+        selectedColor = product.colors[0];
+      }
 
-      // Render the PDP
       renderFullPDP();
 
     } catch (err) {
@@ -164,24 +227,32 @@
 
   function renderFullPDP() {
     const hasVariants = product.variants && product.variants.length > 0;
+    const hasColors = product.colors && product.colors.length > 0;
     const currentVariant = hasVariants ? product.variants.find(v => v.id === selectedVariantId) : null;
     const currentPrice = currentVariant ? currentVariant.price : product.price;
     const images = product.images && product.images.length ? product.images : [product.image];
     const videos = product.videos || [];
-    const currentImage = (currentVariant && currentVariant.image) ? currentVariant.image : images[0];
+    const currentImage = (currentVariant && currentVariant.image) ? currentVariant.image : 
+                         (selectedColor ? getColorImage(product, selectedColor) : images[0]);
+    const inStock = currentVariant ? (currentVariant.stock > 0) : (product.stock > 0);
+    const lowStock = currentVariant ? (currentVariant.stock <= 5 && currentVariant.stock > 0) : (product.stock <= 5 && product.stock > 0);
 
-    // Get translated name, category, description
-    const productName = Shop.pName(product);
-    const productCategory = Shop.pCategory(product);
-    const productDesc = Shop.pDesc(product);
+    // Translated text
+    const transName = Shop.pName(product);
+    const transCategory = Shop.pCategory(product);
+    const transDesc = Shop.pDesc(product);
+    const transPerks = {
+      shipping: Shop.t('perk_free_shipping', 'Free shipping over €150'),
+      returns: Shop.t('perk_returns', '30-day returns'),
+      warranty: Shop.t('perk_warranty', '2-year warranty')
+    };
 
-    // Build HTML
     let html = `
       <div class="pdp-wrapper">
-        <div class="pdp-main webshop-fade-in">
-          <div class="pdp-gallery" id="pdp-gallery">
+        <div class="pdp-main">
+          <div class="pdp-gallery">
             <div class="pdp-gallery__main-wrap" id="gallery-main-wrap">
-              <img class="pdp-gallery__main-img" id="gallery-main-img" src="${currentImage}" alt="${productName}">
+              <img class="pdp-gallery__main-img" id="gallery-main-img" src="${currentImage}" alt="${transName}">
               <div class="pdp-gallery__main-video" id="gallery-main-video" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
                 <video id="gallery-video-player" style="width:100%;height:100%;object-fit:contain;" controls></video>
                 <div id="gallery-yt-frame" style="display:none;position:absolute;inset:0;">
@@ -191,42 +262,53 @@
             </div>
             <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
           </div>
-
-          <div class="pdp-details" id="pdp-details">
-            <p class="pdp-category" id="pdp-category">${productCategory}</p>
-            <h1 class="pdp-name" id="pdp-name">${productName}</h1>
-            <p class="pdp-price" id="pdp-price">${fmt(currentPrice)}</p>
-            <p class="pdp-desc" id="pdp-desc">${productDesc}</p>
+          <div class="pdp-details">
+            <div class="pdp-category">${transCategory}</div>
+            <h1 class="pdp-name">${transName}</h1>
+            <div class="pdp-price" id="pdp-price">${fmt(currentPrice)}</div>
+            <div class="pdp-stock ${lowStock ? 'pdp-stock--low' : ''} ${!inStock ? 'pdp-stock--out' : ''}" id="pdp-stock">
+              ${!inStock ? '❌ Out of Stock' : (lowStock ? `⚠️ Only ${currentVariant?.stock || product.stock} left!` : '✓ In Stock')}
+            </div>
+            <div class="pdp-desc">${transDesc}</div>
     `;
 
     // Variants
     if (hasVariants) {
-      html += `
-            <div id="pdp-variants-wrap">
-              <p class="pdp-option-label">${Shop.t('finish', 'Finish')}</p>
-              <div class="pdp-variants" id="pdp-variants">
-                ${product.variants.map((v, i) => `
-                  <button class="pdp-variant-btn ${i === 0 ? 'active' : ''}" data-variant-id="${v.id}">${v.label}</button>
-                `).join('')}
-              </div>
-            </div>
-      `;
+      html += `<div class="pdp-option-label">${Shop.t('finish', 'Finish')}</div>
+               <div class="pdp-variants" id="pdp-variants">`;
+      product.variants.forEach((v, i) => {
+        const soldOut = v.stock === 0;
+        const label = Shop.t('variant_' + v.id) || v.label;
+        html += `<button class="pdp-variant-btn ${i === 0 ? 'active' : ''} ${soldOut ? 'soldout' : ''}" data-variant-id="${v.id}" data-price="${v.price}" data-image="${v.image || images[0]}" ${soldOut ? 'disabled' : ''}>${label}${soldOut ? ' (Sold Out)' : ''}</button>`;
+      });
+      html += `</div>`;
     }
 
-    // Quantity + Add to Cart
+    // Colors
+    if (hasColors) {
+      html += `<div class="pdp-option-label">${Shop.t('color', 'Color')}</div>
+               <div class="pdp-colors" id="pdp-colors">`;
+      product.colors.forEach((c, i) => {
+        const soldOut = product.colors_soldout?.includes(c);
+        html += `<div class="pdp-color ${i === 0 ? 'active' : ''} ${soldOut ? 'soldout' : ''}" data-color="${c}" style="background: ${getColorHex(c)};" ${soldOut ? 'disabled' : ''}></div>`;
+      });
+      html += `</div>`;
+    }
+
+    // Quantity and Add to Cart
     html += `
-            <div class="pdp-atc-row" style="display:flex;gap:10px;align-items:center;margin-bottom:20px;">
+            <div class="pdp-atc-row">
               <div class="webshop-qty-control webshop-qty-control--lg">
                 <button class="webshop-qty-btn webshop-qty-btn--minus" id="qty-minus">−</button>
                 <span class="webshop-qty-val" id="qty-val">1</span>
                 <button class="webshop-qty-btn webshop-qty-btn--plus" id="qty-plus">+</button>
               </div>
-              <button class="webshop-btn webshop-btn--primary pdp-atc-btn" id="atc-btn">${Shop.t('add_to_cart', 'Add to Cart')}</button>
+              <button class="pdp-atc-btn" id="atc-btn" ${!inStock ? 'disabled' : ''}>${Shop.t('add_to_cart', 'Add to Cart')}</button>
             </div>
-            <div class="pdp-perks" id="pdp-perks">
-              <span>🚚 ${Shop.t('perk_free_shipping', 'Free shipping over €150')}</span>
-              <span>🔄 ${Shop.t('perk_returns', '30-day returns')}</span>
-              <span>🔧 ${Shop.t('perk_warranty', '2-year warranty')}</span>
+            <div class="pdp-perks">
+              <span>🚚 ${transPerks.shipping}</span>
+              <span>🔄 ${transPerks.returns}</span>
+              <span>🔧 ${transPerks.warranty}</span>
             </div>
           </div>
         </div>
@@ -234,68 +316,55 @@
 
     // Bundle section
     if (product.bundled && product.bundled.length) {
-      html += `
-        <div class="pdp-section webshop-fade-in webshop-fade-in-1" id="bundle-section">
-          <h2 class="pdp-section-title">${Shop.t('frequently_bought_together', 'Frequently Bought Together')}</h2>
-          <div class="pdp-bundle-items-list" id="bundle-items"></div>
-          <div class="pdp-bundle-actions">
-            <div id="bundle-price-info" style="font-size:0.93em;color:var(--c-text-muted);"></div>
-            <button class="webshop-btn webshop-btn--primary pdp-bundle-add-all-btn" id="bundle-add-all">${Shop.t('add_both_to_cart', 'Add Bundle to Cart')}</button>
-          </div>
-        </div>
-      `;
+      html += `<div class="pdp-section" id="bundle-section"><div class="pdp-bundle"><h3 class="pdp-bundle-title">${Shop.t('frequently_bought_together', 'Frequently Bought Together')}</h3><div class="pdp-bundle-items" id="bundle-items"></div><div class="pdp-bundle-total" id="bundle-total"></div><button class="pdp-bundle-btn" id="bundle-add-all">${Shop.t('add_both_to_cart', 'Add Bundle to Cart')}</button></div></div>`;
     }
 
     // Related section
     if (product.related && product.related.length) {
-      html += `
-        <div class="pdp-section webshop-fade-in webshop-fade-in-2" id="related-section">
-          <h2 class="pdp-section-title">${Shop.t('related_products_title', 'You May Also Like')}</h2>
-          <div class="pdp-related-grid" id="related-grid"></div>
-        </div>
-      `;
+      html += `<div class="pdp-section" id="related-section"><h2 class="pdp-section-title">${Shop.t('related_products_title', 'You May Also Like')}</h2><div class="pdp-related-grid" id="related-grid"></div></div>`;
     }
 
-    // Specs section
+    // Specs accordion
     if (product.specs && product.specs.length) {
-      html += `
-        <div class="pdp-section webshop-fade-in webshop-fade-in-3" id="specs-section">
-          <div id="specs-accordion"></div>
-        </div>
-      `;
+      html += `<div class="pdp-section" id="specs-section"><div class="pdp-accordion" id="specs-accordion"></div></div>`;
     }
 
-    html += `</div>`; // close pdp-wrapper
+    html += `</div>`;
     container.innerHTML = html;
 
-    // Setup back button with language-aware history
-    const backBtn = document.getElementById('back-button');
-    if (backBtn) {
-      backBtn.addEventListener('click', () => {
-        if (document.referrer && document.referrer.includes(window.location.origin)) {
-          history.back();
-        } else {
-          window.location.href = '/' + currentLang + '/';
-        }
-      });
-    }
-
-    // Now attach all event handlers
+    // Build gallery with thumbs and video
     buildGallery(images, videos);
+    
+    // Attach all event handlers
     attachVariantHandlers(hasVariants);
-    attachQtyHandlers();
-    attachAtcHandler(currentVariant);
-    if (product.bundled && product.bundled.length) {
-      renderBundle();
-    }
-    if (product.related && product.related.length) {
-      renderRelated();
-    }
-    if (product.specs && product.specs.length) {
-      renderSpecs();
-    }
+    attachColorHandlers(hasColors);
+    attachQtyHandlers(inStock);
+    attachAtcHandler(inStock);
+    
+    // Render bundle, related, specs
+    if (product.bundled && product.bundled.length) renderBundle();
+    if (product.related && product.related.length) renderRelated();
+    if (product.specs && product.specs.length) renderSpecs();
+    
+    // Initialize magnifier and lightbox
     initMagnifier();
     initLightbox(images, videos);
+    
+    // Sticky mobile bar
+    const existingBar = document.querySelector('.pdp-sticky-bar');
+    if (existingBar) existingBar.remove();
+    const stickyBar = document.createElement('div');
+    stickyBar.className = 'pdp-sticky-bar';
+    stickyBar.innerHTML = `<div class="pdp-price" style="font-size:1.2rem;">${fmt(currentPrice)}</div>
+      <button class="pdp-atc-btn" id="pdp-sticky-atc" style="margin:0;flex:1;" ${!inStock ? 'disabled' : ''}>${Shop.t('add_to_cart', 'Add to Cart')}</button>`;
+    document.body.appendChild(stickyBar);
+    document.getElementById('pdp-sticky-atc')?.addEventListener('click', () => addToCart());
+    
+    // Back button
+    document.getElementById('back-button')?.addEventListener('click', () => {
+      if (document.referrer && document.referrer.includes(window.location.origin)) history.back();
+      else window.location.href = '/' + currentLang + '/';
+    });
   }
 
   function buildGallery(images, videos) {
@@ -307,26 +376,18 @@
     const ytIframe = document.getElementById('gallery-yt-iframe');
     const mainWrap = document.getElementById('gallery-main-wrap');
 
-    // Combine media items
     const mediaItems = images.map(src => ({ type: 'image', src: src }));
     videos.forEach(vsrc => {
       const isYT = /youtube\.com|youtu\.be/.test(vsrc);
       const ytId = isYT ? ((vsrc.match(/embed\/([^?]+)/) || vsrc.match(/youtu\.be\/([^?]+)/) || ['',''])[1]) : '';
-      mediaItems.push({
-        type: 'video',
-        src: vsrc,
-        isYT: isYT,
-        thumb: isYT ? 'https://img.youtube.com/vi/' + ytId + '/mqdefault.jpg' : null
-      });
+      mediaItems.push({ type: 'video', src: vsrc, isYT: isYT, thumb: isYT ? 'https://img.youtube.com/vi/' + ytId + '/mqdefault.jpg' : null });
     });
 
     let activeIdx = 0;
     let activeType = 'image';
 
     function showImage(idx) {
-      activeIdx = idx;
-      activeType = 'image';
-      currentImgIdx = idx;
+      activeIdx = idx; activeType = 'image'; currentImgIdx = idx;
       if (videoPlayer) { videoPlayer.pause(); videoPlayer.src = ''; }
       if (ytIframe) ytIframe.src = '';
       mainVideoWrap.style.display = 'none';
@@ -338,8 +399,7 @@
     }
 
     function showVideo(idx) {
-      activeIdx = idx;
-      activeType = 'video';
+      activeIdx = idx; activeType = 'video';
       const item = mediaItems[idx];
       mainImg.style.display = 'none';
       mainVideoWrap.style.display = 'block';
@@ -362,17 +422,12 @@
       thumbsEl.innerHTML = mediaItems.map((item, i) => {
         const isActive = i === activeIdx;
         if (item.type === 'image') {
-          return `<div class="pdp-gallery__thumb-wrap${isActive ? ' active' : ''}" data-idx="${i}" data-type="image">
-                    <img class="pdp-gallery__thumb" src="${item.src}" alt="View ${i+1}">
-                  </div>`;
+          return `<div class="pdp-gallery__thumb-wrap${isActive ? ' active' : ''}" data-idx="${i}" data-type="image"><img class="pdp-gallery__thumb" src="${item.src}" alt="View ${i+1}"></div>`;
         } else {
           const tbStyle = item.thumb ? `style="background-image:url('${item.thumb}');background-size:cover;background-position:center;"` : 'style="background:var(--c-surface-2);"';
-          return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive ? ' active' : ''}" data-idx="${i}" data-type="video" ${tbStyle}>
-                    <span class="pdp-thumb-play">▶</span>
-                  </div>`;
+          return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive ? ' active' : ''}" data-idx="${i}" data-type="video" ${tbStyle}><span class="pdp-thumb-play">▶</span></div>`;
         }
       }).join('');
-
       thumbsEl.querySelectorAll('.pdp-gallery__thumb-wrap').forEach(el => {
         el.addEventListener('click', () => {
           const idx = parseInt(el.dataset.idx);
@@ -382,13 +437,11 @@
       });
     }
 
-    // Click main area to open lightbox
     mainWrap.addEventListener('click', (e) => {
       if (e.target.closest('video') || e.target.closest('iframe')) return;
       openLightbox(activeType === 'video' ? 'video' : 'images');
     });
 
-    // Build initial thumbnails and show first image
     if (images.length) {
       mainImg.src = images[0];
       document.getElementById('magnifier-img').src = (images[0] || '').replace('w=800', 'w=1600');
@@ -398,9 +451,12 @@
 
   function attachVariantHandlers(hasVariants) {
     if (!hasVariants) return;
-    const variantBtns = document.querySelectorAll('.pdp-variant-btn');
+    const variantBtns = document.querySelectorAll('.pdp-variant-btn:not([disabled])');
     const priceEl = document.getElementById('pdp-price');
+    const stockEl = document.getElementById('pdp-stock');
     const mainImg = document.getElementById('gallery-main-img');
+    const atcBtn = document.getElementById('atc-btn');
+    const stickyAtc = document.getElementById('pdp-sticky-atc');
 
     variantBtns.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -410,159 +466,130 @@
         const variant = product.variants.find(v => v.id === selectedVariantId);
         if (variant) {
           if (priceEl) priceEl.textContent = fmt(variant.price);
-          if (variant.image && mainImg) {
-            mainImg.src = variant.image;
-            document.getElementById('magnifier-img').src = variant.image.replace('w=800', 'w=1600');
+          if (stickyAtc) stickyAtc.querySelector('.pdp-price').textContent = fmt(variant.price);
+          if (variant.image && mainImg) mainImg.src = variant.image;
+          const inStock = variant.stock > 0;
+          const lowStock = variant.stock <= 5 && variant.stock > 0;
+          atcBtn.disabled = !inStock;
+          atcBtn.textContent = inStock ? Shop.t('add_to_cart', 'Add to Cart') : 'Out of Stock';
+          if (stickyAtc) { stickyAtc.disabled = !inStock; stickyAtc.textContent = inStock ? Shop.t('add_to_cart', 'Add to Cart') : 'Out of Stock'; }
+          if (stockEl) {
+            stockEl.innerHTML = !inStock ? '❌ Out of Stock' : (lowStock ? `⚠️ Only ${variant.stock} left!` : '✓ In Stock');
+            stockEl.className = `pdp-stock ${lowStock ? 'pdp-stock--low' : ''} ${!inStock ? 'pdp-stock--out' : ''}`;
           }
         }
       });
     });
   }
 
-  function attachQtyHandlers() {
-    const qtyVal = document.getElementById('qty-val');
-    const qtyMinus = document.getElementById('qty-minus');
-    const qtyPlus = document.getElementById('qty-plus');
-
-    qtyMinus?.addEventListener('click', () => {
-      if (currentQty > 1) {
-        currentQty--;
-        qtyVal.textContent = currentQty;
-      }
-    });
-
-    qtyPlus?.addEventListener('click', () => {
-      const variant = product.variants?.find(v => v.id === selectedVariantId);
-      const maxStock = variant ? (variant.stock || 99) : (product.stock || 99);
-      if (currentQty < maxStock) {
-        currentQty++;
-        qtyVal.textContent = currentQty;
-      }
+  function attachColorHandlers(hasColors) {
+    if (!hasColors) return;
+    const colorBtns = document.querySelectorAll('.pdp-color:not([disabled])');
+    const mainImg = document.getElementById('gallery-main-img');
+    colorBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        colorBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedColor = btn.dataset.color;
+        const variantMatch = product.variants?.find(v => v.label === selectedColor);
+        if (variantMatch && variantMatch.image && mainImg) mainImg.src = variantMatch.image;
+        else if (mainImg) mainImg.src = getColorImage(product, selectedColor);
+      });
     });
   }
 
-  function attachAtcHandler(currentVariant) {
-    const atcBtn = document.getElementById('atc-btn');
-    const mainImg = document.getElementById('gallery-main-img');
-    atcBtn?.addEventListener('click', () => {
-      const image = mainImg?.src || product.image;
-      Shop.addToCart(product, currentQty, selectedVariantId, null, image);
-      if (Shop.toast) Shop.toast(`${Shop.pName(product)} ${Shop.t('added', 'added to cart')}`);
+  function getColorImage(product, color) {
+    const variant = product.variants?.find(v => v.label === color);
+    return variant?.image || product.image;
+  }
+
+  function attachQtyHandlers(inStock) {
+    const qtyVal = document.getElementById('qty-val');
+    const maxStock = product.variants?.find(v => v.id === selectedVariantId)?.stock || product.stock || 99;
+    document.getElementById('qty-minus')?.addEventListener('click', () => {
+      if (currentQty > 1) { currentQty--; qtyVal.textContent = currentQty; }
     });
+    document.getElementById('qty-plus')?.addEventListener('click', () => {
+      if (currentQty < maxStock) { currentQty++; qtyVal.textContent = currentQty; }
+    });
+  }
+
+  function addToCart() {
+    const image = document.getElementById('gallery-main-img')?.src || product.image;
+    Shop.addToCart(product, currentQty, selectedVariantId, selectedColor, image);
+    if (Shop.toast) Shop.toast(`${Shop.pName(product)} ${Shop.t('added', 'added to cart')}`);
+  }
+
+  function attachAtcHandler(inStock) {
+    document.getElementById('atc-btn')?.addEventListener('click', addToCart);
   }
 
   async function renderBundle() {
-    const bundleEl = document.getElementById('bundle-items');
-    const priceEl = document.getElementById('bundle-price-info');
     const bundleIds = product.bundled || [];
-    
     const bundleProducts = [];
     for (const id of bundleIds) {
       const p = await Shop.getProduct(id);
       if (p) bundleProducts.push(p);
     }
-    
     if (!bundleProducts.length) return;
-    
-    bundleEl.innerHTML = bundleProducts.map(item => `
+    const bundleItemsDiv = document.getElementById('bundle-items');
+    const bundleTotalDiv = document.getElementById('bundle-total');
+    bundleItemsDiv.innerHTML = bundleProducts.map(item => `
       <div class="pdp-bundle-item">
-        <img src="${item.image}" alt="${Shop.pName(item)}" onerror="this.style.background='var(--c-bg-alt)'">
-        <div class="pdp-bundle-item__info">
-          <div class="pdp-bundle-item__name">${Shop.pName(item)}</div>
-          <div class="pdp-bundle-item__price">${fmt(item.price)}</div>
+        <img src="${item.image}" alt="${Shop.pName(item)}">
+        <div class="pdp-bundle-item-info">
+          <div class="pdp-bundle-item-name">${Shop.pName(item)}</div>
+          <div class="pdp-bundle-item-price">${fmt(item.price)}</div>
         </div>
       </div>
     `).join('');
-    
-    const mainPrice = product.variants?.[0]?.price || product.price;
+    const mainPrice = product.variants?.find(v => v.id === selectedVariantId)?.price || product.price;
     const addonsTotal = bundleProducts.reduce((s, p) => s + p.price, 0);
-    const fullTotal = mainPrice + addonsTotal;
-    priceEl.textContent = Shop.t('bundle_total', 'Bundle total') + ': ' + fmt(fullTotal);
-    
+    bundleTotalDiv.textContent = Shop.t('bundle_total', 'Bundle total') + ': ' + fmt(mainPrice + addonsTotal);
     document.getElementById('bundle-add-all').onclick = () => {
-      Shop.addToCart(product, 1, selectedVariantId, null, product.image);
+      Shop.addToCart(product, 1, selectedVariantId, selectedColor, product.image);
       bundleProducts.forEach(item => Shop.addToCart(item, 1));
       if (Shop.toast) Shop.toast(Shop.t('bundle_added', 'Bundle added to cart'));
     };
   }
 
   async function renderRelated() {
-    const relatedEl = document.getElementById('related-grid');
     const relatedIds = product.related || [];
-    
     const relatedProducts = [];
     for (const id of relatedIds) {
       const p = await Shop.getProduct(id);
       if (p) relatedProducts.push(p);
     }
-    
     if (!relatedProducts.length) return;
-    
-    relatedEl.innerHTML = relatedProducts.map(r => `
-      <div class="pdp-related-card">
-        <div class="pdp-related-card__img-wrap">
-          <img src="${r.image}" alt="${Shop.pName(r)}">
-          <div class="pdp-related-card__overlay">
-            <button class="pdp-related-card__buy-btn" data-rid="${r.id}" data-rimg="${r.image}">${Shop.t('buy_now', 'BUY NOW')}</button>
-          </div>
-        </div>
-        <div class="pdp-related-card__info">
-          <div class="pdp-related-card__name">
-            <a href="${getProductUrl(r.id)}" data-product-id="${r.id}" class="pdp-related-name-link" style="text-decoration:none;color:inherit;">${Shop.pName(r)}</a>
-          </div>
-          <div class="pdp-related-card__price">${fmt(r.price)}</div>
+    const grid = document.getElementById('related-grid');
+    grid.innerHTML = relatedProducts.map(r => `
+      <div class="pdp-related-card" data-id="${r.id}">
+        <img src="${r.image}" alt="${Shop.pName(r)}">
+        <div class="pdp-related-card-info">
+          <div class="pdp-related-card-name">${Shop.pName(r)}</div>
+          <div class="pdp-related-card-price">${fmt(r.price)}</div>
         </div>
       </div>
     `).join('');
-    
-    relatedEl.querySelectorAll('.pdp-related-card__buy-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const item = await Shop.getProduct(btn.dataset.rid);
-        if (item) {
-          Shop.addToCart(item, 1);
-          if (Shop.toast) Shop.toast(`${Shop.pName(item)} ${Shop.t('added', 'added to cart')}`);
-        }
-      });
-    });
-    
-    // Handle related product name links for SPA navigation
-    relatedEl.querySelectorAll('.pdp-related-name-link').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const pid = link.dataset.productId;
-        if (pid && typeof window.openProduct === 'function') {
-          window.openProduct(pid);
-        } else if (pid) {
-          window.location.href = getProductUrl(pid);
-        }
+    document.querySelectorAll('.pdp-related-card').forEach(card => {
+      card.addEventListener('click', () => {
+        window.location.href = '/' + currentLang + '/product/?id=' + card.dataset.id;
       });
     });
   }
 
   function renderSpecs() {
-    const accordionEl = document.getElementById('specs-accordion');
     const specs = product.specs || [];
     if (!specs.length) return;
-    
-    accordionEl.innerHTML = specs.map(sec => `
+    const accordion = document.getElementById('specs-accordion');
+    accordion.innerHTML = specs.map(sec => `
       <div class="pdp-accordion-item">
-        <button class="pdp-accordion-trigger">
-          <span>${sec.title}</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-        </button>
-        <div class="pdp-accordion-body">
-          <table class="pdp-spec-table"><tbody>
-            ${(sec.rows || []).map(row => `<tr><td>${row[0]}</td><td>${row[1]}</td></tr>`).join('')}
-          </tbody></table>
-        </div>
+        <button class="pdp-accordion-trigger"><span>${sec.title}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="pdp-accordion-body"><table class="pdp-spec-table"><tbody>${(sec.rows || []).map(row => `<tr><td>${row[0]}</td><td>${row[1]}</td></tr>`).join('')}</tbody>}</table></div>
       </div>
     `).join('');
-    
-    accordionEl.querySelectorAll('.pdp-accordion-trigger').forEach(btn => {
-      btn.addEventListener('click', () => {
-        btn.closest('.pdp-accordion-item').classList.toggle('open');
-      });
+    accordion.querySelectorAll('.pdp-accordion-trigger').forEach(btn => {
+      btn.addEventListener('click', () => btn.closest('.pdp-accordion-item').classList.toggle('open'));
     });
   }
 
@@ -570,21 +597,15 @@
     const magEl = document.getElementById('magnifier');
     const magImg = document.getElementById('magnifier-img');
     const mainWrap = document.getElementById('gallery-main-wrap');
+    const mainImg = document.getElementById('gallery-main-img');
     if (!magEl || !mainWrap) return;
-    
     function updateSize() {
       const rect = mainWrap.getBoundingClientRect();
       const size = Math.min(Math.min(window.innerWidth * 0.45, 600), rect.width * 1.2);
-      magEl.style.width = size + 'px';
-      magEl.style.height = size + 'px';
+      magEl.style.width = size + 'px'; magEl.style.height = size + 'px';
     }
-    
     mainWrap.addEventListener('mousemove', (e) => {
-      const videoDiv = document.getElementById('gallery-main-video');
-      if (videoDiv && videoDiv.style.display !== 'none') {
-        magEl.style.display = 'none';
-        return;
-      }
+      if (document.getElementById('gallery-main-video').style.display !== 'none') { magEl.style.display = 'none'; return; }
       const rect = mainWrap.getBoundingClientRect();
       const xPct = (e.clientX - rect.left) / rect.width;
       const yPct = (e.clientY - rect.top) / rect.height;
@@ -594,10 +615,9 @@
       if (mLeft + lensW > window.innerWidth - 20) mLeft = rect.left - lensW - 20;
       mLeft = Math.max(10, Math.min(mLeft, window.innerWidth - lensW - 10));
       mTop = Math.max(10, Math.min(mTop, window.innerHeight - lensH - 10));
-      magEl.style.left = mLeft + 'px';
-      magEl.style.top = mTop + 'px';
+      magEl.style.left = mLeft + 'px'; magEl.style.top = mTop + 'px';
       magEl.style.display = 'block';
-      
+      magImg.src = mainImg.src;
       const nW = magImg.naturalWidth, nH = magImg.naturalHeight;
       if (nW && nH) {
         const zoom = 2.5;
@@ -607,79 +627,52 @@
         magImg.style.top = -(yPct * nH * zoom - lensH/2) + 'px';
       }
     });
-    
-    mainWrap.addEventListener('mouseleave', () => {
-      magEl.style.display = 'none';
-    });
+    mainWrap.addEventListener('mouseleave', () => { magEl.style.display = 'none'; });
   }
 
   function initLightbox(images, videos) {
     const lightbox = document.getElementById('lightbox');
     let activeTab = 'images';
-    
     window.openLightbox = function(tab) {
       activeTab = tab || 'images';
       buildLightbox();
-      lightbox.style.display = 'flex';
+      lightbox.classList.add('open');
       document.body.style.overflow = 'hidden';
     };
-    
-    function closeLightbox() {
-      lightbox.style.display = 'none';
-      document.body.style.overflow = '';
-    }
-    
+    function closeLightbox() { lightbox.classList.remove('open'); document.body.style.overflow = ''; }
     function buildLightbox() {
-      document.querySelectorAll('.pdp-lightbox__tab').forEach(t => {
-        t.classList.toggle('active', t.dataset.tab === activeTab);
-      });
+      document.querySelectorAll('.pdp-lightbox__tab').forEach(t => t.classList.toggle('active', t.dataset.tab === activeTab));
       document.getElementById('tab-images').style.display = activeTab === 'images' ? '' : 'none';
       document.getElementById('tab-video').style.display = activeTab === 'video' ? '' : 'none';
-      
       if (activeTab === 'images') {
         document.getElementById('lb-main-img').src = images[currentImgIdx] || images[0] || '';
         const lbThumbs = document.getElementById('lb-thumbs');
-        lbThumbs.innerHTML = images.map((src, i) => `
-          <img class="pdp-lightbox-thumb${i === currentImgIdx ? ' active' : ''}" src="${src}" data-idx="${i}">
-        `).join('');
+        lbThumbs.innerHTML = images.map((src, i) => `<img class="pdp-lightbox-thumb ${i === currentImgIdx ? 'active' : ''}" src="${src}" data-idx="${i}">`).join('');
         lbThumbs.querySelectorAll('.pdp-lightbox-thumb').forEach(t => {
           t.addEventListener('click', () => {
             currentImgIdx = parseInt(t.dataset.idx);
             document.getElementById('lb-main-img').src = images[currentImgIdx];
-            lbThumbs.querySelectorAll('.pdp-lightbox-thumb').forEach((x, j) => {
-              x.classList.toggle('active', j === currentImgIdx);
-            });
+            lbThumbs.querySelectorAll('.pdp-lightbox-thumb').forEach((x, j) => x.classList.toggle('active', j === currentImgIdx));
           });
         });
-        
         const variant = product.variants?.find(v => v.id === selectedVariantId);
         document.getElementById('lb-details').innerHTML = `
           <p class="pdp-category">${Shop.pCategory(product)}</p>
           <h2 class="pdp-name">${Shop.pName(product)}</h2>
           <p class="pdp-price">${fmt(variant ? variant.price : product.price)}</p>
           <p class="pdp-desc">${Shop.pDesc(product)}</p>
-          <div class="pdp-perks">
-            <span>🚚 ${Shop.t('perk_free_shipping', 'Free shipping over €150')}</span>
-            <span>🔄 ${Shop.t('perk_returns', '30-day returns')}</span>
-            <span>🔧 ${Shop.t('perk_warranty', '2-year warranty')}</span>
-          </div>
+          <div class="pdp-perks"><span>🚚 ${Shop.t('perk_free_shipping', 'Free shipping over €150')}</span><span>🔄 ${Shop.t('perk_returns', '30-day returns')}</span><span>🔧 ${Shop.t('perk_warranty', '2-year warranty')}</span></div>
         `;
       }
-      
       if (activeTab === 'video') {
         const videoContainer = document.getElementById('video-container');
         videoContainer.innerHTML = videos.length ? videos.map(url => {
           const isYT = /youtube\.com\/embed\/|youtu\.be\//.test(url);
-          if (isYT) {
-            return `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;">
-                      <iframe src="${url}" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen></iframe>
-                    </div>`;
-          }
+          if (isYT) return `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;"><iframe src="${url}" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen></iframe></div>`;
           return `<video src="${url}" controls style="width:100%;max-height:70vh;border-radius:12px;"></video>`;
         }).join('') : '<div>No video available</div>';
       }
     }
-    
     document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
     lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
     document.querySelectorAll('.pdp-lightbox__tab').forEach(t => {
@@ -688,11 +681,8 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
   }
 
-  // Start loading when DOM ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadAndRender);
-  } else {
-    loadAndRender();
-  }
+  // Start
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadAndRender);
+  else loadAndRender();
 })();
 </script>
