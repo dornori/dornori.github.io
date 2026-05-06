@@ -161,7 +161,32 @@ const Shop = (() => {
     return PRODUCT_LANG[p.id]?.category || PRODUCT_LANG_EN[p.id]?.category
       || p.i18n?.[CONFIG.language]?.category || p.i18n?.en?.category || p.category || "";
   }
+   
+  /* NEW: LANGUAGE-AWARE PRODUCT URL - Fixes the NL link bug */
+  function pUrl(p) {
+    if (!p) return "#";
 
+    // 1. Current language first (lang/nl/products.json)
+    if (PRODUCT_LANG[p.id]?.url) {
+      return PRODUCT_LANG[p.id].url;
+    }
+
+    // 2. English fallback
+    if (PRODUCT_LANG_EN[p.id]?.url) {
+      return PRODUCT_LANG_EN[p.id].url;
+    }
+
+    // 3. Fix English base URL to current language
+    if (p.url) {
+      const lang = CONFIG.language || 'en';
+      return p.url.replace(/\/en\//i, `/${lang}/`);
+    }
+
+    // 4. Last resort - generate URL
+    const lang = CONFIG.language || 'en';
+    const base = window.__BASE_PATH__ || '';
+    return `${base}${lang}/product/?id=${p.id}`;
+  }
   function loadLang() {
     if (_langLoaded) return Promise.resolve(LANG);
     if (_langLoadPromise) return _langLoadPromise;
@@ -458,8 +483,9 @@ const Shop = (() => {
       }).join("")}</div>`;
     }
 
-    const hasUrl = !!p.url;
-    const wTag = hasUrl ? `a href="${p.url}"` : "div";
+        const url = pUrl(p);                    // ← Fixed
+    const hasUrl = !!url && url !== "#";
+    const wTag = hasUrl ? `a href="${url}"` : "div";
     const wEnd = hasUrl ? "a" : "div";
 
     return `
@@ -787,7 +813,7 @@ const Shop = (() => {
 
   return {
     resolveLanguage, detectBrowserLanguage, switchLanguage, wireLanguageSwitcher, loadLang, t,
-    loadProducts, getProduct, pName, pDesc, pCategory,
+    loadProducts, getProduct, pName, pDesc, pCategory, pUrl,
     getProductLang, getProductLangEn,
     getCart, saveCart, addToCart, removeFromCart, updateQty, clearCart, calculateTotals,
     fmt, fmtWeight, generateOrderRef,
