@@ -1,35 +1,11 @@
 <!-- content/en/product.html -->
 <div id="product-detail-container" class="product-detail-container"></div>
-<div id="product-error" class="product-error" style="display:none;"></div>
 
 <style>
 .product-detail-container {
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem 1rem;
-}
-.product-error {
-  text-align: center;
-  padding: 3rem;
-  color: #c0392b;
-  font-family: var(--font-body);
-}
-.loading-spinner {
-  text-align: center;
-  padding: 3rem;
-}
-.loading-spinner::after {
-  content: "";
-  display: inline-block;
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 .product-grid {
   display: grid;
@@ -45,7 +21,7 @@
   border-radius: 24px;
   overflow: hidden;
   background: var(--c-bg-alt);
-  cursor: zoom-in;
+  cursor: pointer;
 }
 .gallery-main img {
   width: 100%;
@@ -66,17 +42,16 @@
   border-radius: 12px;
   cursor: pointer;
   opacity: 0.6;
-  transition: opacity 0.2s, border 0.2s;
+  transition: all 0.2s;
   border: 2px solid transparent;
 }
 .gallery-thumb.active {
   opacity: 1;
   border-color: var(--accent);
 }
-.gallery-thumb:hover { opacity: 1; }
 .product-category {
-  font-size: 0.75rem;
-  letter-spacing: 0.15em;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--accent);
   margin-bottom: 0.5rem;
@@ -103,7 +78,7 @@
   display: block;
   font-size: 0.7rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
   margin-bottom: 0.5rem;
@@ -127,6 +102,11 @@
   background: var(--accent);
   color: white;
 }
+.variant-btn.soldout {
+  opacity: 0.4;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
 .qty-control {
   display: flex;
   align-items: center;
@@ -134,8 +114,8 @@
   margin-bottom: 1.5rem;
 }
 .qty-btn {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border: 1.5px solid var(--border);
   border-radius: 50%;
   background: transparent;
@@ -143,7 +123,7 @@
   font-size: 1.2rem;
 }
 .qty-value {
-  min-width: 40px;
+  min-width: 50px;
   text-align: center;
   font-size: 1.1rem;
   font-weight: 500;
@@ -162,6 +142,7 @@
   margin-bottom: 1rem;
 }
 .add-to-cart-btn:hover { transform: translateY(-2px); filter: brightness(1.05); }
+.add-to-cart-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .product-meta {
   display: flex;
   gap: 1rem;
@@ -175,22 +156,19 @@
   padding-top: 2rem;
   border-top: 1px solid var(--border);
 }
-.related-title {
-  font-size: 1.2rem;
-  margin-bottom: 1rem;
-}
 .related-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 1.5rem;
+  margin-top: 1rem;
 }
 .related-card {
   background: var(--c-surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 16px;
   overflow: hidden;
-  transition: transform 0.2s;
   cursor: pointer;
+  transition: transform 0.2s;
 }
 .related-card:hover { transform: translateY(-4px); }
 .related-card img {
@@ -202,54 +180,113 @@
   padding: 0.75rem;
 }
 .related-card-name {
-  font-weight: 600;
-  font-size: 0.9rem;
+  font-weight: 500;
+  font-size: 0.85rem;
 }
 .related-card-price {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--accent);
   margin-top: 0.25rem;
+}
+.loading {
+  text-align: center;
+  padding: 3rem;
+}
+.loading::after {
+  content: "";
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.error {
+  text-align: center;
+  padding: 3rem;
+  color: #c0392b;
+}
+.stock-low {
+  color: #e67e22;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+.stock-out {
+  color: #c0392b;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
 }
 </style>
 
 <script>
 (function() {
-  // ------------------------------------------------------------
+  const container = document.getElementById('product-detail-container');
+  let product = null;
+  let allProducts = [];
+  let currentQty = 1;
+  let selectedVariantId = null;
+  let selectedVariant = null;
+
   // Get product ID from URL
-  // ------------------------------------------------------------
   function getProductId() {
     const params = new URLSearchParams(window.location.search);
     let id = params.get('id');
     if (id) return id;
-    // Pretty URL: /en/product/ufo-assembled
     const match = window.location.pathname.match(/\/product\/([^\/?#]+)/);
     if (match) return match[1];
     return null;
   }
 
   const productId = getProductId();
-  const container = document.getElementById('product-detail-container');
-  const errorDiv = document.getElementById('product-error');
 
   if (!productId) {
-    errorDiv.innerHTML = 'No product specified. Use ?id=product-id in the URL.';
-    errorDiv.style.display = 'block';
+    container.innerHTML = '<div class="error">No product specified. Use ?id=product-id in the URL.</div>';
     return;
   }
 
-  // ------------------------------------------------------------
-  // Wait for Shop to be ready
-  // ------------------------------------------------------------
-  let product = null;
-  let allProducts = [];
+  // Format price (safe fallback)
+  function formatPrice(price) {
+    if (typeof Shop !== 'undefined' && Shop.fmt) {
+      return Shop.fmt(price);
+    }
+    return '€' + price.toFixed(2);
+  }
 
-  async function loadProduct() {
-    // Show loading spinner
-    container.innerHTML = '<div class="loading-spinner"></div>';
+  // Get product name (safe)
+  function getProductName(p) {
+    if (typeof Shop !== 'undefined' && Shop.pName) {
+      return Shop.pName(p);
+    }
+    return p.name || p.id;
+  }
 
-    // Wait for Shop
+  // Get product description (safe)
+  function getProductDesc(p) {
+    if (typeof Shop !== 'undefined' && Shop.pDesc) {
+      return Shop.pDesc(p);
+    }
+    return p.description || '';
+  }
+
+  // Get product category (safe)
+  function getProductCategory(p) {
+    if (typeof Shop !== 'undefined' && Shop.pCategory) {
+      return Shop.pCategory(p);
+    }
+    return p.category || '';
+  }
+
+  // Main render function
+  async function renderProduct() {
+    container.innerHTML = '<div class="loading"></div>';
+
+    // Wait for Shop to be available
     if (typeof Shop === 'undefined') {
-      await new Promise(resolve => {
+      await new Promise((resolve) => {
         const check = setInterval(() => {
           if (typeof Shop !== 'undefined') {
             clearInterval(check);
@@ -261,103 +298,130 @@
     }
 
     if (typeof Shop === 'undefined') {
-      errorDiv.innerHTML = 'Shop engine not loaded. Please refresh the page.';
-      errorDiv.style.display = 'block';
-      container.innerHTML = '';
+      container.innerHTML = '<div class="error">Shop engine not loaded. Please refresh the page.</div>';
       return;
     }
 
     try {
-      // Load language and products
+      // Ensure language is loaded
       await Shop.loadLang();
-      allProducts = await Shop.loadProducts();
-      product = allProducts.find(p => p.id === productId);
+      
+      // Load product using Shop.getProduct (more reliable)
+      product = await Shop.getProduct(productId);
       
       if (!product) {
         throw new Error(`Product "${productId}" not found`);
       }
+
+      // Set up variants
+      const hasVariants = product.variants && product.variants.length > 0;
+      if (hasVariants) {
+        selectedVariantId = product.variants[0].id;
+        selectedVariant = product.variants[0];
+      }
+
+      const images = product.images && product.images.length ? product.images : [product.image];
+      const currentPrice = selectedVariant ? selectedVariant.price : product.price;
+      const currentImage = selectedVariant && selectedVariant.image ? selectedVariant.image : images[0];
+      const currentName = getProductName(product);
+      const currentDesc = getProductDesc(product);
+      const currentCategory = getProductCategory(product);
+      const inStock = selectedVariant ? (selectedVariant.stock > 0) : (product.stock > 0);
+      const lowStock = selectedVariant ? (selectedVariant.stock <= 5 && selectedVariant.stock > 0) : (product.stock <= 5 && product.stock > 0);
+
+      // Build HTML
+      let html = `
+        <div class="product-grid" data-product-id="${product.id}">
+          <div class="gallery-column">
+            <div class="gallery-main">
+              <img id="product-main-img" src="${currentImage}" alt="${currentName}">
+            </div>
+            <div class="gallery-thumbs" id="product-thumbs">
+      `;
+
+      images.forEach((src, i) => {
+        html += `<img class="gallery-thumb ${i === 0 ? 'active' : ''}" src="${src}" data-index="${i}">`;
+      });
+
+      html += `
+            </div>
+          </div>
+          <div class="details-column">
+            <div class="product-category">${currentCategory}</div>
+            <h1 class="product-name">${currentName}</h1>
+            <div class="product-price" id="product-price">${formatPrice(currentPrice)}</div>
+      `;
+
+      if (!inStock) {
+        html += `<div class="stock-out">❌ Out of Stock</div>`;
+      } else if (lowStock) {
+        html += `<div class="stock-low">⚠️ Only ${selectedVariant?.stock || product.stock} left in stock! Order soon.</div>`;
+      }
+
+      html += `
+            <div class="product-description">${currentDesc}</div>
+      `;
+
+      // Variants
+      if (hasVariants) {
+        html += `
+            <div class="variant-group">
+              <label class="variant-label">Choose Option</label>
+              <div class="variant-buttons" id="variant-buttons">
+        `;
+        product.variants.forEach((v, i) => {
+          const isSoldOut = v.stock === 0;
+          html += `<button class="variant-btn ${i === 0 ? 'active' : ''} ${isSoldOut ? 'soldout' : ''}" data-variant-id="${v.id}" data-price="${v.price}" data-image="${v.image || images[0]}" ${isSoldOut ? 'disabled' : ''}>${v.label}${isSoldOut ? ' (Sold Out)' : ''}</button>`;
+        });
+        html += `
+              </div>
+            </div>
+        `;
+      }
+
+      // Quantity and Add to Cart
+      html += `
+            <div class="qty-control">
+              <button class="qty-btn" id="qty-minus">−</button>
+              <span class="qty-value" id="qty-value">1</span>
+              <button class="qty-btn" id="qty-plus">+</button>
+            </div>
+            <button class="add-to-cart-btn" id="add-to-cart" ${!inStock ? 'disabled' : ''}>${inStock ? 'Add to Cart' : 'Out of Stock'}</button>
+            <div class="product-meta">
+              <span>🚚 Free shipping over €150</span>
+              <span>🔄 30-day returns</span>
+              <span>🔧 2-year warranty</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      container.innerHTML = html;
+
+      // Attach event listeners
+      attachEvents(hasVariants);
       
-      // Render the product page
-      renderProductPage();
+      // Load related products
+      if (product.related && product.related.length) {
+        loadRelatedProducts();
+      }
+
     } catch (err) {
-      console.error('Product load error:', err);
-      errorDiv.innerHTML = err.message;
-      errorDiv.style.display = 'block';
-      container.innerHTML = '';
+      console.error('Product error:', err);
+      container.innerHTML = `<div class="error">${err.message}</div>`;
     }
   }
 
-  // ------------------------------------------------------------
-  // Render full product page
-  // ------------------------------------------------------------
-  let currentQty = 1;
-  let selectedVariantId = null;
-  let selectedVariant = null;
-  let currentImages = [];
+  function attachEvents(hasVariants) {
+    const mainImg = document.getElementById('product-main-img');
+    const priceEl = document.getElementById('product-price');
+    const qtyValue = document.getElementById('qty-value');
+    const qtyMinus = document.getElementById('qty-minus');
+    const qtyPlus = document.getElementById('qty-plus');
+    const atcBtn = document.getElementById('add-to-cart');
 
-  function renderProductPage() {
-    const hasVariants = product.variants && product.variants.length > 0;
-    selectedVariantId = hasVariants ? product.variants[0].id : null;
-    selectedVariant = hasVariants ? product.variants[0] : null;
-    const displayPrice = selectedVariant ? selectedVariant.price : product.price;
-    const images = product.images && product.images.length ? product.images : [product.image];
-    currentImages = images;
-
-    const html = `
-      <div class="product-grid" data-product-id="${product.id}">
-        <div class="gallery-column">
-          <div class="gallery-main">
-            <img id="product-main-img" src="${images[0]}" alt="${product.name}">
-          </div>
-          <div class="gallery-thumbs" id="product-thumbs">
-            ${images.map((src, i) => `<img class="gallery-thumb ${i === 0 ? 'active' : ''}" src="${src}" data-index="${i}">`).join('')}
-          </div>
-        </div>
-        <div class="details-column">
-          <div class="product-category">${product.category || ''}</div>
-          <h1 class="product-name">${product.name}</h1>
-          <div class="product-price" id="product-price">${Shop.fmt ? Shop.fmt(displayPrice) : '€' + displayPrice.toFixed(2)}</div>
-          <div class="product-description">${product.description || ''}</div>
-          
-          ${hasVariants ? `
-          <div class="variant-group">
-            <label class="variant-label">Choose Finish</label>
-            <div class="variant-buttons" id="variant-buttons">
-              ${product.variants.map((v, i) => `
-                <button class="variant-btn ${i === 0 ? 'active' : ''}" data-variant-id="${v.id}" data-price="${v.price}" data-image="${v.image || images[0]}">
-                  ${v.label}
-                </button>
-              `).join('')}
-            </div>
-          </div>
-          ` : ''}
-          
-          <div class="qty-control">
-            <button class="qty-btn" id="qty-minus">−</button>
-            <span class="qty-value" id="qty-value">1</span>
-            <button class="qty-btn" id="qty-plus">+</button>
-          </div>
-          
-          <button class="add-to-cart-btn" id="add-to-cart">Add to Cart</button>
-          
-          <div class="product-meta">
-            <span>⚡ Free shipping over €150</span>
-            <span>🔄 30-day returns</span>
-            <span>🔧 2-year warranty</span>
-          </div>
-        </div>
-      </div>
-    `;
-
-    container.innerHTML = html;
-    attachEventListeners(hasVariants);
-    loadRelatedProducts();
-  }
-
-  function attachEventListeners(hasVariants) {
     // Thumbnail clicks
     const thumbs = document.querySelectorAll('.gallery-thumb');
-    const mainImg = document.getElementById('product-main-img');
     thumbs.forEach(thumb => {
       thumb.addEventListener('click', () => {
         thumbs.forEach(t => t.classList.remove('active'));
@@ -369,7 +433,7 @@
 
     // Variant selection
     if (hasVariants) {
-      const variantBtns = document.querySelectorAll('.variant-btn');
+      const variantBtns = document.querySelectorAll('.variant-btn:not([disabled])');
       variantBtns.forEach(btn => {
         btn.addEventListener('click', () => {
           variantBtns.forEach(b => b.classList.remove('active'));
@@ -379,97 +443,104 @@
           if (variant) {
             selectedVariantId = variant.id;
             selectedVariant = variant;
-            const priceEl = document.getElementById('product-price');
-            if (priceEl) priceEl.textContent = Shop.fmt ? Shop.fmt(variant.price) : '€' + variant.price.toFixed(2);
-            if (variant.image && mainImg) {
-              mainImg.src = variant.image;
-              // Also update active thumb if image matches
-              thumbs.forEach((thumb, i) => {
-                if (thumb.getAttribute('src') === variant.image) {
-                  thumbs.forEach(t => t.classList.remove('active'));
-                  thumb.classList.add('active');
-                }
-              });
-            }
+            if (priceEl) priceEl.textContent = formatPrice(variant.price);
+            if (variant.image && mainImg) mainImg.src = variant.image;
+            const inStock = variant.stock > 0;
+            const lowStock = variant.stock <= 5 && variant.stock > 0;
+            atcBtn.disabled = !inStock;
+            atcBtn.textContent = inStock ? 'Add to Cart' : 'Out of Stock';
           }
         });
       });
     }
 
     // Quantity controls
-    const qtyValue = document.getElementById('qty-value');
-    const qtyMinus = document.getElementById('qty-minus');
-    const qtyPlus = document.getElementById('qty-plus');
+    let currentQty = 1;
     const maxStock = selectedVariant ? (selectedVariant.stock || 99) : (product.stock || 99);
     
-    qtyMinus?.addEventListener('click', () => {
-      if (currentQty > 1) {
-        currentQty--;
-        qtyValue.textContent = currentQty;
-      }
-    });
-    qtyPlus?.addEventListener('click', () => {
-      if (currentQty < maxStock) {
-        currentQty++;
-        qtyValue.textContent = currentQty;
-      }
-    });
+    if (qtyMinus) {
+      qtyMinus.addEventListener('click', () => {
+        if (currentQty > 1) {
+          currentQty--;
+          if (qtyValue) qtyValue.textContent = currentQty;
+        }
+      });
+    }
+    
+    if (qtyPlus) {
+      qtyPlus.addEventListener('click', () => {
+        if (currentQty < maxStock) {
+          currentQty++;
+          if (qtyValue) qtyValue.textContent = currentQty;
+        }
+      });
+    }
 
     // Add to cart
-    const atcBtn = document.getElementById('add-to-cart');
-    atcBtn?.addEventListener('click', () => {
-      const image = mainImg?.src || product.image;
-      Shop.addToCart(product, currentQty, selectedVariantId, null, image);
-      if (Shop.toast) {
-        Shop.toast(`${product.name} added to cart`);
-      } else {
-        alert(`${product.name} added to cart`);
-      }
-    });
+    if (atcBtn) {
+      atcBtn.addEventListener('click', () => {
+        const image = mainImg?.src || product.image;
+        Shop.addToCart(product, currentQty, selectedVariantId, null, image);
+        if (Shop.toast) {
+          Shop.toast(`${getProductName(product)} added to cart`);
+        } else {
+          alert(`${getProductName(product)} added to cart`);
+        }
+      });
+    }
   }
 
   async function loadRelatedProducts() {
     if (!product.related || product.related.length === 0) return;
     
-    const relatedIds = product.related;
-    const relatedProducts = allProducts.filter(p => relatedIds.includes(p.id));
-    if (relatedProducts.length === 0) return;
+    try {
+      const relatedProducts = [];
+      for (const id of product.related) {
+        const p = await Shop.getProduct(id);
+        if (p) relatedProducts.push(p);
+      }
+      
+      if (relatedProducts.length === 0) return;
 
-    const relatedHtml = `
-      <div class="related-section">
-        <h3 class="related-title">You May Also Like</h3>
-        <div class="related-grid" id="related-grid">
-          ${relatedProducts.map(rp => `
-            <div class="related-card" data-product-id="${rp.id}">
-              <img src="${rp.image}" alt="${rp.name}" loading="lazy">
-              <div class="related-card-info">
-                <div class="related-card-name">${rp.name}</div>
-                <div class="related-card-price">${Shop.fmt ? Shop.fmt(rp.price) : '€' + rp.price.toFixed(2)}</div>
-              </div>
+      let relatedHtml = `
+        <div class="related-section">
+          <h3>You May Also Like</h3>
+          <div class="related-grid" id="related-grid">
+      `;
+      
+      relatedProducts.forEach(rp => {
+        relatedHtml += `
+          <div class="related-card" data-product-id="${rp.id}">
+            <img src="${rp.image}" alt="${getProductName(rp)}" loading="lazy">
+            <div class="related-card-info">
+              <div class="related-card-name">${getProductName(rp)}</div>
+              <div class="related-card-price">${formatPrice(rp.price)}</div>
             </div>
-          `).join('')}
-        </div>
-      </div>
-    `;
-    
-    container.insertAdjacentHTML('beforeend', relatedHtml);
-    
-    // Wire related product clicks
-    document.querySelectorAll('.related-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const relatedId = card.dataset.productId;
-        if (relatedId) {
-          window.location.href = `/en/product/?id=${relatedId}`;
-        }
+          </div>
+        `;
       });
-    });
+      
+      relatedHtml += `</div></div>`;
+      container.insertAdjacentHTML('beforeend', relatedHtml);
+      
+      document.querySelectorAll('.related-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const id = card.dataset.productId;
+          if (id) {
+            window.location.href = `/en/product/?id=${id}`;
+          }
+        });
+      });
+    } catch (err) {
+      console.warn('Related products error:', err);
+    }
   }
 
-  // Start loading
+  // Start rendering when DOM is ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadProduct);
+    document.addEventListener('DOMContentLoaded', renderProduct);
   } else {
-    loadProduct();
+    renderProduct();
   }
 })();
 </script>
