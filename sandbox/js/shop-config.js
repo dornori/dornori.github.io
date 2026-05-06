@@ -80,8 +80,8 @@ const CONFIG = {
   /* ── Data file paths ───────────────────────────────── */
   data: {
     shippingJson:    "data/shipping.json",
-    langDir:         "../lang/",
-    productsJson:    "../data/products.json",
+    langDir:         "lang/",
+    productsJson:    "data/products.json",
   },
 
   /* ── Modules to load ───────────────────────────────── */

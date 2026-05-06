@@ -19,7 +19,7 @@
 import SITE_CONFIG from './config.js';
 import { getSlug } from './i18n.js';
 
-const SHOP_BASE = SITE_CONFIG.appearance.base_path + 'shop/';
+const BASE = SITE_CONFIG.appearance.base_path;
 
 // ── Sequential script loader ──────────────────────────────────────────────────
 function loadScript(src) {
@@ -34,11 +34,14 @@ function loadScript(src) {
 }
 
 // ── Resolve relative data/image paths → absolute ─────────────────────────────
+// langDir lives at the site root (e.g. /lang/) — skip absolutify for it.
+const SKIP_ABSOLUTIFY = new Set(['langDir']);
+
 function absolutify(obj) {
     if (!obj || typeof obj !== 'object') return obj;
     const out = {};
     for (const [k, v] of Object.entries(obj)) {
-        out[k] = typeof v === 'string' ? SHOP_BASE + v : v;
+        out[k] = (!SKIP_ABSOLUTIFY.has(k) && typeof v === 'string') ? BASE + v : v;
     }
     return out;
 }
@@ -75,7 +78,7 @@ function wireCurrencySlot() {
 // ── Main export ───────────────────────────────────────────────────────────────
 export async function initShop() {
     // ── 1. Load shop config ────────────────────────────────────────────────
-    await loadScript(SHOP_BASE + 'js/config.js');
+    await loadScript(BASE + 'js/shop-config.js');
 
     if (typeof CONFIG === 'undefined') {
         console.warn('[shop-loader] CONFIG unavailable — shop disabled');
@@ -86,11 +89,11 @@ export async function initShop() {
     CONFIG.data   = absolutify(CONFIG.data);
 
     if (CONFIG.images) {
-        CONFIG.images.imageDir = SHOP_BASE + (CONFIG.images.imageDir || 'images/products/');
+        CONFIG.images.imageDir = BASE + (CONFIG.images.imageDir || 'images/products/');
     }
 
     // Payment redirect paths
-    const successUrl = SHOP_BASE + 'success.html';
+    const successUrl = buildSuccessUrl(siteLang);
     const stayUrl    = window.location.pathname;
     if (CONFIG.payment?.paypal) {
         CONFIG.payment.paypal.returnPath = successUrl;
@@ -102,12 +105,20 @@ export async function initShop() {
     }
 
     // ── 3. Patch module paths ─────────────────────────────────────────────
-    CONFIG.modules = (CONFIG.modules || []).map(m => SHOP_BASE + m);
+    CONFIG.modules = (CONFIG.modules || []).map(m => BASE + m);
 
     // ── 4. Sync language from parent site ────────────────────────────────
-    const siteLang = localStorage.getItem(SITE_CONFIG.storageKeys.lang) || window.__PAGE_LANG__ || SITE_CONFIG.languages[0].code;
-    CONFIG.language = siteLang;
+    const siteLang   = localStorage.getItem(SITE_CONFIG.storageKeys.lang) || window.__PAGE_LANG__ || SITE_CONFIG.languages[0].code;
+    CONFIG.language  = siteLang;
     localStorage.setItem(SITE_CONFIG.storageKeys.lang, siteLang);
+
+    // Build lang-aware success URL. window.T isn't loaded yet at this point,
+    // so we derive the slug from SITE_CONFIG.languages or fall back per known langs.
+    function buildSuccessUrl(lang) {
+        const slugMap = { nl: 'succes' };
+        const slug = slugMap[lang] || 'success';
+        return window.location.origin + SITE_CONFIG.appearance.base_path + lang + '/' + slug + '/';
+    }
 
     // ── 5. Load modules sequentially ─────────────────────────────────────
     for (const src of CONFIG.modules) {
@@ -115,8 +126,8 @@ export async function initShop() {
     }
 
     // ── 6. Load lang-bridge then shop engine ─────────────────────────────
-    await loadScript(SHOP_BASE + 'js/lang-bridge.js');
-    await loadScript(SHOP_BASE + 'js/shop.js');
+    await loadScript(BASE + 'js/lang-bridge.js');
+    await loadScript(BASE + 'js/shop.js');
 
     // ── 7. Signal that scripts are loaded (cart.html listener wakes here) ─
     document.dispatchEvent(new Event('lumio:ready'));

@@ -140,12 +140,31 @@
       // Ensure language is loaded for currentLang
       await Shop.switchLanguage(currentLang);
       await Shop.loadLang();
-      
+
+      // Manually load lang/products.json — Shop's langDir resolves to /shop/lang/
+      // so we fetch directly from the correct site-root paths.
+      const safeFetch = url => fetch(url).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+      const [langProds, enProds] = await Promise.all([
+        currentLang !== 'en' ? safeFetch('/lang/' + currentLang + '/products.json') : Promise.resolve({}),
+        safeFetch('/lang/en/products.json'),
+      ]);
+
       // Load product using Shop.getProduct (respects language)
       product = await Shop.getProduct(productId);
-      
+
       if (!product) {
         throw new Error('Product not found: ' + productId);
+      }
+
+      // Inject translations into product.i18n so pName/pDesc/pCategory pick them up
+      const pid = product.id;
+      product.i18n = product.i18n || {};
+      if (enProds[pid])   product.i18n.en = Object.assign({}, product.i18n.en, enProds[pid]);
+      if (langProds[pid]) product.i18n[currentLang] = Object.assign({}, product.i18n[currentLang], langProds[pid]);
+      if (langProds[pid]?.variants && product.variants) {
+        langProds[pid].variants.forEach((lv, i) => {
+          if (product.variants[i] && lv.label) product.variants[i].label = lv.label;
+        });
       }
 
       // Set up initial variant

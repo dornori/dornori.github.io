@@ -96,13 +96,13 @@
     injectPreloads([
         { href: 'assets/images/dornori-logo-transparent.webp', as: 'image', fetchpriority: 'high' },
         { href: 'css/main.css',       as: 'style' },
-        { href: 'shop/css/shop.css',  as: 'style' },
+        { href: 'css/shop.css',  as: 'style' },
     ]);
 
     injectStyles([
         'css/profiles.css',
         'css/main.css',
-        'shop/css/shop.css',
+        'css/shop.css',
         'css/shop-bridge.css',
     ]);
 
@@ -122,9 +122,9 @@
     window.__CART_URL__ = BASE_PATH + lang + '/cart/';
 
     window.SHOP_CONFIG = {
-        basePath: BASE_PATH + 'shop/',
+        basePath: BASE_PATH,
         dataPath: BASE_PATH + 'data/',
-        jsPath:   BASE_PATH + 'shop/js/',
+        jsPath:   BASE_PATH + 'js/',
     };
 
     if (window.__PAGE_SLUG__ === undefined) {
@@ -157,8 +157,8 @@
         // Sequential: scripts with deps wait for their dependencies
         loadScriptsWithDeps([
             // Chain: config -> lang-bridge -> shop-init (must be sequential)
-            { id: 'cfg', src: 'shop/js/config.js' },
-            { id: 'lang', src: 'shop/js/lang-bridge.js', deps: ['cfg'] },
+            { id: 'cfg', src: 'js/shop-config.js' },
+            { id: 'lang', src: 'js/lang-bridge.js', deps: ['cfg'] },
             { id: 'shop', src: 'js/shop-init.js', deps: ['lang'] },
             // Parallel: these load alongside the chain, independent of it
             { id: 'main', src: 'js/site-main.js', module: true },

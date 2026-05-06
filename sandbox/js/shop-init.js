@@ -13,7 +13,7 @@
     'use strict';
 
     var cfg     = window.SHOP_CONFIG || {};
-    var sitBase = (cfg.basePath || '').replace(/shop\/$/, ''); // e.g. '/'
+    var sitBase = cfg.basePath || '/'; // basePath is now the site root directly
 
     // ── 1. Patch CONFIG to use new unified data paths ─────────────────────────
     if (typeof CONFIG !== 'undefined') {
