@@ -54,6 +54,7 @@ const Shop = (() => {
     localStorage.setItem(langKey, code);
     _langLoaded = false; _langLoadPromise = null; LANG = {};
     PRODUCT_LANG = {}; PRODUCT_LANG_EN = {};
+    _products = {}; // Clear product cache so they reload in the new language
     await loadLang();
     document.dispatchEvent(new CustomEvent("shop:langChanged", { detail: { lang: code } }));
   }
@@ -203,16 +204,54 @@ const Shop = (() => {
   /* ─── PRODUCT LOADER ────────────────────────────────── */
   async function loadProducts() {
     await loadLang();
+    const lang = CONFIG.language || resolveLanguage();
+    const langDir = CONFIG.data.langDir || '';
+    const fallback = CONFIG.defaultLanguage || 'en';
+    
+    const safeFetch = url => fetch(url)
+      .then(r => { if (!r.ok) throw 0; return r.json(); })
+      .catch(() => null);
+    
+    // 1. Always load base products first
     const src = CONFIG.data?.productsJson || "data/products.json";
-    const all = await fetch(src).then(r => r.json());
+    let all = await fetch(src).then(r => r.json()).catch(() => []);
+    
+    // 2. Try to overlay language-specific overrides
+    const langProducts = await safeFetch(langDir + lang + '/products.json');
+    if (langProducts) {
+      all = all.map(p => ({
+        ...p,
+        ...(langProducts[p.id] || {})
+      }));
+    }
+    
     all.forEach(p => { _products[p.id] = p; });
     return all;
   }
+  
   async function getProduct(id) {
     if (_products[id]) return _products[id];
     await loadLang();
+    const lang = CONFIG.language || resolveLanguage();
+    const langDir = CONFIG.data.langDir || '';
+    
+    const safeFetch = url => fetch(url)
+      .then(r => { if (!r.ok) throw 0; return r.json(); })
+      .catch(() => null);
+    
+    // 1. Load base products
     const src = CONFIG.data?.productsJson || "data/products.json";
-    const all = await fetch(src).then(r => r.json());
+    let all = await fetch(src).then(r => r.json()).catch(() => []);
+    
+    // 2. Overlay language-specific overrides
+    const langProducts = await safeFetch(langDir + lang + '/products.json');
+    if (langProducts) {
+      all = all.map(p => ({
+        ...p,
+        ...(langProducts[p.id] || {})
+      }));
+    }
+    
     all.forEach(p => { _products[p.id] = p; });
     return _products[id] || null;
   }
@@ -531,7 +570,7 @@ const Shop = (() => {
   ═══════════════════════════════════════════════════════ */
   async function renderShop(divId, options = {}) {
     await loadLang();
-    const products  = await loadProducts();
+    let products  = await loadProducts();
     const container = document.getElementById(divId);
     if (!container) return;
     const { columns = "auto", showFilter = true } = options;
@@ -563,7 +602,10 @@ const Shop = (() => {
       });
     }
     buildGrid();
-    document.addEventListener("shop:langChanged", buildGrid);
+    document.addEventListener("shop:langChanged", async () => {
+      products = await loadProducts(); // Reload products in the new language
+      buildGrid();
+    });
     document.addEventListener("currency:changed", () => {
       container.querySelectorAll(".webshop-card-price").forEach((el, i) => { if (products[i]) el.textContent = fmt(products[i].price); });
     });
@@ -707,7 +749,14 @@ const Shop = (() => {
       wireRelatedStrip(container, p);
     }
     build();
-    document.addEventListener("shop:langChanged", build);
+    document.addEventListener("shop:langChanged", async () => {
+      // Reload the product in the new language
+      const newProduct = await getProduct(productId);
+      if (newProduct) {
+        Object.assign(p, newProduct); // Update product object with new language data
+        build();
+      }
+    });
     document.addEventListener("currency:changed", build);
   }
 
