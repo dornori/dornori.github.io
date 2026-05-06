@@ -520,7 +520,7 @@ const Shop = (() => {
 
     // Build a lang-aware product URL — ignore p.url which is hardcoded to /en/
     const lang    = CONFIG.language || resolveLanguage();
-    const base    = CONFIG.data?.basePath || '/';
+    const base    = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || CONFIG.data?.basePath || '/';
     const slug    = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
     const prodUrl = `${base}${lang}/${slug}/?id=${p.id}`;
     const hasUrl  = !!p.id;
