@@ -92,6 +92,9 @@
         var skel = document.getElementById('cart-skeleton');
         if (skel) skel.remove();
         Shop.renderCartIcon({ target: '#cart-icon-slot', fixed: false, cartUrl: _cartUrl(lang) });
+        if (document.getElementById('mobile-cart-icon-slot')) {
+            Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl: _cartUrl(lang) });
+        }
     }
 
     function _mountCurrencySelector() {

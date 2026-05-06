@@ -136,6 +136,12 @@ window.renderNav = () => {
 
             if (item.icon) fetchSVG(iconPath(item.icon)).then(svg => { iconEl.innerHTML = svg; });
         });
+
+        // ── Mobile cart icon slot (populated by shop-init.js) ──
+        const mobileCartSlot = document.createElement('div');
+        mobileCartSlot.id        = 'mobile-cart-icon-slot';
+        mobileCartSlot.className = 'mobile-nav-item mobile-nav-cart-slot';
+        mobileNav.appendChild(mobileCartSlot);
     }
 };
 
