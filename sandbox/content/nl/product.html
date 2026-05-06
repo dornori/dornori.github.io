@@ -1,8 +1,5 @@
 <!-- content/en/product.html ─────────────────────────────────────────────────
-     Full Product Detail Page — embedded in the Dornori site shell.
-     Loaded by page-loader.js into #page-content-inner when slug = 'product'.
-     Product ID is read from URL ?id= parameter.
-     Uses Shop.getProduct() to load from your existing products.json.
+     Full Product Detail Page — respects current language (en/nl/de/no)
      ──────────────────────────────────────────────────────────────────────── -->
 
 <style>
@@ -55,9 +52,9 @@
   </div>
 </div>
 
-<!-- Back button -->
+<!-- Back button with language-aware URL -->
 <div style="margin-bottom:1.5rem;">
-  <button class="nav-link" style="font-size:.82rem;opacity:.6;padding:0;border:none;background:none;cursor:pointer;" onclick="history.back()">← Back</button>
+  <button class="nav-link" style="font-size:.82rem;opacity:.6;padding:0;border:none;background:none;cursor:pointer;" id="back-button">← Back</button>
 </div>
 
 <!-- PDP Container -->
@@ -72,6 +69,20 @@
   let selectedVariantId = null;
   let currentQty = 1;
   let currentImgIdx = 0;
+  let currentLang = 'en';
+
+  // Get current language from URL or window.LANG
+  function getCurrentLanguage() {
+    // Check URL path for language prefix
+    const pathMatch = window.location.pathname.match(/^\/([a-z]{2})\//);
+    if (pathMatch && ['en', 'nl', 'de', 'no'].includes(pathMatch[1])) {
+      return pathMatch[1];
+    }
+    // Fallback to window.LANG or localStorage
+    return window.LANG || localStorage.getItem('dornori-lang') || 'en';
+  }
+
+  currentLang = getCurrentLanguage();
 
   // Get product ID from URL
   function getProductId() {
@@ -89,13 +100,19 @@
     return;
   }
 
+  // Build language-aware product URL
+  function getProductUrl(pid) {
+    return '/' + currentLang + '/product/?id=' + pid;
+  }
+
+  // Build language-aware cart URL
+  function getCartUrl() {
+    return '/' + currentLang + '/cart/';
+  }
+
   function fmt(price) {
     if (typeof Shop !== 'undefined' && Shop.fmt) return Shop.fmt(price);
     return '€' + Number(price).toFixed(2);
-  }
-
-  function resolveById(id, allProducts) {
-    return allProducts.find(function(p) { return p.id === id; }) || null;
   }
 
   async function loadAndRender() {
@@ -120,10 +137,11 @@
     }
 
     try {
-      // Load language
+      // Ensure language is loaded for currentLang
+      await Shop.switchLanguage(currentLang);
       await Shop.loadLang();
       
-      // Load product using Shop.getProduct (uses your CONFIG.data.productsJson path)
+      // Load product using Shop.getProduct (respects language)
       product = await Shop.getProduct(productId);
       
       if (!product) {
@@ -152,15 +170,18 @@
     const videos = product.videos || [];
     const currentImage = (currentVariant && currentVariant.image) ? currentVariant.image : images[0];
 
+    // Get translated name, category, description
+    const productName = Shop.pName(product);
+    const productCategory = Shop.pCategory(product);
+    const productDesc = Shop.pDesc(product);
+
     // Build HTML
     let html = `
       <div class="pdp-wrapper">
-        <!-- Main 2-col layout -->
         <div class="pdp-main webshop-fade-in">
-          <!-- Gallery -->
           <div class="pdp-gallery" id="pdp-gallery">
             <div class="pdp-gallery__main-wrap" id="gallery-main-wrap">
-              <img class="pdp-gallery__main-img" id="gallery-main-img" src="${currentImage}" alt="${product.name}">
+              <img class="pdp-gallery__main-img" id="gallery-main-img" src="${currentImage}" alt="${productName}">
               <div class="pdp-gallery__main-video" id="gallery-main-video" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
                 <video id="gallery-video-player" style="width:100%;height:100%;object-fit:contain;" controls></video>
                 <div id="gallery-yt-frame" style="display:none;position:absolute;inset:0;">
@@ -171,19 +192,18 @@
             <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
           </div>
 
-          <!-- Details -->
           <div class="pdp-details" id="pdp-details">
-            <p class="pdp-category" id="pdp-category">${product.category || ''}</p>
-            <h1 class="pdp-name" id="pdp-name">${product.name}</h1>
+            <p class="pdp-category" id="pdp-category">${productCategory}</p>
+            <h1 class="pdp-name" id="pdp-name">${productName}</h1>
             <p class="pdp-price" id="pdp-price">${fmt(currentPrice)}</p>
-            <p class="pdp-desc" id="pdp-desc">${product.description || ''}</p>
+            <p class="pdp-desc" id="pdp-desc">${productDesc}</p>
     `;
 
     // Variants
     if (hasVariants) {
       html += `
             <div id="pdp-variants-wrap">
-              <p class="pdp-option-label">Finish</p>
+              <p class="pdp-option-label">${Shop.t('finish', 'Finish')}</p>
               <div class="pdp-variants" id="pdp-variants">
                 ${product.variants.map((v, i) => `
                   <button class="pdp-variant-btn ${i === 0 ? 'active' : ''}" data-variant-id="${v.id}">${v.label}</button>
@@ -201,12 +221,12 @@
                 <span class="webshop-qty-val" id="qty-val">1</span>
                 <button class="webshop-qty-btn webshop-qty-btn--plus" id="qty-plus">+</button>
               </div>
-              <button class="webshop-btn webshop-btn--primary pdp-atc-btn" id="atc-btn">Add to Cart</button>
+              <button class="webshop-btn webshop-btn--primary pdp-atc-btn" id="atc-btn">${Shop.t('add_to_cart', 'Add to Cart')}</button>
             </div>
             <div class="pdp-perks" id="pdp-perks">
-              <span>🚚 Free shipping over €150</span>
-              <span>🔄 30-day returns</span>
-              <span>🔧 2-year warranty</span>
+              <span>🚚 ${Shop.t('perk_free_shipping', 'Free shipping over €150')}</span>
+              <span>🔄 ${Shop.t('perk_returns', '30-day returns')}</span>
+              <span>🔧 ${Shop.t('perk_warranty', '2-year warranty')}</span>
             </div>
           </div>
         </div>
@@ -216,11 +236,11 @@
     if (product.bundled && product.bundled.length) {
       html += `
         <div class="pdp-section webshop-fade-in webshop-fade-in-1" id="bundle-section">
-          <h2 class="pdp-section-title">Frequently Bought Together</h2>
+          <h2 class="pdp-section-title">${Shop.t('frequently_bought_together', 'Frequently Bought Together')}</h2>
           <div class="pdp-bundle-items-list" id="bundle-items"></div>
           <div class="pdp-bundle-actions">
             <div id="bundle-price-info" style="font-size:0.93em;color:var(--c-text-muted);"></div>
-            <button class="webshop-btn webshop-btn--primary pdp-bundle-add-all-btn" id="bundle-add-all">Add Bundle to Cart</button>
+            <button class="webshop-btn webshop-btn--primary pdp-bundle-add-all-btn" id="bundle-add-all">${Shop.t('add_both_to_cart', 'Add Bundle to Cart')}</button>
           </div>
         </div>
       `;
@@ -230,14 +250,35 @@
     if (product.related && product.related.length) {
       html += `
         <div class="pdp-section webshop-fade-in webshop-fade-in-2" id="related-section">
-          <h2 class="pdp-section-title">You May Also Like</h2>
+          <h2 class="pdp-section-title">${Shop.t('related_products_title', 'You May Also Like')}</h2>
           <div class="pdp-related-grid" id="related-grid"></div>
+        </div>
+      `;
+    }
+
+    // Specs section
+    if (product.specs && product.specs.length) {
+      html += `
+        <div class="pdp-section webshop-fade-in webshop-fade-in-3" id="specs-section">
+          <div id="specs-accordion"></div>
         </div>
       `;
     }
 
     html += `</div>`; // close pdp-wrapper
     container.innerHTML = html;
+
+    // Setup back button with language-aware history
+    const backBtn = document.getElementById('back-button');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        if (document.referrer && document.referrer.includes(window.location.origin)) {
+          history.back();
+        } else {
+          window.location.href = '/' + currentLang + '/';
+        }
+      });
+    }
 
     // Now attach all event handlers
     buildGallery(images, videos);
@@ -249,6 +290,9 @@
     }
     if (product.related && product.related.length) {
       renderRelated();
+    }
+    if (product.specs && product.specs.length) {
+      renderSpecs();
     }
     initMagnifier();
     initLightbox(images, videos);
@@ -403,7 +447,7 @@
     atcBtn?.addEventListener('click', () => {
       const image = mainImg?.src || product.image;
       Shop.addToCart(product, currentQty, selectedVariantId, null, image);
-      if (Shop.toast) Shop.toast(`${product.name} added to cart`);
+      if (Shop.toast) Shop.toast(`${Shop.pName(product)} ${Shop.t('added', 'added to cart')}`);
     });
   }
 
@@ -422,9 +466,9 @@
     
     bundleEl.innerHTML = bundleProducts.map(item => `
       <div class="pdp-bundle-item">
-        <img src="${item.image}" alt="${item.name}" onerror="this.style.background='var(--c-bg-alt)'">
+        <img src="${item.image}" alt="${Shop.pName(item)}" onerror="this.style.background='var(--c-bg-alt)'">
         <div class="pdp-bundle-item__info">
-          <div class="pdp-bundle-item__name">${item.name}</div>
+          <div class="pdp-bundle-item__name">${Shop.pName(item)}</div>
           <div class="pdp-bundle-item__price">${fmt(item.price)}</div>
         </div>
       </div>
@@ -433,12 +477,12 @@
     const mainPrice = product.variants?.[0]?.price || product.price;
     const addonsTotal = bundleProducts.reduce((s, p) => s + p.price, 0);
     const fullTotal = mainPrice + addonsTotal;
-    priceEl.textContent = 'Bundle total: ' + fmt(fullTotal);
+    priceEl.textContent = Shop.t('bundle_total', 'Bundle total') + ': ' + fmt(fullTotal);
     
     document.getElementById('bundle-add-all').onclick = () => {
       Shop.addToCart(product, 1, selectedVariantId, null, product.image);
       bundleProducts.forEach(item => Shop.addToCart(item, 1));
-      if (Shop.toast) Shop.toast('Bundle added to cart');
+      if (Shop.toast) Shop.toast(Shop.t('bundle_added', 'Bundle added to cart'));
     };
   }
 
@@ -457,13 +501,15 @@
     relatedEl.innerHTML = relatedProducts.map(r => `
       <div class="pdp-related-card">
         <div class="pdp-related-card__img-wrap">
-          <img src="${r.image}" alt="${r.name}">
+          <img src="${r.image}" alt="${Shop.pName(r)}">
           <div class="pdp-related-card__overlay">
-            <button class="pdp-related-card__buy-btn" data-rid="${r.id}" data-rimg="${r.image}">BUY NOW</button>
+            <button class="pdp-related-card__buy-btn" data-rid="${r.id}" data-rimg="${r.image}">${Shop.t('buy_now', 'BUY NOW')}</button>
           </div>
         </div>
         <div class="pdp-related-card__info">
-          <div class="pdp-related-card__name">${r.name}</div>
+          <div class="pdp-related-card__name">
+            <a href="${getProductUrl(r.id)}" data-product-id="${r.id}" class="pdp-related-name-link" style="text-decoration:none;color:inherit;">${Shop.pName(r)}</a>
+          </div>
           <div class="pdp-related-card__price">${fmt(r.price)}</div>
         </div>
       </div>
@@ -475,8 +521,47 @@
         const item = await Shop.getProduct(btn.dataset.rid);
         if (item) {
           Shop.addToCart(item, 1);
-          if (Shop.toast) Shop.toast(`${item.name} added to cart`);
+          if (Shop.toast) Shop.toast(`${Shop.pName(item)} ${Shop.t('added', 'added to cart')}`);
         }
+      });
+    });
+    
+    // Handle related product name links for SPA navigation
+    relatedEl.querySelectorAll('.pdp-related-name-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const pid = link.dataset.productId;
+        if (pid && typeof window.openProduct === 'function') {
+          window.openProduct(pid);
+        } else if (pid) {
+          window.location.href = getProductUrl(pid);
+        }
+      });
+    });
+  }
+
+  function renderSpecs() {
+    const accordionEl = document.getElementById('specs-accordion');
+    const specs = product.specs || [];
+    if (!specs.length) return;
+    
+    accordionEl.innerHTML = specs.map(sec => `
+      <div class="pdp-accordion-item">
+        <button class="pdp-accordion-trigger">
+          <span>${sec.title}</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="pdp-accordion-body">
+          <table class="pdp-spec-table"><tbody>
+            ${(sec.rows || []).map(row => `<tr><td>${row[0]}</td><td>${row[1]}</td></tr>`).join('')}
+          </tbody></table>
+        </div>
+      </div>
+    `).join('');
+    
+    accordionEl.querySelectorAll('.pdp-accordion-trigger').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.closest('.pdp-accordion-item').classList.toggle('open');
       });
     });
   }
@@ -569,14 +654,14 @@
         
         const variant = product.variants?.find(v => v.id === selectedVariantId);
         document.getElementById('lb-details').innerHTML = `
-          <p class="pdp-category">${product.category || ''}</p>
-          <h2 class="pdp-name">${product.name}</h2>
+          <p class="pdp-category">${Shop.pCategory(product)}</p>
+          <h2 class="pdp-name">${Shop.pName(product)}</h2>
           <p class="pdp-price">${fmt(variant ? variant.price : product.price)}</p>
-          <p class="pdp-desc">${product.description || ''}</p>
+          <p class="pdp-desc">${Shop.pDesc(product)}</p>
           <div class="pdp-perks">
-            <span>🚚 Free shipping over €150</span>
-            <span>🔄 30-day returns</span>
-            <span>🔧 2-year warranty</span>
+            <span>🚚 ${Shop.t('perk_free_shipping', 'Free shipping over €150')}</span>
+            <span>🔄 ${Shop.t('perk_returns', '30-day returns')}</span>
+            <span>🔧 ${Shop.t('perk_warranty', '2-year warranty')}</span>
           </div>
         `;
       }
@@ -603,7 +688,7 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
   }
 
-  // Start loading when DOM ready and Shop is available
+  // Start loading when DOM ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', loadAndRender);
   } else {
