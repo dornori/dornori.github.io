@@ -12,58 +12,97 @@ import { initPageLoader }   from './page-loader.js';
 import { initFooter }       from './footer-loader.js';
 
 /**
+ * FIX #5: Load and cache countries.json (single source of truth)
+ * Fetches once per 7 days (cached in localStorage), extracts languages on-the-fly
+ * No second fetch by i18n.js or geo-popup.js
+ */
+async function loadAndCacheCountries() {
+    const basePath = SITE_CONFIG.appearance.base_path;
+    
+    // FIX #5 & #8: Check localStorage cache first (instant, no network)
+    try {
+        const cached = localStorage.getItem('dornori-countries-cache');
+        const timestamp = localStorage.getItem('dornori-cache-timestamp');
+        const now = Date.now();
+        const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+        
+        if (cached && timestamp && (now - parseInt(timestamp)) < CACHE_TTL) {
+            // Cache is valid - use it
+            const countries = JSON.parse(cached);
+            window.__countriesCache = countries;
+            return countries;
+        }
+    } catch (e) {
+        // Cache read failed, will fetch from network
+    }
+    
+    // Cache miss or stale - fetch from network
+    try {
+        const res = await fetch(basePath + SITE_CONFIG.paths.countries_file);
+        const countries = await res.json();
+        
+        // Store in window for immediate use by other modules
+        window.__countriesCache = countries;
+        
+        // FIX #5 & #8: Cache to localStorage for next load
+        try {
+            localStorage.setItem('dornori-countries-cache', JSON.stringify(countries));
+            localStorage.setItem('dornori-cache-timestamp', Date.now().toString());
+        } catch (e) {
+            // localStorage full or unavailable, continue anyway
+        }
+        
+        return countries;
+    } catch (e) {
+        console.error('[site-main] Failed to load countries.json:', e);
+        return [];
+    }
+}
+
+/**
+ * Extract unique active languages from countries data (single source of truth)
+ */
+function extractLanguages(countries) {
+    const languagesMap = new Map();
+    const languageLabels = {
+        'en': { label: 'English', flag: '🇬🇧' },
+        'de': { label: 'Deutsch', flag: '🇩🇪' },
+        'nl': { label: 'Nederlands', flag: '🇳🇱' },
+        'fr': { label: 'Français', flag: '🇫🇷' },
+        'es': { label: 'Español', flag: '🇪🇸' },
+        'pt': { label: 'Português', flag: '🇵🇹' }
+    };
+    
+    countries.forEach(country => {
+        if (country.active && country.language) {
+            const langCode = country.language;
+            if (!languagesMap.has(langCode)) {
+                const langInfo = languageLabels[langCode] || { label: langCode.toUpperCase(), flag: '🏳️' };
+                languagesMap.set(langCode, {
+                    code: langCode,
+                    hreflang: country.hreflang ? country.hreflang.split('-')[0] : langCode,
+                    label: langInfo.label,
+                    flag: langInfo.flag
+                });
+            }
+        }
+    });
+    
+    // Sort: English first, then alphabetically
+    return Array.from(languagesMap.values()).sort((a, b) => 
+        a.code === 'en' ? -1 : b.code === 'en' ? 1 : a.code.localeCompare(b.code)
+    );
+}
+
+/**
  * Load dynamic configuration from data files
- * - Languages from countries.json (active countries with siteLang)
- * - Profiles from profiles.json
  */
 async function loadDynamicConfig() {
     const basePath = SITE_CONFIG.appearance.base_path;
     
-    // Load countries and extract languages
-    try {
-        const countriesRes = await fetch(basePath + SITE_CONFIG.paths.countries_file);
-        const countries = await countriesRes.json();
-        
-        // Extract unique languages from active countries with siteLang
-        const languagesMap = new Map();
-        const languageLabels = {
-            'en': { label: 'English', flag: '🇬🇧' },
-            'de': { label: 'Deutsch', flag: '🇩🇪' },
-            'nl': { label: 'Nederlands', flag: '🇳🇱' },
-            'fr': { label: 'Français', flag: '🇫🇷' },
-            'es': { label: 'Español', flag: '🇪🇸' },
-            'pt': { label: 'Português', flag: '🇵🇹' }
-        };
-        
-        countries.forEach(country => {
-            if (country.active && country.siteLang) {
-                const langCode = country.siteLang;
-                if (!languagesMap.has(langCode)) {
-                    const langInfo = languageLabels[langCode] || { label: langCode.toUpperCase(), flag: '🏳️' };
-                    languagesMap.set(langCode, {
-                        code: langCode,
-                        hreflang: country.hreflang ? country.hreflang.split('-')[0] : langCode,
-                        label: langInfo.label,
-                        flag: langInfo.flag
-                    });
-                }
-            }
-        });
-        
-        // Convert to array and sort (English first, then alphabetically)
-        SITE_CONFIG.languages = Array.from(languagesMap.values()).sort((a, b) => 
-            a.code === 'en' ? -1 : b.code === 'en' ? 1 : a.code.localeCompare(b.code)
-        );
-    } catch (e) {
-        console.error('[site-main] Failed to load languages from countries.json:', e);
-        // Fallback to default languages
-        SITE_CONFIG.languages = [
-            { code: 'en', hreflang: 'en', label: 'English', flag: '🇬🇧' },
-            { code: 'de', hreflang: 'de', label: 'Deutsch', flag: '🇩🇪' },
-            { code: 'nl', hreflang: 'nl', label: 'Nederlands', flag: '🇳🇱' },
-            { code: 'fr', hreflang: 'fr', label: 'Français', flag: '🇫🇷' },
-        ];
-    }
+    // FIX #5: Load countries once, extract languages from cache
+    const countries = await loadAndCacheCountries();
+    SITE_CONFIG.languages = extractLanguages(countries);
     
     // Load profiles
     try {

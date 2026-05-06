@@ -99,10 +99,13 @@
         if (typeof Shop === 'undefined' || typeof Shop.renderCartIcon !== 'function') return;
         var slot = document.getElementById('mobile-cart-icon-slot');
         if (slot) {
+            // FIX #7: Slot exists - render immediately (happy path with proper load order)
             Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl: _cartUrl(lang) });
         } else {
-            // Slot not yet created — site-main.js hasn't run yet (cold-cache race).
-            // Watch for it with a MutationObserver and render as soon as it appears.
+            // Slot not yet created - site-main.js still loading
+            // With proper load order from Fix #6, this should rarely happen
+            console.warn('[shop-init] mobile-cart-icon-slot not found; site-main.js may be delayed');
+            
             var capturedLang = lang;
             var obs = new MutationObserver(function () {
                 var s = document.getElementById('mobile-cart-icon-slot');
@@ -114,7 +117,13 @@
                 }
             });
             obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
-            setTimeout(function () { obs.disconnect(); }, 8000);
+            
+            // FIX #7: Increased from 8s to 15s (this is now a fallback, not primary path)
+            // With proper load order, observer should disconnect quickly
+            setTimeout(function () { 
+                obs.disconnect();
+                console.warn('[shop-init] mobile-cart-icon-slot timeout after 15s - load order issue?');
+            }, 15000);
         }
     }
 

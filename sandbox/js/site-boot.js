@@ -131,30 +131,72 @@
         window.__PAGE_SLUG__ = '';
     }
 
-    // ── Inject remaining scripts in order ─────────────────────────────────────
-    // shop/js/config.js and lang-bridge.js must load before shop-init.js
-    // They are classic scripts (no type=module).
-    function seq(scripts, idx) {
-        if (idx >= scripts.length) return;
-        var s      = scripts[idx];
-        var el     = document.createElement('script');
-        el.src     = BASE_PATH + s.src;
-        if (s.module) el.type = 'module';
-        el.onload  = function () { seq(scripts, idx + 1); };
-        el.onerror = function () { seq(scripts, idx + 1); };
-        document.head.appendChild(el);
-    }
+// ── FIX #5 & #8: Initialize countries cache from localStorage ──────────────
+    // Loads countries data from localStorage on boot (no network request!)
+    // If not cached or stale, site-main.js will fetch and update
+    (function initCountriesCache() {
+        try {
+            var cached = localStorage.getItem('dornori-countries-cache');
+            var timestamp = localStorage.getItem('dornori-cache-timestamp');
+            var now = Date.now();
+            var CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+            
+            if (cached && timestamp && (now - parseInt(timestamp)) < CACHE_TTL) {
+                // Cache is valid - use it immediately
+                window.__countriesCache = JSON.parse(cached);
+            }
+        } catch (e) {
+            // Gracefully ignore localStorage errors
+        }
+    })();
 
     // Wait for DOM so we don't race with inline __PAGE_LANG__ overrides
     document.addEventListener('DOMContentLoaded', function () {
-        seq([
-            { src: 'shop/js/config.js'  },
-            { src: 'shop/js/lang-bridge.js' },
-            { src: 'js/shop-init.js'    },
-            { src: 'js/site-main.js',   module: true },
-            { src: 'js/geo-popup.js',   module: true },
-        ], 0);
+        // FIX #6: Dependency-aware script loading instead of seq()
+        // Parallel: independent scripts load together
+        // Sequential: scripts with deps wait for their dependencies
+        loadScriptsWithDeps([
+            // Chain: config -> lang-bridge -> shop-init (must be sequential)
+            { id: 'cfg', src: 'shop/js/config.js' },
+            { id: 'lang', src: 'shop/js/lang-bridge.js', deps: ['cfg'] },
+            { id: 'shop', src: 'js/shop-init.js', deps: ['lang'] },
+            // Parallel: these load alongside the chain, independent of it
+            { id: 'main', src: 'js/site-main.js', module: true },
+            { id: 'geo', src: 'js/geo-popup.js', module: true },
+        ]);
     });
+
+    // ── FIX #6: Dependency-aware script loader ──────────────────────────────
+    function loadScriptsWithDeps(scripts) {
+        var loaded = {};
+        var promises = {};
+        var scriptMap = {};
+        scripts.forEach(function(s) { scriptMap[s.id] = s; });
+
+        function load(id) {
+            if (promises[id]) return promises[id];
+            var script = scriptMap[id];
+            if (!script) return Promise.resolve();
+
+            var depPromises = (script.deps || []).map(load);
+            promises[id] = Promise.all(depPromises).then(function() {
+                return new Promise(function(resolve) {
+                    var s = document.createElement('script');
+                    s.src = BASE_PATH + script.src;
+                    if (script.module) s.type = 'module';
+                    s.onload = resolve;
+                    s.onerror = function() {
+                        console.warn('[site-boot] Failed to load:', script.src);
+                        resolve();
+                    };
+                    document.head.appendChild(s);
+                });
+            });
+            return promises[id];
+        }
+
+        scripts.forEach(function(s) { load(s.id); });
+    }
 
     // ── Logo src ──────────────────────────────────────────────────────────────
     // Shell HTML has <img id="banner-img"> with no src — injected here.

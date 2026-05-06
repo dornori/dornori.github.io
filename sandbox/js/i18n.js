@@ -9,11 +9,23 @@ const BASE        = () => SITE_CONFIG.appearance.base_path;
 
 // ── DATA LOADERS ─────────────────────────────────────────────────────────────
 
+/**
+ * FIX #5: Return cached countries instead of fetching again
+ * site-main.js already fetched and cached in window.__countriesCache
+ */
 export async function loadCountries() {
+    // Check window cache first (set by site-main.js)
+    if (window.__countriesCache) {
+        return window.__countriesCache;
+    }
+    
+    // Fallback: fetch if somehow cache not available
     const url = BASE() + SITE_CONFIG.paths.countries_file;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`[i18n] Failed to load countries: ${res.status}`);
-    return res.json();
+    const data = await res.json();
+    window.__countriesCache = data;
+    return data;
 }
 
 export async function loadLanguage(langCode) {
