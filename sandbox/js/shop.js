@@ -523,6 +523,7 @@ const Shop = (() => {
     const base    = CONFIG.data?.basePath || '/';
     const slug    = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
     const prodUrl = `/${lang}/${slug}/?id=${p.id}`;
+    const hasUrl  = !!p.id;
     const wTag    = `a href="${prodUrl}"`;
     const wEnd    = 'a';
 
