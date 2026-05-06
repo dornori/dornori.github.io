@@ -92,18 +92,6 @@ export async function initShop() {
         CONFIG.images.imageDir = BASE + (CONFIG.images.imageDir || 'images/products/');
     }
 
-    // Payment redirect paths
-    const successUrl = buildSuccessUrl(siteLang);
-    const stayUrl    = window.location.pathname;
-    if (CONFIG.payment?.paypal) {
-        CONFIG.payment.paypal.returnPath = successUrl;
-        CONFIG.payment.paypal.cancelPath = stayUrl;
-    }
-    if (CONFIG.payment?.stripe) {
-        CONFIG.payment.stripe.returnPath = successUrl;
-        CONFIG.payment.stripe.cancelPath = stayUrl;
-    }
-
     // ── 3. Patch module paths ─────────────────────────────────────────────
     CONFIG.modules = (CONFIG.modules || []).map(m => BASE + m);
 
@@ -118,6 +106,18 @@ export async function initShop() {
         const slugMap = { nl: 'succes' };
         const slug = slugMap[lang] || 'success';
         return window.location.origin + SITE_CONFIG.appearance.base_path + lang + '/' + slug + '/';
+    }
+
+    // Payment redirect paths (now that siteLang and buildSuccessUrl are defined)
+    const successUrl = buildSuccessUrl(siteLang);
+    const stayUrl    = window.location.pathname;
+    if (CONFIG.payment?.paypal) {
+        CONFIG.payment.paypal.returnPath = successUrl;
+        CONFIG.payment.paypal.cancelPath = stayUrl;
+    }
+    if (CONFIG.payment?.stripe) {
+        CONFIG.payment.stripe.returnPath = successUrl;
+        CONFIG.payment.stripe.cancelPath = stayUrl;
     }
 
     // ── 5. Load modules sequentially ─────────────────────────────────────

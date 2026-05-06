@@ -107,7 +107,15 @@ const Shop = (() => {
   /* ─── CART ──────────────────────────────────────────── */
   function getCart() { try { return JSON.parse(localStorage.getItem(CONFIG.storageKeys?.cartKey || "webshop_cart") || "[]"); } catch { return []; } }
   function saveCart(cart) {
-    localStorage.setItem(CONFIG.storageKeys?.cartKey || "webshop_cart", JSON.stringify(cart));
+    try {
+      localStorage.setItem(CONFIG.storageKeys?.cartKey || "webshop_cart", JSON.stringify(cart));
+    } catch (e) {
+      // Handle quota exceeded or private browsing
+      if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_FILE_CORRUPTED') {
+        console.warn('[shop] localStorage quota exceeded or unavailable:', e);
+        toast("Storage unavailable - your cart may not persist", 3000);
+      }
+    }
     document.dispatchEvent(new CustomEvent("shop:cartUpdated", { detail: { cart } }));
   }
   function addToCart(product, qty = 1, variantId = null, selectedColor = null, imageOverride = null) {
@@ -624,13 +632,15 @@ const Shop = (() => {
       });
     }
     buildGrid();
-    document.addEventListener("shop:langChanged", async () => {
+    const onLangChange = async () => {
       products = await loadProducts(); // Reload products in the new language
       buildGrid();
-    });
-    document.addEventListener("currency:changed", () => {
+    };
+    const onCurrencyChange = () => {
       container.querySelectorAll(".webshop-card-price").forEach((el, i) => { if (products[i]) el.textContent = fmt(products[i].price); });
-    });
+    };
+    document.addEventListener("shop:langChanged", onLangChange);
+    document.addEventListener("currency:changed", onCurrencyChange);
   }
 
   /* ═══════════════════════════════════════════════════════
