@@ -347,7 +347,7 @@ const Shop = (() => {
           <ul class="webshop-cart-hover-panel__list">
             ${cart.map(item => `
               <li class="webshop-cart-hover-panel__item">
-                <a class="webshop-cart-hover-panel__item-link" href="product.html?id=${item.id}">
+                <a class="webshop-cart-hover-panel__item-link" href="/${CONFIG.language || 'en'}/${(window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product'}/?id=${item.id}">
                   <img class="webshop-cart-hover-panel__img" src="${item.image}" alt="${item.name}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
                   <div class="webshop-cart-hover-panel__info">
                     <span class="webshop-cart-hover-panel__name">${item.name}${item.selectedColor ? ` <em>${item.selectedColor}</em>` : ""}</span>
@@ -458,9 +458,13 @@ const Shop = (() => {
       }).join("")}</div>`;
     }
 
-    const hasUrl = !!p.url;
-    const wTag = hasUrl ? `a href="${p.url}"` : "div";
-    const wEnd = hasUrl ? "a" : "div";
+    // Build a lang-aware product URL — ignore p.url which is hardcoded to /en/
+    const lang    = CONFIG.language || resolveLanguage();
+    const base    = CONFIG.data?.basePath || '/';
+    const slug    = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
+    const prodUrl = `/${lang}/${slug}/?id=${p.id}`;
+    const wTag    = `a href="${prodUrl}"`;
+    const wEnd    = 'a';
 
     return `
       <${wTag} class="webshop-card-img-wrap${hasUrl?" webshop-card-img-link":""}"${hasUrl?` title="${pName(p)}"`:""}>
