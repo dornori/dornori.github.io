@@ -3,7 +3,6 @@ import SITE_CONFIG from './config.js';
 import { mountSlideshow } from './slideshow.js';
 import { initEmbedForms }  from './embed-form.js';
 import { injectHreflangTags, getSlug, canonicalSlug } from './i18n.js';
-import { mountShopEmbeds } from './shop-loader.js';
 
 // Rewrite absolute asset paths in injected content to use BASE_PATH
 function rewriteContentPaths(container) {
@@ -211,15 +210,16 @@ export function initPageLoader() {
     // ── LOAD HOME ─────────────────────────────────────────────────────────────
     window.loadHome = async () => {
         const lang = window.LANG || fallbackLang();
-        // If English home content was pre-rendered server-side (inlined in index.html),
-        // skip the fetch and just wire up interactive elements.
+        // Only skip the fetch when English content is already loaded in the correct language.
+        // After a NL→EN switch homeView holds Dutch content, so we must NOT take this shortcut.
         const alreadyPopulated = homeView.querySelector('h2, .slideshow-root, .webshop-product-card');
-        if (lang === 'en' && alreadyPopulated) {
+        const loadedLang       = homeView.dataset.loadedLang
+                               || (window.__PAGE_LANG__ === 'en' ? 'en' : null);
+        if (lang === 'en' && alreadyPopulated && loadedLang === 'en') {
             rewriteContentPaths(homeView);
             homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
             wireShopCards(homeView);
-            mountShopEmbeds(homeView);
             homeView.classList.remove('hidden');
             pageView.classList.add('hidden');
             const base    = SITE_CONFIG.appearance.base_path;
@@ -234,13 +234,14 @@ export function initPageLoader() {
             if (!res.ok) throw new Error();
             const html = await res.text();
             homeView.innerHTML = html;
+            homeView.dataset.loadedLang = lang;   // ← record which lang is now displayed
         rewriteContentPaths(homeView);
             homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
             wireShopCards(homeView);
-            mountShopEmbeds(homeView);
         } catch {
             // home.html may not exist for every language yet
+            homeView.dataset.loadedLang = lang;
         }
         homeView.classList.remove('hidden');
         pageView.classList.add('hidden');
@@ -275,7 +276,6 @@ export function initPageLoader() {
             pageContent.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();
             wireShopCards(pageContent);
-            mountShopEmbeds(pageContent);
 
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
