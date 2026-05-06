@@ -206,7 +206,6 @@ const Shop = (() => {
     await loadLang();
     const lang = CONFIG.language || resolveLanguage();
     const langDir = CONFIG.data.langDir || '';
-    const fallback = CONFIG.defaultLanguage || 'en';
     
     const safeFetch = url => fetch(url)
       .then(r => { if (!r.ok) throw 0; return r.json(); })
@@ -214,15 +213,26 @@ const Shop = (() => {
     
     // 1. Always load base products first
     const src = CONFIG.data?.productsJson || "data/products.json";
-    let all = await fetch(src).then(r => r.json()).catch(() => []);
+    let all = [];
+    try {
+      all = await fetch(src).then(r => { if (!r.ok) throw 0; return r.json(); });
+    } catch(e) {
+      console.warn('Failed to load base products from', src);
+      return [];
+    }
     
     // 2. Try to overlay language-specific overrides
-    const langProducts = await safeFetch(langDir + lang + '/products.json');
-    if (langProducts) {
-      all = all.map(p => ({
-        ...p,
-        ...(langProducts[p.id] || {})
-      }));
+    if (lang && langDir) {
+      const langProducts = await safeFetch(langDir + lang + '/products.json');
+      if (langProducts && Array.isArray(all)) {
+        all = all.map(p => {
+          const override = langProducts[p.id];
+          if (override) {
+            return { ...p, ...override };
+          }
+          return p;
+        });
+      }
     }
     
     all.forEach(p => { _products[p.id] = p; });
@@ -241,15 +251,26 @@ const Shop = (() => {
     
     // 1. Load base products
     const src = CONFIG.data?.productsJson || "data/products.json";
-    let all = await fetch(src).then(r => r.json()).catch(() => []);
+    let all = [];
+    try {
+      all = await fetch(src).then(r => { if (!r.ok) throw 0; return r.json(); });
+    } catch(e) {
+      console.warn('Failed to load base products from', src);
+      return null;
+    }
     
     // 2. Overlay language-specific overrides
-    const langProducts = await safeFetch(langDir + lang + '/products.json');
-    if (langProducts) {
-      all = all.map(p => ({
-        ...p,
-        ...(langProducts[p.id] || {})
-      }));
+    if (lang && langDir) {
+      const langProducts = await safeFetch(langDir + lang + '/products.json');
+      if (langProducts && Array.isArray(all)) {
+        all = all.map(p => {
+          const override = langProducts[p.id];
+          if (override) {
+            return { ...p, ...override };
+          }
+          return p;
+        });
+      }
     }
     
     all.forEach(p => { _products[p.id] = p; });
