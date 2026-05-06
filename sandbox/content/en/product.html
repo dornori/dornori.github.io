@@ -1,206 +1,104 @@
-<!-- content/en/product.html ─────────────────────────────────────────────────
-     Full Product Detail Page — respects current language (en/nl/de/no)
-     ──────────────────────────────────────────────────────────────────────── -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WEBSHOP</title>
+  <link rel="stylesheet" href="css/shop.css">
+  <style>
+    .pdp-magnifier {
+      position: fixed;
+      pointer-events: none;
+      z-index: 1000;
+      background: var(--c-surface);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid var(--c-accent);
+      display: none;
+    }
+    .pdp-magnifier img {
+      position: absolute;
+      top: 0; left: 0;
+      max-width: none;
+      display: block;
+    }
+    .pdp-gallery__main-wrap {
+      cursor: crosshair;
+      position: relative;
+      overflow: hidden;
+    }
+    .pdp-gallery__main-wrap.video-active {
+      cursor: pointer;
+    }
+    .pdp-gallery__main-img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .pdp-related-card__buy-btn {
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+    .pdp-accordion-item .pdp-accordion-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s ease;
+    }
+    .pdp-accordion-item.open .pdp-accordion-body { max-height: 600px; }
+    .pdp-accordion-item.open .pdp-accordion-trigger svg { transform: rotate(180deg); }
+  </style>
+</head>
+<body>
 
-<style>
-  .pdp-magnifier {
-    position: fixed; pointer-events: none; z-index: 9999;
-    background: var(--c-surface, #faf8f5);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
-    border-radius: 12px; overflow: hidden;
-    border: 2px solid var(--c-accent, #7aad8e); display: none;
-  }
-  .pdp-magnifier img { position: absolute; top: 0; left: 0; max-width: none; display: block; }
-  .pdp-gallery__main-wrap { cursor: crosshair; position: relative; overflow: hidden; }
-  .pdp-gallery__main-wrap.video-active { cursor: pointer; }
-  .pdp-gallery__main-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .pdp-related-card__buy-btn { text-transform: uppercase; font-weight: 700; letter-spacing: 0.08em; }
-  .pdp-accordion-item .pdp-accordion-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
-  .pdp-accordion-item.open .pdp-accordion-body { max-height: 600px; }
-  .pdp-accordion-item.open .pdp-accordion-trigger svg { transform: rotate(180deg); }
-  .pdp-loading { text-align: center; padding: 3rem; }
-  .pdp-loading::after { content: ""; display: inline-block; width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .pdp-error { text-align: center; padding: 3rem; color: #c0392b; }
-</style>
+  <div class="pdp-magnifier" id="magnifier">
+    <img id="magnifier-img" src="" alt="">
+  </div>
 
-<!-- Magnifier -->
-<div class="pdp-magnifier" id="magnifier">
-  <img id="magnifier-img" src="" alt="">
-</div>
-
-<!-- Lightbox -->
-<div class="pdp-lightbox" id="lightbox" role="dialog" aria-modal="true" style="display:none;">
-  <div class="pdp-lightbox__inner">
-    <button class="pdp-lightbox__close" id="lightbox-close" aria-label="Close">✕</button>
-    <div class="pdp-lightbox__tabs">
-      <button class="pdp-lightbox__tab active" data-tab="images">Images</button>
-      <button class="pdp-lightbox__tab" data-tab="video">Video</button>
-    </div>
-    <div class="pdp-lightbox__body">
-      <div id="tab-images">
-        <div class="pdp-lightbox-gallery">
-          <div class="pdp-lightbox-main"><img id="lb-main-img" src="" alt=""></div>
-          <div class="pdp-lightbox-thumbs" id="lb-thumbs"></div>
-          <div class="pdp-lightbox-details" id="lb-details"></div>
-        </div>
+  <div class="pdp-lightbox" id="lightbox" role="dialog" aria-modal="true">
+    <div class="pdp-lightbox__inner">
+      <button class="pdp-lightbox__close" id="lightbox-close" aria-label="Close">✕</button>
+      <div class="pdp-lightbox__tabs">
+        <button class="pdp-lightbox__tab active" data-tab="images">Images</button>
+        <button class="pdp-lightbox__tab" data-tab="video">Video</button>
       </div>
-      <div id="tab-video" style="display:none;">
-        <div class="pdp-video-wrap" id="video-container"></div>
+      <div class="pdp-lightbox__body">
+        <div id="tab-images">
+          <div class="pdp-lightbox-gallery">
+            <div class="pdp-lightbox-main"><img id="lb-main-img" src="" alt=""></div>
+            <div class="pdp-lightbox-thumbs" id="lb-thumbs"></div>
+            <div class="pdp-lightbox-details" id="lb-details"></div>
+          </div>
+        </div>
+        <div id="tab-video" style="display:none;">
+          <div class="pdp-video-wrap" id="video-container"></div>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- Back button with language-aware URL -->
-<div style="margin-bottom:1.5rem;">
-  <button class="nav-link" style="font-size:.82rem;opacity:.6;padding:0;border:none;background:none;cursor:pointer;" id="back-button">← Back</button>
-</div>
+  <header class="webshop-page-header">
+    <div class="webshop-container">
+      <div class="webshop-page-header__inner">
+        <a href="index.html" class="webshop-logo">WEBSHOP</a>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <div class="webshop-lang-switcher" id="lang-switcher-slot"></div>
+          <div id="currency-selector-slot"></div>
+          <div id="cart-icon-slot"></div>
+        </div>
+      </div>
+    </div>
+  </header>
 
-<!-- PDP Container -->
-<div id="pdp-container">
-  <div class="pdp-loading"></div>
-</div>
-
-<script>
-(function() {
-  const container = document.getElementById('pdp-container');
-  let product = null;
-  let selectedVariantId = null;
-  let currentQty = 1;
-  let currentImgIdx = 0;
-  let currentLang = 'en';
-
-  // Get current language from URL or window.LANG
-  function getCurrentLanguage() {
-    // Check URL path for language prefix
-    const pathMatch = window.location.pathname.match(/^\/([a-z]{2})\//);
-    if (pathMatch && ['en', 'nl', 'de', 'no'].includes(pathMatch[1])) {
-      return pathMatch[1];
-    }
-    // Fallback to window.LANG or localStorage
-    return window.LANG || localStorage.getItem('dornori-lang') || 'en';
-  }
-
-  currentLang = getCurrentLanguage();
-
-  // Get product ID from URL
-  function getProductId() {
-    const params = new URLSearchParams(window.location.search);
-    let id = params.get('id');
-    if (id) return id;
-    const match = window.location.pathname.match(/\/product\/([^\/?#]+)/);
-    return match ? match[1] : null;
-  }
-
-  const productId = getProductId();
-
-  if (!productId) {
-    container.innerHTML = '<div class="pdp-error">No product specified. Use ?id=product-id in the URL.</div>';
-    return;
-  }
-
-  // Build language-aware product URL
-  function getProductUrl(pid) {
-    return '/' + currentLang + '/product/?id=' + pid;
-  }
-
-  // Build language-aware cart URL
-  function getCartUrl() {
-    return '/' + currentLang + '/cart/';
-  }
-
-  function fmt(price) {
-    if (typeof Shop !== 'undefined' && Shop.fmt) return Shop.fmt(price);
-    return '€' + Number(price).toFixed(2);
-  }
-
-  async function loadAndRender() {
-    container.innerHTML = '<div class="pdp-loading"></div>';
-
-    // Wait for Shop
-    if (typeof Shop === 'undefined') {
-      await new Promise(resolve => {
-        const check = setInterval(() => {
-          if (typeof Shop !== 'undefined') {
-            clearInterval(check);
-            resolve();
-          }
-        }, 50);
-        setTimeout(() => clearInterval(check), 5000);
-      });
-    }
-
-    if (typeof Shop === 'undefined') {
-      container.innerHTML = '<div class="pdp-error">Shop engine not loaded. Please refresh the page.</div>';
-      return;
-    }
-
-    try {
-      // Ensure language is loaded for currentLang
-      await Shop.switchLanguage(currentLang);
-      await Shop.loadLang();
-
-      // Manually load lang/products.json — Shop's langDir resolves to /shop/lang/
-      // so we fetch directly from the correct site-root paths.
-      const safeFetch = url => fetch(url).then(r => r.ok ? r.json() : {}).catch(() => ({}));
-      const [langProds, enProds] = await Promise.all([
-        currentLang !== 'en' ? safeFetch('/lang/' + currentLang + '/products.json') : Promise.resolve({}),
-        safeFetch('/lang/en/products.json'),
-      ]);
-
-      // Load product using Shop.getProduct (respects language)
-      product = await Shop.getProduct(productId);
-
-      if (!product) {
-        throw new Error('Product not found: ' + productId);
-      }
-
-      // Inject translations into product.i18n so pName/pDesc/pCategory pick them up
-      const pid = product.id;
-      product.i18n = product.i18n || {};
-      if (enProds[pid])   product.i18n.en = Object.assign({}, product.i18n.en, enProds[pid]);
-      if (langProds[pid]) product.i18n[currentLang] = Object.assign({}, product.i18n[currentLang], langProds[pid]);
-      if (langProds[pid]?.variants && product.variants) {
-        langProds[pid].variants.forEach((lv, i) => {
-          if (product.variants[i] && lv.label) product.variants[i].label = lv.label;
-        });
-      }
-
-      // Set up initial variant
-      if (product.variants && product.variants.length) {
-        selectedVariantId = product.variants[0].id;
-      }
-
-      // Render the PDP
-      renderFullPDP();
-
-    } catch (err) {
-      console.error('PDP error:', err);
-      container.innerHTML = '<div class="pdp-error">Failed to load product: ' + err.message + '</div>';
-    }
-  }
-
-  function renderFullPDP() {
-    const hasVariants = product.variants && product.variants.length > 0;
-    const currentVariant = hasVariants ? product.variants.find(v => v.id === selectedVariantId) : null;
-    const currentPrice = currentVariant ? currentVariant.price : product.price;
-    const images = product.images && product.images.length ? product.images : [product.image];
-    const videos = product.videos || [];
-    const currentImage = (currentVariant && currentVariant.image) ? currentVariant.image : images[0];
-
-    // Get translated name, category, description
-    const productName = Shop.pName(product);
-    const productCategory = Shop.pCategory(product);
-    const productDesc = Shop.pDesc(product);
-
-    // Build HTML
-    let html = `
+  <main class="webshop-page-main">
+    <div class="webshop-container">
       <div class="pdp-wrapper">
-        <div class="pdp-main webshop-fade-in">
+
+        <div class="pdp-main webshop-fade-in" id="pdp-main-section">
           <div class="pdp-gallery" id="pdp-gallery">
             <div class="pdp-gallery__main-wrap" id="gallery-main-wrap">
-              <img class="pdp-gallery__main-img" id="gallery-main-img" src="${currentImage}" alt="${productName}">
+              <img class="pdp-gallery__main-img" id="gallery-main-img" src="" alt="">
               <div class="pdp-gallery__main-video" id="gallery-main-video" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
                 <video id="gallery-video-player" style="width:100%;height:100%;object-fit:contain;" controls></video>
                 <div id="gallery-yt-frame" style="display:none;position:absolute;inset:0;">
@@ -209,509 +107,649 @@
               </div>
             </div>
             <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
+            <button class="pdp-fullview-btn" id="fullview-btn" aria-hidden="true" tabindex="-1"></button>
           </div>
 
           <div class="pdp-details" id="pdp-details">
-            <p class="pdp-category" id="pdp-category">${productCategory}</p>
-            <h1 class="pdp-name" id="pdp-name">${productName}</h1>
-            <p class="pdp-price" id="pdp-price">${fmt(currentPrice)}</p>
-            <p class="pdp-desc" id="pdp-desc">${productDesc}</p>
-    `;
-
-    // Variants
-    if (hasVariants) {
-      html += `
-            <div id="pdp-variants-wrap">
-              <p class="pdp-option-label">${Shop.t('finish', 'Finish')}</p>
-              <div class="pdp-variants" id="pdp-variants">
-                ${product.variants.map((v, i) => `
-                  <button class="pdp-variant-btn ${i === 0 ? 'active' : ''}" data-variant-id="${v.id}">${v.label}</button>
-                `).join('')}
-              </div>
+            <p class="pdp-category" id="pdp-category"></p>
+            <h1 class="pdp-name" id="pdp-name"></h1>
+            <p class="pdp-price" id="pdp-price"></p>
+            <p class="pdp-desc" id="pdp-desc"></p>
+            <div id="pdp-variants-wrap" style="display:none;">
+              <p class="pdp-option-label" id="pdp-option-label">Finish</p>
+              <div class="pdp-variants" id="pdp-variants"></div>
             </div>
-      `;
-    }
-
-    // Quantity + Add to Cart
-    html += `
             <div class="pdp-atc-row" style="display:flex;gap:10px;align-items:center;margin-bottom:20px;">
               <div class="webshop-qty-control webshop-qty-control--lg">
                 <button class="webshop-qty-btn webshop-qty-btn--minus" id="qty-minus">−</button>
                 <span class="webshop-qty-val" id="qty-val">1</span>
                 <button class="webshop-qty-btn webshop-qty-btn--plus" id="qty-plus">+</button>
               </div>
-              <button class="webshop-btn webshop-btn--primary pdp-atc-btn" id="atc-btn">${Shop.t('add_to_cart', 'Add to Cart')}</button>
+              <button class="webshop-btn webshop-btn--primary pdp-atc-btn" id="atc-btn" data-i18n="add_to_cart">Add to Cart</button>
             </div>
-            <div class="pdp-perks" id="pdp-perks">
-              <span>🚚 ${Shop.t('perk_free_shipping', 'Free shipping over €150')}</span>
-              <span>🔄 ${Shop.t('perk_returns', '30-day returns')}</span>
-              <span>🔧 ${Shop.t('perk_warranty', '2-year warranty')}</span>
-            </div>
+            <div class="pdp-perks" id="pdp-perks"></div>
           </div>
         </div>
-    `;
 
-    // Bundle section
-    if (product.bundled && product.bundled.length) {
-      html += `
-        <div class="pdp-section webshop-fade-in webshop-fade-in-1" id="bundle-section">
-          <h2 class="pdp-section-title">${Shop.t('frequently_bought_together', 'Frequently Bought Together')}</h2>
+        <div class="pdp-section webshop-fade-in webshop-fade-in-1" id="bundle-section" style="display:none;">
+          <h2 class="pdp-section-title" id="bundle-title" data-i18n="frequently_bought_together">Frequently Bought Together</h2>
           <div class="pdp-bundle-items-list" id="bundle-items"></div>
           <div class="pdp-bundle-actions">
             <div id="bundle-price-info" style="font-size:0.93em;color:var(--c-text-muted);"></div>
-            <button class="webshop-btn webshop-btn--primary pdp-bundle-add-all-btn" id="bundle-add-all">${Shop.t('add_both_to_cart', 'Add Bundle to Cart')}</button>
+            <button class="webshop-btn webshop-btn--primary pdp-bundle-add-all-btn" id="bundle-add-all" data-i18n="add_both_to_cart">Add Bundle to Cart</button>
           </div>
         </div>
-      `;
-    }
 
-    // Related section
-    if (product.related && product.related.length) {
-      html += `
-        <div class="pdp-section webshop-fade-in webshop-fade-in-2" id="related-section">
-          <h2 class="pdp-section-title">${Shop.t('related_products_title', 'You May Also Like')}</h2>
+        <div class="pdp-section webshop-fade-in webshop-fade-in-2" id="related-section" style="display:none;">
+          <h2 class="pdp-section-title" data-i18n="related_products_title">Products Related to This Item</h2>
           <div class="pdp-related-grid" id="related-grid"></div>
         </div>
-      `;
-    }
 
-    // Specs section
-    if (product.specs && product.specs.length) {
-      html += `
-        <div class="pdp-section webshop-fade-in webshop-fade-in-3" id="specs-section">
+        <div class="pdp-section webshop-fade-in webshop-fade-in-3" id="specs-section" style="display:none;">
           <div id="specs-accordion"></div>
         </div>
-      `;
+
+      </div>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script>
+    (function() {
+      function loadScript(src) {
+        return new Promise(function(resolve) {
+          var s = document.createElement("script"); s.src = src;
+          s.onload = resolve; s.onerror = function(){ resolve(); };
+          document.head.appendChild(s);
+        });
+      }
+      var modules = (CONFIG.modules || []).concat(["js/lang-bridge.js", "js/shop.js"]);
+      var chain = Promise.resolve();
+      modules.forEach(function(src){ chain = chain.then(function(){ return loadScript(src); }); });
+      chain.then(function(){ document.dispatchEvent(new Event("webshop:ready")); });
+    })();
+  </script>
+
+  <script>
+  document.addEventListener("webshop:ready", async function() {
+
+    /* ── resolve product ID from URL (?id=arc-floor-lamp) ── */
+    const params  = new URLSearchParams(window.location.search);
+    const prodId  = params.get("id") || "arc-floor-lamp";
+
+    /* ── load lang + all products, then look up this product ── */
+    await Shop.loadLang();
+    const allProducts = await Shop.loadProducts();          /* populates internal cache */
+    const PRODUCT = allProducts.find(p => p.id === prodId) || allProducts[0];
+
+    if (!PRODUCT) {
+      document.getElementById("pdp-name").textContent = "Product not found";
+      return;
     }
 
-    html += `</div>`; // close pdp-wrapper
-    container.innerHTML = html;
-
-    // Setup back button with language-aware history
-    const backBtn = document.getElementById('back-button');
-    if (backBtn) {
-      backBtn.addEventListener('click', () => {
-        if (document.referrer && document.referrer.includes(window.location.origin)) {
-          history.back();
-        } else {
-          window.location.href = '/' + currentLang + '/';
-        }
-      });
+    /* ── helpers to resolve a product-ID reference to a full product object ── */
+    function resolveById(id) {
+      return allProducts.find(p => p.id === id) || null;
     }
 
-    // Now attach all event handlers
-    buildGallery(images, videos);
-    attachVariantHandlers(hasVariants);
-    attachQtyHandlers();
-    attachAtcHandler(currentVariant);
-    if (product.bundled && product.bundled.length) {
-      renderBundle();
-    }
-    if (product.related && product.related.length) {
-      renderRelated();
-    }
-    if (product.specs && product.specs.length) {
-      renderSpecs();
-    }
+    /* ── update page title ── */
+    document.title = "WEBSHOP – " + Shop.pName(PRODUCT);
+
+    /* ── state ── */
+    let selectedVariant = PRODUCT.variants?.[0]?.id || null;
+    let qty = 1;
+    let currentImgIdx = 0;
+
+    /* ── init modules ── */
+    if (typeof Currency !== "undefined") Currency.init();
+    Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false });
+    Shop.renderCurrencySelector("#currency-selector-slot");
+    buildLangSwitcher();
+    renderMeta();
+    renderVariants();
+    updatePrice();
+    renderPerks();
+    renderGallery();
+    renderBundle();
+    renderRelated();
+    renderSpecs();
+    applyI18n();
     initMagnifier();
-    initLightbox(images, videos);
-  }
+    initLightbox();
+    initQty();
+    initAtc();
 
-  function buildGallery(images, videos) {
-    const thumbsEl = document.getElementById('gallery-thumbs');
-    const mainImg = document.getElementById('gallery-main-img');
-    const mainVideoWrap = document.getElementById('gallery-main-video');
-    const videoPlayer = document.getElementById('gallery-video-player');
-    const ytFrame = document.getElementById('gallery-yt-frame');
-    const ytIframe = document.getElementById('gallery-yt-iframe');
-    const mainWrap = document.getElementById('gallery-main-wrap');
-
-    // Combine media items
-    const mediaItems = images.map(src => ({ type: 'image', src: src }));
-    videos.forEach(vsrc => {
-      const isYT = /youtube\.com|youtu\.be/.test(vsrc);
-      const ytId = isYT ? ((vsrc.match(/embed\/([^?]+)/) || vsrc.match(/youtu\.be\/([^?]+)/) || ['',''])[1]) : '';
-      mediaItems.push({
-        type: 'video',
-        src: vsrc,
-        isYT: isYT,
-        thumb: isYT ? 'https://img.youtube.com/vi/' + ytId + '/mqdefault.jpg' : null
-      });
+    document.addEventListener("currency:changed", updatePrice);
+    document.addEventListener("shop:langChanged", () => {
+      buildLangSwitcher();
+      renderMeta();
+      renderPerks();
+      renderBundle();
+      renderRelated();
+      renderSpecs();
+      applyI18n();
     });
 
-    let activeIdx = 0;
-    let activeType = 'image';
-
-    function showImage(idx) {
-      activeIdx = idx;
-      activeType = 'image';
-      currentImgIdx = idx;
-      if (videoPlayer) { videoPlayer.pause(); videoPlayer.src = ''; }
-      if (ytIframe) ytIframe.src = '';
-      mainVideoWrap.style.display = 'none';
-      mainWrap.classList.remove('video-active');
-      mainImg.style.display = 'block';
-      mainImg.src = mediaItems[idx].src;
-      document.getElementById('magnifier-img').src = (mediaItems[idx].src || '').replace('w=800', 'w=1600');
-      buildThumbnails();
+    /* ════════════════════════════════════════════════════
+       LANG SWITCHER
+    ════════════════════════════════════════════════════ */
+    function buildLangSwitcher() {
+      const slot = document.getElementById("lang-switcher-slot"); if (!slot) return;
+      const langs   = CONFIG.supportedLanguages || ["en"];
+      const current = CONFIG.language || "en";
+      slot.innerHTML = langs.map(l =>
+        `<button class="webshop-lang-btn${l === current ? " active" : ""}" data-lang="${l}">${l.toUpperCase()}</button>`
+      ).join("");
+      Shop.wireLanguageSwitcher(".webshop-lang-btn");
     }
 
-    function showVideo(idx) {
-      activeIdx = idx;
-      activeType = 'video';
-      const item = mediaItems[idx];
-      mainImg.style.display = 'none';
-      mainVideoWrap.style.display = 'block';
-      mainWrap.classList.add('video-active');
-      if (item.isYT) {
-        videoPlayer.style.display = 'none';
-        ytFrame.style.display = 'block';
-        ytIframe.src = item.src + '?autoplay=1';
-      } else {
-        ytFrame.style.display = 'none';
-        ytIframe.src = '';
-        videoPlayer.style.display = 'block';
-        videoPlayer.src = item.src;
-        videoPlayer.play().catch(() => {});
-      }
-      buildThumbnails();
+    function applyI18n() {
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const v = Shop.t(el.dataset.i18n); if (v) el.textContent = v;
+      });
     }
 
-    function buildThumbnails() {
-      thumbsEl.innerHTML = mediaItems.map((item, i) => {
-        const isActive = i === activeIdx;
-        if (item.type === 'image') {
-          return `<div class="pdp-gallery__thumb-wrap${isActive ? ' active' : ''}" data-idx="${i}" data-type="image">
-                    <img class="pdp-gallery__thumb" src="${item.src}" alt="View ${i+1}">
-                  </div>`;
-        } else {
-          const tbStyle = item.thumb ? `style="background-image:url('${item.thumb}');background-size:cover;background-position:center;"` : 'style="background:var(--c-surface-2);"';
-          return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive ? ' active' : ''}" data-idx="${i}" data-type="video" ${tbStyle}>
-                    <span class="pdp-thumb-play">▶</span>
-                  </div>`;
-        }
-      }).join('');
+    /* ════════════════════════════════════════════════════
+       META (name, category, description)
+    ════════════════════════════════════════════════════ */
+    function renderMeta() {
+      document.getElementById("pdp-name").textContent     = Shop.pName(PRODUCT);
+      document.getElementById("pdp-category").textContent = Shop.pCategory(PRODUCT);
+      document.getElementById("pdp-desc").textContent     = Shop.pDesc(PRODUCT);
+    }
 
-      thumbsEl.querySelectorAll('.pdp-gallery__thumb-wrap').forEach(el => {
-        el.addEventListener('click', () => {
-          const idx = parseInt(el.dataset.idx);
-          if (el.dataset.type === 'video') showVideo(idx);
-          else showImage(idx);
+    /* ════════════════════════════════════════════════════
+       PRICE
+    ════════════════════════════════════════════════════ */
+    function fmt(n) { return (typeof Shop !== "undefined" && Shop.fmt) ? Shop.fmt(n) : "€" + n.toFixed(2); }
+
+    function updatePrice() {
+      const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
+      document.getElementById("pdp-price").textContent = fmt(v ? v.price : PRODUCT.price);
+    }
+
+    /* ════════════════════════════════════════════════════
+       VARIANTS
+    ════════════════════════════════════════════════════ */
+    function renderVariants() {
+      const wrap = document.getElementById("pdp-variants-wrap");
+      const el   = document.getElementById("pdp-variants");
+      if (!PRODUCT.variants?.length) { wrap.style.display = "none"; return; }
+      wrap.style.display = "";
+      el.innerHTML = PRODUCT.variants.map(v =>
+        `<button class="pdp-variant-btn${v.id === selectedVariant ? " active" : ""}" data-vid="${v.id}">${v.label}</button>`
+      ).join("");
+      el.querySelectorAll(".pdp-variant-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          selectedVariant = btn.dataset.vid;
+          el.querySelectorAll(".pdp-variant-btn").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          const v = PRODUCT.variants.find(v => v.id === selectedVariant);
+          if (v?.image) {
+            document.getElementById("gallery-main-img").src = v.image;
+            let hi = v.image.replace("w=800", "w=1600");
+            document.getElementById("magnifier-img").src = hi;
+          }
+          updatePrice();
         });
       });
     }
 
-    // Click main area to open lightbox
-    mainWrap.addEventListener('click', (e) => {
-      if (e.target.closest('video') || e.target.closest('iframe')) return;
-      openLightbox(activeType === 'video' ? 'video' : 'images');
-    });
-
-    // Build initial thumbnails and show first image
-    if (images.length) {
-      mainImg.src = images[0];
-      document.getElementById('magnifier-img').src = (images[0] || '').replace('w=800', 'w=1600');
+    /* ════════════════════════════════════════════════════
+       PERKS
+    ════════════════════════════════════════════════════ */
+    function renderPerks() {
+      const el = document.getElementById("pdp-perks"); if (!el) return;
+      const keys      = ["perk_free_shipping", "perk_returns", "perk_warranty"];
+      const fallbacks = ["Free shipping over €150", "30-day returns", "2-year warranty"];
+      el.innerHTML = keys.map((k, i) => `<span>${Shop.t(k) || fallbacks[i]}</span>`).join("");
     }
-    buildThumbnails();
-  }
 
-  function attachVariantHandlers(hasVariants) {
-    if (!hasVariants) return;
-    const variantBtns = document.querySelectorAll('.pdp-variant-btn');
-    const priceEl = document.getElementById('pdp-price');
-    const mainImg = document.getElementById('gallery-main-img');
+    /* ════════════════════════════════════════════════════
+       GALLERY  (images + video thumbnails)
+    ════════════════════════════════════════════════════ */
+    function renderGallery() {
+      const mainImg      = document.getElementById("gallery-main-img");
+      const mainVideoWrap= document.getElementById("gallery-main-video");
+      const videoPlayer  = document.getElementById("gallery-video-player");
+      const ytFrame      = document.getElementById("gallery-yt-frame");
+      const ytIframe     = document.getElementById("gallery-yt-iframe");
+      const thumbsEl     = document.getElementById("gallery-thumbs");
+      const mainWrap     = document.getElementById("gallery-main-wrap");
 
-    variantBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        variantBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        selectedVariantId = btn.dataset.variantId;
-        const variant = product.variants.find(v => v.id === selectedVariantId);
-        if (variant) {
-          if (priceEl) priceEl.textContent = fmt(variant.price);
-          if (variant.image && mainImg) {
-            mainImg.src = variant.image;
-            document.getElementById('magnifier-img').src = variant.image.replace('w=800', 'w=1600');
+      // Combined media list: images first, then videos
+      const images = PRODUCT.images || [];
+      const videos = PRODUCT.videos || [];
+      // Each item: { type: 'image'|'video', src, thumb }
+      const mediaItems = [
+        ...images.map(src => ({ type: "image", src, thumb: src })),
+        ...videos.map(src => {
+          const isYT = /youtube\.com|youtu\.be/.test(src);
+          return { type: "video", src, isYT,
+            thumb: isYT
+              ? `https://img.youtube.com/vi/${extractYTId(src)}/mqdefault.jpg`
+              : null
+          };
+        })
+      ];
+
+      function extractYTId(url) {
+        const m = url.match(/embed\/([^?]+)/) || url.match(/youtu\.be\/([^?]+)/);
+        return m ? m[1] : "";
+      }
+
+      let activeIdx = 0;
+      let activeType = "image"; // 'image' or 'video'
+
+      function showImage(idx) {
+        activeIdx = idx; activeType = "image";
+        currentImgIdx = idx;
+        const src = mediaItems[idx].src;
+        // Stop any playing video
+        videoPlayer.pause(); videoPlayer.src = "";
+        ytIframe.src = "";
+        mainVideoWrap.style.display = "none";
+        mainWrap.classList.remove("video-active");
+        mainImg.style.opacity = "1";
+        mainImg.src = src;
+        document.getElementById("magnifier-img").src = src.replace("w=800","w=1600");
+        // Sync lightbox image
+        const lbMain = document.getElementById("lb-main-img");
+        if (lbMain) lbMain.src = src;
+        document.querySelectorAll(".pdp-lightbox-thumb").forEach((t, i) =>
+          t.classList.toggle("active", i === idx)
+        );
+        buildThumbs();
+      }
+
+      function showVideo(idx) {
+        activeIdx = idx; activeType = "video";
+        const item = mediaItems[idx];
+        // Hide image, show video overlay
+        mainImg.style.opacity = "0";
+        mainVideoWrap.style.display = "block";
+        mainWrap.classList.add("video-active");
+        if (item.isYT) {
+          videoPlayer.style.display = "none";
+          ytFrame.style.display = "block";
+          ytIframe.src = item.src + "?autoplay=1";
+        } else {
+          ytFrame.style.display = "none";
+          ytIframe.src = "";
+          videoPlayer.style.display = "block";
+          videoPlayer.src = item.src;
+          videoPlayer.play().catch(()=>{});
+        }
+        buildThumbs();
+      }
+
+      function buildThumbs() {
+        thumbsEl.innerHTML = mediaItems.map((item, i) => {
+          const isActive = i === activeIdx;
+          if (item.type === "image") {
+            return `<div class="pdp-gallery__thumb-wrap${isActive?" active":""}" data-idx="${i}" data-type="image">
+              <img class="pdp-gallery__thumb" src="${item.src}" alt="View ${i+1}">
+            </div>`;
+          } else {
+            // Video thumb — play icon overlay
+            const thumbStyle = item.thumb
+              ? `style="background-image:url('${item.thumb}');background-size:cover;background-position:center;"`
+              : `style="background:var(--c-surface-2);"`;
+            return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive?" active":""}" data-idx="${i}" data-type="video" ${thumbStyle}>
+              <span class="pdp-thumb-play">▶</span>
+            </div>`;
           }
-        }
-      });
-    });
-  }
+        }).join("");
 
-  function attachQtyHandlers() {
-    const qtyVal = document.getElementById('qty-val');
-    const qtyMinus = document.getElementById('qty-minus');
-    const qtyPlus = document.getElementById('qty-plus');
-
-    qtyMinus?.addEventListener('click', () => {
-      if (currentQty > 1) {
-        currentQty--;
-        qtyVal.textContent = currentQty;
-      }
-    });
-
-    qtyPlus?.addEventListener('click', () => {
-      const variant = product.variants?.find(v => v.id === selectedVariantId);
-      const maxStock = variant ? (variant.stock || 99) : (product.stock || 99);
-      if (currentQty < maxStock) {
-        currentQty++;
-        qtyVal.textContent = currentQty;
-      }
-    });
-  }
-
-  function attachAtcHandler(currentVariant) {
-    const atcBtn = document.getElementById('atc-btn');
-    const mainImg = document.getElementById('gallery-main-img');
-    atcBtn?.addEventListener('click', () => {
-      const image = mainImg?.src || product.image;
-      Shop.addToCart(product, currentQty, selectedVariantId, null, image);
-      if (Shop.toast) Shop.toast(`${Shop.pName(product)} ${Shop.t('added', 'added to cart')}`);
-    });
-  }
-
-  async function renderBundle() {
-    const bundleEl = document.getElementById('bundle-items');
-    const priceEl = document.getElementById('bundle-price-info');
-    const bundleIds = product.bundled || [];
-    
-    const bundleProducts = [];
-    for (const id of bundleIds) {
-      const p = await Shop.getProduct(id);
-      if (p) bundleProducts.push(p);
-    }
-    
-    if (!bundleProducts.length) return;
-    
-    bundleEl.innerHTML = bundleProducts.map(item => `
-      <div class="pdp-bundle-item">
-        <img src="${item.image}" alt="${Shop.pName(item)}" onerror="this.style.background='var(--c-bg-alt)'">
-        <div class="pdp-bundle-item__info">
-          <div class="pdp-bundle-item__name">${Shop.pName(item)}</div>
-          <div class="pdp-bundle-item__price">${fmt(item.price)}</div>
-        </div>
-      </div>
-    `).join('');
-    
-    const mainPrice = product.variants?.[0]?.price || product.price;
-    const addonsTotal = bundleProducts.reduce((s, p) => s + p.price, 0);
-    const fullTotal = mainPrice + addonsTotal;
-    priceEl.textContent = Shop.t('bundle_total', 'Bundle total') + ': ' + fmt(fullTotal);
-    
-    document.getElementById('bundle-add-all').onclick = () => {
-      Shop.addToCart(product, 1, selectedVariantId, null, product.image);
-      bundleProducts.forEach(item => Shop.addToCart(item, 1));
-      if (Shop.toast) Shop.toast(Shop.t('bundle_added', 'Bundle added to cart'));
-    };
-  }
-
-  async function renderRelated() {
-    const relatedEl = document.getElementById('related-grid');
-    const relatedIds = product.related || [];
-    
-    const relatedProducts = [];
-    for (const id of relatedIds) {
-      const p = await Shop.getProduct(id);
-      if (p) relatedProducts.push(p);
-    }
-    
-    if (!relatedProducts.length) return;
-    
-    relatedEl.innerHTML = relatedProducts.map(r => `
-      <div class="pdp-related-card">
-        <div class="pdp-related-card__img-wrap">
-          <img src="${r.image}" alt="${Shop.pName(r)}">
-          <div class="pdp-related-card__overlay">
-            <button class="pdp-related-card__buy-btn" data-rid="${r.id}" data-rimg="${r.image}">${Shop.t('buy_now', 'BUY NOW')}</button>
-          </div>
-        </div>
-        <div class="pdp-related-card__info">
-          <div class="pdp-related-card__name">
-            <a href="${getProductUrl(r.id)}" data-product-id="${r.id}" class="pdp-related-name-link" style="text-decoration:none;color:inherit;">${Shop.pName(r)}</a>
-          </div>
-          <div class="pdp-related-card__price">${fmt(r.price)}</div>
-        </div>
-      </div>
-    `).join('');
-    
-    relatedEl.querySelectorAll('.pdp-related-card__buy-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const item = await Shop.getProduct(btn.dataset.rid);
-        if (item) {
-          Shop.addToCart(item, 1);
-          if (Shop.toast) Shop.toast(`${Shop.pName(item)} ${Shop.t('added', 'added to cart')}`);
-        }
-      });
-    });
-    
-    // Handle related product name links for SPA navigation
-    relatedEl.querySelectorAll('.pdp-related-name-link').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const pid = link.dataset.productId;
-        if (pid && typeof window.openProduct === 'function') {
-          window.openProduct(pid);
-        } else if (pid) {
-          window.location.href = getProductUrl(pid);
-        }
-      });
-    });
-  }
-
-  function renderSpecs() {
-    const accordionEl = document.getElementById('specs-accordion');
-    const specs = product.specs || [];
-    if (!specs.length) return;
-    
-    accordionEl.innerHTML = specs.map(sec => `
-      <div class="pdp-accordion-item">
-        <button class="pdp-accordion-trigger">
-          <span>${sec.title}</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-        </button>
-        <div class="pdp-accordion-body">
-          <table class="pdp-spec-table"><tbody>
-            ${(sec.rows || []).map(row => `<tr><td>${row[0]}</td><td>${row[1]}</td></tr>`).join('')}
-          </tbody></table>
-        </div>
-      </div>
-    `).join('');
-    
-    accordionEl.querySelectorAll('.pdp-accordion-trigger').forEach(btn => {
-      btn.addEventListener('click', () => {
-        btn.closest('.pdp-accordion-item').classList.toggle('open');
-      });
-    });
-  }
-
-  function initMagnifier() {
-    const magEl = document.getElementById('magnifier');
-    const magImg = document.getElementById('magnifier-img');
-    const mainWrap = document.getElementById('gallery-main-wrap');
-    if (!magEl || !mainWrap) return;
-    
-    function updateSize() {
-      const rect = mainWrap.getBoundingClientRect();
-      const size = Math.min(Math.min(window.innerWidth * 0.45, 600), rect.width * 1.2);
-      magEl.style.width = size + 'px';
-      magEl.style.height = size + 'px';
-    }
-    
-    mainWrap.addEventListener('mousemove', (e) => {
-      const videoDiv = document.getElementById('gallery-main-video');
-      if (videoDiv && videoDiv.style.display !== 'none') {
-        magEl.style.display = 'none';
-        return;
-      }
-      const rect = mainWrap.getBoundingClientRect();
-      const xPct = (e.clientX - rect.left) / rect.width;
-      const yPct = (e.clientY - rect.top) / rect.height;
-      updateSize();
-      const lensW = magEl.offsetWidth, lensH = magEl.offsetHeight;
-      let mLeft = rect.right + 20, mTop = rect.top + rect.height/2 - lensH/2;
-      if (mLeft + lensW > window.innerWidth - 20) mLeft = rect.left - lensW - 20;
-      mLeft = Math.max(10, Math.min(mLeft, window.innerWidth - lensW - 10));
-      mTop = Math.max(10, Math.min(mTop, window.innerHeight - lensH - 10));
-      magEl.style.left = mLeft + 'px';
-      magEl.style.top = mTop + 'px';
-      magEl.style.display = 'block';
-      
-      const nW = magImg.naturalWidth, nH = magImg.naturalHeight;
-      if (nW && nH) {
-        const zoom = 2.5;
-        magImg.style.width = (nW * zoom) + 'px';
-        magImg.style.height = (nH * zoom) + 'px';
-        magImg.style.left = -(xPct * nW * zoom - lensW/2) + 'px';
-        magImg.style.top = -(yPct * nH * zoom - lensH/2) + 'px';
-      }
-    });
-    
-    mainWrap.addEventListener('mouseleave', () => {
-      magEl.style.display = 'none';
-    });
-  }
-
-  function initLightbox(images, videos) {
-    const lightbox = document.getElementById('lightbox');
-    let activeTab = 'images';
-    
-    window.openLightbox = function(tab) {
-      activeTab = tab || 'images';
-      buildLightbox();
-      lightbox.style.display = 'flex';
-      document.body.style.overflow = 'hidden';
-    };
-    
-    function closeLightbox() {
-      lightbox.style.display = 'none';
-      document.body.style.overflow = '';
-    }
-    
-    function buildLightbox() {
-      document.querySelectorAll('.pdp-lightbox__tab').forEach(t => {
-        t.classList.toggle('active', t.dataset.tab === activeTab);
-      });
-      document.getElementById('tab-images').style.display = activeTab === 'images' ? '' : 'none';
-      document.getElementById('tab-video').style.display = activeTab === 'video' ? '' : 'none';
-      
-      if (activeTab === 'images') {
-        document.getElementById('lb-main-img').src = images[currentImgIdx] || images[0] || '';
-        const lbThumbs = document.getElementById('lb-thumbs');
-        lbThumbs.innerHTML = images.map((src, i) => `
-          <img class="pdp-lightbox-thumb${i === currentImgIdx ? ' active' : ''}" src="${src}" data-idx="${i}">
-        `).join('');
-        lbThumbs.querySelectorAll('.pdp-lightbox-thumb').forEach(t => {
-          t.addEventListener('click', () => {
-            currentImgIdx = parseInt(t.dataset.idx);
-            document.getElementById('lb-main-img').src = images[currentImgIdx];
-            lbThumbs.querySelectorAll('.pdp-lightbox-thumb').forEach((x, j) => {
-              x.classList.toggle('active', j === currentImgIdx);
-            });
+        thumbsEl.querySelectorAll(".pdp-gallery__thumb-wrap").forEach(el => {
+          el.addEventListener("click", () => {
+            const idx = +el.dataset.idx;
+            if (el.dataset.type === "video") showVideo(idx);
+            else showImage(idx);
           });
         });
-        
-        const variant = product.variants?.find(v => v.id === selectedVariantId);
-        document.getElementById('lb-details').innerHTML = `
-          <p class="pdp-category">${Shop.pCategory(product)}</p>
-          <h2 class="pdp-name">${Shop.pName(product)}</h2>
-          <p class="pdp-price">${fmt(variant ? variant.price : product.price)}</p>
-          <p class="pdp-desc">${Shop.pDesc(product)}</p>
-          <div class="pdp-perks">
-            <span>🚚 ${Shop.t('perk_free_shipping', 'Free shipping over €150')}</span>
-            <span>🔄 ${Shop.t('perk_returns', '30-day returns')}</span>
-            <span>🔧 ${Shop.t('perk_warranty', '2-year warranty')}</span>
-          </div>
-        `;
       }
-      
-      if (activeTab === 'video') {
-        const videoContainer = document.getElementById('video-container');
-        videoContainer.innerHTML = videos.length ? videos.map(url => {
-          const isYT = /youtube\.com\/embed\/|youtu\.be\//.test(url);
-          if (isYT) {
-            return `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;">
-                      <iframe src="${url}" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen></iframe>
-                    </div>`;
-          }
-          return `<video src="${url}" controls style="width:100%;max-height:70vh;border-radius:12px;"></video>`;
-        }).join('') : '<div>No video available</div>';
-      }
-    }
-    
-    document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
-    lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
-    document.querySelectorAll('.pdp-lightbox__tab').forEach(t => {
-      t.addEventListener('click', () => { activeTab = t.dataset.tab; buildLightbox(); });
-    });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLightbox(); });
-  }
 
-  // Start loading when DOM ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadAndRender);
-  } else {
-    loadAndRender();
-  }
-})();
-</script>
+      // Expose for variant switching
+      window._selectImage = function(idx) { showImage(idx); };
+
+      // Init
+      if (images.length) {
+        mainImg.src = images[0];
+        mainImg.alt = Shop.pName(PRODUCT);
+        document.getElementById("magnifier-img").src = (images[0]||"").replace("w=800","w=1600");
+      }
+      buildThumbs();
+
+      // Main wrap click: image → lightbox images, video → lightbox video tab
+      mainWrap.addEventListener("click", e => {
+        // Don't open lightbox if clicking video controls
+        if (e.target.closest("video") || e.target.closest("iframe")) return;
+        if (activeType === "video") {
+          // Stop inline playback and open lightbox video tab
+          videoPlayer.pause();
+          ytIframe.src = "";
+          openLightbox("video");
+        } else {
+          openLightbox("images");
+        }
+      });
+    }
+
+    /* ════════════════════════════════════════════════════
+       MAGNIFIER
+    ════════════════════════════════════════════════════ */
+    function initMagnifier() {
+      const magEl   = document.getElementById("magnifier");
+      const magImg  = document.getElementById("magnifier-img");
+      const mainWrap = document.getElementById("gallery-main-wrap");
+      magImg.src = (PRODUCT.images[0] || "").replace("w=800", "w=1600");
+
+      function updateMagnifierSize() {
+        const rect  = mainWrap.getBoundingClientRect();
+        const size  = Math.min(Math.min(window.innerWidth * 0.45, 600), rect.width * 1.2);
+        magEl.style.width = size + "px"; magEl.style.height = size + "px";
+      }
+
+      mainWrap.addEventListener("mousemove", e => {
+        // Don't show magnifier when a video is active
+        if (document.getElementById("gallery-main-video").style.display !== "none") {
+          magEl.style.display = "none"; return;
+        }
+        const rect = mainWrap.getBoundingClientRect();
+        const xPct = (e.clientX - rect.left)  / rect.width;
+        const yPct = (e.clientY - rect.top)   / rect.height;
+        updateMagnifierSize();
+        const lensW = magEl.offsetWidth, lensH = magEl.offsetHeight;
+        let mLeft = rect.right + 20, mTop = rect.top + (rect.height / 2) - (lensH / 2);
+        if (mLeft + lensW > window.innerWidth - 20) mLeft = rect.left - lensW - 20;
+        mLeft = Math.max(10, Math.min(mLeft, window.innerWidth  - lensW - 10));
+        mTop  = Math.max(10, Math.min(mTop,  window.innerHeight - lensH - 10));
+        magEl.style.left = mLeft + "px"; magEl.style.top = mTop + "px";
+        magEl.style.display = "block";
+        const nW = magImg.naturalWidth, nH = magImg.naturalHeight;
+        if (nW && nH) {
+          const ca = rect.width / rect.height, ia = nW / nH;
+          let dW, dH, ox = 0, oy = 0;
+          if (ia > ca) { dH = rect.height; dW = dH * ia; ox = (rect.width - dW) / 2; }
+          else         { dW = rect.width;  dH = dW / ia; oy = (rect.height - dH) / 2; }
+          const imgX = ((xPct * dW - ox) / dW) * nW;
+          const imgY = ((yPct * dH - oy) / dH) * nH;
+          const zoom = 2;
+          magImg.style.width  = (nW * zoom) + "px";
+          magImg.style.height = (nH * zoom) + "px";
+          magImg.style.left   = -(imgX * zoom - lensW / 2) + "px";
+          magImg.style.top    = -(imgY * zoom - lensH / 2) + "px";
+        }
+      });
+      mainWrap.addEventListener("mouseleave", () => { magEl.style.display = "none"; });
+      window.addEventListener("resize", () => { if (magEl.style.display === "block") updateMagnifierSize(); });
+    }
+
+    /* ════════════════════════════════════════════════════
+       LIGHTBOX
+    ════════════════════════════════════════════════════ */
+    function initLightbox() {
+      const lightbox = document.getElementById("lightbox");
+      let activeTab  = "images";
+
+      window.openLightbox = function(tab) {
+        activeTab = tab || "images";
+        buildLightbox();
+        lightbox.classList.add("open");
+        document.body.style.overflow = "hidden";
+      };
+
+      function closeLightbox() {
+        lightbox.classList.remove("open");
+        document.body.style.overflow = "";
+      }
+
+      function buildLightbox() {
+        document.querySelectorAll(".pdp-lightbox__tab").forEach(t =>
+          t.classList.toggle("active", t.dataset.tab === activeTab)
+        );
+        document.getElementById("tab-images").style.display = activeTab === "images" ? "" : "none";
+        document.getElementById("tab-video").style.display  = activeTab === "video"  ? "" : "none";
+
+        if (activeTab === "images") {
+          document.getElementById("lb-main-img").src = PRODUCT.images[currentImgIdx];
+          const lbThumbs = document.getElementById("lb-thumbs");
+          lbThumbs.innerHTML = PRODUCT.images.map((src, i) =>
+            `<img class="pdp-lightbox-thumb${i === currentImgIdx ? " active" : ""}" src="${src}" alt="View ${i+1}" data-idx="${i}">`
+          ).join("");
+          lbThumbs.querySelectorAll(".pdp-lightbox-thumb").forEach(t => {
+            t.addEventListener("click", () => {
+              currentImgIdx = +t.dataset.idx;
+              document.getElementById("lb-main-img").src = PRODUCT.images[currentImgIdx];
+              lbThumbs.querySelectorAll(".pdp-lightbox-thumb").forEach((x, j) =>
+                x.classList.toggle("active", j === currentImgIdx)
+              );
+            });
+          });
+          const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
+          const perksHtml = ["perk_free_shipping","perk_returns","perk_warranty"].map((k, i) =>
+            `<span>${Shop.t(k) || ["Free shipping over €150","30-day returns","2-year warranty"][i]}</span>`
+          ).join("");
+          document.getElementById("lb-details").innerHTML = `
+            <p class="pdp-category">${Shop.pCategory(PRODUCT)}</p>
+            <h2 class="pdp-name">${Shop.pName(PRODUCT)}</h2>
+            <p class="pdp-price">${fmt(v ? v.price : PRODUCT.price)}</p>
+            <p class="pdp-desc">${Shop.pDesc(PRODUCT)}</p>
+            <div class="pdp-perks">${perksHtml}</div>`;
+        }
+        if (activeTab === "video") {
+          const videos = PRODUCT.videos || [];
+          function renderVideo(url) {
+            const isYT = /youtube\.com\/embed\/|youtu\.be\//.test(url);
+            if (isYT) {
+              return `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;">
+                <iframe src="${url}" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+              </div>`;
+            }
+            return `<video src="${url}" controls style="width:100%;max-height:70vh;border-radius:12px;display:block;"></video>`;
+          }
+          document.getElementById("video-container").innerHTML = videos.length
+            ? videos.map(renderVideo).join("")
+            : `<div class="pdp-no-video">📽 No video available for this product.</div>`;
+        }
+      }
+
+      document.getElementById("lightbox-close").addEventListener("click", closeLightbox);
+      lightbox.addEventListener("click", e => { if (e.target === lightbox) closeLightbox(); });
+      document.querySelectorAll(".pdp-lightbox__tab").forEach(t =>
+        t.addEventListener("click", () => { activeTab = t.dataset.tab; buildLightbox(); })
+      );
+      document.addEventListener("keydown", e => { if (e.key === "Escape") closeLightbox(); });
+    }
+
+    /* ════════════════════════════════════════════════════
+       QTY + ATC
+    ════════════════════════════════════════════════════ */
+    function initQty() {
+      const qtyVal = document.getElementById("qty-val");
+      document.getElementById("qty-minus").addEventListener("click", () => {
+        if (qty > 1) { qty--; qtyVal.textContent = qty; }
+      });
+      document.getElementById("qty-plus").addEventListener("click", () => {
+        const v     = PRODUCT.variants?.find(v => v.id === selectedVariant);
+        const stock = v?.stock ?? PRODUCT.stock;
+        if (qty < stock) { qty++; qtyVal.textContent = qty; }
+      });
+    }
+
+    function initAtc() {
+      document.getElementById("atc-btn").addEventListener("click", () => {
+        const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
+        Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
+        Shop.toast(`${Shop.pName(PRODUCT)}${v ? " – " + v.label : ""} ${Shop.t("added","added to cart")}`);
+      });
+    }
+
+    /* ════════════════════════════════════════════════════
+       FREQUENTLY BOUGHT TOGETHER (bundle)
+    ════════════════════════════════════════════════════ */
+    function renderBundle() {
+      const section  = document.getElementById("bundle-section");
+      const bundleEl = document.getElementById("bundle-items");
+      const priceEl  = document.getElementById("bundle-price-info");
+      const bundleIds = PRODUCT.bundled || [];
+      if (!bundleIds.length) { section.style.display = "none"; return; }
+
+      const bundleProducts = bundleIds.map(id => resolveById(id)).filter(Boolean);
+      if (!bundleProducts.length) { section.style.display = "none"; return; }
+      section.style.display = "";
+
+      bundleEl.innerHTML = bundleProducts.map(item => {
+        const name = Shop.pName(item);
+        const desc = Shop.pDesc(item);
+        return `
+        <div class="pdp-bundle-item">
+          <img src="${item.image}" alt="${name}" onerror="this.style.background='var(--c-bg-alt)'">
+          <div class="pdp-bundle-item__info">
+            <div class="pdp-bundle-item__name">${name}</div>
+            <div class="pdp-bundle-item__price">${fmt(item.price)}${desc ? " · " + desc : ""}</div>
+          </div>
+        </div>`;
+      }).join("");
+
+      /* bundle pricing */
+      const mainPrice    = PRODUCT.variants?.[0]?.price ?? PRODUCT.price;
+      const addonsTotal  = bundleProducts.reduce((s, p) => s + p.price, 0);
+      const fullTotal    = mainPrice + addonsTotal;
+      const discount     = PRODUCT.bundleDiscount || 0;
+      const discounted   = discount > 0 ? fullTotal * (1 - discount / 100) : null;
+      if (discount > 0 && discounted) {
+        priceEl.innerHTML =
+          `<span style="margin-right:5px;">🏷️</span>${Shop.t("bundle_full_price","Full price")}: <s>${fmt(fullTotal)}</s> &nbsp;→&nbsp; ` +
+          `<strong>${fmt(discounted)}</strong> &nbsp;<span style="color:var(--c-accent);font-weight:600;">(${discount}% ${Shop.t("bundle_off","off")})</span>`;
+      } else {
+        priceEl.textContent = `${Shop.t("bundle_total","Bundle total")}: ${fmt(fullTotal)}`;
+      }
+
+      document.getElementById("bundle-add-all").onclick = () => {
+        const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
+        Shop.addToCart(PRODUCT, 1, selectedVariant, null, v?.image || PRODUCT.image);
+        bundleProducts.forEach(item => Shop.addToCart(item, 1, null, null, item.image));
+        Shop.toast(`${Shop.pName(PRODUCT)} + ${Shop.t("bundle_added","bundle added to cart")}`);
+      };
+    }
+
+    /* ════════════════════════════════════════════════════
+       RELATED PRODUCTS
+    ════════════════════════════════════════════════════ */
+    function renderRelated() {
+      const section   = document.getElementById("related-section");
+      const relatedEl = document.getElementById("related-grid");
+      const relatedIds = PRODUCT.related || [];
+      const relatedProducts = relatedIds.map(id => resolveById(id)).filter(Boolean);
+      if (!relatedProducts.length) { section.style.display = "none"; return; }
+      section.style.display = "";
+
+      relatedEl.innerHTML = relatedProducts.map(r => {
+        const name = Shop.pName(r);
+        const price = r.variants?.[0]?.price ?? r.price;
+        return `
+        <div class="pdp-related-card">
+          <div class="pdp-related-card__img-wrap">
+            <img src="${r.image}" alt="${name}">
+            <div class="pdp-related-card__overlay">
+              <button class="pdp-related-card__buy-btn"
+                data-rid="${r.id}"
+                data-rimg="${r.image}">${Shop.t("buy_now","BUY NOW")}</button>
+            </div>
+          </div>
+          <div class="pdp-related-card__info">
+            <div class="pdp-related-card__name">${name}</div>
+            <div class="pdp-related-card__price">${fmt(price)}</div>
+          </div>
+        </div>`;
+      }).join("");
+
+      relatedEl.querySelectorAll(".pdp-related-card").forEach(card => {
+        // Add click handler for the card itself (image/info) to navigate
+        const imgWrap = card.querySelector(".pdp-related-card__img-wrap");
+        const infoWrap = card.querySelector(".pdp-related-card__info");
+        const rid = card.querySelector(".pdp-related-card__buy-btn")?.dataset.rid;
+        
+        if (imgWrap && rid) {
+          imgWrap.style.cursor = "pointer";
+          imgWrap.addEventListener("click", e => {
+            e.stopPropagation();
+            const basePath = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || '/';
+            const lang = window.LANG || localStorage.getItem('dornori-lang') || 'en';
+            const slug = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
+            window.location.href = `${basePath}${lang}/${slug}/?id=${rid}`;
+          });
+        }
+        
+        if (infoWrap && rid) {
+          infoWrap.style.cursor = "pointer";
+          infoWrap.addEventListener("click", e => {
+            e.stopPropagation();
+            const basePath = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || '/';
+            const lang = window.LANG || localStorage.getItem('dornori-lang') || 'en';
+            const slug = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
+            window.location.href = `${basePath}${lang}/${slug}/?id=${rid}`;
+          });
+        }
+      });
+
+      relatedEl.querySelectorAll(".pdp-related-card__buy-btn").forEach(btn => {
+        btn.addEventListener("click", e => {
+          e.stopPropagation();
+          const item = resolveById(btn.dataset.rid);
+          if (!item) return;
+          Shop.addToCart(item, 1, null, null, btn.dataset.rimg);
+          Shop.toast(`${Shop.pName(item)} ${Shop.t("added","added to cart")}`);
+        });
+      });
+    }
+
+    /* ════════════════════════════════════════════════════
+       SPECS ACCORDION
+    ════════════════════════════════════════════════════ */
+    function renderSpecs() {
+      const section     = document.getElementById("specs-section");
+      const accordionEl = document.getElementById("specs-accordion");
+      const specs = PRODUCT.specs || [];
+      if (!specs.length) { section.style.display = "none"; return; }
+      section.style.display = "";
+
+      function specTitle(sec) {
+        if (sec.title_key) {
+          /* check per-product specs object in the lang files */
+          const pl    = Shop.getProductLang?.()   || {};
+          const plEn  = Shop.getProductLangEn?.() || {};
+          const specs = pl[PRODUCT.id]?.specs || plEn[PRODUCT.id]?.specs || {};
+          if (specs[sec.title_key]) return specs[sec.title_key];
+          /* fall back to UI string with same key */
+          const uiStr = Shop.t(sec.title_key);
+          if (uiStr && uiStr !== sec.title_key) return uiStr;
+        }
+        return sec.title;
+      }
+
+      accordionEl.innerHTML = specs.map(sec => `
+        <div class="pdp-accordion-item">
+          <button class="pdp-accordion-trigger">
+            <span>${specTitle(sec)}</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="pdp-accordion-body">
+            <table class="pdp-spec-table"><tbody>
+              ${sec.rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("")}
+            </tbody></table>
+          </div>
+        </div>`
+      ).join("");
+
+      accordionEl.querySelectorAll(".pdp-accordion-trigger").forEach(btn => {
+        btn.addEventListener("click", () => btn.closest(".pdp-accordion-item").classList.toggle("open"));
+      });
+    }
+
+  }); /* end webshop:ready */
+  </script>
+</body>
+</html>
