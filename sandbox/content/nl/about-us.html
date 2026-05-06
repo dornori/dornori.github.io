@@ -1,52 +1,339 @@
-<!-- content/en/home.html -->
-<div class="home-hero">
-  <div class="home-hero__media">
-    <div class="slideshow-root"
-         gallery-size="1/1"
-         gallery-border="yes"
-         gallery-shape="rounded"
-         gallery-images="UFO-product/dornori-UFO-lamp-extruded-color-spaceblue,UFO-product/dornori-UFO-lamp-retracted-color-spaceblue,mushroom-product/dornori-mushroom-lamp-extruded-color-green-red,mushroom-product/dornori-mushroom-lamp-retracted-color-green-red"
-         gallery-folder="/assets/images/"
-         gallery-interval="2800">
+<!-- content/en/showcase.html -->
+<!-- Full shop showcase – all products, clean cards, cart sidebar, quick‑view -->
+<div class="showcase-wrapper">
+  
+  <!-- Header -->
+  <div class="showcase-header">
+    <div>
+      <h1>✨ Complete Collection</h1>
+      <p>All lamps, kits, and components – click any image for details, choose your finish, and add to cart.</p>
+    </div>
+    <button id="showcase-cart-btn" class="webshop-btn webshop-btn--outline">
+      🛒 Cart (<span id="showcase-cart-count">0</span>)
+    </button>
+  </div>
+
+  <!-- Product grid – automatically populated by mountShopEmbeds -->
+  <div data-shop-products="all" class="showcase-product-grid"></div>
+
+  <!-- Cart sidebar -->
+  <div id="showcase-cart-sidebar" class="showcase-sidebar">
+    <div class="showcase-sidebar-header">
+      <h3>Your Cart</h3>
+      <button id="showcase-close-cart" class="showcase-sidebar-close">&times;</button>
+    </div>
+    <div id="showcase-cart-items" class="showcase-sidebar-items"></div>
+    <div class="showcase-sidebar-footer">
+      <div id="showcase-cart-total" class="showcase-sidebar-total"></div>
+      <button id="showcase-checkout" class="webshop-btn webshop-btn--primary">Checkout →</button>
     </div>
   </div>
-  <div class="home-hero__text">
-    <h1>The lamp that rises.</h1>
-    <p class="tagline">"In darkness let's shine a light"</p>
-    <p><strong>Star‑A</strong> is a kinetic, battery-powered outdoor lamp. A pole extends from a compact base — carrying a glowing UFO or Mushroom lamp head up to 190 cm — driven by a real DC motor, controlled by a simple lever switch.</p>
-    <div class="home-cta">
-      <a data-page="built" class="webshop-btn webshop-btn--primary">Shop Fully Built →</a>
-      <a data-page="kit" class="webshop-btn webshop-btn--outline">Build-It Kit →</a>
-    </div>
-  </div>
-</div>
-
-<div class="home-featured">
-  <h2>✨ Our most loved models</h2>
-  <div class="product-row">
-    <div data-shop-products="ufo-assembled" class="product-grid-single"></div>
-    <div data-shop-products="mushroom-assembled" class="product-grid-single"></div>
-  </div>
-</div>
-
-<div class="home-stats">
-  <div><span>500+</span> Families</div>
-  <div><span>∞</span> Open source</div>
-  <div><span>⚡</span> 3× 18650</div>
-  <div><span>🌍</span> Free shipping EU</div>
+  <div id="showcase-cart-overlay" class="showcase-overlay"></div>
 </div>
 
 <style>
-.home-hero { display: flex; gap: 2rem; align-items: center; flex-wrap: wrap; margin: 2rem 0 3rem; }
-.home-hero__media { flex: 1; min-width: 260px; max-width: 45%; }
-.home-hero__text { flex: 1; }
-.home-hero h1 { font-family: var(--font-display); font-size: 2rem; margin-bottom: 0.5rem; }
-.tagline { font-style: italic; opacity: 0.8; margin-bottom: 1rem; }
-.home-cta { display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
-.home-featured h2 { text-align: center; margin: 3rem 0 1.5rem; }
-.product-row { display: flex; gap: 2rem; justify-content: center; flex-wrap: wrap; }
-.product-grid-single { flex: 1; min-width: 260px; max-width: 350px; }
-.home-stats { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem; background: var(--c-surface); border-radius: 24px; padding: 1.5rem; margin: 3rem 0; text-align: center; }
-.home-stats span { display: block; font-size: 1.6rem; font-weight: 700; color: var(--accent); }
-@media (max-width: 768px) { .home-hero__media { max-width: 100%; } .product-row { flex-direction: column; align-items: center; } }
+/* Wrapper */
+.showcase-wrapper {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem 3rem;
+}
+
+/* Header */
+.showcase-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  background: var(--c-surface);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 2.5rem;
+}
+.showcase-header h1 {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 400;
+  margin: 0 0 0.25rem;
+}
+.showcase-header p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+/* Grid container – forces mountShopEmbeds output into clean grid */
+.showcase-product-grid {
+  margin-bottom: 2rem;
+}
+.showcase-product-grid .webshop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.8rem;
+}
+
+/* Product card – rounded, contained, full details visible */
+.showcase-product-grid .webshop-product-card {
+  background: var(--c-surface);
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.showcase-product-grid .webshop-product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 28px -12px rgba(0,0,0,0.15);
+}
+
+/* Image wrap – square, cropped */
+.showcase-product-grid .webshop-card-img-wrap {
+  aspect-ratio: 1 / 1;
+  background: var(--c-bg-alt);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.showcase-product-grid .webshop-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+.showcase-product-grid .webshop-product-card:hover .webshop-card-img {
+  transform: scale(1.02);
+}
+
+/* Card body – padding and text */
+.showcase-product-grid .webshop-card-body {
+  padding: 1rem 1.2rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.showcase-product-grid .webshop-card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  line-height: 1.3;
+}
+/* Description – ensure it appears */
+.showcase-product-grid .webshop-card-body p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0.25rem 0 0.5rem;
+  line-height: 1.4;
+}
+/* Price */
+.showcase-product-grid .webshop-card-footer {
+  margin: 0.5rem 0 0.75rem;
+}
+.showcase-product-grid .webshop-card-price {
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: var(--accent);
+}
+/* Variants – compact but visible */
+.showcase-product-grid .webshop-variants {
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+.showcase-product-grid .webshop-variant-btn {
+  padding: 4px 10px;
+  font-size: 0.7rem;
+}
+/* Add to cart button */
+.showcase-product-grid .webshop-card-atc {
+  padding: 10px;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  border-radius: 40px;
+}
+
+/* Sidebar styles */
+.showcase-sidebar {
+  position: fixed;
+  top: 0;
+  right: -420px;
+  width: 380px;
+  height: 100%;
+  background: var(--c-surface);
+  border-left: 1px solid var(--border);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.1);
+  z-index: 10002;
+  transition: right 0.25s ease;
+  display: flex;
+  flex-direction: column;
+}
+.showcase-sidebar.open { right: 0; }
+.showcase-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.showcase-sidebar-header h3 { margin: 0; font-size: 1.3rem; }
+.showcase-sidebar-close {
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.showcase-sidebar-items {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.5rem;
+}
+.showcase-cart-item {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.showcase-cart-item img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 12px;
+}
+.showcase-cart-item-details { flex: 1; }
+.showcase-cart-item-name { font-weight: 600; font-size: 0.85rem; }
+.showcase-cart-item-variant { font-size: 0.7rem; color: var(--text-muted); }
+.showcase-cart-item-price { font-size: 0.8rem; margin-top: 4px; }
+.showcase-cart-item-remove {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.showcase-sidebar-footer {
+  padding: 1rem 1.5rem 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.showcase-sidebar-total {
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-align: right;
+  margin-bottom: 1rem;
+}
+.showcase-checkout-btn { width: 100%; justify-content: center; }
+.showcase-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.3);
+  backdrop-filter: blur(2px);
+  z-index: 10001;
+  display: none;
+}
+.showcase-overlay.active { display: block; }
+
+/* Responsive */
+@media (max-width: 680px) {
+  .showcase-sidebar { width: 100%; right: -100%; }
+  .showcase-header { flex-direction: column; align-items: flex-start; }
+}
 </style>
+
+<script>
+(function() {
+  if (typeof Shop === 'undefined') {
+    const retry = setInterval(() => {
+      if (typeof Shop !== 'undefined') {
+        clearInterval(retry);
+        initShowcase();
+      }
+    }, 100);
+    return;
+  }
+  initShowcase();
+
+  function initShowcase() {
+    if (window._showcaseInited) return;
+    window._showcaseInited = true;
+
+    const sidebar = document.getElementById('showcase-cart-sidebar');
+    const overlay = document.getElementById('showcase-cart-overlay');
+    const openBtn = document.getElementById('showcase-cart-btn');
+    const closeBtn = document.getElementById('showcase-close-cart');
+    const checkoutBtn = document.getElementById('showcase-checkout');
+    const cartCountSpan = document.getElementById('showcase-cart-count');
+    const itemsContainer = document.getElementById('showcase-cart-items');
+    const totalSpan = document.getElementById('showcase-cart-total');
+
+    function renderCartSidebar() {
+      const cart = Shop.getCart();
+      const count = cart.reduce((s,i) => s + i.qty, 0);
+      if (cartCountSpan) cartCountSpan.innerText = count;
+      if (!itemsContainer) return;
+
+      if (cart.length === 0) {
+        itemsContainer.innerHTML = '<div class="showcase-cart-empty">Your cart is empty.</div>';
+        totalSpan.innerHTML = '€0.00';
+        return;
+      }
+      let total = 0;
+      let html = '';
+      cart.forEach(item => {
+        const itemTotal = item.price * item.qty;
+        total += itemTotal;
+        html += `
+          <div class="showcase-cart-item" data-cartkey="${item.cartKey}">
+            <img src="${item.image}" alt="${item.name}">
+            <div class="showcase-cart-item-details">
+              <div class="showcase-cart-item-name">${escapeHtml(item.name)}</div>
+              ${item.selectedColor ? `<div class="showcase-cart-item-variant">${escapeHtml(item.selectedColor)}</div>` : ''}
+              <div class="showcase-cart-item-price">€${item.price.toFixed(2)} × ${item.qty} = €${itemTotal.toFixed(2)}</div>
+            </div>
+            <button class="showcase-cart-item-remove" data-cartkey="${item.cartKey}" aria-label="Remove">✕</button>
+          </div>
+        `;
+      });
+      itemsContainer.innerHTML = html;
+      totalSpan.innerHTML = `€${total.toFixed(2)}`;
+      document.querySelectorAll('.showcase-cart-item-remove').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          Shop.removeFromCart(btn.dataset.cartkey);
+          renderCartSidebar();
+          document.dispatchEvent(new CustomEvent('shop:cartUpdated', { detail: { cart: Shop.getCart() } }));
+        });
+      });
+    }
+
+    function openSidebar() { sidebar?.classList.add('open'); overlay?.classList.add('active'); renderCartSidebar(); }
+    function closeSidebar() { sidebar?.classList.remove('open'); overlay?.classList.remove('active'); }
+    openBtn?.addEventListener('click', openSidebar);
+    closeBtn?.addEventListener('click', closeSidebar);
+    overlay?.addEventListener('click', closeSidebar);
+    checkoutBtn?.addEventListener('click', () => {
+      const cart = Shop.getCart();
+      if (cart.length === 0) alert('Your cart is empty.');
+      else alert(`Demo checkout – total: ${Shop.fmt(cart.reduce((s,i)=>s+i.price*i.qty,0))}`);
+    });
+    document.addEventListener('shop:cartUpdated', renderCartSidebar);
+    renderCartSidebar();
+
+    // Ensure product image links go to product.html?id=...
+    // The shop's buildProductCard already adds a link if product.url exists.
+    // We can also add click listener on image wraps to open quick-view or product page.
+    if (typeof ProductViewer !== 'undefined') {
+      setTimeout(() => ProductViewer.init(), 200);
+    }
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+  }
+})();
+</script>
