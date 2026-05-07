@@ -155,6 +155,24 @@
 
   <script src="js/config.js"></script>
   <script>
+    // Detect language from URL parameter or localStorage before loading shop
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const urlLang = params.get('lang');
+      const storedLang = localStorage.getItem('dornori-lang');
+      
+      // Priority: URL param > localStorage > default
+      const lang = urlLang || storedLang || 'en';
+      
+      // Persist to localStorage
+      try { localStorage.setItem('dornori-lang', lang); } catch(e) {}
+      
+      // Set in CONFIG for lang-bridge to use
+      if (typeof CONFIG !== 'undefined') {
+        CONFIG.language = lang;
+      }
+    })();
+    
     (function() {
       function loadScript(src) {
         return new Promise(function(resolve) {
