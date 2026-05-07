@@ -3,7 +3,7 @@
  */
 
 import SITE_CONFIG          from './config.js';
-import { initI18n, loadCountries } from './i18n.js';
+import { initI18n } from './i18n.js';
 import { initNavigation }   from './nav-loader.js';
 import { initStickyBanner } from './sticky-banner.js';
 import { initSocials }      from './social-loader.js';
@@ -70,9 +70,9 @@ function extractLanguages(countries) {
         'nl': { label: 'Nederlands', flag: '🇳🇱' },
         'fr': { label: 'Français', flag: '🇫🇷' },
         'es': { label: 'Español', flag: '🇪🇸' },
-        'it': { label: 'Italiano', flag: '🇮🇹' },
-        'cs': { label: 'Čeština', flag: '🇨🇿' },
-        'pt': { label: 'Português', flag: '🇵🇹' }
+        'pt': { label: 'Português', flag: '🇵🇹' },
+        'cs': { label: 'Čeština',   flag: '🇨🇿' },
+        'it': { label: 'Italiano',  flag: '🇮🇹' }
     };
     
     countries.forEach(country => {
@@ -131,13 +131,8 @@ async function init() {
     // Expose language list globally for nav-loader and any other consumers
     window.__languages = SITE_CONFIG.languages;
 
-    // Load country data and expose globally (used by geo-popup)
-    try {
-        window.__countries = await loadCountries();
-    } catch (e) {
-        console.warn('[site-main] Could not load countries:', e);
-        window.__countries = [];
-    }
+    // Countries already fetched and cached by loadAndCacheCountries() above — no second fetch needed
+    window.__countries = window.__countriesCache || [];
 
     await initI18n();
     initNavigation();

@@ -87,7 +87,7 @@ const SITE_CONFIG = {
         returns:             { file: 'returns.html'           },
         contact:             { file: 'form.html'              },
         support:             { file: 'support.html'           },
-        gallery:             { file: 'gallery-1.html'         },
+        gallery:             { file: 'gallery.html'           },
         cart:                { file: 'cart.html'              },
         shop:                { file: 'shop.html'              },
         product:             { file: 'product.html'           },

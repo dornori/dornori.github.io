@@ -199,12 +199,18 @@
     }
 
     // ── Logo src ──────────────────────────────────────────────────────────────
-    // Shell HTML has <img id="banner-img"> with no src — injected here.
-    document.addEventListener('DOMContentLoaded', function () {
+    // Set as early as possible — if DOM is already parsed, set immediately;
+    // otherwise wait for DOMContentLoaded. Avoids an extra render cycle.
+    function injectLogoSrc() {
         var logoEl = document.getElementById('banner-img');
-        if (logoEl && !logoEl.src) {
+        if (logoEl && !logoEl.getAttribute('src')) {
             logoEl.src = BASE_PATH + 'assets/images/dornori-logo-transparent.webp';
         }
-    });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', injectLogoSrc);
+    } else {
+        injectLogoSrc();
+    }
 
 })();
