@@ -144,12 +144,15 @@ function _doWireShopCards(container) {
 
 
 // ── SCROLL LOCK ───────────────────────────────────────────────────────────────
-// Hide scrollbar until content is rendered, then unlock on first scroll.
+// Hide scrollbar until content is rendered, reveal on first user scroll.
 function lockScroll() {
-    document.body.style.overflowY = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
 }
 function unlockScroll() {
-    document.body.style.overflowY = '';
+    document.documentElement.style.overflow = '';
+    window.addEventListener('scroll', () => {
+        document.documentElement.style.overflow = '';
+    }, { once: true });
 }
 
 export function initPageLoader() {
