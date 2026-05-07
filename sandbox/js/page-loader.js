@@ -143,7 +143,18 @@ function _doWireShopCards(container) {
 }
 
 
+// ── SCROLL LOCK ───────────────────────────────────────────────────────────────
+// Hide scrollbar until content is rendered, then unlock on first scroll.
+function lockScroll() {
+    document.body.style.overflowY = 'hidden';
+}
+function unlockScroll() {
+    document.body.style.overflowY = '';
+}
+
 export function initPageLoader() {
+    lockScroll();
+
     const homeView    = document.getElementById('home-view');
     const pageView    = document.getElementById('page-view');
     const pageContent = document.getElementById('page-content-inner');
@@ -224,6 +235,7 @@ export function initPageLoader() {
             mountShopEmbeds(homeView);
             homeView.classList.remove('hidden');
             pageView.classList.add('hidden');
+            unlockScroll();
             const base    = SITE_CONFIG.appearance.base_path;
             const homeUrl = `${base}${lang}/`;
             window.history.replaceState({}, '', homeUrl);
@@ -248,6 +260,7 @@ export function initPageLoader() {
         }
         homeView.classList.remove('hidden');
         pageView.classList.add('hidden');
+        unlockScroll();
         const base    = SITE_CONFIG.appearance.base_path;
         const homeUrl = `${base}${lang}/`;
         window.history.replaceState({}, '', homeUrl);
@@ -282,6 +295,7 @@ export function initPageLoader() {
             mountShopEmbeds(pageContent);
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
+            unlockScroll();
 
             const lang = window.LANG || fallbackLang();
             window.history.replaceState({ slug, lang }, '', pageUrl(slug, lang));
@@ -301,6 +315,7 @@ export function initPageLoader() {
             `;
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
+            unlockScroll();
         }
     };
 
