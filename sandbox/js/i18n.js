@@ -7,12 +7,25 @@ import SITE_CONFIG from './config.js';
 const STORAGE_KEY = SITE_CONFIG.storageKeys.lang;
 const BASE        = () => SITE_CONFIG.appearance.base_path;
 
-/**
- * Fallback supported languages if SITE_CONFIG.languages hasn't loaded yet.
- * These match the physical /lang/ directories and content slugs.
- * Keep in sync with directory structure; update only when adding/removing languages.
- */
-const FALLBACK_LANGUAGES = ['en', 'de', 'es', 'fr', 'it', 'nl', 'pt', 'cs'];
+// Hardcoded fallback languages (matches your /lang/XX/ directory structure)
+const FALLBACK_LANGUAGES = [
+    { code: 'en', hreflang: 'en' },
+    { code: 'de', hreflang: 'de' },
+    { code: 'es', hreflang: 'es' },
+    { code: 'fr', hreflang: 'fr' },
+    { code: 'it', hreflang: 'it' },
+    { code: 'nl', hreflang: 'nl' },
+    { code: 'pt', hreflang: 'pt' },
+    { code: 'cs', hreflang: 'cs' },
+];
+
+// Get supported languages with fallback if countries.json hasn't loaded
+function getSupportedLanguages() {
+    if (SITE_CONFIG.languages && SITE_CONFIG.languages.length > 0) {
+        return SITE_CONFIG.languages;
+    }
+    return FALLBACK_LANGUAGES;
+}
 
 // ── DATA LOADERS ─────────────────────────────────────────────────────────────
 
@@ -103,7 +116,7 @@ export function setStoredLanguage(lang) {
 // ── HREFLANG ─────────────────────────────────────────────────────────────────
 
 export function injectHreflangTags(slug, langData) {
-    const languages = SITE_CONFIG.languages;
+    const languages = getSupportedLanguages(); // Use fallback if needed
     const root      = SITE_CONFIG.appearance.root_url;
     document.querySelectorAll('link[rel="alternate"][hreflang]').forEach(el => el.remove());
     languages.forEach(({ code, hreflang }) => {
@@ -118,62 +131,30 @@ export function injectHreflangTags(slug, langData) {
     const xDef    = document.createElement('link');
     xDef.rel      = 'alternate';
     xDef.hreflang = 'x-default';
-    xDef.href = slug ? `${root}/${SITE_CONFIG.languages[0].code}/${getSlug(langData, slug)}/` : `${root}/`;
+    xDef.href = slug ? `${root}/${languages[0].code}/${getSlug(langData, slug)}/` : `${root}/`;
     document.head.appendChild(xDef);
 }
 
 // ── LANGUAGE DETECTION ────────────────────────────────────────────────────────
 
-/**
- * Get supported language codes, with fallback to hardcoded list if SITE_CONFIG.languages
- * hasn't populated yet (e.g., if countries.json is slow or fails to load).
- * 
- * CRITICAL FIX: This prevents crashes when detectLang() is called before
- * loadAndCacheCountries() finishes in site-main.js
- */
-function getSupportedLanguages() {
-    // Prefer SITE_CONFIG.languages if populated (ideal case)
-    if (SITE_CONFIG.languages && SITE_CONFIG.languages.length > 0) {
-        return new Set(SITE_CONFIG.languages.map(l => l.code));
-    }
-    
-    // Fallback to hardcoded list if countries.json hasn't loaded yet
-    // This ensures the page doesn't crash while waiting for data
-    return new Set(FALLBACK_LANGUAGES);
-}
-
-/**
- * Detect the appropriate language for the user.
- * 
- * Priority order:
- * 1. window.__PAGE_LANG__ (set inline in every HTML file) — guaranteed to be set
- * 2. Stored language preference (if in supported set)
- * 3. Browser language (if in supported set)
- * 4. Fallback to 'en' (guaranteed to exist)
- * 
- * CRITICAL FIX: Doesn't crash if countries.json hasn't loaded yet.
- */
 function detectLang() {
-    const supported = getSupportedLanguages();
-    
-    // Priority 1: Page language set in HTML (always present, always valid)
+    const languages = getSupportedLanguages(); // Use fallback if needed
+    const supported = new Set(languages.map(l => l.code));
+
     const pageLang = window.__PAGE_LANG__;
     if (pageLang && supported.has(pageLang)) {
         setStoredLanguage(pageLang);
         return pageLang;
     }
 
-    // Priority 2: Stored language preference
     const saved = getStoredLanguage();
     if (saved && supported.has(saved)) return saved;
 
-    // Priority 3: Browser language
     const match = (navigator.languages || [navigator.language])
         .map(l => l.split('-')[0].toLowerCase())
         .find(l => supported.has(l));
     if (match) { setStoredLanguage(match); return match; }
 
-    // Priority 4: Fallback to 'en' (always supported, guaranteed to exist)
     return 'en';
 }
 
