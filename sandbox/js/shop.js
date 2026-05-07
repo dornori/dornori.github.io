@@ -30,18 +30,49 @@ const Shop = (() => {
     const supported = CONFIG.supportedLanguages || [CONFIG.defaultLanguage || "en"];
     const langKey   = CONFIG.storageKeys?.shopLangKey || CONFIG.storageKeys?.parentLangKey || "dornori-lang";
 
+    // PRIORITY 1: Check URL path for language code (e.g., /nl/product/?id=...)
+    try {
+      const basePath = CONFIG.basePath || '/';
+      const rawPath = window.location.pathname;
+      let relativePath = rawPath;
+      
+      if (basePath && basePath !== '/' && rawPath.startsWith(basePath)) {
+        relativePath = rawPath.slice(basePath.length);
+      }
+      
+      const parts = relativePath
+        .replace(/^\/+|\/+$/g, '')
+        .split('/')
+        .filter(Boolean);
+      
+      // Check first path segment against supported languages (dynamic, not hardcoded)
+      if (parts.length >= 1 && supported.includes(parts[0])) {
+        const langFromPath = parts[0];
+        CONFIG.language = langFromPath;
+        localStorage.setItem(langKey, langFromPath);
+        return langFromPath;
+      }
+    } catch (e) {
+      // silently fail, continue to next check
+    }
+
+    // PRIORITY 2: Check URL query param (?lang=...)
     const urlLang = new URLSearchParams(window.location.search).get("lang");
     if (urlLang && supported.includes(urlLang)) {
       CONFIG.language = urlLang;
       localStorage.setItem(langKey, urlLang);
       return urlLang;
     }
+    
+    // PRIORITY 3: Check localStorage
     const saved = localStorage.getItem(langKey);
     if (saved && supported.includes(saved)) { CONFIG.language = saved; return saved; }
 
+    // PRIORITY 4: Check browser language
     const browser = detectBrowserLanguage();
     if (browser) { CONFIG.language = browser; return browser; }
 
+    // PRIORITY 5: Use default
     const def = CONFIG.language || CONFIG.defaultLanguage || "en";
     CONFIG.language = def;
     return def;
