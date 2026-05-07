@@ -7,6 +7,26 @@ import SITE_CONFIG from './config.js';
 const STORAGE_KEY = SITE_CONFIG.storageKeys.lang;
 const BASE        = () => SITE_CONFIG.appearance.base_path;
 
+// Hardcoded fallback languages (matches your /lang/XX/ directory structure)
+const FALLBACK_LANGUAGES = [
+    { code: 'en', hreflang: 'en' },
+    { code: 'de', hreflang: 'de' },
+    { code: 'es', hreflang: 'es' },
+    { code: 'fr', hreflang: 'fr' },
+    { code: 'it', hreflang: 'it' },
+    { code: 'nl', hreflang: 'nl' },
+    { code: 'pt', hreflang: 'pt' },
+    { code: 'cs', hreflang: 'cs' },
+];
+
+// Get supported languages with fallback if countries.json hasn't loaded
+function getSupportedLanguages() {
+    if (SITE_CONFIG.languages && SITE_CONFIG.languages.length > 0) {
+        return SITE_CONFIG.languages;
+    }
+    return FALLBACK_LANGUAGES;
+}
+
 // ── DATA LOADERS ─────────────────────────────────────────────────────────────
 
 /**
@@ -40,7 +60,7 @@ export async function loadLanguage(langCode) {
     }
 }
 
-// ── COUNTRY HELPERS ───────────────────────────────────────────────────────────
+// ── COUNTRY HELPERS ───────────────────────────────────────────────────────
 
 export function getActiveCountries(data) {
     return (data || []).filter(c => c.active === true);
@@ -96,7 +116,7 @@ export function setStoredLanguage(lang) {
 // ── HREFLANG ─────────────────────────────────────────────────────────────────
 
 export function injectHreflangTags(slug, langData) {
-    const languages = SITE_CONFIG.languages;
+    const languages = getSupportedLanguages(); // Use fallback if needed
     const root      = SITE_CONFIG.appearance.root_url;
     document.querySelectorAll('link[rel="alternate"][hreflang]').forEach(el => el.remove());
     languages.forEach(({ code, hreflang }) => {
@@ -111,15 +131,15 @@ export function injectHreflangTags(slug, langData) {
     const xDef    = document.createElement('link');
     xDef.rel      = 'alternate';
     xDef.hreflang = 'x-default';
-    xDef.href = slug ? `${root}/${SITE_CONFIG.languages[0].code}/${getSlug(langData, slug)}/` : `${root}/`;
+    xDef.href = slug ? `${root}/${languages[0].code}/${getSlug(langData, slug)}/` : `${root}/`;
     document.head.appendChild(xDef);
 }
 
 // ── LANGUAGE DETECTION ────────────────────────────────────────────────────────
 
 function detectLang() {
-    const supported = new Set(SITE_CONFIG.languages.map(l => l.code));
-    const fallback  = SITE_CONFIG.languages[0].code;
+    const languages = getSupportedLanguages(); // Use fallback if needed
+    const supported = new Set(languages.map(l => l.code));
 
     const pageLang = window.__PAGE_LANG__;
     if (pageLang && supported.has(pageLang)) {
@@ -135,7 +155,7 @@ function detectLang() {
         .find(l => supported.has(l));
     if (match) { setStoredLanguage(match); return match; }
 
-    return fallback;
+    return 'en';
 }
 
 // ── SET LANG ──────────────────────────────────────────────────────────────────
