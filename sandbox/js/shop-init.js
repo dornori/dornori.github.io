@@ -82,7 +82,7 @@
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     function _cartUrl(lang) {
-        var l    = lang || window.LANG || localStorage.getItem('dornori-lang') || 'en';
+        var l    = lang || window.__PAGE_LANG__ || window.LANG || localStorage.getItem('dornori-lang') || 'en';
         var slug = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || 'cart';
         return sitBase + l + '/' + slug + '/';
     }
@@ -150,7 +150,7 @@
 
     function _patchProductLinks() {
         function fixLinks(root) {
-            var lang = window.LANG || localStorage.getItem('dornori-lang') || 'en';
+            var lang = window.__PAGE_LANG__ || window.LANG || localStorage.getItem('dornori-lang') || 'en';
             var slug = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
             (root || document).querySelectorAll('a[href*="product.html?id="]').forEach(function (a) {
                 var id = a.getAttribute('href').split('product.html?id=')[1];
@@ -167,7 +167,7 @@
     function _registerEventListeners() {
         // Re-render cart icon (and update URL slug) on language change
         document.addEventListener('shop:langChanged', function (e) {
-            var lang = (e && e.detail && e.detail.lang) || window.LANG || 'en';
+            var lang = (e && e.detail && e.detail.lang) || window.__PAGE_LANG__ || window.LANG || 'en';
             _renderCartIcon(lang);
         });
 

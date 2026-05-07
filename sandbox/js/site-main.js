@@ -70,6 +70,8 @@ function extractLanguages(countries) {
         'nl': { label: 'Nederlands', flag: '🇳🇱' },
         'fr': { label: 'Français', flag: '🇫🇷' },
         'es': { label: 'Español', flag: '🇪🇸' },
+        'it': { label: 'Italiano', flag: '🇮🇹' },
+        'cs': { label: 'Čeština', flag: '🇨🇿' },
         'pt': { label: 'Português', flag: '🇵🇹' }
     };
     
