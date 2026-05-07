@@ -199,8 +199,9 @@
     }
 
     // ── Logo src ──────────────────────────────────────────────────────────────
-    // Set as early as possible — if DOM is already parsed, set immediately;
-    // otherwise wait for DOMContentLoaded. Avoids an extra render cycle.
+    // Lang shell files have src set directly in HTML (faster — no JS needed).
+    // Root index.html has no src (BASE_PATH unknown at HTML-write time), so
+    // we inject it here as a fallback. The guard prevents double-setting.
     function injectLogoSrc() {
         var logoEl = document.getElementById('banner-img');
         if (logoEl && !logoEl.getAttribute('src')) {

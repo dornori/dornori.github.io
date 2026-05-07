@@ -62,36 +62,45 @@ async function loadAndCacheCountries() {
 /**
  * Extract unique active languages from countries data (single source of truth)
  */
+/**
+ * Extract unique active languages from countries data.
+ * Labels and flags come from language_label / language_flag fields on the
+ * canonical country entry in countries.json — zero hardcoding here.
+ * To add or rename a language: edit countries.json only.
+ */
 function extractLanguages(countries) {
     const languagesMap = new Map();
-    const languageLabels = {
-        'en': { label: 'English', flag: '🇬🇧' },
-        'de': { label: 'Deutsch', flag: '🇩🇪' },
-        'nl': { label: 'Nederlands', flag: '🇳🇱' },
-        'fr': { label: 'Français', flag: '🇫🇷' },
-        'es': { label: 'Español', flag: '🇪🇸' },
-        'pt': { label: 'Português', flag: '🇵🇹' },
-        'cs': { label: 'Čeština',   flag: '🇨🇿' },
-        'it': { label: 'Italiano',  flag: '🇮🇹' }
-    };
-    
+
+    // First pass: collect label/flag from canonical country entries
+    // (those that carry language_label, set on the most-recognisable country per language)
+    const langMeta = {};
+    countries.forEach(country => {
+        if (country.language_label && country.language_flag && country.language) {
+            langMeta[country.language] = {
+                label: country.language_label,
+                flag:  country.language_flag,
+            };
+        }
+    });
+
+    // Second pass: build language list from active countries
     countries.forEach(country => {
         if (country.active && country.language) {
             const langCode = country.language;
             if (!languagesMap.has(langCode)) {
-                const langInfo = languageLabels[langCode] || { label: langCode.toUpperCase(), flag: '🏳️' };
+                const meta = langMeta[langCode] || { label: langCode.toUpperCase(), flag: '🏳️' };
                 languagesMap.set(langCode, {
-                    code: langCode,
+                    code:     langCode,
                     hreflang: country.hreflang ? country.hreflang.split('-')[0] : langCode,
-                    label: langInfo.label,
-                    flag: langInfo.flag
+                    label:    meta.label,
+                    flag:     meta.flag,
                 });
             }
         }
     });
-    
+
     // Sort: English first, then alphabetically
-    return Array.from(languagesMap.values()).sort((a, b) => 
+    return Array.from(languagesMap.values()).sort((a, b) =>
         a.code === 'en' ? -1 : b.code === 'en' ? 1 : a.code.localeCompare(b.code)
     );
 }
