@@ -62,9 +62,8 @@
         .sf-success-box { text-align: center; padding: 2rem; }
         .sf-success-box i { font-size: 4rem; color: #10b981; margin-bottom: 1rem; }
         .sf-success-box h3 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text); }
-        .sf-success-box p { color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.6; }
-        .sf-success-btn { background: var(--accent); color: white; border: none; padding: 0.75rem 2rem; border-radius: 9999px; cursor: pointer; font-size: 0.95rem; }
-        .sf-success-btn:hover { opacity: 0.9; }
+        .sf-success-box p { color: var(--text-muted); margin-bottom: 0.75rem; line-height: 1.6; }
+        .sf-success-box .sf-ref-number { font-size: 1.2rem; font-weight: 700; color: var(--accent); margin: 1rem 0; letter-spacing: 1px; }
         @media(max-width:520px){ .sf-grid2{ grid-template-columns:1fr; } .sf-cat-grid{ grid-template-columns:1fr; } }
     </style>
 </head>
@@ -173,8 +172,15 @@ let currentCategory = null;
 let currentQuestionId = null;
 let answers = [];
 let questionStack = [];
+let currentReferenceNumber = null;
 
 // ==================== HELPERS ====================
+function generateReferenceNumber() {
+    const timestamp = Date.now().toString();
+    const randomDigits = Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
+    return `DOR-${timestamp.slice(-6)}${randomDigits.slice(0, 4)}`;
+}
+
 function stripHtml(str) {
     if (typeof str !== 'string') return '';
     let clean = str.replace(/<[^>]*>/g, '');
@@ -205,16 +211,15 @@ function showToast(msg, ms = 3000) {
 }
 
 // ==================== SUCCESS DISPLAY ====================
-function showSuccessMessage(message) {
+function showSuccessMessage(message, referenceNumber) {
     const body = document.getElementById('sf-body');
     const successHtml = `
         <div class="sf-success-box">
             <i class="fas fa-check-circle"></i>
             <h3>${escapeHtml(formData.successTitle || 'Thank You!')}</h3>
+            <div class="sf-ref-number"><i class="fas fa-ticket-alt"></i> REF: ${escapeHtml(referenceNumber)}</div>
             <p>${escapeHtml(message || formData.successMessage || 'Your support request has been submitted successfully. Our team will contact you within 24 hours.')}</p>
-            <button class="sf-success-btn" onclick="location.reload()">
-                <i class="fas fa-home"></i> ${escapeHtml(formData.startOver || 'Start Over')}
-            </button>
+            <p style="font-size: 0.85rem; margin-top: 1rem;">Please save this reference number for future inquiries.</p>
         </div>
     `;
     body.innerHTML = successHtml;
@@ -236,7 +241,6 @@ async function loadFormData() {
 }
 
 function populateUI() {
-    // Set header texts (use formData values or fallbacks)
     document.getElementById('sf-title').textContent = formData.title || "Dornori Support";
     document.getElementById('sf-subtitle').textContent = formData.subtitle || "We're here to help";
     document.getElementById('avg-resolution').textContent = "Avg. resolution 2 min";
@@ -274,13 +278,12 @@ function updateProgress(percent, label) {
     document.getElementById('sf-step-label').textContent = label;
 }
 
-// ==================== TROUBLESHOOTING FLOW (using your JSON structure) ====================
+// ==================== TROUBLESHOOTING FLOW ====================
 function startCategory(cat) {
     currentCategory = cat;
     answers = [];
     questionStack = [];
     
-    // Find first question in this category
     if (cat.questions && cat.questions.length > 0) {
         currentQuestionId = cat.questions[0].id;
         showQuestionById(currentQuestionId);
@@ -290,7 +293,6 @@ function startCategory(cat) {
 }
 
 function findQuestion(questionId) {
-    // Search through current category's questions
     if (!currentCategory || !currentCategory.questions) return null;
     return currentCategory.questions.find(q => q.id === questionId);
 }
@@ -298,7 +300,6 @@ function findQuestion(questionId) {
 function showQuestionById(questionId) {
     const question = findQuestion(questionId);
     if (!question) {
-        // Question not found - go to contact
         showContactForm();
         return;
     }
@@ -325,18 +326,15 @@ window.selectAnswer = function(questionId, optionIndex) {
     
     const opt = question.options[optionIndex];
     
-    // Record answer
     answers.push({
         question: question.text,
         answer: opt.text,
         summary: opt.summary || opt.text
     });
     
-    // Check what 'next' points to
     const nextId = opt.next;
     
     if (nextId === 'resolved_end') {
-        // Issue resolved - show success from endpoints
         const endpoint = formData.endpoints?.resolved_end;
         if (endpoint) {
             if (endpoint.type === 'redirect' && endpoint.redirect_url) {
@@ -345,10 +343,10 @@ window.selectAnswer = function(questionId, optionIndex) {
                     window.location.href = endpoint.redirect_url;
                 }, (endpoint.delay_seconds || 2) * 1000);
             } else {
-                showSuccessMessage(endpoint.message || '✓ Issue resolved!');
+                showSuccessMessage(endpoint.message || '✓ Issue resolved!', generateReferenceNumber());
             }
         } else {
-            showSuccessMessage('✓ Issue resolved! Thank you.');
+            showSuccessMessage('✓ Issue resolved! Thank you.', generateReferenceNumber());
         }
         return;
     }
@@ -358,19 +356,16 @@ window.selectAnswer = function(questionId, optionIndex) {
         return;
     }
     
-    // Otherwise, nextId should be another question ID
     const nextQuestion = findQuestion(nextId);
     if (nextQuestion) {
         currentQuestionId = nextId;
         showQuestionById(nextId);
     } else {
-        // If next question not found, go to contact
         showContactForm();
     }
 };
 
 function showContactForm() {
-    // Build summary text from answers
     const summaryText = answers.map(a => `${a.question}: ${a.answer}`).join('\n');
     document.getElementById('sf-summary-box').textContent = summaryText || '(No troubleshooting steps recorded)';
     
@@ -451,12 +446,14 @@ async function sendSupportRequest() {
         return;
     }
 
+    const referenceNumber = generateReferenceNumber();
     const submitBtn = document.getElementById('sf-submit');
     const originalText = submitBtn.textContent;
     submitBtn.disabled = true;
     submitBtn.textContent = '⏳ Sending...';
 
     const payload = {
+        referenceNumber: referenceNumber,
         category: currentCategory?.title || 'General',
         troubleshooting: answers,
         name: sanitised.name,
@@ -481,7 +478,7 @@ async function sendSupportRequest() {
             } else {
                 const contactEndpoint = formData.endpoints?.contact;
                 const successMessage = contactEndpoint?.message || 'Your support request has been submitted. Our team will respond within 4 hours.';
-                showSuccessMessage(successMessage);
+                showSuccessMessage(successMessage, referenceNumber);
             }
         } else {
             const result = await response.json();
