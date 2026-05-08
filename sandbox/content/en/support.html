@@ -162,7 +162,7 @@ const workerUrl = (window.CONFIG && window.CONFIG.queue && window.CONFIG.queue.e
 
 const formJsonPath = (window.CONFIG && window.CONFIG.formJsonPath)
     ? window.CONFIG.formJsonPath
-    : "../../lang/en/form.json";
+    : null;
 
 const redirectUrl = (window.CONFIG && window.CONFIG.redirect && window.CONFIG.redirect.onSuccess)
     ? window.CONFIG.redirect.onSuccess
@@ -196,7 +196,7 @@ function isValidEmail(email) {
 }
 
 function isValidOrderNumber(order) {
-    if (!order) return false; // Now mandatory - must have value
+    if (!order) return false;
     return /^\d+$/.test(order);
 }
 
@@ -213,7 +213,6 @@ function showToast(msg, ms = 3000) {
     setTimeout(() => t.style.opacity = '0', ms);
 }
 
-// ==================== FORMAT SUMMARY WITH BULLET POINTS ====================
 function formatSummaryBullets(answersArray) {
     if (!answersArray || answersArray.length === 0) {
         return '<em>No troubleshooting steps recorded.</em>';
@@ -227,7 +226,6 @@ function formatSummaryBullets(answersArray) {
     return html;
 }
 
-// ==================== SUCCESS DISPLAY ====================
 function showSuccessMessage(message, referenceNumber) {
     const body = document.getElementById('sf-body');
     const successHtml = `
@@ -242,7 +240,6 @@ function showSuccessMessage(message, referenceNumber) {
     body.innerHTML = successHtml;
 }
 
-// ==================== LOAD FORM.JSON ====================
 async function loadFormData() {
     console.log(`🔍 Loading form.json from: ${formJsonPath}`);
     try {
@@ -295,7 +292,6 @@ function updateProgress(percent, label) {
     document.getElementById('sf-step-label').textContent = label;
 }
 
-// ==================== TROUBLESHOOTING FLOW ====================
 function startCategory(cat) {
     currentCategory = cat;
     answers = [];
@@ -383,7 +379,6 @@ window.selectAnswer = function(questionId, optionIndex) {
 };
 
 function showContactForm() {
-    // Format the summary with bullet points
     const formattedSummary = formatSummaryBullets(answers);
     document.getElementById('sf-summary-box').innerHTML = formattedSummary;
     
@@ -394,7 +389,6 @@ function showContactForm() {
     initTurnstile();
 }
 
-// ==================== TURNSTILE ====================
 function initTurnstile() {
     const container = document.getElementById('sf-turnstile-container');
     if (!container) return;
@@ -417,7 +411,6 @@ function initTurnstile() {
     });
 }
 
-// ==================== FORM VALIDATION & SUBMISSION ====================
 function setFieldError(inputId, errorId, message) {
     const input = document.getElementById(inputId);
     const errEl = document.getElementById(errorId);
@@ -441,7 +434,6 @@ function validateForm() {
     hasError = setFieldError('sf-name', 'sf-name-err', name ? '' : 'Full name is required.') || hasError;
     hasError = setFieldError('sf-email', 'sf-email-err', (email && isValidEmail(email)) ? '' : 'Valid email address is required.') || hasError;
     
-    // Order number is now mandatory
     if (!order) {
         hasError = setFieldError('sf-order', 'sf-order-err', 'Order number is required.') || hasError;
     } else if (!isValidOrderNumber(order)) {
@@ -473,12 +465,11 @@ async function sendSupportRequest() {
     submitBtn.disabled = true;
     submitBtn.textContent = '⏳ Sending...';
 
-    // Format the troubleshooting text for the payload (plain text version)
     const troubleshootingText = answers.map((a, i) => `Q${i+1}: ${a.question}\n   Answer: ${a.answer}`).join('\n\n');
 
     const payload = {
         referenceNumber: referenceNumber,
-        category: "support-request",  // ← Always "support-request"
+        category: "support-request",
         originalCategory: currentCategory?.title || 'General',
         troubleshooting: answers,
         troubleshootingText: troubleshootingText,
@@ -520,7 +511,6 @@ async function sendSupportRequest() {
     }
 }
 
-// ==================== RESET FUNCTION ====================
 window.sfReset = function() {
     currentCategory = null;
     currentQuestionId = null;
@@ -549,17 +539,14 @@ window.sfReset = function() {
     showToast('Session reset', 1500);
 };
 
-// Attach submit event
 document.addEventListener('click', e => {
     if (e.target.closest('#sf-submit')) sendSupportRequest();
 });
 
-// Restrict order number input to digits only
 document.getElementById('sf-order')?.addEventListener('input', function(e) {
     this.value = this.value.replace(/[^0-9]/g, '');
 });
 
-// ==================== BOOT ====================
 loadFormData();
 </script>
 </body>
