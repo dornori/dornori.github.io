@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -259,20 +259,20 @@ async function loadFormData() {
 function populateUI() {
     document.getElementById('sf-title').textContent = formData.title || "Dornori Support";
     document.getElementById('sf-subtitle').textContent = formData.subtitle || "We're here to help";
-    document.getElementById('avg-resolution').textContent = "Avg. resolution 2 min";
-    document.getElementById('select-issue').textContent = "Select your issue";
-    document.getElementById('most-issues').textContent = "Most issues resolved in under 2 minutes";
-    document.getElementById('need-help').textContent = "Need human help?";
-    document.getElementById('response-time').textContent = "Our support team responds within 4 hours (Mon–Fri).";
-    document.getElementById('loading-text').textContent = "Loading…";
+    document.getElementById('avg-resolution').textContent = formData.avgResolution || "Avg. resolution 2 min";
+    document.getElementById('select-issue').textContent = formData.selectIssue || "Select your issue";
+    document.getElementById('most-issues').textContent = formData.mostIssuesResolved || "Most issues resolved in under 2 minutes";
+    document.getElementById('need-help').textContent = formData.needHumanHelp || "Need human help?";
+    document.getElementById('response-time').textContent = formData.responseTime || "Our support team responds within 4 hours (Mon–Fri).";
+    document.getElementById('loading-text').textContent = formData.loading || "Loading…";
     document.getElementById('sf-submit').textContent = formData.submitButton || "📧 Submit";
-    document.getElementById('sf-turnstile-err').textContent = "Please complete the security check.";
-    document.getElementById('label-name').innerHTML = `Full name <span style="color:#ef4444">*</span>`;
-    document.getElementById('label-email').innerHTML = `Email address <span style="color:#ef4444">*</span>`;
-    document.getElementById('label-order').innerHTML = `Order number <span style="color:#ef4444">*</span> <span style="color:var(--text-muted);font-weight:400;">(numbers only)</span>`;
-    document.getElementById('label-summary').textContent = "Troubleshooting summary";
-    document.getElementById('label-comments').textContent = "Additional comments (optional)";
-    document.getElementById('sf-desc').placeholder = "Anything else you'd like to add… (optional)";
+    document.getElementById('sf-turnstile-err').textContent = formData.turnstileError || "Please complete the security check.";
+    document.getElementById('label-name').innerHTML = `${formData.fullName || "Full name"} <span style="color:#ef4444">*</span>`;
+    document.getElementById('label-email').innerHTML = `${formData.email || "Email address"} <span style="color:#ef4444">*</span>`;
+    document.getElementById('label-order').innerHTML = `${formData.orderNumber || "Order number"} <span style="color:#ef4444">*</span> <span style="color:var(--text-muted);font-weight:400;">${formData.orderNumberHelp || "(numbers only)"}</span>`;
+    document.getElementById('label-summary').textContent = formData.troubleshootingSummary || "Troubleshooting summary";
+    document.getElementById('label-comments').textContent = formData.additionalComments || "Additional comments (optional)";
+    document.getElementById('sf-desc').placeholder = formData.commentsPlaceholder || "Anything else you'd like to add… (optional)";
 
     const container = document.getElementById('sf-cats');
     container.innerHTML = '';
@@ -286,7 +286,7 @@ function populateUI() {
 
     document.getElementById('sf-loading').style.display = 'none';
     document.getElementById('sf-s1').classList.remove('sf-hidden');
-    updateProgress(5, "Step 1: Choose category");
+    updateProgress(5, formData.step1 || "Step 1: Choose category");
 }
 
 function updateProgress(percent, label) {
@@ -332,7 +332,7 @@ function showQuestionById(questionId) {
     document.getElementById('sf-s1').classList.add('sf-hidden');
     document.getElementById('sf-s2').classList.remove('sf-hidden');
     document.getElementById('sf-s3').classList.add('sf-hidden');
-    updateProgress(45, "Step 2: Troubleshooting");
+    updateProgress(45, formData.step2 || "Step 2: Troubleshooting");
 }
 
 window.selectAnswer = function(questionId, optionIndex) {
@@ -387,7 +387,7 @@ function showContactForm() {
     document.getElementById('sf-s1').classList.add('sf-hidden');
     document.getElementById('sf-s2').classList.add('sf-hidden');
     document.getElementById('sf-s3').classList.remove('sf-hidden');
-    updateProgress(85, "Step 3: Contact support");
+    updateProgress(85, formData.step3 || "Step 3: Contact support");
     initTurnstile();
 }
 
@@ -433,13 +433,13 @@ function validateForm() {
     const email = stripHtml(document.getElementById('sf-email').value).slice(0, 254);
     const order = stripHtml(document.getElementById('sf-order').value).slice(0, 20);
 
-    hasError = setFieldError('sf-name', 'sf-name-err', name ? '' : 'Full name is required.') || hasError;
-    hasError = setFieldError('sf-email', 'sf-email-err', (email && isValidEmail(email)) ? '' : 'Valid email address is required.') || hasError;
+    hasError = setFieldError('sf-name', 'sf-name-err', name ? '' : (formData.fullNameRequired || 'Full name is required.')) || hasError;
+    hasError = setFieldError('sf-email', 'sf-email-err', (email && isValidEmail(email)) ? '' : (formData.emailInvalid || 'Valid email address is required.')) || hasError;
     
     if (!order) {
-        hasError = setFieldError('sf-order', 'sf-order-err', 'Order number is required.') || hasError;
+        hasError = setFieldError('sf-order', 'sf-order-err', formData.orderNumberRequired || 'Order number is required.') || hasError;
     } else if (!isValidOrderNumber(order)) {
-        hasError = setFieldError('sf-order', 'sf-order-err', 'Order number must contain only digits (0-9).') || hasError;
+        hasError = setFieldError('sf-order', 'sf-order-err', formData.orderDigitsOnly || 'Order number must contain only digits (0-9).') || hasError;
     } else {
         setFieldError('sf-order', 'sf-order-err', '');
     }
@@ -457,7 +457,7 @@ function validateForm() {
 async function sendSupportRequest() {
     const { valid, sanitised } = validateForm();
     if (!valid) {
-        showToast('Please fix the errors above before submitting.', 3000);
+        showToast(formData.errorFixAbove || 'Please fix the errors above before submitting.', 3000);
         return;
     }
 
@@ -465,7 +465,7 @@ async function sendSupportRequest() {
     const submitBtn = document.getElementById('sf-submit');
     const originalText = submitBtn.textContent;
     submitBtn.disabled = true;
-    submitBtn.textContent = '⏳ Sending...';
+    submitBtn.textContent = formData.sendingText || '⏳ Sending...';
 
     const troubleshootingText = answers.map((a, i) => `Q${i+1}: ${a.question}\n   Answer: ${a.answer}`).join('\n\n');
 
@@ -505,7 +505,7 @@ async function sendSupportRequest() {
         }
     } catch (err) {
         console.error(err);
-        showToast(`❌ Submission failed: ${err.message}. Please try again.`, 5000);
+        showToast(`❌ ${formData.errorPrefix || 'Submission failed'}: ${err.message}. ${formData.tryAgain || 'Please try again.'}`, 5000);
         if (turnstileWidgetId && window.turnstile) window.turnstile.reset(turnstileWidgetId);
         turnstileToken = null;
         submitBtn.disabled = false;
