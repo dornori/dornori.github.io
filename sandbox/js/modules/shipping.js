@@ -25,7 +25,7 @@ const Shipping = (() => {
     JP: 'ja',
   };
 
-  const AVAILABLE_LANG_FILES = ['en', 'no', 'nl', 'de', 'fr'];
+  const AVAILABLE_LANG_FILES = ['en', 'no', 'nl', 'de', 'fr', 'cs', 'es', 'it', 'pt'];
 
   async function load() {
     if (_loaded) return;

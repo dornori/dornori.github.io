@@ -28,7 +28,7 @@
 
   // Safe fallback before Shipping module sets CONFIG.supportedLanguages
   var supported = (typeof CONFIG !== "undefined" && CONFIG.supportedLanguages)
-    || ["en", "nl", "no", "de"];
+    || ["en", "nl", "no", "de", "fr", "cs", "es", "it", "pt"];
 
   var siteLang = localStorage.getItem(parentKey);
 

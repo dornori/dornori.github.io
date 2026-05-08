@@ -1,104 +1,91 @@
-<!-- content/en/success.html -->
+<!-- content/nl/success.html — UI strings loaded from lang/nl/common.json via window.T -->
 <style>
-  .success-wrap {
-    min-height: 60vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 3rem 1rem;
-  }
-  .webshop-confetti {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    pointer-events: none;
-    z-index: 9999;
-  }
-  @keyframes fall {
-    0%   { transform: translateY(-20px) rotate(0deg);   opacity: 1; }
-    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-  }
-  .confetti-piece {
-    position: absolute;
-    border-radius: 2px;
-    animation: fall linear forwards;
-  }
+  .success-wrap { min-height:60vh; display:flex; align-items:center; justify-content:center; padding:3rem 1rem; }
+  .webshop-confetti { position:fixed; top:0; left:0; right:0; pointer-events:none; z-index:9999; }
+  @keyframes fall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(100vh) rotate(720deg);opacity:0} }
+  .confetti-piece { position:absolute; border-radius:2px; animation:fall linear forwards; }
 </style>
 
 <div class="webshop-confetti" id="confetti-container"></div>
-
 <div class="success-wrap">
-  <div class="webshop-result-page webshop-fade-in" id="result-page">
-    <!-- Filled by JS -->
-  </div>
+  <div class="webshop-result-page webshop-fade-in" id="result-page"></div>
 </div>
 
 <script>
 (function () {
-  const params = new URLSearchParams(window.location.search);
-  const ref    = params.get('ref') || localStorage.getItem('webshop_last_order') || '—';
-  const status = params.get('status') || 'success';
-  const lang   = window.LANG || localStorage.getItem('dornori-lang') || 'en';
+  var params = new URLSearchParams(window.location.search);
+  var ref    = params.get('ref') || localStorage.getItem('webshop_last_order') || '—';
+  var status = params.get('status') || 'success';
+  var lang   = window.LANG || localStorage.getItem('dornori-lang') || 'nl';
+
+  // T(): resolve from window.T (set by i18n.js from lang/<lang>/common.json), then Shop.t(), then fallback
+  function T(key, fallback) {
+    if (window.T && window.T[key]) return window.T[key];
+    if (typeof Shop !== 'undefined' && Shop.t) return Shop.t(key, fallback);
+    return fallback || key;
+  }
 
   function render() {
-    const page = document.getElementById('result-page');
+    var page = document.getElementById('result-page');
     if (!page) return;
     if (status === 'success') {
-      page.innerHTML = `
-        <div class="webshop-result-icon webshop-result-icon--success">✓</div>
-        <h1>${Shop.t('success_title', 'Order Confirmed!')}</h1>
-        <p>${Shop.t('success_message', 'Thank you for your purchase. You will receive a confirmation email shortly.')}</p>
-        <p>${Shop.t('success_ref', 'Your order reference is')}:</p>
-        <div class="webshop-ref-badge">${ref}</div>
-        <p style="font-size:0.82rem;color:var(--c-text-muted);">
-          Please save this reference in case you need to contact support.
-        </p>
-        <a href="/${lang}/" class="webshop-btn webshop-btn--primary" style="margin-top:8px;">
-          ${Shop.t('continue_shopping', 'Continue Shopping')}
-        </a>
-      `;
+      var kitSlug = (window.T && window.T.url_slugs && window.T.url_slugs.kit) || 'bouwpakket';
+      page.innerHTML =
+        '<div class="webshop-result-icon webshop-result-icon--success">✓</div>' +
+        '<h1>' + T('success_title', 'Order Confirmed!') + '</h1>' +
+        '<p>' + T('success_message', 'Thank you for your purchase. You will receive a confirmation email shortly.') + '</p>' +
+        '<p>' + T('success_ref', 'Your order reference is') + ':</p>' +
+        '<div class="webshop-ref-badge">' + ref + '</div>' +
+        '<p style="font-size:0.82rem;color:var(--c-text-muted);">' + T('success_ref_note', 'Please save this reference in case you need to contact support.') + '</p>' +
+        '<a href="/' + lang + '/" class="webshop-btn webshop-btn--primary" style="margin-top:8px;">' +
+          T('continue_shopping', 'Continue Shopping') +
+        '</a>';
       launchConfetti();
     } else {
-      const cartSlug = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || 'cart';
-      page.innerHTML = `
-        <div class="webshop-result-icon webshop-result-icon--cancel">⚠</div>
-        <h1>${Shop.t('cancel_title', 'Payment Cancelled')}</h1>
-        <p>${Shop.t('cancel_message', 'Your order has not been processed. Your cart has been saved.')}</p>
-        <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap;">
-          <a href="/${lang}/${cartSlug}/" class="webshop-btn webshop-btn--primary">${Shop.t('return_to_cart', 'Return to Cart')}</a>
-          <a href="/${lang}/" class="webshop-btn webshop-btn--outline">${Shop.t('continue_shopping', 'Continue Shopping')}</a>
-        </div>
-      `;
+      var cartSlug = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || 'cart';
+      page.innerHTML =
+        '<div class="webshop-result-icon webshop-result-icon--cancel">⚠</div>' +
+        '<h1>' + T('cancel_title', 'Payment Cancelled') + '</h1>' +
+        '<p>' + T('cancel_message', 'Your order has not been processed. Your cart has been saved.') + '</p>' +
+        '<div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap;">' +
+          '<a href="/' + lang + '/' + cartSlug + '/" class="webshop-btn webshop-btn--primary">' + T('return_to_cart', 'Return to Cart') + '</a>' +
+          '<a href="/' + lang + '/" class="webshop-btn webshop-btn--outline">' + T('continue_shopping', 'Continue Shopping') + '</a>' +
+        '</div>';
     }
   }
 
   function launchConfetti() {
-    const container = document.getElementById('confetti-container');
+    var container = document.getElementById('confetti-container');
     if (!container) return;
-    const colors = ['#c8a96e', '#1a1714', '#f0e4cc', '#4a7c59', '#9b3a3a', '#ede9e3'];
-    for (let i = 0; i < 80; i++) {
-      const el = document.createElement('div');
+    var colors = ['#c8a96e','#1a1714','#f0e4cc','#4a7c59','#9b3a3a','#ede9e3'];
+    for (var i = 0; i < 80; i++) {
+      var el = document.createElement('div');
       el.className = 'confetti-piece';
-      el.style.cssText = `
-        left: ${Math.random() * 100}%;
-        top: ${-Math.random() * 20}px;
-        background: ${colors[Math.floor(Math.random() * colors.length)]};
-        width: ${4 + Math.random() * 8}px;
-        height: ${4 + Math.random() * 8}px;
-        border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
-        animation-duration: ${2 + Math.random() * 3}s;
-        animation-delay: ${Math.random() * 1.5}s;
-      `;
+      el.style.cssText =
+        'left:' + (Math.random()*100) + '%;' +
+        'top:' + (-Math.random()*20) + 'px;' +
+        'background:' + colors[Math.floor(Math.random()*colors.length)] + ';' +
+        'width:' + (4+Math.random()*8) + 'px;' +
+        'height:' + (4+Math.random()*8) + 'px;' +
+        'border-radius:' + (Math.random()>.5?'50%':'2px') + ';' +
+        'animation-duration:' + (2+Math.random()*3) + 's;' +
+        'animation-delay:' + (Math.random()*1.5) + 's;';
       container.appendChild(el);
-      el.addEventListener('animationend', () => el.remove());
+      el.addEventListener('animationend', function() { this.remove(); });
     }
   }
 
-  if (typeof Shop !== 'undefined') {
-    Shop.loadLang().then(render);
-  } else {
-    document.addEventListener('webshop:ready', () => {
+  function doRender() {
+    // window.T may already be loaded; if not, wait for Shop.loadLang
+    if (typeof Shop !== 'undefined') {
       Shop.loadLang().then(render);
-    });
+    } else {
+      document.addEventListener('webshop:ready', function() {
+        Shop.loadLang().then(render);
+      });
+    }
   }
+
+  doRender();
 })();
 </script>
