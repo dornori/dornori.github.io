@@ -145,10 +145,6 @@
     </div>
 </div>
 
-<div style="text-align:right;margin-top:.75rem;">
-    <button class="sf-reset" onclick="sfReset()"><i class="fas fa-redo-alt"></i> <span id="start-over-btn"></span></button>
-</div>
-
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="../../config.js"></script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -164,6 +160,10 @@ const workerUrl = (window.CONFIG && window.CONFIG.queue && window.CONFIG.queue.e
 const formJsonPath = (window.CONFIG && window.CONFIG.formJsonPath)
     ? window.CONFIG.formJsonPath
     : "../../lang/en/form.json";
+
+const redirectUrl = (window.CONFIG && window.CONFIG.redirect && window.CONFIG.redirect.onSuccess)
+    ? window.CONFIG.redirect.onSuccess
+    : null;
 
 let turnstileWidgetId = null;
 let turnstileToken = null;
@@ -186,8 +186,8 @@ function isValidEmail(email) {
 }
 
 function isValidOrderNumber(order) {
-    if (!order) return true; // Optional field
-    return /^\d+$/.test(order); // Only digits allowed
+    if (!order) return true;
+    return /^\d+$/.test(order);
 }
 
 function escapeHtml(str) {
@@ -227,7 +227,6 @@ function populateUI() {
     document.getElementById('need-help').textContent = formData.needHumanHelp || "Need human help?";
     document.getElementById('response-time').textContent = formData.responseTime || "Our support team responds within 4 hours (Mon–Fri).";
     document.getElementById('loading-text').textContent = formData.loading || "Loading…";
-    document.getElementById('start-over-btn').textContent = formData.startOver || "Start over";
     document.getElementById('sf-submit').textContent = formData.submitButton || "📧 Submit";
     document.getElementById('sf-turnstile-err').textContent = formData.turnstileError || "Please complete the security check.";
 
@@ -360,22 +359,15 @@ function validateForm() {
     const name = stripHtml(document.getElementById('sf-name').value).slice(0, 120);
     const email = stripHtml(document.getElementById('sf-email').value).slice(0, 254);
     const order = stripHtml(document.getElementById('sf-order').value).slice(0, 20);
-    // Comments are optional - no validation needed
 
-    // Name validation (required)
     hasError = setFieldError('sf-name', 'sf-name-err', name ? '' : (formData.fullNameRequired || 'Full name is required.')) || hasError;
-    
-    // Email validation (required)
     hasError = setFieldError('sf-email', 'sf-email-err', (email && isValidEmail(email)) ? '' : (formData.emailRequired || 'Valid email address is required.')) || hasError;
     
-    // Order number validation (optional, but must be digits if provided)
     if (order && !isValidOrderNumber(order)) {
         hasError = setFieldError('sf-order', 'sf-order-err', 'Order number must contain only digits (0-9).') || hasError;
     } else {
-        setFieldError('sf-order', 'sf-order-err', ''); // Clear error if valid or empty
+        setFieldError('sf-order', 'sf-order-err', '');
     }
-    
-    // Comments are optional - no validation
 
     const turnstileErr = document.getElementById('sf-turnstile-err');
     if (!turnstileToken) {
@@ -420,10 +412,17 @@ async function sendSupportRequest() {
         });
         const result = await response.json();
         if (response.ok) {
-            statusDiv.className = 'sf-status-success';
-            statusDiv.textContent = formData.successMessage || '✅ Ticket submitted! We\'ll email you shortly.';
-            showToast('Ticket successfully sent', 4000);
-            setTimeout(() => sfReset(), 3000);
+            // Check if redirect URL is configured
+            if (redirectUrl && redirectUrl.trim() !== '') {
+                window.location.href = redirectUrl;
+            } else {
+                // Show success message from JSON
+                statusDiv.className = 'sf-status-success';
+                statusDiv.textContent = formData.successMessage || '✅ Thank you! We\'ll contact you within 24 hours.';
+                showToast('Ticket successfully sent', 4000);
+                // Reset after 5 seconds to allow user to read message
+                setTimeout(() => sfReset(), 5000);
+            }
         } else {
             throw new Error(result.error || 'Server error');
         }
@@ -433,7 +432,6 @@ async function sendSupportRequest() {
         statusDiv.textContent = formData.errorMessage || `❌ Submission failed: ${err.message}. Please try again.`;
         if (turnstileWidgetId && window.turnstile) window.turnstile.reset(turnstileWidgetId);
         turnstileToken = null;
-    } finally {
         submitBtn.disabled = false;
     }
 }
@@ -448,13 +446,11 @@ window.sfReset = function() {
     document.getElementById('sf-s2').classList.add('sf-hidden');
     document.getElementById('sf-s3').classList.add('sf-hidden');
     updateProgress(5, formData.step1 || "Step 1: Choose category");
-    // Clear form fields
     document.getElementById('sf-name').value = '';
     document.getElementById('sf-email').value = '';
     document.getElementById('sf-order').value = '';
     document.getElementById('sf-desc').value = '';
     document.getElementById('sf-status').innerHTML = '';
-    // Clear errors
     ['sf-name-err', 'sf-email-err', 'sf-order-err', 'sf-desc-err'].forEach(id => {
         const errEl = document.getElementById(id);
         if (errEl) errEl.textContent = '';
@@ -463,7 +459,6 @@ window.sfReset = function() {
         const input = document.getElementById(id);
         if (input) input.classList.remove('sf-input-error');
     });
-    // Reset turnstile
     turnstileToken = null;
     if (turnstileWidgetId && window.turnstile) {
         window.turnstile.reset(turnstileWidgetId);
@@ -476,7 +471,7 @@ document.addEventListener('click', e => {
     if (e.target.closest('#sf-submit')) sendSupportRequest();
 });
 
-// Restrict order number input to digits only (real-time)
+// Restrict order number input to digits only
 document.getElementById('sf-order')?.addEventListener('input', function(e) {
     this.value = this.value.replace(/[^0-9]/g, '');
 });
