@@ -64,6 +64,9 @@
         .sf-success-box h3 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text); }
         .sf-success-box p { color: var(--text-muted); margin-bottom: 0.75rem; line-height: 1.6; }
         .sf-success-box .sf-ref-number { font-size: 1.2rem; font-weight: 700; color: var(--accent); margin: 1rem 0; letter-spacing: 1px; }
+        .sf-summary-bullets { padding-left: 1.2rem; margin: 0; }
+        .sf-summary-bullets li { margin-bottom: 0.5rem; line-height: 1.5; }
+        .sf-summary-question { font-weight: 600; color: var(--accent); }
         @media(max-width:520px){ .sf-grid2{ grid-template-columns:1fr; } .sf-cat-grid{ grid-template-columns:1fr; } }
     </style>
 </head>
@@ -126,7 +129,7 @@
 
             <div class="sf-field">
                 <label class="sf-label" id="label-summary"></label>
-                <div id="sf-summary-box" style="padding:.8rem 1.1rem;border:1px solid var(--border);border-radius:.875rem;background:color-mix(in srgb,var(--bg) 40%,transparent 60%);font-size:.85rem;color:var(--text-muted);white-space:pre-wrap;line-height:1.6;min-height:80px;"></div>
+                <div id="sf-summary-box" style="padding:.8rem 1.1rem;border:1px solid var(--border);border-radius:.875rem;background:color-mix(in srgb,var(--bg) 40%,transparent 60%);font-size:.85rem;color:var(--text-muted);line-height:1.6;min-height:80px;"></div>
             </div>
 
             <div class="sf-field">
@@ -193,7 +196,7 @@ function isValidEmail(email) {
 }
 
 function isValidOrderNumber(order) {
-    if (!order) return true;
+    if (!order) return false; // Now mandatory - must have value
     return /^\d+$/.test(order);
 }
 
@@ -208,6 +211,20 @@ function showToast(msg, ms = 3000) {
     t.textContent = msg;
     t.style.opacity = '1';
     setTimeout(() => t.style.opacity = '0', ms);
+}
+
+// ==================== FORMAT SUMMARY WITH BULLET POINTS ====================
+function formatSummaryBullets(answersArray) {
+    if (!answersArray || answersArray.length === 0) {
+        return '<em>No troubleshooting steps recorded.</em>';
+    }
+    let html = '<ul class="sf-summary-bullets">';
+    answersArray.forEach((item, idx) => {
+        html += `<li><span class="sf-summary-question">Q${idx + 1}:</span> ${escapeHtml(item.question)}<br>`;
+        html += `<span style="margin-left: 1.2rem;">→ <strong>Answer:</strong> ${escapeHtml(item.answer)}</span></li>`;
+    });
+    html += '</ul>';
+    return html;
 }
 
 // ==================== SUCCESS DISPLAY ====================
@@ -253,7 +270,7 @@ function populateUI() {
     document.getElementById('sf-turnstile-err').textContent = "Please complete the security check.";
     document.getElementById('label-name').innerHTML = `Full name <span style="color:#ef4444">*</span>`;
     document.getElementById('label-email').innerHTML = `Email address <span style="color:#ef4444">*</span>`;
-    document.getElementById('label-order').innerHTML = `Order number <span style="color:var(--text-muted);font-weight:400;">(numbers only)</span>`;
+    document.getElementById('label-order').innerHTML = `Order number <span style="color:#ef4444">*</span> <span style="color:var(--text-muted);font-weight:400;">(numbers only)</span>`;
     document.getElementById('label-summary').textContent = "Troubleshooting summary";
     document.getElementById('label-comments').textContent = "Additional comments (optional)";
     document.getElementById('sf-desc').placeholder = "Anything else you'd like to add… (optional)";
@@ -366,8 +383,9 @@ window.selectAnswer = function(questionId, optionIndex) {
 };
 
 function showContactForm() {
-    const summaryText = answers.map(a => `${a.question}: ${a.answer}`).join('\n');
-    document.getElementById('sf-summary-box').textContent = summaryText || '(No troubleshooting steps recorded)';
+    // Format the summary with bullet points
+    const formattedSummary = formatSummaryBullets(answers);
+    document.getElementById('sf-summary-box').innerHTML = formattedSummary;
     
     document.getElementById('sf-s1').classList.add('sf-hidden');
     document.getElementById('sf-s2').classList.add('sf-hidden');
@@ -423,7 +441,10 @@ function validateForm() {
     hasError = setFieldError('sf-name', 'sf-name-err', name ? '' : 'Full name is required.') || hasError;
     hasError = setFieldError('sf-email', 'sf-email-err', (email && isValidEmail(email)) ? '' : 'Valid email address is required.') || hasError;
     
-    if (order && !isValidOrderNumber(order)) {
+    // Order number is now mandatory
+    if (!order) {
+        hasError = setFieldError('sf-order', 'sf-order-err', 'Order number is required.') || hasError;
+    } else if (!isValidOrderNumber(order)) {
         hasError = setFieldError('sf-order', 'sf-order-err', 'Order number must contain only digits (0-9).') || hasError;
     } else {
         setFieldError('sf-order', 'sf-order-err', '');
@@ -452,10 +473,15 @@ async function sendSupportRequest() {
     submitBtn.disabled = true;
     submitBtn.textContent = '⏳ Sending...';
 
+    // Format the troubleshooting text for the payload (plain text version)
+    const troubleshootingText = answers.map((a, i) => `Q${i+1}: ${a.question}\n   Answer: ${a.answer}`).join('\n\n');
+
     const payload = {
         referenceNumber: referenceNumber,
-        category: currentCategory?.title || 'General',
+        category: "support-request",  // ← Always "support-request"
+        originalCategory: currentCategory?.title || 'General',
         troubleshooting: answers,
+        troubleshootingText: troubleshootingText,
         name: sanitised.name,
         email: sanitised.email,
         orderNumber: sanitised.order,
