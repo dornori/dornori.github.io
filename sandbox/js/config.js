@@ -1,6 +1,5 @@
 /**
  * DORNORI SITE CONFIGURATION
- * Merged from content/en/config.js and js/config.js
  */
 
 const SITE_CONFIG = {
@@ -21,7 +20,7 @@ const SITE_CONFIG = {
         icons_dir:       'assets/icons/',
         shop_dir:        'shop/',
         js_dir:          'js/',
-        formJsonPath:    'lang/[LANG]/form.json',
+        formJsonPath:    (lang) => `../../lang/${lang}/form.json`,
     },
 
     storageKeys: {
@@ -111,4 +110,13 @@ const SITE_CONFIG = {
     turnstile_sitekey: '0x4AAAAAACxsga5y-bJ_qkzC',
 };
 
+// Set window.CONFIG for non-module scripts (like support.html)
+window.CONFIG = {
+    turnstile: SITE_CONFIG.turnstile,
+    queue: { endpoint: SITE_CONFIG.endpoints.queue },
+    paths: { formJsonPath: SITE_CONFIG.paths.formJsonPath },
+};
+
+// Export for module imports
+window.SITE_CONFIG = SITE_CONFIG;
 export default SITE_CONFIG;
