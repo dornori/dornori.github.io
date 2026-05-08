@@ -145,9 +145,9 @@ function _doWireShopCards(container) {
 
 // ── SCROLL LOCK ───────────────────────────────────────────────────────────────
 function unlockScroll() {
-    // Only remove at-top if user hasn't scrolled — keeps the hide-at-top behaviour intact
     if (window.scrollY === 0) return;
     document.documentElement.classList.remove('at-top');
+    document.documentElement.style.overflowY = '';
 }
 
 export function initPageLoader() {
