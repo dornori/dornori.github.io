@@ -144,19 +144,13 @@ function _doWireShopCards(container) {
 
 
 // ── SCROLL LOCK ───────────────────────────────────────────────────────────────
-function lockScroll() {
-    document.documentElement.classList.add('no-scrollbar');
-}
 function unlockScroll() {
-    document.documentElement.classList.remove('no-scrollbar');
-    window.addEventListener('scroll', () => {
-        document.documentElement.classList.remove('no-scrollbar');
-    }, { once: true });
+    // Only remove at-top if user hasn't scrolled — keeps the hide-at-top behaviour intact
+    if (window.scrollY === 0) return;
+    document.documentElement.classList.remove('at-top');
 }
 
 export function initPageLoader() {
-    lockScroll();
-
     const homeView    = document.getElementById('home-view');
     const pageView    = document.getElementById('page-view');
     const pageContent = document.getElementById('page-content-inner');
