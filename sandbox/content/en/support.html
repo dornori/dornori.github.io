@@ -170,9 +170,9 @@ let turnstileWidgetId = null;
 let turnstileToken = null;
 let formData = {};
 let currentCategory = null;
-let currentQuestions = [];
-let currentQIndex = 0;
-let summary = [];
+let currentQuestionId = null;
+let answers = [];
+let questionStack = [];
 
 // ==================== HELPERS ====================
 function stripHtml(str) {
@@ -205,13 +205,13 @@ function showToast(msg, ms = 3000) {
 }
 
 // ==================== SUCCESS DISPLAY ====================
-function showSuccessMessage() {
+function showSuccessMessage(message) {
     const body = document.getElementById('sf-body');
     const successHtml = `
         <div class="sf-success-box">
             <i class="fas fa-check-circle"></i>
             <h3>${escapeHtml(formData.successTitle || 'Thank You!')}</h3>
-            <p>${escapeHtml(formData.successMessage || 'Your support request has been submitted successfully. Our team will contact you within 24 hours.')}</p>
+            <p>${escapeHtml(message || formData.successMessage || 'Your support request has been submitted successfully. Our team will contact you within 24 hours.')}</p>
             <button class="sf-success-btn" onclick="location.reload()">
                 <i class="fas fa-home"></i> ${escapeHtml(formData.startOver || 'Start Over')}
             </button>
@@ -236,23 +236,23 @@ async function loadFormData() {
 }
 
 function populateUI() {
+    // Set header texts (use formData values or fallbacks)
     document.getElementById('sf-title').textContent = formData.title || "Dornori Support";
     document.getElementById('sf-subtitle').textContent = formData.subtitle || "We're here to help";
-    document.getElementById('avg-resolution').textContent = formData.avgResolution || "Avg. resolution 2 min";
-    document.getElementById('select-issue').textContent = formData.selectIssue || "Select your issue";
-    document.getElementById('most-issues').textContent = formData.mostIssuesResolved || "Most issues resolved in under 2 minutes";
-    document.getElementById('need-help').textContent = formData.needHumanHelp || "Need human help?";
-    document.getElementById('response-time').textContent = formData.responseTime || "Our support team responds within 4 hours (Mon–Fri).";
-    document.getElementById('loading-text').textContent = formData.loading || "Loading…";
+    document.getElementById('avg-resolution').textContent = "Avg. resolution 2 min";
+    document.getElementById('select-issue').textContent = "Select your issue";
+    document.getElementById('most-issues').textContent = "Most issues resolved in under 2 minutes";
+    document.getElementById('need-help').textContent = "Need human help?";
+    document.getElementById('response-time').textContent = "Our support team responds within 4 hours (Mon–Fri).";
+    document.getElementById('loading-text').textContent = "Loading…";
     document.getElementById('sf-submit').textContent = formData.submitButton || "📧 Submit";
-    document.getElementById('sf-turnstile-err').textContent = formData.turnstileError || "Please complete the security check.";
-
-    document.getElementById('label-name').innerHTML = `${formData.fullName || "Full name"} <span style="color:#ef4444">*</span>`;
-    document.getElementById('label-email').innerHTML = `${formData.email || "Email address"} <span style="color:#ef4444">*</span>`;
-    document.getElementById('label-order').innerHTML = `${formData.orderNumber || "Order number"} <span style="color:var(--text-muted);font-weight:400;">${formData.orderNumberHelp || "(numbers only)"}</span>`;
-    document.getElementById('label-summary').textContent = formData.troubleshootingSummary || "Troubleshooting summary";
-    document.getElementById('label-comments').textContent = formData.additionalComments || "Additional comments (optional)";
-    document.getElementById('sf-desc').placeholder = formData.commentsPlaceholder || "Anything else you'd like to add… (optional)";
+    document.getElementById('sf-turnstile-err').textContent = "Please complete the security check.";
+    document.getElementById('label-name').innerHTML = `Full name <span style="color:#ef4444">*</span>`;
+    document.getElementById('label-email').innerHTML = `Email address <span style="color:#ef4444">*</span>`;
+    document.getElementById('label-order').innerHTML = `Order number <span style="color:var(--text-muted);font-weight:400;">(numbers only)</span>`;
+    document.getElementById('label-summary').textContent = "Troubleshooting summary";
+    document.getElementById('label-comments').textContent = "Additional comments (optional)";
+    document.getElementById('sf-desc').placeholder = "Anything else you'd like to add… (optional)";
 
     const container = document.getElementById('sf-cats');
     container.innerHTML = '';
@@ -266,7 +266,7 @@ function populateUI() {
 
     document.getElementById('sf-loading').style.display = 'none';
     document.getElementById('sf-s1').classList.remove('sf-hidden');
-    updateProgress(5, formData.step1 || "Step 1: Choose category");
+    updateProgress(5, "Step 1: Choose category");
 }
 
 function updateProgress(percent, label) {
@@ -274,26 +274,40 @@ function updateProgress(percent, label) {
     document.getElementById('sf-step-label').textContent = label;
 }
 
-// ==================== TROUBLESHOOTING FLOW ====================
+// ==================== TROUBLESHOOTING FLOW (using your JSON structure) ====================
 function startCategory(cat) {
     currentCategory = cat;
-    currentQuestions = cat.questions || [];
-    currentQIndex = 0;
-    summary = ['Category: ' + cat.title, '---'];
-    showQuestion();
+    answers = [];
+    questionStack = [];
+    
+    // Find first question in this category
+    if (cat.questions && cat.questions.length > 0) {
+        currentQuestionId = cat.questions[0].id;
+        showQuestionById(currentQuestionId);
+    } else {
+        showContactForm();
+    }
 }
 
-function showQuestion() {
-    if (!currentQuestions.length || currentQIndex >= currentQuestions.length) {
+function findQuestion(questionId) {
+    // Search through current category's questions
+    if (!currentCategory || !currentCategory.questions) return null;
+    return currentCategory.questions.find(q => q.id === questionId);
+}
+
+function showQuestionById(questionId) {
+    const question = findQuestion(questionId);
+    if (!question) {
+        // Question not found - go to contact
         showContactForm();
         return;
     }
-    const q = currentQuestions[currentQIndex];
-    let html = `<div class="sf-q-label"><i class="fas fa-question-circle"></i> Question ${currentQIndex + 1}/${currentQuestions.length}</div>`;
-    html += `<div class="sf-q-text">${escapeHtml(q.text)}</div>`;
+    
+    let html = `<div class="sf-q-label"><i class="fas fa-question-circle"></i> Troubleshooting</div>`;
+    html += `<div class="sf-q-text">${escapeHtml(question.text)}</div>`;
 
-    q.options.forEach((opt, idx) => {
-        html += `<button class="sf-opt" onclick="selectAnswer(${idx})"><span>${escapeHtml(opt.text)}</span><i class="fas fa-arrow-right"></i></button>`;
+    question.options.forEach((opt, idx) => {
+        html += `<button class="sf-opt" onclick="selectAnswer('${questionId}', ${idx})"><span>${escapeHtml(opt.text)}</span><i class="fas fa-arrow-right"></i></button>`;
     });
 
     html += `<div style="margin-top:1rem"><button class="sf-reset" onclick="sfReset()"><i class="fas fa-undo-alt"></i> ${formData.startOver || "Start over"}</button></div>`;
@@ -302,34 +316,68 @@ function showQuestion() {
     document.getElementById('sf-s1').classList.add('sf-hidden');
     document.getElementById('sf-s2').classList.remove('sf-hidden');
     document.getElementById('sf-s3').classList.add('sf-hidden');
-    updateProgress(45, formData.step2 || "Step 2: Troubleshooting");
+    updateProgress(45, "Step 2: Troubleshooting");
 }
 
-window.selectAnswer = function(optionIndex) {
-    const q = currentQuestions[currentQIndex];
-    const opt = q.options[optionIndex];
-    summary.push('Q: ' + q.text);
-    summary.push('A: ' + opt.text);
-
-    if (opt.resolves === true || opt.next === 'resolved_end') {
-        showToast(formData.resolvedToast || '✓ Issue resolved!', 1500);
-        setTimeout(() => { window.location.href = '/'; }, 2000);
+window.selectAnswer = function(questionId, optionIndex) {
+    const question = findQuestion(questionId);
+    if (!question) return;
+    
+    const opt = question.options[optionIndex];
+    
+    // Record answer
+    answers.push({
+        question: question.text,
+        answer: opt.text,
+        summary: opt.summary || opt.text
+    });
+    
+    // Check what 'next' points to
+    const nextId = opt.next;
+    
+    if (nextId === 'resolved_end') {
+        // Issue resolved - show success from endpoints
+        const endpoint = formData.endpoints?.resolved_end;
+        if (endpoint) {
+            if (endpoint.type === 'redirect' && endpoint.redirect_url) {
+                showToast(endpoint.message || '✓ Issue resolved!', endpoint.delay_seconds * 1000 || 2000);
+                setTimeout(() => {
+                    window.location.href = endpoint.redirect_url;
+                }, (endpoint.delay_seconds || 2) * 1000);
+            } else {
+                showSuccessMessage(endpoint.message || '✓ Issue resolved!');
+            }
+        } else {
+            showSuccessMessage('✓ Issue resolved! Thank you.');
+        }
         return;
     }
-    if (opt.next === 'contact') {
+    
+    if (nextId === 'contact') {
         showContactForm();
         return;
     }
-    currentQIndex++;
-    showQuestion();
+    
+    // Otherwise, nextId should be another question ID
+    const nextQuestion = findQuestion(nextId);
+    if (nextQuestion) {
+        currentQuestionId = nextId;
+        showQuestionById(nextId);
+    } else {
+        // If next question not found, go to contact
+        showContactForm();
+    }
 };
 
 function showContactForm() {
-    document.getElementById('sf-summary-box').textContent = summary.join('\n') || '(No troubleshooting steps recorded)';
+    // Build summary text from answers
+    const summaryText = answers.map(a => `${a.question}: ${a.answer}`).join('\n');
+    document.getElementById('sf-summary-box').textContent = summaryText || '(No troubleshooting steps recorded)';
+    
     document.getElementById('sf-s1').classList.add('sf-hidden');
     document.getElementById('sf-s2').classList.add('sf-hidden');
     document.getElementById('sf-s3').classList.remove('sf-hidden');
-    updateProgress(85, formData.step3 || "Step 3: Contact support");
+    updateProgress(85, "Step 3: Contact support");
     initTurnstile();
 }
 
@@ -377,8 +425,8 @@ function validateForm() {
     const email = stripHtml(document.getElementById('sf-email').value).slice(0, 254);
     const order = stripHtml(document.getElementById('sf-order').value).slice(0, 20);
 
-    hasError = setFieldError('sf-name', 'sf-name-err', name ? '' : (formData.fullNameRequired || 'Full name is required.')) || hasError;
-    hasError = setFieldError('sf-email', 'sf-email-err', (email && isValidEmail(email)) ? '' : (formData.emailRequired || 'Valid email address is required.')) || hasError;
+    hasError = setFieldError('sf-name', 'sf-name-err', name ? '' : 'Full name is required.') || hasError;
+    hasError = setFieldError('sf-email', 'sf-email-err', (email && isValidEmail(email)) ? '' : 'Valid email address is required.') || hasError;
     
     if (order && !isValidOrderNumber(order)) {
         hasError = setFieldError('sf-order', 'sf-order-err', 'Order number must contain only digits (0-9).') || hasError;
@@ -399,7 +447,7 @@ function validateForm() {
 async function sendSupportRequest() {
     const { valid, sanitised } = validateForm();
     if (!valid) {
-        showToast(formData.errorFixAbove || 'Please fix the errors above before submitting.', 3000);
+        showToast('Please fix the errors above before submitting.', 3000);
         return;
     }
 
@@ -410,7 +458,7 @@ async function sendSupportRequest() {
 
     const payload = {
         category: currentCategory?.title || 'General',
-        troubleshooting: summary,
+        troubleshooting: answers,
         name: sanitised.name,
         email: sanitised.email,
         orderNumber: sanitised.order,
@@ -431,7 +479,9 @@ async function sendSupportRequest() {
             if (redirectUrl && redirectUrl.trim() !== '') {
                 window.location.href = redirectUrl;
             } else {
-                showSuccessMessage();
+                const contactEndpoint = formData.endpoints?.contact;
+                const successMessage = contactEndpoint?.message || 'Your support request has been submitted. Our team will respond within 4 hours.';
+                showSuccessMessage(successMessage);
             }
         } else {
             const result = await response.json();
@@ -439,7 +489,7 @@ async function sendSupportRequest() {
         }
     } catch (err) {
         console.error(err);
-        showToast(formData.errorMessage || `❌ Submission failed: ${err.message}. Please try again.`, 5000);
+        showToast(`❌ Submission failed: ${err.message}. Please try again.`, 5000);
         if (turnstileWidgetId && window.turnstile) window.turnstile.reset(turnstileWidgetId);
         turnstileToken = null;
         submitBtn.disabled = false;
@@ -450,13 +500,13 @@ async function sendSupportRequest() {
 // ==================== RESET FUNCTION ====================
 window.sfReset = function() {
     currentCategory = null;
-    currentQuestions = [];
-    currentQIndex = 0;
-    summary = [];
+    currentQuestionId = null;
+    answers = [];
+    questionStack = [];
     document.getElementById('sf-s1').classList.remove('sf-hidden');
     document.getElementById('sf-s2').classList.add('sf-hidden');
     document.getElementById('sf-s3').classList.add('sf-hidden');
-    updateProgress(5, formData.step1 || "Step 1: Choose category");
+    updateProgress(5, "Step 1: Choose category");
     document.getElementById('sf-name').value = '';
     document.getElementById('sf-email').value = '';
     document.getElementById('sf-order').value = '';
