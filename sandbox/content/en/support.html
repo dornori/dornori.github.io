@@ -155,7 +155,6 @@
 
 <script>
 // ==================== CONFIG (from config.js) ====================
-// These come from the loaded config.js (window.CONFIG)
 const TURNSTILE_SITE_KEY = (window.CONFIG && window.CONFIG.turnstile && window.CONFIG.turnstile.sitekey) 
     ? window.CONFIG.turnstile.sitekey : '1x00000000000000000000AA';
 
@@ -164,7 +163,7 @@ const workerUrl = (window.CONFIG && window.CONFIG.queue && window.CONFIG.queue.e
 
 const formJsonPath = (window.CONFIG && window.CONFIG.formJsonPath)
     ? window.CONFIG.formJsonPath
-    : "../../lang/en/form.json";   // fallback only if config.js missing
+    : "../../lang/en/form.json";
 
 let turnstileWidgetId = null;
 let turnstileToken = null;
@@ -186,6 +185,11 @@ function isValidEmail(email) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) && email.length <= 254;
 }
 
+function isValidOrderNumber(order) {
+    if (!order) return true; // Optional field
+    return /^\d+$/.test(order); // Only digits allowed
+}
+
 function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'})[m]);
@@ -199,7 +203,7 @@ function showToast(msg, ms = 3000) {
     setTimeout(() => t.style.opacity = '0', ms);
 }
 
-// ==================== LOAD FORM.JSON (using CONFIG path) ====================
+// ==================== LOAD FORM.JSON ====================
 async function loadFormData() {
     console.log(`🔍 Loading form.json from: ${formJsonPath}`);
     try {
@@ -229,10 +233,10 @@ function populateUI() {
 
     document.getElementById('label-name').innerHTML = `${formData.fullName || "Full name"} <span style="color:#ef4444">*</span>`;
     document.getElementById('label-email').innerHTML = `${formData.email || "Email address"} <span style="color:#ef4444">*</span>`;
-    document.getElementById('label-order').innerHTML = `${formData.orderNumber || "Order number"} <span style="color:var(--text-muted);font-weight:400;">${formData.orderNumberHelp || "(digits only)"}</span>`;
+    document.getElementById('label-order').innerHTML = `${formData.orderNumber || "Order number"} <span style="color:var(--text-muted);font-weight:400;">${formData.orderNumberHelp || "(numbers only)"}</span>`;
     document.getElementById('label-summary').textContent = formData.troubleshootingSummary || "Troubleshooting summary";
-    document.getElementById('label-comments').textContent = formData.additionalComments || "Additional comments";
-    document.getElementById('sf-desc').placeholder = formData.commentsPlaceholder || "Anything else you'd like to add…";
+    document.getElementById('label-comments').textContent = formData.additionalComments || "Additional comments (optional)";
+    document.getElementById('sf-desc').placeholder = formData.commentsPlaceholder || "Anything else you'd like to add… (optional)";
 
     const container = document.getElementById('sf-cats');
     container.innerHTML = '';
@@ -356,12 +360,22 @@ function validateForm() {
     const name = stripHtml(document.getElementById('sf-name').value).slice(0, 120);
     const email = stripHtml(document.getElementById('sf-email').value).slice(0, 254);
     const order = stripHtml(document.getElementById('sf-order').value).slice(0, 20);
-    const message = stripHtml(document.getElementById('sf-desc').value).slice(0, 2000);
+    // Comments are optional - no validation needed
 
+    // Name validation (required)
     hasError = setFieldError('sf-name', 'sf-name-err', name ? '' : (formData.fullNameRequired || 'Full name is required.')) || hasError;
+    
+    // Email validation (required)
     hasError = setFieldError('sf-email', 'sf-email-err', (email && isValidEmail(email)) ? '' : (formData.emailRequired || 'Valid email address is required.')) || hasError;
-    // Order optional – no error
-    hasError = setFieldError('sf-desc', 'sf-desc-err', message ? '' : (formData.messageRequired || 'Please describe your issue.')) || hasError;
+    
+    // Order number validation (optional, but must be digits if provided)
+    if (order && !isValidOrderNumber(order)) {
+        hasError = setFieldError('sf-order', 'sf-order-err', 'Order number must contain only digits (0-9).') || hasError;
+    } else {
+        setFieldError('sf-order', 'sf-order-err', ''); // Clear error if valid or empty
+    }
+    
+    // Comments are optional - no validation
 
     const turnstileErr = document.getElementById('sf-turnstile-err');
     if (!turnstileToken) {
@@ -370,7 +384,7 @@ function validateForm() {
     } else {
         turnstileErr.classList.add('sf-hidden');
     }
-    return { valid: !hasError, sanitised: { name, email, order, message } };
+    return { valid: !hasError, sanitised: { name, email, order, comments: stripHtml(document.getElementById('sf-desc').value).slice(0, 2000) } };
 }
 
 async function sendSupportRequest() {
@@ -393,7 +407,7 @@ async function sendSupportRequest() {
         name: sanitised.name,
         email: sanitised.email,
         orderNumber: sanitised.order,
-        additionalComments: sanitised.message,
+        additionalComments: sanitised.comments,
         turnstileToken: turnstileToken,
         timestamp: new Date().toISOString()
     };
@@ -407,9 +421,8 @@ async function sendSupportRequest() {
         const result = await response.json();
         if (response.ok) {
             statusDiv.className = 'sf-status-success';
-            statusDiv.textContent = formData.successMessage || '✅ Ticket submitted! We’ll email you shortly.';
+            statusDiv.textContent = formData.successMessage || '✅ Ticket submitted! We\'ll email you shortly.';
             showToast('Ticket successfully sent', 4000);
-            // Reset after 3 seconds
             setTimeout(() => sfReset(), 3000);
         } else {
             throw new Error(result.error || 'Server error');
@@ -441,6 +454,15 @@ window.sfReset = function() {
     document.getElementById('sf-order').value = '';
     document.getElementById('sf-desc').value = '';
     document.getElementById('sf-status').innerHTML = '';
+    // Clear errors
+    ['sf-name-err', 'sf-email-err', 'sf-order-err', 'sf-desc-err'].forEach(id => {
+        const errEl = document.getElementById(id);
+        if (errEl) errEl.textContent = '';
+    });
+    ['sf-name', 'sf-email', 'sf-order', 'sf-desc'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.classList.remove('sf-input-error');
+    });
     // Reset turnstile
     turnstileToken = null;
     if (turnstileWidgetId && window.turnstile) {
@@ -452,6 +474,11 @@ window.sfReset = function() {
 // Attach submit event
 document.addEventListener('click', e => {
     if (e.target.closest('#sf-submit')) sendSupportRequest();
+});
+
+// Restrict order number input to digits only (real-time)
+document.getElementById('sf-order')?.addEventListener('input', function(e) {
+    this.value = this.value.replace(/[^0-9]/g, '');
 });
 
 // ==================== BOOT ====================
