@@ -1,5 +1,6 @@
 /**
  * DORNORI SITE CONFIGURATION
+ * Merged from content/en/config.js and js/config.js
  */
 
 const SITE_CONFIG = {
@@ -16,10 +17,11 @@ const SITE_CONFIG = {
         profiles_file:   'data/profiles.json',
         shipping_file:   'data/shipping.json',
         lang_dir:        'lang/',
-        content_dir:    'content/',
-        icons_dir:      'assets/icons/',
-        shop_dir:       'shop/',
-        js_dir:         'js/',
+        content_dir:     'content/',
+        icons_dir:       'assets/icons/',
+        shop_dir:        'shop/',
+        js_dir:          'js/',
+        formJsonPath:    'lang/[LANG]/form.json',
     },
 
     storageKeys: {
@@ -29,6 +31,7 @@ const SITE_CONFIG = {
 
     endpoints: {
         formHandler: 'https://edge-form-handler-api.dornori-info.workers.dev',
+        queue:       'https://edge-form-handler-api.dornori-info.workers.dev',
         supportEmail:  'support@dornori.com',
         privacyEmail:  'privacy@dornori.com',
         securityEmail: 'security@dornori.com',
@@ -38,6 +41,10 @@ const SITE_CONFIG = {
     defaults: {
         redirectUrl:     '/',
         redirectMessage: '✓ Issue resolved! Redirecting...',
+    },
+
+    turnstile: {
+        sitekey: '0x4AAAAAACxsga5y-bJ_qkzC',
     },
 
     navigation: [
