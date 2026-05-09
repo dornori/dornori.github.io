@@ -1,0 +1,122 @@
+/**
+ * DORNORI SITE CONFIGURATION
+ */
+
+const SITE_CONFIG = {
+    appearance: {
+        icyLemon:           '#F5F29B',
+        bgDark:             '#050505',
+        bannerStickyOffset: 0.35,
+        root_url:           'https://dornori.com',
+        base_path:          window.__BASE_PATH__ || '/',
+    },
+
+    paths: {
+        countries_file:  'data/countries.json',
+        profiles_file:   'data/profiles.json',
+        shipping_file:   'data/shipping.json',
+        lang_dir:        'lang/',
+        content_dir:     'content/',
+        icons_dir:       'assets/icons/',
+        shop_dir:        'shop/',
+        js_dir:          'js/',
+        formJsonPath:    (lang) => `../../lang/${lang}/form.json`,
+    },
+
+    storageKeys: {
+        lang:  'dornori-lang',
+        theme: 'dornori-theme',
+    },
+
+    endpoints: {
+        formHandler: 'https://edge-form-handler-api.dornori-info.workers.dev',
+        queue:       'https://edge-form-handler-api.dornori-info.workers.dev',
+        supportEmail:  'support@dornori.com',
+        privacyEmail:  'privacy@dornori.com',
+        securityEmail: 'security@dornori.com',
+        legalEmail:    'legal@dornori.com',
+    },
+
+    defaults: {
+        redirectUrl:     '/',
+        redirectMessage: '✓ Issue resolved! Redirecting...',
+    },
+
+    turnstile: {
+        sitekey: '0x4AAAAAACxsga5y-bJ_qkzC',
+    },
+
+    navigation: [
+        { slug: 'about',  icon: 'about-icon-200x200.svg',          type: 'standard', enabled: true  },
+        { slug: 'built',  icon: 'assembled-lamp-icon-200x200.svg',  type: 'standard', enabled: true  },
+        { slug: 'kit',    icon: 'building-kit-icon-200x200.svg',    type: 'standard', enabled: true  },
+        { slug: 'parts',  icon: '3d-printer-icon-200x200.svg',      type: 'standard', enabled: true  },
+        { slug: 'files',  icon: '3d-file-icon-200x200.svg',         type: 'standard', enabled: true  },
+    ],
+
+    footer: [
+        {
+            label: 'Company',
+            links: [
+                { slug: 'gallery',  enabled: true  },
+                { slug: 'about',    enabled: true  },
+                { slug: 'contact',  enabled: true  },
+            ]
+        },
+        {
+            label: 'Legal',
+            links: [
+                { slug: 'terms',    enabled: true  },
+                { slug: 'privacy',  enabled: false },
+                { slug: 'cookies',  enabled: false },
+                { slug: 'imprint',  enabled: true  },
+                { slug: 'returns',  enabled: false },
+                { slug: 'children', enabled: false },
+                { slug: 'security', enabled: false },
+            ]
+        }
+    ],
+
+    pages: {
+        built:               { file: 'built.html'             },
+        kit:                 { file: 'kit.html'               },
+        parts:               { file: 'parts.html'             },
+        files:               { file: 'files.html'             },
+        'mission-statement': { file: 'mission-statement.html' },
+        about:               { file: 'about-us.html'          },
+        terms:               { file: 'terms.html'             },
+        privacy:             { file: 'privacy.html'           },
+        children:            { file: 'children.html'          },
+        security:            { file: 'security.html'          },
+        cookies:             { file: 'cookies.html'           },
+        imprint:             { file: 'imprint.html'           },
+        returns:             { file: 'returns.html'           },
+        contact:             { file: 'form.html'              },
+        support:             { file: 'support.html'           },
+        gallery:             { file: 'gallery.html'           },
+        cart:                { file: 'cart.html'              },
+        shop:                { file: 'shop.html'              },
+        product:             { file: 'product.html'           },
+    },
+
+    socials: [
+        { id: 'ig',  user: 'dornori.info', base: 'https://instagram.com/' },
+        { id: 'x',   user: 'dornori_info', base: 'https://x.com/'         },
+        { id: 'yt',  user: 'dornori_info', base: 'https://youtube.com/@'  },
+        { id: 'fb',  user: 'Dornori.info', base: 'https://facebook.com/'  },
+        { id: 'web', user: 'dornori.com',  base: 'https://'               },
+    ],
+
+    turnstile_sitekey: '0x4AAAAAACxsga5y-bJ_qkzC',
+};
+
+// Set window.CONFIG for non-module scripts (like support.html)
+window.CONFIG = {
+    turnstile: SITE_CONFIG.turnstile,
+    queue: { endpoint: SITE_CONFIG.endpoints.queue },
+    paths: { formJsonPath: SITE_CONFIG.paths.formJsonPath },
+};
+
+// Export for module imports
+window.SITE_CONFIG = SITE_CONFIG;
+export default SITE_CONFIG;
