@@ -1,77 +1,479 @@
-<div class="home-hero">
-    <p class="headline">
-        "In darkness let's shine a light,<br>
-        to brighten the world and illuminate minds."
-    </p>
+<!-- content/en/home.html -->
+<style>
+  /* Override home-view to match page-view width */
+  #home-view {
+    width: 100%;
+    max-width: 100%;
+    padding-left: clamp(16px, 5vw, 80px);
+    padding-right: clamp(16px, 5vw, 80px);
+    box-sizing: border-box;
+    animation: fadeIn 0.5s ease;
+  }
 
-    <div class="waitlist-card">
-        <form id="waitlist-form" method="POST">
-            <div class="input-row">
-                <input 
-                    type="email" 
-                    name="email" 
-                    placeholder="your@email.com" 
-                    required>
-                <button type="submit" class="submit-btn" id="sub-btn">JOIN</button>
-            </div>
-            <div id="captcha-container"></div>
-        </form>
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 
-        <div id="success-container" class="hidden">
-            <p>Thank you! You're on the list.</p>
-        </div>
+  /* CTA Button Styles */
+  .home-hero__cta-row {
+    display: flex; gap: .85rem; flex-wrap: wrap;
+  }
+  .home-hero__cta {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: .75rem 1.6rem;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: .82rem; letter-spacing: .1em; text-transform: uppercase;
+    font-weight: 700; cursor: pointer; text-decoration: none; border: none;
+    border: 2px solid transparent;
+    transition: background .2s, color .2s, border-color .2s;
+  }
+  .home-hero__cta--primary {
+    background: var(--accent); color: var(--header-bg);
+    border-color: var(--accent);
+  }
+  .home-hero__cta--primary:hover { filter: brightness(1.12); }
+  .home-hero__cta--ghost {
+    background: transparent; color: #fff;
+    border-color: rgba(255,255,255,.55);
+  }
+  .home-hero__cta--ghost:hover { border-color: #fff; background: rgba(255,255,255,.08); }
 
-        <p class="disclaimer-text">
-            By subscribing, you accept our 
-            <button class="link-btn" onclick="window.viewPage('terms')">Terms</button> &amp; 
-            <button class="link-btn" onclick="window.viewPage('privacy')">Privacy Policy</button>.
-        </p>
+  /* Hero Layout - VIDEO with rounded corners */
+  .home-hero-video {
+    position: relative;
+    border-radius: 24px;
+    overflow: hidden;
+    margin-bottom: 3rem;
+    margin-top: -1.5rem;
+  }
+  
+  .home-hero-video video {
+    width: 100%;
+    height: auto;
+    display: block;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+  }
+  
+  /* Overlay container */
+  .video-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  
+  /* Left upper corner text */
+  .overlay-left-upper {
+    position: absolute;
+    top: 2rem;
+    left: 2rem;
+  }
+  
+  .overlay-left-upper .overlay-tag {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+  }
+  
+  .overlay-left-upper h2 {
+    font-family: var(--font-mono);
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    font-weight: 900;
+    margin-bottom: 1rem;
+    line-height: 1.15;
+    color: white;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  }
+  
+  .overlay-left-upper p {
+    font-size: .95rem;
+    line-height: 1.7;
+    opacity: .85;
+    font-family: var(--font-sans);
+    color: white;
+    text-shadow: 0 1px 5px rgba(0,0,0,0.3);
+    max-width: 400px;
+  }
+  
+  /* Right lower corner - empty */
+  .overlay-right-lower {
+    position: absolute;
+    bottom: 2rem;
+    right: 2rem;
+  }
+  
+  /* Left lower corner button */
+  .overlay-left-lower {
+    position: absolute;
+    bottom: 2rem;
+    left: 2rem;
+  }
+  
+  /* Right upper corner button */
+  .overlay-right-upper {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+  }
+  
+  @media (max-width: 960px) {
+    .overlay-left-upper { top: 1rem; left: 1rem; }
+    .overlay-left-upper h2 { font-size: 1.2rem; }
+    .overlay-left-upper p { font-size: 0.75rem; max-width: 200px; }
+    .overlay-right-upper { top: 1rem; right: 1rem; }
+    .overlay-left-lower { bottom: 1rem; left: 1rem; }
+    .home-hero__cta { padding: 0.5rem 1rem; font-size: 0.7rem; }
+  }
+
+  /* Components Box */
+  .home-components-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .home-components-box__img {
+    width: 100%;
+    aspect-ratio: 4/3;
+    object-fit: cover;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .home-components-box__content {
+    padding: 1.5rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .home-components-box__tag {
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: .5rem;
+  }
+
+  .home-components-box__title {
+    font-family: var(--font-mono);
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: .6rem;
+  }
+
+  .home-components-box__desc {
+    font-size: .88rem;
+    opacity: .72;
+    line-height: 1.6;
+    flex: 1;
+    margin-bottom: 1.2rem;
+    font-family: var(--font-sans);
+  }
+
+  .home-components-box__cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: .65rem 1.3rem;
+    background: var(--accent);
+    color: var(--header-bg);
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: .75rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    font-weight: 700;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: filter .2s;
+  }
+
+  .home-components-box__cta:hover {
+    filter: brightness(1.12);
+  }
+
+  /* Stats */
+  .home-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 3.5rem;
+  }
+  .home-stat {
+    background: var(--bg);
+    padding: 1.4rem 1.5rem;
+    text-align: center;
+  }
+  .home-stat__num {
+    font-family: var(--font-mono);
+    font-size: 2rem; font-weight: 900;
+    color: var(--accent);
+    display: block;
+    line-height: 1;
+    margin-bottom: .3rem;
+  }
+  .home-stat__label {
+    font-size: .75rem; letter-spacing: .1em;
+    text-transform: uppercase; opacity: .55;
+  }
+
+  /* Section labels */
+  .home-section-label {
+    font-family: var(--font-mono);
+    font-size: .7rem; letter-spacing: .2em;
+    text-transform: uppercase; opacity: .45;
+    margin-bottom: .6rem;
+  }
+  .home-section-title {
+    font-family: var(--font-mono);
+    font-size: clamp(1.4rem, 3vw, 2.1rem);
+    font-weight: 900;
+    margin-bottom: .8rem;
+    line-height: 1.1;
+  }
+  .home-section-lead {
+    font-size: 1rem; line-height: 1.7;
+    opacity: .78; max-width: 580px;
+    margin-bottom: 2rem;
+    font-family: var(--font-sans);
+  }
+
+  /* Three-ways grid */
+  .home-ways {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 3.5rem;
+  }
+  .home-way {
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: transform .2s, box-shadow .2s;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    background: var(--bg);
+  }
+  .home-way:hover { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(0,0,0,.2); }
+  .home-way__img-wrap {
+    width: 100%; aspect-ratio: 4/3; overflow: hidden; border-radius: 16px 16px 0 0;
+  }
+  .home-way__img-wrap img {
+    width: 100%; height: 100%; object-fit: cover;
+    transition: transform .35s ease;
+  }
+  .home-way:hover .home-way__img-wrap img { transform: scale(1.05); }
+  .home-way__body { padding: 1.4rem 1.5rem 1.6rem; flex: 1; display: flex; flex-direction: column; }
+  .home-way__tag {
+    font-family: var(--font-mono); font-size: .68rem;
+    letter-spacing: .15em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: .5rem;
+  }
+  .home-way__title {
+    font-family: var(--font-mono); font-size: 1.05rem; font-weight: 700;
+    margin-bottom: .6rem;
+  }
+  .home-way__desc { font-size: .88rem; opacity: .72; line-height: 1.6; flex: 1; margin-bottom: 1rem; font-family: var(--font-sans); }
+  .home-way__price {
+    font-family: var(--font-mono); font-size: 1.15rem; font-weight: 900;
+    color: var(--accent);
+  }
+
+  /* Lifestyle strip */
+  .home-lifestyle {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: .75rem;
+    margin: 3rem 0;
+    border-radius: 16px; overflow: hidden;
+  }
+  .home-lifestyle img {
+    width: 100%; height: 220px; object-fit: cover;
+    transition: transform .4s ease;
+    cursor: pointer;
+  }
+  .home-lifestyle img:hover { transform: scale(1.04); }
+
+  /* USP row */
+  .home-usps {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 3.5rem;
+  }
+  .home-usp {
+    padding: 1.8rem;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(255,255,255,.02) 0%, rgba(255,255,255,.005) 100%);
+    transition: transform .2s, box-shadow .2s;
+  }
+  .home-usp:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(0,0,0,.12);
+  }
+  .home-usp__icon { font-size: 1.8rem; margin-bottom: .8rem; display: block; }
+  .home-usp__title {
+    font-family: var(--font-mono); font-size: .9rem;
+    font-weight: 700; margin-bottom: .5rem;
+  }
+  .home-usp__text { font-size: .82rem; opacity: .68; line-height: 1.55; font-family: var(--font-sans); }
+
+  @media (max-width: 960px) {
+    .home-hero-video {
+      margin-top: 0;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .home-lifestyle { grid-template-columns: 1fr 1fr; }
+    .home-ways { grid-template-columns: 1fr; }
+  }
+</style>
+
+<!-- ── HERO (VIDEO with rounded corners + overlay corners) ── -->
+<div class="home-hero-video">
+  <video autoplay muted loop playsinline>
+    <source src="../../../assets/video/dornori-hero.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+  
+  <div class="video-overlay">
+    <!-- Left Upper Corner: Text -->
+    <div class="overlay-left-upper">
+      <div class="overlay-tag">Rise. Glow. Repeat.</div>
+      <h2>The Lamp You Build<br>Then Take Outside</h2>
+      <p>Star‑A is a battery-powered kinetic outdoor lamp — a rising pole, a glowing head, real electronics. Build it yourself or order it ready-made.</p>
     </div>
+    
+    <!-- Right Upper Corner: Order Ready-Made button -->
+    <div class="overlay-right-upper">
+      <button class="home-hero__cta home-hero__cta--ghost" style="border-color:rgba(255,255,255,0.8); color:#fff;" onclick="window.viewPage('built')">Order Ready-Made — €219</button>
+    </div>
+    
+    <!-- Left Lower Corner: Build Your Own button -->
+    <div class="overlay-left-lower">
+      <button class="home-hero__cta home-hero__cta--primary" onclick="window.viewPage('kit')">Build Your Own — €149</button>
+    </div>
+    
+    <!-- Right Lower Corner: empty -->
+    <div class="overlay-right-lower"></div>
+  </div>
 </div>
 
-<script>
-(function () {
-    var form        = document.getElementById('waitlist-form');
-    var btn         = document.getElementById('sub-btn');
-    var captchaSlot = document.getElementById('captcha-container');
-    var successWrap = document.getElementById('success-container');
-    var widgetId    = null;
+<!-- ── STATS ──────────────────────────────────────────────────────────────── -->
+<div class="home-stats">
+  <div class="home-stat"><span class="home-stat__num">190<span style="font-size:1.1rem">cm</span></span><span class="home-stat__label">Max Height</span></div>
+  <div class="home-stat"><span class="home-stat__num">3×</span><span class="home-stat__label">18650 Cells</span></div>
+  <div class="home-stat"><span class="home-stat__num">22</span><span class="home-stat__label">Printed Parts</span></div>
+  <div class="home-stat"><span class="home-stat__num">0</span><span class="home-stat__label">Soldering Required</span></div>
+  <div class="home-stat"><span class="home-stat__num">2</span><span class="home-stat__label">Lamp Styles</span></div>
+  <div class="home-stat"><span class="home-stat__num">90<span style="font-size:1.1rem">min</span></span><span class="home-stat__label">Build Time</span></div>
+  <div class="home-stat"><span class="home-stat__num">8</span><span class="home-stat__label">Color Schemes</span></div>
+  <div class="home-stat"><span class="home-stat__num">12<span style="font-size:1.1rem">+hrs</span></span><span class="home-stat__label">Runtime</span></div>
+  <div class="home-stat"><span class="home-stat__num">1</span><span class="home-stat__label">Base Included</span></div>
+  <div class="home-stat"><span class="home-stat__num">2</span><span class="home-stat__label">Year Warranty</span></div>
+</div>
 
-    var sitekey  = CONFIG.turnstile.sitekey;
-    var endpoint = CONFIG.queue.endpoint;
+<!-- ── THREE WAYS ─────────────────────────────────────────────────────────── -->
+<p class="home-section-label">How to get yours</p>
+<h2 class="home-section-title">Three Ways to Own a Star&#8209;A</h2>
+<p class="home-section-lead">Same kinetic lamp, same electronics, same outdoor performance. Choose the experience that fits you.</p>
 
-    async function submit(token) {
-        btn.textContent = '…';
-        btn.disabled    = true;
-        var email = form.querySelector('input[name="email"]').value.trim();
-        try {
-            await fetch(endpoint, {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ category: 'newsletter', email: email, cfTurnstileToken: token })
-            });
-        } finally {
-            form.style.display = 'none';
-            successWrap.classList.remove('hidden');
-        }
-    }
+<div class="home-ways">
+  <div class="home-way" onclick="window.viewPage('built')" style="cursor: pointer;">
+    <div class="home-way__img-wrap">
+      <img src="/sandbox/assets/images/UFO-product/dornori-UFO-lamp-extruded-color-spaceblue.jpg"
+           alt="Pre-assembled Star-A lamp" loading="lazy">
+    </div>
+    <div class="home-way__body">
+      <span class="home-way__tag">Ready-Made</span>
+      <p class="home-way__title">Pre-Assembled</p>
+      <p class="home-way__desc">Fully built, tested, and ready to use. Batteries in, switch on, lamp rises. Choose your colour and style.</p>
+      <span class="home-way__price">from €219</span>
+    </div>
+  </div>
+  <div class="home-way" onclick="window.viewPage('kit')" style="cursor: pointer;">
+    <div class="home-way__img-wrap">
+      <img src="/sandbox/assets/images/prints/Kit-cutting_mat.jpg"
+           alt="Star-A complete build kit" loading="lazy">
+    </div>
+    <div class="home-way__body">
+      <span class="home-way__tag">Most Popular</span>
+      <p class="home-way__title">Complete Build Kit</p>
+      <p class="home-way__desc">Pre-printed parts + full electronics. Wire it, assemble it, take it outside — no printer, no soldering.</p>
+      <span class="home-way__price">from €149</span>
+    </div>
+  </div>
+  <div class="home-way" onclick="window.viewPage('files')" style="cursor: pointer;">
+    <div class="home-way__img-wrap">
+      <img src="/sandbox/assets/images/prints/stl-preview.jpg"
+           alt="3D print files for Star-A" loading="lazy">
+    </div>
+    <div class="home-way__body">
+      <span class="home-way__tag">Maker Edition</span>
+      <p class="home-way__title">3D Print Files</p>
+      <p class="home-way__desc">Print every part yourself. Your filament, your colours, your layer lines. Full STL, OBJ, and 3MF files.</p>
+      <span class="home-way__price">Free download</span>
+    </div>
+  </div>
+</div>
 
-    form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        btn.textContent = 'VERIFYING…';
+<!-- ── USPs ───────────────────────────────────────────────────────────────── -->
+<div class="home-usps" style="margin-top:3.5rem;">
+  <div class="home-usp"><span class="home-usp__icon">⚡</span><p class="home-usp__title">Real Electronics</p><p class="home-usp__text">DC motor, Wago connectors, lever switch — the same component classes as automotive and home appliances.</p></div>
+  <div class="home-usp"><span class="home-usp__icon">🔧</span><p class="home-usp__title">Fully Repairable</p><p class="home-usp__text">Every part sold separately. Nothing proprietary. Nothing requires coming back to us for replacement.</p></div>
+  <div class="home-usp"><span class="home-usp__icon">🌿</span><p class="home-usp__title">Designed for Outdoors</p><p class="home-usp__text">Battery-powered, fully portable. No mains, no cables. Beach, park, garden, camping.</p></div>
+  <div class="home-usp"><span class="home-usp__icon">📂</span><p class="home-usp__title">Open Files</p><p class="home-usp__text">STL, OBJ, 3MF, schematics, wiring diagrams — available for every builder who wants to go further.</p></div>
+</div>
 
-        if (widgetId !== null) {
-            window.turnstile.reset(widgetId);
-            return;
-        }
+<!-- ── LIFESTYLE GALLERY ───────────────────────────────────────────────────── -->
+<div class="home-lifestyle">
+  <img src="/sandbox/assets/images/horizontal/dornori-lamp-lakeside-night.jpg" alt="Star-A at the lakeside at night" loading="lazy">
+  <img src="/sandbox/assets/images/horizontal/dornori-star-a-park-family-evening.jpg" alt="Family with Star-A in park evening" loading="lazy">
+  <img src="/sandbox/assets/images/horizontal/couple-lake-light.jpg" alt="Couple by the lake with lamp" loading="lazy">
+  <img src="/sandbox/assets/images/horizontal/dornori-lamp-urban-city-park.jpg" alt="Star-A in urban city park" loading="lazy">
+</div>
 
-        widgetId = window.turnstile.render(captchaSlot, {
-            sitekey:            sitekey,
-            theme:              'auto',
-            callback:           function (token) { submit(token); },
-            'expired-callback': function ()      { btn.textContent = 'JOIN'; btn.disabled = false; },
-            'error-callback':   function ()      { btn.textContent = 'RETRY'; btn.disabled = false; }
-        });
-    });
-})();
-</script>
+<!-- ── ABOUT TEASER ───────────────────────────────────────────────────────── -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:center;margin-bottom:1.5rem;" class="home-about-grid">
+  <div>
+    <p class="home-section-label">About Dornori</p>
+    <h2 class="home-section-title">Born at the Beach,<br>Built for Everywhere</h2>
+    <p style="font-size:.97rem;line-height:1.75;opacity:.78;margin-bottom:1.5rem;">Dornori started with a simple problem: a group of friends on the beach, no light that didn't break the mood. Star&#8209;A is the answer — portable, beautiful, made to be built and taken anywhere.</p>
+  </div>
+  <div>
+    <img src="/sandbox/assets/images/horizontal/dornori-star-a-park-family-night.jpg"
+         alt="Family using Star-A lamp at night in park"
+         style="width:100%;border-radius:16px;aspect-ratio:4/3;object-fit:cover;" loading="lazy">
+  </div>
+</div>
+
+<!-- ── OUR STORY BUTTON (FULL WIDTH) ───────────────────────────────────────── -->
+<div style="margin-bottom:3.5rem;">
+  <button class="home-hero__cta home-hero__cta--ghost" style="border-color:var(--border);color:var(--text);" onclick="window.viewPage('about')">Our Story →</button>
+</div>
+
+<style>
+  @media (max-width: 640px) {
+    .home-about-grid { grid-template-columns: 1fr !important; }
+  }
+</style>
