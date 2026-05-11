@@ -1,5 +1,6 @@
 import { loadScript } from './utils/script-loader.js';
 
 export async function initShop() {
-  await loadScript('js/shop-config.js', { type: 'module' });
+  const BASE_PATH = window.__BASE_PATH__ || '/';
+  await loadScript(BASE_PATH + 'js/shop-config.js', { type: 'module' });
 }

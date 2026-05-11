@@ -11,8 +11,8 @@
  * To add real FX rates: extend _loadRates() to fetch a rates API.
  */
 
-import { escapeHTML } from '../utils/dom-safe.js';
-import ENV_CONFIG from '../env-config.js';
+import { escapeHTML } from './utils/dom-safe.js';
+import ENV_CONFIG from './env-config.js';
 
 const Currency = (() => {
   // Supported currencies. EUR is always present (base currency).

@@ -11,7 +11,7 @@
  * FIX: CONFIG.supportedLanguages is populated here from shipping.json active countries.
  */
 
-import { setTextContent } from '../utils/dom-safe.js';
+import { setTextContent } from './utils/dom-safe.js';
 
 const Shipping = (() => {
   // Defaults from CONFIG.shipping (set in shop-config.js) — used as fallback

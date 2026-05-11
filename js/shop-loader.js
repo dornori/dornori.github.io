@@ -20,10 +20,11 @@ let _shopModulesLoaded = false;
 export async function loadShopModules() {
   if (_shopModulesLoaded) return;
   // Load config first (sets window.CONFIG), then the shop engine
-  await loadScript('js/shop-config.js',    { type: 'module' });
-  await loadScript('js/modules/shipping.js', { type: 'module' });
-  await loadScript('js/modules/currency.js', { type: 'module' });
-  await loadScript('js/shop.js',           { type: 'module' });
+  const BASE_PATH = window.__BASE_PATH__ || '/';
+  await loadScript(BASE_PATH + 'js/shop-config.js',    { type: 'module' });
+  await loadScript(BASE_PATH + 'js/modules/shipping.js', { type: 'module' });
+  await loadScript(BASE_PATH + 'js/modules/currency.js', { type: 'module' });
+  await loadScript(BASE_PATH + 'js/shop.js',           { type: 'module' });
   _shopModulesLoaded = true;
 
   // Initialise modules now that they're loaded
