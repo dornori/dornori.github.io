@@ -10,6 +10,7 @@
  */
 
 import SITE_CONFIG from './config.js';
+import ENV_CONFIG from './env-config.js';
 
 /* ─── HTML template ────────────────────────────────────────────────────────── */
 function buildFormHTML(uid) {
@@ -139,7 +140,7 @@ async function executeSubmission(btn, onSuccess) {
             throw new Error(response.status);
         }
     } catch (err) {
-        console.error('Queue error submitting newsletter:', err);
+        if (ENV_CONFIG.DEBUG) console.error('Queue error submitting newsletter:', err);
         btn.textContent = 'JOIN';
         onSuccess();
     }

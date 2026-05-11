@@ -1,5 +1,6 @@
 // Dornori Support System - With Redirect on Resolution
 import SITE_CONFIG from './config.js';
+import ENV_CONFIG from './env-config.js';
 
 let currentData = null;
 let currentCategory = null;
@@ -43,7 +44,7 @@ async function loadFormData() {
 
     renderCategories();
   } catch (error) {
-    console.error("Error:", error);
+    if (ENV_CONFIG.DEBUG) console.error("Error:", error);
     document.getElementById('loadingIndicator').innerHTML = `
       <i class="fas fa-exclamation-triangle text-3xl text-red-500"></i>
       <p class="mt-2">Failed to load support data.</p>
@@ -198,7 +199,7 @@ document.getElementById('supportForm')?.addEventListener('submit', async functio
       throw new Error("Server error");
     }
   } catch (err) {
-    console.error(err);
+    if (ENV_CONFIG.DEBUG) console.error(err);
     showToast(`Failed to send. Please try again or email ${SITE_CONFIG.endpoints.supportEmail} directly.`, 4000);
     submitBtn.disabled = false;
     submitBtn.innerHTML = originalText;

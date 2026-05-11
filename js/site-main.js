@@ -3,6 +3,7 @@
  */
 
 import SITE_CONFIG          from './config.js';
+import ENV_CONFIG           from './env-config.js';
 import { initI18n } from './i18n.js';
 import { initNavigation }   from './nav-loader.js';
 import { initStickyBanner } from './sticky-banner.js';
@@ -54,14 +55,11 @@ async function loadAndCacheCountries() {
         
         return countries;
     } catch (e) {
-        console.error('[site-main] Failed to load countries.json:', e);
+        if (ENV_CONFIG.DEBUG) console.error('[site-main] Failed to load countries.json:', e);
         return [];
     }
 }
 
-/**
- * Extract unique active languages from countries data (single source of truth)
- */
 /**
  * Extract unique active languages from countries data.
  * Labels and flags come from language_label / language_flag fields on the
@@ -72,7 +70,6 @@ function extractLanguages(countries) {
     const languagesMap = new Map();
 
     // First pass: collect label/flag from canonical country entries
-    // (those that carry language_label, set on the most-recognisable country per language)
     const langMeta = {};
     countries.forEach(country => {
         if (country.language_label && country.language_flag && country.language) {
@@ -120,7 +117,7 @@ async function loadDynamicConfig() {
         const profilesRes = await fetch(basePath + SITE_CONFIG.paths.profiles_file);
         SITE_CONFIG.profiles = await profilesRes.json();
     } catch (e) {
-        console.error('[site-main] Failed to load profiles.json:', e);
+        if (ENV_CONFIG.DEBUG) console.error('[site-main] Failed to load profiles.json:', e);
         // Fallback to default profiles
         SITE_CONFIG.profiles = ['dark', 'light', 'cutting-mat', 'cutting-blue'];
     }
@@ -152,4 +149,6 @@ async function init() {
     initPageLoader();
 }
 
-init().catch(err => console.error('[site-main] Init error:', err));
+init().catch(err => {
+    if (ENV_CONFIG.DEBUG) console.error('[site-main] Init error:', err);
+});

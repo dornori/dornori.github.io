@@ -6,6 +6,8 @@
      lang/{lang}/products.json — product text
    ========================================================= */
 
+import ENV_CONFIG from './env-config.js';
+
 const Shop = (() => {
   let LANG = {};
   let PRODUCT_LANG    = {};
@@ -143,7 +145,7 @@ const Shop = (() => {
     } catch (e) {
       // Handle quota exceeded or private browsing
       if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_FILE_CORRUPTED') {
-        console.warn('[shop] localStorage quota exceeded or unavailable:', e);
+        if (ENV_CONFIG.DEBUG) console.warn('[shop] localStorage quota exceeded or unavailable:', e);
         toast("Storage unavailable - your cart may not persist", 3000);
       }
     }
@@ -256,7 +258,7 @@ const Shop = (() => {
     try {
       all = await fetch(src).then(r => { if (!r.ok) throw 0; return r.json(); });
     } catch(e) {
-      console.warn('Failed to load base products from', src);
+      if (ENV_CONFIG.DEBUG) console.warn('Failed to load base products from', src);
       return [];
     }
     
@@ -294,7 +296,7 @@ const Shop = (() => {
     try {
       all = await fetch(src).then(r => { if (!r.ok) throw 0; return r.json(); });
     } catch(e) {
-      console.warn('Failed to load base products from', src);
+      if (ENV_CONFIG.DEBUG) console.warn('Failed to load base products from', src);
       return null;
     }
     
@@ -889,7 +891,7 @@ const Shop = (() => {
       total_eur: "€"+totals.total.toFixed(2), total_display: fmt(totals.total),
       total_weight: fmtWeight(totals.totalWeight||0),
     };
-    try { const ok = await sendToQueue("payment-pending", data); return ok; } catch(e) { console.warn("Queue failed",e); return false; }
+    try { const ok = await sendToQueue("payment-pending", data); return ok; } catch(e) { if (ENV_CONFIG.DEBUG) console.warn("Queue failed",e); return false; }
   }
   
   async function submitOrderStatus(orderRef, status) {

@@ -3,6 +3,7 @@
  */
 
 import SITE_CONFIG from './config.js';
+import ENV_CONFIG  from './env-config.js';
 
 const STORAGE_KEY = SITE_CONFIG.storageKeys.lang;
 const BASE        = () => SITE_CONFIG.appearance.base_path;
@@ -116,7 +117,7 @@ export function setStoredLanguage(lang) {
 // ── HREFLANG ─────────────────────────────────────────────────────────────────
 
 export function injectHreflangTags(slug, langData) {
-    const languages = getSupportedLanguages(); // Use fallback if needed
+    const languages = getSupportedLanguages();
     const root      = SITE_CONFIG.appearance.root_url;
     document.querySelectorAll('link[rel="alternate"][hreflang]').forEach(el => el.remove());
     languages.forEach(({ code, hreflang }) => {
@@ -138,7 +139,7 @@ export function injectHreflangTags(slug, langData) {
 // ── LANGUAGE DETECTION ────────────────────────────────────────────────────────
 
 function detectLang() {
-    const languages = getSupportedLanguages(); // Use fallback if needed
+    const languages = getSupportedLanguages();
     const supported = new Set(languages.map(l => l.code));
 
     const pageLang = window.__PAGE_LANG__;
@@ -174,8 +175,9 @@ window.setLang = async (code) => {
     if (typeof Shop !== 'undefined' && typeof Shop.switchLanguage === 'function') {
         try {
             await Shop.switchLanguage(code);
-            // switchLanguage dispatches shop:langChanged which triggers cart panel re-render
-        } catch (e) { console.warn('[i18n] Shop.switchLanguage failed:', e); }
+        } catch (e) {
+            if (ENV_CONFIG.DEBUG) console.warn('[i18n] Shop.switchLanguage failed:', e);
+        }
     }
 
     const slug = window.CURRENT_SLUG || '';
