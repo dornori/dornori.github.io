@@ -7,4 +7,4 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-await loadScript('./site-main.js', { type: 'module' });
+await loadScript('../js/site-main.js', { type: 'module' });
