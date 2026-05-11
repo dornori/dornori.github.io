@@ -1,7 +1,7 @@
 const CACHE_NAME = 'dornori-v1';
 const URLS_TO_CACHE = [
   '/',
-  '/index.html',
+  '/index-test.html',
   '/js/dist/site-bundle.min.js',
   '/js/dist/shop-bundle.min.js',
   '/css/main.min.css',
