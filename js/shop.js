@@ -7,6 +7,10 @@
    ========================================================= */
 
 import ENV_CONFIG from './env-config.js';
+// FIX: sendToQueue was used bare on line ~896 but never imported.
+// shop-config.js sets window.sendToQueue, but as an ES module shop.js
+// doesn't see globals until after DOMContentLoaded; a direct import is safer.
+import { sendToQueue } from './modules/queue-sender.js';
 
 const Shop = (() => {
   let LANG = {};
@@ -887,7 +891,7 @@ const Shop = (() => {
     const filtered = {}; Object.entries(formData).forEach(([k,v]) => { if (v!=null&&v!=="") filtered[k]=v; });
     const data = {
       _subject: `New Order ${orderRef}`, order_ref: orderRef, status: "PENDING_PAYMENT",
-      display_currency: CONFIG.currencyCode, ...filtered, cart_items: cartSummary,
+      display_currency: CONFIG.currencyCode || CONFIG.baseCurrency || 'EUR', ...filtered, cart_items: cartSummary,
       subtotal_eur: "€"+totals.subtotal.toFixed(2), subtotal_display: fmt(totals.subtotal),
       tax: fmt(totals.tax), shipping: totals.isFreeShipping?"FREE":fmt(totals.shipping),
       total_eur: "€"+totals.total.toFixed(2), total_display: fmt(totals.total),

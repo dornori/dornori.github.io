@@ -63,7 +63,44 @@ const SITE_CONFIG = {
         redirectMessage: '✓ Issue resolved! Redirecting...',
     },
 
-    pages: {},
+    /**
+     * FIX: pages was empty {} — viewPage(slug) always silently returned.
+     * Every slug listed in lang/en/common.json url_slugs needs an entry here
+     * so the SPA can load the matching content/[lang]/[file].html fragment.
+     *
+     * Shape: { [canonicalSlug]: { file: '<filename>.html' } }
+     * `file` is relative to content/[lang]/ and must match the actual file name.
+     */
+    pages: {
+        'about':               { file: 'about.html' },
+        'built':               { file: 'built.html' },
+        'cart':                { file: 'cart.html' },
+        'children':            { file: 'children.html' },
+        'contact':             { file: 'contact.html' },
+        'cookies':             { file: 'cookies.html' },
+        'files':               { file: 'files.html' },
+        'gallery':             { file: 'gallery.html' },
+        'imprint':             { file: 'imprint.html' },
+        'kit':                 { file: 'kit.html' },
+        'mission-statement':   { file: 'mission-statement.html' },
+        'parts':               { file: 'parts.html' },
+        'privacy':             { file: 'privacy.html' },
+        'product':             { file: 'product.html' },
+        'replacement-parts':   { file: 'replacement-parts.html' },
+        'returns':             { file: 'returns.html' },
+        'security':            { file: 'security.html' },
+        'shop':                { file: 'shop.html' },
+        'success':             { file: 'success.html' },
+        'support':             { file: 'support.html' },
+        'terms':               { file: 'terms.html' },
+        // aliases used by content/ but not in url_slugs — kept for direct access
+        'about-us':            { file: 'about-us.html' },
+        'complete-assembly-kit':  { file: 'complete-assembly-kit.html' },
+        'electronics-bundle':     { file: 'electronics-bundle.html' },
+        'pre-assembled-kit':      { file: 'pre-assembled-kit.html' },
+        'pre-printed-parts-kit':  { file: 'pre-printed-parts-kit.html' },
+        'form':                { file: 'form.html' },
+    },
 
     socials: [
         { id: 'ig',  base: 'https://instagram.com/', user: 'dornori' },
@@ -83,7 +120,7 @@ const SITE_CONFIG = {
             links: [
                 { slug: 'about',   label: 'About',   enabled: true },
                 { slug: 'contact', label: 'Contact', enabled: true },
-                { slug: 'faq',     label: 'FAQ',     enabled: true },
+                { slug: 'support', label: 'Support', enabled: true },
             ],
         },
         {

@@ -1,5 +1,5 @@
 /* =========================================================
-   WEBSHOP CONFIG  –  shop-config.js  (v4 - FIXED)
+   WEBSHOP CONFIG  –  shop-config.js  (v5 - FIXED)
    =========================================================
    RULES FOR THIS FILE:
    · Human-readable parameters ONLY — no executable code.
@@ -23,11 +23,24 @@ const CONFIG = {
   /* ── Base currency (always EUR internally) ─────────── */
   baseCurrency: "EUR",
 
+  /* ── FIX: currencyCode was missing; shop.js line 890 uses it.
+   *    Defaults to EUR; Currency module may override at runtime. */
+  currencyCode: "EUR",
+
   /* ── Language defaults ─────────────────────────────── */
   /* Supported languages are auto-derived from shipping.json at runtime.
    * defaultLanguage is the final fallback.
    */
   defaultLanguage: "en",
+
+  /* ── FIX: supportedLanguages was missing; shop.js lines 23/32 use it.
+   *    This list is a safe bootstrap fallback — the Shipping module
+   *    overwrites it at runtime with the live shipping.json language list. */
+  supportedLanguages: ["en", "nl", "de", "fr", "es", "it", "pt", "cs"],
+
+  /* ── FIX: basePath was missing; shop.js line 37 reads CONFIG.basePath.
+   *    Reads from the same global the parent site sets, or defaults to '/'. */
+  basePath: window.__BASE_PATH__ || '/',
 
   /* ── localStorage key names ────────────────────────── */
   storageKeys: {
@@ -75,6 +88,9 @@ const CONFIG = {
     shippingJson:  "data/shipping.json",
     langDir:       "lang/",
     productsJson:  "data/products.json",
+    /* FIX: basePath here was referenced by shop.js line 566 via CONFIG.data?.basePath.
+     *      Keep it in sync with the top-level basePath above. */
+    basePath:      window.__BASE_PATH__ || '/',
   },
 
   /* ── Modules to load ───────────────────────────────── */
