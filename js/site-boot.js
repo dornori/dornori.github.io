@@ -7,4 +7,10 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-await loadScript('../js/site-main.js', { type: 'module' });
+// Determine correct path to site-main.js - works from root or subdirectories
+const path = window.location.pathname;
+const parts = path.split('/').filter(p => p);
+const isSubdirectory = parts.length > 0 && ['en', 'de', 'nl', 'no', 'fr', 'es', 'it', 'pt', 'cs'].includes(parts[0]);
+const siteMainPath = isSubdirectory ? '../js/site-main.js' : 'js/site-main.js';
+
+await loadScript(siteMainPath, { type: 'module' });
