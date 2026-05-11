@@ -1,71 +1,115 @@
-import { escapeHTML } from '../utils/dom-safe.js';
-import ENV_CONFIG from '../env-config.js';
+/* =========================================================
+   WEBSHOP — Currency Module  (js/modules/currency.js)
+   Reads:  CONFIG.data.countriesJson  (data/countries.json)
+   Derives unique currency list from country entries.
+   Emits:  CustomEvent "currency:changed" { detail: { code } }
+   ========================================================= */
 
 const Currency = (() => {
-  // FIX #3: Provide a static fallback rate table so conversion works without
-  // a live API. init() will attempt to fetch live rates and overwrite these.
-  let _rates = {
-    EUR: { rate: 1,      symbol: '€',  locale: 'de-DE' },
-    USD: { rate: 1.09,   symbol: '$',  locale: 'en-US' },
-    GBP: { rate: 0.86,   symbol: '£',  locale: 'en-GB' },
-    CHF: { rate: 0.98,   symbol: 'Fr', locale: 'de-CH' },
-    SEK: { rate: 11.3,   symbol: 'kr', locale: 'sv-SE' },
-    NOK: { rate: 11.8,   symbol: 'kr', locale: 'nb-NO' },
-    DKK: { rate: 7.46,   symbol: 'kr', locale: 'da-DK' },
-    PLN: { rate: 4.31,   symbol: 'zł', locale: 'pl-PL' },
-    CZK: { rate: 25.2,   symbol: 'Kč', locale: 'cs-CZ' },
-    HUF: { rate: 393,    symbol: 'Ft', locale: 'hu-HU' },
-  };
-  let _active = 'EUR';
-  let _loaded = false;
+  let _rates       = {};
+  let _loaded      = false;
+  let _active      = 'EUR';
+  let _initPromise = null;
 
-  // FIX #3: Detect currency from IP geolocation and set _active accordingly.
+  async function load() {
+    if (_loaded) return;
+    try {
+      const res      = await fetch(CONFIG.data.countriesJson);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const countries = await res.json();
+
+      const seen = new Set();
+      countries.forEach(c => {
+        if (c.currency && c.currency_symbol && !seen.has(c.currency)) {
+          seen.add(c.currency);
+          _rates[c.currency] = {
+            symbol:   c.currency_symbol,
+            name:     c.currency_name     || c.currency,
+            rate:     c.currency_rate_to_eur || 1,
+            buffer:   0,
+            decimals: c.currency_decimals !== undefined ? c.currency_decimals : 2,
+            locale:   c.currency_locale   || 'en-US',
+          };
+        }
+      });
+
+      if (!_rates['EUR']) {
+        _rates['EUR'] = { symbol: '€', name: 'Euro', rate: 1, buffer: 0, decimals: 2, locale: 'de-DE' };
+      }
+      _loaded = true;
+    } catch (e) {
+      console.warn('[Currency] Could not load from countries.json — EUR fallback.', e);
+      _rates  = { EUR: { symbol: '€', name: 'Euro', rate: 1, buffer: 0, decimals: 2, locale: 'de-DE' } };
+      _loaded = true;
+    }
+  }
+
   async function detectFromIP() {
     try {
       if (!window.__geoData) {
-        window.__geoData = await fetch(ENV_CONFIG.GEO_API).then(r => r.json());
+        window.__geoData = await fetch('https://ipapi.co/json/').then(r => r.json());
       }
       const data = window.__geoData;
-      if (data && data.currency && _rates[data.currency]) {
-        return data.currency;
-      }
-    } catch (e) {
-      if (ENV_CONFIG.DEBUG) console.warn('[Currency] IP detect failed.', e);
-    }
+      if (data.currency && _rates[data.currency]) return data.currency;
+    } catch { console.warn('[Currency] IP detect failed.'); }
     return 'EUR';
   }
 
-  return {
-    // FIX #3: Implement init() — detect currency from IP, dispatch event so UI refreshes.
-    async init() {
-      _active = await detectFromIP();
-      _loaded = true;
-      document.dispatchEvent(new CustomEvent('currency:changed', { detail: { code: _active } }));
-    },
+  function convert(eurAmount, code = _active) {
+    const c = _rates[code];
+    if (!c) return eurAmount;
+    return eurAmount * (c.rate + (c.buffer || 0));
+  }
 
-    setActive(code) {
-      if (!_rates[code]) return;
-      _active = code;
-      document.dispatchEvent(new CustomEvent('currency:changed', { detail: { code } }));
-    },
+  function fmt(eurAmount, code = _active) {
+    if (!_loaded || !Object.keys(_rates).length) return '€\u00A0' + eurAmount.toFixed(2);
+    const c = _rates[code] || _rates['EUR'];
+    if (!c) return '€\u00A0' + eurAmount.toFixed(2);
+    const val = convert(eurAmount, code);
+    let symbol = c.symbol;
+    if (symbol && symbol.includes('&')) {
+      const ta = document.createElement('textarea');
+      ta.innerHTML = symbol;
+      symbol = ta.value;
+    }
+    return symbol + '\u00A0' + val.toFixed(c.decimals);
+  }
 
-    getActive() { return _active; },
+  function setActive(code) {
+    if (!_rates[code]) { console.warn('[Currency] Unknown code:', code); code = 'EUR'; }
+    _active = code;
+    localStorage.setItem(CONFIG.storageKeys.currencyKey, code);
+    document.dispatchEvent(new CustomEvent('currency:changed', { detail: { code } }));
+  }
 
-    getSupportedCodes() { return Object.keys(_rates); },
+  function list()      { return Object.entries(_rates).map(([code, c]) => ({ code, ...c })); }
+  function getActive() { return _active; }
+  function getRates()  { return _rates; }
+  function isReady()   { return _loaded && !!_rates[_active]; }
 
-    // FIX #3: Actually convert the EUR amount and display the correct symbol.
-    format(eurAmount, code) {
-      const targetCode = code || _active;
-      const entry = _rates[targetCode] || _rates['EUR'];
-      const converted = eurAmount * entry.rate;
-      let symbol = entry.symbol;
-      // Escape symbol only if it contains HTML entities
-      if (symbol && symbol.includes('&')) {
-        symbol = escapeHTML(symbol);
+  async function init() {
+    if (_initPromise) return _initPromise;
+    _initPromise = (async () => {
+      await load().catch(e => {
+        console.warn('[Currency] Init failed, EUR fallback', e);
+        _rates['EUR'] = { symbol: '€', name: 'Euro', rate: 1, buffer: 0, decimals: 2, locale: 'de-DE' };
+        _loaded = true;
+      });
+      const saved = localStorage.getItem(CONFIG.storageKeys.currencyKey);
+      if (saved && _rates[saved]) {
+        setActive(saved);
+      } else {
+        setActive('EUR');
+        detectFromIP().then(code => {
+          if (code && _rates[code] && code !== _active) setActive(code);
+        }).catch(() => {});
       }
-      return symbol + '\u00a0' + converted.toFixed(2);
-    },
-  };
-})();
+      return _active;
+    })();
+    return _initPromise;
+  }
 
-export default Currency;
+  async function waitForReady() { await init(); return isReady(); }
+
+  return { load, init, waitForReady, detect: detectFromIP, convert, fmt, setActive, getActive, list, getRates, isReady };
+})();

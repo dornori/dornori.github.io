@@ -11,7 +11,7 @@
                                but safe to call again after dynamic HTML is added
    ========================================================= */
 
-import ENV_CONFIG from './env-config.js';
+
 
 const ProductViewer = (() => {
   let _overlay      = null;
@@ -345,7 +345,7 @@ const ProductViewer = (() => {
   function openViewer(productId) {
     ensureLoaded().then(() => {
       const product = _allProducts[productId];
-      if (!product) { if (ENV_CONFIG.DEBUG) console.warn("[ProductViewer] Unknown product:", productId); return; }
+      if (!product) { console.warn('[ProductViewer] Unknown product:', productId); return; }
 
       if (!_overlay) _overlay = createOverlay();
 

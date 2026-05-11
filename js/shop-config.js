@@ -1,18 +1,14 @@
 /* =========================================================
-   WEBSHOP CONFIG  –  shop-config.js  (v5 - FIXED)
+   WEBSHOP CONFIG  –  shop-config.js  (v5 - plain script)
    =========================================================
    RULES FOR THIS FILE:
-   · Human-readable parameters ONLY — no executable code.
+   · Loaded as a plain (non-module) script by site-boot.js.
+   · No import/export statements.
    · All logic (Currency, Shipping, Payment modules) lives
      in their own .js files under js/modules/.
    · Supported languages are derived at runtime from the
      shipping.json country list (see js/modules/shipping.js).
-   · Supported countries for the shipping form come from
-     shipping.json — do NOT maintain a separate list here.
    ========================================================= */
-
-import ENV_CONFIG from './env-config.js';
-import { sendToQueue } from './modules/queue-sender.js';
 
 const CONFIG = {
 
@@ -23,23 +19,17 @@ const CONFIG = {
   /* ── Base currency (always EUR internally) ─────────── */
   baseCurrency: "EUR",
 
-  /* ── FIX: currencyCode was missing; shop.js line 890 uses it.
-   *    Defaults to EUR; Currency module may override at runtime. */
+  /* ── FIX: currencyCode was missing; shop.js line 890 uses it. */
   currencyCode: "EUR",
 
   /* ── Language defaults ─────────────────────────────── */
-  /* Supported languages are auto-derived from shipping.json at runtime.
-   * defaultLanguage is the final fallback.
-   */
   defaultLanguage: "en",
 
-  /* ── FIX: supportedLanguages was missing; shop.js lines 23/32 use it.
-   *    This list is a safe bootstrap fallback — the Shipping module
-   *    overwrites it at runtime with the live shipping.json language list. */
+  /* ── FIX: supportedLanguages was missing; shop.js uses it.
+   * Bootstrap fallback — Shipping module overwrites at runtime. */
   supportedLanguages: ["en", "nl", "de", "fr", "es", "it", "pt", "cs"],
 
-  /* ── FIX: basePath was missing; shop.js line 37 reads CONFIG.basePath.
-   *    Reads from the same global the parent site sets, or defaults to '/'. */
+  /* ── FIX: basePath was missing; shop.js reads CONFIG.basePath. */
   basePath: window.__BASE_PATH__ || '/',
 
   /* ── localStorage key names ────────────────────────── */
@@ -56,25 +46,19 @@ const CONFIG = {
     showCurrencySelector: true,
   },
 
-  /* ── Image naming convention ─────────────────────────
-   * Format: <imageDir><productId>_<variantId>_<colorSlug>.<imageExt>
-   * If variant.image is set in the product JSON, that takes priority.
-   */
+  /* ── Image naming convention ─────────────────────────*/
   images: {
     imageExt: "webp",
     imageDir: "images/products/",
   },
 
   /* ── Tax ───────────────────────────────────────────── */
-  taxRate:            0.21,   /* NL standard rate */
+  taxRate:            0.21,
   taxLabel:           "VAT (21%)",
   taxExemptCountries: [],
   businessVatExempt:  false,
 
   /* ── Shipping defaults ─────────────────────────────── */
-  /* These are overridden at runtime by shipping.json values.
-   * They serve as safe fallbacks if shipping.json cannot be fetched.
-   */
   shipping: {
     freeThreshold: 150,
     base:          8.50,
@@ -85,12 +69,9 @@ const CONFIG = {
 
   /* ── Data file paths ───────────────────────────────── */
   data: {
-    shippingJson:  "data/shipping.json",
-    langDir:       "lang/",
-    productsJson:  "data/products.json",
-    /* FIX: basePath here was referenced by shop.js line 566 via CONFIG.data?.basePath.
-     *      Keep it in sync with the top-level basePath above. */
-    basePath:      window.__BASE_PATH__ || '/',
+    shippingJson:    "data/shipping.json",
+    langDir:         "lang/",
+    productsJson:    "data/products.json",
   },
 
   /* ── Modules to load ───────────────────────────────── */
@@ -105,15 +86,15 @@ const CONFIG = {
     activeProcessor: "paypal",
 
     paypal: {
-      clientId:   ENV_CONFIG.PAYPAL_CLIENT_ID,
-      currency:   "EUR",
-      intent:     "capture",
+      clientId:  "",
+      currency:  "EUR",
+      intent:    "capture",
       returnPath: "/success.html",
       cancelPath: "/cart.html",
     },
 
     stripe: {
-      publishableKey:  ENV_CONFIG.STRIPE_KEY,
+      publishableKey:  "pk_test_SAMPLE_STRIPE_PUBLISHABLE_KEY",
       currency:        "eur",
       intentEndpoint:  "",
       returnPath:      "/success.html",
@@ -132,18 +113,30 @@ const CONFIG = {
 
   /* ── Email queue ───────────────────────────────────── */
   queue: {
-    endpoint: ENV_CONFIG.API_ENDPOINT,
+    endpoint: (typeof globalThis !== 'undefined' && globalThis.__ENV_API_ENDPOINT__)
+              || 'https://edge-form-handler-api.dornori-info.workers.dev',
   },
 
   /* ── Bot protection (Cloudflare Turnstile) ─────────── */
   turnstile: {
-    sitekey: ENV_CONFIG.TURNSTILE_KEY,
+    sitekey: (typeof globalThis !== 'undefined' && globalThis.__ENV_TURNSTILE_KEY__)
+             || '0x4AAAAAACxsga5y-bJ_qkzC',
   },
 
 };
 
+/* ── Queue sender (available globally to shop.js and cart pages) ─────────── */
+async function sendToQueue(category, data, isTest = false) {
+  const payload = { category, ...data };
+  if (isTest) payload.test = true;
+  const response = await fetch(CONFIG.queue.endpoint, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(payload),
+  });
+  await response.text();
+  return response.ok;
+}
+
 window.CONFIG      = CONFIG;
 window.sendToQueue = sendToQueue;
-
-export default CONFIG;
-export { sendToQueue };

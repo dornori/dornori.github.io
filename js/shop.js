@@ -6,12 +6,6 @@
      lang/{lang}/products.json — product text
    ========================================================= */
 
-import ENV_CONFIG from './env-config.js';
-// FIX: sendToQueue was used bare on line ~896 but never imported.
-// shop-config.js sets window.sendToQueue, but as an ES module shop.js
-// doesn't see globals until after DOMContentLoaded; a direct import is safer.
-import { sendToQueue } from './modules/queue-sender.js';
-
 const Shop = (() => {
   let LANG = {};
   let PRODUCT_LANG    = {};
@@ -149,7 +143,7 @@ const Shop = (() => {
     } catch (e) {
       // Handle quota exceeded or private browsing
       if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_FILE_CORRUPTED') {
-        if (ENV_CONFIG.DEBUG) console.warn('[shop] localStorage quota exceeded or unavailable:', e);
+        console.warn('[shop] localStorage quota exceeded or unavailable:', e);
         toast("Storage unavailable - your cart may not persist", 3000);
       }
     }
@@ -262,7 +256,7 @@ const Shop = (() => {
     try {
       all = await fetch(src).then(r => { if (!r.ok) throw 0; return r.json(); });
     } catch(e) {
-      if (ENV_CONFIG.DEBUG) console.warn('Failed to load base products from', src);
+      console.warn('Failed to load base products from', src);
       return [];
     }
     
@@ -300,7 +294,7 @@ const Shop = (() => {
     try {
       all = await fetch(src).then(r => { if (!r.ok) throw 0; return r.json(); });
     } catch(e) {
-      if (ENV_CONFIG.DEBUG) console.warn('Failed to load base products from', src);
+      console.warn('Failed to load base products from', src);
       return null;
     }
     
@@ -358,11 +352,9 @@ const Shop = (() => {
     async function build() {
       if (Currency.waitForReady) await Currency.waitForReady();
       const active = Currency.getActive();
-      container.className = "profile-selector-wrap";const uiLang = (window.T && window.T.ui) || {};
-      const currencyLabel = uiLang.currency || "Currency";
-      container.innerHTML =
-      `<span class="profile-selector-label">${currencyLabel.toUpperCase()}</span>` +
-      `<select class="profile-select" aria-label="${currencyLabel}">
+      container.className = "profile-selector-wrap";
+      container.innerHTML = "CURRENCY " +
+        `<select class="profile-select" aria-label="Currency">
           ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
         </select>`;
       container.querySelector("select").addEventListener("change", e => Currency.setActive(e.target.value));
@@ -891,13 +883,13 @@ const Shop = (() => {
     const filtered = {}; Object.entries(formData).forEach(([k,v]) => { if (v!=null&&v!=="") filtered[k]=v; });
     const data = {
       _subject: `New Order ${orderRef}`, order_ref: orderRef, status: "PENDING_PAYMENT",
-      display_currency: CONFIG.currencyCode || CONFIG.baseCurrency || 'EUR', ...filtered, cart_items: cartSummary,
+      display_currency: CONFIG.currencyCode, ...filtered, cart_items: cartSummary,
       subtotal_eur: "€"+totals.subtotal.toFixed(2), subtotal_display: fmt(totals.subtotal),
       tax: fmt(totals.tax), shipping: totals.isFreeShipping?"FREE":fmt(totals.shipping),
       total_eur: "€"+totals.total.toFixed(2), total_display: fmt(totals.total),
       total_weight: fmtWeight(totals.totalWeight||0),
     };
-    try { const ok = await sendToQueue("payment-pending", data); return ok; } catch(e) { if (ENV_CONFIG.DEBUG) console.warn("Queue failed",e); return false; }
+    try { const ok = await sendToQueue("payment-pending", data); return ok; } catch(e) { console.warn("Queue failed",e); return false; }
   }
   
   async function submitOrderStatus(orderRef, status) {
