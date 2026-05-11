@@ -354,9 +354,11 @@ const Shop = (() => {
     async function build() {
       if (Currency.waitForReady) await Currency.waitForReady();
       const active = Currency.getActive();
-      container.className = "profile-selector-wrap";
-      container.innerHTML = "CURRENCY " +
-        `<select class="profile-select" aria-label="Currency">
+      container.className = "profile-selector-wrap";const uiLang = (window.T && window.T.ui) || {};
+      const currencyLabel = uiLang.currency || "Currency";
+      container.innerHTML =
+      `<span class="profile-selector-label">${currencyLabel.toUpperCase()}</span>` +
+      `<select class="profile-select" aria-label="${currencyLabel}">
           ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
         </select>`;
       container.querySelector("select").addEventListener("change", e => Currency.setActive(e.target.value));
