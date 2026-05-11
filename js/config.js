@@ -58,6 +58,13 @@ const SITE_CONFIG = {
         cart:    'dornori-cart',
     },
 
+    defaults: {
+        redirectUrl:     '/en/success/',
+        redirectMessage: '✓ Issue resolved! Redirecting...',
+    },
+
+    pages: {},
+
     socials: [
         { id: 'ig',  base: 'https://instagram.com/', user: 'dornori' },
     ],

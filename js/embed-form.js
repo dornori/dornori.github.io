@@ -109,7 +109,7 @@ function initFormInstance(root, uid) {
             }
 
             window.turnstile.render(captchaSlot, {
-                sitekey: SITE_CONFIG.turnstile_sitekey,
+                sitekey: SITE_CONFIG.turnstile.sitekey,
                 theme: 'dark',
                 callback: () => executeSubmission(btn, showSuccess),
                 'error-callback': () => {
