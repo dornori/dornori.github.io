@@ -26,3 +26,8 @@ const NAV = (() => {
 })();
 
 export default NAV;
+
+export function initNavigation() {
+    const nav = document.querySelector('.top-nav') || document.querySelector('nav');
+    if (nav) NAV.init(nav);
+}
