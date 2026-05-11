@@ -20,16 +20,20 @@ const SITE_CONFIG = {
         lang_dir:        'lang/',
         content_dir:     'content/',
         icons_dir:       'assets/icons/',
+        shop_dir:        'shop/',
+        js_dir:          'js/',
+        formJsonPath:    (lang) => `../../lang/${lang}/form.json`,
     },
 
-    theme: {
-        name:       'dornori',
-        theme:      'dornori-theme',
+    storageKeys: {
+        lang:  'dornori-lang',
+        theme: 'dornori-theme',
+        cart:  'dornori-cart',
     },
 
     endpoints: {
-        formHandler: ENV_CONFIG.API_ENDPOINT,
-        queue:       ENV_CONFIG.API_ENDPOINT,
+        formHandler:   ENV_CONFIG.API_ENDPOINT,
+        queue:         ENV_CONFIG.API_ENDPOINT,
         supportEmail:  'support@dornori.com',
         privacyEmail:  'privacy@dornori.com',
         securityEmail: 'security@dornori.com',
@@ -37,8 +41,8 @@ const SITE_CONFIG = {
     },
 
     messages: {
-        title:          'DORNORI',
-        redirectTitle:  'Processing...',
+        title:           'DORNORI',
+        redirectTitle:   'Processing...',
         redirectMessage: '✓ Issue resolved! Redirecting...',
     },
 
@@ -48,91 +52,90 @@ const SITE_CONFIG = {
 
     navigation: [
         { slug: 'about',  icon: 'about-icon-200x200.svg',          type: 'standard', enabled: true  },
-        { slug: 'contact', icon: 'contact-icon-200x200.svg',       type: 'standard', enabled: true  },
-        { slug: 'shop',    icon: 'shop-icon-200x200.svg',          type: 'standard', enabled: true  },
+        { slug: 'built',  icon: 'assembled-lamp-icon-200x200.svg',  type: 'standard', enabled: true  },
+        { slug: 'kit',    icon: 'building-kit-icon-200x200.svg',    type: 'standard', enabled: true  },
+        { slug: 'parts',  icon: '3d-printer-icon-200x200.svg',      type: 'standard', enabled: true  },
+        { slug: 'files',  icon: '3d-file-icon-200x200.svg',         type: 'standard', enabled: true  },
     ],
-
-    storageKeys: {
-        lang:    'dornori-lang',
-        theme:   'dornori-theme',
-        cart:    'dornori-cart',
-    },
 
     defaults: {
         redirectUrl:     '/en/success/',
         redirectMessage: '✓ Issue resolved! Redirecting...',
     },
 
-    /**
-     * FIX: pages was empty {} — viewPage(slug) always silently returned.
-     * Every slug listed in lang/en/common.json url_slugs needs an entry here
-     * so the SPA can load the matching content/[lang]/[file].html fragment.
-     *
-     * Shape: { [canonicalSlug]: { file: '<filename>.html' } }
-     * `file` is relative to content/[lang]/ and must match the actual file name.
-     */
     pages: {
-        'about':               { file: 'about.html' },
-        'built':               { file: 'built.html' },
-        'cart':                { file: 'cart.html' },
-        'children':            { file: 'children.html' },
-        'contact':             { file: 'contact.html' },
-        'cookies':             { file: 'cookies.html' },
-        'files':               { file: 'files.html' },
-        'gallery':             { file: 'gallery.html' },
-        'imprint':             { file: 'imprint.html' },
-        'kit':                 { file: 'kit.html' },
-        'mission-statement':   { file: 'mission-statement.html' },
-        'parts':               { file: 'parts.html' },
-        'privacy':             { file: 'privacy.html' },
-        'product':             { file: 'product.html' },
-        'replacement-parts':   { file: 'replacement-parts.html' },
-        'returns':             { file: 'returns.html' },
-        'security':            { file: 'security.html' },
-        'shop':                { file: 'shop.html' },
-        'success':             { file: 'success.html' },
-        'support':             { file: 'support.html' },
-        'terms':               { file: 'terms.html' },
-        // aliases used by content/ but not in url_slugs — kept for direct access
-        'about-us':            { file: 'about-us.html' },
+        built:               { file: 'built.html'             },
+        kit:                 { file: 'kit.html'               },
+        parts:               { file: 'parts.html'             },
+        files:               { file: 'files.html'             },
+        'mission-statement': { file: 'mission-statement.html' },
+        about:               { file: 'about-us.html'          },
+        terms:               { file: 'terms.html'             },
+        privacy:             { file: 'privacy.html'           },
+        children:            { file: 'children.html'          },
+        security:            { file: 'security.html'          },
+        cookies:             { file: 'cookies.html'           },
+        imprint:             { file: 'imprint.html'           },
+        returns:             { file: 'returns.html'           },
+        contact:             { file: 'form.html'              },
+        support:             { file: 'support.html'           },
+        gallery:             { file: 'gallery.html'           },
+        cart:                { file: 'cart.html'              },
+        shop:                { file: 'shop.html'              },
+        product:             { file: 'product.html'           },
+        success:             { file: 'success.html'           },
+        // Additional aliases kept for direct access
+        'about-us':               { file: 'about-us.html'              },
         'complete-assembly-kit':  { file: 'complete-assembly-kit.html' },
-        'electronics-bundle':     { file: 'electronics-bundle.html' },
-        'pre-assembled-kit':      { file: 'pre-assembled-kit.html' },
+        'electronics-bundle':     { file: 'electronics-bundle.html'    },
+        'pre-assembled-kit':      { file: 'pre-assembled-kit.html'     },
         'pre-printed-parts-kit':  { file: 'pre-printed-parts-kit.html' },
-        'form':                { file: 'form.html' },
+        'form':                   { file: 'form.html'                  },
+        'replacement-parts':      { file: 'replacement-parts.html'     },
     },
 
     socials: [
-        { id: 'ig',  base: 'https://instagram.com/', user: 'dornori' },
+        { id: 'ig',  user: 'dornori.info', base: 'https://instagram.com/' },
+        { id: 'x',   user: 'dornori_info', base: 'https://x.com/'         },
+        { id: 'yt',  user: 'dornori_info', base: 'https://youtube.com/@'  },
+        { id: 'fb',  user: 'Dornori.info', base: 'https://facebook.com/'  },
+        { id: 'web', user: 'dornori.com',  base: 'https://'               },
     ],
 
     footer: [
         {
-            label: 'Shop',
+            label: 'Company',
             links: [
-                { slug: 'shop',    label: 'Shop',    enabled: true },
-                { slug: 'product', label: 'Product', enabled: true },
-                { slug: 'cart',    label: 'Cart',    enabled: true },
-            ],
-        },
-        {
-            label: 'Info',
-            links: [
-                { slug: 'about',   label: 'About',   enabled: true },
-                { slug: 'contact', label: 'Contact', enabled: true },
-                { slug: 'support', label: 'Support', enabled: true },
-            ],
+                { slug: 'gallery',  enabled: true  },
+                { slug: 'about',    enabled: true  },
+                { slug: 'contact',  enabled: true  },
+            ]
         },
         {
             label: 'Legal',
             links: [
-                { slug: 'privacy', label: 'Privacy',  enabled: true },
-                { slug: 'terms',   label: 'Terms',    enabled: true },
-                { slug: 'cookies', label: 'Cookies',  enabled: true },
-            ],
-        },
+                { slug: 'terms',    enabled: true  },
+                { slug: 'privacy',  enabled: false },
+                { slug: 'cookies',  enabled: false },
+                { slug: 'imprint',  enabled: true  },
+                { slug: 'returns',  enabled: false },
+                { slug: 'children', enabled: false },
+                { slug: 'security', enabled: false },
+            ]
+        }
     ],
+
+    turnstile_sitekey: ENV_CONFIG.TURNSTILE_KEY,
 };
 
+// Set window.CONFIG for non-module scripts (like support.html)
+window.CONFIG = {
+    turnstile: SITE_CONFIG.turnstile,
+    queue: { endpoint: SITE_CONFIG.endpoints.queue },
+    paths: { formJsonPath: SITE_CONFIG.paths.formJsonPath },
+};
+
+// Export for module imports
+window.SITE_CONFIG = SITE_CONFIG;
 export default SITE_CONFIG;
 export { SITE_CONFIG };
