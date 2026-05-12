@@ -14,6 +14,7 @@
 import { escapeHTML } from './utils/dom-safe.js';
 import ENV_CONFIG from './env-config.js';
 
+if (typeof window.Currency !== "undefined") { var Currency = window.Currency; } else
 var Currency = (() => {
   // Supported currencies. EUR is always present (base currency).
   // Add more entries here if FX support is re-introduced.

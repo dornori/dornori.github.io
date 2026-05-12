@@ -5,6 +5,7 @@
    Emits:  CustomEvent "currency:changed" { detail: { code } }
    ========================================================= */
 
+if (typeof window.Currency !== "undefined") { var Currency = window.Currency; } else
 var Currency = (() => {
   let _rates       = {};
   let _loaded      = false;
@@ -113,3 +114,5 @@ var Currency = (() => {
 
   return { load, init, waitForReady, detect: detectFromIP, convert, fmt, setActive, getActive, list, getRates, isReady };
 })();
+-e 
+window.Currency = Currency;

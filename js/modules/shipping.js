@@ -7,6 +7,7 @@
      · CONFIG.supportedLanguages  — derived from country list
    ========================================================= */
 
+if (typeof window.Shipping !== "undefined") { var Shipping = window.Shipping; } else
 var Shipping = (() => {
   let _settings  = {};
   let _countries = {};
@@ -94,3 +95,5 @@ var Shipping = (() => {
 
   return { load, getRate, populateCountrySelect, getCountries: () => _countries, getSettings: () => _settings };
 })();
+-e 
+window.Shipping = Shipping;

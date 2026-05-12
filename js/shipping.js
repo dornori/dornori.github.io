@@ -13,6 +13,7 @@
 
 import { setTextContent } from './utils/dom-safe.js';
 
+if (typeof window.Shipping !== "undefined") { var Shipping = window.Shipping; } else
 var Shipping = (() => {
   // Defaults from CONFIG.shipping (set in shop-config.js) — used as fallback
   // if shipping.json cannot be fetched or a country has no specific rate.

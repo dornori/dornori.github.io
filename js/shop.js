@@ -6,6 +6,7 @@
      lang/{lang}/products.json — product text
    ========================================================= */
 
+if (typeof window.Shop !== "undefined") { var Shop = window.Shop; } else
 var Shop = (() => {
   let LANG = {};
   let PRODUCT_LANG    = {};
@@ -916,3 +917,5 @@ var Shop = (() => {
     renderTurnstile, submitOrderDetails, submitOrderStatus,
   };
 })();
+-e 
+window.Shop = Shop;

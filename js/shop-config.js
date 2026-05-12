@@ -6,6 +6,7 @@
    · All logic lives in js/modules/.
    ========================================================= */
 
+if (typeof window.CONFIG !== 'undefined' && window.CONFIG.shopName) { var CONFIG = window.CONFIG; } else
 var CONFIG = {
 
   shopName: "Dornori",
@@ -47,9 +48,9 @@ var CONFIG = {
   },
 
   data: {
-    shippingJson: "data/shipping.json",
-    langDir:      "lang/",
-    productsJson: "data/products.json",
+    shippingJson: "/data/shipping.json",
+    langDir:      "/lang/",
+    productsJson: "/data/products.json",
   },
 
   modules: [
