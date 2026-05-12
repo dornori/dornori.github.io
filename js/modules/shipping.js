@@ -33,7 +33,7 @@ var Shipping = (() => {
     try {
       if (!CONFIG.data) CONFIG.data = {};
       if (!CONFIG.shipping) CONFIG.shipping = {};
-      const res  = await fetch(CONFIG.data.shippingJson || 'data/shipping.json');
+      const res  = await fetch(CONFIG.data.shippingJson || '/data/shipping.json');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
@@ -95,5 +95,4 @@ var Shipping = (() => {
 
   return { load, getRate, populateCountrySelect, getCountries: () => _countries, getSettings: () => _settings };
 })();
--e 
 window.Shipping = Shipping;

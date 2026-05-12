@@ -19,6 +19,9 @@
     if (typeof CONFIG !== 'undefined') {
         // All data now lives under /data/ — no more shop/data/
         if (!CONFIG.data) CONFIG.data = {};
+        if (!CONFIG.storageKeys) CONFIG.storageKeys = {};
+        if (!CONFIG.features) CONFIG.features = {};
+        if (!CONFIG.shipping) CONFIG.shipping = {};
         CONFIG.data.shippingJson     = sitBase + 'data/shipping.json';
         CONFIG.data.countriesJson    = sitBase + 'data/countries.json';
         CONFIG.data.productsJson     = sitBase + 'data/products.json';
@@ -31,8 +34,6 @@
             cfg.jsPath + 'modules/payment.js',
         ];
 
-        if (!CONFIG.storageKeys) CONFIG.storageKeys = {};
-        if (!CONFIG.features) CONFIG.features = {};
         CONFIG.storageKeys.parentLangKey     = 'dornori-lang';
         CONFIG.storageKeys.shopLangKey       = 'dornori-lang';
         CONFIG.defaultLanguage               = 'en';
@@ -40,8 +41,9 @@
         CONFIG.features.showCurrencySelector = true;
     }
 
-    // ── 2. Script loader ──────────────────────────────────────────────────────
     window.__shopConfigPatched = true;
+
+    // ── 2. Script loader ──────────────────────────────────────────────────────
     function loadScript(src) {
         return new Promise(function (resolve) {
             if (document.querySelector('script[src="' + src + '"]')) { resolve(); return; }

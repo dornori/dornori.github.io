@@ -114,5 +114,4 @@ var Currency = (() => {
 
   return { load, init, waitForReady, detect: detectFromIP, convert, fmt, setActive, getActive, list, getRates, isReady };
 })();
--e 
 window.Currency = Currency;

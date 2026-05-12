@@ -917,5 +917,4 @@ var Shop = (() => {
     renderTurnstile, submitOrderDetails, submitOrderStatus,
   };
 })();
--e 
 window.Shop = Shop;
