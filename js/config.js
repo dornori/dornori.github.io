@@ -128,13 +128,6 @@ const SITE_CONFIG = {
     turnstile_sitekey: ENV_CONFIG.TURNSTILE_KEY,
 };
 
-// Set window.CONFIG for non-module scripts (like support.html)
-window.CONFIG = {
-    turnstile: SITE_CONFIG.turnstile,
-    queue: { endpoint: SITE_CONFIG.endpoints.queue },
-    paths: { formJsonPath: SITE_CONFIG.paths.formJsonPath },
-};
-
 // Export for module imports
 window.SITE_CONFIG = SITE_CONFIG;
 export default SITE_CONFIG;

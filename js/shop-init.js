@@ -22,11 +22,16 @@
         if (!CONFIG.storageKeys) CONFIG.storageKeys = {};
         if (!CONFIG.features) CONFIG.features = {};
         if (!CONFIG.shipping) CONFIG.shipping = {};
+        if (!CONFIG.images) CONFIG.images = {};
         CONFIG.data.shippingJson     = sitBase + 'data/shipping.json';
         CONFIG.data.countriesJson    = sitBase + 'data/countries.json';
         CONFIG.data.productsJson     = sitBase + 'data/products.json';
         CONFIG.data.langDir          = sitBase + 'lang/';
 
+        // Patch imageDir so relative paths resolve from site root, not page URL depth
+        if (!CONFIG.images.imageDir || !CONFIG.images.imageDir.startsWith('/')) {
+            CONFIG.images.imageDir = sitBase + (CONFIG.images.imageDir || 'images/products/');
+        }
 
         CONFIG.modules = [
             cfg.jsPath + 'modules/currency.js',
