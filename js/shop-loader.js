@@ -101,7 +101,52 @@ export async function mountShopEmbeds(container) {
     if (pid) await Shop.renderProductInfo(productRoot.id, pid);
   }
 
-  // ── Mini cart ─────────────────────────────────────────────────────────────
+  // ── data-shop-products embeds ─────────────────────────────────────────────
+  const shopProductEls = container ? container.querySelectorAll('[data-shop-products]') : [];
+  if (shopProductEls.length) {
+    // Load all products once
+    const allProducts = await Shop.loadProducts();
+    const productMap  = {};
+    allProducts.forEach(p => { productMap[p.id] = p; });
+
+    shopProductEls.forEach(el => {
+      const slug = el.dataset.shopProducts;
+      if (!slug) return;
+
+      let product = null;
+      let preselectedVariantId = null;
+
+      // Direct product ID match
+      if (productMap[slug]) {
+        product = productMap[slug];
+      } else if (slug.endsWith('-preassembled')) {
+        // e.g. "ufo-spaceblue-preassembled" → product "pre-assembled", variant "ufo-spaceblue"
+        const variantId = slug.replace(/-preassembled$/, '');
+        const base      = productMap['pre-assembled'];
+        if (base) {
+          product              = base;
+          preselectedVariantId = variantId;
+        }
+      }
+
+      if (!product) return;
+
+      // Clone product if we need to preselect a variant (show only that variant)
+      if (preselectedVariantId && product.variants) {
+        const variant = product.variants.find(v => v.id === preselectedVariantId);
+        if (variant) {
+          product = { ...product, variants: [variant] };
+        }
+      }
+
+      const card = document.createElement('div');
+      card.className = 'webshop-product-card';
+      card.innerHTML = Shop.buildProductCard(product);
+      el.appendChild(card);
+      Shop.wireProductCard(card, product);
+    });
+  }
+
   const miniCart = container && container.querySelector('#mini-cart-root');
   if (miniCart && miniCart.id) {
     Shop.renderMiniCart(miniCart.id);
