@@ -6,7 +6,7 @@
      lang/{lang}/products.json — product text
    ========================================================= */
 
-const Shop = (() => {
+var Shop = (() => {
   let LANG = {};
   let PRODUCT_LANG    = {};
   let PRODUCT_LANG_EN = {};

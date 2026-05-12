@@ -13,7 +13,7 @@
 
 import { setTextContent } from './utils/dom-safe.js';
 
-const Shipping = (() => {
+var Shipping = (() => {
   // Defaults from CONFIG.shipping (set in shop-config.js) — used as fallback
   // if shipping.json cannot be fetched or a country has no specific rate.
   function _defaults() {

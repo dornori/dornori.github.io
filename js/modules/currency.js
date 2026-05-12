@@ -5,7 +5,7 @@
    Emits:  CustomEvent "currency:changed" { detail: { code } }
    ========================================================= */
 
-const Currency = (() => {
+var Currency = (() => {
   let _rates       = {};
   let _loaded      = false;
   let _active      = 'EUR';

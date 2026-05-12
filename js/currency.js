@@ -14,7 +14,7 @@
 import { escapeHTML } from './utils/dom-safe.js';
 import ENV_CONFIG from './env-config.js';
 
-const Currency = (() => {
+var Currency = (() => {
   // Supported currencies. EUR is always present (base currency).
   // Add more entries here if FX support is re-introduced.
   const _currencies = [

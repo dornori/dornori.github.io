@@ -6,7 +6,7 @@
    · All logic lives in js/modules/.
    ========================================================= */
 
-const CONFIG = {
+var CONFIG = {
 
   shopName: "Dornori",
   tagline:  "Curated lighting for modern spaces",

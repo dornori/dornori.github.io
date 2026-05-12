@@ -7,7 +7,7 @@
      · CONFIG.supportedLanguages  — derived from country list
    ========================================================= */
 
-const Shipping = (() => {
+var Shipping = (() => {
   let _settings  = {};
   let _countries = {};
   let _loaded    = false;
