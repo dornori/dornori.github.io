@@ -12,7 +12,6 @@
    ========================================================= */
 
 
-
 const ProductViewer = (() => {
   let _overlay      = null;
   let _currentProduct = null;
@@ -345,7 +344,7 @@ const ProductViewer = (() => {
   function openViewer(productId) {
     ensureLoaded().then(() => {
       const product = _allProducts[productId];
-      if (!product) { console.warn('[ProductViewer] Unknown product:', productId); return; }
+      if (!product) { console.warn("[ProductViewer] Unknown product:", productId); return; }
 
       if (!_overlay) _overlay = createOverlay();
 
