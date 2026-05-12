@@ -78,7 +78,7 @@ var Currency = (() => {
   function setActive(code) {
     if (!_rates[code]) { console.warn('[Currency] Unknown code:', code); code = 'EUR'; }
     _active = code;
-    localStorage.setItem(CONFIG.storageKeys.currencyKey, code);
+    localStorage.setItem((CONFIG.storageKeys && CONFIG.storageKeys.currencyKey) || "webshop_currency", code);
     document.dispatchEvent(new CustomEvent('currency:changed', { detail: { code } }));
   }
 
@@ -95,7 +95,7 @@ var Currency = (() => {
         _rates['EUR'] = { symbol: '€', name: 'Euro', rate: 1, buffer: 0, decimals: 2, locale: 'de-DE' };
         _loaded = true;
       });
-      const saved = localStorage.getItem(CONFIG.storageKeys.currencyKey);
+      const saved = localStorage.getItem((CONFIG.storageKeys && CONFIG.storageKeys.currencyKey) || "webshop_currency");
       if (saved && _rates[saved]) {
         setActive(saved);
       } else {
