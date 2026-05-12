@@ -22,7 +22,7 @@ const SITE_CONFIG = {
         icons_dir:       'assets/icons/',
         shop_dir:        'shop/',
         js_dir:          'js/',
-        formJsonPath:    (lang) => `../../lang/${lang}/form.json`,
+        formJsonPath:    (lang) => `${window.__BASE_PATH__ || '/'}lang/${lang}/form.json`,
     },
 
     storageKeys: {

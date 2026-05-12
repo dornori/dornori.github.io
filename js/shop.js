@@ -79,7 +79,7 @@ const Shop = (() => {
   }
 
   async function switchLanguage(code) {
-    if (code === CONFIG.language && _langLoaded) return;
+    if (code === CONFIG.language && _langLoaded && LANG && Object.keys(LANG).length > 0) return;
     const langKey = CONFIG.storageKeys?.shopLangKey || CONFIG.storageKeys?.parentLangKey || "dornori-lang";
     CONFIG.language = code;
     localStorage.setItem(langKey, code);

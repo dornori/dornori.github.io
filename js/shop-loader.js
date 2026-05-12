@@ -199,6 +199,7 @@ export async function mountShopEmbeds(root) {
         await new Promise(resolve => {
             const done = () => resolve();
             document.addEventListener('lumio:booted', done, { once: true });
+            document.addEventListener('webshop:ready', done, { once: true });
             document.addEventListener('lumio:ready',  done, { once: true });
             setTimeout(done, 8000);
         });

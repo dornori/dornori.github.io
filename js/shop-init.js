@@ -169,6 +169,13 @@
         document.addEventListener('shop:langChanged', function (e) {
             var lang = (e && e.detail && e.detail.lang) || window.LANG || 'en';
             _renderCartIcon(lang);
+            // Force hover-panel re-render by dispatching cartUpdated
+            // (covers the case where renderCartIcon ran before this listener was attached)
+            setTimeout(function () {
+                document.dispatchEvent(new CustomEvent('shop:cartUpdated', {
+                    detail: { cart: typeof Shop !== 'undefined' ? Shop.getCart() : [] }
+                }));
+            }, 50);
         });
 
         // Re-render prices on currency change
