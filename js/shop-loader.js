@@ -16,6 +16,13 @@ let _shopModulesLoaded = false;
 export async function loadShopModules() {
   if (_shopModulesLoaded) return;
   const BASE_PATH = window.__BASE_PATH__ || '/';
+  // Wait for shop-init.js to patch CONFIG.data paths before loading modules
+  if (!window.__shopConfigPatched) {
+    await new Promise(resolve => {
+      const check = () => { if (window.__shopConfigPatched) resolve(); else setTimeout(check, 50); };
+      check();
+    });
+  }
   // Plain scripts — no type:'module'
   await loadScript(BASE_PATH + 'js/shop-config.js');
   await loadScript(BASE_PATH + 'js/modules/shipping.js');
@@ -56,7 +63,7 @@ export async function mountShopEmbeds(container) {
         } else {
           done();
         }
-      }, 3000);
+      }, 10000);
     });
   }
 

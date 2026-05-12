@@ -41,6 +41,7 @@
     }
 
     // ── 2. Script loader ──────────────────────────────────────────────────────
+    window.__shopConfigPatched = true;
     function loadScript(src) {
         return new Promise(function (resolve) {
             if (document.querySelector('script[src="' + src + '"]')) { resolve(); return; }
