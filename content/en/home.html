@@ -302,31 +302,155 @@
   }
 </style>
 
+
 <!-- ── HERO: VIDEO (sized like the slideshow: 85% width, centered, aspect ratio) ── -->
+<!-- Paste this block inside <body> (keep your existing CSS for .hero-video, overlays, buttons) -->
+<style>
+  /* Ensures the preload image matches video dimensions */
+  .hero-video {
+    position: relative;
+    width: 100%;
+  }
+  .hero-video video {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .hero-video__preload-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url('https://your-image.jpg') center/cover no-repeat;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+    z-index: 1;       /* above video, below overlay text */
+  }
+  .hero-video__overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;       /* ensures text & buttons are visible */
+    pointer-events: none; /* let buttons be clickable by re-enabling on children */
+  }
+  .hero-video__overlay button {
+    pointer-events: auto;
+  }
+  /* your existing overlay positioning classes (example, adjust as needed) */
+  .overlay-left-upper, .overlay-right-upper, .overlay-left-lower, .overlay-right-lower {
+    position: absolute;
+  }
+  .overlay-left-upper { top: 20px; left: 20px; }
+  .overlay-right-upper { top: 20px; right: 20px; }
+  .overlay-left-lower { bottom: 20px; left: 20px; }
+  .overlay-right-lower { bottom: 20px; right: 20px; }
+</style>
+
+<!-- Paste this block inside <body> -->
+<style>
+  .hero-video {
+    position: relative;
+    width: 100%;
+  }
+  .hero-video video {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .hero-video__preload-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+    z-index: 1;
+  }
+  /* WebP support (modern browsers) */
+  .hero-video__preload-bg {
+    background-image: url('../../../assets/images/video-fallbacks/dornori-hero.webp');
+  }
+  /* JPG fallback for browsers that don't support WebP */
+  @supports not (background-image: url('../../../assets/images/video-fallbacks/dornori-hero.webp')) {
+    .hero-video__preload-bg {
+      background-image: url('../../../assets/images/video-fallbacks/dornori-hero.jpg');
+    }
+  }
+  .hero-video__overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .hero-video__overlay button {
+    pointer-events: auto;
+  }
+  /* your existing positioning classes */
+  .overlay-left-upper, .overlay-right-upper, .overlay-left-lower, .overlay-right-lower {
+    position: absolute;
+  }
+  .overlay-left-upper { top: 20px; left: 20px; }
+  .overlay-right-upper { top: 20px; right: 20px; }
+  .overlay-left-lower { bottom: 20px; left: 20px; }
+  .overlay-right-lower { bottom: 20px; right: 20px; }
+</style>
+
 <div class="hero-video">
+  <!-- Video (muted, loop, autoplay) -->
   <video autoplay muted loop playsinline>
     <source src="../../../assets/video/dornori-hero.mp4" type="video/mp4">
     Your browser does not support the video tag.
   </video>
+
+  <!-- PRELOAD BACKGROUND IMAGE (WebP + JPG fallback) -->
+  <div id="heroPreloadBg" class="hero-video__preload-bg"></div>
+
+  <!-- Your existing text overlays -->
   <div class="hero-video__overlay">
-    <!-- Left upper corner text -->
     <div class="overlay-left-upper">
       <div class="overlay-tag">Rise. Glow. Repeat.</div>
       <h2>The Lamp You Build<br>Then Take Outside</h2>
       <p>Star‑A is a battery-powered kinetic outdoor lamp — a rising pole, a glowing head, real electronics. Build it yourself or order it ready-made.</p>
     </div>
-    <!-- Right upper button -->
     <div class="overlay-right-upper">
       <button class="home-hero__cta home-hero__cta--ghost" onclick="window.viewPage('built')">Order Ready-Made — €219</button>
     </div>
-    <!-- Left lower button -->
     <div class="overlay-left-lower">
       <button class="home-hero__cta home-hero__cta--primary" onclick="window.viewPage('kit')">Build Your Own — €149</button>
     </div>
-    <!-- Right lower text (empty – you can add a short line if desired) -->
     <div class="overlay-right-lower"></div>
   </div>
 </div>
+
+<script>
+  (function() {
+    const video = document.querySelector('.hero-video video');
+    const preloadBg = document.getElementById('heroPreloadBg');
+    if (!video || !preloadBg) return;
+    let hidden = false;
+    function hidePreload() {
+      if (hidden) return;
+      hidden = true;
+      preloadBg.style.opacity = '0';
+      setTimeout(() => { preloadBg.style.display = 'none'; }, 500);
+    }
+    video.addEventListener('playing', hidePreload);
+    // If video is already playing (cached or fast autoplay)
+    if (video.readyState >= 2 && !video.paused && video.currentTime > 0) {
+      hidePreload();
+    }
+  })();
+</script>
 
 <!-- ── STATS (unchanged) ──────────────────────────────────────────────────── -->
 <div class="home-stats">
