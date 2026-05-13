@@ -172,7 +172,7 @@ window.setLang = async (code) => {
     if (typeof window.renderNav    === 'function') window.renderNav();
     if (typeof window.renderFooter === 'function') window.renderFooter();
 
-    if (typeof window.Shop !== "undefined" && typeof window.Shop.switchLanguage === 'function') {
+    if (typeof window.Shop !== 'undefined' && typeof window.Shop.switchLanguage === 'function') {
         try {
             await window.Shop.switchLanguage(code);
         } catch (e) {
