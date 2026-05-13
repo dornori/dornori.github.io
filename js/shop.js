@@ -206,7 +206,9 @@ var Shop = (() => {
   function loadLang() {
     if (_langLoaded) return Promise.resolve(LANG);
     if (_langLoadPromise) return _langLoadPromise;
-    const lang = resolveLanguage();
+    // Use CONFIG.language directly — it's already set by switchLanguage() or resolveLanguage() at init.
+    // Calling resolveLanguage() here would re-read the URL which may not yet reflect the new language.
+    const lang = CONFIG.language || resolveLanguage();
 
     const safeFetch = url => fetch(url)
       .then(r => { if (!r.ok) throw 0; return r.json(); })
