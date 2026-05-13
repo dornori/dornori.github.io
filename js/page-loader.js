@@ -218,9 +218,6 @@ export function initPageLoader() {
 
     // ── LOAD HOME ─────────────────────────────────────────────────────────────
     window.loadHome = async () => {
-        // Scroll to top FIRST before anything else
-        window.scrollTo({ top: 0, behavior: 'instant' });
-        
         const lang = window.LANG || fallbackLang();
         // Only skip the fetch when English content is already loaded in the correct language.
         // After a NL→EN switch homeView holds Dutch content, so we must NOT take this shortcut.
@@ -269,9 +266,6 @@ export function initPageLoader() {
 
     // ── VIEW PAGE ────────────────────────────────────────────────────────────
     window.viewPage = async (slug) => {
-        // Scroll to top FIRST before anything else
-        window.scrollTo({ top: 0, behavior: 'instant' });
-        
         const page = SITE_CONFIG.pages[slug];
         if (!page) { if (ENV_CONFIG.DEBUG) console.error(`Page "${slug}" not found in config`); return; }
 
@@ -303,6 +297,7 @@ export function initPageLoader() {
             const lang = window.LANG || fallbackLang();
             window.history.replaceState({ slug, lang }, '', pageUrl(slug, lang));
             updateSEO(slug);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
 
         } catch (err) {
             if (ENV_CONFIG.DEBUG) console.error('Page load error:', err);
