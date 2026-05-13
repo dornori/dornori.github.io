@@ -80,18 +80,18 @@
 
     injectFavicons();
 
-    var SHOP_SLUGS = ['shop','cart','product','kit','parts','success','succes',
-        'winkel','winkelwagen','bouwpakket','onderdelen','reserveonderdelen','kant-en-klaar','built'];
-    var isShopPage = SHOP_SLUGS.indexOf(window.__PAGE_SLUG__ || '') !== -1;
-
     injectPreloads([
         { href: 'assets/images/dornori-logo-transparent.webp', as: 'image', fetchpriority: 'high' },
         { href: 'css/main.css',  as: 'style' },
+        { href: 'css/shop.css',  as: 'style' },
     ]);
 
-    var _styles = ['css/profiles.css', 'css/main.css'];
-    if (isShopPage) { _styles.push('css/shop.css'); _styles.push('css/shop-bridge.css'); }
-    injectStyles(_styles);
+    injectStyles([
+        'css/profiles.css',
+        'css/main.css',
+        'css/shop.css',
+        'css/shop-bridge.css',
+    ]);
 
     // ── Language ──────────────────────────────────────────────────────────────
     var LANG_KEY = 'dornori-lang';

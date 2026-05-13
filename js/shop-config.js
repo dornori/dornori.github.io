@@ -108,12 +108,5 @@ async function sendToQueue(category, data, isTest = false) {
   return response.ok;
 }
 
-// Expose paths needed by content partials (form.html, support.html)
-CONFIG.paths = {
-  formJsonPath: function(lang) {
-    return (window.__BASE_PATH__ || '/') + 'lang/' + lang + '/form.json';
-  },
-};
-
 window.CONFIG      = CONFIG;
 window.sendToQueue = sendToQueue;

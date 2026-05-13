@@ -156,7 +156,7 @@ export function initPageLoader() {
     const pageView    = document.getElementById('page-view');
     const pageContent = document.getElementById('page-content-inner');
 
-    const fallbackLang = () => (SITE_CONFIG.languages && SITE_CONFIG.languages[0] ? SITE_CONFIG.languages[0].code : 'en');
+    const fallbackLang = () => SITE_CONFIG.languages[0].code;
 
     // ── SEO ──────────────────────────────────────────────────────────────────
     function updateSEO(slug = '') {
