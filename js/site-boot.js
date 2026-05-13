@@ -84,12 +84,10 @@
         'winkel','winkelwagen','bouwpakket','onderdelen','reserveonderdelen','kant-en-klaar','built'];
     var isShopPage = SHOP_SLUGS.indexOf(window.__PAGE_SLUG__ || '') !== -1;
 
-    var _preloads = [
+    injectPreloads([
         { href: 'assets/images/dornori-logo-transparent.webp', as: 'image', fetchpriority: 'high' },
         { href: 'css/main.css',  as: 'style' },
-    ];
-    if (isShopPage) _preloads.push({ href: 'css/shop.css', as: 'style' });
-    injectPreloads(_preloads);
+    ]);
 
     var _styles = ['css/profiles.css', 'css/main.css'];
     if (isShopPage) { _styles.push('css/shop.css'); _styles.push('css/shop-bridge.css'); }
