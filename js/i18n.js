@@ -172,9 +172,9 @@ window.setLang = async (code) => {
     if (typeof window.renderNav    === 'function') window.renderNav();
     if (typeof window.renderFooter === 'function') window.renderFooter();
 
-    if (typeof Shop !== 'undefined' && typeof Shop.switchLanguage === 'function') {
+    if (typeof window.Shop !== 'undefined' && typeof window.Shop.switchLanguage === 'function') {
         try {
-            await Shop.switchLanguage(code);
+            await window.Shop.switchLanguage(code);
         } catch (e) {
             if (ENV_CONFIG.DEBUG) console.warn('[i18n] Shop.switchLanguage failed:', e);
         }
