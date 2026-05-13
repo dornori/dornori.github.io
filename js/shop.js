@@ -439,15 +439,22 @@ var Shop = (() => {
       loadLang().then(() => {
         const cart = getCart();
         const { subtotal, total, shipping, isFreeShipping } = calculateTotals(cart);
+        
+        // Use the CURRENT LANG variable (just reloaded by loadLang)
+        // Don't cache translations in helper functions - use t() directly
         if (!cart.length) {
           dropdown.innerHTML = `<p class="webshop-cart-hover-panel__empty">${t("cart_empty", "Your cart is empty")}</p>`;
           return;
         }
+        
+        const lang = CONFIG.language || 'en';
+        const productSlug = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
+        
         dropdown.innerHTML = `
           <ul class="webshop-cart-hover-panel__list">
             ${cart.map(item => `
               <li class="webshop-cart-hover-panel__item">
-                <a class="webshop-cart-hover-panel__item-link" href="/${CONFIG.language || 'en'}/${(window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product'}/?id=${item.id}">
+                <a class="webshop-cart-hover-panel__item-link" href="/${lang}/${productSlug}/?id=${item.id}">
                   <img class="webshop-cart-hover-panel__img" src="${item.image}" alt="${item.name}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
                   <div class="webshop-cart-hover-panel__info">
                     <span class="webshop-cart-hover-panel__name">${item.name}${item.selectedColor ? ` <em>${item.selectedColor}</em>` : ""}</span>
