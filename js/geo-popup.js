@@ -64,7 +64,7 @@ import SITE_CONFIG from './config.js';
       '}',
       '#geo-lang-popup .gp-btn:hover{opacity:.8}',
       '#geo-lang-popup .gp-confirm{background:var(--accent,#0057ff);color:#fff}',
-      '#geo-lang-popup .gp-dismiss{background:var(--surface-2,#f0f0f0);color:var(--text,#333)}',
+      '#geo-lang-popup .gp-dismiss{background:var(--surface-2,#f0f0f0);color:#1a1a1a;font-weight:700}',
     ].join('');
     document.head.appendChild(s);
   }
