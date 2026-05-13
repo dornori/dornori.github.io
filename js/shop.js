@@ -436,35 +436,49 @@ var Shop = (() => {
     mount.appendChild(outer);
 
     function renderDropdown() {
+      // Use window.T for translations to stay in sync with language changes
+      // window.T is updated by i18n.js when language changes, avoiding race conditions
+      const getTranslation = (key, fallback) => {
+        if (typeof window !== 'undefined' && window.T && window.T.shop && window.T.shop[key]) {
+          return window.T.shop[key];
+        }
+        return t(key, fallback);
+      };
+      
       loadLang().then(() => {
         const cart = getCart();
         const { subtotal, total, shipping, isFreeShipping } = calculateTotals(cart);
+        
+        // Use CONFIG.language (updated by Shop.switchLanguage) and window.T
+        const lang = CONFIG.language || (typeof window !== 'undefined' && window.LANG) || 'en';
+        const productSlug = (typeof window !== 'undefined' && window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
+        
         if (!cart.length) {
-          dropdown.innerHTML = `<p class="webshop-cart-hover-panel__empty">${t("cart_empty", "Your cart is empty")}</p>`;
+          dropdown.innerHTML = `<p class="webshop-cart-hover-panel__empty">${getTranslation("cart_empty", "Your cart is empty")}</p>`;
           return;
         }
         dropdown.innerHTML = `
           <ul class="webshop-cart-hover-panel__list">
             ${cart.map(item => `
               <li class="webshop-cart-hover-panel__item">
-                <a class="webshop-cart-hover-panel__item-link" href="/${CONFIG.language || 'en'}/${(window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product'}/?id=${item.id}">
+                <a class="webshop-cart-hover-panel__item-link" href="/${lang}/${productSlug}/?id=${item.id}">
                   <img class="webshop-cart-hover-panel__img" src="${item.image}" alt="${item.name}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
                   <div class="webshop-cart-hover-panel__info">
                     <span class="webshop-cart-hover-panel__name">${item.name}${item.selectedColor ? ` <em>${item.selectedColor}</em>` : ""}</span>
                     <span class="webshop-cart-hover-panel__qty">${item.qty} × ${fmt(item.price)}</span>
                   </div>
                 </a>
-                <button class="webshop-cart-hover-panel__remove" data-key="${item.cartKey}" aria-label="${t("remove","Remove")}">✕</button>
+                <button class="webshop-cart-hover-panel__remove" data-key="${item.cartKey}" aria-label="${getTranslation("remove","Remove")}">✕</button>
               </li>`).join("")}
           </ul>
           <div class="webshop-cart-hover-panel__footer">
             <div class="webshop-cart-hover-panel__totals">
-              <span>${t("subtotal","Subtotal")}</span><span>${fmt(subtotal)}</span>
+              <span>${getTranslation("subtotal","Subtotal")}</span><span>${fmt(subtotal)}</span>
             </div>
             <div class="webshop-cart-hover-panel__totals webshop-cart-hover-panel__totals--shipping">
-              <span>${t("shipping","Shipping")}</span><span>${isFreeShipping ? t("free","FREE") : fmt(shipping)}</span>
+              <span>${getTranslation("shipping","Shipping")}</span><span>${isFreeShipping ? getTranslation("free","FREE") : fmt(shipping)}</span>
             </div>
-            <a class="webshop-btn webshop-btn--primary" href="${(typeof window !== 'undefined' && window.__CART_URL__) || cartUrl}">${t("checkout","Checkout")}</a>
+            <a class="webshop-btn webshop-btn--primary" href="${(typeof window !== 'undefined' && window.__CART_URL__) || cartUrl}">${getTranslation("checkout","Checkout")}</a>
           </div>`;
         dropdown.querySelectorAll(".webshop-cart-hover-panel__remove").forEach(btn => {
           btn.addEventListener("click", e => { e.preventDefault(); removeFromCart(btn.dataset.key); });
