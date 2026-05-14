@@ -146,10 +146,8 @@ function _doWireShopCards(container) {
 
 // ── SCROLL LOCK ───────────────────────────────────────────────────────────────
 function unlockScroll() {
-    document.documentElement.style.overflowY = '';
-    // Scroll to top and ensure at-top class is set
     window.scrollTo(0, 0);
-    document.documentElement.classList.add('at-top');
+    document.documentElement.classList.add('no-scrollbar');
 }
 
 export function initPageLoader() {

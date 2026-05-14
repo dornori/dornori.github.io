@@ -6,13 +6,20 @@
  */
 (function () {
     function initScrollListener() {
+        // Hide scrollbar on load
+        document.documentElement.classList.add('no-scrollbar');
+        // Ensure page starts at top
+        if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+        window.scrollTo(0, 0);
+
         window.addEventListener('scroll', function () {
             var html = document.documentElement;
             if (window.scrollY === 0) {
                 html.classList.add('at-top');
+                html.classList.add('no-scrollbar');
             } else {
-                html.classList.remove('at-top');
-                html.style.overflowY = '';
+                html.classList.remove('at-top'); // triggers banner slide-up animation
+                html.classList.remove('no-scrollbar'); // show scrollbar once user scrolls
             }
         }, { passive: true });
     }
