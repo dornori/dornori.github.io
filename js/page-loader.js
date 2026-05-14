@@ -326,6 +326,7 @@ export function initPageLoader() {
 
     // ── SHOW HOME ────────────────────────────────────────────────────────────
     window.showHome = () => {
+        window.scrollTo({ top: 0, behavior: 'instant' });
         pageView.classList.add('hidden');
         homeView.classList.remove('hidden');
         const lang    = window.LANG || fallbackLang();
@@ -333,7 +334,6 @@ export function initPageLoader() {
         window.history.pushState({}, '', `${base}${lang}/`);
         updateSEO('');
         window.loadHome();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     // ── HANDLE DIRECT URL ON FIRST LOAD ──────────────────────────────────────
