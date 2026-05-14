@@ -146,9 +146,10 @@ function _doWireShopCards(container) {
 
 // ── SCROLL LOCK ───────────────────────────────────────────────────────────────
 function unlockScroll() {
-    if (window.scrollY === 0) return;
-    document.documentElement.classList.remove('at-top');
     document.documentElement.style.overflowY = '';
+    // Scroll to top and ensure at-top class is set
+    window.scrollTo(0, 0);
+    document.documentElement.classList.add('at-top');
 }
 
 export function initPageLoader() {
@@ -218,8 +219,6 @@ export function initPageLoader() {
 
     // ── LOAD HOME ─────────────────────────────────────────────────────────────
     window.loadHome = async () => {
-        // Scroll to top FIRST before anything else
-        window.scrollTo({ top: 0, behavior: 'instant' });
         
         const lang = window.LANG || fallbackLang();
         // Only skip the fetch when English content is already loaded in the correct language.
@@ -269,8 +268,6 @@ export function initPageLoader() {
 
     // ── VIEW PAGE ────────────────────────────────────────────────────────────
     window.viewPage = async (slug, productId) => {
-        // Scroll to top FIRST before anything else
-        window.scrollTo({ top: 0, behavior: 'instant' });
         
         const page = SITE_CONFIG.pages[slug];
         if (!page) { if (ENV_CONFIG.DEBUG) console.error(`Page "${slug}" not found in config`); return; }
