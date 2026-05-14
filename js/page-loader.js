@@ -146,10 +146,7 @@ function _doWireShopCards(container) {
 
 // ── SCROLL LOCK ───────────────────────────────────────────────────────────────
 function unlockScroll() {
-    requestAnimationFrame(() => {
-        window.scrollTo(0, 0);
-        document.documentElement.classList.add('no-scrollbar');
-    });
+    window.scrollTo(0, 0);
 }
 
 export function initPageLoader() {
@@ -234,7 +231,7 @@ export function initPageLoader() {
             mountShopEmbeds(homeView);
             homeView.classList.remove('hidden');
             pageView.classList.add('hidden');
-            unlockScroll();
+            window.scrollTo(0, 0);
             const base    = SITE_CONFIG.appearance.base_path;
             const homeUrl = `${base}${lang}/`;
             window.history.replaceState({}, '', homeUrl);
@@ -259,7 +256,7 @@ export function initPageLoader() {
         }
         homeView.classList.remove('hidden');
         pageView.classList.add('hidden');
-        unlockScroll();
+        window.scrollTo(0, 0);
         const base    = SITE_CONFIG.appearance.base_path;
         const homeUrl = `${base}${lang}/`;
         window.history.replaceState({}, '', homeUrl);
@@ -297,7 +294,7 @@ export function initPageLoader() {
             mountShopEmbeds(pageContent);
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
-            unlockScroll();
+            window.scrollTo(0, 0);
 
             const lang = window.LANG || fallbackLang();
             const qs   = productId ? `?id=${productId}` : '';
@@ -317,7 +314,7 @@ export function initPageLoader() {
             `;
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
-            unlockScroll();
+            window.scrollTo(0, 0);
         }
     };
 
