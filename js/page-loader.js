@@ -269,6 +269,8 @@ export function initPageLoader() {
 
     // ── VIEW PAGE ────────────────────────────────────────────────────────────
     window.viewPage = async (slug, productId) => {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        
         const page = SITE_CONFIG.pages[slug];
         if (!page) { if (ENV_CONFIG.DEBUG) console.error(`Page "${slug}" not found in config`); return; }
 
@@ -323,6 +325,7 @@ export function initPageLoader() {
 
     // ── SHOW HOME ────────────────────────────────────────────────────────────
     window.showHome = () => {
+        window.scrollTo({ top: 0, behavior: 'instant' });
         pageView.classList.add('hidden');
         homeView.classList.remove('hidden');
         const lang    = window.LANG || fallbackLang();
