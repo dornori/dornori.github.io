@@ -2,986 +2,312 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WEBSHOP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>WEBSHOP | Sticky Image · Right Panel</title>
   <link rel="stylesheet" href="../../css/shop.css">
   <style>
-    /* ── Magnifier ── */
-    .pdp-magnifier {
-      position: fixed; pointer-events: none; z-index: 1000;
-      background: var(--c-surface); box-shadow: 0 12px 40px rgba(0,0,0,0.25);
-      border-radius: 12px; overflow: hidden; border: 2px solid var(--c-accent); display: none;
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
-    .pdp-magnifier img { position: absolute; top: 0; left: 0; max-width: none; display: block; }
 
-    /* ── Gallery ── */
-    .pdp-gallery__main-wrap { cursor: crosshair; position: relative; overflow: hidden; }
-    .pdp-gallery__main-wrap.video-active { cursor: pointer; }
-    .pdp-gallery__main-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    html, body {
+      width: 100%;
+      background: var(--c-bg, #0a0c10);
+    }
 
-    /* ── Push box to top, remove extra page padding ── */
-    .webshop-page-main { padding-top: 0 !important; }
-    .pdp-wrapper { padding-top: 0; max-width: 100% !important; }
-    .webshop-container { max-width: 100% !important; padding-left: 24px !important; padding-right: 24px !important; }
+    .webshop-page-main {
+      width: 100%;
+      background: var(--c-bg, #0a0c10);
+    }
 
-    /* ── THREE-COLUMN LAYOUT: Image | Details | Buy Box ── */
+    .webshop-container {
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 0 24px !important;
+    }
+
+    /* NO .pdp-wrapper — removed entirely */
+    /* DIRECT GRID LAYOUT: image left, panel right */
     .pdp-main {
       display: grid;
-      grid-template-columns: 420px 1fr 320px;
-      gap: 32px;
-      align-items: start;
-      padding: 32px 0;
-    }
-    @media (max-width: 1200px) {
-      .pdp-main {
-        grid-template-columns: 360px 1fr 290px;
-        gap: 24px;
-      }
-    }
-    @media (max-width: 960px) {
-      .pdp-main {
-        grid-template-columns: 1fr 1fr;
-        gap: 24px;
-      }
-      .pdp-buybox { grid-column: 1 / -1; }
-    }
-    @media (max-width: 640px) {
-      .pdp-main {
-        grid-template-columns: 1fr;
-        gap: 20px;
-      }
+      grid-template-columns: 1fr 380px;
+      gap: 48px;
+      width: 100%;
+      padding: 24px 0 48px 0;
     }
 
-    /* ── Sticky gallery / scrollable details ── */
-    .pdp-main { align-items: start !important; }
-    .pdp-details {
-      overflow-y: auto;
-      max-height: calc(100vh - 80px);
-      padding-right: 6px;
-      scrollbar-width: thin;
-      text-align: left;
-    }
-    .pdp-details::-webkit-scrollbar { width: 4px; }
-    .pdp-details::-webkit-scrollbar-thumb { background: var(--c-border, #555); border-radius: 2px; }
-
-    /* ── Amazon-style buy box ── */
-    .pdp-buybox {
-      border: 1px solid var(--c-border);
-      border-radius: 8px;
-      padding: 18px 16px;
-      background: var(--c-surface);
+    /* LEFT: STICKY IMAGE — stays below header (top: 80px accounts for banner) */
+    .pdp-gallery {
       position: sticky;
-      top: 24px;
+      top: 80px;
+      align-self: start;
     }
-    .pdp-buybox .amz-price-section {
-      border-top: none;
-      padding-top: 0;
-      margin-bottom: 14px;
-    }
-    .pdp-buybox .amz-info-table { margin-bottom: 14px; }
-    .pdp-buybox .amz-qty-row { margin-bottom: 10px; }
-    .pdp-buybox .amz-buttons { margin-bottom: 14px; }
-    .pdp-buybox .pdp-perks { margin-top: 10px; }
 
-    /* ── Amazon-style detail panel — uses CSS vars for dark-theme compat ── */
-    .amz-breadcrumb { font-size: 12px; color: var(--c-text-muted); margin-bottom: 12px; }
-    .amz-breadcrumb a { color: var(--c-accent); text-decoration: none; }
-    .amz-title { font-size: 26px; font-weight: bold; line-height: 1.3; margin: 0 0 14px; color: var(--c-text); }
-    .amz-rating { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; font-size: 14px; }
-    .amz-stars { color: #ff9900; font-size: 16px; }
-    .amz-rating-link { color: var(--c-accent); text-decoration: none; }
-    .amz-price-section { padding: 14px 0; border-top: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border); margin-bottom: 18px; }
-    .amz-price-row { display: flex; align-items: baseline; gap: 14px; margin: 10px 0; }
-    .amz-price-label { color: var(--c-text-muted); font-size: 13px; width: 110px; flex-shrink: 0; }
-    .amz-price-main { font-size: 30px; font-weight: bold; color: var(--c-text); }
-    .amz-price-old { text-decoration: line-through; color: var(--c-text-muted); font-size: 14px; }
-    .amz-discount-badge { background: #cc0c39; color: white; padding: 3px 7px; border-radius: 3px; font-weight: bold; font-size: 12px; }
-    .amz-savings { color: var(--c-text); font-weight: bold; }
-    .amz-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
-    .amz-badge { background: #cc0c39; color: white; padding: 5px 10px; border-radius: 3px; font-size: 12px; font-weight: bold; }
-    .amz-badge--info { background: var(--c-accent); color: var(--c-surface); }
-    .amz-badge--summary { background: #1a1a1a; color: white; padding: 6px 12px; border-radius: 3px; font-size: 11px; font-weight: bold; border: 1px solid var(--c-border); }
-    .amz-info-table { width: 100%; margin-bottom: 20px; }
-    .amz-info-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; border-bottom: 1px solid var(--c-border); }
-    .amz-info-label { color: var(--c-text-muted); }
-    .amz-info-value { font-weight: 500; color: var(--c-text); }
-    .amz-variants-section { margin-bottom: 20px; }
-    .amz-variants-label { font-weight: bold; margin-bottom: 10px; font-size: 14px; color: var(--c-text); }
-    .amz-variants-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-    .amz-variant-btn { padding: 9px 14px; border: 2px solid var(--c-border); background: transparent; color: var(--c-text); cursor: pointer; border-radius: 4px; font-size: 13px; }
-    .amz-variant-btn.active { border-color: var(--c-accent); background: var(--c-surface-2, rgba(255,255,255,0.08)); font-weight: bold; }
-    .amz-variant-btn:hover { border-color: var(--c-accent); }
-    .amz-qty-row { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
-    .amz-qty-label { font-weight: bold; font-size: 14px; color: var(--c-text); }
-    .amz-qty-control { display: flex; align-items: center; border: 1px solid var(--c-border); border-radius: 4px; }
-    .amz-qty-btn { border: none; background: transparent; padding: 8px 14px; cursor: pointer; font-size: 16px; font-weight: bold; color: var(--c-accent); }
-    .amz-qty-btn:hover { background: var(--c-surface-2, rgba(255,255,255,0.06)); }
-    .amz-qty-input { border: none; background: transparent; width: 54px; text-align: center; padding: 8px; font-size: 14px; font-weight: bold; color: var(--c-text); }
-    .amz-qty-input::-webkit-outer-spin-button,
-    .amz-qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    .amz-buttons { display: flex; gap: 12px; margin-bottom: 20px; }
-    .amz-btn-cart { background: #ff9900; color: white; padding: 12px 24px; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; font-size: 15px; flex: 1; transition: background 0.2s; }
-    .amz-btn-cart:hover { background: #e88700; }
-    .amz-btn-buy { background: #ffc700; color: #111; padding: 12px 24px; border: none; border-radius: 20px; font-weight: bold; cursor: pointer; font-size: 15px; flex: 1; transition: background 0.2s; }
-    .amz-btn-buy:hover { background: #ffb700; }
-    .pdp-desc { color: var(--c-text-muted); font-size: 14px; line-height: 1.6; margin-bottom: 20px; text-align: left; }
-
-    /* ── 2-column accordion — below the box, full-width ── */
-    .pdp-related-card__buy-btn { text-transform: uppercase; font-weight: 700; letter-spacing: 0.08em; }
-    .amz-specs-outer { max-width: 1080px; margin: 0 auto; padding: 40px 20px 80px; }
-    .amz-specs-title { font-size: 20px; font-weight: bold; margin-bottom: 18px; color: var(--c-text); }
-    /* ── Accordion — TWO COLUMN WITH SPACING ── */
-    .amz-accordion {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
+    .pdp-gallery__main-wrap {
+      border-radius: 20px;
+      background: #0a0c10;
+      aspect-ratio: 1 / 1;
+      overflow: hidden;
+      border: 1px solid var(--c-border, #2a2e36);
     }
-    @media (max-width: 680px) { .amz-accordion { grid-template-columns: 1fr; gap: 12px; } }
-    .amz-accordion-item {
-      border: 1px solid var(--c-border);
-      border-radius: var(--radius);
-      background: var(--c-surface);
+    .pdp-gallery__main-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .pdp-gallery__thumbs {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .pdp-gallery__thumb-wrap {
+      width: 60px;
+      height: 60px;
+      border-radius: 12px;
+      cursor: pointer;
+      border: 2px solid transparent;
       overflow: hidden;
     }
-    .amz-accordion-header { padding: 16px 20px; background: transparent; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15px; color: var(--c-text); user-select: none; transition: background 0.2s; }
-    .amz-accordion-header:hover { background: var(--c-surface-2, rgba(255,255,255,0.04)); }
-    .amz-accordion-item.open .amz-accordion-header { background: var(--c-surface-2, rgba(255,255,255,0.04)); }
-    .amz-toggle-icon { transition: transform 0.3s; font-size: 16px; color: var(--c-text-muted); }
-    .amz-accordion-item.open .amz-toggle-icon { transform: rotate(180deg); }
-    .amz-accordion-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; border-top: 1px solid var(--c-border); }
-    .amz-accordion-item.open .amz-accordion-body { max-height: 4000px; }
-    .amz-accordion-inner { padding: 16px 20px; }
-    .amz-spec-table { width: 100%; border-collapse: collapse; }
-    .amz-spec-table td { padding: 10px 0; border-bottom: 1px solid var(--c-border); font-size: 13px; color: var(--c-text); }
-    .amz-spec-table td:first-child { font-weight: bold; width: 45%; color: var(--c-text-muted); }
-    .amz-spec-table tr:last-child td { border-bottom: none; }
+    .pdp-gallery__thumb-wrap.active {
+      border-color: #ff9900;
+    }
+    .pdp-gallery__thumb {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
 
-    /* ── existing accordion (kept for compatibility) ── */
-    .pdp-accordion-item .pdp-accordion-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
-    .pdp-accordion-item.open .pdp-accordion-body { max-height: 600px; }
-    .pdp-accordion-item.open .pdp-accordion-trigger svg { transform: rotate(180deg); }
+    /* RIGHT COLUMN — contains details AND buy box, both in flow */
+    .pdp-right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Details panel — normal flow */
+    .pdp-details {
+      background: transparent;
+    }
+
+    /* BUY BOX — now properly in the right column, NOT below description */
+    .pdp-buybox {
+      border: 1px solid var(--c-border, #2a2e36);
+      border-radius: 16px;
+      padding: 20px;
+      background: var(--c-surface, #111317);
+      position: sticky;
+      top: 80px;
+    }
+
+    /* Typography & Components */
+    .amz-title { font-size: 26px; font-weight: 700; margin-bottom: 12px; color: var(--c-text, #f0f2f5); }
+    .amz-breadcrumb { font-size: 13px; color: #9ca3af; margin-bottom: 12px; }
+    .amz-breadcrumb a { color: #ff9900; text-decoration: none; }
+    .amz-rating { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .amz-stars { color: #ffaa33; font-size: 16px; }
+    .amz-badges { display: flex; gap: 8px; margin-bottom: 16px; }
+    .amz-badge { background: #cc0c39; color: white; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+    .pdp-desc { font-size: 14px; line-height: 1.5; color: #b5b9c4; margin-bottom: 20px; }
+    .amz-variants-section { margin: 16px 0; }
+    .amz-variants-label { font-weight: 600; margin-bottom: 10px; font-size: 14px; }
+    .amz-variants-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .amz-variant-btn { padding: 8px 16px; border: 2px solid var(--c-border); background: transparent; color: #e1e4ea; cursor: pointer; border-radius: 8px; }
+    .amz-variant-btn.active { border-color: #ff9900; background: rgba(255,153,0,0.1); }
+    .amz-price-section { border-top: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border); padding: 12px 0; margin-bottom: 16px; }
+    .amz-price-main { font-size: 28px; font-weight: bold; color: #ffc107; }
+    .amz-price-row { display: flex; align-items: baseline; gap: 12px; margin: 8px 0; }
+    .amz-price-label { width: 80px; font-size: 13px; color: #9ca3af; }
+    .amz-info-table { margin-bottom: 16px; }
+    .amz-info-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 13px; border-bottom: 1px solid var(--c-border); }
+    .amz-qty-row { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+    .amz-qty-control { display: flex; border: 1px solid var(--c-border); border-radius: 8px; }
+    .amz-qty-btn { background: transparent; border: none; padding: 8px 14px; cursor: pointer; color: #ff9900; font-size: 16px; }
+    .amz-qty-input { width: 50px; text-align: center; background: transparent; border: none; color: white; }
+    .amz-buttons { display: flex; gap: 12px; margin: 16px 0; }
+    .amz-btn-cart, .amz-btn-buy { flex: 1; padding: 12px; border-radius: 30px; font-weight: bold; cursor: pointer; border: none; }
+    .amz-btn-cart { background: #ff9900; color: #111; }
+    .amz-btn-buy { background: #ffc700; color: #111; }
+    .pdp-perks { display: flex; gap: 12px; font-size: 11px; color: #9ca3af; margin-top: 12px; }
+
+    /* Bottom sections */
+    .post-scroll-sections {
+      margin-top: 60px;
+      border-top: 1px solid var(--c-border);
+      padding-top: 48px;
+    }
+    .pdp-related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 20px; margin-top: 20px; }
+    .pdp-related-card { background: var(--c-surface); border-radius: 16px; border: 1px solid var(--c-border); overflow: hidden; }
+    .pdp-related-card img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+    .pdp-related-card__info { padding: 12px; }
+    .pdp-related-card__buy-btn { background: #ff9900; border: none; padding: 8px; width: 100%; border-radius: 30px; font-weight: bold; cursor: pointer; margin-top: 8px; }
+
+    @media (max-width: 900px) {
+      .pdp-main { grid-template-columns: 1fr; gap: 32px; }
+      .pdp-gallery { position: relative; top: 0; max-width: 450px; margin: 0 auto; }
+      .pdp-buybox { position: relative; top: 0; }
+    }
   </style>
 </head>
 <body>
 
-  <div class="pdp-magnifier" id="magnifier">
-    <img id="magnifier-img" src="" alt="">
-  </div>
-
-  <div class="pdp-lightbox" id="lightbox" role="dialog" aria-modal="true">
-    <div class="pdp-lightbox__inner">
-      <button class="pdp-lightbox__close" id="lightbox-close" aria-label="Close">✕</button>
-      <div class="pdp-lightbox__tabs">
-        <button class="pdp-lightbox__tab active" data-tab="images">Images</button>
-        <button class="pdp-lightbox__tab" data-tab="video">Video</button>
+<main class="webshop-page-main">
+  <div class="webshop-container">
+    <!-- NO .pdp-wrapper — direct children -->
+    <div class="pdp-main" id="pdp-main-section">
+      
+      <!-- LEFT: STICKY IMAGE -->
+      <div class="pdp-gallery" id="pdp-gallery">
+        <div class="pdp-gallery__main-wrap" id="gallery-main-wrap">
+          <img class="pdp-gallery__main-img" id="gallery-main-img" src="" alt="">
+        </div>
+        <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
       </div>
-      <div class="pdp-lightbox__body">
-        <div id="tab-images">
-          <div class="pdp-lightbox-gallery">
-            <div class="pdp-lightbox-main"><img id="lb-main-img" src="" alt=""></div>
-            <div class="pdp-lightbox-thumbs" id="lb-thumbs"></div>
-            <div class="pdp-lightbox-details" id="lb-details"></div>
+
+      <!-- RIGHT: DETAILS + BUY BOX (both in same column, buy box appears below description but within right panel) -->
+      <div class="pdp-right-col">
+        <div class="pdp-details" id="pdp-details">
+          <div class="amz-breadcrumb" id="amz-breadcrumb"></div>
+          <h1 class="amz-title" id="pdp-name"></h1>
+          <div class="amz-rating">
+            <span class="amz-stars" id="amz-stars">★★★★★</span>
+            <span id="amz-rating-count"></span>
+          </div>
+          <div class="amz-badges" id="amz-badges"></div>
+          <p class="pdp-desc" id="pdp-desc"></p>
+          <div class="amz-variants-section" id="amz-variants-section" style="display:none;">
+            <div class="amz-variants-label">Select option:</div>
+            <div class="amz-variants-grid" id="amz-variants-grid"></div>
           </div>
         </div>
-        <div id="tab-video" style="display:none;">
-          <div class="pdp-video-wrap" id="video-container"></div>
+
+        <!-- BUY BOX — now inside right column, aligned to far right of screen -->
+        <div class="pdp-buybox" id="pdp-buybox">
+          <div class="amz-price-section">
+            <div class="amz-price-row">
+              <span class="amz-price-label">Price:</span>
+              <span class="amz-price-main" id="pdp-price"></span>
+            </div>
+          </div>
+          <div class="amz-info-table">
+            <div class="amz-info-row"><span class="amz-info-label">Availability:</span><span id="amz-availability">In stock</span></div>
+            <div class="amz-info-row"><span class="amz-info-label">Shipping:</span><span id="amz-ships-from">Free shipping</span></div>
+          </div>
+          <div class="amz-qty-row">
+            <span class="amz-qty-label">Qty:</span>
+            <div class="amz-qty-control">
+              <button class="amz-qty-btn" id="qty-minus">−</button>
+              <input type="number" class="amz-qty-input" id="qty-val-input" value="1" min="1">
+              <button class="amz-qty-btn" id="qty-plus">+</button>
+            </div>
+          </div>
+          <div class="amz-buttons">
+            <button class="amz-btn-cart" id="atc-btn">Add to Cart</button>
+            <button class="amz-btn-buy" id="buy-now-btn">Buy Now</button>
+          </div>
+          <div class="pdp-perks" id="pdp-perks"></div>
         </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM SECTIONS -->
+    <div class="post-scroll-sections">
+      <div id="related-section" style="display:none;">
+        <h2>Related Products</h2>
+        <div class="pdp-related-grid" id="related-grid"></div>
       </div>
     </div>
   </div>
+</main>
 
-
-
-  <main class="webshop-page-main">
-    <div class="webshop-container">
-      <div class="pdp-wrapper">
-
-        <div class="pdp-main webshop-fade-in" id="pdp-main-section">
-          <div class="pdp-gallery" id="pdp-gallery">
-            <div class="pdp-gallery__main-wrap" id="gallery-main-wrap">
-              <img class="pdp-gallery__main-img" id="gallery-main-img" src="" alt="">
-              <div class="pdp-gallery__main-video" id="gallery-main-video" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
-                <video id="gallery-video-player" style="width:100%;height:100%;object-fit:contain;" controls></video>
-                <div id="gallery-yt-frame" style="display:none;position:absolute;inset:0;">
-                  <iframe id="gallery-yt-iframe" style="width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
-                </div>
-              </div>
-            </div>
-            <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
-            <button class="pdp-fullview-btn" id="fullview-btn" aria-hidden="true" tabindex="-1"></button>
-          </div>
-
-          <div class="pdp-details" id="pdp-details">
-            <div class="amz-breadcrumb" id="amz-breadcrumb"></div>
-            <h1 class="amz-title" id="pdp-name"></h1>
-
-            <div class="amz-rating">
-              <span class="amz-stars" id="amz-stars">★★★★★</span>
-              <a href="#reviews" class="amz-rating-link" id="amz-rating-count"></a>
-            </div>
-
-            <div class="amz-badges" id="amz-badges"></div>
-
-            <p class="pdp-desc" id="pdp-desc"></p>
-
-            <div class="amz-variants-section" id="amz-variants-section" style="display:none;">
-              <div class="amz-variants-label" id="amz-variants-label">Select option:</div>
-              <div class="amz-variants-grid" id="amz-variants-grid"></div>
-            </div>
-          </div>
-
-          <!-- ── Buy Box (3rd column) ── -->
-          <div class="pdp-buybox" id="pdp-buybox">
-            <div class="amz-price-section">
-              <div class="amz-price-row">
-                <span class="amz-price-label">Price:</span>
-                <span class="amz-price-main" id="pdp-price"></span>
-              </div>
-              <div class="amz-price-row" id="amz-list-price-row" style="display:none;">
-                <span class="amz-price-label">List price:</span>
-                <span class="amz-price-old" id="amz-list-price"></span>
-              </div>
-              <div class="amz-price-row" id="amz-savings-row" style="display:none;">
-                <span class="amz-price-label">You save:</span>
-                <span class="amz-savings" id="amz-savings"></span>
-                <span class="amz-discount-badge" id="amz-discount-pct"></span>
-              </div>
-            </div>
-
-            <div class="amz-info-table">
-              <div class="amz-info-row">
-                <span class="amz-info-label">Availability:</span>
-                <span class="amz-info-value" id="amz-availability">In stock</span>
-              </div>
-              <div class="amz-info-row">
-                <span class="amz-info-label">Shipped by:</span>
-                <span class="amz-info-value" id="amz-ships-from">Store</span>
-              </div>
-              <div class="amz-info-row">
-                <span class="amz-info-label">Sold by:</span>
-                <span class="amz-info-value" id="amz-sold-by">Store</span>
-              </div>
-              <div class="amz-info-row">
-                <span class="amz-info-label">Returns:</span>
-                <span class="amz-info-value" id="amz-returns">30-day return/replacement</span>
-              </div>
-            </div>
-
-            <div class="amz-qty-row">
-              <span class="amz-qty-label">Quantity:</span>
-              <div class="amz-qty-control">
-                <button class="amz-qty-btn" id="qty-minus">−</button>
-                <input type="number" class="amz-qty-input" id="qty-val-input" value="1" min="1">
-                <button class="amz-qty-btn" id="qty-plus">+</button>
-              </div>
-            </div>
-
-            <div class="amz-buttons">
-              <button class="amz-btn-cart" id="atc-btn" data-i18n="add_to_cart">Add to Cart</button>
-              <button class="amz-btn-buy" id="buy-now-btn">Buy Now</button>
-            </div>
-
-            <div class="pdp-perks" id="pdp-perks"></div>
-          </div>
-        </div>
-
-        <div class="pdp-section webshop-fade-in webshop-fade-in-1" id="bundle-section" style="display:none;">
-          <h2 class="pdp-section-title" id="bundle-title" data-i18n="frequently_bought_together">Frequently Bought Together</h2>
-          <div class="pdp-bundle-items-list" id="bundle-items"></div>
-          <div class="pdp-bundle-actions">
-            <div id="bundle-price-info" style="font-size:0.93em;color:var(--c-text-muted);"></div>
-            <button class="webshop-btn webshop-btn--primary pdp-bundle-add-all-btn" id="bundle-add-all" data-i18n="add_both_to_cart">Add Bundle to Cart</button>
-          </div>
-        </div>
-
-        <div class="pdp-section webshop-fade-in webshop-fade-in-2" id="related-section" style="display:none;">
-          <h2 class="pdp-section-title" data-i18n="related_products_title">Products Related to This Item</h2>
-          <div class="pdp-related-grid" id="related-grid"></div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- Specs accordion — full width, below the product box -->
-    <div id="specs-section" style="display:none;">
-      <div class="amz-specs-outer">
-        <h2 class="amz-specs-title">Product Information</h2>
-        <div class="amz-accordion" id="specs-accordion"></div>
-      </div>
-    </div>
-
-  </main>
-
-  <script src="../../js/config.js"></script>
-  <script>
-    (function() {
-      function loadScript(src) {
-        return new Promise(function(resolve) {
-          var s = document.createElement("script"); s.src = src;
-          s.onload = resolve; s.onerror = function(){ resolve(); };
-          document.head.appendChild(s);
-        });
-      }
-      var modules = (CONFIG.modules || []).concat(["js/lang-bridge.js", "js/shop.js"]);
-      var chain = Promise.resolve();
-      modules.forEach(function(src){ chain = chain.then(function(){ return loadScript(src); }); });
-      chain.then(function(){ document.dispatchEvent(new Event("webshop:ready")); });
-    })();
-  </script>
-
-  <script>
+<script src="../../js/config.js"></script>
+<script>
   document.addEventListener("webshop:ready", async function() {
-
-    /* ── resolve product ID from URL (?id=...) or router-injected global ── */
-    const params  = new URLSearchParams(window.location.search);
-    const prodId  = window.__PRODUCT_ID__ || params.get("id") || null;
-    window.__PRODUCT_ID__ = null; // clear so next navigation starts fresh
-
-    /* ── load lang + all products, then look up this product ── */
+    const params = new URLSearchParams(window.location.search);
+    const prodId = params.get("id");
+    
     await Shop.loadLang();
-    const allProducts = await Shop.loadProducts();          /* populates internal cache */
+    const allProducts = await Shop.loadProducts();
     const PRODUCT = allProducts.find(p => p.id === prodId);
-
+    
     if (!PRODUCT) {
-      document.getElementById("pdp-name").textContent = prodId ? "Product not found" : "No product specified";
+      document.getElementById("pdp-name").textContent = "Product not found";
       return;
     }
 
-    /* ── helpers to resolve a product-ID reference to a full product object ── */
-    function resolveById(id) {
-      return allProducts.find(p => p.id === id) || null;
-    }
-
-    /* ── update page title ── */
-    document.title = "WEBSHOP – " + Shop.pName(PRODUCT);
-
-    /* ── state ── */
-    let selectedVariant = PRODUCT.variants?.[0]?.id || null;
-    let qty = 1;
-    let currentImgIdx = 0;
-
-    /* ── init modules ── */
-    if (typeof Currency !== "undefined") Currency.init();
-    buildLangSwitcher();
-    renderMeta();
-    renderVariants();
-    updatePrice();
-    renderPerks();
-    renderGallery();
-    renderBundle();
-    renderRelated();
-    renderSpecs();
-    applyI18n();
-    initMagnifier();
-    initLightbox();
-    initQty();
-    initAtc();
-
-    document.addEventListener("currency:changed", updatePrice);
-    document.addEventListener("shop:langChanged", () => {
-      buildLangSwitcher();
-      renderMeta();
-      renderPerks();
-      renderBundle();
-      renderRelated();
-      renderSpecs();
-      applyI18n();
+    // Basic rendering
+    document.getElementById("pdp-name").textContent = PRODUCT.name || PRODUCT.title;
+    document.getElementById("pdp-desc").textContent = PRODUCT.description || "";
+    document.getElementById("pdp-price").textContent = `€${(PRODUCT.price || 0).toFixed(2)}`;
+    
+    // Gallery
+    const mainImg = document.getElementById("gallery-main-img");
+    const images = PRODUCT.images || [PRODUCT.image];
+    if (images.length) mainImg.src = images[0];
+    
+    const thumbsEl = document.getElementById("gallery-thumbs");
+    thumbsEl.innerHTML = images.map((src, i) => `
+      <div class="pdp-gallery__thumb-wrap" data-img="${src}">
+        <img class="pdp-gallery__thumb" src="${src}">
+      </div>
+    `).join("");
+    
+    thumbsEl.querySelectorAll(".pdp-gallery__thumb-wrap").forEach((thumb, idx) => {
+      thumb.addEventListener("click", () => {
+        mainImg.src = thumb.dataset.img;
+        thumbsEl.querySelectorAll(".pdp-gallery__thumb-wrap").forEach(t => t.classList.remove("active"));
+        thumb.classList.add("active");
+      });
     });
-
-    /* ════════════════════════════════════════════════════
-       LANG SWITCHER
-    ════════════════════════════════════════════════════ */
-    function buildLangSwitcher() {
-      const slot = document.getElementById("lang-switcher-slot"); if (!slot) return;
-      const langs   = CONFIG.supportedLanguages || ["en"];
-      const current = CONFIG.language || "en";
-      slot.innerHTML = langs.map(l =>
-        `<button class="webshop-lang-btn${l === current ? " active" : ""}" data-lang="${l}">${l.toUpperCase()}</button>`
-      ).join("");
-      Shop.wireLanguageSwitcher(".webshop-lang-btn");
-    }
-
-    function applyI18n() {
-      document.querySelectorAll("[data-i18n]").forEach(el => {
-        const v = Shop.t(el.dataset.i18n); if (v) el.textContent = v;
-      });
-    }
-
-    /* ════════════════════════════════════════════════════
-       META (name, category, description)
-    ════════════════════════════════════════════════════ */
-    function renderMeta() {
-      document.getElementById("pdp-name").textContent     = Shop.pName(PRODUCT);
-      document.getElementById("pdp-desc").textContent     = Shop.pDesc(PRODUCT);
-
-      // Breadcrumb
-      const bc = document.getElementById("amz-breadcrumb");
-      if (bc) bc.innerHTML = `<a href="../shop/">Shop</a> › <span>${PRODUCT.category || "Products"}</span>`;
-
-      // Rating stars + count
-      const rating = PRODUCT.rating;
-      const reviewCount = PRODUCT.reviewCount;
-      const starsEl = document.getElementById("amz-stars");
-      if (starsEl && rating) {
-        const full = Math.floor(rating);
-        const half = rating - full >= 0.5;
-        starsEl.textContent = "★".repeat(full) + (half ? "½" : "") + "☆".repeat(5 - full - (half ? 1 : 0));
-      }
-      const rc = document.getElementById("amz-rating-count");
-      if (rc && reviewCount) rc.innerHTML = `<span style="color:#0066c0;">(${reviewCount.toLocaleString()} Reviews)</span>`;
-
-      // Availability / shipping info
-      const stock = PRODUCT.stock !== undefined ? PRODUCT.stock : 99;
-      const av = document.getElementById("amz-availability");
-      if (av) av.textContent = stock > 0 ? "In stock" : "Not available";
-      const sf = document.getElementById("amz-ships-from");
-      if (sf) sf.textContent = PRODUCT.shipsFrom || "Store";
-      const sb = document.getElementById("amz-sold-by");
-      if (sb) sb.textContent = PRODUCT.soldBy || "Store";
-      const ri = document.getElementById("amz-returns");
-      if (ri) ri.textContent = PRODUCT.returns || "30-day return/replacement";
-
-      // Badges
-      const badgesEl = document.getElementById("amz-badges");
-      if (badgesEl) {
-        const isBestSeller = PRODUCT.bestseller || PRODUCT.badge === "best_seller" || (PRODUCT.badge == null && PRODUCT.featured);
-        const isNew = PRODUCT.badge === "new" || PRODUCT.new;
-        const summaryBadge = PRODUCT.summaryBadge || null;
-        badgesEl.innerHTML =
-          (summaryBadge ? `<div class="amz-badge amz-badge--summary">${summaryBadge}</div>` : '') +
-          (isBestSeller ? '<div class="amz-badge">#1 Best Seller</div>' : '') +
-          (isNew        ? '<div class="amz-badge amz-badge--info">New</div>' : '');
-      }
-    }
-
-    /* ════════════════════════════════════════════════════
-       PRICE
-    ════════════════════════════════════════════════════ */
-    function fmt(n) { return (typeof Shop !== "undefined" && Shop.fmt) ? Shop.fmt(n) : "€" + n.toFixed(2); }
-
-    function updatePrice() {
-      const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
-      const basePrice = v ? v.price : PRODUCT.price;
-      const discountPercent = PRODUCT.discount || 0;
-      const discountedPrice = discountPercent > 0 ? basePrice * (1 - discountPercent / 100) : basePrice;
-      
-      document.getElementById("pdp-price").textContent = fmt(discountedPrice);
-
-      const listRow  = document.getElementById("amz-list-price-row");
-      const savRow   = document.getElementById("amz-savings-row");
-      if (discountPercent > 0 && listRow && savRow) {
-        const savings = basePrice - discountedPrice;
-        document.getElementById("amz-list-price").textContent   = fmt(basePrice);
-        document.getElementById("amz-savings").textContent      = fmt(savings);
-        document.getElementById("amz-discount-pct").textContent = `-${discountPercent}%`;
-        listRow.style.display = "flex";
-        savRow.style.display  = "flex";
-      } else if (listRow && savRow) {
-        listRow.style.display = "none";
-        savRow.style.display  = "none";
-      }
-    }
-
-    /* ════════════════════════════════════════════════════
-       VARIANTS
-    ════════════════════════════════════════════════════ */
-    function renderVariants() {
-      const wrap = document.getElementById("amz-variants-section");
-      const el   = document.getElementById("amz-variants-grid");
-      if (!PRODUCT.variants?.length) { if (wrap) wrap.style.display = "none"; return; }
-      if (wrap) wrap.style.display = "";
-      el.innerHTML = PRODUCT.variants.map(v =>
-        `<button class="amz-variant-btn${v.id === selectedVariant ? " active" : ""}" data-vid="${v.id}">${v.label}</button>`
-      ).join("");
-      el.querySelectorAll(".amz-variant-btn").forEach(btn => {
-        btn.addEventListener("click", () => {
-          selectedVariant = btn.dataset.vid;
-          el.querySelectorAll(".amz-variant-btn").forEach(b => b.classList.remove("active"));
-          btn.classList.add("active");
-          const v = PRODUCT.variants.find(v => v.id === selectedVariant);
-          if (v?.image) {
-            document.getElementById("gallery-main-img").src = v.image;
-            document.getElementById("magnifier-img").src = v.image.replace("w=800", "w=1600");
-          }
-          updatePrice();
-        });
-      });
-    }
-
-    /* ════════════════════════════════════════════════════
-       PERKS
-    ════════════════════════════════════════════════════ */
-    function renderPerks() {
-      const el = document.getElementById("pdp-perks"); if (!el) return;
-      const keys      = ["perk_free_shipping", "perk_returns", "perk_warranty"];
-      const fallbacks = ["Free shipping over €150", "30-day returns", "2-year warranty"];
-      el.innerHTML = keys.map((k, i) => `<span>${Shop.t(k) || fallbacks[i]}</span>`).join("");
-    }
-
-    /* ════════════════════════════════════════════════════
-       GALLERY  (images + video thumbnails)
-    ════════════════════════════════════════════════════ */
-    function renderGallery() {
-      const mainImg      = document.getElementById("gallery-main-img");
-      const mainVideoWrap= document.getElementById("gallery-main-video");
-      const videoPlayer  = document.getElementById("gallery-video-player");
-      const ytFrame      = document.getElementById("gallery-yt-frame");
-      const ytIframe     = document.getElementById("gallery-yt-iframe");
-      const thumbsEl     = document.getElementById("gallery-thumbs");
-      const mainWrap     = document.getElementById("gallery-main-wrap");
-
-      // Combined media list: images first, then videos
-      const images = PRODUCT.images || [];
-      const videos = PRODUCT.videos || [];
-      // Each item: { type: 'image'|'video', src, thumb }
-      const mediaItems = [
-        ...images.map(src => ({ type: "image", src, thumb: src })),
-        ...videos.map(src => {
-          const isYT = /youtube\.com|youtu\.be/.test(src);
-          return { type: "video", src, isYT,
-            thumb: isYT
-              ? `https://img.youtube.com/vi/${extractYTId(src)}/mqdefault.jpg`
-              : null
+    if (thumbsEl.firstChild) thumbsEl.firstChild.classList.add("active");
+    
+    // Quantity
+    let qty = 1;
+    const qtyInput = document.getElementById("qty-val-input");
+    document.getElementById("qty-minus").onclick = () => { if (qty > 1) { qty--; qtyInput.value = qty; } };
+    document.getElementById("qty-plus").onclick = () => { qty++; qtyInput.value = qty; };
+    qtyInput.onchange = () => { qty = Math.max(1, parseInt(qtyInput.value) || 1); qtyInput.value = qty; };
+    
+    // Add to cart
+    document.getElementById("atc-btn").onclick = () => {
+      Shop.addToCart(PRODUCT, qty);
+      Shop.toast(`${PRODUCT.name} added to cart`);
+    };
+    
+    // Perks
+    document.getElementById("pdp-perks").innerHTML = ["Free shipping", "30-day returns", "2-year warranty"].map(p => `<span>${p}</span>`).join("");
+    
+    // Related products
+    if (PRODUCT.related && PRODUCT.related.length) {
+      const relatedIds = PRODUCT.related;
+      const relatedProducts = relatedIds.map(id => allProducts.find(p => p.id === id)).filter(Boolean);
+      if (relatedProducts.length) {
+        document.getElementById("related-section").style.display = "";
+        document.getElementById("related-grid").innerHTML = relatedProducts.map(r => `
+          <div class="pdp-related-card">
+            <img src="${r.image}" alt="${r.name}">
+            <div class="pdp-related-card__info">
+              <div>${r.name}</div>
+              <div>€${(r.price || 0).toFixed(2)}</div>
+              <button class="pdp-related-card__buy-btn" data-id="${r.id}">Buy Now</button>
+            </div>
+          </div>
+        `).join("");
+        
+        document.querySelectorAll(".pdp-related-card__buy-btn").forEach(btn => {
+          btn.onclick = (e) => {
+            e.stopPropagation();
+            const item = allProducts.find(p => p.id === btn.dataset.id);
+            if (item) Shop.addToCart(item, 1);
+            Shop.toast(`${item.name} added`);
           };
-        })
-      ];
-
-      function extractYTId(url) {
-        const m = url.match(/embed\/([^?]+)/) || url.match(/youtu\.be\/([^?]+)/);
-        return m ? m[1] : "";
-      }
-
-      let activeIdx = 0;
-      let activeType = "image"; // 'image' or 'video'
-
-      function showImage(idx) {
-        activeIdx = idx; activeType = "image";
-        currentImgIdx = idx;
-        const src = mediaItems[idx].src;
-        // Stop any playing video
-        videoPlayer.pause(); videoPlayer.src = "";
-        ytIframe.src = "";
-        mainVideoWrap.style.display = "none";
-        mainWrap.classList.remove("video-active");
-        mainImg.style.opacity = "1";
-        mainImg.src = src;
-        document.getElementById("magnifier-img").src = src.replace("w=800","w=1600");
-        // Sync lightbox image
-        const lbMain = document.getElementById("lb-main-img");
-        if (lbMain) lbMain.src = src;
-        document.querySelectorAll(".pdp-lightbox-thumb").forEach((t, i) =>
-          t.classList.toggle("active", i === idx)
-        );
-        buildThumbs();
-      }
-
-      function showVideo(idx) {
-        activeIdx = idx; activeType = "video";
-        const item = mediaItems[idx];
-        // Hide image, show video overlay
-        mainImg.style.opacity = "0";
-        mainVideoWrap.style.display = "block";
-        mainWrap.classList.add("video-active");
-        if (item.isYT) {
-          videoPlayer.style.display = "none";
-          ytFrame.style.display = "block";
-          ytIframe.src = item.src + "?autoplay=1";
-        } else {
-          ytFrame.style.display = "none";
-          ytIframe.src = "";
-          videoPlayer.style.display = "block";
-          videoPlayer.src = item.src;
-          videoPlayer.play().catch(()=>{});
-        }
-        buildThumbs();
-      }
-
-      function buildThumbs() {
-        thumbsEl.innerHTML = mediaItems.map((item, i) => {
-          const isActive = i === activeIdx;
-          if (item.type === "image") {
-            return `<div class="pdp-gallery__thumb-wrap${isActive?" active":""}" data-idx="${i}" data-type="image">
-              <img class="pdp-gallery__thumb" src="${item.src}" alt="View ${i+1}">
-            </div>`;
-          } else {
-            // Video thumb — play icon overlay
-            const thumbStyle = item.thumb
-              ? `style="background-image:url('${item.thumb}');background-size:cover;background-position:center;"`
-              : `style="background:var(--c-surface-2);"`;
-            return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive?" active":""}" data-idx="${i}" data-type="video" ${thumbStyle}>
-              <span class="pdp-thumb-play">▶</span>
-            </div>`;
-          }
-        }).join("");
-
-        thumbsEl.querySelectorAll(".pdp-gallery__thumb-wrap").forEach(el => {
-          el.addEventListener("click", () => {
-            const idx = +el.dataset.idx;
-            if (el.dataset.type === "video") showVideo(idx);
-            else showImage(idx);
-          });
-        });
-      }
-
-      // Expose for variant switching
-      window._selectImage = function(idx) { showImage(idx); };
-
-      // Init
-      if (images.length) {
-        mainImg.src = images[0];
-        mainImg.alt = Shop.pName(PRODUCT);
-        document.getElementById("magnifier-img").src = (images[0]||"").replace("w=800","w=1600");
-      }
-      buildThumbs();
-
-      // Main wrap click: image → lightbox images, video → lightbox video tab
-      mainWrap.addEventListener("click", e => {
-        // Don't open lightbox if clicking video controls
-        if (e.target.closest("video") || e.target.closest("iframe")) return;
-        if (activeType === "video") {
-          // Stop inline playback and open lightbox video tab
-          videoPlayer.pause();
-          ytIframe.src = "";
-          openLightbox("video");
-        } else {
-          openLightbox("images");
-        }
-      });
-    }
-
-    /* ════════════════════════════════════════════════════
-       MAGNIFIER
-    ════════════════════════════════════════════════════ */
-    function initMagnifier() {
-      const magEl   = document.getElementById("magnifier");
-      const magImg  = document.getElementById("magnifier-img");
-      const mainWrap = document.getElementById("gallery-main-wrap");
-      magImg.src = (PRODUCT.images[0] || "").replace("w=800", "w=1600");
-
-      function updateMagnifierSize() {
-        const rect  = mainWrap.getBoundingClientRect();
-        const size  = Math.min(Math.min(window.innerWidth * 0.45, 600), rect.width * 1.2);
-        magEl.style.width = size + "px"; magEl.style.height = size + "px";
-      }
-
-      mainWrap.addEventListener("mousemove", e => {
-        // Don't show magnifier when a video is active
-        if (document.getElementById("gallery-main-video").style.display !== "none") {
-          magEl.style.display = "none"; return;
-        }
-        const rect = mainWrap.getBoundingClientRect();
-        const xPct = (e.clientX - rect.left)  / rect.width;
-        const yPct = (e.clientY - rect.top)   / rect.height;
-        updateMagnifierSize();
-        const lensW = magEl.offsetWidth, lensH = magEl.offsetHeight;
-        let mLeft = rect.right + 20, mTop = rect.top + (rect.height / 2) - (lensH / 2);
-        if (mLeft + lensW > window.innerWidth - 20) mLeft = rect.left - lensW - 20;
-        mLeft = Math.max(10, Math.min(mLeft, window.innerWidth  - lensW - 10));
-        mTop  = Math.max(10, Math.min(mTop,  window.innerHeight - lensH - 10));
-        magEl.style.left = mLeft + "px"; magEl.style.top = mTop + "px";
-        magEl.style.display = "block";
-        const nW = magImg.naturalWidth, nH = magImg.naturalHeight;
-        if (nW && nH) {
-          const ca = rect.width / rect.height, ia = nW / nH;
-          let dW, dH, ox = 0, oy = 0;
-          if (ia > ca) { dH = rect.height; dW = dH * ia; ox = (rect.width - dW) / 2; }
-          else         { dW = rect.width;  dH = dW / ia; oy = (rect.height - dH) / 2; }
-          const imgX = ((xPct * dW - ox) / dW) * nW;
-          const imgY = ((yPct * dH - oy) / dH) * nH;
-          const zoom = 2;
-          magImg.style.width  = (nW * zoom) + "px";
-          magImg.style.height = (nH * zoom) + "px";
-          magImg.style.left   = -(imgX * zoom - lensW / 2) + "px";
-          magImg.style.top    = -(imgY * zoom - lensH / 2) + "px";
-        }
-      });
-      mainWrap.addEventListener("mouseleave", () => { magEl.style.display = "none"; });
-      window.addEventListener("resize", () => { if (magEl.style.display === "block") updateMagnifierSize(); });
-    }
-
-    /* ════════════════════════════════════════════════════
-       LIGHTBOX
-    ════════════════════════════════════════════════════ */
-    function initLightbox() {
-      const lightbox = document.getElementById("lightbox");
-      let activeTab  = "images";
-
-      window.openLightbox = function(tab) {
-        activeTab = tab || "images";
-        buildLightbox();
-        lightbox.classList.add("open");
-        document.body.style.overflow = "hidden";
-      };
-
-      function closeLightbox() {
-        lightbox.classList.remove("open");
-        document.body.style.overflow = "";
-      }
-
-      function buildLightbox() {
-        document.querySelectorAll(".pdp-lightbox__tab").forEach(t =>
-          t.classList.toggle("active", t.dataset.tab === activeTab)
-        );
-        document.getElementById("tab-images").style.display = activeTab === "images" ? "" : "none";
-        document.getElementById("tab-video").style.display  = activeTab === "video"  ? "" : "none";
-
-        if (activeTab === "images") {
-          document.getElementById("lb-main-img").src = PRODUCT.images[currentImgIdx];
-          const lbThumbs = document.getElementById("lb-thumbs");
-          lbThumbs.innerHTML = PRODUCT.images.map((src, i) =>
-            `<img class="pdp-lightbox-thumb${i === currentImgIdx ? " active" : ""}" src="${src}" alt="View ${i+1}" data-idx="${i}">`
-          ).join("");
-          lbThumbs.querySelectorAll(".pdp-lightbox-thumb").forEach(t => {
-            t.addEventListener("click", () => {
-              currentImgIdx = +t.dataset.idx;
-              document.getElementById("lb-main-img").src = PRODUCT.images[currentImgIdx];
-              lbThumbs.querySelectorAll(".pdp-lightbox-thumb").forEach((x, j) =>
-                x.classList.toggle("active", j === currentImgIdx)
-              );
-            });
-          });
-          const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
-          const perksHtml = ["perk_free_shipping","perk_returns","perk_warranty"].map((k, i) =>
-            `<span>${Shop.t(k) || ["Free shipping over €150","30-day returns","2-year warranty"][i]}</span>`
-          ).join("");
-          document.getElementById("lb-details").innerHTML = `
-            <p class="pdp-category">${Shop.pCategory(PRODUCT)}</p>
-            <h2 class="pdp-name">${Shop.pName(PRODUCT)}</h2>
-            <p class="pdp-price">${fmt(v ? v.price : PRODUCT.price)}</p>
-            <p class="pdp-desc">${Shop.pDesc(PRODUCT)}</p>
-            <div class="pdp-perks">${perksHtml}</div>`;
-        }
-        if (activeTab === "video") {
-          const videos = PRODUCT.videos || [];
-          function renderVideo(url) {
-            const isYT = /youtube\.com\/embed\/|youtu\.be\//.test(url);
-            if (isYT) {
-              return `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;">
-                <iframe src="${url}" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
-              </div>`;
-            }
-            return `<video src="${url}" controls style="width:100%;max-height:70vh;border-radius:12px;display:block;"></video>`;
-          }
-          document.getElementById("video-container").innerHTML = videos.length
-            ? videos.map(renderVideo).join("")
-            : `<div class="pdp-no-video">📽 No video available for this product.</div>`;
-        }
-      }
-
-      document.getElementById("lightbox-close").addEventListener("click", closeLightbox);
-      lightbox.addEventListener("click", e => { if (e.target === lightbox) closeLightbox(); });
-      document.querySelectorAll(".pdp-lightbox__tab").forEach(t =>
-        t.addEventListener("click", () => { activeTab = t.dataset.tab; buildLightbox(); })
-      );
-      document.addEventListener("keydown", e => { if (e.key === "Escape") closeLightbox(); });
-    }
-
-    /* ════════════════════════════════════════════════════
-       QTY + ATC + BUY NOW
-    ════════════════════════════════════════════════════ */
-    function initQty() {
-      const qtyInput = document.getElementById("qty-val-input");
-      document.getElementById("qty-minus").addEventListener("click", () => {
-        if (qty > 1) { qty--; qtyInput.value = qty; }
-      });
-      document.getElementById("qty-plus").addEventListener("click", () => {
-        const v     = PRODUCT.variants?.find(v => v.id === selectedVariant);
-        const stock = v?.stock ?? PRODUCT.stock ?? 99;
-        if (qty < stock) { qty++; qtyInput.value = qty; }
-      });
-      qtyInput.addEventListener("change", () => {
-        const v     = PRODUCT.variants?.find(v => v.id === selectedVariant);
-        const stock = v?.stock ?? PRODUCT.stock ?? 99;
-        qty = Math.max(1, Math.min(parseInt(qtyInput.value) || 1, stock));
-        qtyInput.value = qty;
-      });
-    }
-
-    function initAtc() {
-      document.getElementById("atc-btn").addEventListener("click", () => {
-        const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
-        Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
-        Shop.toast(`${Shop.pName(PRODUCT)}${v ? " – " + v.label : ""} ${Shop.t("added", "added to cart")}`);
-      });
-      const buyBtn = document.getElementById("buy-now-btn");
-      if (buyBtn) {
-        buyBtn.addEventListener("click", () => {
-          const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
-          Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
-          const lang     = window.LANG || localStorage.getItem("dornori-lang") || "en";
-          const basePath = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || "/";
-          const slug     = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || "cart";
-          window.location.href = `${basePath}${lang}/${slug}/`;
         });
       }
     }
-
-    /* ════════════════════════════════════════════════════
-       FREQUENTLY BOUGHT TOGETHER (bundle)
-    ════════════════════════════════════════════════════ */
-    function renderBundle() {
-      const section  = document.getElementById("bundle-section");
-      const bundleEl = document.getElementById("bundle-items");
-      const priceEl  = document.getElementById("bundle-price-info");
-      const bundleIds = PRODUCT.bundled || [];
-      if (!bundleIds.length) { section.style.display = "none"; return; }
-
-      const bundleProducts = bundleIds.map(id => resolveById(id)).filter(Boolean);
-      if (!bundleProducts.length) { section.style.display = "none"; return; }
-      section.style.display = "";
-
-      bundleEl.innerHTML = bundleProducts.map(item => {
-        const name = Shop.pName(item);
-        const desc = Shop.pDesc(item);
-        return `
-        <div class="pdp-bundle-item">
-          <img src="${item.image}" alt="${name}" onerror="this.style.background='var(--c-bg-alt)'">
-          <div class="pdp-bundle-item__info">
-            <div class="pdp-bundle-item__name">${name}</div>
-            <div class="pdp-bundle-item__price">${fmt(item.price)}${desc ? " · " + desc : ""}</div>
-          </div>
-        </div>`;
-      }).join("");
-
-      /* bundle pricing */
-      const mainPrice    = PRODUCT.variants?.[0]?.price ?? PRODUCT.price;
-      const addonsTotal  = bundleProducts.reduce((s, p) => s + p.price, 0);
-      const fullTotal    = mainPrice + addonsTotal;
-      const discount     = PRODUCT.bundleDiscount || 0;
-      const discounted   = discount > 0 ? fullTotal * (1 - discount / 100) : null;
-      if (discount > 0 && discounted) {
-        priceEl.innerHTML =
-          `<span style="margin-right:5px;">🏷️</span>${Shop.t("bundle_full_price","Full price")}: <s>${fmt(fullTotal)}</s> &nbsp;→&nbsp; ` +
-          `<strong>${fmt(discounted)}</strong> &nbsp;<span style="color:var(--c-accent);font-weight:600;">(${discount}% ${Shop.t("bundle_off","off")})</span>`;
-      } else {
-        priceEl.textContent = `${Shop.t("bundle_total","Bundle total")}: ${fmt(fullTotal)}`;
-      }
-
-      document.getElementById("bundle-add-all").onclick = () => {
-        const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
-        Shop.addToCart(PRODUCT, 1, selectedVariant, null, v?.image || PRODUCT.image);
-        bundleProducts.forEach(item => Shop.addToCart(item, 1, null, null, item.image));
-        Shop.toast(`${Shop.pName(PRODUCT)} + ${Shop.t("bundle_added","bundle added to cart")}`);
-      };
-    }
-
-    /* ════════════════════════════════════════════════════
-       RELATED PRODUCTS
-    ════════════════════════════════════════════════════ */
-    function renderRelated() {
-      const section   = document.getElementById("related-section");
-      const relatedEl = document.getElementById("related-grid");
-      const relatedIds = PRODUCT.related || [];
-      const relatedProducts = relatedIds.map(id => resolveById(id)).filter(Boolean);
-      if (!relatedProducts.length) { section.style.display = "none"; return; }
-      section.style.display = "";
-
-      relatedEl.innerHTML = relatedProducts.map(r => {
-        const name = Shop.pName(r);
-        const price = r.variants?.[0]?.price ?? r.price;
-        return `
-        <div class="pdp-related-card">
-          <div class="pdp-related-card__img-wrap">
-            <img src="${r.image}" alt="${name}">
-            <div class="pdp-related-card__overlay">
-              <button class="pdp-related-card__buy-btn"
-                data-rid="${r.id}"
-                data-rimg="${r.image}">${Shop.t("buy_now","BUY NOW")}</button>
-            </div>
-          </div>
-          <div class="pdp-related-card__info">
-            <div class="pdp-related-card__name">${name}</div>
-            <div class="pdp-related-card__price">${fmt(price)}</div>
-          </div>
-        </div>`;
-      }).join("");
-
-      relatedEl.querySelectorAll(".pdp-related-card").forEach(card => {
-        // Add click handler for the card itself (image/info) to navigate
-        const imgWrap = card.querySelector(".pdp-related-card__img-wrap");
-        const infoWrap = card.querySelector(".pdp-related-card__info");
-        const rid = card.querySelector(".pdp-related-card__buy-btn")?.dataset.rid;
-        
-        if (imgWrap && rid) {
-          imgWrap.style.cursor = "pointer";
-          imgWrap.addEventListener("click", e => {
-            e.stopPropagation();
-            const basePath = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || '/';
-            const lang = window.LANG || localStorage.getItem('dornori-lang') || 'en';
-            const slug = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
-            window.location.href = `${basePath}${lang}/${slug}/?id=${rid}`;
-          });
-        }
-        
-        if (infoWrap && rid) {
-          infoWrap.style.cursor = "pointer";
-          infoWrap.addEventListener("click", e => {
-            e.stopPropagation();
-            const basePath = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || '/';
-            const lang = window.LANG || localStorage.getItem('dornori-lang') || 'en';
-            const slug = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
-            window.location.href = `${basePath}${lang}/${slug}/?id=${rid}`;
-          });
-        }
-      });
-
-      relatedEl.querySelectorAll(".pdp-related-card__buy-btn").forEach(btn => {
-        btn.addEventListener("click", e => {
-          e.stopPropagation();
-          const item = resolveById(btn.dataset.rid);
-          if (!item) return;
-          Shop.addToCart(item, 1, null, null, btn.dataset.rimg);
-          Shop.toast(`${Shop.pName(item)} ${Shop.t("added","added to cart")}`);
-        });
-      });
-    }
-
-    /* ════════════════════════════════════════════════════
-       SPECS ACCORDION
-    ════════════════════════════════════════════════════ */
-    function renderSpecs() {
-      const section     = document.getElementById("specs-section");
-      const accordionEl = document.getElementById("specs-accordion");
-      const specs = PRODUCT.specs || [];
-      if (!specs.length) { section.style.display = "none"; return; }
-      section.style.display = "";
-
-      function specTitle(sec) {
-        if (sec.title_key) {
-          /* check per-product specs object in the lang files */
-          const pl    = Shop.getProductLang?.()   || {};
-          const plEn  = Shop.getProductLangEn?.() || {};
-          const specs = pl[PRODUCT.id]?.specs || plEn[PRODUCT.id]?.specs || {};
-          if (specs[sec.title_key]) return specs[sec.title_key];
-          /* fall back to UI string with same key */
-          const uiStr = Shop.t(sec.title_key);
-          if (uiStr && uiStr !== sec.title_key) return uiStr;
-        }
-        return sec.title;
-      }
-
-      accordionEl.innerHTML = specs.map((sec, idx) => `
-        <div class="amz-accordion-item">
-          <div class="amz-accordion-header">
-            <span>${specTitle(sec)}</span>
-            <span class="amz-toggle-icon">▼</span>
-          </div>
-          <div class="amz-accordion-body">
-            <div class="amz-accordion-inner">
-              <table class="amz-spec-table"><tbody>
-                ${sec.rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("")}
-              </tbody></table>
-            </div>
-          </div>
-        </div>`
-      ).join("");
-
-      accordionEl.querySelectorAll(".amz-accordion-item").forEach(item => {
-        item.querySelector(".amz-accordion-header").addEventListener("click", () => item.classList.toggle("open"));
-      });
-    }
-
-  }); /* end webshop:ready */
-  </script>
+  });
+</script>
 </body>
 </html>
