@@ -551,6 +551,8 @@ var Shop = (() => {
     const hasVariants  = p.variants?.length > 0;
     const firstVariant = hasVariants ? p.variants[0] : null;
     const displayPrice = firstVariant?.price != null ? firstVariant.price : p.price;
+    const discountPercent = p.discount || 0;
+    const discountedPrice = discountPercent > 0 ? displayPrice * (1 - discountPercent / 100) : displayPrice;
     const inStock      = hasVariants ? variantInStock(p, firstVariant?.id) : (p.stock > 0);
 
     let selectorHtml = "";
@@ -580,12 +582,14 @@ var Shop = (() => {
       <${wTag} class="webshop-card-img-wrap${hasUrl?" webshop-card-img-link":""}"${hasUrl?` title="${pName(p)}"`:""}>
         <img class="webshop-card-img" src="${p.image}" alt="${pName(p)}" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
         ${p.featured?`<span class="webshop-badge">${t("featured","Featured")}</span>`:""}
+        ${p.bestseller?`<span class="webshop-badge webshop-badge--bestseller">Best Seller</span>`:""}
+        ${discountPercent > 0?`<span class="webshop-badge webshop-badge--discount">${discountPercent}% OFF</span>`:""}
       </${wEnd}>
       <div class="webshop-card-body">
         <h3 class="webshop-card-title">${pName(p)}</h3>
         ${selectorHtml}
         <div class="webshop-card-footer">
-          <span class="webshop-card-price">${fmt(displayPrice)}</span>
+          ${discountPercent > 0?`<span class="webshop-card-price webshop-card-price--original">${fmt(displayPrice)}</span><span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>`:`<span class="webshop-card-price">${fmt(displayPrice)}</span>`}
           <div class="webshop-qty-control">
             <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease">−</button>
             <span class="webshop-qty-val">1</span>
@@ -701,6 +705,8 @@ var Shop = (() => {
     function build() {
       const images      = p.images?.length ? p.images : [p.image];
       const displayPrice = hasVariants ? variantPrice(p, selectedVariantId) : p.price;
+      const discountPercent = p.discount || 0;
+      const discountedPrice = discountPercent > 0 ? displayPrice * (1 - discountPercent / 100) : displayPrice;
       const inStock     = hasVariants ? variantInStock(p, selectedVariantId) : (p.stock > 0);
       const soldOut     = p.colors_soldout || [];
 
@@ -724,44 +730,101 @@ var Shop = (() => {
       }
 
       container.innerHTML = `
-        <div class="webshop-product-gallery">
-          <div class="webshop-product-main-img-wrap" style="position:relative;">
-            ${p.url?`<a href="${p.url}">`:""}<img id="pinfo-main-${productId}" class="webshop-product-main-img"
-              src="${hasVariants?variantImage(p,selectedVariantId):images[0]}" alt="${pName(p)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">${p.url?"</a>":""}
-            <div id="pinfo-video-${productId}" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
-              <video id="pinfo-vplayer-${productId}" style="width:100%;height:100%;object-fit:contain;" controls></video>
-              <div id="pinfo-ytframe-${productId}" style="display:none;position:absolute;inset:0;">
-                <iframe id="pinfo-ytiframe-${productId}" style="width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture"></iframe>
+        <div class="webshop-product-layout">
+          <div class="webshop-product-gallery">
+            <div class="webshop-product-main-img-wrap" style="position:relative;">
+              ${p.url?`<a href="${p.url}">`:""}<img id="pinfo-main-${productId}" class="webshop-product-main-img"
+                src="${hasVariants?variantImage(p,selectedVariantId):images[0]}" alt="${pName(p)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">${p.url?"</a>":""}
+              <div id="pinfo-video-${productId}" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
+                <video id="pinfo-vplayer-${productId}" style="width:100%;height:100%;object-fit:contain;" controls></video>
+                <div id="pinfo-ytframe-${productId}" style="display:none;position:absolute;inset:0;">
+                  <iframe id="pinfo-ytiframe-${productId}" style="width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture"></iframe>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="webshop-product-thumbs">
-            ${images.map((src,i)=>`<img class="webshop-product-thumb${i===0?" active":""}" src="${src}" data-idx="${i}" data-type="image" alt="${t("image_of","Image of")} ${pName(p)} ${i+1}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">`).join("")}
-            ${(p.videos||[]).map((vsrc)=>{const isYT=/youtube\.com|youtu\.be/.test(vsrc);const ytId=isYT?((vsrc.match(/embed\/([^?]+)/)||vsrc.match(/youtu\.be\/([^?]+)/)||["",""])[1]):"";const tbStyle=isYT?`background-image:url('https://img.youtube.com/vi/${ytId}/mqdefault.jpg');background-size:cover;background-position:center;`:`background:#222;`;return `<div class="webshop-product-thumb webshop-product-thumb--video" data-vsrc="${vsrc}" data-isyt="${isYT}" data-type="video" style="position:relative;${tbStyle}" title="Play video"><span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:1.3rem;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7);pointer-events:none;">▶</span></div>`;}).join("")}
-          </div>
-        </div>
-        <div class="webshop-product-details">
-          <p class="webshop-product-category">${pCategory(p)}</p>
-          <h1 class="webshop-product-name">${pName(p)}</h1>
-          <p class="webshop-product-price" id="pinfo-price-${productId}">${fmt(displayPrice)}</p>
-          <p class="webshop-product-desc">${pDesc(p)}</p>
-          ${variantHtml}
-          <div class="webshop-product-option-group">
-            <label class="webshop-product-option-label">${t("quantity","Qty")}</label>
-            <div class="webshop-qty-control webshop-qty-control--lg">
-              <button class="webshop-qty-btn webshop-qty-btn--minus">−</button>
-              <span class="webshop-qty-val">1</span>
-              <button class="webshop-qty-btn webshop-qty-btn--plus">+</button>
+            <div class="webshop-product-thumbs">
+              ${images.map((src,i)=>`<img class="webshop-product-thumb${i===0?" active":""}" src="${src}" data-idx="${i}" data-type="image" alt="${t("image_of","Image of")} ${pName(p)} ${i+1}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">`).join("")}
+              ${(p.videos||[]).map((vsrc)=>{const isYT=/youtube\.com|youtu\.be/.test(vsrc);const ytId=isYT?((vsrc.match(/embed\/([^?]+)/)||vsrc.match(/youtu\.be\/([^?]+)/)||["",""])[1]):"";const tbStyle=isYT?`background-image:url('https://img.youtube.com/vi/${ytId}/mqdefault.jpg');background-size:cover;background-position:center;`:`background:#222;`;return `<div class="webshop-product-thumb webshop-product-thumb--video" data-vsrc="${vsrc}" data-isyt="${isYT}" data-type="video" style="position:relative;${tbStyle}" title="Play video"><span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:1.3rem;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7);pointer-events:none;">▶</span></div>`;}).join("")}
             </div>
           </div>
-          <div class="webshop-product-meta">
-            <span id="pinfo-stock-${productId}" class="${inStock?"webshop-in-stock":"webshop-out-of-stock"}">${inStock?t("in_stock","In Stock"):t("out_of_stock","Out of Stock")}</span>
-            <span class="webshop-weight-info">${t("weight","Weight")}: ${fmtWeight(hasVariants?variantWeight(p,selectedVariantId):(p.weight||0))}</span>
-            ${p.dimensions?`<span class="webshop-dim-info">${p.dimensions.l}×${p.dimensions.w}×${p.dimensions.h} cm</span>`:""}
+          <div class="webshop-product-details">
+            <p class="webshop-product-category">${pCategory(p)}</p>
+            <h1 class="webshop-product-name">${pName(p)}</h1>
+            ${p.rating ? `<div class="webshop-product-rating">
+              <span class="webshop-rating-stars">${p.rating} ★</span>
+              <span class="webshop-rating-count">(${p.reviewCount || 0} reviews)</span>
+            </div>` : ''}
+            ${p.bestseller ? `<span class="webshop-badge-inline webshop-badge-inline--bestseller">Best Seller</span>` : ''}
+            <div class="webshop-product-price-group">
+              ${discountPercent > 0 ? `
+                <p class="webshop-product-price-original">${fmt(displayPrice)}</p>
+                <p class="webshop-product-price" id="pinfo-price-${productId}">${fmt(discountedPrice)}</p>
+                <p class="webshop-product-price-discount">Save ${discountPercent}%</p>
+              ` : `
+                <p class="webshop-product-price" id="pinfo-price-${productId}">${fmt(displayPrice)}</p>
+              `}
+            </div>
+            <p class="webshop-product-desc">${pDesc(p)}</p>
+            ${variantHtml}
+            <div class="webshop-product-option-group">
+              <label class="webshop-product-option-label">${t("quantity","Qty")}</label>
+              <div class="webshop-qty-control webshop-qty-control--lg">
+                <button class="webshop-qty-btn webshop-qty-btn--minus">−</button>
+                <span class="webshop-qty-val">1</span>
+                <button class="webshop-qty-btn webshop-qty-btn--plus">+</button>
+              </div>
+            </div>
+            <div class="webshop-product-meta">
+              <span id="pinfo-stock-${productId}" class="${inStock?"webshop-in-stock":"webshop-out-of-stock"}">${inStock?t("in_stock","In Stock"):t("out_of_stock","Out of Stock")}</span>
+              <span class="webshop-weight-info">${t("weight","Weight")}: ${fmtWeight(hasVariants?variantWeight(p,selectedVariantId):(p.weight||0))}</span>
+              ${p.dimensions?`<span class="webshop-dim-info">${p.dimensions.l}×${p.dimensions.w}×${p.dimensions.h} cm</span>`:""}
+            </div>
+            <button id="pinfo-atc-${productId}" class="webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>${t("add_to_cart","Add to Cart")}</button>
+            <a class="webshop-btn webshop-btn--outline webshop-btn--full" href="cart.html" style="margin-top:10px;display:flex;align-items:center;justify-content:center;">${t("view_cart","View Cart")}</a>
+            ${buildRelatedStrip(p,"info")}
           </div>
-          <button id="pinfo-atc-${productId}" class="webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>${t("add_to_cart","Add to Cart")}</button>
-          <a class="webshop-btn webshop-btn--outline webshop-btn--full" href="cart.html" style="margin-top:10px;display:flex;align-items:center;justify-content:center;">${t("view_cart","View Cart")}</a>
-          ${buildRelatedStrip(p,"info")}
+        </div>
+        <div class="webshop-product-info-section">
+          <div class="webshop-product-info-tabs">
+            <button class="webshop-info-tab-btn active" data-tab="features">Features & Specs</button>
+            <button class="webshop-info-tab-btn" data-tab="details">Item details</button>
+            <button class="webshop-info-tab-btn" data-tab="materials">Materials & Care</button>
+            <button class="webshop-info-tab-btn" data-tab="additional">Additional details</button>
+          </div>
+          <div class="webshop-info-tab-content active" id="features-tab">
+            <div class="webshop-info-property">
+              <span class="webshop-info-label">Category</span>
+              <span class="webshop-info-value">${pCategory(p)}</span>
+            </div>
+            <div class="webshop-info-property">
+              <span class="webshop-info-label">Weight</span>
+              <span class="webshop-info-value">${fmtWeight(p.weight || 0)}</span>
+            </div>
+            ${p.dimensions ? `<div class="webshop-info-property">
+              <span class="webshop-info-label">Dimensions</span>
+              <span class="webshop-info-value">${p.dimensions.l}×${p.dimensions.w}×${p.dimensions.h} cm</span>
+            </div>` : ''}
+          </div>
+          <div class="webshop-info-tab-content" id="details-tab">
+            <div class="webshop-info-property">
+              <span class="webshop-info-label">Product ID</span>
+              <span class="webshop-info-value">${p.id}</span>
+            </div>
+            <div class="webshop-info-property">
+              <span class="webshop-info-label">In Stock</span>
+              <span class="webshop-info-value">${inStock ? 'Yes' : 'No'}</span>
+            </div>
+            ${p.rating ? `<div class="webshop-info-property">
+              <span class="webshop-info-label">Customer Rating</span>
+              <span class="webshop-info-value">${p.rating} stars (${p.reviewCount || 0} reviews)</span>
+            </div>` : ''}
+          </div>
+          <div class="webshop-info-tab-content" id="materials-tab">
+            <p style="text-align: left; color: #666;">Material and care information for this product will be displayed here.</p>
+          </div>
+          <div class="webshop-info-tab-content" id="additional-tab">
+            <p style="text-align: left; color: #666;">Additional product details, warranty information, and return policy will be displayed here.</p>
+          </div>
         </div>`;
 
       const mainImg = container.querySelector("#pinfo-main-"+productId);
@@ -770,10 +833,23 @@ var Shop = (() => {
       const atcBtn  = container.querySelector("#pinfo-atc-"+productId);
       const wtEl    = container.querySelector(".webshop-weight-info");
 
+      // Handle info tabs
+      container.querySelectorAll(".webshop-info-tab-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          container.querySelectorAll(".webshop-info-tab-btn").forEach(b => b.classList.remove("active"));
+          container.querySelectorAll(".webshop-info-tab-content").forEach(c => c.classList.remove("active"));
+          btn.classList.add("active");
+          const tabId = btn.dataset.tab + "-tab";
+          const tab = container.querySelector("#" + tabId);
+          if (tab) tab.classList.add("active");
+        });
+      });
+
       function refreshInfo() {
         if (!hasVariants) return;
         const price=variantPrice(p,selectedVariantId), inStk=variantInStock(p,selectedVariantId), wt=variantWeight(p,selectedVariantId);
-        if (priceEl) priceEl.textContent = fmt(price);
+        const discPrice = discountPercent > 0 ? price * (1 - discountPercent / 100) : price;
+        if (priceEl) priceEl.textContent = fmt(discPrice);
         if (stockEl) { stockEl.textContent=inStk?t("in_stock","In Stock"):t("out_of_stock","Out of Stock"); stockEl.className=inStk?"webshop-in-stock":"webshop-out-of-stock"; }
         if (atcBtn)  { atcBtn.disabled=!inStk; atcBtn.textContent=inStk?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock"); }
         if (mainImg) swapMainImg(mainImg, variantImage(p,selectedVariantId), p.image);
