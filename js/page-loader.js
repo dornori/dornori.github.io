@@ -146,7 +146,9 @@ function _doWireShopCards(container) {
 
 // ── SCROLL LOCK ───────────────────────────────────────────────────────────────
 function unlockScroll() {
-    window.scrollTo(0, 0);
+    if (window.scrollY === 0) return;
+    document.documentElement.classList.remove('at-top');
+    document.documentElement.style.overflowY = '';
 }
 
 export function initPageLoader() {
@@ -216,6 +218,8 @@ export function initPageLoader() {
 
     // ── LOAD HOME ─────────────────────────────────────────────────────────────
     window.loadHome = async () => {
+        // Scroll to top FIRST before anything else
+        window.scrollTo({ top: 0, behavior: 'instant' });
         
         const lang = window.LANG || fallbackLang();
         // Only skip the fetch when English content is already loaded in the correct language.
@@ -231,7 +235,7 @@ export function initPageLoader() {
             mountShopEmbeds(homeView);
             homeView.classList.remove('hidden');
             pageView.classList.add('hidden');
-            window.scrollTo(0, 0);
+            unlockScroll();
             const base    = SITE_CONFIG.appearance.base_path;
             const homeUrl = `${base}${lang}/`;
             window.history.replaceState({}, '', homeUrl);
@@ -256,7 +260,7 @@ export function initPageLoader() {
         }
         homeView.classList.remove('hidden');
         pageView.classList.add('hidden');
-        window.scrollTo(0, 0);
+        unlockScroll();
         const base    = SITE_CONFIG.appearance.base_path;
         const homeUrl = `${base}${lang}/`;
         window.history.replaceState({}, '', homeUrl);
@@ -265,7 +269,6 @@ export function initPageLoader() {
 
     // ── VIEW PAGE ────────────────────────────────────────────────────────────
     window.viewPage = async (slug, productId) => {
-        
         const page = SITE_CONFIG.pages[slug];
         if (!page) { if (ENV_CONFIG.DEBUG) console.error(`Page "${slug}" not found in config`); return; }
 
@@ -294,7 +297,7 @@ export function initPageLoader() {
             mountShopEmbeds(pageContent);
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
-            window.scrollTo(0, 0);
+            unlockScroll();
 
             const lang = window.LANG || fallbackLang();
             const qs   = productId ? `?id=${productId}` : '';
@@ -314,7 +317,7 @@ export function initPageLoader() {
             `;
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
-            window.scrollTo(0, 0);
+            unlockScroll();
         }
     };
 
