@@ -210,10 +210,10 @@ export function initPageLoader() {
     }
 
     // ── PAGE URL ─────────────────────────────────────────────────────────────
-    function pageUrl(slug, lang) {
+    function pageUrl(slug, lang, extra) {
         const base    = SITE_CONFIG.appearance.base_path;
         const urlSlug = getSlug(window.T, slug);
-        return `${base}${lang}/${urlSlug}/`;
+        return `${base}${lang}/${urlSlug}/${extra || ''}`;
     }
 
     // ── LOAD HOME ─────────────────────────────────────────────────────────────
@@ -268,7 +268,7 @@ export function initPageLoader() {
     };
 
     // ── VIEW PAGE ────────────────────────────────────────────────────────────
-    window.viewPage = async (slug) => {
+    window.viewPage = async (slug, productId) => {
         // Scroll to top FIRST before anything else
         window.scrollTo({ top: 0, behavior: 'instant' });
         
@@ -284,6 +284,8 @@ export function initPageLoader() {
             if (spinner) spinner.remove();
 
             pageContent.innerHTML = html;
+            // Make product ID available to the injected product.html script
+            if (productId) window.__PRODUCT_ID__ = productId;
             rewriteContentPaths(pageContent);
             pageContent.querySelectorAll('script').forEach(orig => {
                 const s = document.createElement('script');
@@ -301,7 +303,8 @@ export function initPageLoader() {
             unlockScroll();
 
             const lang = window.LANG || fallbackLang();
-            window.history.replaceState({ slug, lang }, '', pageUrl(slug, lang));
+            const qs   = productId ? `?id=${productId}` : '';
+            window.history.replaceState({ slug, lang, productId }, '', pageUrl(slug, lang, qs));
             updateSEO(slug);
 
         } catch (err) {
@@ -362,7 +365,11 @@ export function initPageLoader() {
         if (urlSegment) {
             // Reverse-lookup using current lang bundle (window.T was loaded by initI18n)
             const slug = canonicalSlug(window.T, urlSegment) || urlSegment;
-            if (SITE_CONFIG.pages[slug]) { window.viewPage(slug); return; }
+            if (SITE_CONFIG.pages[slug]) {
+                const pid = new URLSearchParams(window.location.search).get('id') || null;
+                window.viewPage(slug, pid);
+                return;
+            }
         }
 
         window.loadHome();
@@ -370,12 +377,31 @@ export function initPageLoader() {
     }
 
     window.addEventListener('popstate', (e) => {
-        if (e.state?.slug) window.viewPage(e.state.slug);
+        if (e.state?.slug) window.viewPage(e.state.slug, e.state.productId || null);
         else window.showHome();
     });
 
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !pageView.classList.contains('hidden')) window.showHome();
+    });
+
+    // ── INTERCEPT PRODUCT LINKS ───────────────────────────────────────────────
+    // Catches clicks on <a href="/en/product/?id=..."> anywhere in the document
+    document.addEventListener('click', (e) => {
+        const a = e.target.closest('a[href]');
+        if (!a) return;
+        const url = new URL(a.href, window.location.href);
+        const base    = SITE_CONFIG.appearance.base_path;
+        const productSlug = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
+        // Match /{lang}/{productSlug}/ URLs
+        const pattern = new RegExp(`^${base}[a-z]{2}/${productSlug}/`);
+        if (pattern.test(url.pathname)) {
+            const pid = url.searchParams.get('id');
+            if (pid) {
+                e.preventDefault();
+                window.viewPage('product', pid);
+            }
+        }
     });
 
     handleInitialURL();

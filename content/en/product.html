@@ -95,7 +95,7 @@
     .amz-toggle-icon { transition: transform 0.3s; font-size: 16px; }
     .amz-accordion-item.open .amz-toggle-icon { transform: rotate(180deg); }
     .amz-accordion-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
-    .amz-accordion-item.open .amz-accordion-body { max-height: 2000px; }
+    .amz-accordion-item.open .amz-accordion-body { max-height: 4000px; }
     .amz-accordion-inner { padding: 16px 20px; }
     .amz-spec-table { width: 100%; border-collapse: collapse; }
     .amz-spec-table td { padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
@@ -136,18 +136,7 @@
     </div>
   </div>
 
-  <header class="webshop-page-header">
-    <div class="webshop-container">
-      <div class="webshop-page-header__inner">
-        <a href="index.html" class="webshop-logo">WEBSHOP</a>
-        <div style="display:flex;gap:10px;align-items:center;">
-          <div class="webshop-lang-switcher" id="lang-switcher-slot"></div>
-          <div id="currency-selector-slot"></div>
-          <div id="cart-icon-slot"></div>
-        </div>
-      </div>
-    </div>
-  </header>
+
 
   <main class="webshop-page-main">
     <div class="webshop-container">
@@ -282,17 +271,18 @@
   <script>
   document.addEventListener("webshop:ready", async function() {
 
-    /* ── resolve product ID from URL (?id=arc-floor-lamp) ── */
+    /* ── resolve product ID from URL (?id=...) or router-injected global ── */
     const params  = new URLSearchParams(window.location.search);
-    const prodId  = params.get("id") || "arc-floor-lamp";
+    const prodId  = window.__PRODUCT_ID__ || params.get("id") || null;
+    window.__PRODUCT_ID__ = null; // clear so next navigation starts fresh
 
     /* ── load lang + all products, then look up this product ── */
     await Shop.loadLang();
     const allProducts = await Shop.loadProducts();          /* populates internal cache */
-    const PRODUCT = allProducts.find(p => p.id === prodId) || allProducts[0];
+    const PRODUCT = allProducts.find(p => p.id === prodId);
 
     if (!PRODUCT) {
-      document.getElementById("pdp-name").textContent = "Product not found";
+      document.getElementById("pdp-name").textContent = prodId ? "Product not found" : "No product specified";
       return;
     }
 
@@ -311,8 +301,6 @@
 
     /* ── init modules ── */
     if (typeof Currency !== "undefined") Currency.init();
-    Shop.renderCartIcon({ target: "#cart-icon-slot", fixed: false });
-    Shop.renderCurrencySelector("#currency-selector-slot");
     buildLangSwitcher();
     renderMeta();
     renderVariants();
