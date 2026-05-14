@@ -146,8 +146,10 @@ function _doWireShopCards(container) {
 
 // ── SCROLL LOCK ───────────────────────────────────────────────────────────────
 function unlockScroll() {
-    window.scrollTo(0, 0);
-    document.documentElement.classList.add('no-scrollbar');
+    requestAnimationFrame(() => {
+        window.scrollTo(0, 0);
+        document.documentElement.classList.add('no-scrollbar');
+    });
 }
 
 export function initPageLoader() {
@@ -321,7 +323,6 @@ export function initPageLoader() {
 
     // ── SHOW HOME ────────────────────────────────────────────────────────────
     window.showHome = () => {
-        window.scrollTo({ top: 0, behavior: 'instant' });
         pageView.classList.add('hidden');
         homeView.classList.remove('hidden');
         const lang    = window.LANG || fallbackLang();
