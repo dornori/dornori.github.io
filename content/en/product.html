@@ -1,182 +1,130 @@
-Here is an HTML document that transforms the product page into a fixed-image scroll experience, where the image stays in place while the text details scroll beside it.
+Here is the final HTML document that implements a fixed-image layout where the product image remains perfectly stationary while you scroll through the details and buy box, with the content pane aligned to the right.
 ```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>WEBSHOP | Fixed Image Scroll Experience</title>
+  <title>WEBSHOP | Sticky Image · Scroll Details</title>
   <link rel="stylesheet" href="../../css/shop.css">
   <style>
-    /* RESET & GLOBAL — ensure full viewport usage */
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
 
-    html, body {
-      width: 100%;
+    /* FULL VIEWPORT - no rounded containers, no extra cards */
+    body {
       background: var(--c-bg, #0a0c10);
-      scroll-behavior: smooth;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     }
 
-    /* main container eats full viewport, no extra padding */
     .webshop-page-main {
       width: 100%;
       min-height: 100vh;
       background: var(--c-bg, #0a0c10);
-      display: flex;
-      flex-direction: column;
     }
 
     .webshop-container {
       max-width: 1600px;
       margin: 0 auto;
       width: 100%;
-      padding: 0 24px !important;
+      padding: 0 32px !important;
     }
 
-    /* REMOVE all extra padding-top/margin that could cause scroll gaps */
+    /* remove all extra paddings and weird wrappers */
     .webshop-page-main { padding-top: 0 !important; }
     .pdp-wrapper { padding-top: 0; max-width: 100% !important; }
 
-    /* ── NEW STICKY / SCROLL ARCHITECTURE ── */
-    /* .pdp-main becomes the scroll container, but we will NOT use overflow on inner details */
+    /* THREE-COLUMN STRUCTURE but image is STICKY from top to bottom */
     .pdp-main {
       display: grid;
       grid-template-columns: 1fr 1.2fr 340px;
-      gap: 32px;
+      gap: 40px;
       align-items: start;
       position: relative;
       width: 100%;
       min-height: 100vh;
     }
 
-    /* LEFT COLUMN: STICKY IMAGE GALLERY — stays fixed during scroll until end of .pdp-main */
+    /* LEFT COLUMN: IMAGE GALLERY - PERFECTLY STICKY, never moves while scrolling */
     .pdp-gallery {
       position: sticky;
       top: 24px;
       align-self: start;
       background: transparent;
-      border-radius: 20px;
-      overflow: hidden;
-      transition: all 0.2s;
+      border-radius: 0px;       /* NO ROUNDED corners */
+      overflow: visible;
+      transition: none;
     }
 
-    /* RIGHT SIDE: TWO COLUMN LAYOUT — details + buybox remain in flow, scrolling naturally */
+    /* right side container: details + buybox — flows naturally, scrolls with page */
     .pdp-scroll-area {
       display: flex;
       flex-direction: column;
       gap: 32px;
     }
 
-    /* Details column — NO fixed height, NO overflow scrolling, natural document flow */
+    /* details: no overflow, natural document flow, aligned right */
     .pdp-details {
       background: transparent;
-      padding-right: 0;
+      padding-right: 8px;
       max-height: none !important;
       overflow-y: visible !important;
       text-align: left;
     }
 
-    /* Buy box: sticky but independent */
+    /* Buy box: sticky on its own but stays in right column */
     .pdp-buybox {
       position: sticky;
       top: 24px;
-      border: 1px solid var(--c-border);
-      border-radius: 16px;
+      border: 1px solid var(--c-border, #2a2e36);
+      border-radius: 0px;        /* NO ROUNDED DIVS — sharp edges */
       padding: 20px 18px;
-      background: var(--c-surface);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-      transition: all 0.2s;
+      background: var(--c-surface, #111317);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.3);
     }
 
-    /* remove any scrollbar from details */
+    /* remove all scrollbars from details */
     .pdp-details::-webkit-scrollbar { display: none; }
     .pdp-details {
       -ms-overflow-style: none;
       scrollbar-width: none;
     }
 
-    /* ensure full viewport usage for the entire main grid */
-    .webshop-fade-in {
-      animation: fadeSlide 0.4s ease forwards;
-    }
-
-    @keyframes fadeSlide {
-      from { opacity: 0; transform: translateY(8px);}
-      to { opacity: 1; transform: translateY(0);}
-    }
-
-    /* responsive behavior: on narrow screens, sticky image becomes static */
-    @media (max-width: 1024px) {
-      .pdp-main {
-        grid-template-columns: 1fr 1fr;
-        gap: 28px;
-      }
-      .pdp-scroll-area {
-        grid-column: 2 / 3;
-      }
-      .pdp-buybox {
-        grid-column: auto;
-        margin-top: 0;
-      }
-    }
-
-    @media (max-width: 780px) {
-      .pdp-main {
-        grid-template-columns: 1fr;
-        gap: 24px;
-      }
-      .pdp-gallery {
-        position: relative;
-        top: 0;
-        width: 100%;
-        max-width: 500px;
-        margin: 0 auto;
-      }
-      .pdp-scroll-area {
-        grid-column: auto;
-      }
-      .pdp-buybox {
-        position: relative;
-        top: 0;
-      }
-      .webshop-container {
-        padding: 0 16px !important;
-      }
-    }
-
-    /* gallery styling enhancements */
+    /* GALLERY: sharp, full-bleed style */
     .pdp-gallery__main-wrap {
-      border-radius: 20px;
-      background: #111;
+      background: #0a0c10;
       aspect-ratio: 1 / 1;
       cursor: crosshair;
+      border-radius: 0px;       /* completely flat */
+      overflow: hidden;
+      position: relative;
     }
     .pdp-gallery__main-img {
       width: 100%;
       height: 100%;
       object-fit: cover;
+      display: block;
     }
     .pdp-gallery__thumbs {
-      margin-top: 12px;
+      margin-top: 16px;
       display: flex;
-      gap: 10px;
+      gap: 12px;
       flex-wrap: wrap;
     }
     .pdp-gallery__thumb-wrap {
       width: 70px;
       height: 70px;
-      border-radius: 12px;
-      overflow: hidden;
       cursor: pointer;
       border: 2px solid transparent;
       transition: 0.1s;
+      background: #1e1f24;
+      overflow: hidden;
     }
     .pdp-gallery__thumb-wrap.active {
-      border-color: var(--c-accent, #ff9900);
+      border-color: #ff9900;
     }
     .pdp-gallery__thumb {
       width: 100%;
@@ -184,30 +132,86 @@ Here is an HTML document that transforms the product page into a fixed-image scr
       object-fit: cover;
     }
 
-    /* Amazon style elements */
-    .amz-title { font-size: 28px; font-weight: 700; margin-bottom: 12px; }
-    .amz-rating { margin-bottom: 14px; }
-    .amz-badges { margin-bottom: 18px; }
-    .pdp-desc { font-size: 15px; line-height: 1.5; color: var(--c-text-secondary, #b0b3b8); margin-bottom: 24px; }
-    .amz-variants-section { margin: 16px 0; }
-    .amz-price-section { border-top: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border); padding: 12px 0; margin-bottom: 12px; }
-    .amz-price-main { font-size: 32px; font-weight: bold; }
-    .amz-buttons { display: flex; gap: 12px; margin: 16px 0; }
-    .amz-btn-cart, .amz-btn-buy { flex: 1; padding: 12px; border-radius: 40px; font-weight: bold; cursor: pointer; }
-    .amz-btn-cart { background: #ff9900; color: #111; border: none; }
-    .amz-btn-buy { background: #ffc700; color: #111; border: none; }
+    /* TYPOGRAPHY & AMAZON STYLE - clean, right aligned content */
+    .amz-breadcrumb { font-size: 13px; color: #8b8f9e; margin-bottom: 12px; }
+    .amz-breadcrumb a { color: #ff9900; text-decoration: none; }
+    .amz-title { font-size: 28px; font-weight: 700; line-height: 1.25; margin-bottom: 12px; color: var(--c-text, #f0f2f5); }
+    .amz-rating { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .amz-stars { color: #ffaa33; font-size: 18px; letter-spacing: 2px; }
+    .amz-rating-link { color: #ff9900; text-decoration: none; font-size: 14px; }
+    .amz-badges { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+    .amz-badge { background: #cc0c39; color: white; padding: 4px 10px; font-size: 12px; font-weight: bold; }
+    .amz-badge--info { background: #007185; }
+    .pdp-desc { font-size: 15px; line-height: 1.5; color: #b5b9c4; margin-bottom: 24px; }
 
-    /* bundle + related sections remain below the scroll container but visually AFTER pdp-main */
+    .amz-variants-section { margin: 18px 0; }
+    .amz-variants-label { font-weight: 600; margin-bottom: 12px; font-size: 14px; }
+    .amz-variants-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+    .amz-variant-btn { padding: 8px 16px; border: 1px solid #3a3f4b; background: transparent; color: #e1e4ea; cursor: pointer; font-size: 13px; transition: 0.1s; }
+    .amz-variant-btn.active { border-color: #ff9900; background: #2a2f39; font-weight: 600; }
+
+    .amz-price-section { border-top: 1px solid #2a2e36; border-bottom: 1px solid #2a2e36; padding: 14px 0; margin-bottom: 16px; }
+    .amz-price-row { display: flex; align-items: baseline; gap: 14px; margin: 8px 0; }
+    .amz-price-label { width: 85px; font-size: 13px; color: #9ca3af; }
+    .amz-price-main { font-size: 32px; font-weight: 700; color: #ffc107; }
+    .amz-price-old { text-decoration: line-through; color: #8b8f9e; font-size: 14px; }
+    .amz-discount-badge { background: #cc0c39; padding: 3px 8px; border-radius: 2px; font-size: 12px; font-weight: bold; color: white; }
+    .amz-info-table { width: 100%; margin-bottom: 16px; }
+    .amz-info-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 14px; border-bottom: 1px solid #2a2e36; }
+    .amz-info-label { color: #9ca3af; }
+    .amz-info-value { font-weight: 500; }
+    .amz-qty-row { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+    .amz-qty-control { display: flex; border: 1px solid #3a3f4b; }
+    .amz-qty-btn { background: transparent; border: none; padding: 8px 14px; font-size: 18px; cursor: pointer; color: #ff9900; }
+    .amz-qty-input { width: 55px; text-align: center; background: transparent; border: none; color: white; font-weight: 600; }
+    .amz-buttons { display: flex; gap: 14px; margin: 18px 0; }
+    .amz-btn-cart, .amz-btn-buy { flex: 1; padding: 12px; font-weight: bold; cursor: pointer; border: none; font-size: 15px; transition: 0.15s; }
+    .amz-btn-cart { background: #ff9900; color: #111; }
+    .amz-btn-cart:hover { background: #e68900; }
+    .amz-btn-buy { background: #ffc700; color: #111; }
+    .amz-btn-buy:hover { background: #f0b800; }
+    .pdp-perks { display: flex; gap: 16px; font-size: 12px; color: #9ca3af; margin-top: 12px; flex-wrap: wrap; }
+
+    /* BUNDLE & RELATED - flat style, no rounded corners */
     .post-scroll-sections {
-      margin-top: 40px;
-      border-top: 1px solid var(--c-border);
+      margin-top: 60px;
+      border-top: 1px solid #2a2e36;
       padding-top: 48px;
     }
+    .pdp-section-title { font-size: 22px; font-weight: 600; margin-bottom: 20px; color: #f0f2f5; }
     .pdp-bundle-items-list { display: flex; gap: 24px; flex-wrap: wrap; margin: 20px 0; }
+    .pdp-bundle-item { display: flex; gap: 16px; background: #111317; padding: 12px; border: 1px solid #2a2e36; align-items: center; }
     .pdp-related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px,1fr)); gap: 24px; margin-top: 20px; }
-    .pdp-related-card { background: var(--c-surface); border-radius: 16px; overflow: hidden; transition: 0.2s; }
-    .amz-accordion { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
-    @media (max-width: 680px) { .amz-accordion { grid-template-columns: 1fr; } }
+    .pdp-related-card { background: #111317; border: 1px solid #2a2e36; transition: 0.1s; overflow: hidden; }
+    .pdp-related-card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+    .pdp-related-card__info { padding: 12px; }
+    .pdp-related-card__name { font-weight: 500; margin-bottom: 6px; }
+    .pdp-related-card__price { color: #ffc107; font-weight: 600; }
+    .pdp-related-card__buy-btn { background: #ff9900; border: none; padding: 8px 12px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 8px; }
+    .amz-accordion { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+    .amz-accordion-item { border: 1px solid #2a2e36; background: #111317; }
+    .amz-accordion-header { padding: 16px 20px; cursor: pointer; display: flex; justify-content: space-between; font-weight: 600; }
+    .amz-accordion-body { max-height: 0; overflow: hidden; transition: max-height 0.3s; border-top: 1px solid #2a2e36; }
+    .amz-accordion-item.open .amz-accordion-body { max-height: 800px; }
+    .amz-accordion-inner { padding: 16px 20px; }
+    .amz-spec-table td { padding: 8px 0; border-bottom: 1px solid #2a2e36; font-size: 13px; }
+    .amz-spec-table td:first-child { font-weight: 600; width: 40%; color: #9ca3af; }
+
+    @media (max-width: 1024px) {
+      .pdp-main { grid-template-columns: 1fr 1fr; gap: 28px; }
+      .pdp-scroll-area { grid-column: 2 / 3; }
+      .pdp-gallery { top: 20px; }
+    }
+    @media (max-width: 780px) {
+      .pdp-main { grid-template-columns: 1fr; gap: 28px; }
+      .pdp-gallery { position: relative; top: 0; max-width: 480px; margin: 0 auto; }
+      .pdp-scroll-area { grid-column: auto; }
+      .pdp-buybox { position: relative; top: 0; }
+      .webshop-container { padding: 0 20px !important; }
+    }
+    /* remove any magnifier rounding */
+    .pdp-magnifier { border-radius: 0px; border: 1px solid #ff9900; }
+    .pdp-lightbox { border-radius: 0px; }
   </style>
 </head>
 <body>
@@ -233,22 +237,20 @@ Here is an HTML document that transforms the product page into a fixed-image scr
 <main class="webshop-page-main">
   <div class="webshop-container">
     <div class="pdp-wrapper">
-      <!-- NEW LAYOUT: image sticky column + scrollable right stack (details + buybox) -->
       <div class="pdp-main" id="pdp-main-section">
-        <!-- LEFT: STICKY GALLERY -->
+        <!-- LEFT: STICKY IMAGE (NO ROUNDED, NO MOVEMENT) -->
         <div class="pdp-gallery" id="pdp-gallery">
           <div class="pdp-gallery__main-wrap" id="gallery-main-wrap">
             <img class="pdp-gallery__main-img" id="gallery-main-img" src="" alt="">
-            <div class="pdp-gallery__main-video" id="gallery-main-video" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
+            <div class="pdp-gallery__main-video" id="gallery-main-video" style="display:none;position:absolute;inset:0;background:#000;">
               <video id="gallery-video-player" style="width:100%;height:100%;object-fit:contain;" controls></video>
               <div id="gallery-yt-frame" style="display:none;position:absolute;inset:0;"><iframe id="gallery-yt-iframe" style="width:100%;height:100%;border:0;" allowfullscreen></iframe></div>
             </div>
           </div>
           <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
-          <button class="pdp-fullview-btn" id="fullview-btn" style="display:none;"></button>
         </div>
 
-        <!-- RIGHT SCROLL AREA: Details + BuyBox (no overflow scrolling, natural flow) -->
+        <!-- RIGHT: SCROLLABLE DETAILS + BUYBOX (aligned to right naturally) -->
         <div class="pdp-scroll-area">
           <div class="pdp-details" id="pdp-details">
             <div class="amz-breadcrumb" id="amz-breadcrumb"></div>
@@ -265,7 +267,6 @@ Here is an HTML document that transforms the product page into a fixed-image scr
             </div>
           </div>
 
-          <!-- Buy Box (sticky on its own, moves with scroll) -->
           <div class="pdp-buybox" id="pdp-buybox">
             <div class="amz-price-section">
               <div class="amz-price-row"><span class="amz-price-label">Price:</span><span class="amz-price-main" id="pdp-price"></span></div>
@@ -285,7 +286,7 @@ Here is an HTML document that transforms the product page into a fixed-image scr
         </div>
       </div>
 
-      <!-- Extra sections (bundle, related, specs) placed AFTER the scrollable area — they flow naturally below -->
+      <!-- bottom sections (bundle, related, specs) -->
       <div class="post-scroll-sections">
         <div class="pdp-section" id="bundle-section" style="display:none;">
           <h2 class="pdp-section-title" data-i18n="frequently_bought_together">Frequently Bought Together</h2>
@@ -326,11 +327,10 @@ document.addEventListener("webshop:ready", async function() {
   const params = new URLSearchParams(window.location.search);
   const prodId = window.__PRODUCT_ID__ || params.get("id") || null;
   window.__PRODUCT_ID__ = null;
-
   await Shop.loadLang();
   const allProducts = await Shop.loadProducts();
   const PRODUCT = allProducts.find(p => p.id === prodId);
-  if (!PRODUCT) { document.getElementById("pdp-name").textContent = prodId ? "Product not found" : "No product"; return; }
+  if (!PRODUCT) { document.getElementById("pdp-name").textContent = "Product not found"; return; }
 
   document.title = "WEBSHOP – " + Shop.pName(PRODUCT);
   let selectedVariant = PRODUCT.variants?.[0]?.id || null;
@@ -356,40 +356,24 @@ document.addEventListener("webshop:ready", async function() {
   document.addEventListener("currency:changed", updatePrice);
   document.addEventListener("shop:langChanged", () => { buildLangSwitcher(); renderMeta(); renderPerks(); renderBundle(); renderRelated(); renderSpecs(); applyI18n(); });
 
-  function buildLangSwitcher() {
-    const slot = document.getElementById("lang-switcher-slot"); if (!slot) return;
-    const langs = CONFIG.supportedLanguages || ["en"];
-    const current = CONFIG.language || "en";
-    slot.innerHTML = langs.map(l => `<button class="webshop-lang-btn${l === current ? " active" : ""}" data-lang="${l}">${l.toUpperCase()}</button>`).join("");
-    Shop.wireLanguageSwitcher(".webshop-lang-btn");
-  }
+  function buildLangSwitcher() { const slot = document.getElementById("lang-switcher-slot"); if (!slot) return; const langs = CONFIG.supportedLanguages || ["en"]; const current = CONFIG.language || "en"; slot.innerHTML = langs.map(l => `<button class="webshop-lang-btn${l === current ? " active" : ""}" data-lang="${l}">${l.toUpperCase()}</button>`).join(""); Shop.wireLanguageSwitcher(".webshop-lang-btn"); }
   function applyI18n() { document.querySelectorAll("[data-i18n]").forEach(el => { const v = Shop.t(el.dataset.i18n); if (v) el.textContent = v; }); }
-
   function renderMeta() {
     document.getElementById("pdp-name").textContent = Shop.pName(PRODUCT);
     document.getElementById("pdp-desc").textContent = Shop.pDesc(PRODUCT);
-    const bc = document.getElementById("amz-breadcrumb");
-    if (bc) bc.innerHTML = `<a href="../shop/">Shop</a> › <span>${PRODUCT.category || "Products"}</span>`;
-    const rating = PRODUCT.rating;
-    const reviewCount = PRODUCT.reviewCount;
+    document.getElementById("amz-breadcrumb").innerHTML = `<a href="../shop/">Shop</a> › <span>${PRODUCT.category || "Products"}</span>`;
+    const rating = PRODUCT.rating; const reviewCount = PRODUCT.reviewCount;
     const starsEl = document.getElementById("amz-stars");
     if (starsEl && rating) { const full = Math.floor(rating); const half = rating - full >= 0.5; starsEl.textContent = "★".repeat(full) + (half ? "½" : "") + "☆".repeat(5 - full - (half ? 1 : 0)); }
-    const rc = document.getElementById("amz-rating-count");
-    if (rc && reviewCount) rc.innerHTML = `<span style="color:#0066c0;">(${reviewCount.toLocaleString()} Reviews)</span>`;
+    const rc = document.getElementById("amz-rating-count"); if(rc && reviewCount) rc.innerHTML = `<span style="color:#ff9900;">(${reviewCount.toLocaleString()} Reviews)</span>`;
     const stock = PRODUCT.stock !== undefined ? PRODUCT.stock : 99;
-    document.getElementById("amz-availability").textContent = stock > 0 ? "In stock" : "Not available";
+    document.getElementById("amz-availability").textContent = stock > 0 ? "In stock" : "Out of stock";
     document.getElementById("amz-ships-from").textContent = PRODUCT.shipsFrom || "Store";
     document.getElementById("amz-sold-by").textContent = PRODUCT.soldBy || "Store";
-    document.getElementById("amz-returns").textContent = PRODUCT.returns || "30-day return/replacement";
+    document.getElementById("amz-returns").textContent = PRODUCT.returns || "30-day returns";
     const badgesEl = document.getElementById("amz-badges");
-    if (badgesEl) {
-      const isBestSeller = PRODUCT.bestseller || PRODUCT.badge === "best_seller";
-      const isNew = PRODUCT.badge === "new" || PRODUCT.new;
-      const summaryBadge = PRODUCT.summaryBadge || null;
-      badgesEl.innerHTML = (summaryBadge ? `<div class="amz-badge amz-badge--summary">${summaryBadge}</div>` : '') + (isBestSeller ? '<div class="amz-badge">#1 Best Seller</div>' : '') + (isNew ? '<div class="amz-badge amz-badge--info">New</div>' : '');
-    }
+    if(badgesEl){ const best = PRODUCT.bestseller || PRODUCT.badge === "best_seller"; const newp = PRODUCT.badge === "new" || PRODUCT.new; const sum = PRODUCT.summaryBadge; badgesEl.innerHTML = (sum ? `<div class="amz-badge">${sum}</div>` : '') + (best ? '<div class="amz-badge">#1 Best Seller</div>' : '') + (newp ? '<div class="amz-badge amz-badge--info">New</div>' : ''); }
   }
-
   function fmt(n) { return (typeof Shop !== "undefined" && Shop.fmt) ? Shop.fmt(n) : "€" + n.toFixed(2); }
   function updatePrice() {
     const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
@@ -405,37 +389,32 @@ document.addEventListener("webshop:ready", async function() {
       listRow.style.display = "flex"; savRow.style.display = "flex";
     } else { if(listRow) listRow.style.display = "none"; if(savRow) savRow.style.display = "none"; }
   }
-
   function renderVariants() {
     const wrap = document.getElementById("amz-variants-section"), el = document.getElementById("amz-variants-grid");
     if (!PRODUCT.variants?.length) { if (wrap) wrap.style.display = "none"; return; }
-    if (wrap) wrap.style.display = "";
-    el.innerHTML = PRODUCT.variants.map(v => `<button class="amz-variant-btn${v.id === selectedVariant ? " active" : ""}" data-vid="${v.id}">${v.label}</button>`).join("");
+    if (wrap) wrap.style.display = ""; el.innerHTML = PRODUCT.variants.map(v => `<button class="amz-variant-btn${v.id === selectedVariant ? " active" : ""}" data-vid="${v.id}">${v.label}</button>`).join("");
     el.querySelectorAll(".amz-variant-btn").forEach(btn => btn.addEventListener("click", () => { selectedVariant = btn.dataset.vid; el.querySelectorAll(".amz-variant-btn").forEach(b => b.classList.remove("active")); btn.classList.add("active"); const v = PRODUCT.variants.find(v => v.id === selectedVariant); if (v?.image) { document.getElementById("gallery-main-img").src = v.image; document.getElementById("magnifier-img").src = v.image.replace("w=800","w=1600"); } updatePrice(); }));
   }
-  function renderPerks() {
-    const el = document.getElementById("pdp-perks");
-    if (el) el.innerHTML = ["perk_free_shipping", "perk_returns", "perk_warranty"].map((k,i) => `<span>${Shop.t(k) || ["Free shipping over €150","30-day returns","2-year warranty"][i]}</span>`).join("");
-  }
+  function renderPerks() { const el = document.getElementById("pdp-perks"); if(el) el.innerHTML = ["Free shipping over €150","30-day returns","2-year warranty"].map(t => `<span>${t}</span>`).join(""); }
   function renderGallery() {
     const images = PRODUCT.images || [], videos = PRODUCT.videos || [];
-    const mediaItems = [...images.map(src => ({ type: "image", src, thumb: src })), ...videos.map(src => ({ type: "video", src, isYT: /youtube\.com|youtu\.be/.test(src), thumb: /youtube\.com|youtu\.be/.test(src) ? `https://img.youtube.com/vi/${src.match(/embed\/([^?]+)/)?.[1] || src.match(/youtu\.be\/([^?]+)/)?.[1] || ""}/mqdefault.jpg` : null }))];
+    const mediaItems = [...images.map(src => ({ type: "image", src, thumb: src })), ...videos.map(src => ({ type: "video", src, isYT: /youtube\.com|youtu\.be/.test(src), thumb: /youtube\.com|youtu\.be/.test(src) ? `https://img.youtube.com/vi/${(src.match(/embed\/([^?]+)/)||src.match(/youtu\.be\/([^?]+)/))?.[1]||""}/mqdefault.jpg` : null }))];
     let activeIdx = 0, activeType = "image";
     const mainImg = document.getElementById("gallery-main-img"), mainVideoWrap = document.getElementById("gallery-main-video"), videoPlayer = document.getElementById("gallery-video-player"), ytFrame = document.getElementById("gallery-yt-frame"), ytIframe = document.getElementById("gallery-yt-iframe"), thumbsEl = document.getElementById("gallery-thumbs"), mainWrap = document.getElementById("gallery-main-wrap");
     function showImage(idx) { activeIdx = idx; activeType = "image"; currentImgIdx = idx; videoPlayer.pause(); videoPlayer.src = ""; ytIframe.src = ""; mainVideoWrap.style.display = "none"; mainWrap.classList.remove("video-active"); mainImg.style.opacity = "1"; mainImg.src = mediaItems[idx].src; document.getElementById("magnifier-img").src = mediaItems[idx].src.replace("w=800","w=1600"); const lbMain = document.getElementById("lb-main-img"); if (lbMain) lbMain.src = mediaItems[idx].src; buildThumbs(); }
     function showVideo(idx) { activeIdx = idx; activeType = "video"; const item = mediaItems[idx]; mainImg.style.opacity = "0"; mainVideoWrap.style.display = "block"; mainWrap.classList.add("video-active"); if (item.isYT) { videoPlayer.style.display = "none"; ytFrame.style.display = "block"; ytIframe.src = item.src + "?autoplay=1"; } else { ytFrame.style.display = "none"; ytIframe.src = ""; videoPlayer.style.display = "block"; videoPlayer.src = item.src; videoPlayer.play().catch(()=>{}); } buildThumbs(); }
-    function buildThumbs() { thumbsEl.innerHTML = mediaItems.map((item,i) => { const isActive = i === activeIdx; if (item.type === "image") return `<div class="pdp-gallery__thumb-wrap${isActive?" active":""}" data-idx="${i}" data-type="image"><img class="pdp-gallery__thumb" src="${item.src}"></div>`; else return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive?" active":""}" data-idx="${i}" data-type="video" style="${item.thumb ? `background-image:url('${item.thumb}');background-size:cover;` : 'background:var(--c-surface-2);'}"><span class="pdp-thumb-play">▶</span></div>`; }).join("");
+    function buildThumbs() { thumbsEl.innerHTML = mediaItems.map((item,i) => `<div class="pdp-gallery__thumb-wrap${i === activeIdx ? " active" : ""}" data-idx="${i}" data-type="${item.type}">${item.type === "image" ? `<img class="pdp-gallery__thumb" src="${item.src}">` : `<div style="width:100%;height:100%;background:#222;display:flex;align-items:center;justify-content:center;color:white;">▶</div>`}</div>`).join("");
       thumbsEl.querySelectorAll(".pdp-gallery__thumb-wrap").forEach(el => el.addEventListener("click", () => { const idx = +el.dataset.idx; if (el.dataset.type === "video") showVideo(idx); else showImage(idx); })); }
     if (images.length) { mainImg.src = images[0]; document.getElementById("magnifier-img").src = images[0].replace("w=800","w=1600"); }
-    buildThumbs(); mainWrap.addEventListener("click", e => { if(e.target.closest("video") || e.target.closest("iframe")) return; if (activeType === "video") { videoPlayer.pause(); ytIframe.src = ""; openLightbox("video"); } else openLightbox("images"); });
+    buildThumbs(); mainWrap.addEventListener("click", e => { if(e.target.closest("video")||e.target.closest("iframe")) return; openLightbox(activeType === "video" ? "video" : "images"); });
   }
-  function initMagnifier() { /* keep as original but safe */ const magEl = document.getElementById("magnifier"), mainWrap = document.getElementById("gallery-main-wrap"); if (!magEl) return; }
-  function initLightbox() { window.openLightbox = function(tab) { document.getElementById("lightbox").classList.add("open"); document.body.style.overflow = "hidden"; }; document.getElementById("lightbox-close")?.addEventListener("click",()=>{ document.getElementById("lightbox").classList.remove("open"); document.body.style.overflow = ""; }); }
-  function initQty() { const qtyInput = document.getElementById("qty-val-input"); document.getElementById("qty-minus").addEventListener("click",()=>{ if(qty>1){qty--; qtyInput.value = qty;} }); document.getElementById("qty-plus").addEventListener("click",()=>{ const stock = PRODUCT.variants?.find(v=>v.id===selectedVariant)?.stock??PRODUCT.stock??99; if(qty<stock){qty++; qtyInput.value = qty;} }); qtyInput.addEventListener("change",()=>{ const stock = PRODUCT.variants?.find(v=>v.id===selectedVariant)?.stock??PRODUCT.stock??99; qty = Math.max(1,Math.min(parseInt(qtyInput.value)||1,stock)); qtyInput.value = qty; }); }
-  function initAtc() { document.getElementById("atc-btn").addEventListener("click",()=>{ const v = PRODUCT.variants?.find(v=>v.id===selectedVariant); Shop.addToCart(PRODUCT,qty,selectedVariant,null,v?.image||PRODUCT.image); Shop.toast(`${Shop.pName(PRODUCT)} added to cart`); }); document.getElementById("buy-now-btn")?.addEventListener("click",()=>{ const v = PRODUCT.variants?.find(v=>v.id===selectedVariant); Shop.addToCart(PRODUCT,qty,selectedVariant,null,v?.image||PRODUCT.image); const lang = window.LANG||localStorage.getItem("dornori-lang")||"en", basePath = (window.SHOP_CONFIG&&window.SHOP_CONFIG.basePath)||"/", slug = (window.T&&window.T.url_slugs&&window.T.url_slugs.cart)||"cart"; window.location.href = `${basePath}${lang}/${slug}/`; }); }
-  function renderBundle() { const section = document.getElementById("bundle-section"), bundleIds = PRODUCT.bundled||[]; if(!bundleIds.length){ section.style.display="none"; return; } const bundleProducts = bundleIds.map(id=>allProducts.find(p=>p.id===id)).filter(Boolean); if(!bundleProducts.length){ section.style.display="none"; return; } section.style.display=""; document.getElementById("bundle-items").innerHTML = bundleProducts.map(item=>`<div class="pdp-bundle-item"><img src="${item.image}" style="width:80px;height:80px;object-fit:cover;"><div><div>${Shop.pName(item)}</div><div>${fmt(item.price)}</div></div></div>`).join(""); document.getElementById("bundle-add-all").onclick = ()=>{ const v = PRODUCT.variants?.find(v=>v.id===selectedVariant); Shop.addToCart(PRODUCT,1,selectedVariant,null,v?.image||PRODUCT.image); bundleProducts.forEach(item=>Shop.addToCart(item,1,null,null,item.image)); Shop.toast("Bundle added"); }; }
-  function renderRelated() { const section = document.getElementById("related-section"), relatedIds = PRODUCT.related||[]; const relatedProducts = relatedIds.map(id=>allProducts.find(p=>p.id===id)).filter(Boolean); if(!relatedProducts.length){ section.style.display="none"; return; } section.style.display=""; document.getElementById("related-grid").innerHTML = relatedProducts.map(r=>`<div class="pdp-related-card"><img src="${r.image}" style="width:100%;aspect-ratio:1;object-fit:cover;"><div><div>${Shop.pName(r)}</div><div>${fmt(r.price)}</div></div><button class="pdp-related-card__buy-btn" data-rid="${r.id}">Buy</button></div>`).join(""); document.querySelectorAll(".pdp-related-card__buy-btn").forEach(btn=>btn.addEventListener("click",(e)=>{ e.stopPropagation(); const item = allProducts.find(p=>p.id===btn.dataset.rid); if(item){ Shop.addToCart(item,1); Shop.toast(`${Shop.pName(item)} added`); } })); }
-  function renderSpecs() { const section = document.getElementById("specs-section"), specs = PRODUCT.specs||[]; if(!specs.length){ section.style.display="none"; return; } section.style.display=""; const accordionEl = document.getElementById("specs-accordion"); accordionEl.innerHTML = specs.map((sec,idx)=>`<div class="amz-accordion-item"><div class="amz-accordion-header"><span>${sec.title}</span><span class="amz-toggle-icon">▼</span></div><div class="amz-accordion-body"><div class="amz-accordion-inner"><table class="amz-spec-table"><tbody>${sec.rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join("")}</tbody></table></div></div></div>`).join(""); accordionEl.querySelectorAll(".amz-accordion-header").forEach(h=>h.addEventListener("click",()=>h.closest(".amz-accordion-item").classList.toggle("open"))); }
+  function initMagnifier() { const mag = document.getElementById("magnifier"), wrap = document.getElementById("gallery-main-wrap"); if(!mag) return; }
+  function initLightbox() { window.openLightbox = function(tab) { const lb = document.getElementById("lightbox"); lb.classList.add("open"); document.body.style.overflow = "hidden"; }; document.getElementById("lightbox-close")?.addEventListener("click",()=>{ document.getElementById("lightbox").classList.remove("open"); document.body.style.overflow = ""; }); }
+  function initQty() { const input = document.getElementById("qty-val-input"); document.getElementById("qty-minus").addEventListener("click",()=>{ if(qty>1){qty--; input.value=qty;} }); document.getElementById("qty-plus").addEventListener("click",()=>{ const stock = PRODUCT.variants?.find(v=>v.id===selectedVariant)?.stock??PRODUCT.stock??99; if(qty<stock){qty++; input.value=qty;} }); input.addEventListener("change",()=>{ const stock = PRODUCT.variants?.find(v=>v.id===selectedVariant)?.stock??PRODUCT.stock??99; qty = Math.max(1,Math.min(parseInt(input.value)||1,stock)); input.value=qty; }); }
+  function initAtc() { document.getElementById("atc-btn").addEventListener("click",()=>{ const v = PRODUCT.variants?.find(v=>v.id===selectedVariant); Shop.addToCart(PRODUCT,qty,selectedVariant,null,v?.image||PRODUCT.image); Shop.toast(`${Shop.pName(PRODUCT)} added`); }); document.getElementById("buy-now-btn")?.addEventListener("click",()=>{ const v = PRODUCT.variants?.find(v=>v.id===selectedVariant); Shop.addToCart(PRODUCT,qty,selectedVariant,null,v?.image||PRODUCT.image); const lang = window.LANG||localStorage.getItem("dornori-lang")||"en", basePath = (window.SHOP_CONFIG?.basePath)||"/", slug = (window.T?.url_slugs?.cart)||"cart"; window.location.href = `${basePath}${lang}/${slug}/`; }); }
+  function renderBundle() { const sec = document.getElementById("bundle-section"), bids = PRODUCT.bundled||[]; if(!bids.length){ sec.style.display="none"; return; } const bp = bids.map(id=>allProducts.find(p=>p.id===id)).filter(Boolean); if(!bp.length){ sec.style.display="none"; return; } sec.style.display=""; document.getElementById("bundle-items").innerHTML = bp.map(p=>`<div class="pdp-bundle-item"><img src="${p.image}" style="width:70px;height:70px;object-fit:cover;"><div><strong>${Shop.pName(p)}</strong><div>${fmt(p.price)}</div></div></div>`).join(""); document.getElementById("bundle-add-all").onclick = ()=>{ const v = PRODUCT.variants?.find(v=>v.id===selectedVariant); Shop.addToCart(PRODUCT,1,selectedVariant,null,v?.image||PRODUCT.image); bp.forEach(p=>Shop.addToCart(p,1)); Shop.toast("Bundle added"); }; }
+  function renderRelated() { const sec = document.getElementById("related-section"), rids = PRODUCT.related||[]; const rp = rids.map(id=>allProducts.find(p=>p.id===id)).filter(Boolean); if(!rp.length){ sec.style.display="none"; return; } sec.style.display=""; document.getElementById("related-grid").innerHTML = rp.map(r=>`<div class="pdp-related-card"><img src="${r.image}"><div class="pdp-related-card__info"><div class="pdp-related-card__name">${Shop.pName(r)}</div><div class="pdp-related-card__price">${fmt(r.price)}</div><button class="pdp-related-card__buy-btn" data-rid="${r.id}">Buy Now</button></div></div>`).join(""); document.querySelectorAll(".pdp-related-card__buy-btn").forEach(btn=>btn.addEventListener("click",(e)=>{ e.stopPropagation(); const item = allProducts.find(p=>p.id===btn.dataset.rid); if(item){ Shop.addToCart(item,1); Shop.toast(`${Shop.pName(item)} added`); } })); }
+  function renderSpecs() { const sec = document.getElementById("specs-section"), specs = PRODUCT.specs||[]; if(!specs.length){ sec.style.display="none"; return; } sec.style.display=""; const acc = document.getElementById("specs-accordion"); acc.innerHTML = specs.map((s,i)=>`<div class="amz-accordion-item"><div class="amz-accordion-header"><span>${s.title}</span><span>▼</span></div><div class="amz-accordion-body"><div class="amz-accordion-inner"><table class="amz-spec-table">${s.rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join("")}</table></div></div></div>`).join(""); acc.querySelectorAll(".amz-accordion-header").forEach(h=>h.addEventListener("click",()=>h.closest(".amz-accordion-item").classList.toggle("open"))); }
 });
 </script>
 </body>
