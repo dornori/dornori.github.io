@@ -269,6 +269,7 @@ export function initPageLoader() {
 
     // ── VIEW PAGE ────────────────────────────────────────────────────────────
     window.viewPage = async (slug, productId) => {
+        // Scroll to top FIRST before anything else
         window.scrollTo({ top: 0, behavior: 'instant' });
         
         const page = SITE_CONFIG.pages[slug];
