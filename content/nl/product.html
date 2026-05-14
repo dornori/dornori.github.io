@@ -21,20 +21,34 @@
 
     /* ── Push box to top, remove extra page padding ── */
     .webshop-page-main { padding-top: 0 !important; }
-    .pdp-wrapper { padding-top: 0; }
+    .pdp-wrapper { padding-top: 0; max-width: 100% !important; }
+    .webshop-container { max-width: 100% !important; padding-left: 24px !important; padding-right: 24px !important; }
 
-    /* ── TWO-COLUMN LAYOUT: Image Left, Details Right ── */
+    /* ── THREE-COLUMN LAYOUT: Image | Details | Buy Box ── */
     .pdp-main {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 40px;
+      grid-template-columns: 420px 1fr 320px;
+      gap: 32px;
       align-items: start;
-      padding: 40px 0;
+      padding: 32px 0;
     }
-    @media (max-width: 1024px) {
+    @media (max-width: 1200px) {
+      .pdp-main {
+        grid-template-columns: 360px 1fr 290px;
+        gap: 24px;
+      }
+    }
+    @media (max-width: 960px) {
+      .pdp-main {
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+      }
+      .pdp-buybox { grid-column: 1 / -1; }
+    }
+    @media (max-width: 640px) {
       .pdp-main {
         grid-template-columns: 1fr;
-        gap: 30px;
+        gap: 20px;
       }
     }
 
@@ -49,6 +63,25 @@
     }
     .pdp-details::-webkit-scrollbar { width: 4px; }
     .pdp-details::-webkit-scrollbar-thumb { background: var(--c-border, #555); border-radius: 2px; }
+
+    /* ── Amazon-style buy box ── */
+    .pdp-buybox {
+      border: 1px solid var(--c-border);
+      border-radius: 8px;
+      padding: 18px 16px;
+      background: var(--c-surface);
+      position: sticky;
+      top: 24px;
+    }
+    .pdp-buybox .amz-price-section {
+      border-top: none;
+      padding-top: 0;
+      margin-bottom: 14px;
+    }
+    .pdp-buybox .amz-info-table { margin-bottom: 14px; }
+    .pdp-buybox .amz-qty-row { margin-bottom: 10px; }
+    .pdp-buybox .amz-buttons { margin-bottom: 14px; }
+    .pdp-buybox .pdp-perks { margin-top: 10px; }
 
     /* ── Amazon-style detail panel — uses CSS vars for dark-theme compat ── */
     .amz-breadcrumb { font-size: 12px; color: var(--c-text-muted); margin-bottom: 12px; }
@@ -187,6 +220,18 @@
               <a href="#reviews" class="amz-rating-link" id="amz-rating-count"></a>
             </div>
 
+            <div class="amz-badges" id="amz-badges"></div>
+
+            <p class="pdp-desc" id="pdp-desc"></p>
+
+            <div class="amz-variants-section" id="amz-variants-section" style="display:none;">
+              <div class="amz-variants-label" id="amz-variants-label">Optie selecteren:</div>
+              <div class="amz-variants-grid" id="amz-variants-grid"></div>
+            </div>
+          </div>
+
+          <!-- ── Buy Box (3rd column) ── -->
+          <div class="pdp-buybox" id="pdp-buybox">
             <div class="amz-price-section">
               <div class="amz-price-row">
                 <span class="amz-price-label">Prijs:</span>
@@ -202,8 +247,6 @@
                 <span class="amz-discount-badge" id="amz-discount-pct"></span>
               </div>
             </div>
-
-            <div class="amz-badges" id="amz-badges"></div>
 
             <div class="amz-info-table">
               <div class="amz-info-row">
@@ -222,13 +265,6 @@
                 <span class="amz-info-label">Retourbeleid:</span>
                 <span class="amz-info-value" id="amz-returns">30-daagse teruggave/vervanging</span>
               </div>
-            </div>
-
-            <p class="pdp-desc" id="pdp-desc"></p>
-
-            <div class="amz-variants-section" id="amz-variants-section" style="display:none;">
-              <div class="amz-variants-label" id="amz-variants-label">Optie selecteren:</div>
-              <div class="amz-variants-grid" id="amz-variants-grid"></div>
             </div>
 
             <div class="amz-qty-row">
@@ -921,7 +957,7 @@
       }
 
       accordionEl.innerHTML = specs.map((sec, idx) => `
-        <div class="amz-accordion-item${idx === 0 ? " open" : ""}">
+        <div class="amz-accordion-item">
           <div class="amz-accordion-header">
             <span>${specTitle(sec)}</span>
             <span class="amz-toggle-icon">▼</span>
@@ -936,8 +972,8 @@
         </div>`
       ).join("");
 
-      accordionEl.querySelectorAll(".amz-accordion-header").forEach(hdr => {
-        hdr.addEventListener("click", () => hdr.parentElement.classList.toggle("open"));
+      accordionEl.querySelectorAll(".amz-accordion-item").forEach(item => {
+        item.querySelector(".amz-accordion-header").addEventListener("click", () => item.classList.toggle("open"));
       });
     }
 
