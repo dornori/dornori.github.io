@@ -144,14 +144,7 @@ function _doWireShopCards(container) {
 }
 
 
-// ── SCROLL LOCK ───────────────────────────────────────────────────────────────
-function unlockScroll() {
-    document.documentElement.style.overflowY = '';
-    document.documentElement.classList.remove('at-top');
-    if (window.scrollY === 0) {
-        document.documentElement.classList.add('at-top');
-    }
-}
+
 
 export function initPageLoader() {
     const homeView    = document.getElementById('home-view');
@@ -220,10 +213,6 @@ export function initPageLoader() {
 
     // ── LOAD HOME ─────────────────────────────────────────────────────────────
     window.loadHome = async () => {
-        // Scroll to top and hide scrollbar immediately
-        if (typeof window.__resetAtTop === 'function') window.__resetAtTop();
-        else window.scrollTo({ top: 0, behavior: 'instant' });
-        
         const lang = window.LANG || fallbackLang();
         // Only skip the fetch when English content is already loaded in the correct language.
         // After a NL→EN switch homeView holds Dutch content, so we must NOT take this shortcut.
@@ -238,7 +227,7 @@ export function initPageLoader() {
             mountShopEmbeds(homeView);
             homeView.classList.remove('hidden');
             pageView.classList.add('hidden');
-            unlockScroll();
+            window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
             const base    = SITE_CONFIG.appearance.base_path;
             const homeUrl = `${base}${lang}/`;
             window.history.replaceState({}, '', homeUrl);
@@ -263,7 +252,7 @@ export function initPageLoader() {
         }
         homeView.classList.remove('hidden');
         pageView.classList.add('hidden');
-        unlockScroll();
+        window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
         const base    = SITE_CONFIG.appearance.base_path;
         const homeUrl = `${base}${lang}/`;
         window.history.replaceState({}, '', homeUrl);
@@ -272,10 +261,6 @@ export function initPageLoader() {
 
     // ── VIEW PAGE ────────────────────────────────────────────────────────────
     window.viewPage = async (slug, productId) => {
-        // Scroll to top and hide scrollbar immediately
-        if (typeof window.__resetAtTop === 'function') window.__resetAtTop();
-        else window.scrollTo({ top: 0, behavior: 'instant' });
-        
         const page = SITE_CONFIG.pages[slug];
         if (!page) { if (ENV_CONFIG.DEBUG) console.error(`Page "${slug}" not found in config`); return; }
 
@@ -304,7 +289,7 @@ export function initPageLoader() {
             mountShopEmbeds(pageContent);
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
-            unlockScroll();
+            window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
 
             const lang = window.LANG || fallbackLang();
             const qs   = productId ? `?id=${productId}` : '';
@@ -324,16 +309,15 @@ export function initPageLoader() {
             `;
             homeView.classList.add('hidden');
             pageView.classList.remove('hidden');
-            unlockScroll();
+            window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
         }
     };
 
     // ── SHOW HOME ────────────────────────────────────────────────────────────
     window.showHome = () => {
-        if (typeof window.__resetAtTop === 'function') window.__resetAtTop();
-        else window.scrollTo({ top: 0, behavior: 'instant' });
         pageView.classList.add('hidden');
         homeView.classList.remove('hidden');
+        window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
         const lang    = window.LANG || fallbackLang();
         const base    = SITE_CONFIG.appearance.base_path;
         window.history.pushState({}, '', `${base}${lang}/`);
