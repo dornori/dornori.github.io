@@ -25,6 +25,7 @@ export function initStickyBanner() {
     };
 
     let maxOffset = 0;
+    let scrollListenerAdded = false;
 
     const calcMaxOffset = () => {
         maxOffset = header.offsetHeight * SITE_CONFIG.appearance.bannerStickyOffset;
@@ -57,12 +58,16 @@ export function initStickyBanner() {
         calcMaxOffset();
         header.style.top = '0px';
 
-        // Position mobile nav immediately below banner on load
         if (mobileNav) {
             mobileNav.style.top = `${header.offsetHeight}px`;
         }
 
-        window.addEventListener('scroll', onScroll, { passive: true });
+        if (!scrollListenerAdded) {
+            scrollListenerAdded = true;
+            window.addEventListener('scroll', onScroll, { passive: true });
+        }
+
+        onScroll();
     };
 
     window.addEventListener('resize', () => {
@@ -70,37 +75,16 @@ export function initStickyBanner() {
         onScroll();
     });
 
-    const initAndRecalc = () => {
-        init();
-        // Re-calculate after a frame to catch deferred src/layout changes
-        requestAnimationFrame(() => {
-            calcMaxOffset();
-            onScroll();
-        });
+    // Called once the image has its natural dimensions so header.offsetHeight is real
+    const onImageReady = () => {
+        requestAnimationFrame(() => init());
     };
 
-    // Always listen for load in case src is injected after this module runs
-    bannerImg.addEventListener('load', () => {
-        calcMaxOffset();
-        onScroll();
-    });
-
-    if (bannerImg.complete && bannerImg.naturalWidth > 0) {
-        initAndRecalc();
-    } else if (bannerImg.complete && !bannerImg.src) {
-        // src not yet set — wait for it via MutationObserver then load event
-        const observer = new MutationObserver(() => {
-            if (bannerImg.src) {
-                observer.disconnect();
-                if (bannerImg.complete) {
-                    initAndRecalc();
-                } else {
-                    bannerImg.addEventListener('load', initAndRecalc, { once: true });
-                }
-            }
-        });
-        observer.observe(bannerImg, { attributes: true, attributeFilter: ['src'] });
+    if (bannerImg.src && bannerImg.complete && bannerImg.naturalWidth > 0) {
+        // Image already loaded
+        onImageReady();
     } else {
-        bannerImg.addEventListener('load', initAndRecalc, { once: true });
+        // Wait for load — covers both: src already set (loading) and src not yet set (injected later)
+        bannerImg.addEventListener('load', onImageReady, { once: true });
     }
 }
