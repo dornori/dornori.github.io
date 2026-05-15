@@ -19,8 +19,7 @@
             // Deferred script: find ourselves by filename
             var scripts = document.querySelectorAll('script[src]');
             for (var i = 0; i < scripts.length; i++) {
-                if (scripts[i].src.indexOf('/js/site-boot.js') !== -1 ||
-                    scripts[i].src.indexOf('/site-boot.js') !== -1) {
+                if (scripts[i].src.indexOf('/js/site-boot.js') !== -1) {
                     src = scripts[i].src;
                     break;
                 }
@@ -92,7 +91,6 @@
         'css/main.css',
         'css/shop.css',
         'css/shop-bridge.css',
-        'css/integration.css',
     ]);
 
     // ── Language ──────────────────────────────────────────────────────────────

@@ -16,19 +16,17 @@ var Shipping = (() => {
   const COUNTRY_LANG = {
     NL: 'nl', BE: 'nl',
     DE: 'de', AT: 'de', CH: 'de',
-    NO: 'en',  // no /lang/no/ translation file; falls back to English
-    SE: 'en',  // no /lang/sv/ translation file; falls back to English
-    DK: 'en',  // no /lang/da/ translation file; falls back to English
-    FI: 'en',  // no /lang/fi/ translation file; falls back to English
+    NO: 'no',
+    SE: 'sv', DK: 'da', FI: 'fi',
     FR: 'fr', ES: 'es', IT: 'it',
-    PL: 'en', CZ: 'cs', PT: 'pt',
+    PL: 'pl', CZ: 'cs', PT: 'pt',
     GB: 'en', IE: 'en',
     US: 'en', CA: 'en', AU: 'en', NZ: 'en',
     SG: 'en', HK: 'en',
-    JP: 'en',  // no /lang/ja/ translation file; falls back to English
+    JP: 'ja',
   };
 
-  const AVAILABLE_LANG_FILES = ['en', 'nl', 'de', 'fr', 'cs', 'es', 'it', 'pt'];
+  const AVAILABLE_LANG_FILES = ['en', 'no', 'nl', 'de', 'fr', 'cs', 'es', 'it', 'pt'];
 
   async function load() {
     if (_loaded) return;

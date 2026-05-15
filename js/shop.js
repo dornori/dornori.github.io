@@ -378,7 +378,9 @@ var Shop = (() => {
         document.querySelectorAll(selector).forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         await switchLanguage(code);
-        // Do not push ?lang= — language is managed via path-based routing and localStorage.
+        const url = new URL(window.location.href);
+        url.searchParams.set("lang", code);
+        window.history.replaceState({}, "", url);
       });
     });
   }
@@ -402,7 +404,7 @@ var Shop = (() => {
 
   /* ─── CART ICON ─────────────────────────────────────── */
   function renderCartIcon(options = {}) {
-    const { target = "body", fixed = true, cartUrl = (typeof window !== "undefined" && window.__CART_URL__) || "cart/" } = options;
+    const { target = "body", fixed = true, cartUrl = "cart.html" } = options;
 
     const mount = target === "body" ? document.body : document.querySelector(target);
     if (!mount) return;
@@ -778,7 +780,7 @@ var Shop = (() => {
               ${p.dimensions?`<span class="webshop-dim-info">${p.dimensions.l}×${p.dimensions.w}×${p.dimensions.h} cm</span>`:""}
             </div>
             <button id="pinfo-atc-${productId}" class="webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>${t("add_to_cart","Add to Cart")}</button>
-            <a class="webshop-btn webshop-btn--outline webshop-btn--full" href="${(typeof window !== 'undefined' && window.__CART_URL__) || 'cart/'}" style="margin-top:10px;display:flex;align-items:center;justify-content:center;">${t("view_cart","View Cart")}</a>
+            <a class="webshop-btn webshop-btn--outline webshop-btn--full" href="cart.html" style="margin-top:10px;display:flex;align-items:center;justify-content:center;">${t("view_cart","View Cart")}</a>
             ${buildRelatedStrip(p,"info")}
           </div>
         </div>
@@ -909,7 +911,7 @@ var Shop = (() => {
 
   /* ─── MINI CART ─────────────────────────────────────── */
   function renderMiniCart(divId, options = {}) {
-    const { cartUrl = (typeof window !== "undefined" && window.__CART_URL__) || "cart/" } = options;
+    const { cartUrl = "cart.html" } = options;
     const container = document.getElementById(divId);
     if (!container) return;
     container.classList.add("webshop-mini-cart");

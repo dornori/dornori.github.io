@@ -48,12 +48,9 @@ var CONFIG = {
   },
 
   data: {
-    // These paths are set here using __BASE_PATH__ as a safe early default.
-    // shop-init.js will re-patch them after boot; the values below are NOT dead —
-    // they serve as the correct fallback if shop-init.js is somehow skipped.
-    shippingJson: (window.__BASE_PATH__ || '/') + 'data/shipping.json',
-    langDir:      (window.__BASE_PATH__ || '/') + 'lang/',
-    productsJson: (window.__BASE_PATH__ || '/') + 'data/products.json',
+    shippingJson: "/data/shipping.json",
+    langDir:      "/lang/",
+    productsJson: "/data/products.json",
   },
 
   modules: [
@@ -65,7 +62,7 @@ var CONFIG = {
   payment: {
     activeProcessor: "paypal",
     paypal: {
-      clientId:   "",  // TODO: Set your PayPal client ID from https://developer.paypal.com/dashboard/
+      clientId:   "",
       currency:   "EUR",
       intent:     "capture",
       returnPath: "/success.html",

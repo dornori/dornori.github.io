@@ -45,10 +45,6 @@ const Payment = (() => {
   const _paypal = {
     async init() {
       const { clientId, currency, intent } = CONFIG.payment.paypal;
-      if (!clientId) {
-        // No clientId configured — skip SDK load so PayPal render shows the placeholder
-        return;
-      }
       await _loadScript(
         `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${currency}&intent=${intent || "capture"}`
       );

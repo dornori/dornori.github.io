@@ -312,11 +312,25 @@
 
   </main>
 
-  <!-- Shop modules are loaded by site-boot.js → shop-init.js; no self-bootstrap needed here -->
+  <script src="../../js/config.js"></script>
+  <script>
+    (function() {
+      function loadScript(src) {
+        return new Promise(function(resolve) {
+          var s = document.createElement("script"); s.src = src;
+          s.onload = resolve; s.onerror = function(){ resolve(); };
+          document.head.appendChild(s);
+        });
+      }
+      var modules = (CONFIG.modules || []).concat(["js/lang-bridge.js", "js/shop.js"]);
+      var chain = Promise.resolve();
+      modules.forEach(function(src){ chain = chain.then(function(){ return loadScript(src); }); });
+      chain.then(function(){ document.dispatchEvent(new Event("webshop:ready")); });
+    })();
+  </script>
 
   <script>
-  (function() {
-    async function initProduct() {
+  document.addEventListener("webshop:ready", async function() {
 
     /* ── resolve product ID from URL (?id=...) or router-injected global ── */
     const params  = new URLSearchParams(window.location.search);
@@ -971,15 +985,7 @@
       });
     }
 
-    } /* end initProduct */
-    // If Shop already loaded (fragment injected into running SPA), call directly;
-    // otherwise wait for webshop:ready
-    if (typeof window.Shop !== "undefined" && window.Shop.loadLang) {
-      initProduct();
-    } else {
-      document.addEventListener("webshop:ready", initProduct, { once: true });
-    }
-  })();
+  }); /* end webshop:ready */
   </script>
 </body>
 </html>

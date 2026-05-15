@@ -84,8 +84,6 @@ const SITE_CONFIG = {
         shop:                { file: 'shop.html'              },
         product:             { file: 'product.html'           },
         success:             { file: 'success.html'           },
-        'faq':               { file: 'faq.html'               },
-        'reviews':           { file: 'reviews.html'            },
         // Additional aliases kept for direct access
         'about-us':               { file: 'about-us.html'              },
         'complete-assembly-kit':  { file: 'complete-assembly-kit.html' },
@@ -130,10 +128,7 @@ const SITE_CONFIG = {
     turnstile_sitekey: ENV_CONFIG.TURNSTILE_KEY,
 };
 
-// Expose globally for plain (non-module) scripts, and export for ES module consumers.
-// NOTE: SITE_CONFIG is a single object reference — mutations made via the import
-// (e.g. SITE_CONFIG.languages = [...]) are visible on window.SITE_CONFIG and vice versa
-// because JavaScript objects are passed by reference. Do not reassign either binding.
+// Export for module imports
 window.SITE_CONFIG = SITE_CONFIG;
 export default SITE_CONFIG;
 export { SITE_CONFIG };

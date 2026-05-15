@@ -1,13 +1,12 @@
 const CACHE_NAME = 'dornori-v1';
 const URLS_TO_CACHE = [
-  '/en/',
-  '/css/main.css',
-  '/css/shop.css',
-  '/css/shop-bridge.css',
-  '/css/profiles.css',
+  '/',
+  '/index-test.html',
+  '/js/dist/site-bundle.min.js',
+  '/js/dist/shop-bundle.min.js',
+  '/css/main.min.css',
   '/data/products.json',
   '/data/countries.json',
-  '/data/shipping.json',
 ];
 
 self.addEventListener('install', event => {
