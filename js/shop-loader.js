@@ -36,7 +36,10 @@ export async function loadShopModules() {
     window.Currency.init();
   }
 
-  document.dispatchEvent(new CustomEvent('webshop:ready'));
+  // Only fire webshop:ready if shop-init.js hasn't already done so
+  if (!window.__shopInitReady) {
+    document.dispatchEvent(new CustomEvent('webshop:ready'));
+  }
 }
 
 /**
@@ -55,9 +58,10 @@ export async function mountShopEmbeds(container) {
       if (typeof window.Shop !== 'undefined') { resolve(); return; }
       const done = () => resolve();
       document.addEventListener('webshop:ready', done, { once: true });
-      // Fallback: boot ourselves if shop-init never fires
+      // Fallback: only boot ourselves if shop-init never ran (avoids double webshop:ready)
       setTimeout(() => {
-        if (typeof window.Shop === 'undefined') {
+        if (typeof window.Shop === 'undefined' && !window.__shopBooting) {
+          window.__shopBooting = true;
           loadShopModules().then(done);
         } else {
           done();
