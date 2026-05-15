@@ -25,6 +25,7 @@ export function initStickyBanner() {
     };
 
     let maxOffset = 0;
+    let scrollListenerAdded = false;
 
     const calcMaxOffset = () => {
         maxOffset = header.offsetHeight * SITE_CONFIG.appearance.bannerStickyOffset;
@@ -57,12 +58,16 @@ export function initStickyBanner() {
         calcMaxOffset();
         header.style.top = '0px';
 
-        // Position mobile nav immediately below banner on load
         if (mobileNav) {
             mobileNav.style.top = `${header.offsetHeight}px`;
         }
 
-        window.addEventListener('scroll', onScroll, { passive: true });
+        if (!scrollListenerAdded) {
+            scrollListenerAdded = true;
+            window.addEventListener('scroll', onScroll, { passive: true });
+        }
+
+        onScroll();
     };
 
     window.addEventListener('resize', () => {
@@ -70,9 +75,16 @@ export function initStickyBanner() {
         onScroll();
     });
 
-    if (bannerImg.complete) {
-        init();
+    // Called once the image has its natural dimensions so header.offsetHeight is real
+    const onImageReady = () => {
+        requestAnimationFrame(() => init());
+    };
+
+    if (bannerImg.src && bannerImg.complete && bannerImg.naturalWidth > 0) {
+        // Image already loaded
+        onImageReady();
     } else {
-        bannerImg.addEventListener('load', init);
+        // Wait for load — covers both: src already set (loading) and src not yet set (injected later)
+        bannerImg.addEventListener('load', onImageReady, { once: true });
     }
 }
