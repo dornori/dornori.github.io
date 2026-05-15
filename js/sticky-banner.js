@@ -15,6 +15,7 @@ export function initStickyBanner() {
     const header    = document.getElementById('main-header');
     const bannerImg = document.getElementById('banner-img');
     const mobileNav = document.getElementById('mobile-nav');
+    const logoWrap  = document.querySelector('.billboard-logo-wrap');
     if (!header || !bannerImg) return;
 
     bannerImg.onclick = (e) => {
@@ -35,6 +36,15 @@ export function initStickyBanner() {
 
         // Banner slides up then locks
         header.style.top = `-${offset}px`;
+
+        // Logo scales from 13% to 8% based on scroll progress
+        if (logoWrap) {
+            const progress = maxOffset > 0 ? Math.min(offset / maxOffset, 1) : 0;
+            const startSize = 13;
+            const endSize = 8;
+            const currentSize = startSize - (startSize - endSize) * progress;
+            logoWrap.style.width = `${currentSize}%`;
+        }
 
         // Mobile nav tracks the bottom edge of the banner
         if (mobileNav) {
