@@ -69,7 +69,7 @@
 
     Promise.all(modules.map(loadScript))
         .then(function () { return loadScript((cfg.jsPath || '') + 'shop.js'); })
-        .then(function () { document.dispatchEvent(new Event('webshop:ready')); });
+        .then(function () { window.__shopInitReady = true; document.dispatchEvent(new Event('webshop:ready')); });
 
     // ── 4. webshop:ready handler ──────────────────────────────────────────────
     document.addEventListener('webshop:ready', function () {

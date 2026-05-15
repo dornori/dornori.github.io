@@ -13,8 +13,11 @@
 /* ── BASE RESET ────────────────────────────────────────────────────────────── */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; height: 100%; }
-html.no-scrollbar { scrollbar-width: none; }
-html.no-scrollbar::-webkit-scrollbar { display: none; }
+/* Hide scrollbar when at top of page; show when user has scrolled */
+html.at-top { scrollbar-width: none; }
+html.at-top::-webkit-scrollbar { display: none; }
+html:not(.at-top) { scrollbar-width: auto; }
+html:not(.at-top)::-webkit-scrollbar { display: block; }
 
 body {
     background-color: var(--bg);
@@ -345,16 +348,15 @@ header {
 nav.top-nav {
     position: absolute;
     bottom: 0;
-    left: 0;
-    width: 100%;
+    right: 0;
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    padding: 10px 16px 10px 40px;
+    padding: 10px 16px;
     z-index: 1001;
     gap: 18px;
-    /* subtle gradient so links stay readable over the banner image */
-    background: linear-gradient(to top, rgba(5,5,5,0.55) 0%, transparent 100%);
+    /* gradient only behind the nav links, not over the logo */
+    background: linear-gradient(to left, rgba(5,5,5,0.55) 0%, transparent 100%);
 }
 
 .nav-link {
@@ -625,7 +627,7 @@ h2, h3, h4 {
 @media (max-width: 768px) {
     .footer-container  { flex-direction: column; gap: 20px; text-align: center; }
     .technical-credits { flex-direction: column; gap: 10px; }
-    nav.top-nav        { padding: 20px; gap: 15px; }
+    nav.top-nav        { padding: 12px 16px; gap: 12px; }
     #themeToggle       { bottom: 8px; right: 10px; }
 }
 
@@ -711,7 +713,8 @@ h2, h3, h4 {
     /* Show mobile nav */
     .mobile-nav {
         display: flex;
-        position: fixed;
+        position: sticky;
+        top: 0;
         left: 0;
         right: 0;
         z-index: 999; /* just below header (1000) */
@@ -816,7 +819,7 @@ h2, h3, h4 {
 
     /* Push main content down so mobile nav doesn't overlap it */
     #viewport {
-        margin-top: 60px; /* approx mobile nav height */
+        margin-top: 0; /* mobile nav is now sticky/in-flow, no offset needed */
     }
 }
 

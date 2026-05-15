@@ -138,7 +138,7 @@ import SITE_CONFIG from './config.js';
     loadLanguage(suggestedLang)
       .then(function (langData) {
         if (!shouldShow(suggestedLang)) return;
-        render(suggestedLang, countryCode, langData.geoPopup || {}, langData);
+        render(suggestedLang, countryCode, langData.geoPopup || langData.geo_popup || {}, langData);
       })
       .catch(function () {
         render(suggestedLang, countryCode, {}, {});

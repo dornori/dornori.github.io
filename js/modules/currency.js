@@ -48,7 +48,11 @@ var Currency = (() => {
   async function detectFromIP() {
     try {
       if (!window.__geoData) {
-        window.__geoData = await fetch('https://ipapi.co/json/').then(r => r.json());
+        // Shared promise prevents duplicate ipapi.co requests (currency + geo-popup race)
+        if (!window.__geoDataPromise) {
+          window.__geoDataPromise = fetch('https://ipapi.co/json/').then(r => r.json());
+        }
+        window.__geoData = await window.__geoDataPromise;
       }
       const data = window.__geoData;
       if (data.currency && _rates[data.currency]) return data.currency;
