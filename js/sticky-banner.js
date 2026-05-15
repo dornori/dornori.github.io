@@ -70,9 +70,37 @@ export function initStickyBanner() {
         onScroll();
     });
 
-    if (bannerImg.complete) {
+    const initAndRecalc = () => {
         init();
+        // Re-calculate after a frame to catch deferred src/layout changes
+        requestAnimationFrame(() => {
+            calcMaxOffset();
+            onScroll();
+        });
+    };
+
+    // Always listen for load in case src is injected after this module runs
+    bannerImg.addEventListener('load', () => {
+        calcMaxOffset();
+        onScroll();
+    });
+
+    if (bannerImg.complete && bannerImg.naturalWidth > 0) {
+        initAndRecalc();
+    } else if (bannerImg.complete && !bannerImg.src) {
+        // src not yet set — wait for it via MutationObserver then load event
+        const observer = new MutationObserver(() => {
+            if (bannerImg.src) {
+                observer.disconnect();
+                if (bannerImg.complete) {
+                    initAndRecalc();
+                } else {
+                    bannerImg.addEventListener('load', initAndRecalc, { once: true });
+                }
+            }
+        });
+        observer.observe(bannerImg, { attributes: true, attributeFilter: ['src'] });
     } else {
-        bannerImg.addEventListener('load', init);
+        bannerImg.addEventListener('load', initAndRecalc, { once: true });
     }
 }
