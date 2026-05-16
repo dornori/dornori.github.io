@@ -253,15 +253,19 @@
     .pdp-accordion-item.open .pdp-accordion-body { max-height: 600px; }
     .pdp-accordion-item.open .pdp-accordion-trigger svg { transform: rotate(180deg); }
 
-    /* ── Gallery + lightbox: use contain so product images are never cropped ── */
-    .pdp-gallery__main-img { object-fit: contain !important; }
+    /* ── Gallery + lightbox: contain so product images are never cropped ── */
+    .pdp-gallery__main-img { object-fit: contain !important; background: var(--c-bg-alt, #f5f0ea); }
+    .pdp-gallery__main-wrap { background: var(--c-bg-alt, #f5f0ea); }
+    .pdp-lightbox-main { background: var(--c-bg-alt, #f5f0ea); }
     .pdp-lightbox-main img { object-fit: contain !important; }
 
-    /* ── Cutting-mat theme: toast must stay dark-on-light ── */
-    [data-theme="cutting-mat"] .webshop-toast {
-      background: #112b1e;
-      color: #e8f2ec;
-    }
+    /* ── Referral product embed — match built.html image treatment ── */
+    #referral-product-embed-wrap [data-shop-products] .webshop-card-img { object-fit: contain !important; }
+    #referral-product-embed-wrap [data-shop-products] .webshop-card-img-wrap { aspect-ratio: 3 / 4 !important; }
+    #referral-product-embed-wrap [data-shop-products] .webshop-related { display: none !important; }
+
+    /* ── Cutting-mat theme: toast must stay readable (white bg + black text) ── */
+    /* (Also defined in profiles.css for global scope — this covers fragment scope) */
   </style>
 </head>
 <body>
@@ -335,6 +339,11 @@
             <div class="amz-badges" id="amz-badges"></div>
 
             <p class="pdp-desc" id="pdp-desc"></p>
+
+            <!-- ── Referral product embed (mushroom-forestrave) — shown above variants ── -->
+            <div id="referral-product-embed-wrap" style="display:none; margin-bottom:16px;">
+              <div data-shop-products="mushroom-forestrave" id="referral-product-embed"></div>
+            </div>
 
             <div class="amz-variants-section" id="amz-variants-section" style="display:none;">
               <div class="amz-variants-label" id="amz-variants-label">Select option:</div>
@@ -411,17 +420,6 @@
           <div class="pdp-related-grid" id="related-grid"></div>
         </div>
 
-        <!-- ── Referral product embed (mushroom-forestrave) ── -->
-        <div id="referral-product-section" style="display:none; padding: 40px 0 20px;">
-          <h2 class="pdp-section-title" style="margin-bottom:16px;">Also Available</h2>
-          <div data-shop-products="mushroom-forestrave" id="referral-product-embed"></div>
-        </div>
-        <style>
-          /* Referral embed: contain images, hide related strip */
-          #referral-product-section [data-shop-products] .webshop-card-img { object-fit: contain !important; }
-          #referral-product-section [data-shop-products] .webshop-related { display: none !important; }
-        </style>
-
       </div>
     </div>
 
@@ -486,10 +484,10 @@
     initQty();
     initAtc();
 
-    // Show referral product section (mushroom-forestrave) for all products except itself
+    // Show referral product embed above variants for all products except mushroom-forestrave itself
     if (prodId !== "mushroom-forestrave") {
-      const refSection = document.getElementById("referral-product-section");
-      if (refSection) refSection.style.display = "";
+      const refWrap = document.getElementById("referral-product-embed-wrap");
+      if (refWrap) refWrap.style.display = "";
     }
 
     document.addEventListener("currency:changed", updatePrice);
@@ -903,6 +901,14 @@
       };
 
       function closeLightbox() {
+        // Stop inline video in the lightbox
+        const lbVideoContainer = document.getElementById("video-container");
+        if (lbVideoContainer) {
+          const vid = lbVideoContainer.querySelector("video");
+          if (vid) { vid.pause(); vid.src = ""; }
+          const iframe = lbVideoContainer.querySelector("iframe");
+          if (iframe) { iframe.src = ""; }
+        }
         lightbox.classList.remove("open");
         document.body.style.overflow = "";
       }
