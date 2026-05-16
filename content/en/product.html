@@ -13,32 +13,31 @@
       border-radius: 12px; overflow: hidden; border: 2px solid var(--c-accent); display: none;
     }
     .pdp-magnifier img { position: absolute; top: 0; left: 0; max-width: none; display: block; }
+    /* Grid overlay to show magnified area */
     .pdp-magnifier::before {
       content: "";
       position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
+      inset: 0;
       background: 
-        linear-gradient(90deg, transparent 24%, rgba(255,255,255,.1) 25%, rgba(255,255,255,.1) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.1) 75%, rgba(255,255,255,.1) 76%, transparent 77%, transparent),
-        linear-gradient(0deg, transparent 24%, rgba(255,255,255,.1) 25%, rgba(255,255,255,.1) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.1) 75%, rgba(255,255,255,.1) 76%, transparent 77%, transparent);
-      background-size: 50px 50px;
+        linear-gradient(90deg, transparent 24%, rgba(255,255,255,.15) 25%, rgba(255,255,255,.15) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.15) 75%, rgba(255,255,255,.15) 76%, transparent 77%, transparent),
+        linear-gradient(0deg, transparent 24%, rgba(255,255,255,.15) 25%, rgba(255,255,255,.15) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.15) 75%, rgba(255,255,255,.15) 76%, transparent 77%, transparent);
+      background-size: 40px 40px;
       pointer-events: none;
       z-index: 2;
     }
 
     /* ── Gallery ── */
-    .pdp-gallery__main-wrap { cursor: crosshair; position: relative; overflow: hidden; display: flex; flex-direction: column; aspect-ratio: 1; }
+    .pdp-gallery { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; }
+    .pdp-gallery__main-wrap { cursor: crosshair; position: relative; overflow: hidden; aspect-ratio: 1; width: 100%; }
     .pdp-gallery__main-wrap.video-active { cursor: pointer; }
     .pdp-gallery__main-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pdp-gallery__main { display: flex; flex-direction: column; width: 100%; }
+    
+    /* ── Thumbnails on left ── */
+    .pdp-gallery__thumbs { display: flex; flex-direction: column; gap: 8px; width: 100px; flex-shrink: 0; }
     
     /* ── Full view text ── */
-    .pdp-fullview-text { text-align: center; padding: 8px; font-size: 13px; color: var(--c-text-muted); }
-    
-    /* ── Gallery container with thumbnails on right ── */
-    .pdp-gallery { display: grid; grid-template-columns: 1fr auto; gap: 12px; position: sticky; top: 24px; align-items: start; }
-    .pdp-gallery__main { display: flex; flex-direction: column; flex: 1; }
-    
-    /* ── Thumbnails grid on right ── */
-    .pdp-gallery__thumbs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; width: 140px; flex-shrink: 0; }
+    .pdp-fullview-text { text-align: center; padding: 8px 0; font-size: 12px; color: var(--c-text-muted); }
 
     /* ── Push box to top, remove extra page padding ── */
     .webshop-page-main { padding-top: 0 !important; }
@@ -198,9 +197,11 @@
       </div>
       <div class="pdp-lightbox__body">
         <div id="tab-images">
-          <div class="pdp-lightbox-gallery">
+          <div class="pdp-lightbox-gallery" style="display:grid;grid-template-columns:1fr auto;gap:20px;align-items:start;">
             <div class="pdp-lightbox-main"><img id="lb-main-img" src="" alt=""></div>
-            <div class="pdp-lightbox-thumbs" id="lb-thumbs"></div>
+            <div style="display:grid;grid-template-columns:repeat(4,minmax(80px,1fr));gap:8px;width:fit-content;">
+              <div id="lb-thumbs"></div>
+            </div>
             <div class="pdp-lightbox-details" id="lb-details"></div>
           </div>
         </div>
@@ -219,6 +220,7 @@
 
         <div class="pdp-main webshop-fade-in" id="pdp-main-section">
           <div class="pdp-gallery" id="pdp-gallery">
+            <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
             <div class="pdp-gallery__main">
               <div class="pdp-gallery__main-wrap" id="gallery-main-wrap">
                 <img class="pdp-gallery__main-img" id="gallery-main-img" src="" alt="">
@@ -231,7 +233,6 @@
               </div>
               <div class="pdp-fullview-text" id="fullview-text"></div>
             </div>
-            <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
             <button class="pdp-fullview-btn" id="fullview-btn" aria-hidden="true" tabindex="-1"></button>
           </div>
 
@@ -610,61 +611,30 @@
         thumbsEl.innerHTML = mediaItems.map((item, i) => {
           const isActive = i === activeIdx;
           if (item.type === "image") {
-            return `<div class="pdp-gallery__thumb-wrap${isActive?" active":""}" data-idx="${i}" data-type="image" style="cursor:pointer;position:relative;overflow:hidden;border-radius:var(--radius);border:2px solid transparent;opacity:0.6;transition:opacity 0.2s, transform 0.15s, border-color 0.2s;">
-              <img class="pdp-gallery__thumb" src="${item.src}" alt="View ${i+1}" style="width:100%;height:100%;object-fit:cover;display:block;">
+            return `<div class="pdp-gallery__thumb-wrap${isActive?" active":""}" data-idx="${i}" data-type="image">
+              <img class="pdp-gallery__thumb" src="${item.src}" alt="View ${i+1}">
             </div>`;
           } else {
-            // Video thumb — play icon overlay
             const thumbStyle = item.thumb
               ? `style="background-image:url('${item.thumb}');background-size:cover;background-position:center;"`
               : `style="background:var(--c-surface-2);"`;
-            return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive?" active":""}" data-idx="${i}" data-type="video" ${thumbStyle} style="cursor:pointer;position:relative;overflow:hidden;border-radius:var(--radius);border:2px solid transparent;opacity:0.6;transition:opacity 0.2s, transform 0.15s, border-color 0.2s;display:flex;align-items:center;justify-content:center;">
+            return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive?" active":""}" data-idx="${i}" data-type="video" ${thumbStyle}>
               <span class="pdp-thumb-play">▶</span>
             </div>`;
           }
         }).join("");
 
         thumbsEl.querySelectorAll(".pdp-gallery__thumb-wrap").forEach(el => {
-          const idx = +el.dataset.idx;
-          
-          // Hover effect - show image/video on hover
           el.addEventListener("mouseenter", () => {
+            const idx = +el.dataset.idx;
             if (el.dataset.type === "video") showVideo(idx);
             else showImage(idx);
           });
-          
-          // Click effect
-          el.addEventListener("click", (e) => {
-            e.stopPropagation();
+          el.addEventListener("click", () => {
+            const idx = +el.dataset.idx;
             if (el.dataset.type === "video") showVideo(idx);
             else showImage(idx);
           });
-          
-          // Style updates for active and hover
-          el.addEventListener("mouseenter", () => {
-            el.style.opacity = "1";
-            el.style.transform = "scale(1.05)";
-            el.style.borderColor = "var(--c-accent)";
-          });
-          
-          el.addEventListener("mouseleave", () => {
-            if (idx !== activeIdx) {
-              el.style.opacity = "0.6";
-              el.style.transform = "scale(1)";
-              el.style.borderColor = "transparent";
-            }
-          });
-        });
-        
-        // Update active thumb styling
-        thumbsEl.querySelectorAll(".pdp-gallery__thumb-wrap").forEach((el, i) => {
-          if (i === activeIdx) {
-            el.style.opacity = "1";
-            el.style.borderColor = "var(--c-accent)";
-          } else {
-            el.style.opacity = "0.6";
-            el.style.borderColor = "transparent";
-          }
         });
       }
 
@@ -678,7 +648,6 @@
         document.getElementById("magnifier-img").src = (images[0]||"").replace("w=800","w=1600");
       }
       
-      // Set fullview text from language file
       const fullviewTextEl = document.getElementById("fullview-text");
       if (fullviewTextEl) {
         fullviewTextEl.textContent = Shop.t("click_to_fullview", "Click to see full view");
@@ -816,34 +785,49 @@
               return `<video src="${url}" controls style="width:100%;max-height:70vh;border-radius:12px;display:block;"></video>`;
             }
             
-            // Grid layout with first video main on left, rest on right
             let mainVideoHtml = renderVideo(videos[0]);
             let sideVideosHtml = videos.slice(1).map((v, i) => {
               const isYT = /youtube\.com\/embed\/|youtu\.be\//.test(v);
               if (isYT) {
-                return `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;cursor:pointer;" data-video-idx="${i+1}">
-                  <iframe src="${v}" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+                const videoId = v.match(/embed\/([^?]+)/) ? v.match(/embed\/([^?]+)/)[1] : '';
+                return `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;cursor:pointer;background:#000;" data-video-idx="${i+1}" data-video-url="${v}">
+                  <img src="https://img.youtube.com/vi/${videoId}/sddefault.jpg" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
+                  <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);">
+                    <span style="font-size:2rem;color:white;">▶</span>
+                  </div>
                 </div>`;
               }
-              return `<video src="${v}" controls style="width:100%;border-radius:8px;display:block;cursor:pointer;" data-video-idx="${i+1}"></video>`;
+              return `<div style="position:relative;overflow:hidden;border-radius:8px;cursor:pointer;background:#000;aspect-ratio:16/9;" data-video-idx="${i+1}" data-video-url="${v}">
+                <video src="${v}" style="width:100%;height:100%;object-fit:cover;"></video>
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);pointer-events:none;">
+                  <span style="font-size:2rem;color:white;">▶</span>
+                </div>
+              </div>`;
             }).join("");
             
             const containerHtml = `
-              <div style="display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start;">
-                <div>${mainVideoHtml}</div>
-                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;width:350px;max-width:100%;">
+              <div style="display:grid;grid-template-columns:1fr auto;gap:20px;align-items:start;">
+                <div id="lb-main-video">${mainVideoHtml}</div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;width:fit-content;">
                   ${sideVideosHtml}
                 </div>
               </div>
             `;
             document.getElementById("video-container").innerHTML = containerHtml;
             
-            // Add click handlers for side videos
-            document.querySelectorAll("[data-video-idx]").forEach(el => {
+            document.querySelectorAll("#video-container [data-video-idx]").forEach(el => {
               el.addEventListener("click", () => {
-                const idx = parseInt(el.dataset.videoIdx);
-                const videoHtml = renderVideo(videos[idx]);
-                document.querySelector("#video-container > div > div:first-child").innerHTML = videoHtml;
+                const url = el.dataset.videoUrl;
+                function renderSingleVideo(url) {
+                  const isYT = /youtube\.com\/embed\/|youtu\.be\//.test(url);
+                  if (isYT) {
+                    return `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;">
+                      <iframe src="${url}" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+                    </div>`;
+                  }
+                  return `<video src="${url}" controls style="width:100%;max-height:70vh;border-radius:12px;display:block;"></video>`;
+                }
+                document.getElementById("lb-main-video").innerHTML = renderSingleVideo(url);
               });
             });
           } else {
