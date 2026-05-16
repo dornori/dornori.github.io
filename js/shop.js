@@ -226,9 +226,12 @@ var Shop = (() => {
       safeFetch(langDir + fallback + '/products.json'),
     ]).then(([ui, uiEn, prod, prodEn]) => {
       LANG = { ...uiEn, ...ui };
-      const clean = obj => { const r = { ...obj }; delete r._readme; return r; };
-      PRODUCT_LANG    = clean(prod);
-      PRODUCT_LANG_EN = clean(prodEn);
+      const toDict = obj => {
+        if (Array.isArray(obj)) { const d = {}; obj.forEach(p => { if (p && p.id) d[p.id] = p; }); return d; }
+        const r = { ...obj }; delete r._readme; return r;
+      };
+      PRODUCT_LANG    = toDict(prod);
+      PRODUCT_LANG_EN = toDict(prodEn);
       _langLoaded = true;
       return LANG;
     });
@@ -660,8 +663,8 @@ var Shop = (() => {
     addBtn?.addEventListener("click", () => {
       const evid = effectiveVid();
       addToCart(p, qty, evid, selectedColor, img?.src || null);
-      const itemName = evid ? (getVariant(p, evid)?.label || evid) : pName(p);
-      toast(`${t("added_to_cart_prefix","Added to cart")}: ${itemName}`);
+      const itemName = evid ? (getVariant(p, evid)?.label || evid) : (pName(p) || p.id);
+      toast(`${itemName} ${t("added","added to cart")}`);
     });
     wireRelatedStrip(card, p);
   }
@@ -933,7 +936,7 @@ var Shop = (() => {
       const qv = container.querySelector(".webshop-qty-val");
       container.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid=effectiveVid(); const max=evid?variantStock(p,evid):(p.stock||99); qty=Math.min(qty+1,max||99); qv.textContent=qty; });
       container.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty=Math.max(1,qty-1); qv.textContent=qty; });
-      atcBtn?.addEventListener("click", () => { const evid=effectiveVid(); addToCart(p,qty,evid,selectedColor,mainImg?.src||null); const itemName=evid?(getVariant(p,evid)?.label||evid):pName(p); toast(`${t("added_to_cart_prefix","Added to cart")}: ${itemName}`); });
+      atcBtn?.addEventListener("click", () => { const evid=effectiveVid(); addToCart(p,qty,evid,selectedColor,mainImg?.src||null); const itemName=evid?(getVariant(p,evid)?.label||evid):(pName(p)||p.id); toast(`${itemName} ${t("added","added to cart")}`); });
       wireRelatedStrip(container, p);
     }
     build();
