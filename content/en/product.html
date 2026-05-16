@@ -45,28 +45,26 @@
     /* ── Gallery main column ── */
     .pdp-gallery__main-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 
-    /* ── Lightbox layout overrides: left=image+thumbs, right=details ── */
+    /* ── Lightbox layout: left=main image, right=details+thumbs ── */
     .pdp-lightbox-gallery {
       display: grid;
-      grid-template-columns: 1fr 340px;
-      gap: 32px;
+      grid-template-columns: 1fr 360px;
+      gap: 28px;
       align-items: start;
     }
-    .pdp-lightbox-left { display: flex; flex-direction: column; gap: 12px; }
-    .pdp-lightbox-main { width: 100%; }
-    .pdp-lightbox-main img { width: 100%; max-height: 65vh; object-fit: contain; display: block; border-radius: 8px; }
-    /* Lightbox thumbs — horizontal row, 4-5 items */
+    .pdp-lightbox-main { width: 100%; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--c-bg-alt); }
+    .pdp-lightbox-main img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pdp-lightbox-right { display: flex; flex-direction: column; gap: 16px; }
+    /* Lightbox thumbs — horizontal row under details, no scroll */
     .pdp-lightbox-thumbs {
       display: flex;
       flex-direction: row;
       gap: 8px;
-      flex-wrap: nowrap;
-      overflow-x: auto;
+      flex-wrap: wrap;
+      overflow: visible;
     }
-    .pdp-lightbox-thumbs::-webkit-scrollbar { height: 4px; }
-    .pdp-lightbox-thumbs::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 2px; }
     .pdp-lightbox-thumb {
-      width: 72px; height: 72px; object-fit: cover; border-radius: 6px; cursor: pointer;
+      width: 68px; height: 68px; object-fit: cover; border-radius: 6px; cursor: pointer;
       opacity: 0.55; border: 2px solid transparent; flex-shrink: 0; transition: all 0.2s;
     }
     .pdp-lightbox-thumb.active, .pdp-lightbox-thumb:hover { opacity: 1; border-color: var(--c-accent); }
@@ -230,13 +228,13 @@
       </div>
       <div class="pdp-lightbox__body">
         <div id="tab-images">
-          <!-- Two-column: left = image+thumbs, right = product info -->
+          <!-- Two-column: left = main image, right = details + thumbs below -->
           <div class="pdp-lightbox-gallery">
-            <div class="pdp-lightbox-left">
-              <div class="pdp-lightbox-main"><img id="lb-main-img" src="" alt=""></div>
+            <div class="pdp-lightbox-main"><img id="lb-main-img" src="" alt=""></div>
+            <div class="pdp-lightbox-right">
+              <div class="pdp-lightbox-details" id="lb-details"></div>
               <div class="pdp-lightbox-thumbs" id="lb-thumbs"></div>
             </div>
-            <div class="pdp-lightbox-details" id="lb-details"></div>
           </div>
         </div>
         <div id="tab-video" style="display:none;">
@@ -838,10 +836,10 @@
             if (item.type === "image") {
               return `<img class="pdp-lightbox-thumb${isActive ? " active" : ""}" src="${item.src}" alt="View ${j+1}" data-idx="${j}" data-type="image">`;
             } else {
-              const bg = item.thumb ? `style="background-image:url('${item.thumb}');background-size:cover;background-position:center;"` : '';
-              return `<div class="pdp-lightbox-thumb pdp-lightbox-thumb--video${isActive ? " active" : ""}" data-idx="${j}" data-type="video" ${bg}
-                style="display:inline-flex;align-items:center;justify-content:center;background-color:var(--c-surface-2);${item.thumb?'background-image:url(\''+item.thumb+'\');background-size:cover;background-position:center;':''}width:72px;height:72px;border-radius:6px;cursor:pointer;flex-shrink:0;border:2px solid ${isActive?'var(--c-accent)':'transparent'};opacity:${isActive?1:0.55};">
-                <span style="font-size:1.4rem;color:white;text-shadow:0 1px 4px rgba(0,0,0,0.8);">▶</span>
+              const bgStyle = item.thumb ? `background-image:url('${item.thumb}');background-size:cover;background-position:center;` : `background:var(--c-surface-2);`;
+              return `<div class="pdp-lightbox-thumb pdp-lightbox-thumb--video${isActive ? " active" : ""}" data-idx="${j}" data-type="video"
+                style="${bgStyle}display:flex;align-items:center;justify-content:center;">
+                <span style="font-size:1.2rem;color:white;text-shadow:0 1px 4px rgba(0,0,0,0.8);">▶</span>
               </div>`;
             }
           }).join("");
@@ -851,7 +849,6 @@
               const type = t.dataset.type;
               currentImgIdx = idx;
               if (type === "video") {
-                // switch to video tab
                 activeTab = "video";
                 buildLightbox();
               } else {
