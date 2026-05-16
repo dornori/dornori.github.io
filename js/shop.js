@@ -550,17 +550,21 @@ var Shop = (() => {
   ═══════════════════════════════════════════════════════ */
   function buildProductCard(p) {
     const hasVariants  = p.variants?.length > 0;
-    const firstVariant = hasVariants ? p.variants[0] : null;
-    const displayPrice = firstVariant?.price != null ? firstVariant.price : p.price;
+    // Default display uses the product itself (not first variant)
+    const displayPrice = p.price;
     const discountPercent = p.discount || 0;
     const discountedPrice = discountPercent > 0 ? displayPrice * (1 - discountPercent / 100) : displayPrice;
-    const inStock      = hasVariants ? variantInStock(p, firstVariant?.id) : (p.stock > 0);
+    const inStock      = p.stock > 0;
 
     let selectorHtml = "";
     if (hasVariants) {
-      selectorHtml = `<div class="webshop-variants">${p.variants.map((v, i) => {
+      // Prepend a "self" button for the main product, active by default.
+      // The product's own label comes from its name; use a short form if available.
+      const selfLabel = p.selfLabel || pName(p) || p.id;
+      const selfBtn = `<button class="webshop-variant-btn active" data-variant-id="${p.id}" title="${selfLabel}">${selfLabel}</button>`;
+      selectorHtml = `<div class="webshop-variants">${selfBtn}${p.variants.map((v) => {
         const so = v.stock != null && v.stock === 0;
-        return `<button class="webshop-variant-btn${i===0?" active":""}${so?" soldout":""}" data-variant-id="${v.id}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${v.label}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
+        return `<button class="webshop-variant-btn${so?" soldout":""}" data-variant-id="${v.id}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${v.label}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
       }).join("")}</div>`;
     } else if (p.colors?.length) {
       const so = p.colors_soldout || [];
@@ -608,28 +612,17 @@ var Shop = (() => {
     let qty = 1;
     const hasVariants = p.variants?.length > 0;
 
-    // Smart variant init: if this product's own ID appears as a variant entry,
-    // it means the product IS one of the colour variants. Default to "self" (null).
-    const selfIsVariant = hasVariants && p.variants.some(v => v.id === p.id);
-    // null  → "this product itself is selected" (effectiveVariantId = null)
-    // string → a sibling variant is selected
-    let selectedVariantId = selfIsVariant ? null : (hasVariants ? p.variants[0]?.id : null);
+    // selectedVariantId = null means "main product is selected" (no variant override).
+    // The self-button (data-variant-id === p.id) always maps back to null.
+    let selectedVariantId = null;
     let selectedColor = !hasVariants && p.colors ? p.colors[0] : null;
 
     const img     = card.querySelector(".webshop-card-img");
     const priceEl = card.querySelector(".webshop-card-price");
     const addBtn  = card.querySelector(".webshop-card-atc");
 
-    // Correct the active button on init when selfIsVariant
-    if (hasVariants && selfIsVariant) {
-      card.querySelectorAll(".webshop-variant-btn").forEach(btn => {
-        btn.classList.remove("active");
-        if (btn.dataset.variantId === p.id) btn.classList.add("active");
-      });
-    }
-
-    // effectiveVariantId: when the selected variant IS this product, pass null to
-    // avoid duplicate cart keys and use the product's own price/image directly.
+    // effectiveVariantId: null when main product or self-button selected.
+    // Prevents duplicate cart keys and uses product's own price/image/stock.
     function effectiveVid() {
       return (selectedVariantId === null || selectedVariantId === p.id) ? null : selectedVariantId;
     }
@@ -649,7 +642,7 @@ var Shop = (() => {
       btn.addEventListener("click", () => {
         card.querySelectorAll(".webshop-variant-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
-        // If the clicked variant ID matches this product itself, normalise to null
+        // Self-button (p.id) → null so cart uses main product key
         selectedVariantId = (btn.dataset.variantId === p.id) ? null : btn.dataset.variantId;
         refresh();
       });
@@ -731,14 +724,12 @@ var Shop = (() => {
     if (!container) return;
     container.classList.add("webshop-product-info");
     const hasVariants = p.variants?.length > 0;
-    // Smart variant init: if this product's own ID is listed as one of its variants,
-    // it IS that colour — default selection to "self" (null effectiveVariantId).
-    const selfIsVariant = hasVariants && p.variants.some(v => v.id === p.id);
-    let selectedVariantId = selfIsVariant ? null : (hasVariants ? p.variants[0]?.id : null);
+    // null = main product is selected (no variant override). Self-button maps back to null.
+    let selectedVariantId = null;
     let selectedColor = !hasVariants && p.colors ? p.colors[0] : null;
     let qty = 1;
 
-    // effectiveVariantId: null when this product itself is selected, preventing duplicate cart keys.
+    // effectiveVariantId: null when main product or self-button selected.
     function effectiveVid() {
       return (selectedVariantId === null || selectedVariantId === p.id) ? null : selectedVariantId;
     }
@@ -754,11 +745,13 @@ var Shop = (() => {
 
       let variantHtml = "";
       if (hasVariants) {
+        const selfLabel = p.selfLabel || pName(p) || p.id;
         variantHtml = `<div class="webshop-product-option-group">
           <label class="webshop-product-option-label">${t("variant","Option")}</label>
           <div class="webshop-product-variants">
-            ${p.variants.map((v,i) => { const so=v.stock!=null&&v.stock===0, active=selfIsVariant?(v.id===p.id):(v.id===selectedVariantId||(i===0&&!selectedVariantId));
-              return `<button class="webshop-product-variant-btn${active?" active":""}${so?" soldout":""}" data-variant-id="${v.id}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${v.label}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
+            <button class="webshop-product-variant-btn active" data-variant-id="${p.id}">${selfLabel}</button>
+            ${p.variants.map((v) => { const so=v.stock!=null&&v.stock===0;
+              return `<button class="webshop-product-variant-btn${so?" soldout":""}" data-variant-id="${v.id}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${v.label}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
             }).join("")}
           </div></div>`;
       } else if (p.colors?.length) {

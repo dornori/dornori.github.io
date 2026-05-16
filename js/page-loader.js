@@ -228,9 +228,6 @@ export function initPageLoader() {
             homeView.classList.remove('hidden');
             pageView.classList.add('hidden');
             window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
-            const base    = SITE_CONFIG.appearance.base_path;
-            const homeUrl = `${base}${lang}/`;
-            window.history.replaceState({}, '', homeUrl);
             updateSEO('');
             return;
         }
@@ -253,14 +250,11 @@ export function initPageLoader() {
         homeView.classList.remove('hidden');
         pageView.classList.add('hidden');
         window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
-        const base    = SITE_CONFIG.appearance.base_path;
-        const homeUrl = `${base}${lang}/`;
-        window.history.replaceState({}, '', homeUrl);
         updateSEO('');
     };
 
     // ── VIEW PAGE ────────────────────────────────────────────────────────────
-    window.viewPage = async (slug, productId) => {
+    window.viewPage = async (slug, productId, fromPopstate = false) => {
         const page = SITE_CONFIG.pages[slug];
         if (!page) { if (ENV_CONFIG.DEBUG) console.error(`Page "${slug}" not found in config`); return; }
 
@@ -293,7 +287,9 @@ export function initPageLoader() {
 
             const lang = window.LANG || fallbackLang();
             const qs   = productId ? `?id=${productId}` : '';
-            window.history.replaceState({ slug, lang, productId }, '', pageUrl(slug, lang, qs));
+            if (!fromPopstate) {
+                window.history.pushState({ slug, lang, productId }, '', pageUrl(slug, lang, qs));
+            }
             updateSEO(slug);
 
         } catch (err) {
@@ -320,7 +316,7 @@ export function initPageLoader() {
         window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
         const lang    = window.LANG || fallbackLang();
         const base    = SITE_CONFIG.appearance.base_path;
-        window.history.pushState({}, '', `${base}${lang}/`);
+        window.history.pushState({ slug: '', lang }, '', `${base}${lang}/`);
         updateSEO('');
         window.loadHome();
     };
@@ -361,13 +357,25 @@ export function initPageLoader() {
             }
         }
 
+        const base    = SITE_CONFIG.appearance.base_path;
+        const initLang = lang || fallbackLang();
+        window.history.replaceState({ slug: '', lang: initLang }, '', `${base}${initLang}/`);
         window.loadHome();
         updateSEO('');
     }
 
     window.addEventListener('popstate', (e) => {
-        if (e.state?.slug) window.viewPage(e.state.slug, e.state.productId || null);
-        else window.showHome();
+        if (e.state?.slug) {
+            // Restore a page view without pushing new history
+            window.viewPage(e.state.slug, e.state.productId || null, true);
+        } else {
+            // Restore home view without pushing new history
+            pageView.classList.add('hidden');
+            homeView.classList.remove('hidden');
+            window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
+            window.loadHome();
+            updateSEO('');
+        }
     });
 
     window.addEventListener('keydown', (e) => {
