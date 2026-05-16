@@ -6,35 +6,51 @@
   <title>WEBSHOP</title>
   <link rel="stylesheet" href="../../css/shop.css">
   <style>
-    /* ── Magnifier ── */
+    /* ── Magnifier floating zoom panel ── */
     .pdp-magnifier {
       position: fixed; pointer-events: none; z-index: 1000;
       background: var(--c-surface); box-shadow: 0 12px 40px rgba(0,0,0,0.25);
-      border-radius: 12px; overflow: hidden; border: 2px solid var(--c-accent); display: none;
+      border-radius: 4px; overflow: hidden; border: 1px solid var(--c-border); display: none;
+      width: 380px; height: 380px;
     }
     .pdp-magnifier img { position: absolute; top: 0; left: 0; max-width: none; display: block; }
-    /* Blue square box showing magnified area */
-    .pdp-magnifier::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border: 2px solid rgba(100,150,255,0.5);
-      box-shadow: inset 0 0 0 1px rgba(100,150,255,0.3);
-      pointer-events: none;
-      z-index: 2;
+
+    /* ── Lens box that sits ON the main image ── */
+    .pdp-lens {
+      position: absolute; pointer-events: none; z-index: 10;
+      border: 2px solid rgba(100,160,255,0.8);
+      background: rgba(130,180,255,0.18);
+      display: none;
     }
 
-    /* ── Gallery ── */
-    .pdp-gallery { display: flex; flex-direction: column; gap: 12px; }
-    .pdp-gallery__main-wrap { cursor: crosshair; position: relative; overflow: hidden; aspect-ratio: 1; width: 100%; }
+    /* ── Gallery: thumbs column LEFT, main image RIGHT ── */
+    .pdp-gallery { display: flex; flex-direction: row; gap: 10px; align-items: flex-start; }
+    .pdp-gallery__thumbs {
+      display: flex; flex-direction: column; gap: 6px;
+      width: 68px; flex-shrink: 0;
+    }
+    .pdp-gallery__thumb-wrap {
+      width: 64px; height: 64px; border-radius: 4px; overflow: hidden;
+      border: 2px solid transparent; cursor: pointer;
+      opacity: 0.6; transition: opacity 0.15s, border-color 0.15s; flex-shrink: 0;
+    }
+    .pdp-gallery__thumb-wrap:hover, .pdp-gallery__thumb-wrap.active {
+      opacity: 1; border-color: var(--c-accent);
+    }
+    .pdp-gallery__thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pdp-gallery__thumb-overflow {
+      width: 64px; height: 64px; border-radius: 4px;
+      background: var(--c-surface-2, #2a2a2a); border: 2px solid var(--c-border);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-weight: 700; font-size: 15px; color: var(--c-text);
+      flex-shrink: 0;
+    }
+    .pdp-gallery__thumb-overflow:hover { border-color: var(--c-accent); }
+    .pdp-gallery__main-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .pdp-gallery__main-wrap { cursor: crosshair; position: relative; overflow: hidden; aspect-ratio: 1; border-radius: var(--radius-lg); background: var(--c-bg-alt); }
     .pdp-gallery__main-wrap.video-active { cursor: pointer; }
     .pdp-gallery__main-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    
-    /* ── Thumbnails horizontal below main ── */
-    .pdp-gallery__thumbs { display: flex; flex-direction: row; gap: 8px; flex-wrap: wrap; }
-    
-    /* ── Full view text ── */
-    .pdp-fullview-text { text-align: center; padding: 8px 0; font-size: 12px; color: var(--c-text-muted); }
+    .pdp-fullview-text { font-size: 12px; color: var(--c-accent); text-align: center; cursor: pointer; text-decoration: underline; padding: 2px 0; }
 
     /* ── Push box to top, remove extra page padding ── */
     .webshop-page-main { padding-top: 0 !important; }
@@ -71,7 +87,7 @@
 
     /* ── Gallery sticky / details natural height ── */
     .pdp-main { align-items: start !important; }
-    .pdp-gallery { position: sticky; top: 24px; }
+    .pdp-gallery { position: sticky; top: 24px; flex-direction: row !important; }
     .pdp-details {
       overflow-y: visible;
       max-height: none;
@@ -215,18 +231,22 @@
 
         <div class="pdp-main webshop-fade-in" id="pdp-main-section">
           <div class="pdp-gallery" id="pdp-gallery">
-            <div class="pdp-gallery__main-wrap" id="gallery-main-wrap">
-              <img class="pdp-gallery__main-img" id="gallery-main-img" src="" alt="">
-              <div class="pdp-gallery__main-video" id="gallery-main-video" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
-                <video id="gallery-video-player" style="width:100%;height:100%;object-fit:contain;" controls></video>
-                <div id="gallery-yt-frame" style="display:none;position:absolute;inset:0;">
-                  <iframe id="gallery-yt-iframe" style="width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+            <!-- Left column: vertical thumbnails -->
+            <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
+            <!-- Right column: main image + fullview text -->
+            <div class="pdp-gallery__main-col">
+              <div class="pdp-gallery__main-wrap" id="gallery-main-wrap">
+                <img class="pdp-gallery__main-img" id="gallery-main-img" src="" alt="">
+                <div class="pdp-lens" id="pdp-lens"></div>
+                <div class="pdp-gallery__main-video" id="gallery-main-video" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
+                  <video id="gallery-video-player" style="width:100%;height:100%;object-fit:contain;" controls></video>
+                  <div id="gallery-yt-frame" style="display:none;position:absolute;inset:0;">
+                    <iframe id="gallery-yt-iframe" style="width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+                  </div>
                 </div>
               </div>
+              <div class="pdp-fullview-text" id="fullview-text"></div>
             </div>
-            <div class="pdp-fullview-text" id="fullview-text"></div>
-            <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
-            <button class="pdp-fullview-btn" id="fullview-btn" aria-hidden="true" tabindex="-1"></button>
           </div>
 
           <div class="pdp-details" id="pdp-details">
@@ -601,76 +621,30 @@
       }
 
       function buildThumbs() {
-        const maxShown = 5;
-        const itemsToShow = mediaItems.slice(0, maxShown);
-        const remaining = mediaItems.length - maxShown;
-        
-        thumbsEl.innerHTML = itemsToShow.map((item, i) => {
+        thumbsEl.innerHTML = mediaItems.map((item, i) => {
           const isActive = i === activeIdx;
           if (item.type === "image") {
-            return `<div class="pdp-gallery__thumb-wrap${isActive?" active":""}" data-idx="${i}" data-type="image" style="width:64px;height:64px;cursor:pointer;border-radius:4px;border:2px solid ${isActive?'var(--c-accent)':'transparent'};opacity:${isActive?1:0.6};transition:all 0.2s;overflow:hidden;">
-              <img class="pdp-gallery__thumb" src="${item.src}" alt="View ${i+1}" style="width:100%;height:100%;object-fit:cover;display:block;">
+            return `<div class="pdp-gallery__thumb-wrap${isActive?" active":""}" data-idx="${i}" data-type="image">
+              <img class="pdp-gallery__thumb" src="${item.src}" alt="View ${i+1}">
             </div>`;
           } else {
+            // Video thumb — play icon overlay
             const thumbStyle = item.thumb
-              ? `background-image:url('${item.thumb}');background-size:cover;background-position:center;`
-              : `background:var(--c-surface-2);`;
-            return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive?" active":""}" data-idx="${i}" data-type="video" style="width:64px;height:64px;cursor:pointer;border-radius:4px;border:2px solid ${isActive?'var(--c-accent)':'transparent'};opacity:${isActive?1:0.6};transition:all 0.2s;overflow:hidden;display:flex;align-items:center;justify-content:center;${thumbStyle}">
-              <span class="pdp-thumb-play" style="font-size:1.2rem;color:white;text-shadow:0 1px 4px rgba(0,0,0,0.7);z-index:1;">▶</span>
+              ? `style="background-image:url('${item.thumb}');background-size:cover;background-position:center;"`
+              : `style="background:var(--c-surface-2);"`;
+            return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive?" active":""}" data-idx="${i}" data-type="video" ${thumbStyle}>
+              <span class="pdp-thumb-play">▶</span>
             </div>`;
           }
         }).join("");
-        
-        if (remaining > 0) {
-          thumbsEl.innerHTML += `<div style="width:64px;height:64px;cursor:pointer;border-radius:4px;border:2px solid transparent;background:var(--c-surface-2);display:flex;align-items:center;justify-content:center;font-weight:bold;color:var(--c-text);font-size:18px;" data-show-more>+${remaining}</div>`;
-        }
 
         thumbsEl.querySelectorAll(".pdp-gallery__thumb-wrap").forEach(el => {
-          el.addEventListener("mouseenter", () => {
-            const idx = +el.dataset.idx;
-            if (el.dataset.type === "video") showVideo(idx);
-            else showImage(idx);
-          });
           el.addEventListener("click", () => {
             const idx = +el.dataset.idx;
             if (el.dataset.type === "video") showVideo(idx);
             else showImage(idx);
           });
         });
-        
-        const moreBtn = thumbsEl.querySelector("[data-show-more]");
-        if (moreBtn) {
-          moreBtn.addEventListener("click", () => {
-            thumbsEl.innerHTML = mediaItems.map((item, i) => {
-              const isActive = i === activeIdx;
-              if (item.type === "image") {
-                return `<div class="pdp-gallery__thumb-wrap${isActive?" active":""}" data-idx="${i}" data-type="image" style="width:64px;height:64px;cursor:pointer;border-radius:4px;border:2px solid ${isActive?'var(--c-accent)':'transparent'};opacity:${isActive?1:0.6};transition:all 0.2s;overflow:hidden;">
-                  <img class="pdp-gallery__thumb" src="${item.src}" alt="View ${i+1}" style="width:100%;height:100%;object-fit:cover;display:block;">
-                </div>`;
-              } else {
-                const thumbStyle = item.thumb
-                  ? `background-image:url('${item.thumb}');background-size:cover;background-position:center;`
-                  : `background:var(--c-surface-2);`;
-                return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive?" active":""}" data-idx="${i}" data-type="video" style="width:64px;height:64px;cursor:pointer;border-radius:4px;border:2px solid ${isActive?'var(--c-accent)':'transparent'};opacity:${isActive?1:0.6};transition:all 0.2s;overflow:hidden;display:flex;align-items:center;justify-content:center;${thumbStyle}">
-                  <span class="pdp-thumb-play" style="font-size:1.2rem;color:white;text-shadow:0 1px 4px rgba(0,0,0,0.7);z-index:1;">▶</span>
-                </div>`;
-              }
-            }).join("");
-            
-            thumbsEl.querySelectorAll(".pdp-gallery__thumb-wrap").forEach(el => {
-              el.addEventListener("mouseenter", () => {
-                const idx = +el.dataset.idx;
-                if (el.dataset.type === "video") showVideo(idx);
-                else showImage(idx);
-              });
-              el.addEventListener("click", () => {
-                const idx = +el.dataset.idx;
-                if (el.dataset.type === "video") showVideo(idx);
-                else showImage(idx);
-              });
-            });
-          });
-        }
       }
 
       // Expose for variant switching
@@ -682,12 +656,6 @@
         mainImg.alt = Shop.pName(PRODUCT);
         document.getElementById("magnifier-img").src = (images[0]||"").replace("w=800","w=1600");
       }
-      
-      const fullviewTextEl = document.getElementById("fullview-text");
-      if (fullviewTextEl) {
-        fullviewTextEl.textContent = Shop.t("click_to_fullview", "Click to see full view");
-      }
-      
       buildThumbs();
 
       // Main wrap click: image → lightbox images, video → lightbox video tab
