@@ -22,9 +22,8 @@ export function initStickyBanner() {
     function onScroll() {
         const sy = window.scrollY;
         const t  = Math.min(1, Math.max(0, (sy - SCROLL_START) / (SCROLL_END - SCROLL_START)));
-        // Logo size now controlled by CSS only - edit .billboard-logo-wrap width in main.css
-        // logoWrap.style.width     = (13 - 5 * t) + 'vw';
-        // wordmark.style.fontSize  = (3.2 - 1.2 * t) + 'vw';
+        logoWrap.style.width     = (13 - 5 * t) + 'vw';
+        wordmark.style.fontSize  = (3.2 - 1.2 * t) + 'vw';
         header.classList.toggle('header--scrolled', t > 0.5);
     }
 
