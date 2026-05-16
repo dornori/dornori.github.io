@@ -114,8 +114,8 @@
             Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl: _cartUrl(lang) });
         } else {
             // Slot not yet created - site-main.js still loading
-            // With proper load order from Fix #6, this should rarely happen
-            console.warn('[shop-init] mobile-cart-icon-slot not found; site-main.js may be delayed');
+            // Fallback: wait for slot creation with MutationObserver
+            // console.warn('[shop-init] mobile-cart-icon-slot not found; site-main.js may be delayed');
             
             var capturedLang = lang;
             var obs = new MutationObserver(function () {

@@ -158,7 +158,8 @@
     function injectLogoSrc() {
         var logoEl = document.getElementById('banner-img');
         if (logoEl && !logoEl.getAttribute('src')) {
-            logoEl.src = BASE_PATH + 'assets/images/dornori-logo-transparent.webp';
+            // Inline SVG placeholder - replace with actual logo as needed
+            logoEl.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjY2IiBzdHJva2Utd2lkdGg9IjMiLz48dGV4dCB4PSI1MCIgeT0iNjAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI0OCIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiM2NjYiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkQ8L3RleHQ+PC9zdmc+';
         }
     }
     if (document.readyState === 'loading') {
