@@ -604,7 +604,7 @@ var Shop = (() => {
   function wireProductCard(card, p) {
     let qty = 1;
     const hasVariants     = p.variants?.length > 0;
-    let selectedVariantId = hasVariants ? p.variants[0]?.id : null;
+    let selectedVariantId = null; // Start with no variant selected — use product's own image
     let selectedColor     = !hasVariants && p.colors ? p.colors[0] : null;
     const img    = card.querySelector(".webshop-card-img");
     const priceEl = card.querySelector(".webshop-card-price");
@@ -634,7 +634,7 @@ var Shop = (() => {
     const qv = card.querySelector(".webshop-qty-val");
     card.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const max = hasVariants ? variantStock(p, selectedVariantId) : (p.stock||99); qty = Math.min(qty+1, max||99); qv.textContent = qty; });
     card.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty = Math.max(1, qty-1); qv.textContent = qty; });
-    addBtn?.addEventListener("click", () => { addToCart(p, qty, selectedVariantId, selectedColor, null); toast(`${pName(p)} ${t("added","added to cart")}`); });
+    addBtn?.addEventListener("click", () => { addToCart(p, qty, selectedVariantId, selectedColor, img?.src || null); toast(`${pName(p)} ${t("added","added to cart")}`); });
     wireRelatedStrip(card, p);
   }
 
