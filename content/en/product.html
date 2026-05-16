@@ -45,6 +45,47 @@
     /* ── Gallery main column ── */
     .pdp-gallery__main-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 
+    /* ── Video count box in gallery thumbs ── */
+    .pdp-gallery__thumb-videos {
+      width: 64px; height: 64px; flex-shrink: 0; cursor: pointer; border-radius: 4px;
+      border: 2px solid var(--c-border); background: #111;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 2px; color: #fff; transition: border-color 0.2s;
+    }
+    .pdp-gallery__thumb-videos:hover { border-color: var(--c-accent); }
+    .pdp-gallery__thumb-videos__icon { font-size: 18px; line-height: 1; }
+    .pdp-gallery__thumb-videos__label { font-size: 9px; opacity: 0.8; letter-spacing: 0.03em; text-align: center; line-height: 1.2; }
+
+    /* ── Lightbox video tab: player left, thumbs right ── */
+    .pdp-video-layout {
+      display: grid;
+      grid-template-columns: 1fr 100px;
+      gap: 16px;
+      align-items: start;
+    }
+    .pdp-video-thumbs {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .pdp-video-thumb {
+      width: 84px; height: 54px; border-radius: 6px; cursor: pointer;
+      border: 2px solid transparent; opacity: 0.6; overflow: hidden;
+      background: #111; display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s; flex-shrink: 0; position: relative;
+    }
+    .pdp-video-thumb.active, .pdp-video-thumb:hover { opacity: 1; border-color: var(--c-accent); }
+    .pdp-video-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pdp-video-thumb__play {
+      position: absolute; font-size: 1rem; color: white;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    }
+    @media (max-width: 700px) {
+      .pdp-video-layout { grid-template-columns: 1fr; }
+      .pdp-video-thumbs { flex-direction: row; flex-wrap: wrap; }
+      .pdp-video-thumb { width: 72px; height: 48px; }
+    }
+
     /* ── Lightbox layout: left=main image, right=details+thumbs ── */
     .pdp-lightbox-gallery {
       display: grid;
@@ -238,7 +279,10 @@
           </div>
         </div>
         <div id="tab-video" style="display:none;">
-          <div class="pdp-video-wrap" id="video-container"></div>
+          <div class="pdp-video-layout">
+            <div class="pdp-video-wrap" id="video-container"></div>
+            <div class="pdp-video-thumbs" id="video-thumbs"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -672,6 +716,14 @@
           </div>`;
         }
 
+        // Video count box — always show if there are videos
+        if (videos.length > 0) {
+          thumbsEl.innerHTML += `<div class="pdp-gallery__thumb-videos" data-open-videos>
+            <span class="pdp-gallery__thumb-videos__icon">▶</span>
+            <span class="pdp-gallery__thumb-videos__label">${videos.length} VIDEO${videos.length > 1 ? "S" : ""}</span>
+          </div>`;
+        }
+
         function wireThumbEvents(container) {
           container.querySelectorAll(".pdp-gallery__thumb-wrap").forEach(el => {
             el.addEventListener("mouseenter", () => {
@@ -688,6 +740,10 @@
           const moreBtn = container.querySelector("[data-show-more]");
           if (moreBtn) {
             moreBtn.addEventListener("click", () => openLightbox("images"));
+          }
+          const videoBtn = container.querySelector("[data-open-videos]");
+          if (videoBtn) {
+            videoBtn.addEventListener("click", () => openLightbox("video"));
           }
         }
 
@@ -872,18 +928,62 @@
         }
         if (activeTab === "video") {
           const videos = PRODUCT.videos || [];
-          function renderVideo(url) {
+          let activeVideoIdx = 0;
+
+          function getVideoThumbUrl(url) {
+            const isYT = /youtube\.com|youtu\.be/.test(url);
+            if (isYT) {
+              const m = url.match(/embed\/([^?]+)/) || url.match(/youtu\.be\/([^?]+)/);
+              return m ? `https://img.youtube.com/vi/${m[1]}/mqdefault.jpg` : null;
+            }
+            return null;
+          }
+
+          function renderActiveVideo(url) {
             const isYT = /youtube\.com\/embed\/|youtu\.be\//.test(url);
             if (isYT) {
               return `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;">
-                <iframe src="${url}" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+                <iframe src="${url}?autoplay=1" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
               </div>`;
             }
-            return `<video src="${url}" controls style="width:100%;max-height:70vh;border-radius:12px;display:block;"></video>`;
+            return `<video src="${url}" controls autoplay style="width:100%;border-radius:12px;display:block;"></video>`;
           }
-          document.getElementById("video-container").innerHTML = videos.length
-            ? videos.map(renderVideo).join("")
-            : `<div class="pdp-no-video">📽 No video available for this product.</div>`;
+
+          function buildVideoTab() {
+            if (!videos.length) {
+              document.getElementById("video-container").innerHTML = `<div class="pdp-no-video">📽 No video available for this product.</div>`;
+              document.getElementById("video-thumbs").innerHTML = "";
+              return;
+            }
+
+            document.getElementById("video-container").innerHTML = renderActiveVideo(videos[activeVideoIdx]);
+
+            document.getElementById("video-thumbs").innerHTML = videos.map((url, i) => {
+              const thumb = getVideoThumbUrl(url);
+              const isActive = i === activeVideoIdx;
+              const label = `Video ${i + 1}`;
+              if (thumb) {
+                return `<div class="pdp-video-thumb${isActive ? " active" : ""}" data-vidx="${i}">
+                  <img src="${thumb}" alt="${label}">
+                  <span class="pdp-video-thumb__play">▶</span>
+                </div>`;
+              }
+              // mp4 — no thumbnail, show dark box with play + index
+              return `<div class="pdp-video-thumb${isActive ? " active" : ""}" data-vidx="${i}"
+                style="background:#1a1a1a;">
+                <span class="pdp-video-thumb__play" style="font-size:0.9rem;">▶ ${i + 1}</span>
+              </div>`;
+            }).join("");
+
+            document.getElementById("video-thumbs").querySelectorAll(".pdp-video-thumb").forEach(el => {
+              el.addEventListener("click", () => {
+                activeVideoIdx = +el.dataset.vidx;
+                buildVideoTab();
+              });
+            });
+          }
+
+          buildVideoTab();
         }
       }
 
