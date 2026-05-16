@@ -142,7 +142,7 @@ async function init() {
 
     await initI18n();
     initNavigation();
-    initStickyBanner();
+    try { initStickyBanner(); } catch(e) { console.warn('[sticky-banner] error:', e); }
     initSocials();
     initFooter();
     initEmbedForms();
