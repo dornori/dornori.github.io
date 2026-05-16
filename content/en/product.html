@@ -13,28 +13,25 @@
       border-radius: 12px; overflow: hidden; border: 2px solid var(--c-accent); display: none;
     }
     .pdp-magnifier img { position: absolute; top: 0; left: 0; max-width: none; display: block; }
-    /* Grid overlay to show magnified area */
+    /* Blue square box showing magnified area */
     .pdp-magnifier::before {
       content: "";
       position: absolute;
       inset: 0;
-      background: 
-        linear-gradient(90deg, transparent 24%, rgba(255,255,255,.15) 25%, rgba(255,255,255,.15) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.15) 75%, rgba(255,255,255,.15) 76%, transparent 77%, transparent),
-        linear-gradient(0deg, transparent 24%, rgba(255,255,255,.15) 25%, rgba(255,255,255,.15) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.15) 75%, rgba(255,255,255,.15) 76%, transparent 77%, transparent);
-      background-size: 40px 40px;
+      border: 2px solid rgba(100,150,255,0.5);
+      box-shadow: inset 0 0 0 1px rgba(100,150,255,0.3);
       pointer-events: none;
       z-index: 2;
     }
 
     /* ── Gallery ── */
-    .pdp-gallery { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; }
+    .pdp-gallery { display: flex; flex-direction: column; gap: 12px; }
     .pdp-gallery__main-wrap { cursor: crosshair; position: relative; overflow: hidden; aspect-ratio: 1; width: 100%; }
     .pdp-gallery__main-wrap.video-active { cursor: pointer; }
     .pdp-gallery__main-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .pdp-gallery__main { display: flex; flex-direction: column; width: 100%; }
     
-    /* ── Thumbnails on left ── */
-    .pdp-gallery__thumbs { display: flex; flex-direction: column; gap: 8px; width: 100px; flex-shrink: 0; }
+    /* ── Thumbnails horizontal below main ── */
+    .pdp-gallery__thumbs { display: flex; flex-direction: row; gap: 8px; flex-wrap: wrap; }
     
     /* ── Full view text ── */
     .pdp-fullview-text { text-align: center; padding: 8px 0; font-size: 12px; color: var(--c-text-muted); }
@@ -197,11 +194,9 @@
       </div>
       <div class="pdp-lightbox__body">
         <div id="tab-images">
-          <div class="pdp-lightbox-gallery" style="display:grid;grid-template-columns:1fr auto;gap:20px;align-items:start;">
+          <div class="pdp-lightbox-gallery">
             <div class="pdp-lightbox-main"><img id="lb-main-img" src="" alt=""></div>
-            <div style="display:grid;grid-template-columns:repeat(4,minmax(80px,1fr));gap:8px;width:fit-content;">
-              <div id="lb-thumbs"></div>
-            </div>
+            <div class="pdp-lightbox-thumbs" id="lb-thumbs"></div>
             <div class="pdp-lightbox-details" id="lb-details"></div>
           </div>
         </div>
@@ -220,19 +215,17 @@
 
         <div class="pdp-main webshop-fade-in" id="pdp-main-section">
           <div class="pdp-gallery" id="pdp-gallery">
-            <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
-            <div class="pdp-gallery__main">
-              <div class="pdp-gallery__main-wrap" id="gallery-main-wrap">
-                <img class="pdp-gallery__main-img" id="gallery-main-img" src="" alt="">
-                <div class="pdp-gallery__main-video" id="gallery-main-video" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
-                  <video id="gallery-video-player" style="width:100%;height:100%;object-fit:contain;" controls></video>
-                  <div id="gallery-yt-frame" style="display:none;position:absolute;inset:0;">
-                    <iframe id="gallery-yt-iframe" style="width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
-                  </div>
+            <div class="pdp-gallery__main-wrap" id="gallery-main-wrap">
+              <img class="pdp-gallery__main-img" id="gallery-main-img" src="" alt="">
+              <div class="pdp-gallery__main-video" id="gallery-main-video" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
+                <video id="gallery-video-player" style="width:100%;height:100%;object-fit:contain;" controls></video>
+                <div id="gallery-yt-frame" style="display:none;position:absolute;inset:0;">
+                  <iframe id="gallery-yt-iframe" style="width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
                 </div>
               </div>
-              <div class="pdp-fullview-text" id="fullview-text"></div>
             </div>
+            <div class="pdp-fullview-text" id="fullview-text"></div>
+            <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
             <button class="pdp-fullview-btn" id="fullview-btn" aria-hidden="true" tabindex="-1"></button>
           </div>
 
@@ -608,21 +601,29 @@
       }
 
       function buildThumbs() {
-        thumbsEl.innerHTML = mediaItems.map((item, i) => {
+        const maxShown = 5;
+        const itemsToShow = mediaItems.slice(0, maxShown);
+        const remaining = mediaItems.length - maxShown;
+        
+        thumbsEl.innerHTML = itemsToShow.map((item, i) => {
           const isActive = i === activeIdx;
           if (item.type === "image") {
-            return `<div class="pdp-gallery__thumb-wrap${isActive?" active":""}" data-idx="${i}" data-type="image">
-              <img class="pdp-gallery__thumb" src="${item.src}" alt="View ${i+1}">
+            return `<div class="pdp-gallery__thumb-wrap${isActive?" active":""}" data-idx="${i}" data-type="image" style="width:64px;height:64px;cursor:pointer;border-radius:4px;border:2px solid ${isActive?'var(--c-accent)':'transparent'};opacity:${isActive?1:0.6};transition:all 0.2s;overflow:hidden;">
+              <img class="pdp-gallery__thumb" src="${item.src}" alt="View ${i+1}" style="width:100%;height:100%;object-fit:cover;display:block;">
             </div>`;
           } else {
             const thumbStyle = item.thumb
-              ? `style="background-image:url('${item.thumb}');background-size:cover;background-position:center;"`
-              : `style="background:var(--c-surface-2);"`;
-            return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive?" active":""}" data-idx="${i}" data-type="video" ${thumbStyle}>
-              <span class="pdp-thumb-play">▶</span>
+              ? `background-image:url('${item.thumb}');background-size:cover;background-position:center;`
+              : `background:var(--c-surface-2);`;
+            return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive?" active":""}" data-idx="${i}" data-type="video" style="width:64px;height:64px;cursor:pointer;border-radius:4px;border:2px solid ${isActive?'var(--c-accent)':'transparent'};opacity:${isActive?1:0.6};transition:all 0.2s;overflow:hidden;display:flex;align-items:center;justify-content:center;${thumbStyle}">
+              <span class="pdp-thumb-play" style="font-size:1.2rem;color:white;text-shadow:0 1px 4px rgba(0,0,0,0.7);z-index:1;">▶</span>
             </div>`;
           }
         }).join("");
+        
+        if (remaining > 0) {
+          thumbsEl.innerHTML += `<div style="width:64px;height:64px;cursor:pointer;border-radius:4px;border:2px solid transparent;background:var(--c-surface-2);display:flex;align-items:center;justify-content:center;font-weight:bold;color:var(--c-text);font-size:18px;" data-show-more>+${remaining}</div>`;
+        }
 
         thumbsEl.querySelectorAll(".pdp-gallery__thumb-wrap").forEach(el => {
           el.addEventListener("mouseenter", () => {
@@ -636,6 +637,40 @@
             else showImage(idx);
           });
         });
+        
+        const moreBtn = thumbsEl.querySelector("[data-show-more]");
+        if (moreBtn) {
+          moreBtn.addEventListener("click", () => {
+            thumbsEl.innerHTML = mediaItems.map((item, i) => {
+              const isActive = i === activeIdx;
+              if (item.type === "image") {
+                return `<div class="pdp-gallery__thumb-wrap${isActive?" active":""}" data-idx="${i}" data-type="image" style="width:64px;height:64px;cursor:pointer;border-radius:4px;border:2px solid ${isActive?'var(--c-accent)':'transparent'};opacity:${isActive?1:0.6};transition:all 0.2s;overflow:hidden;">
+                  <img class="pdp-gallery__thumb" src="${item.src}" alt="View ${i+1}" style="width:100%;height:100%;object-fit:cover;display:block;">
+                </div>`;
+              } else {
+                const thumbStyle = item.thumb
+                  ? `background-image:url('${item.thumb}');background-size:cover;background-position:center;`
+                  : `background:var(--c-surface-2);`;
+                return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive?" active":""}" data-idx="${i}" data-type="video" style="width:64px;height:64px;cursor:pointer;border-radius:4px;border:2px solid ${isActive?'var(--c-accent)':'transparent'};opacity:${isActive?1:0.6};transition:all 0.2s;overflow:hidden;display:flex;align-items:center;justify-content:center;${thumbStyle}">
+                  <span class="pdp-thumb-play" style="font-size:1.2rem;color:white;text-shadow:0 1px 4px rgba(0,0,0,0.7);z-index:1;">▶</span>
+                </div>`;
+              }
+            }).join("");
+            
+            thumbsEl.querySelectorAll(".pdp-gallery__thumb-wrap").forEach(el => {
+              el.addEventListener("mouseenter", () => {
+                const idx = +el.dataset.idx;
+                if (el.dataset.type === "video") showVideo(idx);
+                else showImage(idx);
+              });
+              el.addEventListener("click", () => {
+                const idx = +el.dataset.idx;
+                if (el.dataset.type === "video") showVideo(idx);
+                else showImage(idx);
+              });
+            });
+          });
+        }
       }
 
       // Expose for variant switching
@@ -774,65 +809,18 @@
         }
         if (activeTab === "video") {
           const videos = PRODUCT.videos || [];
-          if (videos.length) {
-            function renderVideo(url) {
-              const isYT = /youtube\.com\/embed\/|youtu\.be\//.test(url);
-              if (isYT) {
-                return `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;">
-                  <iframe src="${url}" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
-                </div>`;
-              }
-              return `<video src="${url}" controls style="width:100%;max-height:70vh;border-radius:12px;display:block;"></video>`;
-            }
-            
-            let mainVideoHtml = renderVideo(videos[0]);
-            let sideVideosHtml = videos.slice(1).map((v, i) => {
-              const isYT = /youtube\.com\/embed\/|youtu\.be\//.test(v);
-              if (isYT) {
-                const videoId = v.match(/embed\/([^?]+)/) ? v.match(/embed\/([^?]+)/)[1] : '';
-                return `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;cursor:pointer;background:#000;" data-video-idx="${i+1}" data-video-url="${v}">
-                  <img src="https://img.youtube.com/vi/${videoId}/sddefault.jpg" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
-                  <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);">
-                    <span style="font-size:2rem;color:white;">▶</span>
-                  </div>
-                </div>`;
-              }
-              return `<div style="position:relative;overflow:hidden;border-radius:8px;cursor:pointer;background:#000;aspect-ratio:16/9;" data-video-idx="${i+1}" data-video-url="${v}">
-                <video src="${v}" style="width:100%;height:100%;object-fit:cover;"></video>
-                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);pointer-events:none;">
-                  <span style="font-size:2rem;color:white;">▶</span>
-                </div>
+          function renderVideo(url) {
+            const isYT = /youtube\.com\/embed\/|youtu\.be\//.test(url);
+            if (isYT) {
+              return `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;">
+                <iframe src="${url}" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
               </div>`;
-            }).join("");
-            
-            const containerHtml = `
-              <div style="display:grid;grid-template-columns:1fr auto;gap:20px;align-items:start;">
-                <div id="lb-main-video">${mainVideoHtml}</div>
-                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;width:fit-content;">
-                  ${sideVideosHtml}
-                </div>
-              </div>
-            `;
-            document.getElementById("video-container").innerHTML = containerHtml;
-            
-            document.querySelectorAll("#video-container [data-video-idx]").forEach(el => {
-              el.addEventListener("click", () => {
-                const url = el.dataset.videoUrl;
-                function renderSingleVideo(url) {
-                  const isYT = /youtube\.com\/embed\/|youtu\.be\//.test(url);
-                  if (isYT) {
-                    return `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;">
-                      <iframe src="${url}" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
-                    </div>`;
-                  }
-                  return `<video src="${url}" controls style="width:100%;max-height:70vh;border-radius:12px;display:block;"></video>`;
-                }
-                document.getElementById("lb-main-video").innerHTML = renderSingleVideo(url);
-              });
-            });
-          } else {
-            document.getElementById("video-container").innerHTML = `<div class="pdp-no-video">📽 No video available for this product.</div>`;
+            }
+            return `<video src="${url}" controls style="width:100%;max-height:70vh;border-radius:12px;display:block;"></video>`;
           }
+          document.getElementById("video-container").innerHTML = videos.length
+            ? videos.map(renderVideo).join("")
+            : `<div class="pdp-no-video">📽 No video available for this product.</div>`;
         }
       }
 
