@@ -252,6 +252,16 @@
     .pdp-accordion-item .pdp-accordion-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
     .pdp-accordion-item.open .pdp-accordion-body { max-height: 600px; }
     .pdp-accordion-item.open .pdp-accordion-trigger svg { transform: rotate(180deg); }
+
+    /* ── Gallery + lightbox: use contain so product images are never cropped ── */
+    .pdp-gallery__main-img { object-fit: contain !important; }
+    .pdp-lightbox-main img { object-fit: contain !important; }
+
+    /* ── Cutting-mat theme: toast must stay dark-on-light ── */
+    [data-theme="cutting-mat"] .webshop-toast {
+      background: #112b1e;
+      color: #e8f2ec;
+    }
   </style>
 </head>
 <body>
@@ -401,6 +411,17 @@
           <div class="pdp-related-grid" id="related-grid"></div>
         </div>
 
+        <!-- ── Referral product embed (mushroom-forestrave) ── -->
+        <div id="referral-product-section" style="display:none; padding: 40px 0 20px;">
+          <h2 class="pdp-section-title" style="margin-bottom:16px;">Also Available</h2>
+          <div data-shop-products="mushroom-forestrave" id="referral-product-embed"></div>
+        </div>
+        <style>
+          /* Referral embed: contain images, hide related strip */
+          #referral-product-section [data-shop-products] .webshop-card-img { object-fit: contain !important; }
+          #referral-product-section [data-shop-products] .webshop-related { display: none !important; }
+        </style>
+
       </div>
     </div>
 
@@ -465,7 +486,25 @@
     initQty();
     initAtc();
 
+    // Show referral product section (mushroom-forestrave) for all products except itself
+    if (prodId !== "mushroom-forestrave") {
+      const refSection = document.getElementById("referral-product-section");
+      if (refSection) refSection.style.display = "";
+    }
+
     document.addEventListener("currency:changed", updatePrice);
+    document.addEventListener("currency:changed", () => {
+      // Rebuild lb-details price if lightbox is open
+      const lightbox = document.getElementById("lightbox");
+      if (lightbox && lightbox.classList.contains("open")) {
+        const lbDet = document.getElementById("lb-details");
+        if (lbDet && lbDet.innerHTML) {
+          const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
+          const priceEl = lbDet.querySelector(".pdp-price");
+          if (priceEl) priceEl.textContent = fmt(v ? v.price : PRODUCT.price);
+        }
+      }
+    });
     document.addEventListener("shop:langChanged", () => {
       buildLangSwitcher();
       renderMeta();
