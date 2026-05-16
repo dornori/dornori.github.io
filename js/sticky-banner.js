@@ -1,7 +1,7 @@
 import SITE_CONFIG from './config.js';
 
 /**
- * STICKY BANNER -  
+ * STICKY BANNER
  * Adds/removes the 'header--scrolled' class on <header> based on scroll position.
  * All visual changes (logo shrink, header slide-up) are handled by CSS transitions.
  * No layout measurement required — avoids all timing/rAF issues.
