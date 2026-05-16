@@ -606,25 +606,52 @@ var Shop = (() => {
 
   function wireProductCard(card, p) {
     let qty = 1;
-    const hasVariants     = p.variants?.length > 0;
-    let selectedVariantId = null; // No pre-selection — shows product's own image
-    let selectedColor     = !hasVariants && p.colors ? p.colors[0] : null;
-    const img    = card.querySelector(".webshop-card-img");
+    const hasVariants = p.variants?.length > 0;
+
+    // Smart variant init: if this product's own ID appears as a variant entry,
+    // it means the product IS one of the colour variants. Default to "self" (null).
+    const selfIsVariant = hasVariants && p.variants.some(v => v.id === p.id);
+    // null  → "this product itself is selected" (effectiveVariantId = null)
+    // string → a sibling variant is selected
+    let selectedVariantId = selfIsVariant ? null : (hasVariants ? p.variants[0]?.id : null);
+    let selectedColor = !hasVariants && p.colors ? p.colors[0] : null;
+
+    const img     = card.querySelector(".webshop-card-img");
     const priceEl = card.querySelector(".webshop-card-price");
     const addBtn  = card.querySelector(".webshop-card-atc");
 
+    // Correct the active button on init when selfIsVariant
+    if (hasVariants && selfIsVariant) {
+      card.querySelectorAll(".webshop-variant-btn").forEach(btn => {
+        btn.classList.remove("active");
+        if (btn.dataset.variantId === p.id) btn.classList.add("active");
+      });
+    }
+
+    // effectiveVariantId: when the selected variant IS this product, pass null to
+    // avoid duplicate cart keys and use the product's own price/image directly.
+    function effectiveVid() {
+      return (selectedVariantId === null || selectedVariantId === p.id) ? null : selectedVariantId;
+    }
+
     function refresh() {
       if (!hasVariants) return;
-      const price = variantPrice(p, selectedVariantId), inStock = variantInStock(p, selectedVariantId);
+      const evid    = effectiveVid();
+      const price   = evid ? variantPrice(p, evid) : p.price;
+      const inStock = evid ? variantInStock(p, evid) : (p.stock > 0);
+      const imgSrc  = evid ? variantImage(p, evid) : p.image;
       if (priceEl) priceEl.textContent = fmt(price);
-      if (addBtn) { addBtn.disabled = !inStock; addBtn.textContent = inStock ? t("add_to_cart","Add to Cart") : t("out_of_stock","Out of Stock"); }
-      if (img) swapMainImg(img, variantImage(p, selectedVariantId), p.image);
+      if (addBtn)  { addBtn.disabled = !inStock; addBtn.textContent = inStock ? t("add_to_cart","Add to Cart") : t("out_of_stock","Out of Stock"); }
+      if (img)     swapMainImg(img, imgSrc, p.image);
     }
 
     card.querySelectorAll(".webshop-variant-btn:not([disabled])").forEach(btn => {
       btn.addEventListener("click", () => {
         card.querySelectorAll(".webshop-variant-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active"); selectedVariantId = btn.dataset.variantId; refresh();
+        btn.classList.add("active");
+        // If the clicked variant ID matches this product itself, normalise to null
+        selectedVariantId = (btn.dataset.variantId === p.id) ? null : btn.dataset.variantId;
+        refresh();
       });
     });
     card.querySelectorAll(".webshop-color:not([disabled])").forEach(btn => {
@@ -635,12 +662,13 @@ var Shop = (() => {
       });
     });
     const qv = card.querySelector(".webshop-qty-val");
-    card.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const max = hasVariants ? variantStock(p, selectedVariantId) : (p.stock||99); qty = Math.min(qty+1, max||99); qv.textContent = qty; });
+    card.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid = effectiveVid(); const max = evid ? variantStock(p, evid) : (p.stock||99); qty = Math.min(qty+1, max||99); qv.textContent = qty; });
     card.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty = Math.max(1, qty-1); qv.textContent = qty; });
-    addBtn?.addEventListener("click", () => { 
-      addToCart(p, qty, selectedVariantId, selectedColor, img?.src || null); 
-      const itemName = selectedVariantId && selectedVariantId !== p.id ? (getVariant(p, selectedVariantId)?.label || selectedVariantId) : pName(p);
-      toast(`${itemName} ${t("added","added to cart")}`); 
+    addBtn?.addEventListener("click", () => {
+      const evid = effectiveVid();
+      addToCart(p, qty, evid, selectedColor, img?.src || null);
+      const itemName = evid ? (getVariant(p, evid)?.label || evid) : pName(p);
+      toast(`${t("added_to_cart_prefix","Added to cart")}: ${itemName}`);
     });
     wireRelatedStrip(card, p);
   }
@@ -703,16 +731,25 @@ var Shop = (() => {
     if (!container) return;
     container.classList.add("webshop-product-info");
     const hasVariants = p.variants?.length > 0;
-    let selectedVariantId = hasVariants ? p.variants[0]?.id : null;
+    // Smart variant init: if this product's own ID is listed as one of its variants,
+    // it IS that colour — default selection to "self" (null effectiveVariantId).
+    const selfIsVariant = hasVariants && p.variants.some(v => v.id === p.id);
+    let selectedVariantId = selfIsVariant ? null : (hasVariants ? p.variants[0]?.id : null);
     let selectedColor = !hasVariants && p.colors ? p.colors[0] : null;
     let qty = 1;
 
+    // effectiveVariantId: null when this product itself is selected, preventing duplicate cart keys.
+    function effectiveVid() {
+      return (selectedVariantId === null || selectedVariantId === p.id) ? null : selectedVariantId;
+    }
+
     function build() {
       const images      = p.images?.length ? p.images : [p.image];
-      const displayPrice = hasVariants ? variantPrice(p, selectedVariantId) : p.price;
+      const evid        = effectiveVid();
+      const displayPrice = evid ? variantPrice(p, evid) : p.price;
       const discountPercent = p.discount || 0;
       const discountedPrice = discountPercent > 0 ? displayPrice * (1 - discountPercent / 100) : displayPrice;
-      const inStock     = hasVariants ? variantInStock(p, selectedVariantId) : (p.stock > 0);
+      const inStock     = evid ? variantInStock(p, evid) : (p.stock > 0);
       const soldOut     = p.colors_soldout || [];
 
       let variantHtml = "";
@@ -720,7 +757,7 @@ var Shop = (() => {
         variantHtml = `<div class="webshop-product-option-group">
           <label class="webshop-product-option-label">${t("variant","Option")}</label>
           <div class="webshop-product-variants">
-            ${p.variants.map((v,i) => { const so=v.stock!=null&&v.stock===0, active=(v.id===selectedVariantId)||(i===0&&!selectedVariantId);
+            ${p.variants.map((v,i) => { const so=v.stock!=null&&v.stock===0, active=selfIsVariant?(v.id===p.id):(v.id===selectedVariantId||(i===0&&!selectedVariantId));
               return `<button class="webshop-product-variant-btn${active?" active":""}${so?" soldout":""}" data-variant-id="${v.id}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${v.label}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
             }).join("")}
           </div></div>`;
@@ -739,7 +776,7 @@ var Shop = (() => {
           <div class="webshop-product-gallery">
             <div class="webshop-product-main-img-wrap" style="position:relative;">
               ${p.url?`<a href="${p.url}">`:""}<img id="pinfo-main-${productId}" class="webshop-product-main-img"
-                src="${hasVariants?variantImage(p,selectedVariantId):images[0]}" alt="${pName(p)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">${p.url?"</a>":""}
+                src="${evid?variantImage(p,evid):images[0]}" alt="${pName(p)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">${p.url?"</a>":""}
               <div id="pinfo-video-${productId}" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
                 <video id="pinfo-vplayer-${productId}" style="width:100%;height:100%;object-fit:contain;" controls></video>
                 <div id="pinfo-ytframe-${productId}" style="display:none;position:absolute;inset:0;">
@@ -852,12 +889,16 @@ var Shop = (() => {
 
       function refreshInfo() {
         if (!hasVariants) return;
-        const price=variantPrice(p,selectedVariantId), inStk=variantInStock(p,selectedVariantId), wt=variantWeight(p,selectedVariantId);
+        const evid = effectiveVid();
+        const price   = evid ? variantPrice(p, evid) : p.price;
+        const inStk   = evid ? variantInStock(p, evid) : (p.stock > 0);
+        const wt      = evid ? variantWeight(p, evid) : (p.weight || 0);
+        const imgSrc  = evid ? variantImage(p, evid) : p.image;
         const discPrice = discountPercent > 0 ? price * (1 - discountPercent / 100) : price;
         if (priceEl) priceEl.textContent = fmt(discPrice);
         if (stockEl) { stockEl.textContent=inStk?t("in_stock","In Stock"):t("out_of_stock","Out of Stock"); stockEl.className=inStk?"webshop-in-stock":"webshop-out-of-stock"; }
         if (atcBtn)  { atcBtn.disabled=!inStk; atcBtn.textContent=inStk?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock"); }
-        if (mainImg) swapMainImg(mainImg, variantImage(p,selectedVariantId), p.image);
+        if (mainImg) swapMainImg(mainImg, imgSrc, p.image);
         if (wtEl)    wtEl.textContent = `${t("weight","Weight")}: ${fmtWeight(wt)}`;
       }
 
@@ -891,15 +932,15 @@ var Shop = (() => {
         });
       });
       container.querySelectorAll(".webshop-product-variant-btn:not([disabled])").forEach(btn => {
-        btn.addEventListener("click", () => { container.querySelectorAll(".webshop-product-variant-btn").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); selectedVariantId=btn.dataset.variantId; refreshInfo(); });
+        btn.addEventListener("click", () => { container.querySelectorAll(".webshop-product-variant-btn").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); selectedVariantId=(btn.dataset.variantId===p.id)?null:btn.dataset.variantId; refreshInfo(); });
       });
       container.querySelectorAll(".webshop-product-color:not([disabled])").forEach(btn => {
         btn.addEventListener("click", () => { container.querySelectorAll(".webshop-product-color").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); selectedColor=btn.dataset.color; if (mainImg) swapMainImg(mainImg, colorImageSrc(p,selectedColor), p.image); });
       });
       const qv = container.querySelector(".webshop-qty-val");
-      container.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const max=hasVariants?variantStock(p,selectedVariantId):(p.stock||99); qty=Math.min(qty+1,max||99); qv.textContent=qty; });
+      container.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid=effectiveVid(); const max=evid?variantStock(p,evid):(p.stock||99); qty=Math.min(qty+1,max||99); qv.textContent=qty; });
       container.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty=Math.max(1,qty-1); qv.textContent=qty; });
-      atcBtn?.addEventListener("click", () => { addToCart(p,qty,selectedVariantId,selectedColor,mainImg?.src||null); toast(`${pName(p)} ${t("added","added to cart")}`); });
+      atcBtn?.addEventListener("click", () => { const evid=effectiveVid(); addToCart(p,qty,evid,selectedColor,mainImg?.src||null); const itemName=evid?(getVariant(p,evid)?.label||evid):pName(p); toast(`${t("added_to_cart_prefix","Added to cart")}: ${itemName}`); });
       wireRelatedStrip(container, p);
     }
     build();
