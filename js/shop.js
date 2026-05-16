@@ -152,19 +152,20 @@ var Shop = (() => {
   }
   function addToCart(product, qty = 1, variantId = null, selectedColor = null, imageOverride = null) {
     const cart  = getCart();
-    // If variantId matches the product's own ID, treat it as no variant selection (for consistent cartKey)
-    const effectiveVariantId = (variantId === product.id) ? null : variantId;
-    const vKey  = effectiveVariantId || selectedColor || "";
-    const key   = product.id + (vKey ? "_" + slugify(vKey) : "");
+    // If variantId is selected and is itself a standalone product, use it as cartKey base
+    // Otherwise use the current product ID + variant suffix
+    const cartBase = variantId && variantId.match(/^mushroom-|^ufo-|^star-/) ? variantId : product.id;
+    const vKey = (variantId && !cartBase.match(/^mushroom-|^ufo-|^star-/)) ? variantId : (selectedColor || "");
+    const key = cartBase + (vKey ? "_" + slugify(vKey) : "");
     const existing = cart.find(i => i.cartKey === key);
-    const price  = effectiveVariantId ? variantPrice(product, effectiveVariantId)  : product.price;
-    const weight = effectiveVariantId ? variantWeight(product, effectiveVariantId) : (product.weight || 0);
-    const image  = imageOverride || (effectiveVariantId ? variantImage(product, effectiveVariantId) : selectedColor ? colorImageSrc(product, selectedColor) : product.image);
-    const label  = effectiveVariantId ? (getVariant(product, effectiveVariantId)?.label || effectiveVariantId) : selectedColor;
-    const maxQty = effectiveVariantId ? variantStock(product, effectiveVariantId) : (product.stock || 99);
+    const price  = variantId ? variantPrice(product, variantId)  : product.price;
+    const weight = variantId ? variantWeight(product, variantId) : (product.weight || 0);
+    const image  = imageOverride || (variantId ? variantImage(product, variantId) : selectedColor ? colorImageSrc(product, selectedColor) : product.image);
+    const label  = variantId ? (getVariant(product, variantId)?.label || variantId) : selectedColor;
+    const maxQty = variantId ? variantStock(product, variantId) : (product.stock || 99);
     const resolvedName = pName(product) || product.name || product.id;
     if (existing) { existing.qty = Math.min(existing.qty + qty, maxQty || 99); }
-    else cart.push({ ...product, name: resolvedName, cartKey: key, qty, price, weight, image, selectedColor: label, variantId: effectiveVariantId });
+    else cart.push({ ...product, name: resolvedName, cartKey: key, qty, price, weight, image, selectedColor: label, variantId });
     saveCart(cart); return cart;
   }
   function removeFromCart(cartKey) { saveCart(getCart().filter(i => i.cartKey !== cartKey)); }
@@ -606,11 +607,7 @@ var Shop = (() => {
   function wireProductCard(card, p) {
     let qty = 1;
     const hasVariants     = p.variants?.length > 0;
-    // If product has variants, check if the product's own ID is in its variants (the main product option)
-    // If yes, that's the main product — select it by default. Otherwise select first variant.
-    let selectedVariantId = hasVariants 
-      ? (p.variants.find(v => v.id === p.id) ? p.id : p.variants[0]?.id)
-      : null;
+    let selectedVariantId = null; // No pre-selection — shows product's own image
     let selectedColor     = !hasVariants && p.colors ? p.colors[0] : null;
     const img    = card.querySelector(".webshop-card-img");
     const priceEl = card.querySelector(".webshop-card-price");
@@ -625,10 +622,6 @@ var Shop = (() => {
     }
 
     card.querySelectorAll(".webshop-variant-btn:not([disabled])").forEach(btn => {
-      // Mark the main product variant as active if it exists
-      if (btn.dataset.variantId === selectedVariantId) {
-        btn.classList.add("active");
-      }
       btn.addEventListener("click", () => {
         card.querySelectorAll(".webshop-variant-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active"); selectedVariantId = btn.dataset.variantId; refresh();
@@ -644,7 +637,11 @@ var Shop = (() => {
     const qv = card.querySelector(".webshop-qty-val");
     card.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const max = hasVariants ? variantStock(p, selectedVariantId) : (p.stock||99); qty = Math.min(qty+1, max||99); qv.textContent = qty; });
     card.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty = Math.max(1, qty-1); qv.textContent = qty; });
-    addBtn?.addEventListener("click", () => { addToCart(p, qty, selectedVariantId, selectedColor, img?.src || null); toast(`${pName(p)} ${t("added","added to cart")}`); });
+    addBtn?.addEventListener("click", () => { 
+      addToCart(p, qty, selectedVariantId, selectedColor, img?.src || null); 
+      const itemName = selectedVariantId && selectedVariantId !== p.id ? (getVariant(p, selectedVariantId)?.label || selectedVariantId) : pName(p);
+      toast(`${itemName} ${t("added","added to cart")}`); 
+    });
     wireRelatedStrip(card, p);
   }
 
