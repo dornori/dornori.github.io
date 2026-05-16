@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dornori-v2';
+const CACHE_NAME = 'dornori-v1';
 const URLS_TO_CACHE = [
   '/en/',
   '/css/main.css',
