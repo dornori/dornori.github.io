@@ -6,37 +6,73 @@
   <title>WEBSHOP</title>
   <link rel="stylesheet" href="../../css/shop.css">
   <style>
-    /* ── Magnifier ── */
+    /* ── Magnifier popup ── */
     .pdp-magnifier {
       position: fixed; pointer-events: none; z-index: 1000;
       background: var(--c-surface); box-shadow: 0 12px 40px rgba(0,0,0,0.25);
-      border-radius: 12px; overflow: hidden; border: 2px solid var(--c-accent); display: none;
+      border-radius: 4px; overflow: hidden; border: 1px solid var(--c-border); display: none;
     }
     .pdp-magnifier img { position: absolute; top: 0; left: 0; max-width: none; display: block; }
-    /* Blue square box showing magnified area */
-    .pdp-magnifier::before {
-      content: "";
+
+    /* ── Blue square lens overlay on main image ── */
+    #mag-lens {
       position: absolute;
-      inset: 0;
-      border: 2px solid rgba(100,150,255,0.5);
-      box-shadow: inset 0 0 0 1px rgba(100,150,255,0.3);
+      border: 2px solid rgba(80,140,255,0.85);
+      background: rgba(80,140,255,0.12);
       pointer-events: none;
-      z-index: 2;
+      display: none;
+      z-index: 10;
+      box-sizing: border-box;
     }
 
-    /* ── Gallery ── */
-    .pdp-gallery { display: flex; flex-direction: column; gap: 12px; }
-    .pdp-gallery__main-wrap { cursor: crosshair; position: relative; overflow: hidden; aspect-ratio: 1; width: 100%; }
+    /* ── Gallery layout: vertical thumbs LEFT, main image RIGHT ── */
+    .pdp-gallery { display: flex; flex-direction: row; gap: 10px; align-items: flex-start; }
+    .pdp-gallery__thumbs {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+      width: 68px;
+    }
+    .pdp-gallery__main-wrap { cursor: crosshair; position: relative; overflow: hidden; aspect-ratio: 1; flex: 1; min-width: 0; }
     .pdp-gallery__main-wrap.video-active { cursor: pointer; }
     .pdp-gallery__main-img { width: 100%; height: 100%; object-fit: cover; display: block; }
     
-    /* ── Thumbnails horizontal below main ── */
-    .pdp-gallery__thumbs { display: flex; flex-direction: row; gap: 8px; flex-wrap: wrap; }
-    
     /* ── Full view text ── */
-    .pdp-fullview-text { text-align: center; padding: 8px 0; font-size: 12px; color: var(--c-text-muted); }
+    .pdp-fullview-text { text-align: center; padding: 6px 0; font-size: 11px; color: var(--c-text-muted); cursor: pointer; }
+    .pdp-fullview-text:hover { color: var(--c-accent); text-decoration: underline; }
 
-    /* ── Push box to top, remove extra page padding ── */
+    /* ── Gallery main column ── */
+    .pdp-gallery__main-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+
+    /* ── Lightbox layout overrides: left=image+thumbs, right=details ── */
+    .pdp-lightbox-gallery {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 32px;
+      align-items: start;
+    }
+    .pdp-lightbox-left { display: flex; flex-direction: column; gap: 12px; }
+    .pdp-lightbox-main { width: 100%; }
+    .pdp-lightbox-main img { width: 100%; max-height: 65vh; object-fit: contain; display: block; border-radius: 8px; }
+    /* Lightbox thumbs — horizontal row, 4-5 items */
+    .pdp-lightbox-thumbs {
+      display: flex;
+      flex-direction: row;
+      gap: 8px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+    .pdp-lightbox-thumbs::-webkit-scrollbar { height: 4px; }
+    .pdp-lightbox-thumbs::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 2px; }
+    .pdp-lightbox-thumb {
+      width: 72px; height: 72px; object-fit: cover; border-radius: 6px; cursor: pointer;
+      opacity: 0.55; border: 2px solid transparent; flex-shrink: 0; transition: all 0.2s;
+    }
+    .pdp-lightbox-thumb.active, .pdp-lightbox-thumb:hover { opacity: 1; border-color: var(--c-accent); }
+    @media (max-width: 860px) {
+      .pdp-lightbox-gallery { grid-template-columns: 1fr; }
+    }
     .webshop-page-main { padding-top: 0 !important; }
     .pdp-wrapper { padding-top: 0; max-width: 100% !important; }
     .webshop-container { max-width: 100% !important; padding-left: 24px !important; padding-right: 24px !important; }
@@ -189,14 +225,17 @@
     <div class="pdp-lightbox__inner">
       <button class="pdp-lightbox__close" id="lightbox-close" aria-label="Close">✕</button>
       <div class="pdp-lightbox__tabs">
-        <button class="pdp-lightbox__tab active" data-tab="images">Images</button>
-        <button class="pdp-lightbox__tab" data-tab="video">Video</button>
+        <button class="pdp-lightbox__tab active" data-tab="images">IMAGES</button>
+        <button class="pdp-lightbox__tab" data-tab="video">VIDEOS</button>
       </div>
       <div class="pdp-lightbox__body">
         <div id="tab-images">
+          <!-- Two-column: left = image+thumbs, right = product info -->
           <div class="pdp-lightbox-gallery">
-            <div class="pdp-lightbox-main"><img id="lb-main-img" src="" alt=""></div>
-            <div class="pdp-lightbox-thumbs" id="lb-thumbs"></div>
+            <div class="pdp-lightbox-left">
+              <div class="pdp-lightbox-main"><img id="lb-main-img" src="" alt=""></div>
+              <div class="pdp-lightbox-thumbs" id="lb-thumbs"></div>
+            </div>
             <div class="pdp-lightbox-details" id="lb-details"></div>
           </div>
         </div>
@@ -215,17 +254,20 @@
 
         <div class="pdp-main webshop-fade-in" id="pdp-main-section">
           <div class="pdp-gallery" id="pdp-gallery">
-            <div class="pdp-gallery__main-wrap" id="gallery-main-wrap">
-              <img class="pdp-gallery__main-img" id="gallery-main-img" src="" alt="">
-              <div class="pdp-gallery__main-video" id="gallery-main-video" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
-                <video id="gallery-video-player" style="width:100%;height:100%;object-fit:contain;" controls></video>
-                <div id="gallery-yt-frame" style="display:none;position:absolute;inset:0;">
-                  <iframe id="gallery-yt-iframe" style="width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+            <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
+            <div class="pdp-gallery__main-col">
+              <div class="pdp-gallery__main-wrap" id="gallery-main-wrap">
+                <div id="mag-lens"></div>
+                <img class="pdp-gallery__main-img" id="gallery-main-img" src="" alt="">
+                <div class="pdp-gallery__main-video" id="gallery-main-video" style="display:none;position:absolute;inset:0;background:#000;border-radius:inherit;">
+                  <video id="gallery-video-player" style="width:100%;height:100%;object-fit:contain;" controls></video>
+                  <div id="gallery-yt-frame" style="display:none;position:absolute;inset:0;">
+                    <iframe id="gallery-yt-iframe" style="width:100%;height:100%;border:0;" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+                  </div>
                 </div>
               </div>
+              <div class="pdp-fullview-text" id="fullview-text"></div>
             </div>
-            <div class="pdp-fullview-text" id="fullview-text"></div>
-            <div class="pdp-gallery__thumbs" id="gallery-thumbs"></div>
             <button class="pdp-fullview-btn" id="fullview-btn" aria-hidden="true" tabindex="-1"></button>
           </div>
 
@@ -601,76 +643,57 @@
       }
 
       function buildThumbs() {
-        const maxShown = 5;
-        const itemsToShow = mediaItems.slice(0, maxShown);
-        const remaining = mediaItems.length - maxShown;
-        
-        thumbsEl.innerHTML = itemsToShow.map((item, i) => {
-          const isActive = i === activeIdx;
+        const MAX_SHOWN = 5;
+        const itemsToShow = mediaItems.slice(0, MAX_SHOWN);
+        const remaining = mediaItems.length - MAX_SHOWN;
+
+        function makeThumbHtml(item, i, isActive) {
           if (item.type === "image") {
-            return `<div class="pdp-gallery__thumb-wrap${isActive?" active":""}" data-idx="${i}" data-type="image" style="width:64px;height:64px;cursor:pointer;border-radius:4px;border:2px solid ${isActive?'var(--c-accent)':'transparent'};opacity:${isActive?1:0.6};transition:all 0.2s;overflow:hidden;">
+            return `<div class="pdp-gallery__thumb-wrap${isActive?" active":""}" data-idx="${i}" data-type="image"
+              style="width:64px;height:64px;flex-shrink:0;cursor:pointer;border-radius:4px;border:2px solid ${isActive?'var(--c-accent)':'var(--c-border)'};opacity:${isActive?1:0.65};transition:all 0.2s;overflow:hidden;">
               <img class="pdp-gallery__thumb" src="${item.src}" alt="View ${i+1}" style="width:100%;height:100%;object-fit:cover;display:block;">
             </div>`;
           } else {
             const thumbStyle = item.thumb
               ? `background-image:url('${item.thumb}');background-size:cover;background-position:center;`
               : `background:var(--c-surface-2);`;
-            return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive?" active":""}" data-idx="${i}" data-type="video" style="width:64px;height:64px;cursor:pointer;border-radius:4px;border:2px solid ${isActive?'var(--c-accent)':'transparent'};opacity:${isActive?1:0.6};transition:all 0.2s;overflow:hidden;display:flex;align-items:center;justify-content:center;${thumbStyle}">
-              <span class="pdp-thumb-play" style="font-size:1.2rem;color:white;text-shadow:0 1px 4px rgba(0,0,0,0.7);z-index:1;">▶</span>
+            return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive?" active":""}" data-idx="${i}" data-type="video"
+              style="width:64px;height:64px;flex-shrink:0;cursor:pointer;border-radius:4px;border:2px solid ${isActive?'var(--c-accent)':'var(--c-border)'};opacity:${isActive?1:0.65};transition:all 0.2s;overflow:hidden;display:flex;align-items:center;justify-content:center;${thumbStyle}">
+              <span style="font-size:1.2rem;color:white;text-shadow:0 1px 4px rgba(0,0,0,0.7);z-index:1;">▶</span>
             </div>`;
           }
-        }).join("");
-        
-        if (remaining > 0) {
-          thumbsEl.innerHTML += `<div style="width:64px;height:64px;cursor:pointer;border-radius:4px;border:2px solid transparent;background:var(--c-surface-2);display:flex;align-items:center;justify-content:center;font-weight:bold;color:var(--c-text);font-size:18px;" data-show-more>+${remaining}</div>`;
         }
 
-        thumbsEl.querySelectorAll(".pdp-gallery__thumb-wrap").forEach(el => {
-          el.addEventListener("mouseenter", () => {
-            const idx = +el.dataset.idx;
-            if (el.dataset.type === "video") showVideo(idx);
-            else showImage(idx);
-          });
-          el.addEventListener("click", () => {
-            const idx = +el.dataset.idx;
-            if (el.dataset.type === "video") showVideo(idx);
-            else showImage(idx);
-          });
-        });
-        
-        const moreBtn = thumbsEl.querySelector("[data-show-more]");
-        if (moreBtn) {
-          moreBtn.addEventListener("click", () => {
-            thumbsEl.innerHTML = mediaItems.map((item, i) => {
-              const isActive = i === activeIdx;
-              if (item.type === "image") {
-                return `<div class="pdp-gallery__thumb-wrap${isActive?" active":""}" data-idx="${i}" data-type="image" style="width:64px;height:64px;cursor:pointer;border-radius:4px;border:2px solid ${isActive?'var(--c-accent)':'transparent'};opacity:${isActive?1:0.6};transition:all 0.2s;overflow:hidden;">
-                  <img class="pdp-gallery__thumb" src="${item.src}" alt="View ${i+1}" style="width:100%;height:100%;object-fit:cover;display:block;">
-                </div>`;
-              } else {
-                const thumbStyle = item.thumb
-                  ? `background-image:url('${item.thumb}');background-size:cover;background-position:center;`
-                  : `background:var(--c-surface-2);`;
-                return `<div class="pdp-gallery__thumb-wrap pdp-gallery__thumb-wrap--video${isActive?" active":""}" data-idx="${i}" data-type="video" style="width:64px;height:64px;cursor:pointer;border-radius:4px;border:2px solid ${isActive?'var(--c-accent)':'transparent'};opacity:${isActive?1:0.6};transition:all 0.2s;overflow:hidden;display:flex;align-items:center;justify-content:center;${thumbStyle}">
-                  <span class="pdp-thumb-play" style="font-size:1.2rem;color:white;text-shadow:0 1px 4px rgba(0,0,0,0.7);z-index:1;">▶</span>
-                </div>`;
-              }
-            }).join("");
-            
-            thumbsEl.querySelectorAll(".pdp-gallery__thumb-wrap").forEach(el => {
-              el.addEventListener("mouseenter", () => {
-                const idx = +el.dataset.idx;
-                if (el.dataset.type === "video") showVideo(idx);
-                else showImage(idx);
-              });
-              el.addEventListener("click", () => {
-                const idx = +el.dataset.idx;
-                if (el.dataset.type === "video") showVideo(idx);
-                else showImage(idx);
-              });
+        thumbsEl.innerHTML = itemsToShow.map((item, i) => makeThumbHtml(item, i, i === activeIdx)).join("");
+
+        if (remaining > 0) {
+          thumbsEl.innerHTML += `<div class="pdp-gallery__thumb-more" data-show-more
+            style="width:64px;height:64px;flex-shrink:0;cursor:pointer;border-radius:4px;border:2px solid var(--c-border);background:var(--c-surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:bold;color:var(--c-text);font-size:14px;gap:2px;">
+            <span style="font-size:18px;">+${remaining}</span>
+            <span style="font-size:9px;opacity:0.7;letter-spacing:0.03em;">MORE</span>
+          </div>`;
+        }
+
+        function wireThumbEvents(container) {
+          container.querySelectorAll(".pdp-gallery__thumb-wrap").forEach(el => {
+            el.addEventListener("mouseenter", () => {
+              const idx = +el.dataset.idx;
+              if (el.dataset.type === "video") showVideo(idx);
+              else showImage(idx);
+            });
+            el.addEventListener("click", () => {
+              const idx = +el.dataset.idx;
+              if (el.dataset.type === "video") showVideo(idx);
+              else showImage(idx);
             });
           });
+          const moreBtn = container.querySelector("[data-show-more]");
+          if (moreBtn) {
+            moreBtn.addEventListener("click", () => openLightbox("images"));
+          }
         }
+
+        wireThumbEvents(thumbsEl);
       }
 
       // Expose for variant switching
@@ -685,7 +708,8 @@
       
       const fullviewTextEl = document.getElementById("fullview-text");
       if (fullviewTextEl) {
-        fullviewTextEl.textContent = Shop.t("click_to_fullview", "Click to see full view");
+        fullviewTextEl.textContent = Shop.t("click_to_fullview", "Click image to see full view");
+        fullviewTextEl.addEventListener("click", () => openLightbox("images"));
       }
       
       buildThumbs();
@@ -709,25 +733,37 @@
        MAGNIFIER
     ════════════════════════════════════════════════════ */
     function initMagnifier() {
-      const magEl   = document.getElementById("magnifier");
-      const magImg  = document.getElementById("magnifier-img");
+      const magEl    = document.getElementById("magnifier");
+      const magImg   = document.getElementById("magnifier-img");
       const mainWrap = document.getElementById("gallery-main-wrap");
+      const lensEl   = document.getElementById("mag-lens");
       magImg.src = (PRODUCT.images[0] || "").replace("w=800", "w=1600");
 
+      const LENS_SIZE = 120; // px - the blue square on the main image
+
       function updateMagnifierSize() {
-        const rect  = mainWrap.getBoundingClientRect();
-        const size  = Math.min(Math.min(window.innerWidth * 0.45, 600), rect.width * 1.2);
+        const rect = mainWrap.getBoundingClientRect();
+        const size = Math.min(Math.min(window.innerWidth * 0.45, 600), rect.width * 1.2);
         magEl.style.width = size + "px"; magEl.style.height = size + "px";
       }
 
       mainWrap.addEventListener("mousemove", e => {
-        // Don't show magnifier when a video is active
         if (document.getElementById("gallery-main-video").style.display !== "none") {
-          magEl.style.display = "none"; return;
+          magEl.style.display = "none"; lensEl.style.display = "none"; return;
         }
-        const rect = mainWrap.getBoundingClientRect();
-        const xPct = (e.clientX - rect.left)  / rect.width;
-        const yPct = (e.clientY - rect.top)   / rect.height;
+        const rect  = mainWrap.getBoundingClientRect();
+        const xPct  = (e.clientX - rect.left)  / rect.width;
+        const yPct  = (e.clientY - rect.top)   / rect.height;
+
+        // Clamp lens so it stays within the image
+        const lensX = Math.max(0, Math.min(e.clientX - rect.left - LENS_SIZE / 2, rect.width  - LENS_SIZE));
+        const lensY = Math.max(0, Math.min(e.clientY - rect.top  - LENS_SIZE / 2, rect.height - LENS_SIZE));
+        lensEl.style.display  = "block";
+        lensEl.style.width    = LENS_SIZE + "px";
+        lensEl.style.height   = LENS_SIZE + "px";
+        lensEl.style.left     = lensX + "px";
+        lensEl.style.top      = lensY + "px";
+
         updateMagnifierSize();
         const lensW = magEl.offsetWidth, lensH = magEl.offsetHeight;
         let mLeft = rect.right + 20, mTop = rect.top + (rect.height / 2) - (lensH / 2);
@@ -736,6 +772,7 @@
         mTop  = Math.max(10, Math.min(mTop,  window.innerHeight - lensH - 10));
         magEl.style.left = mLeft + "px"; magEl.style.top = mTop + "px";
         magEl.style.display = "block";
+
         const nW = magImg.naturalWidth, nH = magImg.naturalHeight;
         if (nW && nH) {
           const ca = rect.width / rect.height, ia = nW / nH;
@@ -751,7 +788,10 @@
           magImg.style.top    = -(imgY * zoom - lensH / 2) + "px";
         }
       });
-      mainWrap.addEventListener("mouseleave", () => { magEl.style.display = "none"; });
+      mainWrap.addEventListener("mouseleave", () => {
+        magEl.style.display  = "none";
+        lensEl.style.display = "none";
+      });
       window.addEventListener("resize", () => { if (magEl.style.display === "block") updateMagnifierSize(); });
     }
 
@@ -784,16 +824,42 @@
         if (activeTab === "images") {
           document.getElementById("lb-main-img").src = PRODUCT.images[currentImgIdx];
           const lbThumbs = document.getElementById("lb-thumbs");
-          lbThumbs.innerHTML = PRODUCT.images.map((src, i) =>
-            `<img class="pdp-lightbox-thumb${i === currentImgIdx ? " active" : ""}" src="${src}" alt="View ${i+1}" data-idx="${i}">`
-          ).join("");
-          lbThumbs.querySelectorAll(".pdp-lightbox-thumb").forEach(t => {
+          // Horizontal thumbs: all images + video thumbnails
+          const allMedia = [
+            ...PRODUCT.images.map((src, i) => ({ type: "image", src, idx: i })),
+            ...(PRODUCT.videos || []).map((src, i) => {
+              const isYT = /youtube\.com|youtu\.be/.test(src);
+              const thumb = isYT ? `https://img.youtube.com/vi/${(src.match(/embed\/([^?]+)/)||src.match(/youtu\.be\/([^?]+)/))?.[1]||""}/mqdefault.jpg` : null;
+              return { type: "video", src, thumb, idx: PRODUCT.images.length + i };
+            })
+          ];
+          lbThumbs.innerHTML = allMedia.map((item, j) => {
+            const isActive = j === currentImgIdx;
+            if (item.type === "image") {
+              return `<img class="pdp-lightbox-thumb${isActive ? " active" : ""}" src="${item.src}" alt="View ${j+1}" data-idx="${j}" data-type="image">`;
+            } else {
+              const bg = item.thumb ? `style="background-image:url('${item.thumb}');background-size:cover;background-position:center;"` : '';
+              return `<div class="pdp-lightbox-thumb pdp-lightbox-thumb--video${isActive ? " active" : ""}" data-idx="${j}" data-type="video" ${bg}
+                style="display:inline-flex;align-items:center;justify-content:center;background-color:var(--c-surface-2);${item.thumb?'background-image:url(\''+item.thumb+'\');background-size:cover;background-position:center;':''}width:72px;height:72px;border-radius:6px;cursor:pointer;flex-shrink:0;border:2px solid ${isActive?'var(--c-accent)':'transparent'};opacity:${isActive?1:0.55};">
+                <span style="font-size:1.4rem;color:white;text-shadow:0 1px 4px rgba(0,0,0,0.8);">▶</span>
+              </div>`;
+            }
+          }).join("");
+          lbThumbs.querySelectorAll(".pdp-lightbox-thumb").forEach((t, j) => {
             t.addEventListener("click", () => {
-              currentImgIdx = +t.dataset.idx;
-              document.getElementById("lb-main-img").src = PRODUCT.images[currentImgIdx];
-              lbThumbs.querySelectorAll(".pdp-lightbox-thumb").forEach((x, j) =>
-                x.classList.toggle("active", j === currentImgIdx)
-              );
+              const idx = +t.dataset.idx;
+              const type = t.dataset.type;
+              currentImgIdx = idx;
+              if (type === "video") {
+                // switch to video tab
+                activeTab = "video";
+                buildLightbox();
+              } else {
+                document.getElementById("lb-main-img").src = PRODUCT.images[idx];
+                lbThumbs.querySelectorAll(".pdp-lightbox-thumb").forEach((x, k) =>
+                  x.classList.toggle("active", k === idx)
+                );
+              }
             });
           });
           const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
