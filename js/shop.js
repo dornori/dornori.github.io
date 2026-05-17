@@ -713,7 +713,7 @@ var Shop = (() => {
       if (columns !== "auto") grid.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
       container.appendChild(grid);
       products.forEach(p => {
-        const card = document.createElement("div"); card.className = "webshop-product-card"; card.dataset.cat = p.category || "";
+        const card = document.createElement("div"); card.className = "webshop-product-card"; card.dataset.cat = p.category || ""; card.dataset.productId = p.id;
         card.innerHTML = buildProductCard(p); grid.appendChild(card); wireProductCard(card, p);
       });
     }
@@ -723,7 +723,14 @@ var Shop = (() => {
       buildGrid();
     };
     const onCurrencyChange = () => {
-      container.querySelectorAll(".webshop-card-price").forEach((el, i) => { if (products[i]) el.textContent = fmt(products[i].price); });
+      container.querySelectorAll(".webshop-product-card").forEach(card => {
+        const p = products.find(p => p.id === card.dataset.productId); if (!p) return;
+        const discountPercent = p.discount || 0;
+        const discountedPrice = discountPercent > 0 ? p.price * (1 - discountPercent / 100) : p.price;
+        const priceEls = card.querySelectorAll(".webshop-card-price");
+        if (discountPercent > 0 && priceEls.length >= 2) { priceEls[0].textContent = fmt(p.price); priceEls[1].textContent = fmt(discountedPrice); }
+        else if (priceEls.length >= 1) { priceEls[0].textContent = fmt(p.price); }
+      });
     };
     document.addEventListener("shop:langChanged", onLangChange);
     document.addEventListener("currency:changed", onCurrencyChange);
