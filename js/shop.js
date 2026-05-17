@@ -473,7 +473,8 @@ var Shop = (() => {
                 <a class="webshop-cart-hover-panel__item-link" href="/${lang}/${productSlug}/?id=${item.id}">
                   <img class="webshop-cart-hover-panel__img" src="${item.image}" alt="${item.name}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
                   <div class="webshop-cart-hover-panel__info">
-                    <span class="webshop-cart-hover-panel__name">${item.name}${item.selectedColor ? ` <em>${item.selectedColor}</em>` : ""}</span>
+                    <span class="webshop-cart-hover-panel__name">${item.name}</span>
+                    ${(item.selectedColor || item.label) ? `<span class="webshop-cart-hover-panel__name" style="font-size:.8em;opacity:.7;">${item.selectedColor || item.label}</span>` : ""}
                     <span class="webshop-cart-hover-panel__qty">${item.qty} × ${fmt(item.price)}</span>
                   </div>
                 </a>
@@ -674,7 +675,8 @@ var Shop = (() => {
       const evid = effectiveVid();
       addToCart(p, qty, evid, selectedColor, img?.src || null);
       const itemName = evid ? (getVariant(p, evid)?.label || evid) : (pName(p) || p.id);
-      toast(`${itemName} ${t("added","added to cart")}`);
+      const itemLabel = evid ? "" : (p.label ? ` — ${p.label}` : "");
+      toast(`${itemName}${itemLabel} ${t("added","added to cart")}`);
     });
     wireRelatedStrip(card, p);
   }
@@ -946,7 +948,7 @@ var Shop = (() => {
       const qv = container.querySelector(".webshop-qty-val");
       container.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid=effectiveVid(); const max=evid?variantStock(p,evid):(p.stock||99); qty=Math.min(qty+1,max||99); qv.textContent=qty; });
       container.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty=Math.max(1,qty-1); qv.textContent=qty; });
-      atcBtn?.addEventListener("click", () => { const evid=effectiveVid(); addToCart(p,qty,evid,selectedColor,mainImg?.src||null); const itemName=evid?(getVariant(p,evid)?.label||evid):(pName(p)||p.id); toast(`${itemName} ${t("added","added to cart")}`); });
+      atcBtn?.addEventListener("click", () => { const evid=effectiveVid(); addToCart(p,qty,evid,selectedColor,mainImg?.src||null); const itemName=evid?(getVariant(p,evid)?.label||evid):(pName(p)||p.id); const itemLabel=evid?"":(p.label?` — ${p.label}`:""); toast(`${itemName}${itemLabel} ${t("added","added to cart")}`); });
       wireRelatedStrip(container, p);
     }
     build();
@@ -979,7 +981,7 @@ var Shop = (() => {
             <img src="${item.image}" alt="${item.name}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
             <div class="webshop-mini-cart__item-info">
               <span class="webshop-mini-cart__item-name">${item.name}</span>
-              ${item.selectedColor?`<span class="webshop-mini-cart__item-color">${item.selectedColor}</span>`:""}
+              ${(item.selectedColor || item.label) ? `<span class="webshop-mini-cart__item-color">${item.selectedColor || item.label}</span>` : ""}
               <span class="webshop-mini-cart__item-price">${item.qty} × ${fmt(item.price)}</span>
               <span class="webshop-mini-cart__item-weight">${fmtWeight((item.weight||0)*item.qty)}</span>
             </div>
