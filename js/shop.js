@@ -674,9 +674,8 @@ var Shop = (() => {
     addBtn?.addEventListener("click", () => {
       const evid = effectiveVid();
       addToCart(p, qty, evid, selectedColor, img?.src || null);
-      const itemName = evid ? (getVariant(p, evid)?.label || evid) : (pName(p) || p.id);
-      const itemLabel = evid ? "" : (p.label ? ` — ${p.label}` : "");
-      toast(`${itemName}${itemLabel} ${t("added","added to cart")}`);
+      const itemName = evid ? (getVariant(p, evid)?.label || evid) : (p.id + (p.label ? ` — ${p.label}` : ""));
+      toast(`${itemName} ${t("added","added to cart")}`);
     });
     wireRelatedStrip(card, p);
   }
@@ -955,7 +954,7 @@ var Shop = (() => {
       const qv = container.querySelector(".webshop-qty-val");
       container.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid=effectiveVid(); const max=evid?variantStock(p,evid):(p.stock||99); qty=Math.min(qty+1,max||99); qv.textContent=qty; });
       container.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty=Math.max(1,qty-1); qv.textContent=qty; });
-      atcBtn?.addEventListener("click", () => { const evid=effectiveVid(); addToCart(p,qty,evid,selectedColor,mainImg?.src||null); const itemName=evid?(getVariant(p,evid)?.label||evid):(pName(p)||p.id); const itemLabel=evid?"":(p.label?` — ${p.label}`:""); toast(`${itemName}${itemLabel} ${t("added","added to cart")}`); });
+      atcBtn?.addEventListener("click", () => { const evid=effectiveVid(); addToCart(p,qty,evid,selectedColor,mainImg?.src||null); const itemName=evid?(getVariant(p,evid)?.label||evid):(p.id+(p.label?` — ${p.label}`:"")); toast(`${itemName} ${t("added","added to cart")}`); });
       wireRelatedStrip(container, p);
     }
     build();

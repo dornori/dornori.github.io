@@ -145,9 +145,17 @@ export async function mountShopEmbeds(container) {
 
       const card = document.createElement('div');
       card.className = 'webshop-product-card';
+      card.dataset.productId = product.id;
       card.innerHTML = Shop.buildProductCard(product);
       el.appendChild(card);
       Shop.wireProductCard(card, product);
+      document.addEventListener('currency:changed', () => {
+        const discountPercent = product.discount || 0;
+        const discountedPrice = discountPercent > 0 ? product.price * (1 - discountPercent / 100) : product.price;
+        const priceEls = card.querySelectorAll('.webshop-card-price');
+        if (discountPercent > 0 && priceEls.length >= 2) { priceEls[0].textContent = Shop.fmt(product.price); priceEls[1].textContent = Shop.fmt(discountedPrice); }
+        else if (priceEls.length >= 1) { priceEls[0].textContent = Shop.fmt(product.price); }
+      });
     });
   }
 
