@@ -51,11 +51,12 @@ const SITE_CONFIG = {
     },
 
     navigation: [
-        { slug: 'about',  icon: 'about-icon-200x200.svg',          type: 'standard', enabled: true  },
+        { slug: 'about',  icon: 'about-icon-200x200.svg',           type: 'standard', enabled: true  },
         { slug: 'built',  icon: 'assembled-lamp-icon-200x200.svg',  type: 'standard', enabled: true  },
         { slug: 'kit',    icon: 'building-kit-icon-200x200.svg',    type: 'standard', enabled: true  },
         { slug: 'parts',  icon: '3d-printer-icon-200x200.svg',      type: 'standard', enabled: true  },
         { slug: 'files',  icon: '3d-file-icon-200x200.svg',         type: 'standard', enabled: true  },
+        { slug: 'shop',   icon: 'shop-200x200.svg',        			type: 'standard', enabled: true  },
     ],
 
     defaults: {
