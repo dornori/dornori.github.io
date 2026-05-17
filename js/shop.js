@@ -161,7 +161,7 @@ var Shop = (() => {
     const price  = variantId ? variantPrice(product, variantId)  : product.price;
     const weight = variantId ? variantWeight(product, variantId) : (product.weight || 0);
     const image  = imageOverride || (variantId ? variantImage(product, variantId) : selectedColor ? colorImageSrc(product, selectedColor) : product.image);
-    const label  = variantId ? (variantId === product.id ? (product.label || pName(product) || variantId) : (getVariant(product, variantId)?.label || variantId)) : selectedColor;
+    const label  = variantId ? (getVariant(product, variantId)?.label || variantId) : selectedColor;
     const maxQty = variantId ? variantStock(product, variantId) : (product.stock || 99);
     const resolvedName = pName(product) || product.name || product.id;
     if (existing) { existing.qty = Math.min(existing.qty + qty, maxQty || 99); }
