@@ -394,12 +394,14 @@ var Shop = (() => {
     const { href = null, label = null, onClick = null } = options;
     const container = typeof target === "string" ? document.querySelector(target) : target;
     if (!container) return;
-    const el = document.createElement(href ? "a" : "button");
+    const lastShop = !href && !onClick ? sessionStorage.getItem("webshop_last_shop_url") : null;
+    const resolvedHref = href || lastShop || null;
+    const el = document.createElement(resolvedHref ? "a" : "button");
     el.className = "webshop-back-btn";
-    if (href) el.href = href;
+    if (resolvedHref) el.href = resolvedHref;
     el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="15" height="15"><polyline points="15 18 9 12 15 6"/></svg>
       <span class="webshop-back-btn__label">${label || t("back_to_shop")}</span>`;
-    if (!href && !onClick) el.addEventListener("click", () => window.history.back());
+    if (!resolvedHref && !onClick) el.addEventListener("click", () => window.history.back());
     else if (onClick) el.addEventListener("click", onClick);
     container.prepend(el);
     document.addEventListener("shop:langChanged", () => { el.querySelector(".webshop-back-btn__label").textContent = label || t("back_to_shop"); });
@@ -685,6 +687,7 @@ var Shop = (() => {
   ═══════════════════════════════════════════════════════ */
   async function renderShop(divId, options = {}) {
     await loadLang();
+    sessionStorage.setItem("webshop_last_shop_url", window.location.href);
     let products  = await loadProducts();
     const container = document.getElementById(divId);
     if (!container) return;
