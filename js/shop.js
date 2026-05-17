@@ -429,7 +429,7 @@ var Shop = (() => {
     wrapper.href = cartUrl;
     wrapper.className = "webshop-cart-icon";
     wrapper.setAttribute("aria-label", "Shopping cart");
-	wrapper.innerHTML = `<img src="/assets/icons/cart-icon-200x200.svg" alt="" aria-hidden="true">
+	wrapper.innerHTML = `<img src="assets/icons/cart-icon-200x200.svg" alt="" aria-hidden="true">
    <span class="webshop-cart-icon__badge" aria-live="polite">0</span>`;
 	
     // Use SPA navigation instead of full page reload
