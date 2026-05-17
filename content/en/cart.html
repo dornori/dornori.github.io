@@ -50,6 +50,7 @@
     </div>
     <div class="webshop-cart-actions" id="cart-actions">
       <button type="button" class="webshop-btn webshop-btn--back-shop" id="cart-btn-back-shop" data-i18n="back_to_shop">← Back to Shop</button>
+      <button type="button" class="webshop-btn webshop-btn--danger" id="cart-btn-clear-all" data-i18n="clear_cart" style="margin-left: auto; margin-right: 10px;">Clear Cart</button>
       <button type="button" class="webshop-btn webshop-btn--primary webshop-btn--checkout" id="cart-btn-to-step-2" data-i18n="checkout">Proceed to Checkout</button>
     </div>
   </div>
@@ -232,8 +233,18 @@
     // Update continue-shopping link slug dynamically
     var csLink = document.getElementById('cart-continue-shopping');
     if (csLink && window.T && window.T.url_slugs) {
-      var kitSlug = window.T.url_slugs.kit || 'kit';
-      csLink.href = (window.__BASE_PATH__ || '/') + (_lang || 'en') + '/' + kitSlug + '/';
+      // Get last visited shop page from localStorage, default to kit
+      var lastShopPage = localStorage.getItem('webshop_last_page') || '';
+      var targetSlug = '';
+      
+      if (lastShopPage && (lastShopPage.includes('/shop/') || lastShopPage.includes('/kit/') || lastShopPage.includes('/parts/') || lastShopPage.includes('/product/'))) {
+        // Use the last visited page if it's a shop-related page
+        csLink.href = lastShopPage;
+      } else {
+        // Default to kit page
+        var kitSlug = window.T.url_slugs.kit || 'kit';
+        csLink.href = (window.__BASE_PATH__ || '/') + (_lang || 'en') + '/' + kitSlug + '/';
+      }
     }
   }
 
@@ -440,6 +451,9 @@
   }
 
   function goToStep(n) {
+    // Scroll to top immediately
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    
     currentStep = n;
     var s1 = document.getElementById('cart-step-1-wrapper');
     var s2 = document.getElementById('cart-step-2-wrapper');
@@ -454,7 +468,6 @@
       if (i < n) ind.classList.add('webshop-step--done');
       if (i === n) ind.classList.add('webshop-step--active');
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function getSavedForm() { try { return JSON.parse(localStorage.getItem(FORM_KEY)||'{}'); } catch { return {}; } }
@@ -490,7 +503,28 @@
 
   function wireButtons() {
     var btnBack = document.getElementById('cart-btn-back-shop');
-    if (btnBack) btnBack.addEventListener('click', function() { window.location.href = L.shopUrl; });
+    if (btnBack) btnBack.addEventListener('click', function() { 
+      var lastShopPage = localStorage.getItem('webshop_last_page') || '';
+      if (lastShopPage && (lastShopPage.includes('/shop/') || lastShopPage.includes('/kit/') || lastShopPage.includes('/parts/') || lastShopPage.includes('/product/'))) {
+        window.location.href = lastShopPage;
+      } else {
+        window.location.href = L.shopUrl; 
+      }
+    });
+
+    var btnClearAll = document.getElementById('cart-btn-clear-all');
+    if (btnClearAll) btnClearAll.addEventListener('click', function() {
+      var cart = Shop.getCart();
+      if (!cart.length) return;
+      
+      var confirmMsg = T('confirm_clear_cart', 'Are you sure you want to remove all items from your cart?');
+      if (confirm(confirmMsg)) {
+        Shop.clearCart();
+        if (typeof Shop.toast === 'function') {
+          Shop.toast(T('cart_cleared', 'Cart cleared'), 2000);
+        }
+      }
+    });
 
     var btnTo2 = document.getElementById('cart-btn-to-step-2');
     if (btnTo2) btnTo2.addEventListener('click', function() {
