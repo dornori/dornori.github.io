@@ -559,7 +559,8 @@
     function fmt(n) { return (typeof Shop !== "undefined" && Shop.fmt) ? Shop.fmt(n) : "€" + n.toFixed(2); }
 
     function updatePrice() {
-      const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
+      const variants = PRODUCT._allVariants || PRODUCT.variants || [];
+      const v = variants.find(v => v.id === selectedVariant);
       const basePrice = v ? v.price : PRODUCT.price;
       const discountPercent = PRODUCT.discount || 0;
       const discountedPrice = discountPercent > 0 ? basePrice * (1 - discountPercent / 100) : basePrice;
@@ -589,7 +590,11 @@
       const el   = document.getElementById("amz-variants-grid");
       if (!PRODUCT.variants?.length) { if (wrap) wrap.style.display = "none"; return; }
       if (wrap) wrap.style.display = "";
-      el.innerHTML = PRODUCT.variants.map(v =>
+
+      const selfEntry = { id: PRODUCT.id, label: PRODUCT.label || Shop.pName(PRODUCT), price: PRODUCT.price, stock: PRODUCT.stock, image: PRODUCT.image };
+      const allVariants = [selfEntry, ...PRODUCT.variants];
+
+      el.innerHTML = allVariants.map(v =>
         `<button class="amz-variant-btn${v.id === selectedVariant ? " active" : ""}" data-vid="${v.id}">${v.label}</button>`
       ).join("");
       el.querySelectorAll(".amz-variant-btn").forEach(btn => {
@@ -597,7 +602,7 @@
           selectedVariant = btn.dataset.vid;
           el.querySelectorAll(".amz-variant-btn").forEach(b => b.classList.remove("active"));
           btn.classList.add("active");
-          const v = PRODUCT.variants.find(v => v.id === selectedVariant);
+          const v = allVariants.find(v => v.id === selectedVariant);
           if (v?.image) {
             document.getElementById("gallery-main-img").src = v.image;
             document.getElementById("magnifier-img").src = v.image.replace("w=800", "w=1600");
@@ -605,6 +610,7 @@
           updatePrice();
         });
       });
+      PRODUCT._allVariants = allVariants;
     }
 
     /* ════════════════════════════════════════════════════
