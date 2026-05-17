@@ -413,34 +413,15 @@ var Shop = (() => {
     const mount = target === "body" ? document.body : document.querySelector(target);
     if (!mount) return;
 
-    /* ── Idempotent: if icons already exist in this slot, just update hrefs ── */
+    /* ── Idempotent: if an icon already exists in this slot, just update its href ── */
     const existing = mount.querySelector(".webshop-cart-icon-wrap");
     if (existing) {
-      const cartLink = existing.querySelector(".webshop-cart-icon");
-      if (cartLink) cartLink.href = cartUrl;
+      const link = existing.querySelector(".webshop-cart-icon");
+      if (link) link.href = cartUrl;
       return;
     }
 
-    /* ── Shop Icon (left) ── */
-    const lang = CONFIG.language || 'en';
-    const shopUrl = `/${lang}/shop/`;
-    
-    const shopIcon = document.createElement("a");
-    shopIcon.href = shopUrl;
-    shopIcon.className = "webshop-shop-icon";
-    shopIcon.setAttribute("aria-label", "Shop");
-    shopIcon.innerHTML = `<img src="/assets/icons/shop-icon-200x200.svg" alt="Shop" style="width: 24px; height: 24px; display: block;">`;
-    
-    shopIcon.addEventListener('click', e => { 
-      e.preventDefault(); 
-      if (typeof window.viewPage === 'function') {
-        window.viewPage('shop');
-      } else {
-        window.location.href = shopUrl;
-      }
-    });
-
-    /* ── Cart Icon (right) - Outer wrapper positions the dropdown relative to the icon ── */
+    /* Outer wrapper — positions the dropdown relative to the icon */
     const outer = document.createElement("div");
     outer.className = "webshop-cart-icon-wrap" + (fixed ? " webshop-cart-icon-wrap--fixed" : "");
 
@@ -448,7 +429,7 @@ var Shop = (() => {
     wrapper.href = cartUrl;
     wrapper.className = "webshop-cart-icon";
     wrapper.setAttribute("aria-label", "Shopping cart");
-    wrapper.innerHTML = `<img src="/assets/icons/cart-icon-200x200.svg" alt="Cart" style="width: 24px; height: 24px; display: block;">
+    wrapper.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
       <span class="webshop-cart-icon__badge" aria-live="polite">0</span>`;
     
     // Use SPA navigation instead of full page reload
@@ -468,7 +449,6 @@ var Shop = (() => {
     outer.appendChild(wrapper);
     outer.appendChild(dropdown);
 
-    mount.appendChild(shopIcon);
     mount.appendChild(outer);
 
     function renderDropdown() {
