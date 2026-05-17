@@ -195,7 +195,7 @@ var Shop = (() => {
   /* ─── LANG LOADER ───────────────────────────────────── */
   function pName(p) {
     return PRODUCT_LANG[p.id]?.name || PRODUCT_LANG_EN[p.id]?.name
-      || p.i18n?.[CONFIG.language]?.name || p.i18n?.en?.name || p.name || "";
+      || p.i18n?.[CONFIG.language]?.name || p.i18n?.en?.name || p.name || p.label || "";
   }
   function pDesc(p) {
     return PRODUCT_LANG[p.id]?.description || PRODUCT_LANG_EN[p.id]?.description
