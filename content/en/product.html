@@ -36,7 +36,7 @@
     }
     .pdp-gallery__main-wrap { cursor: crosshair; position: relative; overflow: hidden; aspect-ratio: 1; flex: 1; min-width: 0; }
     .pdp-gallery__main-wrap.video-active { cursor: pointer; }
-    .pdp-gallery__main-img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .pdp-gallery__main-img { width: 100%; height: 100%; object-fit: cover; display: block; }
     
     /* ── Full view text ── */
     .pdp-fullview-text { text-align: center; padding: 6px 0; font-size: 11px; color: var(--c-text-muted); cursor: pointer; }
@@ -94,7 +94,7 @@
       align-items: start;
     }
     .pdp-lightbox-main { width: 100%; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--c-bg-alt); }
-    .pdp-lightbox-main img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .pdp-lightbox-main img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .pdp-lightbox-right { display: flex; flex-direction: column; gap: 16px; }
     /* Lightbox thumbs — horizontal row under details, no scroll */
     .pdp-lightbox-thumbs {
@@ -252,15 +252,6 @@
     .pdp-accordion-item .pdp-accordion-body { max-height: 0; overflow: hidden; transition: max-height 0.35s ease; }
     .pdp-accordion-item.open .pdp-accordion-body { max-height: 600px; }
     .pdp-accordion-item.open .pdp-accordion-trigger svg { transform: rotate(180deg); }
-
-    /* ── Gallery + lightbox: contain so product images are never cropped ── */
-    .pdp-gallery__main-wrap { background: var(--c-bg-alt, #f5f0ea); }
-    .pdp-lightbox-main { background: var(--c-bg-alt, #f5f0ea); }
-
-    /* ── Referral product embed — match built.html image treatment ── */
-    #referral-product-embed-wrap [data-shop-products] .webshop-card-img { object-fit: contain !important; }
-    #referral-product-embed-wrap [data-shop-products] .webshop-card-img-wrap { aspect-ratio: 3 / 4 !important; }
-    #referral-product-embed-wrap [data-shop-products] .webshop-related { display: none !important; }
   </style>
 </head>
 <body>
@@ -334,11 +325,6 @@
             <div class="amz-badges" id="amz-badges"></div>
 
             <p class="pdp-desc" id="pdp-desc"></p>
-
-            <!-- ── Referral product embed (mushroom-forestrave) — shown above variants ── -->
-            <div id="referral-product-embed-wrap" style="display:none; margin-bottom:16px;">
-              <div data-shop-products="mushroom-forestrave" id="referral-product-embed"></div>
-            </div>
 
             <div class="amz-variants-section" id="amz-variants-section" style="display:none;">
               <div class="amz-variants-label" id="amz-variants-label">Select option:</div>
@@ -479,22 +465,15 @@
     initQty();
     initAtc();
 
-    // Show referral product embed above variants for all products except mushroom-forestrave itself
-    if (prodId !== "mushroom-forestrave") {
-      const refWrap = document.getElementById("referral-product-embed-wrap");
-      if (refWrap) refWrap.style.display = "";
-    }
-
     document.addEventListener("currency:changed", updatePrice);
     document.addEventListener("currency:changed", () => {
-      // Rebuild lb-details price if lightbox is open
-      const lightbox = document.getElementById("lightbox");
-      if (lightbox && lightbox.classList.contains("open")) {
-        const lbDet = document.getElementById("lb-details");
-        if (lbDet && lbDet.innerHTML) {
+      // Refresh lightbox price if it's open
+      const lb = document.getElementById("lightbox");
+      if (lb && lb.classList.contains("open")) {
+        const priceEl = document.querySelector("#lb-details .pdp-price");
+        if (priceEl) {
           const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
-          const priceEl = lbDet.querySelector(".pdp-price");
-          if (priceEl) priceEl.textContent = fmt(v ? v.price : PRODUCT.price);
+          priceEl.textContent = fmt(v ? v.price : PRODUCT.price);
         }
       }
     });
@@ -896,14 +875,6 @@
       };
 
       function closeLightbox() {
-        // Stop inline video in the lightbox
-        const lbVideoContainer = document.getElementById("video-container");
-        if (lbVideoContainer) {
-          const vid = lbVideoContainer.querySelector("video");
-          if (vid) { vid.pause(); vid.src = ""; }
-          const iframe = lbVideoContainer.querySelector("iframe");
-          if (iframe) { iframe.src = ""; }
-        }
         lightbox.classList.remove("open");
         document.body.style.overflow = "";
       }
