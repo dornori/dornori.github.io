@@ -407,6 +407,16 @@ var Shop = (() => {
   }
 
   /* ─── CART ICON ─────────────────────────────────────── */
+  async function fetchSVG(path) {
+    try {
+      const res = await fetch(path);
+      if (!res.ok) throw new Error();
+      return await res.text();
+    } catch {
+      return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/></svg>`;
+    }
+  }
+
   function renderCartIcon(options = {}) {
     const { target = "body", fixed = true, cartUrl = (typeof window !== "undefined" && window.__CART_URL__) || "cart/" } = options;
 
@@ -427,9 +437,17 @@ var Shop = (() => {
     
     const shopIcon = document.createElement("a");
     shopIcon.href = shopUrl;
-    shopIcon.className = "webshop-shop-icon";
+    shopIcon.className = "webshop-shop-icon nav-link";
     shopIcon.setAttribute("aria-label", "Shop");
-    shopIcon.innerHTML = `<img src="/assets/icons/shop-icon-200x200.svg" alt="Shop" style="width: 24px; height: 24px; display: block;">`;
+    shopIcon.style.cssText = 'display: flex; align-items: center; padding: 0 12px;';
+    
+    const shopIconSpan = document.createElement("span");
+    shopIconSpan.className = "nav-icon";
+    shopIcon.appendChild(shopIconSpan);
+    
+    fetchSVG('/assets/icons/shop-icon-200x200.svg').then(svg => {
+      shopIconSpan.innerHTML = svg;
+    });
     
     shopIcon.addEventListener('click', e => { 
       e.preventDefault(); 
@@ -446,10 +464,23 @@ var Shop = (() => {
 
     const wrapper = document.createElement("a");
     wrapper.href = cartUrl;
-    wrapper.className = "webshop-cart-icon";
+    wrapper.className = "webshop-cart-icon nav-link";
     wrapper.setAttribute("aria-label", "Shopping cart");
-    wrapper.innerHTML = `<img src="/assets/icons/cart-icon-200x200.svg" alt="Cart" style="width: 24px; height: 24px; display: block;">
-      <span class="webshop-cart-icon__badge" aria-live="polite">0</span>`;
+    wrapper.style.cssText = 'display: flex; align-items: center; padding: 0 12px; position: relative;';
+    
+    const cartIconSpan = document.createElement("span");
+    cartIconSpan.className = "nav-icon";
+    wrapper.appendChild(cartIconSpan);
+    
+    const badge = document.createElement("span");
+    badge.className = "webshop-cart-icon__badge";
+    badge.setAttribute("aria-live", "polite");
+    badge.textContent = "0";
+    wrapper.appendChild(badge);
+    
+    fetchSVG('/assets/icons/cart-icon-200x200.svg').then(svg => {
+      cartIconSpan.innerHTML = svg;
+    });
     
     // Use SPA navigation instead of full page reload
     wrapper.addEventListener('click', e => { 
