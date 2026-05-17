@@ -29,9 +29,9 @@
     // Track last visited shop page for cart navigation
     (function() {
         var pageSlug = window.__PAGE_SLUG__;
-        var shopPages = ['shop', 'kit', 'parts', 'product'];
-        
-        if (pageSlug && shopPages.indexOf(pageSlug) !== -1) {
+        var excludePages = ['product', 'cart'];
+
+        if (pageSlug && excludePages.indexOf(pageSlug) === -1) {
             // Save the current page URL as the last visited shop page
             try {
                 localStorage.setItem('webshop_last_page', window.location.href);
