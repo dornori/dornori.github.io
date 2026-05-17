@@ -572,8 +572,8 @@ var Shop = (() => {
     let selectorHtml = "";
     if (hasVariants) {
       // Prepend a "self" button for the main product, active by default.
-      // The product's own label comes from its name; use a short form if available.
-      const selfLabel = p.selfLabel || pName(p) || p.name || p.label || p.id;
+      // Button label comes from data/products.json label field, not the translated name.
+      const selfLabel = p.selfLabel || p.label || p.name || pName(p) || p.id;
       const selfBtn = `<button class="webshop-variant-btn active" data-variant-id="${p.id}" title="${selfLabel}">${selfLabel}</button>`;
       selectorHtml = `<div class="webshop-variants">${selfBtn}${p.variants.map((v) => {
         const so = v.stock != null && v.stock === 0;
@@ -758,7 +758,7 @@ var Shop = (() => {
 
       let variantHtml = "";
       if (hasVariants) {
-        const selfLabel = p.selfLabel || pName(p) || p.name || p.label || p.id;
+        const selfLabel = p.selfLabel || p.label || p.name || pName(p) || p.id;
         variantHtml = `<div class="webshop-product-option-group">
           <label class="webshop-product-option-label">${t("variant","Option")}</label>
           <div class="webshop-product-variants">
