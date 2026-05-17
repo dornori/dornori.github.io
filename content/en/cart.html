@@ -237,13 +237,13 @@
       var lastShopPage = localStorage.getItem('webshop_last_page') || '';
       var targetSlug = '';
       
-      if (lastShopPage && (lastShopPage.includes('/shop/') || lastShopPage.includes('/kit/') || lastShopPage.includes('/parts/') || lastShopPage.includes('/product/'))) {
-        // Use the last visited page if it's a shop-related page
+      if (lastShopPage && !lastShopPage.includes('/cart/')) {
+        // Use the last visited page (any non-cart page)
         csLink.href = lastShopPage;
       } else {
-        // Default to kit page
-        var kitSlug = window.T.url_slugs.kit || 'kit';
-        csLink.href = (window.__BASE_PATH__ || '/') + (_lang || 'en') + '/' + kitSlug + '/';
+        // Default to shop page
+        var shopSlug = (window.T.url_slugs && window.T.url_slugs.shop) || 'shop';
+        csLink.href = (window.__BASE_PATH__ || '/') + (_lang || 'en') + '/' + shopSlug + '/';
       }
     }
   }
@@ -260,7 +260,7 @@
   var L = {
     days:           T('days', 'business days'),
     b2b:            T('b2b', '(B2B)'),
-    shopUrl:        (window.__BASE_PATH__ || '/') + (_lang || window.LANG || 'en') + '/' + ((window.T && window.T.url_slugs && window.T.url_slugs.kit) || 'kit') + '/',
+    shopUrl:        (window.__BASE_PATH__ || '/') + (_lang || window.LANG || 'en') + '/' + ((window.T && window.T.url_slugs && window.T.url_slugs.shop) || 'shop') + '/',
     required:       T('required_field', 'Required'),
     invalidEmail:   T('invalid_email', 'Invalid email'),
     cancelMsg:      T('cancel_message', 'Your order has not been processed. Your cart has been saved.'),
@@ -279,7 +279,7 @@
         L.invalidEmail = T('invalid_email', L.invalidEmail);
         L.cancelMsg    = T('cancel_message', L.cancelMsg);
         L.paymentError = T('payment_error', L.paymentError);
-        L.shopUrl      = (window.__BASE_PATH__ || '/') + (_lang || window.LANG || 'en') + '/' + ((window.T && window.T.url_slugs && window.T.url_slugs.kit) || 'kit') + '/';
+        L.shopUrl      = (window.__BASE_PATH__ || '/') + (_lang || window.LANG || 'en') + '/' + ((window.T && window.T.url_slugs && window.T.url_slugs.shop) || 'shop') + '/';
         cb();
       }).catch(cb);
     } else {
@@ -291,7 +291,7 @@
   document.addEventListener('shop:langChanged',   function() {
     applyI18n();
     L.days = T('days', L.days); L.b2b = T('b2b', L.b2b);
-    L.shopUrl = (window.__BASE_PATH__ || '/') + (_lang || window.LANG || 'en') + '/' + ((window.T && window.T.url_slugs && window.T.url_slugs.kit) || 'kit') + '/';
+    L.shopUrl = (window.__BASE_PATH__ || '/') + (_lang || window.LANG || 'en') + '/' + ((window.T && window.T.url_slugs && window.T.url_slugs.shop) || 'shop') + '/';
     if (typeof Shipping !== 'undefined') {
       Shipping.populateCountrySelect(document.getElementById('cart-country'), T('select_country', 'Select country…'));
       Shipping.populateCountrySelect(document.getElementById('cart-billing-country'), T('select_country', 'Select country…'));
@@ -508,7 +508,7 @@
     var btnBack = document.getElementById('cart-btn-back-shop');
     if (btnBack) btnBack.addEventListener('click', function() { 
       var lastShopPage = localStorage.getItem('webshop_last_page') || '';
-      if (lastShopPage && (lastShopPage.includes('/shop/') || lastShopPage.includes('/kit/') || lastShopPage.includes('/parts/') || lastShopPage.includes('/product/'))) {
+      if (lastShopPage && !lastShopPage.includes('/cart/')) {
         window.location.href = lastShopPage;
       } else {
         window.location.href = L.shopUrl; 
