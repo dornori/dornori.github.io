@@ -144,16 +144,10 @@ export async function mountShopEmbeds(container) {
         }
       }
 
-      // Parse feature flags from data attributes
-      const options = {
-        showVariants: el.hasAttribute('data-variants') || el.getAttribute('data-variants') === '',
-        showRelated: el.hasAttribute('data-related') || el.getAttribute('data-related') === ''
-      };
-
       const card = document.createElement('div');
       card.className = 'webshop-product-card';
       card.dataset.productId = product.id;
-      card.innerHTML = Shop.buildProductCard(product, options);
+      card.innerHTML = Shop.buildProductCard(product);
       el.appendChild(card);
       Shop.wireProductCard(card, product);
       document.addEventListener('currency:changed', () => {

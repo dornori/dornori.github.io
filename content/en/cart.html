@@ -39,6 +39,7 @@
       </div>
     </div>
     <div class="webshop-cart-totals-bar" id="cart-totals-bar">
+      <div class="webshop-cart-totals-bar__row" id="cart-savings-row" style="display:none;color:#cc0c39;font-weight:600;"><span>You save</span><span id="cart-savings-val">—</span></div>
       <div class="webshop-cart-totals-bar__row"><span data-i18n="subtotal">Subtotal</span><span id="cart-subtotal-val">—</span></div>
       <div class="webshop-cart-totals-bar__row"><span data-i18n="tax">Tax</span><span id="cart-tax-val">—</span></div>
       <div class="webshop-cart-totals-bar__row webshop-cart-totals-bar__row--shipping">
@@ -206,6 +207,7 @@
       <div id="cart-step3-billing-address"></div>
     </div>
     <div class="webshop-step3-summary__totals">
+      <div class="webshop-step3-summary__totals-row" id="cart-step3-savings-row" style="display:none;color:#cc0c39;font-weight:600;"><span>You save</span><span id="cart-step3-savings">—</span></div>
       <div class="webshop-step3-summary__totals-row"><span data-i18n="subtotal">Subtotal</span><span id="cart-step3-subtotal">—</span></div>
       <div class="webshop-step3-summary__totals-row"><span data-i18n="tax">Tax</span><span id="cart-step3-tax">—</span></div>
       <div class="webshop-step3-summary__totals-row"><span data-i18n="shipping">Shipping</span><span id="cart-step3-shipping">—</span></div>
@@ -358,7 +360,11 @@
           '<span class="webshop-qty-val">' + item.qty + '</span>' +
           '<button class="webshop-qty-btn webshop-qty-btn--plus" data-key="' + item.cartKey + '">+</button>' +
         '</div></td>' +
-        '<td class="webshop-cart-item-total">' + Shop.fmt((parseFloat(item.price)||0) * item.qty) + '</td>' +
+        '<td class="webshop-cart-item-total">' +
+          (item.originalPrice ? '<s style="opacity:.5;font-size:.85em;display:block;">' + Shop.fmt(item.originalPrice * item.qty) + '</s>' : '') +
+          Shop.fmt((parseFloat(item.price)||0) * item.qty) +
+          (item.discount ? ' <span style="color:#cc0c39;font-size:.75em;font-weight:600;white-space:nowrap;">-' + item.discount + '%</span>' : '') +
+        '</td>' +
         '<td><button class="webshop-cart-remove" data-key="' + item.cartKey + '">✕</button></td>' +
       '</tr>';
     }).join('');
@@ -395,6 +401,10 @@
     if (sub) sub.textContent = Shop.fmt(t.subtotal);
     if (tax) tax.textContent = isBusiness ? Shop.fmt(0) + ' ' + L.b2b : Shop.fmt(t.tax);
     if (tot) tot.textContent = Shop.fmt(t.subtotal + (isBusiness ? 0 : t.tax));
+    var totalSavings = cart.reduce(function(a, i) { return a + (i.originalPrice ? (i.originalPrice - i.price) * i.qty : 0); }, 0);
+    var savRow = document.getElementById('cart-savings-row');
+    var savVal = document.getElementById('cart-savings-val');
+    if (savRow && savVal) { savRow.style.display = totalSavings > 0 ? '' : 'none'; savVal.textContent = '-' + Shop.fmt(totalSavings); }
   }
 
   function renderStep3Summary() {
