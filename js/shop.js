@@ -111,17 +111,15 @@ var Shop = (() => {
   /* ─── VARIANT HELPERS ───────────────────────────────── */
   function getVariant(product, variantId) {
     if (!product.variants?.length) return null;
-    // Variants are now just IDs - look up the actual product
-    const variantProduct = _products[variantId];
-    return variantProduct || null;
+    return product.variants.find(v => v.id === variantId) || product.variants[0];
   }
   function variantPrice(product, variantId) {
     const v = getVariant(product, variantId);
-    return v ? v.price : product.price;
+    return (v && v.price != null) ? v.price : product.price;
   }
   function variantWeight(product, variantId) {
     const v = getVariant(product, variantId);
-    return v ? (v.weight || 0) : (product.weight || 0);
+    return (v && v.weight != null) ? v.weight : (product.weight || 0);
   }
   function variantImage(product, variantId) {
     const v = getVariant(product, variantId);
@@ -134,17 +132,9 @@ var Shop = (() => {
   }
   function variantStock(product, variantId) {
     const v = getVariant(product, variantId);
-    return v ? (v.stock || 0) : (product.stock || 0);
+    return (v && v.stock != null) ? v.stock : (product.stock || 0);
   }
   function variantInStock(product, variantId) { return variantStock(product, variantId) > 0; }
-  function variantLabel(product, variantId) {
-    const v = getVariant(product, variantId);
-    return v ? (v.label || pName(v) || variantId) : null;
-  }
-  function variantDiscount(product, variantId) {
-    const v = getVariant(product, variantId);
-    return v ? (v.discount || 0) : 0;
-  }
 
   /* ─── CART ──────────────────────────────────────────── */
   function getCart() { try { return JSON.parse(localStorage.getItem(CONFIG.storageKeys?.cartKey || "webshop_cart") || "[]"); } catch { return []; } }
@@ -171,7 +161,7 @@ var Shop = (() => {
     const price  = variantId ? variantPrice(product, variantId)  : product.price;
     const weight = variantId ? variantWeight(product, variantId) : (product.weight || 0);
     const image  = imageOverride || (variantId ? variantImage(product, variantId) : selectedColor ? colorImageSrc(product, selectedColor) : product.image);
-    const label  = variantId ? variantLabel(product, variantId) : selectedColor;
+    const label  = variantId ? (getVariant(product, variantId)?.label || variantId) : selectedColor;
     const maxQty = variantId ? variantStock(product, variantId) : (product.stock || 99);
     const resolvedName = pName(product) || product.name || product.id;
     if (existing) { existing.qty = Math.min(existing.qty + qty, maxQty || 99); }
@@ -533,18 +523,8 @@ var Shop = (() => {
   }
 
   function buildRelatedStrip(product, context = "card") {
-    /* Check display flags - default to true if not specified */
-    const showAddons = product.showAddons !== false;
-    const showRelated = product.showRelated !== false;
-    
-    /* Use addons if showAddons is true and addons exist, otherwise use related if showRelated is true */
-    let ids = null;
-    if (showAddons && product.addons?.length) {
-      ids = product.addons;
-    } else if (showRelated && product.related?.length) {
-      ids = product.related;
-    }
-    
+    /* support addons array for the card strip; fall back to related */
+    const ids = product.addons || product.related;
     if (!ids?.length) return "";
     const items = ids.map(_resolveRelated).filter(Boolean);
     if (!items.length) return "";
@@ -596,12 +576,9 @@ var Shop = (() => {
       // Button label comes from data/products.json label field, not the translated name.
       const selfLabel = p.selfLabel || p.label || p.name || pName(p) || p.id;
       const selfBtn = `<button class="webshop-variant-btn active" data-variant-id="${p.id}" title="${selfLabel}">${selfLabel}</button>`;
-      selectorHtml = `<div class="webshop-variants">${selfBtn}${p.variants.map((vid) => {
-        const vp = _products[vid];
-        if (!vp) return '';
-        const so = vp.stock != null && vp.stock === 0;
-        const vLabel = vp.label || pName(vp) || vid;
-        return `<button class="webshop-variant-btn${so?" soldout":""}" data-variant-id="${vid}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${vLabel}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
+      selectorHtml = `<div class="webshop-variants">${selfBtn}${p.variants.map((v) => {
+        const so = v.stock != null && v.stock === 0;
+        return `<button class="webshop-variant-btn${so?" soldout":""}" data-variant-id="${v.id}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${v.label}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
       }).join("")}</div>`;
     } else if (p.colors?.length) {
       const so = p.colors_soldout || [];
@@ -656,9 +633,6 @@ var Shop = (() => {
 
     const img     = card.querySelector(".webshop-card-img");
     const priceEl = card.querySelector(".webshop-card-price");
-    const priceOriginalEl = card.querySelector(".webshop-card-price--original");
-    const priceDiscountedEl = card.querySelector(".webshop-card-price--discounted");
-    const badgeEl = card.querySelector(".webshop-badge--discount");
     const addBtn  = card.querySelector(".webshop-card-atc");
 
     // effectiveVariantId: null when main product or self-button selected.
@@ -671,35 +645,9 @@ var Shop = (() => {
       if (!hasVariants) return;
       const evid    = effectiveVid();
       const price   = evid ? variantPrice(p, evid) : p.price;
-      const discount = evid ? variantDiscount(p, evid) : (p.discount || 0);
-      const discountedPrice = discount > 0 ? price * (1 - discount / 100) : price;
       const inStock = evid ? variantInStock(p, evid) : (p.stock > 0);
       const imgSrc  = evid ? variantImage(p, evid) : p.image;
-      
-      // Update price display with discount
-      if (discount > 0) {
-        if (priceOriginalEl && priceDiscountedEl) {
-          priceOriginalEl.textContent = fmt(price);
-          priceDiscountedEl.textContent = fmt(discountedPrice);
-        } else if (priceEl) {
-          // Rebuild price display if discount elements don't exist
-          const footer = card.querySelector(".webshop-card-footer");
-          if (footer) {
-            footer.innerHTML = `
-              <span class="webshop-card-price webshop-card-price--original">${fmt(price)}</span>
-              <span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>
-              <div class="webshop-qty-control">
-                <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease">−</button>
-                <span class="webshop-qty-val">${qty}</span>
-                <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase">+</button>
-              </div>`;
-          }
-        }
-        if (badgeEl) badgeEl.textContent = `${discount}% OFF`;
-      } else {
-        if (priceEl) priceEl.textContent = fmt(price);
-      }
-      
+      if (priceEl) priceEl.textContent = fmt(price);
       if (addBtn)  { addBtn.disabled = !inStock; addBtn.textContent = inStock ? t("add_to_cart","Add to Cart") : t("out_of_stock","Out of Stock"); }
       if (img)     swapMainImg(img, imgSrc, p.image);
     }
@@ -726,7 +674,7 @@ var Shop = (() => {
     addBtn?.addEventListener("click", () => {
       const evid = effectiveVid();
       addToCart(p, qty, evid, selectedColor, img?.src || null);
-      const itemName = evid ? variantLabel(p, evid) : (p.label || p.id);
+      const itemName = evid ? (getVariant(p, evid)?.label || evid) : (p.label || p.id);
       toast(`${itemName} ${t("added","added to cart")}`);
     });
     wireRelatedStrip(card, p);
@@ -811,7 +759,7 @@ var Shop = (() => {
       const images      = p.images?.length ? p.images : [p.image];
       const evid        = effectiveVid();
       const displayPrice = evid ? variantPrice(p, evid) : p.price;
-      const discountPercent = evid ? variantDiscount(p, evid) : (p.discount || 0);
+      const discountPercent = p.discount || 0;
       const discountedPrice = discountPercent > 0 ? displayPrice * (1 - discountPercent / 100) : displayPrice;
       const inStock     = evid ? variantInStock(p, evid) : (p.stock > 0);
       const soldOut     = p.colors_soldout || [];
@@ -823,12 +771,8 @@ var Shop = (() => {
           <label class="webshop-product-option-label">${t("variant","Option")}</label>
           <div class="webshop-product-variants">
             <button class="webshop-product-variant-btn active" data-variant-id="${p.id}">${selfLabel}</button>
-            ${p.variants.map((vid) => { 
-              const vp = _products[vid];
-              if (!vp) return '';
-              const so = vp.stock != null && vp.stock === 0;
-              const vLabel = vp.label || pName(vp) || vid;
-              return `<button class="webshop-product-variant-btn${so?" soldout":""}" data-variant-id="${vid}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${vLabel}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
+            ${p.variants.map((v) => { const so=v.stock!=null&&v.stock===0;
+              return `<button class="webshop-product-variant-btn${so?" soldout":""}" data-variant-id="${v.id}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${v.label}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
             }).join("")}
           </div></div>`;
       } else if (p.colors?.length) {
