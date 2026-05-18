@@ -10,11 +10,13 @@
     'use strict';
 
     // ── BASE_PATH auto-detection ──────────────────────────────────────────────
+    // Works at any deployment path — zero hardcoding in HTML.
     var BASE_PATH = (function() {
         var src = '';
         if (document.currentScript && document.currentScript.src) {
             src = document.currentScript.src;
         } else {
+            // Deferred script: find ourselves by filename
             var scripts = document.querySelectorAll('script[src]');
             for (var i = 0; i < scripts.length; i++) {
                 if (scripts[i].src.indexOf('/js/site-boot.js') !== -1 ||
@@ -24,12 +26,13 @@
                 }
             }
         }
+        // src is absolute: https://example.com/sandbox/js/site-boot.js
         var idx = src.indexOf('/js/site-boot.js');
         if (idx === -1) return '/';
         var abs = src.slice(0, idx + 1);
         var a = document.createElement('a');
         a.href = abs;
-        return a.pathname;
+        return a.pathname; // e.g. /sandbox/ or /
     })();
     window.__BASE_PATH__ = BASE_PATH;
 
@@ -113,7 +116,7 @@
         window.__PAGE_SLUG__ = '';
     }
 
-    // ── Countries cache init from localStorage ────────────────────────────────
+    // ── Countries cache init from localStorage (FIX #5/#8) ───────────────────
     (function initCountriesCache() {
         try {
             var cached    = localStorage.getItem('dornori-countries-cache');
@@ -125,7 +128,7 @@
         } catch (e) {}
     })();
 
-    // ── Dependency-aware script loader ────────────────────────────────────────
+    // ── Dependency-aware script loader (FIX #6) ───────────────────────────────
     function loadScriptsWithDeps(scripts) {
         var promises  = {};
         var scriptMap = {};
@@ -160,6 +163,7 @@
         }
     }
 
+<<<<<<< HEAD
 
     // ── Page skeleton ─────────────────────────────────────────────────────────
     // Full-viewport CSS-only layout approximation shown while JS boots.
@@ -277,16 +281,19 @@
         setTimeout(removeSkeleton, 4000);
     })();
 
+=======
+>>>>>>> parent of 751dfdb (skeleeton and load issue resolve)
     // ── Boot sequence ─────────────────────────────────────────────────────────
-    // shop-config.js and lang-bridge.js need no DOM — start immediately.
-    // shop-init.js only touches DOM after webshop:ready fires.
-    // site-main.js and geo-popup.js handle their own DOM readiness.
-    loadScriptsWithDeps([
-        { id: 'cfg',  src: 'js/shop-config.js' },
-        { id: 'lang', src: 'js/lang-bridge.js', deps: ['cfg'] },
-        { id: 'shop', src: 'js/shop-init.js',   deps: ['lang'] },
-        { id: 'main', src: 'js/site-main.js',   module: true },
-        { id: 'geo',  src: 'js/geo-popup.js',   module: true },
-    ]);
+    document.addEventListener('DOMContentLoaded', function () {
+        loadScriptsWithDeps([
+            // Chain: config -> lang-bridge -> shop-init (sequential dependencies)
+            { id: 'cfg',  src: 'js/shop-config.js' },
+            { id: 'lang', src: 'js/lang-bridge.js', deps: ['cfg'] },
+            { id: 'shop', src: 'js/shop-init.js',   deps: ['lang'] },
+            // Parallel: independent of shop chain
+            { id: 'main', src: 'js/site-main.js', module: true },
+            { id: 'geo',  src: 'js/geo-popup.js',  module: true },
+        ]);
+    });
 
 })();

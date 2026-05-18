@@ -111,9 +111,10 @@
         var slot = document.getElementById('mobile-cart-icon-slot');
         if (slot) {
             // FIX #7: Slot exists - render immediately (happy path with proper load order)
-            Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl: _cartUrl(lang) }); } else {
+            Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl: _cartUrl(lang) });
+        } else {
             // Slot not yet created — nav-loader.js still initialising.
-            // Wait for nav:ready event which fires once nav DOM is built.
+            // Wait for nav:ready event which nav-loader fires once the DOM is built.
             var capturedLang = lang;
             function onNavReady() {
                 document.removeEventListener('nav:ready', onNavReady);

@@ -32,7 +32,9 @@ var Currency = (() => {
 
   async function detectFromIP() {
     try {
+      // Use window.__geoData if already fetched this page load
       if (!window.__geoData) {
+        // Try sessionStorage first to avoid hitting ipapi.co on every page
         const cached = sessionStorage.getItem('dornori-geo');
         if (cached) {
           window.__geoData = JSON.parse(cached);
