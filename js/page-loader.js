@@ -229,6 +229,7 @@ export function initPageLoader() {
             pageView.classList.add('hidden');
             window.scrollTo(0, 0);
             updateSEO('');
+            document.dispatchEvent(new CustomEvent('home:ready'));
             return;
         }
         try {

@@ -263,11 +263,7 @@
         function removeSkeleton() {
             var el = document.getElementById('page-skeleton');
             if (!el) return;
-            // Reveal real UI and trigger logo animation as skeleton lifts
             injectLogoSrc();
-            document.querySelectorAll('#main-header, #mobile-nav, #viewport, .site-footer').forEach(function(n) {
-                n.style.visibility = '';
-            });
             el.classList.add('sk-fade');
             setTimeout(function() {
                 el.remove();
@@ -278,7 +274,7 @@
 
         document.addEventListener('home:ready', removeSkeleton, { once: true });
         // Fallback: remove after 6s no matter what
-        setTimeout(removeSkeleton, 6000);
+        setTimeout(removeSkeleton, 4000);
     })();
 
     // ── Boot sequence ─────────────────────────────────────────────────────────
