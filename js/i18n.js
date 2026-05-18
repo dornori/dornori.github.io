@@ -184,8 +184,10 @@ window.setLang = async (code) => {
     if (slug) {
         const urlSlug = getSlug(window.T, slug);
         window.history.replaceState({ slug, lang: code }, '', `${BASE()}${code}/${urlSlug}/`);
-        window.viewPage(slug);
+        window.viewPage(slug, null, true);
     } else {
+        // Update URL to reflect new language on home
+        window.history.replaceState({ slug: '', lang: code }, '', `${BASE()}${code}/`);
         window.loadHome();
     }
 
