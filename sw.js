@@ -1,6 +1,6 @@
 const CACHE_NAME = 'dornori-v3';
 
-// Only cache static assets — not pages (they redirect and break cache.addAll)
+// Only cache static assets — not pages (redirects break cache.addAll)
 const URLS_TO_CACHE = [
   '/css/main.css',
   '/css/shop.css',
@@ -45,7 +45,7 @@ self.addEventListener('fetch', event => {
 
   const url = event.request.url;
 
-  // Network-first for data/API — always want fresh data
+  // Network-first for data and geo API
   if (url.includes('/data/') || url.includes('/api/') || url.includes('ipapi.co')) {
     event.respondWith(
       fetch(event.request)
@@ -61,7 +61,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first for static assets (css, js, images, fonts)
+  // Cache-first for static assets
   if (url.includes('/css/') || url.includes('/js/') ||
       url.includes('/assets/') || url.includes('/lang/')) {
     event.respondWith(
@@ -79,5 +79,5 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Everything else (HTML pages) — network only, no caching
+  // HTML pages — network only, no caching
 });

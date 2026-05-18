@@ -10,13 +10,11 @@
     'use strict';
 
     // ── BASE_PATH auto-detection ──────────────────────────────────────────────
-    // Works at any deployment path — zero hardcoding in HTML.
     var BASE_PATH = (function() {
         var src = '';
         if (document.currentScript && document.currentScript.src) {
             src = document.currentScript.src;
         } else {
-            // Deferred script: find ourselves by filename
             var scripts = document.querySelectorAll('script[src]');
             for (var i = 0; i < scripts.length; i++) {
                 if (scripts[i].src.indexOf('/js/site-boot.js') !== -1 ||
@@ -26,13 +24,12 @@
                 }
             }
         }
-        // src is absolute: https://example.com/sandbox/js/site-boot.js
         var idx = src.indexOf('/js/site-boot.js');
         if (idx === -1) return '/';
         var abs = src.slice(0, idx + 1);
         var a = document.createElement('a');
         a.href = abs;
-        return a.pathname; // e.g. /sandbox/ or /
+        return a.pathname;
     })();
     window.__BASE_PATH__ = BASE_PATH;
 
@@ -116,7 +113,7 @@
         window.__PAGE_SLUG__ = '';
     }
 
-    // ── Countries cache init from localStorage (FIX #5/#8) ───────────────────
+    // ── Countries cache init from localStorage ────────────────────────────────
     (function initCountriesCache() {
         try {
             var cached    = localStorage.getItem('dornori-countries-cache');
@@ -128,7 +125,7 @@
         } catch (e) {}
     })();
 
-    // ── Dependency-aware script loader (FIX #6) ───────────────────────────────
+    // ── Dependency-aware script loader ────────────────────────────────────────
     function loadScriptsWithDeps(scripts) {
         var promises  = {};
         var scriptMap = {};
@@ -167,17 +164,132 @@
         injectLogoSrc();
     }
 
+
+    // ── Page skeleton ─────────────────────────────────────────────────────────
+    // Full-viewport CSS-only layout approximation shown while JS boots.
+    // Fades out and removes itself once loadHome() fires home:ready.
+    (function injectSkeleton() {
+        var skel = document.createElement('div');
+        skel.id  = 'page-skeleton';
+        skel.innerHTML = [
+            // header bar
+            '<div class="sk-header">',
+                '<div class="sk-logo"></div>',
+            '</div>',
+            // hero block (video proportions ~56vw tall)
+            '<div class="sk-hero"><div class="sk-hero-inner"></div></div>',
+            // stats strip
+            '<div class="sk-stats">',
+                '<div class="sk-stat"></div><div class="sk-stat"></div><div class="sk-stat"></div>',
+                '<div class="sk-stat"></div><div class="sk-stat"></div>',
+            '</div>',
+            // section label + title
+            '<div class="sk-section-head">',
+                '<div class="sk-line sk-line--sm"></div>',
+                '<div class="sk-line sk-line--lg"></div>',
+                '<div class="sk-line sk-line--md"></div>',
+            '</div>',
+            // 3 cards
+            '<div class="sk-cards">',
+                '<div class="sk-card"><div class="sk-card-img"></div><div class="sk-card-body"><div class="sk-line sk-line--sm"></div><div class="sk-line sk-line--lg"></div><div class="sk-line sk-line--md"></div></div></div>',
+                '<div class="sk-card"><div class="sk-card-img"></div><div class="sk-card-body"><div class="sk-line sk-line--sm"></div><div class="sk-line sk-line--lg"></div><div class="sk-line sk-line--md"></div></div></div>',
+                '<div class="sk-card"><div class="sk-card-img"></div><div class="sk-card-body"><div class="sk-line sk-line--sm"></div><div class="sk-line sk-line--lg"></div><div class="sk-line sk-line--md"></div></div></div>',
+            '</div>',
+            // 4 USP blocks
+            '<div class="sk-usps">',
+                '<div class="sk-usp"><div class="sk-usp-icon"></div><div class="sk-line sk-line--md"></div><div class="sk-line sk-line--sm"></div></div>',
+                '<div class="sk-usp"><div class="sk-usp-icon"></div><div class="sk-line sk-line--md"></div><div class="sk-line sk-line--sm"></div></div>',
+                '<div class="sk-usp"><div class="sk-usp-icon"></div><div class="sk-line sk-line--md"></div><div class="sk-line sk-line--sm"></div></div>',
+                '<div class="sk-usp"><div class="sk-usp-icon"></div><div class="sk-line sk-line--md"></div><div class="sk-line sk-line--sm"></div></div>',
+            '</div>',
+            // lifestyle photo strip
+            '<div class="sk-photos">',
+                '<div class="sk-photo"></div><div class="sk-photo"></div>',
+                '<div class="sk-photo"></div><div class="sk-photo"></div>',
+            '</div>',
+        ].join('');
+
+        var style = document.createElement('style');
+        style.id  = 'sk-styles';
+        style.textContent = [
+            '@keyframes sk-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}',
+            '#page-skeleton{',
+                'position:fixed;inset:0;z-index:9999;',
+                'background:#1a3a2a;',
+                'overflow-y:auto;overflow-x:hidden;',
+                'opacity:1;transition:opacity 0.4s ease;',
+                'padding-bottom:60px;',
+            '}',
+            '#page-skeleton.sk-fade{opacity:0;pointer-events:none;}',
+            '.sk-shimmer{',
+                'background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(168,213,181,.18) 50%,rgba(255,255,255,.06) 75%);',
+                'background-size:200% 100%;',
+                'animation:sk-shimmer 1.8s ease-in-out infinite;',
+                'border-radius:6px;',
+            '}',
+            // header
+            '.sk-header{height:60px;background:#112b1e;display:flex;align-items:center;padding:0 clamp(16px,5vw,80px);margin-bottom:24px;}',
+            '.sk-logo{width:120px;height:32px;}',
+            '.sk-logo{background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(168,213,181,.18) 50%,rgba(255,255,255,.06) 75%);background-size:200% 100%;animation:sk-shimmer 1.8s ease-in-out infinite;border-radius:6px;}',
+            // hero
+            '.sk-hero{padding:0 clamp(16px,5vw,80px);margin-bottom:2rem;}',
+            '.sk-hero-inner{width:100%;aspect-ratio:16/7;border-radius:24px;background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(168,213,181,.18) 50%,rgba(255,255,255,.06) 75%);background-size:200% 100%;animation:sk-shimmer 1.8s ease-in-out infinite;}',
+            // stats
+            '.sk-stats{display:flex;gap:12px;padding:0 clamp(16px,5vw,80px);margin-bottom:2.5rem;flex-wrap:wrap;}',
+            '.sk-stat{flex:1;min-width:80px;height:56px;background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(168,213,181,.18) 50%,rgba(255,255,255,.06) 75%);background-size:200% 100%;animation:sk-shimmer 1.8s ease-in-out infinite;border-radius:8px;}',
+            // section head
+            '.sk-section-head{padding:0 clamp(16px,5vw,80px);margin-bottom:2rem;display:flex;flex-direction:column;align-items:center;gap:10px;}',
+            '.sk-line{height:12px;border-radius:6px;background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(168,213,181,.18) 50%,rgba(255,255,255,.06) 75%);background-size:200% 100%;animation:sk-shimmer 1.8s ease-in-out infinite;}',
+            '.sk-line--sm{width:120px;height:10px;}',
+            '.sk-line--md{width:220px;}',
+            '.sk-line--lg{width:340px;height:18px;}',
+            // cards
+            '.sk-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:0 clamp(16px,5vw,80px);margin-bottom:2.5rem;}',
+            '@media(max-width:700px){.sk-cards{grid-template-columns:1fr;}}',
+            '.sk-card{border-radius:16px;overflow:hidden;background:rgba(255,255,255,.04);}',
+            '.sk-card-img{aspect-ratio:4/3;background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(168,213,181,.18) 50%,rgba(255,255,255,.06) 75%);background-size:200% 100%;animation:sk-shimmer 1.8s ease-in-out infinite;}',
+            '.sk-card-body{padding:16px;display:flex;flex-direction:column;gap:10px;}',
+            // usps
+            '.sk-usps{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;padding:0 clamp(16px,5vw,80px);margin-bottom:2.5rem;}',
+            '@media(max-width:700px){.sk-usps{grid-template-columns:1fr 1fr;}}',
+            '.sk-usp{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:20px;background:rgba(255,255,255,.04);border-radius:12px;}',
+            '.sk-usp-icon{width:36px;height:36px;border-radius:50%;background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(168,213,181,.18) 50%,rgba(255,255,255,.06) 75%);background-size:200% 100%;animation:sk-shimmer 1.8s ease-in-out infinite;}',
+            // photos
+            '.sk-photos{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:0 clamp(16px,5vw,80px);}',
+            '@media(max-width:700px){.sk-photos{grid-template-columns:1fr 1fr;}}',
+            '.sk-photo{aspect-ratio:4/3;border-radius:12px;background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(168,213,181,.18) 50%,rgba(255,255,255,.06) 75%);background-size:200% 100%;animation:sk-shimmer 1.8s ease-in-out infinite;}',
+        ].join('');
+
+        document.head.appendChild(style);
+        document.body ? document.body.appendChild(skel) : document.addEventListener('DOMContentLoaded', function() { document.body.appendChild(skel); });
+
+        // Remove skeleton once real home content is ready
+        function removeSkeleton() {
+            var el = document.getElementById('page-skeleton');
+            if (!el) return;
+            el.classList.add('sk-fade');
+            setTimeout(function() {
+                el.remove();
+                var st = document.getElementById('sk-styles');
+                if (st) st.remove();
+            }, 420);
+        }
+
+        document.addEventListener('home:ready', removeSkeleton, { once: true });
+        // Fallback: remove after 6s no matter what
+        setTimeout(removeSkeleton, 6000);
+    })();
+
     // ── Boot sequence ─────────────────────────────────────────────────────────
-    document.addEventListener('DOMContentLoaded', function () {
-        loadScriptsWithDeps([
-            // Chain: config -> lang-bridge -> shop-init (sequential dependencies)
-            { id: 'cfg',  src: 'js/shop-config.js' },
-            { id: 'lang', src: 'js/lang-bridge.js', deps: ['cfg'] },
-            { id: 'shop', src: 'js/shop-init.js',   deps: ['lang'] },
-            // Parallel: independent of shop chain
-            { id: 'main', src: 'js/site-main.js', module: true },
-            { id: 'geo',  src: 'js/geo-popup.js',  module: true },
-        ]);
-    });
+    // shop-config.js and lang-bridge.js need no DOM — start immediately.
+    // shop-init.js only touches DOM after webshop:ready fires.
+    // site-main.js and geo-popup.js handle their own DOM readiness.
+    loadScriptsWithDeps([
+        { id: 'cfg',  src: 'js/shop-config.js' },
+        { id: 'lang', src: 'js/lang-bridge.js', deps: ['cfg'] },
+        { id: 'shop', src: 'js/shop-init.js',   deps: ['lang'] },
+        { id: 'main', src: 'js/site-main.js',   module: true },
+        { id: 'geo',  src: 'js/geo-popup.js',   module: true },
+    ]);
 
 })();
