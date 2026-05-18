@@ -10,11 +10,13 @@
     'use strict';
 
     // ── BASE_PATH auto-detection ──────────────────────────────────────────────
+    // Works at any deployment path — zero hardcoding in HTML.
     var BASE_PATH = (function() {
         var src = '';
         if (document.currentScript && document.currentScript.src) {
             src = document.currentScript.src;
         } else {
+            // Deferred script: find ourselves by filename
             var scripts = document.querySelectorAll('script[src]');
             for (var i = 0; i < scripts.length; i++) {
                 if (scripts[i].src.indexOf('/js/site-boot.js') !== -1 ||
@@ -24,12 +26,13 @@
                 }
             }
         }
+        // src is absolute: https://example.com/sandbox/js/site-boot.js
         var idx = src.indexOf('/js/site-boot.js');
         if (idx === -1) return '/';
         var abs = src.slice(0, idx + 1);
         var a = document.createElement('a');
         a.href = abs;
-        return a.pathname;
+        return a.pathname; // e.g. /sandbox/ or /
     })();
     window.__BASE_PATH__ = BASE_PATH;
 
@@ -113,7 +116,7 @@
         window.__PAGE_SLUG__ = '';
     }
 
-    // ── Countries cache init from localStorage ────────────────────────────────
+    // ── Countries cache init from localStorage (FIX #5/#8) ───────────────────
     (function initCountriesCache() {
         try {
             var cached    = localStorage.getItem('dornori-countries-cache');
@@ -125,74 +128,7 @@
         } catch (e) {}
     })();
 
-    // ── Nav skeleton ─────────────────────────────────────────────────────────
-    // Renders immediately — replaced by real nav once site-main.js initialises.
-    (function injectNavSkeleton() {
-        var NAV_ITEMS = 6; // matches SITE_CONFIG.navigation enabled count
-
-        function shimmer(w, h, r) {
-            return '<div class="skel-item" style="width:' + w + ';height:' + h + 'px;border-radius:' + (r || 6) + 'px"></div>';
-        }
-
-        // Desktop nav skeleton
-        var desktopNav = document.querySelector('.top-nav');
-        if (desktopNav && !desktopNav.querySelector('.skel-item')) {
-            var desktopHTML = '';
-            for (var i = 0; i < NAV_ITEMS; i++) {
-                desktopHTML += '<div class="skel-nav-item">' +
-                    shimmer('32px', 32, 50) +
-                    shimmer('48px', 10) +
-                '</div>';
-            }
-            desktopNav.innerHTML = desktopHTML;
-        }
-
-        // Mobile nav skeleton
-        var mobileNav = document.getElementById('mobile-nav');
-        if (mobileNav && !mobileNav.querySelector('.skel-item')) {
-            var mobileHTML = '';
-            for (var j = 0; j < NAV_ITEMS; j++) {
-                mobileHTML += '<div class="skel-mobile-nav-item">' +
-                    shimmer('28px', 28, 50) +
-                    shimmer('44px', 9) +
-                '</div>';
-            }
-            mobileNav.innerHTML = mobileHTML;
-        }
-
-        // Inject skeleton styles once
-        if (!document.getElementById('skel-styles')) {
-            var s = document.createElement('style');
-            s.id  = 'skel-styles';
-            s.textContent = [
-                '@keyframes skel-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}',
-                '.skel-item{',
-                '  background:linear-gradient(90deg,var(--border,rgba(255,255,255,.1)) 25%,rgba(255,255,255,.18) 50%,var(--border,rgba(255,255,255,.1)) 75%);',
-                '  background-size:200% 100%;',
-                '  animation:skel-shimmer 1.6s ease-in-out infinite;',
-                '  flex-shrink:0;',
-                '}',
-                '.skel-nav-item{display:flex;flex-direction:column;align-items:center;gap:5px;padding:0 8px;}',
-                '.skel-mobile-nav-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 10px;}',
-            ].join('');
-            document.head.appendChild(s);
-        }
-    })();
-
-    // ── Logo src injection ────────────────────────────────────────────────────
-    function injectLogoSrc() {
-        var logoEl = document.getElementById('banner-img');
-        if (logoEl && !logoEl.getAttribute('src')) {
-            logoEl.src = BASE_PATH + 'assets/images/dornori-logo-transparent.webp';
-        }
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', injectLogoSrc);
-    } else {
-        injectLogoSrc();
-    }
-
-    // ── Dependency-aware script loader ────────────────────────────────────────
+    // ── Dependency-aware script loader (FIX #6) ───────────────────────────────
     function loadScriptsWithDeps(scripts) {
         var promises  = {};
         var scriptMap = {};
@@ -218,16 +154,30 @@
         scripts.forEach(function(s) { load(s.id); });
     }
 
+    // ── Logo src injection ────────────────────────────────────────────────────
+    function injectLogoSrc() {
+        var logoEl = document.getElementById('banner-img');
+        if (logoEl && !logoEl.getAttribute('src')) {
+            logoEl.src = BASE_PATH + 'assets/images/dornori-logo-transparent.webp';
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', injectLogoSrc);
+    } else {
+        injectLogoSrc();
+    }
+
     // ── Boot sequence ─────────────────────────────────────────────────────────
-    // shop-config.js and lang-bridge.js need no DOM — start immediately.
-    // shop-init.js only touches the DOM after webshop:ready fires internally.
-    // site-main.js and geo-popup.js handle their own DOM readiness.
-    loadScriptsWithDeps([
-        { id: 'cfg',  src: 'js/shop-config.js' },
-        { id: 'lang', src: 'js/lang-bridge.js', deps: ['cfg'] },
-        { id: 'shop', src: 'js/shop-init.js',   deps: ['lang'] },
-        { id: 'main', src: 'js/site-main.js',   module: true },
-        { id: 'geo',  src: 'js/geo-popup.js',   module: true },
-    ]);
+    document.addEventListener('DOMContentLoaded', function () {
+        loadScriptsWithDeps([
+            // Chain: config -> lang-bridge -> shop-init (sequential dependencies)
+            { id: 'cfg',  src: 'js/shop-config.js' },
+            { id: 'lang', src: 'js/lang-bridge.js', deps: ['cfg'] },
+            { id: 'shop', src: 'js/shop-init.js',   deps: ['lang'] },
+            // Parallel: independent of shop chain
+            { id: 'main', src: 'js/site-main.js', module: true },
+            { id: 'geo',  src: 'js/geo-popup.js',  module: true },
+        ]);
+    });
 
 })();
