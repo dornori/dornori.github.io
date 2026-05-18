@@ -534,18 +534,18 @@ var Shop = (() => {
     return null;
   }
 
-  function buildRelatedStrip(product, context = "card") {
+  function buildRelatedStrip(product, context = "card", options = {}) {
     /* Check display flags - control what to show
-     * showAddons: true/false (default true) - show addons section
-     * showRelated: true/false (default true) - show related products section
+     * options.showAddons: true/false (default false) - show addons section
+     * options.showRelated: true/false (default false) - show related products section
      * 
      * Examples:
      * 1. Just product with variants (no addons/related): showAddons: false, showRelated: false
      * 2. Product, variants and addons: showAddons: true, showRelated: false
      * 3. Product and related: showAddons: false, showRelated: true
      */
-    const showAddons = product.showAddons !== false;
-    const showRelated = product.showRelated !== false;
+    const showAddons = options.showAddons === true;
+    const showRelated = options.showRelated === true;
     
     /* Determine which items to display based on flags */
     let ids = null;
@@ -580,8 +580,10 @@ var Shop = (() => {
       </div>`;
   }
 
-  function wireRelatedStrip(container, product) {
-    const ids = product.addons || product.related;
+  function wireRelatedStrip(container, product, options = {}) {
+    const ids = (options.showAddons && product.addons?.length) ? product.addons
+              : (options.showRelated && product.related?.length) ? product.related
+              : null;
     if (!ids?.length) return;
     container.querySelectorAll(".webshop-related__add").forEach(btn => {
       btn.addEventListener("click", e => {
@@ -598,10 +600,11 @@ var Shop = (() => {
      PRODUCT CARD
   ═══════════════════════════════════════════════════════ */
   function buildProductCard(p, options = {}) {
-    // Options: { showVariants: true/false, showRelated: true/false }
+    // Options: { showVariants: true/false, showRelated: true/false, showAddons: true/false }
     // Defaults: all false (minimal card with just main product)
     const showVariants = options.showVariants === true;
     const showRelated = options.showRelated === true;
+    const showAddons = options.showAddons === true;
     
     const hasVariants  = p.variants?.length > 0 && showVariants;
     // Default display uses the product itself (not first variant)
@@ -661,11 +664,14 @@ var Shop = (() => {
         <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>
-        ${showRelated ? buildRelatedStrip(p, "card") : ""}
+        <a class="webshop-card-buynow webshop-btn webshop-btn--outline webshop-btn--full" href="${prodUrl}" ${inStock?"":"style=\"pointer-events:none;opacity:.5;\""}>
+          ${t("buy_now","Buy Now")}
+        </a>
+        ${(showRelated || showAddons) ? buildRelatedStrip(p, "card", options) : ""}
       </div>`;
   }
 
-  function wireProductCard(card, p) {
+  function wireProductCard(card, p, options = {}) {
     let qty = 1;
     const hasVariants = p.variants?.length > 0;
 
@@ -769,7 +775,7 @@ var Shop = (() => {
       const itemName = evid ? variantLabel(p, evid) : (p.label || p.id);
       toast(`${itemName} ${t("added","added to cart")}`);
     });
-    wireRelatedStrip(card, p);
+    wireRelatedStrip(card, p, options);
   }
 
   /* ═══════════════════════════════════════════════════════
@@ -933,7 +939,7 @@ var Shop = (() => {
             </div>
             <button id="pinfo-atc-${productId}" class="webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>${t("add_to_cart","Add to Cart")}</button>
             <a class="webshop-btn webshop-btn--outline webshop-btn--full" href="${(typeof window !== 'undefined' && window.__CART_URL__) || 'cart/'}" style="margin-top:10px;display:flex;align-items:center;justify-content:center;">${t("view_cart","View Cart")}</a>
-            ${buildRelatedStrip(p,"info")}
+            ${buildRelatedStrip(p,"info", { showAddons: !!(p.addons?.length), showRelated: !!(p.related?.length) })}
           </div>
         </div>
         <div class="webshop-product-info-section">
@@ -1065,7 +1071,7 @@ var Shop = (() => {
       container.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid=effectiveVid(); const max=evid?variantStock(p,evid):(p.stock||99); qty=Math.min(qty+1,max||99); qv.textContent=qty; });
       container.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty=Math.max(1,qty-1); qv.textContent=qty; });
       atcBtn?.addEventListener("click", () => { const evid=effectiveVid(); addToCart(p,qty,evid,selectedColor,mainImg?.src||null); const itemName=evid?(getVariant(p,evid)?.label||evid):(p.label||p.id); toast(`${itemName} ${t("added","added to cart")}`); });
-      wireRelatedStrip(container, p);
+      wireRelatedStrip(container, p, { showAddons: !!(p.addons?.length), showRelated: !!(p.related?.length) });
     }
     build();
     document.addEventListener("shop:langChanged", async () => {
