@@ -168,17 +168,16 @@ var Shop = (() => {
     const vKey = (variantId && !cartBase.match(/^mushroom-|^ufo-|^star-/)) ? variantId : (selectedColor || "");
     const key = cartBase + (vKey ? "_" + slugify(vKey) : "");
     const existing = cart.find(i => i.cartKey === key);
-    const rawPrice      = variantId ? variantPrice(product, variantId)    : product.price;
-    const discount      = variantId ? variantDiscount(product, variantId) : (product.discount || 0);
-    const price         = discount > 0 ? rawPrice * (1 - discount / 100) : rawPrice;
-    const originalPrice = discount > 0 ? rawPrice : null;
+    const rawPrice   = variantId ? variantPrice(product, variantId)    : product.price;
+    const discount   = variantId ? variantDiscount(product, variantId) : (product.discount || 0);
+    const price      = discount > 0 ? rawPrice * (1 - discount / 100) : rawPrice;
     const weight = variantId ? variantWeight(product, variantId) : (product.weight || 0);
     const image  = imageOverride || (variantId ? variantImage(product, variantId) : selectedColor ? colorImageSrc(product, selectedColor) : product.image);
     const label  = variantId ? variantLabel(product, variantId) : selectedColor;
     const maxQty = variantId ? variantStock(product, variantId) : (product.stock || 99);
     const resolvedName = pName(product) || product.name || product.id;
     if (existing) { existing.qty = Math.min(existing.qty + qty, maxQty || 99); }
-    else cart.push({ ...product, name: resolvedName, cartKey: key, qty, price, originalPrice, discount, weight, image, selectedColor: label, variantId });
+    else cart.push({ ...product, name: resolvedName, cartKey: key, qty, price, weight, image, selectedColor: label, variantId });
     saveCart(cart); return cart;
   }
   function removeFromCart(cartKey) { saveCart(getCart().filter(i => i.cartKey !== cartKey)); }
@@ -488,14 +487,13 @@ var Shop = (() => {
                   <div class="webshop-cart-hover-panel__info">
                     <span class="webshop-cart-hover-panel__name">${item.name}</span>
                     ${(item.selectedColor || item.label) ? `<span class="webshop-cart-hover-panel__name" style="font-size:.8em;opacity:.7;">${item.selectedColor || item.label}</span>` : ""}
-                    <span class="webshop-cart-hover-panel__qty">${item.qty} × ${fmt(item.price)}${item.originalPrice ? ` <s style="opacity:.5;font-size:.85em;">${fmt(item.originalPrice)}</s> <span style="color:#cc0c39;font-size:.75em;font-weight:600;">-${item.discount}%</span>` : ""}</span>
+                    <span class="webshop-cart-hover-panel__qty">${item.qty} × ${fmt(item.price)}</span>
                   </div>
                 </a>
                 <button class="webshop-cart-hover-panel__remove" data-key="${item.cartKey}" aria-label="${t("remove","Remove")}">✕</button>
               </li>`).join("")}
           </ul>
           <div class="webshop-cart-hover-panel__footer">
-            ${(() => { const s = cart.reduce((a,i) => a + (i.originalPrice ? (i.originalPrice - i.price) * i.qty : 0), 0); return s > 0 ? `<div class="webshop-cart-hover-panel__totals" style="color:#cc0c39;font-weight:600;"><span>${t("you_save","You save")}</span><span>-${fmt(s)}</span></div>` : ""; })()}
             <div class="webshop-cart-hover-panel__totals">
               <span>${t("subtotal","Subtotal")}</span><span>${fmt(subtotal)}</span>
             </div>
