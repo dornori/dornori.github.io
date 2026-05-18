@@ -1,10 +1,20 @@
-const CACHE_NAME = 'dornori-v1';
+const CACHE_NAME = 'dornori-v2';
 const URLS_TO_CACHE = [
   '/en/',
   '/css/main.css',
   '/css/shop.css',
   '/css/shop-bridge.css',
   '/css/profiles.css',
+  '/css/integration.css',
+  '/css/about.css',
+  '/css/built.css',
+  '/css/gallery.css',
+  '/css/home.css',
+  '/css/kit.css',
+  '/css/parts.css',
+  '/css/product.css',
+  '/css/success.css',
+  '/css/support.css',
   '/data/products.json',
   '/data/countries.json',
   '/data/shipping.json',
