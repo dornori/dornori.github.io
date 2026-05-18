@@ -440,11 +440,14 @@
       return allProducts.find(p => p.id === id) || null;
     }
 
+    /* ── resolve variant IDs (strings) to full product objects ── */
+    const resolvedVariants = (PRODUCT.variants || []).map(v => resolveById(typeof v === 'string' ? v : v.id)).filter(Boolean);
+
     /* ── update page title ── */
     document.title = "WEBSHOP – " + Shop.pName(PRODUCT);
 
     /* ── state ── */
-    let selectedVariant = PRODUCT.variants?.[0]?.id || null;
+    let selectedVariant = resolvedVariants[0]?.id || null;
     let qty = 1;
     let currentImgIdx = 0;
 
@@ -472,7 +475,7 @@
       if (lb && lb.classList.contains("open")) {
         const priceEl = document.querySelector("#lb-details .pdp-price");
         if (priceEl) {
-          const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
+          const v = resolvedVariants.find(v => v.id === selectedVariant);
           priceEl.textContent = fmt(v ? v.price : PRODUCT.price);
         }
       }
@@ -559,7 +562,7 @@
     function fmt(n) { return (typeof Shop !== "undefined" && Shop.fmt) ? Shop.fmt(n) : "€" + n.toFixed(2); }
 
     function updatePrice() {
-      const variants = PRODUCT._allVariants || PRODUCT.variants || [];
+      const variants = resolvedVariants;
       const v = variants.find(v => v.id === selectedVariant);
       const basePrice = v ? v.price : PRODUCT.price;
       const discountPercent = PRODUCT.discount || 0;
@@ -592,7 +595,7 @@
       if (wrap) wrap.style.display = "";
 
       const selfEntry = { id: PRODUCT.id, label: PRODUCT.name || PRODUCT.label || Shop.pName(PRODUCT) || PRODUCT.id, price: PRODUCT.price, stock: PRODUCT.stock, image: PRODUCT.image };
-      const allVariants = [selfEntry, ...PRODUCT.variants];
+      const allVariants = [selfEntry, ...resolvedVariants];
 
       el.innerHTML = allVariants.map(v =>
         `<button class="amz-variant-btn${v.id === selectedVariant ? " active" : ""}" data-vid="${v.id}">${v.label}</button>`
@@ -935,7 +938,7 @@
               }
             });
           });
-          const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
+          const v = resolvedVariants.find(v => v.id === selectedVariant);
           const perksHtml = ["perk_free_shipping","perk_returns","perk_warranty"].map((k, i) =>
             `<span>${Shop.t(k) || ["Free shipping over €150","30-day returns","2-year warranty"][i]}</span>`
           ).join("");
@@ -1032,12 +1035,12 @@
         if (qty > 1) { qty--; qtyInput.value = qty; }
       });
       document.getElementById("qty-plus").addEventListener("click", () => {
-        const v     = PRODUCT.variants?.find(v => v.id === selectedVariant);
+        const v     = resolvedVariants.find(v => v.id === selectedVariant);
         const stock = v?.stock ?? PRODUCT.stock ?? 99;
         if (qty < stock) { qty++; qtyInput.value = qty; }
       });
       qtyInput.addEventListener("change", () => {
-        const v     = PRODUCT.variants?.find(v => v.id === selectedVariant);
+        const v     = resolvedVariants.find(v => v.id === selectedVariant);
         const stock = v?.stock ?? PRODUCT.stock ?? 99;
         qty = Math.max(1, Math.min(parseInt(qtyInput.value) || 1, stock));
         qtyInput.value = qty;
@@ -1046,14 +1049,14 @@
 
     function initAtc() {
       document.getElementById("atc-btn").addEventListener("click", () => {
-        const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
+        const v = resolvedVariants.find(v => v.id === selectedVariant);
         Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
         Shop.toast(`${v ? v.label : (PRODUCT.label || PRODUCT.id)} ${Shop.t("added", "added to cart")}`);
       });
       const buyBtn = document.getElementById("buy-now-btn");
       if (buyBtn) {
         buyBtn.addEventListener("click", () => {
-          const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
+          const v = resolvedVariants.find(v => v.id === selectedVariant);
           Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
           const lang     = window.LANG || localStorage.getItem("dornori-lang") || "en";
           const basePath = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || "/";
@@ -1091,7 +1094,7 @@
       }).join("");
 
       /* bundle pricing */
-      const mainPrice    = PRODUCT.variants?.[0]?.price ?? PRODUCT.price;
+      const mainPrice    = resolvedVariants[0]?.price ?? PRODUCT.price;
       const addonsTotal  = bundleProducts.reduce((s, p) => s + p.price, 0);
       const fullTotal    = mainPrice + addonsTotal;
       const discount     = PRODUCT.bundleDiscount || 0;
@@ -1105,7 +1108,7 @@
       }
 
       document.getElementById("bundle-add-all").onclick = () => {
-        const v = PRODUCT.variants?.find(v => v.id === selectedVariant);
+        const v = resolvedVariants.find(v => v.id === selectedVariant);
         Shop.addToCart(PRODUCT, 1, selectedVariant, null, v?.image || PRODUCT.image);
         bundleProducts.forEach(item => Shop.addToCart(item, 1, null, null, item.image));
         Shop.toast(`${Shop.pName(PRODUCT)} + ${Shop.t("bundle_added","bundle added to cart")}`);

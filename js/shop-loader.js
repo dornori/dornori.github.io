@@ -136,8 +136,9 @@ export async function mountShopEmbeds(container) {
       if (!product) return;
 
       // Clone product if we need to preselect a variant (show only that variant)
+      // Variants are now ID strings, not objects
       if (preselectedVariantId && product.variants) {
-        const variant = product.variants.find(v => v.id === preselectedVariantId);
+        const variant = product.variants.find(v => v === preselectedVariantId);
         if (variant) {
           product = { ...product, variants: [variant] };
         }
