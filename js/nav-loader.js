@@ -291,5 +291,9 @@ export function initNavigation() {
         });
     }
 
+    // Remove skeleton styles now that real nav is rendered
+    var skelStyles = document.getElementById('skel-styles');
+    if (skelStyles) skelStyles.remove();
+
     window.renderNav();
 }
