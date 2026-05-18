@@ -165,6 +165,7 @@
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 
     // ── Page skeleton ─────────────────────────────────────────────────────────
     // Full-viewport CSS-only layout approximation shown while JS boots.
@@ -282,6 +283,8 @@
         setTimeout(removeSkeleton, 4000);
     })();
 
+=======
+>>>>>>> parent of 751dfdb (skeleeton and load issue resolve)
 =======
 >>>>>>> parent of 751dfdb (skeleeton and load issue resolve)
 =======
