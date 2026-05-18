@@ -56,7 +56,7 @@ const SITE_CONFIG = {
         { slug: 'kit',    icon: 'building-kit-icon-200x200.svg',    type: 'standard', enabled: true  },
         { slug: 'parts',  icon: '3d-printer-icon-200x200.svg',      type: 'standard', enabled: true  },
         { slug: 'files',  icon: '3d-file-icon-200x200.svg',         type: 'standard', enabled: true  },
-        { slug: 'shop',   icon: 'shop-icon-200x200.svg',        			type: 'standard', enabled: true  },
+        { slug: 'shop',   icon: 'shop-icon-200x200.svg',            type: 'standard', enabled: true  },
     ],
 
     defaults: {
@@ -78,7 +78,7 @@ const SITE_CONFIG = {
         cookies:             { file: 'cookies.html'           },
         imprint:             { file: 'imprint.html'           },
         returns:             { file: 'returns.html'           },
-        contact:             { file: 'form.html'              },
+        contact:             { file: 'support.html'              },
         support:             { file: 'support.html'           },
         gallery:             { file: 'gallery.html'           },
         cart:                { file: 'cart.html'              },
@@ -86,15 +86,10 @@ const SITE_CONFIG = {
         product:             { file: 'product.html'           },
         success:             { file: 'success.html'           },
         'faq':               { file: 'faq.html'               },
-        'reviews':           { file: 'reviews.html'            },
+        'reviews':           { file: 'reviews.html'           },
         // Additional aliases kept for direct access
         'about-us':               { file: 'about-us.html'              },
-        'complete-assembly-kit':  { file: 'complete-assembly-kit.html' },
-        'electronics-bundle':     { file: 'electronics-bundle.html'    },
-        'pre-assembled-kit':      { file: 'pre-assembled-kit.html'     },
-        'pre-printed-parts-kit':  { file: 'pre-printed-parts-kit.html' },
         'form':                   { file: 'form.html'                  },
-        'replacement-parts':      { file: 'replacement-parts.html'     },
     },
 
     socials: [
@@ -112,18 +107,19 @@ const SITE_CONFIG = {
                 { slug: 'gallery',  enabled: true  },
                 { slug: 'about',    enabled: true  },
                 { slug: 'contact',  enabled: true  },
+                { slug: 'support',  enabled: true  },
             ]
         },
         {
             label: 'Legal',
             links: [
                 { slug: 'terms',    enabled: true  },
-                { slug: 'privacy',  enabled: false },
-                { slug: 'cookies',  enabled: false },
+                { slug: 'privacy',  enabled: true },
+                { slug: 'cookies',  enabled: true },
                 { slug: 'imprint',  enabled: true  },
                 { slug: 'returns',  enabled: false },
-                { slug: 'children', enabled: false },
-                { slug: 'security', enabled: false },
+                { slug: 'children', enabled: true },
+                { slug: 'security', enabled: true },
             ]
         }
     ],
