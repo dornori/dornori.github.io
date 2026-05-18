@@ -160,12 +160,6 @@
         }
     }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> parent of 040468f (test 1)
 
     // ── Page skeleton ─────────────────────────────────────────────────────────
     // Home pages get the full hero/stats/cards skeleton.
@@ -315,15 +309,6 @@
         setTimeout(removeSkeleton, 4000);
     })();
 
-<<<<<<< HEAD
-=======
->>>>>>> parent of 751dfdb (skeleeton and load issue resolve)
-=======
->>>>>>> parent of 751dfdb (skeleeton and load issue resolve)
-=======
->>>>>>> parent of 751dfdb (skeleeton and load issue resolve)
-=======
->>>>>>> parent of 040468f (test 1)
     // ── Boot sequence ─────────────────────────────────────────────────────────
     // shop-config.js and lang-bridge.js need no DOM — start immediately.
     // shop-init.js only touches DOM after webshop:ready fires.

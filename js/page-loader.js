@@ -252,23 +252,51 @@ export function initPageLoader() {
         pageView.classList.add('hidden');
         window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
         updateSEO('');
+        document.dispatchEvent(new CustomEvent('home:ready'));
     };
+
+    // ── SPINNER HELPERS ───────────────────────────────────────────────────────
+    function showSpinner() {
+        if (document.getElementById('page-loading-spinner')) return;
+        const el = document.createElement('div');
+        el.id = 'page-loading-spinner';
+        el.innerHTML = '<div class="page-spinner"></div>';
+        pageContent.innerHTML = '';
+        homeView.classList.add('hidden');
+        pageView.classList.remove('hidden');
+        pageContent.appendChild(el);
+    }
+
+    function removeSpinner() {
+        const el = document.getElementById('page-loading-spinner');
+        if (el) el.remove();
+    }
+
+    if (!document.getElementById('spinner-styles')) {
+        const s = document.createElement('style');
+        s.id = 'spinner-styles';
+        s.textContent = '@keyframes page-spin{to{transform:rotate(360deg)}}' +
+            '#page-loading-spinner{display:flex;justify-content:center;align-items:center;min-height:40vh;}' +
+            '.page-spinner{width:36px;height:36px;border:3px solid var(--border,rgba(255,255,255,.15));' +
+            'border-top-color:var(--accent,#a8d5b5);border-radius:50%;animation:page-spin 0.7s linear infinite;}';
+        document.head.appendChild(s);
+    }
 
     // ── VIEW PAGE ────────────────────────────────────────────────────────────
     window.viewPage = async (slug, productId, fromPopstate = false) => {
         const page = SITE_CONFIG.pages[slug];
         if (!page) { if (ENV_CONFIG.DEBUG) console.error(`Page "${slug}" not found in config`); return; }
 
+        showSpinner();
+
         try {
             const res = await fetch(contentPath(page));
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
             const html = await res.text();
-            const spinner = document.getElementById('page-loading-spinner');
-            if (spinner) spinner.remove();
+            removeSpinner();
 
             pageContent.innerHTML = html;
-            // Make product ID available to the injected product.html script
             if (productId) window.__PRODUCT_ID__ = productId;
             rewriteContentPaths(pageContent);
             pageContent.querySelectorAll('script').forEach(orig => {
@@ -297,8 +325,7 @@ export function initPageLoader() {
         } catch (err) {
             if (ENV_CONFIG.DEBUG) console.error('Page load error:', err);
             const T = window.T?.ui || {};
-            const spinner = document.getElementById('page-loading-spinner');
-            if (spinner) spinner.remove();
+            removeSpinner();
             pageContent.innerHTML = `
                 <h1>${T.errorTitle || 'Error'}</h1>
                 <p>${T.errorMsg || 'Sorry, this content could not be loaded.'}</p>
