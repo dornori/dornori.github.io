@@ -597,8 +597,14 @@ var Shop = (() => {
   /* ═══════════════════════════════════════════════════════
      PRODUCT CARD
   ═══════════════════════════════════════════════════════ */
-  function buildProductCard(p) {
-    const hasVariants  = p.variants?.length > 0;
+  function buildProductCard(p, options = {}) {
+    // Options: { showVariants: true/false, showRelated: true/false, showBuyNow: true/false }
+    // Defaults: all false (minimal card with just main product)
+    const showVariants = options.showVariants === true;
+    const showRelated = options.showRelated === true;
+    const showBuyNow = options.showBuyNow === true;
+    
+    const hasVariants  = p.variants?.length > 0 && showVariants;
     // Default display uses the product itself (not first variant)
     const displayPrice = p.price;
     const discountPercent = p.discount || 0;
@@ -618,7 +624,7 @@ var Shop = (() => {
         const vLabel = vp.label || pName(vp) || vid;
         return `<button class="webshop-variant-btn${so?" soldout":""}" data-variant-id="${vid}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${vLabel}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
       }).join("")}</div>`;
-    } else if (p.colors?.length) {
+    } else if (p.colors?.length && showVariants) {
       const so = p.colors_soldout || [];
       selectorHtml = `<div class="webshop-colors">${p.colors.map((c,i) => {
         const s = so.includes(c);
@@ -656,7 +662,7 @@ var Shop = (() => {
         <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>
-        ${buildRelatedStrip(p, "card")}
+        ${showRelated ? buildRelatedStrip(p, "card") : ""}
       </div>`;
   }
 

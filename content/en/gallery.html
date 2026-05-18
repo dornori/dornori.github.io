@@ -360,26 +360,69 @@ Cutting Mat
 
 
   <!-- ══════════════════════════════════════════════
-       SECTION 5 — DATA-SHOP-PRODUCTS EMBED
-       (individual product cards via attribute)
+       SECTION 5 — DATA-SHOP-PRODUCTS EMBED WITH FLAGS
   ═══════════════════════════════════════════════ -->
   <div class="section-block">
     <div class="section-label">
-      <h2>5 — Inline Product Card Embeds</h2>
-      <code>data-shop-products="[product-id]"</code>
+      <h2>5 — Product Embeds with Feature Flags</h2>
+      <code>data-shop-products="[id]" [flags]</code>
     </div>
     <p class="section-desc">
-      Any element with <code>data-shop-products="[id]"</code> gets a product card injected via
-      <strong>Shop.buildProductCard()</strong> + <strong>Shop.wireProductCard()</strong>.
-      Useful for embedding individual products inside editorial content.
-      Special syntax: <code>data-shop-products="[variant-id]-preassembled"</code> preselects a specific variant.
+      Any element with <code>data-shop-products="[id]"</code> gets a product card injected.
+      By default, the card shows only the product image, name, price, and "Add to Cart" button.
+      Add feature flags to enable variants selection (<code>data-variants</code>) and related products
+      (<code>data-related</code>) strips. Useful for embedding individual products inside editorial content.
     </p>
-    <div class="component-frame">
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px;">
-        <!-- These three divs get cards injected by mountShopEmbeds() -->
-        <div class="webshop-product-card" data-shop-products="electronics-bundle"></div>
-        <div class="webshop-product-card" data-shop-products="batteries-3pack"></div>
-        <div class="webshop-product-card" data-shop-products="ufo-spaceblue-preassembled"></div>
+
+    <!-- Default card -->
+    <div style="margin-top: 24px;">
+      <h4 style="font-size: 11px; font-weight: 700; color: var(--accent); margin-bottom: 12px; letter-spacing: .12em; text-transform: uppercase;">
+        Default (Minimal)
+      </h4>
+      <div class="component-frame" style="max-width: 300px;">
+        <code style="display: block; margin-bottom: 12px; font-size: 11px; color: var(--text-muted); word-break: break-word;">
+          &lt;div data-shop-products="ufo-spaceblue"&gt;&lt;/div&gt;
+        </code>
+        <div class="webshop-product-card" data-shop-products="ufo-spaceblue"></div>
+      </div>
+    </div>
+
+    <!-- With variants -->
+    <div style="margin-top: 24px;">
+      <h4 style="font-size: 11px; font-weight: 700; color: var(--accent); margin-bottom: 12px; letter-spacing: .12em; text-transform: uppercase;">
+        With Variants (data-variants)
+      </h4>
+      <div class="component-frame" style="max-width: 300px;">
+        <code style="display: block; margin-bottom: 12px; font-size: 11px; color: var(--text-muted); word-break: break-word;">
+          &lt;div data-shop-products="pre-assembled" data-variants&gt;&lt;/div&gt;
+        </code>
+        <div class="webshop-product-card" data-shop-products="pre-assembled" data-variants></div>
+      </div>
+    </div>
+
+    <!-- With related -->
+    <div style="margin-top: 24px;">
+      <h4 style="font-size: 11px; font-weight: 700; color: var(--accent); margin-bottom: 12px; letter-spacing: .12em; text-transform: uppercase;">
+        With Related Products (data-related)
+      </h4>
+      <div class="component-frame" style="max-width: 300px;">
+        <code style="display: block; margin-bottom: 12px; font-size: 11px; color: var(--text-muted); word-break: break-word;">
+          &lt;div data-shop-products="electronics-bundle" data-related&gt;&lt;/div&gt;
+        </code>
+        <div class="webshop-product-card" data-shop-products="electronics-bundle" data-related></div>
+      </div>
+    </div>
+
+    <!-- Combined flags -->
+    <div style="margin-top: 24px;">
+      <h4 style="font-size: 11px; font-weight: 700; color: var(--accent); margin-bottom: 12px; letter-spacing: .12em; text-transform: uppercase;">
+        All Flags Combined
+      </h4>
+      <div class="component-frame" style="max-width: 300px;">
+        <code style="display: block; margin-bottom: 12px; font-size: 11px; color: var(--text-muted); word-break: break-word;">
+          &lt;div data-shop-products="pre-assembled" data-variants data-related&gt;&lt;/div&gt;
+        </code>
+        <div class="webshop-product-card" data-shop-products="pre-assembled" data-variants data-related></div>
       </div>
     </div>
   </div>
@@ -549,8 +592,15 @@ Cutting Mat
               }
             }
 
+            // Parse feature flags from data attributes
+            var options = {
+              showVariants: el.hasAttribute('data-variants') || el.getAttribute('data-variants') === '',
+              showRelated: el.hasAttribute('data-related') || el.getAttribute('data-related') === '',
+              showBuyNow: el.hasAttribute('data-buynow') || el.getAttribute('data-buynow') === ''
+            };
+
             // el is already the card; inject directly
-            el.innerHTML = Shop.buildProductCard(product);
+            el.innerHTML = Shop.buildProductCard(product, options);
             Shop.wireProductCard(el, product);
           });
         });
