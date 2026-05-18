@@ -375,7 +375,7 @@ var Shop = (() => {
       if (Currency.waitForReady) await Currency.waitForReady();
       const active = Currency.getActive();
       container.className = "profile-selector-wrap";
-      container.innerHTML = "CURRENCY " +
+      container.innerHTML = (Shop.t("ui.currency","Currency")).toUpperCase() + " " +
         `<select class="profile-select" aria-label="Currency">
           ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
         </select>`;
