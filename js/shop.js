@@ -545,41 +545,58 @@ var Shop = (() => {
      * 1. Just product with variants (no addons/related): showAddons: false, showRelated: false
      * 2. Product, variants and addons: showAddons: true, showRelated: false
      * 3. Product and related: showAddons: false, showRelated: true
+     * 4. Product with both addons and related: showAddons: true, showRelated: true
      */
     const showAddons = options.showAddons === true;
     const showRelated = options.showRelated === true;
     
-    /* Determine which items to display based on flags */
-    let ids = null;
-    let title = t("related_products", "You may also need");
+    let html = "";
     
+    /* Build addons section if requested and available */
     if (showAddons && product.addons?.length) {
-      ids = product.addons;
-      title = t("addons", "Add-ons");
-    } else if (showRelated && product.related?.length) {
-      ids = product.related;
-      title = t("related_products", "Related Products");
+      const addonItems = product.addons.map(_resolveRelated).filter(Boolean);
+      if (addonItems.length) {
+        html += `<div class="webshop-related${context === "info" ? " webshop-related--info" : ""}" data-section="addons">
+          <h4 class="webshop-related__title">${t("addons", "Add-ons")}</h4>
+          <div class="webshop-related__list">
+            ${addonItems.map(r => `
+              <div class="webshop-related__item" data-related-id="${r.id}" data-section="addons">
+                <img class="webshop-related__img" src="${r.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'}" alt="${pName(r)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
+                <div class="webshop-related__info">
+                  <span class="webshop-related__name">${pName(r)}</span>
+                  ${pDesc(r) ? `<span class="webshop-related__desc">${pDesc(r)}</span>` : ""}
+                  <span class="webshop-related__price">${fmt(r.price)}</span>
+                </div>
+                <button class="webshop-related__add webshop-btn webshop-btn--sm webshop-btn--outline" data-related-id="${r.id}">${t("add_to_cart", "Add")}</button>
+              </div>`).join("")}
+          </div>
+        </div>`;
+      }
     }
     
-    if (!ids?.length) return "";
-    const items = ids.map(_resolveRelated).filter(Boolean);
-    if (!items.length) return "";
+    /* Build related section if requested and available */
+    if (showRelated && product.related?.length) {
+      const relatedItems = product.related.map(_resolveRelated).filter(Boolean);
+      if (relatedItems.length) {
+        html += `<div class="webshop-related${context === "info" ? " webshop-related--info" : ""}" data-section="related">
+          <h4 class="webshop-related__title">${t("related_products", "Related Products")}</h4>
+          <div class="webshop-related__list">
+            ${relatedItems.map(r => `
+              <div class="webshop-related__item" data-related-id="${r.id}" data-section="related">
+                <img class="webshop-related__img" src="${r.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'}" alt="${pName(r)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2772%22 height=%2272%22/%3E%3C/svg%3E'">
+                <div class="webshop-related__info">
+                  <span class="webshop-related__name">${pName(r)}</span>
+                  ${pDesc(r) ? `<span class="webshop-related__desc">${pDesc(r)}</span>` : ""}
+                  <span class="webshop-related__price">${fmt(r.price)}</span>
+                </div>
+                <button class="webshop-related__add webshop-btn webshop-btn--sm webshop-btn--outline" data-related-id="${r.id}">${t("add_to_cart", "Add")}</button>
+              </div>`).join("")}
+          </div>
+        </div>`;
+      }
+    }
     
-    return `<div class="webshop-related${context === "info" ? " webshop-related--info" : ""}">
-        <h4 class="webshop-related__title">${title}</h4>
-        <div class="webshop-related__list">
-          ${items.map(r => `
-            <div class="webshop-related__item" data-related-id="${r.id}">
-              <img class="webshop-related__img" src="${r.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'}" alt="${pName(r)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
-              <div class="webshop-related__info">
-                <span class="webshop-related__name">${pName(r)}</span>
-                ${pDesc(r) ? `<span class="webshop-related__desc">${pDesc(r)}</span>` : ""}
-                <span class="webshop-related__price">${fmt(r.price)}</span>
-              </div>
-              <button class="webshop-related__add webshop-btn webshop-btn--sm webshop-btn--outline" data-related-id="${r.id}">${t("add_to_cart", "Add")}</button>
-            </div>`).join("")}
-        </div>
-      </div>`;
+    return html;
   }
 
   function wireRelatedStrip(container, product, options = {}) {
