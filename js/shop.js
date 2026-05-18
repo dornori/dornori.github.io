@@ -168,7 +168,9 @@ var Shop = (() => {
     const vKey = (variantId && !cartBase.match(/^mushroom-|^ufo-|^star-/)) ? variantId : (selectedColor || "");
     const key = cartBase + (vKey ? "_" + slugify(vKey) : "");
     const existing = cart.find(i => i.cartKey === key);
-    const price  = variantId ? variantPrice(product, variantId)  : product.price;
+    const rawPrice   = variantId ? variantPrice(product, variantId)    : product.price;
+    const discount   = variantId ? variantDiscount(product, variantId) : (product.discount || 0);
+    const price      = discount > 0 ? rawPrice * (1 - discount / 100) : rawPrice;
     const weight = variantId ? variantWeight(product, variantId) : (product.weight || 0);
     const image  = imageOverride || (variantId ? variantImage(product, variantId) : selectedColor ? colorImageSrc(product, selectedColor) : product.image);
     const label  = variantId ? variantLabel(product, variantId) : selectedColor;
