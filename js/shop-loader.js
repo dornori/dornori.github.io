@@ -147,8 +147,7 @@ export async function mountShopEmbeds(container) {
       // Parse feature flags from data attributes
       const options = {
         showVariants: el.hasAttribute('data-variants') || el.getAttribute('data-variants') === '',
-        showRelated: el.hasAttribute('data-related') || el.getAttribute('data-related') === '',
-        showBuyNow: el.hasAttribute('data-buynow') || el.getAttribute('data-buynow') === ''
+        showRelated: el.hasAttribute('data-related') || el.getAttribute('data-related') === ''
       };
 
       const card = document.createElement('div');

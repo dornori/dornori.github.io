@@ -598,11 +598,10 @@ var Shop = (() => {
      PRODUCT CARD
   ═══════════════════════════════════════════════════════ */
   function buildProductCard(p, options = {}) {
-    // Options: { showVariants: true/false, showRelated: true/false, showBuyNow: true/false }
+    // Options: { showVariants: true/false, showRelated: true/false }
     // Defaults: all false (minimal card with just main product)
     const showVariants = options.showVariants === true;
     const showRelated = options.showRelated === true;
-    const showBuyNow = options.showBuyNow === true;
     
     const hasVariants  = p.variants?.length > 0 && showVariants;
     // Default display uses the product itself (not first variant)
