@@ -32,8 +32,16 @@ var Currency = (() => {
 
   async function detectFromIP() {
     try {
+      // Use window.__geoData if already fetched this page load
       if (!window.__geoData) {
-        window.__geoData = await fetch(ENV_CONFIG.GEO_API).then(r => r.json());
+        // Try sessionStorage first to avoid hitting ipapi.co on every page
+        const cached = sessionStorage.getItem('dornori-geo');
+        if (cached) {
+          window.__geoData = JSON.parse(cached);
+        } else {
+          window.__geoData = await fetch(ENV_CONFIG.GEO_API).then(r => r.json());
+          sessionStorage.setItem('dornori-geo', JSON.stringify(window.__geoData));
+        }
       }
       const data = window.__geoData;
       if (data && data.currency && _currencies.find(c => c.code === data.currency)) {

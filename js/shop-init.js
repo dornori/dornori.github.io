@@ -113,28 +113,17 @@
             // FIX #7: Slot exists - render immediately (happy path with proper load order)
             Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl: _cartUrl(lang) });
         } else {
-            // Slot not yet created - site-main.js still loading
-            // Fallback: wait for slot creation with MutationObserver
-            // console.warn('[shop-init] mobile-cart-icon-slot not found; site-main.js may be delayed');
-            
+            // Slot not yet created — nav-loader.js still initialising.
+            // Wait for nav:ready event which nav-loader fires once the DOM is built.
             var capturedLang = lang;
-            var obs = new MutationObserver(function () {
+            function onNavReady() {
+                document.removeEventListener('nav:ready', onNavReady);
                 var s = document.getElementById('mobile-cart-icon-slot');
-                if (s) {
-                    obs.disconnect();
-                    if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
-                        Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl: _cartUrl(capturedLang) });
-                    }
+                if (s && typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
+                    Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl: _cartUrl(capturedLang) });
                 }
-            });
-            obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
-            
-            // FIX #7: Increased from 8s to 15s (this is now a fallback, not primary path)
-            // With proper load order, observer should disconnect quickly
-            setTimeout(function () { 
-                obs.disconnect();
-                console.warn('[shop-init] mobile-cart-icon-slot timeout after 15s - load order issue?');
-            }, 15000);
+            }
+            document.addEventListener('nav:ready', onNavReady);
         }
     }
 
