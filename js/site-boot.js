@@ -162,48 +162,72 @@
 
 
     // ── Page skeleton ─────────────────────────────────────────────────────────
-    // Full-viewport CSS-only layout approximation shown while JS boots.
-    // Fades out and removes itself once loadHome() fires home:ready.
+    // Home pages get the full hero/stats/cards skeleton.
+    // Sub-pages (any PAGE_SLUG that is set and non-empty and not 'home') get a
+    // simpler header-bar + content-block skeleton so the shapes don't mismatch.
+    // Fades out and removes itself once loadHome() (home) or page:ready (sub) fires.
     (function injectSkeleton() {
+        var isSubPage = window.__PAGE_SLUG__ && window.__PAGE_SLUG__ !== '' && window.__PAGE_SLUG__ !== 'home';
+
         var skel = document.createElement('div');
         skel.id  = 'page-skeleton';
-        skel.innerHTML = [
-            // header bar
-            '<div class="sk-header">',
-                '<div class="sk-logo"></div>',
-            '</div>',
-            // hero block (video proportions ~56vw tall)
-            '<div class="sk-hero"><div class="sk-hero-inner"></div></div>',
-            // stats strip
-            '<div class="sk-stats">',
-                '<div class="sk-stat"></div><div class="sk-stat"></div><div class="sk-stat"></div>',
-                '<div class="sk-stat"></div><div class="sk-stat"></div>',
-            '</div>',
-            // section label + title
-            '<div class="sk-section-head">',
-                '<div class="sk-line sk-line--sm"></div>',
-                '<div class="sk-line sk-line--lg"></div>',
-                '<div class="sk-line sk-line--md"></div>',
-            '</div>',
-            // 3 cards
-            '<div class="sk-cards">',
-                '<div class="sk-card"><div class="sk-card-img"></div><div class="sk-card-body"><div class="sk-line sk-line--sm"></div><div class="sk-line sk-line--lg"></div><div class="sk-line sk-line--md"></div></div></div>',
-                '<div class="sk-card"><div class="sk-card-img"></div><div class="sk-card-body"><div class="sk-line sk-line--sm"></div><div class="sk-line sk-line--lg"></div><div class="sk-line sk-line--md"></div></div></div>',
-                '<div class="sk-card"><div class="sk-card-img"></div><div class="sk-card-body"><div class="sk-line sk-line--sm"></div><div class="sk-line sk-line--lg"></div><div class="sk-line sk-line--md"></div></div></div>',
-            '</div>',
-            // 4 USP blocks
-            '<div class="sk-usps">',
-                '<div class="sk-usp"><div class="sk-usp-icon"></div><div class="sk-line sk-line--md"></div><div class="sk-line sk-line--sm"></div></div>',
-                '<div class="sk-usp"><div class="sk-usp-icon"></div><div class="sk-line sk-line--md"></div><div class="sk-line sk-line--sm"></div></div>',
-                '<div class="sk-usp"><div class="sk-usp-icon"></div><div class="sk-line sk-line--md"></div><div class="sk-line sk-line--sm"></div></div>',
-                '<div class="sk-usp"><div class="sk-usp-icon"></div><div class="sk-line sk-line--md"></div><div class="sk-line sk-line--sm"></div></div>',
-            '</div>',
-            // lifestyle photo strip
-            '<div class="sk-photos">',
-                '<div class="sk-photo"></div><div class="sk-photo"></div>',
-                '<div class="sk-photo"></div><div class="sk-photo"></div>',
-            '</div>',
-        ].join('');
+
+        if (isSubPage) {
+            // ── Generic sub-page skeleton ─────────────────────────────────────
+            skel.innerHTML = [
+                '<div class="sk-header">',
+                    '<div class="sk-logo"></div>',
+                '</div>',
+                '<div class="sk-subpage-wrap">',
+                    '<div class="sk-subpage-title"></div>',
+                    '<div class="sk-subpage-line sk-subpage-line--wide"></div>',
+                    '<div class="sk-subpage-line sk-subpage-line--mid"></div>',
+                    '<div class="sk-subpage-line sk-subpage-line--wide"></div>',
+                    '<div class="sk-subpage-line sk-subpage-line--narrow"></div>',
+                    '<div class="sk-subpage-line sk-subpage-line--wide"></div>',
+                    '<div class="sk-subpage-line sk-subpage-line--mid"></div>',
+                '</div>',
+            ].join('');
+        } else {
+            // ── Full home skeleton ────────────────────────────────────────────
+            skel.innerHTML = [
+                // header bar
+                '<div class="sk-header">',
+                    '<div class="sk-logo"></div>',
+                '</div>',
+                // hero block (video proportions ~56vw tall)
+                '<div class="sk-hero"><div class="sk-hero-inner"></div></div>',
+                // stats strip
+                '<div class="sk-stats">',
+                    '<div class="sk-stat"></div><div class="sk-stat"></div><div class="sk-stat"></div>',
+                    '<div class="sk-stat"></div><div class="sk-stat"></div>',
+                '</div>',
+                // section label + title
+                '<div class="sk-section-head">',
+                    '<div class="sk-line sk-line--sm"></div>',
+                    '<div class="sk-line sk-line--lg"></div>',
+                    '<div class="sk-line sk-line--md"></div>',
+                '</div>',
+                // 3 cards
+                '<div class="sk-cards">',
+                    '<div class="sk-card"><div class="sk-card-img"></div><div class="sk-card-body"><div class="sk-line sk-line--sm"></div><div class="sk-line sk-line--lg"></div><div class="sk-line sk-line--md"></div></div></div>',
+                    '<div class="sk-card"><div class="sk-card-img"></div><div class="sk-card-body"><div class="sk-line sk-line--sm"></div><div class="sk-line sk-line--lg"></div><div class="sk-line sk-line--md"></div></div></div>',
+                    '<div class="sk-card"><div class="sk-card-img"></div><div class="sk-card-body"><div class="sk-line sk-line--sm"></div><div class="sk-line sk-line--lg"></div><div class="sk-line sk-line--md"></div></div></div>',
+                '</div>',
+                // 4 USP blocks
+                '<div class="sk-usps">',
+                    '<div class="sk-usp"><div class="sk-usp-icon"></div><div class="sk-line sk-line--md"></div><div class="sk-line sk-line--sm"></div></div>',
+                    '<div class="sk-usp"><div class="sk-usp-icon"></div><div class="sk-line sk-line--md"></div><div class="sk-line sk-line--sm"></div></div>',
+                    '<div class="sk-usp"><div class="sk-usp-icon"></div><div class="sk-line sk-line--md"></div><div class="sk-line sk-line--sm"></div></div>',
+                    '<div class="sk-usp"><div class="sk-usp-icon"></div><div class="sk-line sk-line--md"></div><div class="sk-line sk-line--sm"></div></div>',
+                '</div>',
+                // lifestyle photo strip
+                '<div class="sk-photos">',
+                    '<div class="sk-photo"></div><div class="sk-photo"></div>',
+                    '<div class="sk-photo"></div><div class="sk-photo"></div>',
+                '</div>',
+            ].join('');
+        }
 
         var style = document.createElement('style');
         style.id  = 'sk-styles';
@@ -254,6 +278,13 @@
             '.sk-photos{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:0 clamp(16px,5vw,80px);}',
             '@media(max-width:700px){.sk-photos{grid-template-columns:1fr 1fr;}}',
             '.sk-photo{aspect-ratio:4/3;border-radius:12px;background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(168,213,181,.18) 50%,rgba(255,255,255,.06) 75%);background-size:200% 100%;animation:sk-shimmer 1.8s ease-in-out infinite;}',
+            // sub-page generic skeleton
+            '.sk-subpage-wrap{padding:clamp(24px,6vw,80px) clamp(16px,5vw,80px);max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:16px;}',
+            '.sk-subpage-title{height:28px;width:55%;border-radius:8px;background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(168,213,181,.18) 50%,rgba(255,255,255,.06) 75%);background-size:200% 100%;animation:sk-shimmer 1.8s ease-in-out infinite;margin-bottom:8px;}',
+            '.sk-subpage-line{height:13px;border-radius:6px;background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(168,213,181,.18) 50%,rgba(255,255,255,.06) 75%);background-size:200% 100%;animation:sk-shimmer 1.8s ease-in-out infinite;}',
+            '.sk-subpage-line--wide{width:100%;}',
+            '.sk-subpage-line--mid{width:72%;}',
+            '.sk-subpage-line--narrow{width:45%;}',
         ].join('');
 
         document.head.appendChild(style);
@@ -273,6 +304,7 @@
         }
 
         document.addEventListener('home:ready', removeSkeleton, { once: true });
+        document.addEventListener('page:ready', removeSkeleton, { once: true });
         // Fallback: remove after 6s no matter what
         setTimeout(removeSkeleton, 4000);
     })();

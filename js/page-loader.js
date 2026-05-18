@@ -320,6 +320,7 @@ export function initPageLoader() {
                 window.history.pushState({ slug, lang, productId }, '', pageUrl(slug, lang, qs));
             }
             updateSEO(slug);
+            document.dispatchEvent(new CustomEvent('page:ready'));
 
         } catch (err) {
             if (ENV_CONFIG.DEBUG) console.error('Page load error:', err);
@@ -351,9 +352,14 @@ export function initPageLoader() {
 
     // ── HANDLE DIRECT URL ON FIRST LOAD ──────────────────────────────────────
     function handleInitialURL() {
-        if (window.__PAGE_SLUG__) {
+        if (window.__PAGE_SLUG__ && window.__PAGE_SLUG__ !== 'home') {
             const slug = window.__PAGE_SLUG__;
-            if (SITE_CONFIG.pages[slug]) { window.viewPage(slug); return; }
+            if (SITE_CONFIG.pages[slug]) {
+                // fromPopstate=true prevents viewPage from pushing a NEW history entry
+                // on top of the one the browser already created for this URL
+                window.viewPage(slug, null, true);
+                return;
+            }
         }
 
         const basePath   = SITE_CONFIG.appearance.base_path;
@@ -411,21 +417,78 @@ export function initPageLoader() {
     });
 
     // ── INTERCEPT PRODUCT LINKS ───────────────────────────────────────────────
-    // Catches clicks on <a href="/en/product/?id=..."> anywhere in the document
+    // ── INTERCEPT ALL INTERNAL NAVIGATION LINKS ─────────────────────────────
+    // Handles any <a href> pointing to a URL within this site so navigation
+    // stays within the SPA shell and the browser back button keeps working.
     document.addEventListener('click', (e) => {
         const a = e.target.closest('a[href]');
         if (!a) return;
-        const url = new URL(a.href, window.location.href);
-        const base    = SITE_CONFIG.appearance.base_path;
-        const productSlug = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
-        // Match /{lang}/{productSlug}/ URLs
-        const pattern = new RegExp(`^${base}[a-z]{2}/${productSlug}/`);
-        if (pattern.test(url.pathname)) {
-            const pid = url.searchParams.get('id');
-            if (pid) {
-                e.preventDefault();
-                window.viewPage('product', pid);
+        // Let external, mailto:, tel: etc. through
+        const href = a.getAttribute('href');
+        if (!href || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('#')) return;
+
+        let url;
+        try { url = new URL(a.href, window.location.href); } catch { return; }
+        // Only handle same-origin links
+        if (url.origin !== window.location.origin) return;
+
+        const base = SITE_CONFIG.appearance.base_path;
+        const pathname = url.pathname;
+
+        // Strip base path to get a relative path like "en/product/" or "nl/winkel/"
+        let rel = pathname;
+        if (base && base !== '/' && rel.startsWith(base)) {
+            rel = rel.slice(base.length);
+        }
+        rel = rel.replace(/^\/+|\/+$/g, ''); // trim slashes
+        const parts = rel.split('/').filter(Boolean);
+
+        // Must have at least lang + slug segment
+        const langCodes = new Set((SITE_CONFIG.languages || []).map(l => l.code));
+        if (parts.length < 1) return;
+
+        const lang = langCodes.has(parts[0]) ? parts[0] : null;
+        const urlSegment = lang ? parts[1] : parts[0];
+
+        // Home URL: /en/ with no further segment
+        if (lang && !urlSegment) {
+            e.preventDefault();
+            if (window.LANG !== lang) {
+                window.setLang(lang);
+            } else {
+                window.showHome();
             }
+            return;
+        }
+
+        if (!urlSegment) return;
+
+        // Resolve URL slug to canonical page key
+        const slug = canonicalSlug(window.T, urlSegment) || urlSegment;
+        if (!SITE_CONFIG.pages[slug]) return; // unknown page — let browser handle it
+
+        e.preventDefault();
+
+        // Switch language silently if the link points to a different lang
+        const switchLang = lang && lang !== (window.LANG || fallbackLang());
+        if (switchLang) {
+            // Update LANG first so viewPage fetches the right content file
+            window.LANG = lang;
+            localStorage.setItem(SITE_CONFIG.storageKeys.lang, lang);
+            document.documentElement.setAttribute('lang', lang);
+            import('./i18n.js').then(m => {
+                m.loadLanguage(lang).then(T => {
+                    window.T = T;
+                    const pid = url.searchParams.get('id') || null;
+                    window.viewPage(slug, pid);
+                });
+            }).catch(() => {
+                const pid = url.searchParams.get('id') || null;
+                window.viewPage(slug, pid);
+            });
+        } else {
+            const pid = url.searchParams.get('id') || null;
+            window.viewPage(slug, pid);
         }
     });
 
