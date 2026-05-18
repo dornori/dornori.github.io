@@ -292,4 +292,5 @@ export function initNavigation() {
     }
 
     window.renderNav();
+    document.dispatchEvent(new CustomEvent('nav:ready'));
 }
