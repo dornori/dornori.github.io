@@ -152,16 +152,12 @@
     }
 
     // ── Logo src injection ────────────────────────────────────────────────────
+    // Called from removeSkeleton() so the fade-in plays as the skeleton lifts.
     function injectLogoSrc() {
         var logoEl = document.getElementById('banner-img');
         if (logoEl && !logoEl.getAttribute('src')) {
             logoEl.src = BASE_PATH + 'assets/images/dornori-logo-transparent.webp';
         }
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', injectLogoSrc);
-    } else {
-        injectLogoSrc();
     }
 
 
@@ -267,6 +263,11 @@
         function removeSkeleton() {
             var el = document.getElementById('page-skeleton');
             if (!el) return;
+            // Reveal real UI and trigger logo animation as skeleton lifts
+            injectLogoSrc();
+            document.querySelectorAll('#main-header, #mobile-nav, #viewport, .site-footer').forEach(function(n) {
+                n.style.visibility = '';
+            });
             el.classList.add('sk-fade');
             setTimeout(function() {
                 el.remove();
