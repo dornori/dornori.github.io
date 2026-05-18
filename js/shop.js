@@ -168,17 +168,16 @@ var Shop = (() => {
     const vKey = (variantId && !cartBase.match(/^mushroom-|^ufo-|^star-/)) ? variantId : (selectedColor || "");
     const key = cartBase + (vKey ? "_" + slugify(vKey) : "");
     const existing = cart.find(i => i.cartKey === key);
-    const rawPrice      = variantId ? variantPrice(product, variantId)    : product.price;
-    const discount      = variantId ? variantDiscount(product, variantId) : (product.discount || 0);
-    const price         = discount > 0 ? rawPrice * (1 - discount / 100) : rawPrice;
-    const originalPrice = discount > 0 ? rawPrice : null;
+    const rawPrice   = variantId ? variantPrice(product, variantId)    : product.price;
+    const discount   = variantId ? variantDiscount(product, variantId) : (product.discount || 0);
+    const price      = discount > 0 ? rawPrice * (1 - discount / 100) : rawPrice;
     const weight = variantId ? variantWeight(product, variantId) : (product.weight || 0);
     const image  = imageOverride || (variantId ? variantImage(product, variantId) : selectedColor ? colorImageSrc(product, selectedColor) : product.image);
     const label  = variantId ? variantLabel(product, variantId) : selectedColor;
     const maxQty = variantId ? variantStock(product, variantId) : (product.stock || 99);
     const resolvedName = pName(product) || product.name || product.id;
     if (existing) { existing.qty = Math.min(existing.qty + qty, maxQty || 99); }
-    else cart.push({ ...product, name: resolvedName, cartKey: key, qty, price, originalPrice, discount, weight, image, selectedColor: label, variantId });
+    else cart.push({ ...product, name: resolvedName, cartKey: key, qty, price, weight, image, selectedColor: label, variantId });
     saveCart(cart); return cart;
   }
   function removeFromCart(cartKey) { saveCart(getCart().filter(i => i.cartKey !== cartKey)); }
@@ -488,14 +487,13 @@ var Shop = (() => {
                   <div class="webshop-cart-hover-panel__info">
                     <span class="webshop-cart-hover-panel__name">${item.name}</span>
                     ${(item.selectedColor || item.label) ? `<span class="webshop-cart-hover-panel__name" style="font-size:.8em;opacity:.7;">${item.selectedColor || item.label}</span>` : ""}
-                    <span class="webshop-cart-hover-panel__qty">${item.qty} × ${fmt(item.price)}${item.originalPrice ? ` <s style="opacity:.5;font-size:.85em;">${fmt(item.originalPrice)}</s> <span style="color:#cc0c39;font-size:.75em;font-weight:600;">-${item.discount}%</span>` : ""}</span>
+                    <span class="webshop-cart-hover-panel__qty">${item.qty} × ${fmt(item.price)}</span>
                   </div>
                 </a>
                 <button class="webshop-cart-hover-panel__remove" data-key="${item.cartKey}" aria-label="${t("remove","Remove")}">✕</button>
               </li>`).join("")}
           </ul>
           <div class="webshop-cart-hover-panel__footer">
-            ${(() => { const s = cart.reduce((a,i) => a + (i.originalPrice ? (i.originalPrice - i.price) * i.qty : 0), 0); return s > 0 ? `<div class="webshop-cart-hover-panel__totals" style="color:#cc0c39;font-weight:600;"><span>${t("you_save","You save")}</span><span>-${fmt(s)}</span></div>` : ""; })()}
             <div class="webshop-cart-hover-panel__totals">
               <span>${t("subtotal","Subtotal")}</span><span>${fmt(subtotal)}</span>
             </div>
@@ -545,58 +543,41 @@ var Shop = (() => {
      * 1. Just product with variants (no addons/related): showAddons: false, showRelated: false
      * 2. Product, variants and addons: showAddons: true, showRelated: false
      * 3. Product and related: showAddons: false, showRelated: true
-     * 4. Product with both addons and related: showAddons: true, showRelated: true
      */
     const showAddons = options.showAddons === true;
     const showRelated = options.showRelated === true;
     
-    let html = "";
+    /* Determine which items to display based on flags */
+    let ids = null;
+    let title = t("related_products", "You may also need");
     
-    /* Build addons section if requested and available */
     if (showAddons && product.addons?.length) {
-      const addonItems = product.addons.map(_resolveRelated).filter(Boolean);
-      if (addonItems.length) {
-        html += `<div class="webshop-related${context === "info" ? " webshop-related--info" : ""}" data-section="addons">
-          <h4 class="webshop-related__title">${t("addons", "Add-ons")}</h4>
-          <div class="webshop-related__list">
-            ${addonItems.map(r => `
-              <div class="webshop-related__item" data-related-id="${r.id}" data-section="addons">
-                <img class="webshop-related__img" src="${r.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'}" alt="${pName(r)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
-                <div class="webshop-related__info">
-                  <span class="webshop-related__name">${pName(r)}</span>
-                  ${pDesc(r) ? `<span class="webshop-related__desc">${pDesc(r)}</span>` : ""}
-                  <span class="webshop-related__price">${fmt(r.price)}</span>
-                </div>
-                <button class="webshop-related__add webshop-btn webshop-btn--sm webshop-btn--outline" data-related-id="${r.id}">${t("add_to_cart", "Add")}</button>
-              </div>`).join("")}
-          </div>
-        </div>`;
-      }
+      ids = product.addons;
+      title = t("addons", "Add-ons");
+    } else if (showRelated && product.related?.length) {
+      ids = product.related;
+      title = t("related_products", "Related Products");
     }
     
-    /* Build related section if requested and available */
-    if (showRelated && product.related?.length) {
-      const relatedItems = product.related.map(_resolveRelated).filter(Boolean);
-      if (relatedItems.length) {
-        html += `<div class="webshop-related${context === "info" ? " webshop-related--info" : ""}" data-section="related">
-          <h4 class="webshop-related__title">${t("related_products", "Related Products")}</h4>
-          <div class="webshop-related__list">
-            ${relatedItems.map(r => `
-              <div class="webshop-related__item" data-related-id="${r.id}" data-section="related">
-                <img class="webshop-related__img" src="${r.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'}" alt="${pName(r)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2772%22 height=%2272%22/%3E%3C/svg%3E'">
-                <div class="webshop-related__info">
-                  <span class="webshop-related__name">${pName(r)}</span>
-                  ${pDesc(r) ? `<span class="webshop-related__desc">${pDesc(r)}</span>` : ""}
-                  <span class="webshop-related__price">${fmt(r.price)}</span>
-                </div>
-                <button class="webshop-related__add webshop-btn webshop-btn--sm webshop-btn--outline" data-related-id="${r.id}">${t("add_to_cart", "Add")}</button>
-              </div>`).join("")}
-          </div>
-        </div>`;
-      }
-    }
+    if (!ids?.length) return "";
+    const items = ids.map(_resolveRelated).filter(Boolean);
+    if (!items.length) return "";
     
-    return html;
+    return `<div class="webshop-related${context === "info" ? " webshop-related--info" : ""}">
+        <h4 class="webshop-related__title">${title}</h4>
+        <div class="webshop-related__list">
+          ${items.map(r => `
+            <div class="webshop-related__item" data-related-id="${r.id}">
+              <img class="webshop-related__img" src="${r.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'}" alt="${pName(r)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
+              <div class="webshop-related__info">
+                <span class="webshop-related__name">${pName(r)}</span>
+                ${pDesc(r) ? `<span class="webshop-related__desc">${pDesc(r)}</span>` : ""}
+                <span class="webshop-related__price">${fmt(r.price)}</span>
+              </div>
+              <button class="webshop-related__add webshop-btn webshop-btn--sm webshop-btn--outline" data-related-id="${r.id}">${t("add_to_cart", "Add")}</button>
+            </div>`).join("")}
+        </div>
+      </div>`;
   }
 
   function wireRelatedStrip(container, product, options = {}) {
