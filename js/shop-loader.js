@@ -1,12 +1,6 @@
 /**
- * shop-loader.js (v2 - fixed)
- *
- * mountShopEmbeds() is called by page-loader.js after injecting page fragments.
- * The shop engine (shop.js, modules) is booted by shop-init.js (plain IIFE via site-boot).
- * This file just waits for that boot and then renders embeds.
- *
- * FIX: original called loadScript with type:'module' on plain scripts = SyntaxError.
- * FIX: mountShopEmbeds now waits for webshop:ready instead of re-booting the shop.
+ * shop-loader.js (v3 - with feature flags support ONLY)
+ * No changes to site-main.js or page-loader.js
  */
 
 import { loadScript } from './utils/script-loader.js';
@@ -22,7 +16,7 @@ export async function loadShopModules() {
       check();
     });
   }
-  // Plain scripts — no type:'module'
+  
   await loadScript(BASE_PATH + 'js/shop-config.js');
   await loadScript(BASE_PATH + 'js/modules/shipping.js');
   await loadScript(BASE_PATH + 'js/modules/currency.js');
@@ -36,7 +30,6 @@ export async function loadShopModules() {
     window.Currency.init();
   }
 
-  // Only fire webshop:ready if shop-init.js hasn't already done so
   if (!window.__shopInitReady) {
     document.dispatchEvent(new CustomEvent('webshop:ready'));
   }
@@ -47,18 +40,15 @@ export async function loadShopModules() {
  * Called by page-loader.js every time a new page fragment is injected.
  */
 export async function mountShopEmbeds(container) {
-  // If shop already booted via shop-init, use it. Otherwise boot ourselves.
   const shopReady = typeof window.Shop !== 'undefined'
     && typeof window.Currency !== 'undefined'
     && typeof window.Shipping !== 'undefined';
 
   if (!shopReady) {
-    // Wait for shop-init to finish (fires webshop:ready), with fallback boot
     await new Promise(resolve => {
       if (typeof window.Shop !== 'undefined') { resolve(); return; }
       const done = () => resolve();
       document.addEventListener('webshop:ready', done, { once: true });
-      // Fallback: only boot ourselves if shop-init never ran (avoids double webshop:ready)
       setTimeout(() => {
         if (typeof window.Shop === 'undefined' && !window.__shopBooting) {
           window.__shopBooting = true;
@@ -76,11 +66,11 @@ export async function mountShopEmbeds(container) {
   // ── Cart icon in header slot ──────────────────────────────────────────────
   const cartSlot = document.getElementById('cart-icon-slot');
   if (cartSlot) {
-    const lang     = window.LANG || 'en';
-    const T        = window.T;
+    const lang = window.LANG || 'en';
+    const T = window.T;
     const cartSlug = (T && T.url_slugs && T.url_slugs.cart) || 'cart';
-    const base     = window.__BASE_PATH__ || '/';
-    const cartUrl  = `${base}${lang}/${cartSlug}/`;
+    const base = window.__BASE_PATH__ || '/';
+    const cartUrl = `${base}${lang}/${cartSlug}/`;
     Shop.renderCartIcon({ target: '#cart-icon-slot', fixed: false, cartUrl });
   }
 
@@ -105,58 +95,77 @@ export async function mountShopEmbeds(container) {
     if (pid) await Shop.renderProductInfo(productRoot.id, pid);
   }
 
-  // ── data-shop-products embeds ─────────────────────────────────────────────
+  // ── data-shop-products embeds WITH FEATURE FLAGS ─────────────────────────────
   const shopProductEls = container ? container.querySelectorAll('[data-shop-products]') : [];
-  if (shopProductEls.length) {
+  
+  for (const el of shopProductEls) {
+    // Skip if already populated
+    if (el.querySelector('.webshop-card-img')) continue;
+    
+    const slug = el.dataset.shopProducts;
+    if (!slug) continue;
+    
+    // READ FEATURE FLAGS FROM ATTRIBUTES
+    const options = {
+      showVariants: el.hasAttribute('data-variants'),
+      showRelated: el.hasAttribute('data-related'),
+      showAddons: el.hasAttribute('data-addons')
+    };
+    
     // Load all products once
     const allProducts = await Shop.loadProducts();
-    const productMap  = {};
+    const productMap = {};
     allProducts.forEach(p => { productMap[p.id] = p; });
-
-    shopProductEls.forEach(el => {
-      const slug = el.dataset.shopProducts;
-      if (!slug) return;
-
-      let product = null;
-      let preselectedVariantId = null;
-
-      // Direct product ID match
-      if (productMap[slug]) {
-        product = productMap[slug];
-      } else if (slug.endsWith('-preassembled')) {
-        // e.g. "ufo-spaceblue-preassembled" → product "pre-assembled", variant "ufo-spaceblue"
-        const variantId = slug.replace(/-preassembled$/, '');
-        const base      = productMap['pre-assembled'];
-        if (base) {
-          product              = base;
-          preselectedVariantId = variantId;
-        }
+    
+    let product = null;
+    let preselectedVariantId = null;
+    
+    // Direct product ID match
+    if (productMap[slug]) {
+      product = productMap[slug];
+    } else if (slug.endsWith('-preassembled')) {
+      const variantId = slug.replace(/-preassembled$/, '');
+      const base = productMap['pre-assembled'];
+      if (base) {
+        product = base;
+        preselectedVariantId = variantId;
       }
-
-      if (!product) return;
-
-      // Clone product if we need to preselect a variant (show only that variant)
-      // Variants are now ID strings, not objects
-      if (preselectedVariantId && product.variants) {
-        const variant = product.variants.find(v => v === preselectedVariantId);
-        if (variant) {
-          product = { ...product, variants: [variant] };
-        }
+    }
+    
+    if (!product) continue;
+    
+    // Clone product if we need to preselect a variant
+    if (preselectedVariantId && product.variants) {
+      const variant = product.variants.find(v => v === preselectedVariantId);
+      if (variant) {
+        product = { ...product, variants: [variant] };
       }
-
-      const card = document.createElement('div');
-      card.className = 'webshop-product-card';
-      card.dataset.productId = product.id;
-      card.innerHTML = Shop.buildProductCard(product);
-      el.appendChild(card);
-      Shop.wireProductCard(card, product);
-      document.addEventListener('currency:changed', () => {
-        const discountPercent = product.discount || 0;
-        const discountedPrice = discountPercent > 0 ? product.price * (1 - discountPercent / 100) : product.price;
-        const priceEls = card.querySelectorAll('.webshop-card-price');
-        if (discountPercent > 0 && priceEls.length >= 2) { priceEls[0].textContent = Shop.fmt(product.price); priceEls[1].textContent = Shop.fmt(discountedPrice); }
-        else if (priceEls.length >= 1) { priceEls[0].textContent = Shop.fmt(product.price); }
-      });
+    }
+    
+    const card = document.createElement('div');
+    card.className = 'webshop-product-card';
+    card.dataset.productId = product.id;
+    
+    // PASS OPTIONS to buildProductCard
+    card.innerHTML = Shop.buildProductCard(product, options);
+    el.appendChild(card);
+    
+    // PASS OPTIONS to wireProductCard
+    Shop.wireProductCard(card, product, options);
+    
+    // Handle currency changes
+    document.addEventListener('currency:changed', () => {
+      const discountPercent = product.discount || 0;
+      const discountedPrice = discountPercent > 0 ? product.price * (1 - discountPercent / 100) : product.price;
+      const priceEls = card.querySelectorAll('.webshop-card-price');
+      const oldPriceEls = card.querySelectorAll('.webshop-card-price--original');
+      
+      if (discountPercent > 0 && oldPriceEls.length >= 1 && priceEls.length >= 1) {
+        oldPriceEls[0].textContent = Shop.fmt(product.price);
+        priceEls[0].textContent = Shop.fmt(discountedPrice);
+      } else if (priceEls.length >= 1) {
+        priceEls[0].textContent = Shop.fmt(product.price);
+      }
     });
   }
 
