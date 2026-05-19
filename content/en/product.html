@@ -379,7 +379,7 @@
             </div>
 
             <div class="amz-buttons">
-              <button class="amz-btn-cart" id="atc-btn" data-i18n="add_to_cart">Add to Cart</button>
+              <button class="amz-btn-cart" id="atc-btn">Add to Cart</button>
               <button class="amz-btn-buy" id="buy-now-btn" data-i18n="buy_now">Buy Now</button>
             </div>
 
@@ -447,7 +447,7 @@
     document.title = "WEBSHOP – " + Shop.pName(PRODUCT);
 
     /* ── state ── */
-    let selectedVariant = resolvedVariants[0]?.id || null;
+    let selectedVariant = PRODUCT.id;
     let qty = 1;
     let currentImgIdx = 0;
 
@@ -473,11 +473,13 @@
       // Refresh lightbox price if it's open
       const lb = document.getElementById("lightbox");
       if (lb && lb.classList.contains("open")) {
+        const v = selectedVariant !== PRODUCT.id ? resolvedVariants.find(v => v.id === selectedVariant) : null;
+        const activeProduct = v || PRODUCT;
+        const lbBase = activeProduct.price;
+        const lbDisc = activeProduct.discount ?? 0;
+        const lbFinal = lbDisc > 0 ? lbBase * (1 - lbDisc / 100) : lbBase;
         const priceEl = document.querySelector("#lb-details .pdp-price");
-        if (priceEl) {
-          const v = resolvedVariants.find(v => v.id === selectedVariant);
-          priceEl.textContent = fmt(v ? v.price : PRODUCT.price);
-        }
+        if (priceEl) priceEl.textContent = fmt(lbFinal);
       }
     });
     document.addEventListener("shop:langChanged", () => {
@@ -567,9 +569,10 @@
 
     function updatePrice() {
       const variants = resolvedVariants;
-      const v = variants.find(v => v.id === selectedVariant);
-      const basePrice = v ? v.price : PRODUCT.price;
-      const discountPercent = (v ? v.discount : null) ?? PRODUCT.discount ?? 0;
+      const v = selectedVariant !== PRODUCT.id ? variants.find(v => v.id === selectedVariant) : null;
+      const activeProduct = v || PRODUCT;
+      const basePrice = activeProduct.price;
+      const discountPercent = activeProduct.discount ?? 0;
       const discountedPrice = discountPercent > 0 ? basePrice * (1 - discountPercent / 100) : basePrice;
       
       document.getElementById("pdp-price").textContent = fmt(discountedPrice);
@@ -598,7 +601,7 @@
       if (!PRODUCT.variants?.length) { if (wrap) wrap.style.display = "none"; return; }
       if (wrap) wrap.style.display = "";
 
-      const selfEntry = { id: PRODUCT.id, label: PRODUCT.name || PRODUCT.label || Shop.pName(PRODUCT) || PRODUCT.id, price: PRODUCT.price, stock: PRODUCT.stock, image: PRODUCT.image };
+      const selfEntry = { id: PRODUCT.id, label: PRODUCT.label || PRODUCT.name || Shop.pName(PRODUCT) || PRODUCT.id, price: PRODUCT.price, stock: PRODUCT.stock, image: PRODUCT.image };
       const allVariants = [selfEntry, ...resolvedVariants];
 
       el.innerHTML = allVariants.map(v =>
@@ -615,7 +618,9 @@
             document.getElementById("magnifier-img").src = v.image.replace("w=800", "w=1600");
           }
           updatePrice();
-          renderMeta(v);
+          // Pass null when product itself is selected so renderMeta uses PRODUCT data
+          renderMeta(selectedVariant !== PRODUCT.id ? v : null);
+          updateAtcLabel();
         });
       });
       PRODUCT._allVariants = allVariants;
@@ -943,14 +948,19 @@
               }
             });
           });
-          const v = resolvedVariants.find(v => v.id === selectedVariant);
+          const v = selectedVariant !== PRODUCT.id ? resolvedVariants.find(v => v.id === selectedVariant) : null;
+          const activeProduct = v || PRODUCT;
+          const lbBasePrice = activeProduct.price;
+          const lbDiscount = activeProduct.discount ?? 0;
+          const lbDiscountedPrice = lbDiscount > 0 ? lbBasePrice * (1 - lbDiscount / 100) : lbBasePrice;
+          const lbSavings = lbBasePrice - lbDiscountedPrice;
           const perksHtml = ["perk_free_shipping","perk_returns","perk_warranty"].map((k, i) =>
             `<span>${Shop.t(k) || ["Free shipping over €150","30-day returns","2-year warranty"][i]}</span>`
           ).join("");
           document.getElementById("lb-details").innerHTML = `
             <p class="pdp-category">${Shop.pCategory(PRODUCT)}</p>
-            <h2 class="pdp-name">${Shop.pName(PRODUCT)}</h2>
-            <p class="pdp-price">${fmt(v ? v.price : PRODUCT.price)}</p>
+            <h2 class="pdp-name">${Shop.pName(activeProduct)}</h2>
+            ${lbDiscount > 0 ? `<p class="pdp-price" style="color:var(--c-accent);">${fmt(lbDiscountedPrice)}</p><p style="text-decoration:line-through;opacity:.6;font-size:.9em;">${fmt(lbBasePrice)}</p><p style="font-size:.85em;color:var(--c-accent);">${Shop.t("save_percent","Save {0}%").replace("{0}",lbDiscount)} (${fmt(lbSavings)})</p>` : `<p class="pdp-price">${fmt(lbBasePrice)}</p>`}
             <p class="pdp-desc">${Shop.pDesc(PRODUCT)}</p>
             <div class="pdp-perks">${perksHtml}</div>`;
         }
@@ -1052,7 +1062,19 @@
       });
     }
 
+    function updateAtcLabel() {
+      const atcBtn = document.getElementById("atc-btn");
+      if (!atcBtn) return;
+      const v = selectedVariant !== PRODUCT.id ? resolvedVariants.find(v => v.id === selectedVariant) : null;
+      const activeProduct = v || PRODUCT;
+      const inStock = (activeProduct.stock ?? 99) > 0;
+      atcBtn.disabled = !inStock;
+      if (!inStock) { atcBtn.textContent = Shop.t("out_of_stock", "Out of Stock"); return; }
+      atcBtn.textContent = activeProduct.label || Shop.pName(activeProduct) || Shop.t("add_to_cart", "Add to Cart");
+    }
+
     function initAtc() {
+      updateAtcLabel();
       document.getElementById("atc-btn").addEventListener("click", () => {
         const v = resolvedVariants.find(v => v.id === selectedVariant);
         Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
