@@ -124,7 +124,6 @@ const SITE_CONFIG = {
         }
     ],
 
-    turnstile_sitekey: ENV_CONFIG.TURNSTILE_KEY,
 };
 
 // Expose globally for plain (non-module) scripts, and export for ES module consumers.
