@@ -516,29 +516,31 @@
     ════════════════════════════════════════════════════ */
     function renderMeta(targetProduct = null) {
       const product = targetProduct || PRODUCT;
-      // Use label from data.json first — pName() returns the lang-file name which is a shared category name
-      const displayName = product.label || Shop.pName(product);
-      document.getElementById("pdp-name").textContent     = displayName;
+      document.getElementById("pdp-name").textContent     = Shop.pName(product);
       document.getElementById("pdp-desc").textContent     = Shop.pDesc(product);
 
       // Breadcrumb
       const bc = document.getElementById("amz-breadcrumb");
       if (bc) bc.innerHTML = `<a href="../shop/">Shop</a> › <span>${product.category || "Products"}</span>`;
 
-      // Rating stars + count
-      const rating = product.rating;
-      const reviewCount = product.reviewCount;
+      // Rating stars + count — use PRODUCT-level values as fallback so they always show
+      const rating = product.rating ?? PRODUCT.rating;
+      const reviewCount = product.reviewCount ?? PRODUCT.reviewCount;
       const starsEl = document.getElementById("amz-stars");
-      if (starsEl && rating) {
-        const full = Math.floor(rating);
-        const half = rating - full >= 0.5;
-        starsEl.textContent = "★".repeat(full) + (half ? "½" : "") + "☆".repeat(5 - full - (half ? 1 : 0));
-      } else if (starsEl) {
-        starsEl.textContent = "";
+      if (starsEl) {
+        if (rating) {
+          const full = Math.floor(rating);
+          const half = rating - full >= 0.5;
+          starsEl.textContent = "★".repeat(full) + (half ? "½" : "") + "☆".repeat(5 - full - (half ? 1 : 0));
+        } else {
+          starsEl.textContent = "★★★★★";
+        }
       }
       const rc = document.getElementById("amz-rating-count");
-      if (rc && reviewCount) rc.innerHTML = `<span style="color:#0066c0;">(${reviewCount.toLocaleString()} ${Shop.t("reviews_suffix","Reviews")})</span>`;
-      else if (rc) rc.innerHTML = "";
+      if (rc) {
+        if (reviewCount) rc.innerHTML = `<span style="color:#0066c0;">(${Number(reviewCount).toLocaleString()} ${Shop.t("reviews_suffix","Reviews")})</span>`;
+        else rc.innerHTML = "";
+      }
 
       // Availability / shipping info
       const stock = product.stock !== undefined ? product.stock : 99;
@@ -1073,8 +1075,7 @@
       const activeProduct = v || PRODUCT;
       const inStock = (activeProduct.stock ?? 99) > 0;
       atcBtn.disabled = !inStock;
-      if (!inStock) { atcBtn.textContent = Shop.t("out_of_stock", "Out of Stock"); return; }
-      atcBtn.textContent = activeProduct.label || Shop.pName(activeProduct) || Shop.t("add_to_cart", "Add to Cart");
+      atcBtn.textContent = inStock ? Shop.t("add_to_cart", "Add to Cart") : Shop.t("out_of_stock", "Out of Stock");
     }
 
     function initAtc() {
