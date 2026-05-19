@@ -301,9 +301,40 @@ var Shop = (() => {
   }
   
   async function getProduct(id) {
-    // Use cache if populated; otherwise load via loadProducts() to avoid duplicate fetches
     if (_products[id]) return _products[id];
-    if (Object.keys(_products).length === 0) await loadProducts();
+    await loadLang();
+    const lang = CONFIG.language || resolveLanguage();
+    const langDir = CONFIG.data.langDir || '';
+    
+    const safeFetch = url => fetch(url)
+      .then(r => { if (!r.ok) throw 0; return r.json(); })
+      .catch(() => null);
+    
+    // 1. Load base products
+    const src = CONFIG.data?.productsJson || "data/products.json";
+    let all = [];
+    try {
+      all = await fetch(src).then(r => { if (!r.ok) throw 0; return r.json(); });
+    } catch(e) {
+      console.warn('Failed to load base products from', src);
+      return null;
+    }
+    
+    // 2. Overlay language-specific overrides
+    if (lang && langDir) {
+      const langProducts = await safeFetch(langDir + lang + '/products.json');
+      if (langProducts && Array.isArray(all)) {
+        all = all.map(p => {
+          const override = langProducts[p.id];
+          if (override) {
+            return { ...p, ...override };
+          }
+          return p;
+        });
+      }
+    }
+    
+    all.forEach(p => { _products[p.id] = p; });
     return _products[id] || null;
   }
   function generateOrderRef() { return "LM-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(36).substr(2,5).toUpperCase(); }
@@ -344,7 +375,7 @@ var Shop = (() => {
       if (Currency.waitForReady) await Currency.waitForReady();
       const active = Currency.getActive();
       container.className = "profile-selector-wrap";
-      container.innerHTML = "CURRENCY " +
+      container.innerHTML = (window.T?.ui?.currency || 'CURRENCY') + ' ' +
         `<select class="profile-select" aria-label="Currency">
           ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
         </select>`;
@@ -353,6 +384,7 @@ var Shop = (() => {
     
     build();
     document.addEventListener("currency:changed", build);
+    document.addEventListener("shop:langChanged", build);
   }
 
   /* ─── LANGUAGE SWITCHER ─────────────────────────────── */
@@ -410,7 +442,7 @@ var Shop = (() => {
     const wrapper = document.createElement("a");
     wrapper.href = cartUrl;
     wrapper.className = "webshop-cart-icon";
-    wrapper.setAttribute("aria-label", t("aria_shopping_cart", "Shopping cart"));
+    wrapper.setAttribute("aria-label", "Shopping cart");
 	wrapper.innerHTML = `<img src="/assets/icons/cart-icon-200x200.svg" alt="" aria-hidden="true">
    <span class="webshop-cart-icon__badge" aria-live="polite">0</span>`;
 	
@@ -565,16 +597,34 @@ var Shop = (() => {
   }
 
   function wireRelatedStrip(container, product, options = {}) {
-    // Single listener per button — avoids double-fire when both addons + related shown
-    container.querySelectorAll(".webshop-related__add").forEach(btn => {
-      btn.addEventListener("click", e => {
-        e.stopPropagation();
-        const rel = _resolveRelated(btn.dataset.relatedId);
-        if (!rel) return;
-        addToCart(rel, 1);
-        toast(`${pName(rel)} ${t("added", "added to cart")}`);
+    const showAddons = options.showAddons === true;
+    const showRelated = options.showRelated === true;
+    
+    // Handle addons button clicks
+    if (showAddons && product.addons?.length) {
+      container.querySelectorAll(".webshop-related__add").forEach(btn => {
+        btn.addEventListener("click", e => {
+          e.stopPropagation();
+          const rel = _resolveRelated(btn.dataset.relatedId);
+          if (!rel) return;
+          addToCart(rel, 1);
+          toast(`${pName(rel)} ${t("added", "added to cart")}`);
+        });
       });
-    });
+    }
+    
+    // Handle related button clicks
+    if (showRelated && product.related?.length) {
+      container.querySelectorAll(".webshop-related__add").forEach(btn => {
+        btn.addEventListener("click", e => {
+          e.stopPropagation();
+          const rel = _resolveRelated(btn.dataset.relatedId);
+          if (!rel) return;
+          addToCart(rel, 1);
+          toast(`${pName(rel)} ${t("added", "added to cart")}`);
+        });
+      });
+    }
   }
 
   /* ═══════════════════════════════════════════════════════
@@ -628,8 +678,8 @@ var Shop = (() => {
       <${wTag} class="webshop-card-img-wrap${hasUrl?" webshop-card-img-link":""}"${hasUrl?` title="${pName(p)}"`:""}>
         <img class="webshop-card-img" src="${p.image}" alt="${pName(p)}" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
         ${p.featured?`<span class="webshop-badge">${t("featured","Featured")}</span>`:""}
-        ${p.bestseller?`<span class="webshop-badge webshop-badge--bestseller">${t("badge_bestseller","Best Seller")}</span>`:""}
-        ${discountPercent > 0?`<span class="webshop-badge webshop-badge--discount">${discountPercent}% ${t("off_badge","OFF")}</span>`:""}
+        ${p.bestseller?`<span class="webshop-badge webshop-badge--bestseller">Best Seller</span>`:""}
+        ${discountPercent > 0?`<span class="webshop-badge webshop-badge--discount">${discountPercent}% OFF</span>`:""}
       </${wEnd}>
       <div class="webshop-card-body">
         <h3 class="webshop-card-title">${pName(p)}</h3>
@@ -637,9 +687,9 @@ var Shop = (() => {
         <div class="webshop-card-footer">
           ${discountPercent > 0?`<span class="webshop-card-price webshop-card-price--original">${fmt(displayPrice)}</span><span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>`:`<span class="webshop-card-price">${fmt(displayPrice)}</span>`}
           <div class="webshop-qty-control">
-            <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="${t(\"aria_decrease_qty\",\"Decrease quantity\")}">−</button>
+            <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease">−</button>
             <span class="webshop-qty-val">1</span>
-            <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="${t(\"aria_increase_qty\",\"Increase quantity\")}">+</button>
+            <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase">+</button>
           </div>
         </div>
         <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
@@ -688,17 +738,17 @@ var Shop = (() => {
             <span class="webshop-card-price webshop-card-price--original">${fmt(price)}</span>
             <span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>
             <div class="webshop-qty-control">
-              <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="${t(\"aria_decrease_qty\",\"Decrease quantity\")}">−</button>
+              <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease">−</button>
               <span class="webshop-qty-val">${qtyVal}</span>
-              <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="${t(\"aria_increase_qty\",\"Increase quantity\")}">+</button>
+              <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase">+</button>
             </div>`;
         } else {
           footer.innerHTML = `
             <span class="webshop-card-price">${fmt(price)}</span>
             <div class="webshop-qty-control">
-              <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="${t(\"aria_decrease_qty\",\"Decrease quantity\")}">−</button>
+              <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease">−</button>
               <span class="webshop-qty-val">${qtyVal}</span>
-              <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="${t(\"aria_increase_qty\",\"Increase quantity\")}">+</button>
+              <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase">+</button>
             </div>`;
         }
         
@@ -720,7 +770,7 @@ var Shop = (() => {
       const badgeEl = card.querySelector(".webshop-badge--discount");
       if (badgeEl) {
         if (discount > 0) {
-          badgeEl.textContent = `${discount}% ${t("off_badge","OFF")}`;
+          badgeEl.textContent = `${discount}% OFF`;
           badgeEl.style.display = '';
         } else {
           badgeEl.style.display = 'none';
@@ -891,14 +941,14 @@ var Shop = (() => {
             <h1 class="webshop-product-name">${pName(p)}</h1>
             ${p.rating ? `<div class="webshop-product-rating">
               <span class="webshop-rating-stars">${p.rating} ★</span>
-              <span class="webshop-rating-count">(${p.reviewCount || 0} ${t("reviews_suffix","reviews")})</span>
+              <span class="webshop-rating-count">(${p.reviewCount || 0} reviews)</span>
             </div>` : ''}
-            ${p.bestseller ? `<span class="webshop-badge-inline webshop-badge-inline--bestseller">${t("badge_bestseller","Best Seller")}</span>` : ''}
+            ${p.bestseller ? `<span class="webshop-badge-inline webshop-badge-inline--bestseller">Best Seller</span>` : ''}
             <div class="webshop-product-price-group">
               ${discountPercent > 0 ? `
                 <p class="webshop-product-price-original">${fmt(displayPrice)}</p>
                 <p class="webshop-product-price" id="pinfo-price-${productId}">${fmt(discountedPrice)}</p>
-                <p class="webshop-product-price-discount">${t("save_percent","Save {0}%").replace("{0}",discountPercent)}</p>
+                <p class="webshop-product-price-discount">Save ${discountPercent}%</p>
               ` : `
                 <p class="webshop-product-price" id="pinfo-price-${productId}">${fmt(displayPrice)}</p>
               `}
@@ -925,37 +975,37 @@ var Shop = (() => {
         </div>
         <div class="webshop-product-info-section">
           <div class="webshop-product-info-tabs">
-            <button class="webshop-info-tab-btn active" data-tab="features">${t("tab_features","Features & Specs")}</button>
-            <button class="webshop-info-tab-btn" data-tab="details">${t("tab_details","Item details")}</button>
-            <button class="webshop-info-tab-btn" data-tab="materials">${t("tab_materials","Materials & Care")}</button>
-            <button class="webshop-info-tab-btn" data-tab="additional">${t("tab_additional","Additional details")}</button>
+            <button class="webshop-info-tab-btn active" data-tab="features">Features & Specs</button>
+            <button class="webshop-info-tab-btn" data-tab="details">Item details</button>
+            <button class="webshop-info-tab-btn" data-tab="materials">Materials & Care</button>
+            <button class="webshop-info-tab-btn" data-tab="additional">Additional details</button>
           </div>
           <div class="webshop-info-tab-content active" id="features-tab">
             <div class="webshop-info-property">
-              <span class="webshop-info-label">${t("spec_category","Category")}</span>
+              <span class="webshop-info-label">Category</span>
               <span class="webshop-info-value">${pCategory(p)}</span>
             </div>
             <div class="webshop-info-property">
-              <span class="webshop-info-label">${t("spec_weight","Weight")}</span>
+              <span class="webshop-info-label">Weight</span>
               <span class="webshop-info-value">${fmtWeight(p.weight || 0)}</span>
             </div>
             ${p.dimensions ? `<div class="webshop-info-property">
-              <span class="webshop-info-label">${t("spec_dimensions","Dimensions")}</span>
+              <span class="webshop-info-label">Dimensions</span>
               <span class="webshop-info-value">${p.dimensions.l}×${p.dimensions.w}×${p.dimensions.h} cm</span>
             </div>` : ''}
           </div>
           <div class="webshop-info-tab-content" id="details-tab">
             <div class="webshop-info-property">
-              <span class="webshop-info-label">${t("spec_product_id","Product ID")}</span>
+              <span class="webshop-info-label">Product ID</span>
               <span class="webshop-info-value">${p.id}</span>
             </div>
             <div class="webshop-info-property">
-              <span class="webshop-info-label">${t("spec_in_stock","In Stock")}</span>
-              <span class="webshop-info-value">${inStock ? t('spec_yes','Yes') : t('spec_no','No')}</span>
+              <span class="webshop-info-label">In Stock</span>
+              <span class="webshop-info-value">${inStock ? 'Yes' : 'No'}</span>
             </div>
             ${p.rating ? `<div class="webshop-info-property">
-              <span class="webshop-info-label">${t("spec_customer_rating","Customer Rating")}</span>
-              <span class="webshop-info-value">${p.rating} ${t("stars_suffix","stars")} (${p.reviewCount || 0} ${t("reviews_suffix","reviews")})</span>
+              <span class="webshop-info-label">Customer Rating</span>
+              <span class="webshop-info-value">${p.rating} stars (${p.reviewCount || 0} reviews)</span>
             </div>` : ''}
           </div>
           <div class="webshop-info-tab-content" id="materials-tab">
@@ -1001,7 +1051,7 @@ var Shop = (() => {
             priceGroup.innerHTML = `
               <p class="webshop-product-price-original">${fmt(price)}</p>
               <p class="webshop-product-price" id="pinfo-price-${productId}">${fmt(discountedPrice)}</p>
-              <p class="webshop-product-price-discount">${t("save_percent","Save {0}%").replace("{0}",discount)}</p>`;
+              <p class="webshop-product-price-discount">Save ${discount}%</p>`;
           } else {
             priceGroup.innerHTML = `<p class="webshop-product-price" id="pinfo-price-${productId}">${fmt(price)}</p>`;
           }
@@ -1132,11 +1182,11 @@ var Shop = (() => {
       total_eur: "€"+totals.total.toFixed(2), total_display: fmt(totals.total),
       total_weight: fmtWeight(totals.totalWeight||0),
     };
-    try { const fn = (typeof sendToQueue !== "undefined" ? sendToQueue : window.sendToQueue); if (!fn) { console.warn("sendToQueue not available"); return false; } const ok = await fn("payment-pending", data); return ok; } catch(e) { console.warn("Queue failed",e); return false; }
+    try { const ok = await sendToQueue("payment-pending", data); return ok; } catch(e) { console.warn("Queue failed",e); return false; }
   }
   
   async function submitOrderStatus(orderRef, status) {
-    try { const fn = (typeof sendToQueue !== "undefined" ? sendToQueue : window.sendToQueue); if (fn) await fn("payment-success", { _subject:`Order ${status}: ${orderRef}`, order_ref:orderRef, status }); } catch {}
+    try { await sendToQueue("payment-success", { _subject:`Order ${status}: ${orderRef}`, order_ref:orderRef, status }); } catch {}
   }
 
   /* ─── PUBLIC API ────────────────────────────────────── */
