@@ -638,9 +638,9 @@ var Shop = (() => {
         <div class="webshop-card-footer">
           ${discountPercent > 0?`<span class="webshop-card-price webshop-card-price--original">${fmt(displayPrice)}</span><span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>`:`<span class="webshop-card-price">${fmt(displayPrice)}</span>`}
           <div class="webshop-qty-control">
-            <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="${t(\"aria_decrease_qty\",\"Decrease quantity\")}">−</button>
+            <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity"">−</button>
             <span class="webshop-qty-val">1</span>
-            <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="${t(\"aria_increase_qty\",\"Increase quantity\")}">+</button>
+            <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
           </div>
         </div>
         <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
@@ -689,17 +689,17 @@ var Shop = (() => {
             <span class="webshop-card-price webshop-card-price--original">${fmt(price)}</span>
             <span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>
             <div class="webshop-qty-control">
-              <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="${t(\"aria_decrease_qty\",\"Decrease quantity\")}">−</button>
+              <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity"">−</button>
               <span class="webshop-qty-val">${qtyVal}</span>
-              <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="${t(\"aria_increase_qty\",\"Increase quantity\")}">+</button>
+              <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
             </div>`;
         } else {
           footer.innerHTML = `
             <span class="webshop-card-price">${fmt(price)}</span>
             <div class="webshop-qty-control">
-              <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="${t(\"aria_decrease_qty\",\"Decrease quantity\")}">−</button>
+              <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity"">−</button>
               <span class="webshop-qty-val">${qtyVal}</span>
-              <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="${t(\"aria_increase_qty\",\"Increase quantity\")}">+</button>
+              <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
             </div>`;
         }
         
