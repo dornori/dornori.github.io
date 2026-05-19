@@ -375,7 +375,7 @@ var Shop = (() => {
       if (Currency.waitForReady) await Currency.waitForReady();
       const active = Currency.getActive();
       container.className = "profile-selector-wrap";
-      container.innerHTML = "CURRENCY " +
+      container.innerHTML = (window.T?.ui?.currency || 'CURRENCY') + ' ' +
         `<select class="profile-select" aria-label="Currency">
           ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
         </select>`;
@@ -384,6 +384,7 @@ var Shop = (() => {
     
     build();
     document.addEventListener("currency:changed", build);
+    document.addEventListener("shop:langChanged", build);
   }
 
   /* ─── LANGUAGE SWITCHER ─────────────────────────────── */
