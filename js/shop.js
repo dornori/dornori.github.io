@@ -196,13 +196,19 @@ var Shop = (() => {
   /* ─── TOTALS ────────────────────────────────────────── */
   function calculateTotals(cart, isBusiness = false, countryCode = null) {
     const subtotal    = cart.reduce((a, i) => a + i.price * i.qty, 0);
+    const totalDiscount = cart.reduce((a, i) => {
+      if (i.originalPrice && i.discount > 0) {
+        return a + (i.originalPrice - i.price) * i.qty;
+      }
+      return a;
+    }, 0);
     const totalWeight = cart.reduce((a, i) => a + (i.weight || 0) * i.qty, 0);
     let cfg = { base: CONFIG.shipping.base, perKg: CONFIG.shipping.perKg, freeThreshold: CONFIG.shipping.freeThreshold, estimatedDays: CONFIG.shipping.estimatedDays };
     if (countryCode && typeof Shipping !== "undefined") cfg = Shipping.getRate(countryCode);
     const isFreeShipping = subtotal >= cfg.freeThreshold;
     const shipping       = isFreeShipping ? 0 : cfg.base + totalWeight * cfg.perKg;
     const tax            = isBusiness ? 0 : subtotal * CONFIG.taxRate;
-    return { subtotal, shipping, tax, total: subtotal + shipping + tax, totalWeight, isFreeShipping, estimatedDays: cfg.estimatedDays };
+    return { subtotal, shipping, tax, total: subtotal + shipping + tax, totalWeight, isFreeShipping, estimatedDays: cfg.estimatedDays, totalDiscount };
   }
 
   /* ─── LANG LOADER ───────────────────────────────────── */
@@ -646,9 +652,9 @@ var Shop = (() => {
         <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>
-        <a class="webshop-card-buynow webshop-btn webshop-btn--outline webshop-btn--full" href="${prodUrl}" ${inStock?"":"style=\"pointer-events:none;opacity:.5;\""}>
+        ${options.showBuyNow !== false ? `<a class="webshop-card-buynow webshop-btn webshop-btn--outline webshop-btn--full" href="${prodUrl}" ${inStock?"":"style=\"pointer-events:none;opacity:.5;\""} style="height:auto;padding:12px 28px;">
           ${t("buy_now","Buy Now")}
-        </a>
+        </a>` : ""}
         ${(showRelated || showAddons) ? buildRelatedStrip(p, "card", options) : ""}
       </div>`;
   }
@@ -1067,6 +1073,29 @@ var Shop = (() => {
     document.addEventListener("currency:changed", build);
   }
 
+  /* ─── BUY NOW BUTTON (Standalone) ───────────────────── */
+  function renderBuyNowButton(divId, productId, options = {}) {
+    const { label = "Buy Now", className = "" } = options;
+    const container = document.getElementById(divId);
+    if (!container) return;
+    
+    loadLang().then(() => {
+      loadProducts().then(() => {
+        const product = _products[productId];
+        if (!product) { console.warn(`Product not found: ${productId}`); return; }
+        
+        const prodSlug = options.productSlug || slugify(productId);
+        const lang = CONFIG.language || "en";
+        const prodUrl = `/${lang}/${prodSlug}/?id=${product.id}`;
+        const inStock = product.stock > 0;
+        
+        container.innerHTML = `<a class="webshop-btn webshop-btn--primary webshop-btn--full ${className}" href="${prodUrl}" ${inStock?"":'style="pointer-events:none;opacity:.5;"'}>
+          ${label || t("buy_now","Buy Now")}
+        </a>`;
+      });
+    });
+  }
+
   /* ─── MINI CART ─────────────────────────────────────── */
   function renderMiniCart(divId, options = {}) {
     const { cartUrl = (typeof window !== "undefined" && window.__CART_URL__) || "cart/" } = options;
@@ -1093,6 +1122,7 @@ var Shop = (() => {
           </li>`).join("")}</ul>
           <div class="webshop-mini-cart__totals">
             <div class="webshop-mini-cart__row"><span>${t("subtotal","Subtotal")}</span><span>${fmt(subtotal)}</span></div>
+            ${totalDiscount > 0 ? `<div class="webshop-mini-cart__row" style="color:#c8522d;font-weight:600;"><span>${t("you_save","You Save")}</span><span style="color:#c8522d;">-${fmt(totalDiscount)}</span></div>` : ""}
             <div class="webshop-mini-cart__row"><span>${t("shipping","Shipping")}</span><span>${isFreeShipping?t("free","FREE"):fmt(shipping)}</span></div>
             <div class="webshop-mini-cart__row"><span>${t("weight","Weight")}</span><span>${fmtWeight(totalWeight)}</span></div>
             <div class="webshop-mini-cart__row webshop-mini-cart__row--total"><span>${t("total","Total")}</span><span>${fmt(total)}</span></div>
@@ -1156,7 +1186,7 @@ var Shop = (() => {
     getVariant, variantPrice, variantWeight, variantImage, variantStock, variantInStock,
     buildRelatedStrip, wireRelatedStrip, buildProductCard, wireProductCard,
     renderCurrencySelector, renderBackButton, renderCartIcon,
-    renderShop, renderProductInfo, renderMiniCart,
+    renderShop, renderProductInfo, renderMiniCart, renderBuyNowButton,
     renderTurnstile, submitOrderDetails, submitOrderStatus,
   };
 })();

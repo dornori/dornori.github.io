@@ -512,43 +512,47 @@
     /* ════════════════════════════════════════════════════
        META (name, category, description)
     ════════════════════════════════════════════════════ */
-    function renderMeta() {
-      document.getElementById("pdp-name").textContent     = Shop.pName(PRODUCT);
-      document.getElementById("pdp-desc").textContent     = Shop.pDesc(PRODUCT);
+    function renderMeta(targetProduct = null) {
+      const product = targetProduct || PRODUCT;
+      document.getElementById("pdp-name").textContent     = Shop.pName(product);
+      document.getElementById("pdp-desc").textContent     = Shop.pDesc(product);
 
       // Breadcrumb
       const bc = document.getElementById("amz-breadcrumb");
-      if (bc) bc.innerHTML = `<a href="../shop/">Shop</a> › <span>${PRODUCT.category || "Products"}</span>`;
+      if (bc) bc.innerHTML = `<a href="../shop/">Shop</a> › <span>${product.category || "Products"}</span>`;
 
       // Rating stars + count
-      const rating = PRODUCT.rating;
-      const reviewCount = PRODUCT.reviewCount;
+      const rating = product.rating;
+      const reviewCount = product.reviewCount;
       const starsEl = document.getElementById("amz-stars");
       if (starsEl && rating) {
         const full = Math.floor(rating);
         const half = rating - full >= 0.5;
         starsEl.textContent = "★".repeat(full) + (half ? "½" : "") + "☆".repeat(5 - full - (half ? 1 : 0));
+      } else if (starsEl) {
+        starsEl.textContent = "";
       }
       const rc = document.getElementById("amz-rating-count");
       if (rc && reviewCount) rc.innerHTML = `<span style="color:#0066c0;">(${reviewCount.toLocaleString()} ${Shop.t("reviews_suffix","Reviews")})</span>`;
+      else if (rc) rc.innerHTML = "";
 
       // Availability / shipping info
-      const stock = PRODUCT.stock !== undefined ? PRODUCT.stock : 99;
+      const stock = product.stock !== undefined ? product.stock : 99;
       const av = document.getElementById("amz-availability");
       if (av) av.textContent = stock > 0 ? "In stock" : "Not available";
       const sf = document.getElementById("amz-ships-from");
-      if (sf) sf.textContent = PRODUCT.shipsFrom || "Store";
+      if (sf) sf.textContent = product.shipsFrom || "Store";
       const sb = document.getElementById("amz-sold-by");
-      if (sb) sb.textContent = PRODUCT.soldBy || "Store";
+      if (sb) sb.textContent = product.soldBy || "Store";
       const ri = document.getElementById("amz-returns");
-      if (ri) ri.textContent = PRODUCT.returns || Shop.t("default_returns", "30-day return/replacement");
+      if (ri) ri.textContent = product.returns || Shop.t("default_returns", "30-day return/replacement");
 
       // Badges
       const badgesEl = document.getElementById("amz-badges");
       if (badgesEl) {
-        const isBestSeller = PRODUCT.bestseller || PRODUCT.badge === "best_seller" || (PRODUCT.badge == null && PRODUCT.featured);
-        const isNew = PRODUCT.badge === "new" || PRODUCT.new;
-        const summaryBadge = PRODUCT.summaryBadge || null;
+        const isBestSeller = product.bestseller || product.badge === "best_seller" || (product.badge == null && product.featured);
+        const isNew = product.badge === "new" || product.new;
+        const summaryBadge = product.summaryBadge || null;
         badgesEl.innerHTML =
           (summaryBadge ? `<div class="amz-badge amz-badge--summary">${summaryBadge}</div>` : '') +
           (isBestSeller ? `<div class="amz-badge">${Shop.t('badge_best_seller','#1 Best Seller')}</div>` : '') +
@@ -611,6 +615,7 @@
             document.getElementById("magnifier-img").src = v.image.replace("w=800", "w=1600");
           }
           updatePrice();
+          renderMeta(v);
         });
       });
       PRODUCT._allVariants = allVariants;
