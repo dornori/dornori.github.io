@@ -516,7 +516,9 @@
     ════════════════════════════════════════════════════ */
     function renderMeta(targetProduct = null) {
       const product = targetProduct || PRODUCT;
-      document.getElementById("pdp-name").textContent     = Shop.pName(product);
+      // Use label from data.json first — pName() returns the lang-file name which is a shared category name
+      const displayName = product.label || Shop.pName(product);
+      document.getElementById("pdp-name").textContent     = displayName;
       document.getElementById("pdp-desc").textContent     = Shop.pDesc(product);
 
       // Breadcrumb
@@ -909,15 +911,18 @@
         document.getElementById("tab-video").style.display  = activeTab === "video"  ? "" : "none";
 
         if (activeTab === "images") {
-          document.getElementById("lb-main-img").src = PRODUCT.images[currentImgIdx];
+          const lbVariant = selectedVariant !== PRODUCT.id ? resolvedVariants.find(v => v.id === selectedVariant) : null;
+          const lbProduct = lbVariant || PRODUCT;
+          const lbImages = (lbProduct.images && lbProduct.images.length) ? lbProduct.images : PRODUCT.images;
+          document.getElementById("lb-main-img").src = lbImages[currentImgIdx] || lbImages[0] || "";
           const lbThumbs = document.getElementById("lb-thumbs");
           // Horizontal thumbs: all images + video thumbnails
           const allMedia = [
-            ...PRODUCT.images.map((src, i) => ({ type: "image", src, idx: i })),
+            ...lbImages.map((src, i) => ({ type: "image", src, idx: i })),
             ...(PRODUCT.videos || []).map((src, i) => {
               const isYT = /youtube\.com|youtu\.be/.test(src);
               const thumb = isYT ? `https://img.youtube.com/vi/${(src.match(/embed\/([^?]+)/)||src.match(/youtu\.be\/([^?]+)/))?.[1]||""}/mqdefault.jpg` : null;
-              return { type: "video", src, thumb, idx: PRODUCT.images.length + i };
+              return { type: "video", src, thumb, idx: lbImages.length + i };
             })
           ];
           lbThumbs.innerHTML = allMedia.map((item, j) => {
@@ -941,27 +946,26 @@
                 activeTab = "video";
                 buildLightbox();
               } else {
-                document.getElementById("lb-main-img").src = PRODUCT.images[idx];
+                document.getElementById("lb-main-img").src = lbImages[idx];
                 lbThumbs.querySelectorAll(".pdp-lightbox-thumb").forEach((x, k) =>
                   x.classList.toggle("active", k === idx)
                 );
               }
             });
           });
-          const v = selectedVariant !== PRODUCT.id ? resolvedVariants.find(v => v.id === selectedVariant) : null;
-          const activeProduct = v || PRODUCT;
-          const lbBasePrice = activeProduct.price;
-          const lbDiscount = activeProduct.discount ?? 0;
+          const lbBasePrice = lbProduct.price;
+          const lbDiscount = lbProduct.discount ?? 0;
           const lbDiscountedPrice = lbDiscount > 0 ? lbBasePrice * (1 - lbDiscount / 100) : lbBasePrice;
           const lbSavings = lbBasePrice - lbDiscountedPrice;
+          const lbDisplayName = lbProduct.label || Shop.pName(lbProduct);
           const perksHtml = ["perk_free_shipping","perk_returns","perk_warranty"].map((k, i) =>
             `<span>${Shop.t(k) || ["Free shipping over €150","30-day returns","2-year warranty"][i]}</span>`
           ).join("");
           document.getElementById("lb-details").innerHTML = `
-            <p class="pdp-category">${Shop.pCategory(PRODUCT)}</p>
-            <h2 class="pdp-name">${Shop.pName(activeProduct)}</h2>
+            <p class="pdp-category">${Shop.pCategory(lbProduct)}</p>
+            <h2 class="pdp-name">${lbDisplayName}</h2>
             ${lbDiscount > 0 ? `<p class="pdp-price" style="color:var(--c-accent);">${fmt(lbDiscountedPrice)}</p><p style="text-decoration:line-through;opacity:.6;font-size:.9em;">${fmt(lbBasePrice)}</p><p style="font-size:.85em;color:var(--c-accent);">${Shop.t("save_percent","Save {0}%").replace("{0}",lbDiscount)} (${fmt(lbSavings)})</p>` : `<p class="pdp-price">${fmt(lbBasePrice)}</p>`}
-            <p class="pdp-desc">${Shop.pDesc(PRODUCT)}</p>
+            <p class="pdp-desc">${Shop.pDesc(lbProduct)}</p>
             <div class="pdp-perks">${perksHtml}</div>`;
         }
         if (activeTab === "video") {
