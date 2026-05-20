@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Alphabetical Sorter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .drop-zone {
+            border: 3px dashed #4CAF50;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: #f9f9f9;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .drop-zone:hover {
+            background: #e8f5e9;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .preview {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fafafa;
+            border-radius: 5px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .success {
+            color: #2e7d32;
+            background: #e8f5e9;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .error {
+            color: #d32f2f;
+            background: #ffebee;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        h2 {
+            color: #333;
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>📚 Alphabetically Order JSON Keys</h2>
+    <p>Upload your JSON file - all keys will be sorted A→Z</p>
+    
+    <div class="drop-zone" id="dropZone">
+        📂 Drop JSON file here or click to browse<br>
+        <small>(Sorts all object keys alphabetically while preserving ALL data)</small>
+    </div>
+    
+    <input type="file" id="fileInput" accept=".json" style="display:none">
+    
+    <div id="message"></div>
+    <div id="previewArea" style="display:none;">
+        <button id="downloadBtn">💾 Download Sorted JSON</button>
+        <h3>Sorted Preview:</h3>
+        <div id="preview" class="preview"></div>
+    </div>
+</div>
+
+<script>
+function sortObjectKeys(obj) {
+    if (obj === null || typeof obj !== 'object') {
+        return obj;
+    }
+    
+    if (Array.isArray(obj)) {
+        var newArray = [];
+        for (var i = 0; i < obj.length; i++) {
+            newArray.push(sortObjectKeys(obj[i]));
+        }
+        return newArray;
+    }
+    
+    var sortedObj = {};
+    var keys = Object.keys(obj);
+    keys.sort();
+    
+    for (var j = 0; j < keys.length; j++) {
+        var key = keys[j];
+        sortedObj[key] = sortObjectKeys(obj[key]);
+    }
+    
+    return sortedObj;
+}
+
+var dropZone = document.getElementById('dropZone');
+var fileInput = document.getElementById('fileInput');
+var messageDiv = document.getElementById('message');
+var previewArea = document.getElementById('previewArea');
+var previewDiv = document.getElementById('preview');
+var downloadBtn = document.getElementById('downloadBtn');
+var sortedData = null;
+
+function processFile(file) {
+    var reader = new FileReader();
+    
+    reader.onload = function(e) {
+        try {
+            var jsonData = JSON.parse(e.target.result);
+            sortedData = sortObjectKeys(jsonData);
+            var previewText = JSON.stringify(sortedData, null, 2);
+            previewDiv.textContent = previewText;
+            previewArea.style.display = 'block';
+            messageDiv.innerHTML = '<div class="success">✅ Success! All keys sorted alphabetically.</div>';
+            
+            setTimeout(function() {
+                messageDiv.innerHTML = '';
+            }, 3000);
+        } catch(err) {
+            messageDiv.innerHTML = '<div class="error">❌ Error: ' + err.message + '</div>';
+            setTimeout(function() {
+                messageDiv.innerHTML = '';
+            }, 3000);
+        }
+    };
+    
+    reader.onerror = function() {
+        messageDiv.innerHTML = '<div class="error">❌ Error reading file</div>';
+    };
+    
+    reader.readAsText(file);
+}
+
+downloadBtn.addEventListener('click', function() {
+    if (!sortedData) return;
+    
+    var jsonStr = JSON.stringify(sortedData, null, 2);
+    var blob = new Blob([jsonStr], {type: 'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'sorted_data.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    messageDiv.innerHTML = '<div class="success">✅ File downloaded!</div>';
+    setTimeout(function() {
+        messageDiv.innerHTML = '';
+    }, 2000);
+});
+
+dropZone.addEventListener('click', function() {
+    fileInput.click();
+});
+
+fileInput.addEventListener('change', function(e) {
+    if (e.target.files[0]) {
+        processFile(e.target.files[0]);
+    }
+});
+
+dropZone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    dropZone.style.background = '#e8f5e9';
+});
+
+dropZone.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    dropZone.style.background = '#f9f9f9';
+});
+
+dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.style.background = '#f9f9f9';
+    var file = e.dataTransfer.files[0];
+    if (file) {
+        processFile(file);
+    }
+});
+</script>
+</body>
+</html>
