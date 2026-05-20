@@ -21,34 +21,53 @@
   .rv-bar-num{width:30px;text-align:right;color:var(--text-muted,#6b6560)}
   /* section titles */
   .rv-section-title{font-size:1.1rem;font-weight:700;margin:0 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border,rgba(255,255,255,.15))}
-  /* carousel */
-  .rv-carousel-wrap{position:relative;margin-bottom:2.5rem}
-  .rv-carousel-viewport{overflow:hidden;border-radius:10px;cursor:grab;user-select:none}
-  .rv-carousel-viewport:active{cursor:grabbing}
-  .rv-carousel-track{display:flex;transition:transform .38s cubic-bezier(.4,0,.2,1)}
-  .rv-video-card{flex:0 0 100%;background:var(--glass,rgba(255,255,255,.06));border:1px solid var(--border,rgba(255,255,255,.15));border-radius:10px;overflow:hidden;box-sizing:border-box}
-  .rv-video-embed{position:relative;aspect-ratio:16/9;background:#000;overflow:hidden}
-  .rv-video-embed iframe,.rv-video-embed video{position:absolute;inset:0;width:100%;height:100%;border:none}
-  .rv-video-thumb{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;cursor:pointer;background:rgba(0,0,0,.35);transition:background .2s}
-  .rv-video-thumb:hover{background:rgba(0,0,0,.5)}
-  .rv-play-btn{width:56px;height:56px;background:rgba(255,255,255,.92);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;padding-left:5px;box-shadow:0 2px 16px rgba(0,0,0,.5);transition:transform .15s}
-  .rv-video-thumb:hover .rv-play-btn{transform:scale(1.1)}
-  .rv-tiktok-badge{position:absolute;top:8px;left:8px;background:#000;color:#fff;font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.5px}
-  .rv-video-info{padding:.85rem 1rem}
-  .rv-video-info strong{display:block;font-size:.92rem;margin-bottom:.25rem}
-  .rv-video-info span{font-size:.8rem;color:var(--text-muted,#6b6560)}
-  .rv-video-link{display:inline-block;margin-top:.4rem;font-size:.8rem;color:var(--accent,#c8a96e);text-decoration:none}
-  .rv-video-link:hover{text-decoration:underline}
-  /* carousel nav */
-  .rv-carousel-btn{position:absolute;top:calc(50% - 44px);width:42px;height:42px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;transition:background .2s,transform .15s;backdrop-filter:blur(4px)}
-  .rv-carousel-btn:hover{background:rgba(0,0,0,.85);transform:scale(1.08)}
-  .rv-carousel-btn:disabled{opacity:.2;pointer-events:none}
-  .rv-carousel-btn--prev{left:10px}
-  .rv-carousel-btn--next{right:10px}
-  .rv-carousel-dots{display:flex;justify-content:center;gap:7px;margin-top:10px}
-  .rv-carousel-dot{width:8px;height:8px;border-radius:50%;border:none;background:var(--border,rgba(255,255,255,.25));cursor:pointer;padding:0;transition:background .2s,transform .2s}
-  .rv-carousel-dot.active{background:var(--accent,#c8a96e);transform:scale(1.35)}
-  .rv-carousel-counter{position:absolute;bottom:52px;right:12px;background:rgba(0,0,0,.55);color:#fff;font-size:.75rem;padding:3px 9px;border-radius:99px;pointer-events:none}
+  /* ── Wheel carousel ── */
+  .rv-wheel-wrap { position: relative; margin-bottom: 2.5rem; padding: 0 0 16px; }
+  .rv-wheel-stage { position: relative; height: 220px; overflow: visible; }
+  .rv-wheel-item {
+    position: absolute;
+    width: 50%;          /* center card width */
+    aspect-ratio: 4/3;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform .45s cubic-bezier(.4,0,.2,1), opacity .45s ease, filter .45s ease, z-index 0s .225s;
+    box-shadow: 0 4px 24px rgba(0,0,0,.35);
+    background: #000;
+  }
+  .rv-wheel-item img { width:100%;height:100%;object-fit:cover;display:block;pointer-events:none; }
+  .rv-wheel-item .rv-wh-overlay {
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.3);transition:background .3s;
+  }
+  .rv-wheel-item.is-active .rv-wh-overlay { background: rgba(0,0,0,.15); }
+  .rv-wheel-item.is-active { cursor: default; }
+  .rv-play-btn { width:52px;height:52px;background:rgba(255,255,255,.9);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.3rem;padding-left:4px;box-shadow:0 2px 14px rgba(0,0,0,.5);transition:transform .15s,opacity .2s; }
+  .rv-wheel-item:not(.is-active):hover .rv-play-btn { transform:scale(1.1); }
+  .rv-wheel-item.is-active .rv-play-btn { opacity:0;pointer-events:none; }
+  /* tiktok card */
+  .rv-wh-tiktok-bg { width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;color:#fff;gap:.5rem;padding:.75rem;text-align:center; }
+  .rv-tiktok-badge{position:absolute;top:8px;left:8px;background:#000;color:#fff;font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:4px;z-index:1;}
+  /* active embed area */
+  .rv-wheel-active-embed { position:relative;width:50%;padding-bottom:calc(50% * 0.75);margin:0 auto; display:none; border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.4); }
+  .rv-wheel-active-embed.visible { display:block; }
+  .rv-wheel-active-embed iframe,.rv-wheel-active-embed video { position:absolute;inset:0;width:100%;height:100%;border:none; }
+  /* info strip below center */
+  .rv-wheel-info { text-align:center;margin-top:10px;min-height:48px; }
+  .rv-wheel-info strong { display:block;font-size:.95rem;font-weight:700; }
+  .rv-wheel-info span { font-size:.8rem;color:var(--text-muted,#6b6560); }
+  .rv-wheel-info a { font-size:.8rem;color:var(--accent,#c8a96e);text-decoration:none;margin-left:.5rem; }
+  .rv-wheel-info a:hover { text-decoration:underline; }
+  /* nav buttons */
+  .rv-carousel-btn{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;transition:background .2s,transform .2s;backdrop-filter:blur(4px);}
+  .rv-carousel-btn:hover{background:rgba(0,0,0,.85);transform:translateY(-50%) scale(1.1);}
+  .rv-carousel-btn:disabled{opacity:.2;pointer-events:none;}
+  .rv-carousel-btn--prev{left:0;}
+  .rv-carousel-btn--next{right:0;}
+  /* dots */
+  .rv-carousel-dots{display:flex;justify-content:center;gap:7px;margin-top:12px;}
+  .rv-carousel-dot{width:8px;height:8px;border-radius:50%;border:none;background:var(--border,rgba(255,255,255,.25));cursor:pointer;padding:0;transition:background .2s,transform .2s;}
+  .rv-carousel-dot.active{background:var(--accent,#c8a96e);transform:scale(1.35);}
   /* filter/sort */
   .rv-filter-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1.25rem}
   .rv-filter-label{font-size:.85rem;color:var(--text-muted,#6b6560)}
@@ -178,23 +197,36 @@
         +'<span class="rv-bar-num">'+c+'</span></div>';
     }).join('');
 
-    /* carousel */
+    /* wheel carousel */
     var carouselHTML='';
     if(videos.length){
-      var trackCards=videos.map(function(v,i){
-        return '<div class="rv-video-card" data-idx="'+i+'">'+videoCardInner(v)+'</div>';
+      /* thumbnail for each video */
+      function vThumb(v){
+        if(v.type==='youtube'){
+          var vid=(v.url.match(/embed\/([^?]+)/)||[])[1]||'';
+          return '<img src="https://img.youtube.com/vi/'+vid+'/mqdefault.jpg" alt="'+v.title+'">';
+        }
+        if(v.type==='tiktok') return '<div class="rv-wh-tiktok-bg"><span style="font-size:2rem;">🎵</span><span style="font-size:.78rem;">'+v.title+'</span></div>';
+        /* mp4 — use play icon on dark bg */
+        return '<div style="width:100%;height:100%;background:#111;display:flex;align-items:center;justify-content:center;"><span style="font-size:2.5rem;opacity:.6;">▶</span></div>';
+      }
+      var items=videos.map(function(v,i){
+        return '<div class="rv-wheel-item" data-idx="'+i+'" onclick="rvGo('+i+')">'
+          +'<div class="rv-wh-thumb">'+vThumb(v)+'</div>'
+          +(v.type==='tiktok'?'<div class="rv-tiktok-badge">TikTok</div>':'')
+          +'<div class="rv-wh-overlay"><div class="rv-play-btn">▶</div></div>'
+          +'</div>';
       }).join('');
-      var dotsHTML=videos.length>1?'<div class="rv-carousel-dots" id="rv-dots">'
-        +videos.map(function(_,i){return '<button class="rv-carousel-dot'+(i===0?' active':'')+'" data-idx="'+i+'" onclick="rvGo('+i+')"></button>';}).join('')
-        +'</div>':'';
+      var dots=videos.length>1?'<div class="rv-carousel-dots" id="rv-dots">'
+        +videos.map(function(_,i){return '<button class="rv-carousel-dot'+(i===0?' active':'')+'" data-idx="'+i+'" onclick="rvGo('+i+')"></button>';}).join('')+'</div>':'';
       carouselHTML='<h2 class="rv-section-title">Video Reviews</h2>'
-        +'<div class="rv-carousel-wrap">'
+        +'<div class="rv-wheel-wrap">'
         +(videos.length>1?'<button class="rv-carousel-btn rv-carousel-btn--prev" id="rv-prev" onclick="rvStep(-1)" aria-label="Previous">&#8592;</button>':'')
         +(videos.length>1?'<button class="rv-carousel-btn rv-carousel-btn--next" id="rv-next" onclick="rvStep(1)" aria-label="Next">&#8594;</button>':'')
-        +(videos.length>1?'<span class="rv-carousel-counter" id="rv-counter">1 / '+videos.length+'</span>':'')
-        +'<div class="rv-carousel-viewport" id="rv-viewport">'
-        +'<div class="rv-carousel-track" id="rv-track">'+trackCards+'</div>'
-        +'</div>'+dotsHTML+'</div>';
+        +'<div class="rv-wheel-stage" id="rv-stage">'+items+'</div>'
+        +'<div class="rv-wheel-active-embed" id="rv-embed"></div>'
+        +'<div class="rv-wheel-info" id="rv-info"></div>'
+        +dots+'</div>';
     }
 
     /* written reviews */
@@ -230,73 +262,120 @@
       +'</select></div>'
       +'<div class="rv-list" id="rv-list">'+writtenHTML+'</div>';
 
+    _videos=videos;
     setTimeout(rvInitCarousel, 60);
   }
 
-  /* ── play handler ── */
-  window.rvPlay=function(thumb){
-    var wrap=thumb.closest('.rv-video-embed');
-    var vid=wrap.querySelector('video');
-    if(vid){thumb.style.display='none';vid.controls=true;vid.play();return;}
-    var src=wrap.dataset.src;
-    if(!src)return;
-    var f=document.createElement('iframe');
-    f.src=src;f.setAttribute('allow','autoplay;encrypted-media;picture-in-picture');f.allowFullscreen=true;
-    f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:none;';
-    wrap.innerHTML='';wrap.appendChild(f);
-  };
+  /* ── wheel carousel ── */
+  var _videos=[], _idx=0;
 
-  /* ── carousel ── */
-  var _idx=0,_total=0;
-
+  /* stop any playing embed */
   function rvStop(){
-    var t=document.getElementById('rv-track');if(!t)return;
-    t.querySelectorAll('iframe').forEach(function(f){var s=f.src;f.src='';f.src=s;});
-    t.querySelectorAll('video').forEach(function(v){v.pause();});
+    var el=document.getElementById('rv-embed');
+    if(!el)return;
+    el.classList.remove('visible');
+    el.innerHTML='';
   }
 
-  function rvUpdate(idx){
-    var track=document.getElementById('rv-track');if(!track)return;
-    rvStop();
-    _idx=idx;
-    track.style.transform='translateX(-'+(idx*100)+'%)';
-    document.querySelectorAll('.rv-carousel-dot').forEach(function(d){d.classList.toggle('active',+d.dataset.idx===idx);});
-    var ctr=document.getElementById('rv-counter');if(ctr)ctr.textContent=(idx+1)+' / '+_total;
-    var p=document.getElementById('rv-prev'),n=document.getElementById('rv-next');
-    if(p)p.disabled=idx===0;if(n)n.disabled=idx===_total-1;
-    /* autoplay */
-    var card=track.querySelectorAll('.rv-video-card')[idx];if(!card)return;
-    var vid=card.querySelector('video');
-    if(vid){var th=card.querySelector('.rv-video-thumb');if(th)th.style.display='none';vid.controls=true;vid.play().catch(function(){});}
-    else{
-      var embed=card.querySelector('.rv-video-embed[data-src]');
-      if(embed&&embed.dataset.src){
-        var f=document.createElement('iframe');
-        f.src=embed.dataset.src;f.setAttribute('allow','autoplay;encrypted-media;picture-in-picture');f.allowFullscreen=true;
-        f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:none;';
-        embed.innerHTML='';embed.appendChild(f);
+  /* position all wheel items around active index */
+  function rvLayout(){
+    var stage=document.getElementById('rv-stage');if(!stage)return;
+    var items=[].slice.call(stage.querySelectorAll('.rv-wheel-item'));
+    var n=items.length;
+    /* visual slots relative to center: -2,-1,0,+1,+2 */
+    /* slot positions as % of stage width from center */
+    var slotX  =[-46,-25,0,25,46];   /* horizontal offset % of container */
+    var slotW  =[28,  36,50,36,28];  /* card width % of container */
+    var slotZ  =[1,   2,  4, 2, 1];
+    var slotOp =[.45,.65,1,.65,.45];
+    var slotBl =[3,   1,  0, 1, 3];  /* blur px */
+    items.forEach(function(item,i){
+      var rel=((i-_idx)%n+n)%n;       /* 0..n-1 distance forward */
+      if(rel>n/2)rel=rel-n;           /* wrap: -2..+2 */
+      var slot=rel+2;                  /* map to 0..4 */
+      if(slot<0||slot>4){             /* hidden beyond edges */
+        item.style.opacity='0';item.style.pointerEvents='none';item.style.zIndex='0';return;
       }
+      var w=slotW[slot];
+      item.style.width=w+'%';
+      item.style.left='calc(50% - '+w/2+'% + '+(slotX[slot]-w/2+w/2)+'%)';
+      /* center: left=50%-w/2, offset by slotX from center */
+      item.style.left='calc(50% + '+slotX[slot]+'% - '+w/2+'%)';
+      item.style.top='50%';
+      item.style.transform='translateY(-50%)';
+      item.style.zIndex=slotZ[slot];
+      item.style.opacity=slotOp[slot];
+      item.style.filter=slotBl[slot]?'blur('+slotBl[slot]+'px)':'none';
+      item.style.pointerEvents=rel===0?'none':'auto';
+      item.classList.toggle('is-active',rel===0);
+    });
+    /* dots */
+    document.querySelectorAll('.rv-carousel-dot').forEach(function(d){d.classList.toggle('active',+d.dataset.idx===_idx);});
+    /* nav */
+    var p=document.getElementById('rv-prev'),nx=document.getElementById('rv-next');
+    if(p)p.disabled=_idx===0;if(nx)nx.disabled=_idx===_videos.length-1;
+    /* info strip */
+    var v=_videos[_idx],info=document.getElementById('rv-info');
+    if(info&&v){
+      var link='';
+      if(v.type==='youtube')link='<a href="'+v.url.replace('embed/','watch?v=')+'" target="_blank" rel="noopener">Watch on YouTube ↗</a>';
+      if(v.type==='tiktok') link='<a href="'+v.url+'" target="_blank" rel="noopener">Open TikTok ↗</a>';
+      info.innerHTML='<strong>'+v.title+'</strong><span>'+v.author+link+'</span>';
     }
   }
 
-  window.rvGo=function(i){rvUpdate(i);};
-  window.rvStep=function(d){rvUpdate(Math.max(0,Math.min(_total-1,_idx+d)));};
+  /* play active video in embed area */
+  function rvPlayActive(){
+    var v=_videos[_idx];if(!v)return;
+    var el=document.getElementById('rv-embed');if(!el)return;
+    el.innerHTML='';
+    if(v.type==='youtube'){
+      var vid=(v.url.match(/embed\/([^?]+)/)||[])[1]||'';
+      var f=document.createElement('iframe');
+      f.src='https://www.youtube.com/embed/'+vid+'?autoplay=1&rel=0';
+      f.setAttribute('allow','autoplay;encrypted-media;picture-in-picture');
+      f.allowFullscreen=true;f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:none;';
+      el.appendChild(f);el.classList.add('visible');
+    } else if(v.type==='mp4'){
+      var BASE2=(window.SHOP_CONFIG&&window.SHOP_CONFIG.basePath)?window.SHOP_CONFIG.basePath:'../../';
+      var src=v.url.startsWith('/')?BASE2+v.url.slice(1):v.url;
+      var vid2=document.createElement('video');
+      vid2.controls=true;vid2.autoplay=true;
+      vid2.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';
+      vid2.innerHTML='<source src="'+src+'" type="video/mp4">';
+      el.appendChild(vid2);el.classList.add('visible');
+      vid2.play().catch(function(){});
+    } else if(v.type==='tiktok'){
+      window.open(v.url,'_blank','noopener');
+    }
+  }
+
+  window.rvGo=function(i){
+    if(i===_idx){rvPlayActive();return;}
+    rvStop();_idx=i;rvLayout();
+  };
+  window.rvStep=function(d){
+    var ni=Math.max(0,Math.min(_videos.length-1,_idx+d));
+    if(ni===_idx)return;
+    rvStop();_idx=ni;rvLayout();
+  };
 
   function rvInitCarousel(){
-    var track=document.getElementById('rv-track');if(!track)return;
-    _total=track.querySelectorAll('.rv-video-card').length;
-    if(!_total)return;
-    var vp=document.getElementById('rv-viewport');if(!vp)return;
+    var stage=document.getElementById('rv-stage');if(!stage)return;
+    /* swipe on whole wheel area */
     var sx=0,drag=false,moved=false;
-    vp.addEventListener('touchstart',function(e){sx=e.touches[0].clientX;drag=true;moved=false;},{passive:true});
-    vp.addEventListener('touchmove',function(e){if(Math.abs(e.touches[0].clientX-sx)>8)moved=true;},{passive:true});
-    vp.addEventListener('touchend',function(e){if(drag&&moved){var d=e.changedTouches[0].clientX-sx;if(Math.abs(d)>40)rvStep(d<0?1:-1);}drag=false;});
-    vp.addEventListener('mousedown',function(e){sx=e.clientX;drag=true;moved=false;});
-    vp.addEventListener('mousemove',function(e){if(drag&&Math.abs(e.clientX-sx)>8)moved=true;});
-    vp.addEventListener('mouseup',function(e){if(drag&&moved&&Math.abs(e.clientX-sx)>40)rvStep(e.clientX-sx<0?1:-1);drag=false;});
-    vp.addEventListener('mouseleave',function(){drag=false;});
-    var p=document.getElementById('rv-prev');if(p)p.disabled=true;
-    /* don't autoplay first on load — let user choose */
+    var wrap=stage.closest('.rv-wheel-wrap');
+    function onStart(x){sx=x;drag=true;moved=false;}
+    function onMove(x){if(drag&&Math.abs(x-sx)>8)moved=true;}
+    function onEnd(x){if(drag&&moved&&Math.abs(x-sx)>40)rvStep(x-sx<0?1:-1);drag=false;}
+    stage.addEventListener('touchstart',function(e){onStart(e.touches[0].clientX);},{passive:true});
+    stage.addEventListener('touchmove',function(e){onMove(e.touches[0].clientX);},{passive:true});
+    stage.addEventListener('touchend',function(e){onEnd(e.changedTouches[0].clientX);});
+    stage.addEventListener('mousedown',function(e){onStart(e.clientX);});
+    stage.addEventListener('mousemove',function(e){onMove(e.clientX);});
+    stage.addEventListener('mouseup',function(e){onEnd(e.clientX);});
+    stage.addEventListener('mouseleave',function(){drag=false;});
+    rvLayout();
   }
 
   /* ── filter / sort ── */
