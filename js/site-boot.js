@@ -82,7 +82,6 @@
         { href: 'assets/images/dornori-logo-transparent.webp', as: 'image', fetchpriority: 'high' },
         { href: 'css/main.css',  as: 'style' },
         { href: 'css/shop.css',  as: 'style' },
-        { href: 'css/shop-bridge.css', as: 'style' },
     ]);
 
     injectStyles([

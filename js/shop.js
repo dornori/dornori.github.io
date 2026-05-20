@@ -14,7 +14,6 @@ var Shop = (() => {
   let _langLoaded = false;
   let _langLoadPromise = null;
   let _products = {};
-  let _productsPromise = null;
 
   /* ═══════════════════════════════════════════════════════
      LANGUAGE RESOLUTION
@@ -87,7 +86,7 @@ var Shop = (() => {
     localStorage.setItem(langKey, code);
     _langLoaded = false; _langLoadPromise = null; LANG = {};
     PRODUCT_LANG = {}; PRODUCT_LANG_EN = {};
-    _products = {}; _productsPromise = null; // Clear product cache so they reload in the new language
+    _products = {}; // Clear product cache so they reload in the new language
     await loadLang();
     document.dispatchEvent(new CustomEvent("shop:langChanged", { detail: { lang: code } }));
   }
@@ -271,31 +270,40 @@ var Shop = (() => {
 
   /* ─── PRODUCT LOADER ────────────────────────────────── */
   async function loadProducts() {
-    // Return cached result if already loaded
-    if (_productsPromise) return _productsPromise;
-    _productsPromise = (async () => {
-      await loadLang(); // idempotent; populates PRODUCT_LANG
-      const lang = CONFIG.language || resolveLanguage();
-      const src = CONFIG.data?.productsJson || "data/products.json";
-      let all = [];
-      try {
-        all = await fetch(src).then(r => { if (!r.ok) throw 0; return r.json(); });
-      } catch(e) {
-        console.warn('Failed to load base products from', src);
-        _productsPromise = null; // allow retry
-        return [];
-      }
-      // Reuse PRODUCT_LANG already fetched by loadLang — no second fetch
-      if (all.length && Object.keys(PRODUCT_LANG).length > 0) {
+    await loadLang();
+    const lang = CONFIG.language || resolveLanguage();
+    const langDir = CONFIG.data.langDir || '';
+    
+    const safeFetch = url => fetch(url)
+      .then(r => { if (!r.ok) throw 0; return r.json(); })
+      .catch(() => null);
+    
+    // 1. Always load base products first
+    const src = CONFIG.data?.productsJson || "data/products.json";
+    let all = [];
+    try {
+      all = await fetch(src).then(r => { if (!r.ok) throw 0; return r.json(); });
+    } catch(e) {
+      console.warn('Failed to load base products from', src);
+      return [];
+    }
+    
+    // 2. Try to overlay language-specific overrides
+    if (lang && langDir) {
+      const langProducts = await safeFetch(langDir + lang + '/products.json');
+      if (langProducts && Array.isArray(all)) {
         all = all.map(p => {
-          const override = PRODUCT_LANG[p.id];
-          return override ? { ...p, ...override } : p;
+          const override = langProducts[p.id];
+          if (override) {
+            return { ...p, ...override };
+          }
+          return p;
         });
       }
-      all.forEach(p => { _products[p.id] = p; });
-      return all;
-    })();
-    return _productsPromise;
+    }
+    
+    all.forEach(p => { _products[p.id] = p; });
+    return all;
   }
   
   async function getProduct(id) {
