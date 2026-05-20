@@ -105,9 +105,14 @@ const SITE_CONFIG = {
         { id: 'mastercard', label: 'Mastercard',        file: 'mastercard', enabled: true  },
         { id: 'amex',       label: 'American Express',  file: 'amex',       enabled: true  },
         { id: 'paypal',     label: 'PayPal',            file: 'paypal',     enabled: true  },
+        { id: 'maestro',    label: 'Maestro',           file: 'maestro',    enabled: true  },
+        { id: 'discover',   label: 'Discover',          file: 'discover',   enabled: true  },
         { id: 'ideal',      label: 'iDEAL',             file: 'ideal',      enabled: true  },
         { id: 'klarna',     label: 'Klarna',            file: 'klarna',     enabled: true  },
         { id: 'bancontact', label: 'Bancontact',        file: 'bancontact', enabled: false },
+        { id: 'diners',     label: 'Diners Club',       file: 'diners',     enabled: false },
+        { id: 'jcb',        label: 'JCB',               file: 'jcb',        enabled: false },
+        { id: 'unionpay',   label: 'UnionPay',          file: 'unionpay',   enabled: false },
     ],
 
     footer: [
