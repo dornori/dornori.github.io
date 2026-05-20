@@ -334,6 +334,7 @@
 
           <!-- ── Buy Box (3rd column) ── -->
           <div class="pdp-buybox" id="pdp-buybox">
+            <div id="pdp-buybox-label" style="font-size:13px;font-weight:600;color:var(--c-text-muted);margin-bottom:10px;display:none;"></div>
             <div class="amz-price-section">
               <div class="amz-price-row">
                 <span class="amz-price-label" data-i18n="label_price">Price:</span>
@@ -524,19 +525,41 @@
       const bc = document.getElementById("amz-breadcrumb");
       if (bc) bc.innerHTML = `<a href="../shop/">Shop</a> › <span>${product.category || "Products"}</span>`;
 
-      // Rating stars + count — use PRODUCT-level values as fallback so they always show
+      // Rating stars + count — use PRODUCT-level values as fallback
       const rating = product.rating ?? PRODUCT.rating;
       const reviewCount = product.reviewCount ?? PRODUCT.reviewCount;
       const starsEl = document.getElementById("amz-stars");
-      if (starsEl && rating) {
-        const full = Math.floor(rating);
-        const half = rating - full >= 0.5;
-        starsEl.textContent = "★".repeat(full) + (half ? "½" : "") + "☆".repeat(5 - full - (half ? 1 : 0));
-      }
-      // If no rating data, leave whatever is already in the HTML (the default ★★★★★)
       const rc = document.getElementById("amz-rating-count");
-      if (rc && reviewCount) rc.innerHTML = `<span style="color:#0066c0;">(${Number(reviewCount).toLocaleString()} ${Shop.t("reviews_suffix","Reviews")})</span>`;
-      // If no reviewCount, leave untouched
+      if (!rating || Number(rating) === 0) {
+        // No rating: hide stars, show "not rated yet"
+        if (starsEl) starsEl.style.display = "none";
+        if (rc) {
+          rc.removeAttribute("href"); rc.onclick = null;
+          rc.style.fontStyle = "italic"; rc.style.color = "var(--c-text-muted)";
+          rc.textContent = Shop.t("not_rated_yet", "Product not rated yet");
+        }
+      } else {
+        if (starsEl) {
+          starsEl.style.display = "";
+          const full = Math.floor(Number(rating));
+          const half = Number(rating) - full >= 0.5;
+          starsEl.textContent = "★".repeat(full) + (half ? "½" : "") + "☆".repeat(5 - full - (half ? 1 : 0));
+        }
+        if (!reviewCount || Number(reviewCount) === 0) {
+          if (rc) {
+            rc.removeAttribute("href"); rc.onclick = null;
+            rc.style.fontStyle = "italic"; rc.style.color = "var(--c-text-muted)";
+            rc.textContent = Shop.t("no_reviews", "No reviews yet");
+          }
+        } else {
+          if (rc) {
+            rc.setAttribute("href", "#");
+            rc.onclick = (function(pid) { return function() { var slug='reviews',lang=window.LANG||'en'; if(window.viewPage){window.viewPage(slug,pid);}else{var s=(window.T&&window.T.url_slugs&&window.T.url_slugs.reviews)||slug;window.location.href='/'+lang+'/'+s+'/?id='+pid;} return false; }; })(prodId);
+            rc.style.fontStyle = ""; rc.style.color = "";
+            rc.innerHTML = `<span style="color:#0066c0;">(${Number(reviewCount).toLocaleString()} ${Shop.t("reviews_suffix","Reviews")})</span>`;
+          }
+        }
+      }
 
       // Availability / shipping info
       const stock = product.stock !== undefined ? product.stock : 99;
@@ -589,6 +612,14 @@
       } else if (listRow && savRow) {
         listRow.style.display = "none";
         savRow.style.display  = "none";
+      }
+
+      // Show selected variant label above price box
+      const labelEl = document.getElementById("pdp-buybox-label");
+      if (labelEl) {
+        const label = activeProduct.label || activeProduct.name || Shop.pName(activeProduct) || "";
+        if (label) { labelEl.textContent = label; labelEl.style.display = ""; }
+        else { labelEl.style.display = "none"; }
       }
     }
 
