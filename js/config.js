@@ -100,6 +100,16 @@ const SITE_CONFIG = {
         { id: 'web', user: 'dornori.com',  base: 'https://'               },
     ],
 
+    paymentProviders: [
+        { id: 'visa',       label: 'Visa',             file: 'visa',       enabled: true  },
+        { id: 'mastercard', label: 'Mastercard',        file: 'mastercard', enabled: true  },
+        { id: 'amex',       label: 'American Express',  file: 'amex',       enabled: true  },
+        { id: 'paypal',     label: 'PayPal',            file: 'paypal',     enabled: true  },
+        { id: 'ideal',      label: 'iDEAL',             file: 'ideal',      enabled: true  },
+        { id: 'klarna',     label: 'Klarna',            file: 'klarna',     enabled: true  },
+        { id: 'bancontact', label: 'Bancontact',        file: 'bancontact', enabled: false },
+    ],
+
     footer: [
         {
             label: 'Company',
