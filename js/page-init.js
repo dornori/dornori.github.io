@@ -29,12 +29,14 @@
     // Track last visited shop page for cart navigation
     (function() {
         var pageSlug = window.__PAGE_SLUG__;
+        var config = window.SITE_CONFIG || {};
+        var storageKey = (config.storageKeys && config.storageKeys.lastShopPage) || 'webshop_last_page';
         var excludePages = ['product', 'cart'];
 
         if (pageSlug && excludePages.indexOf(pageSlug) === -1) {
             // Save the current page URL as the last visited shop page
             try {
-                localStorage.setItem('webshop_last_page', window.location.href);
+                localStorage.setItem(storageKey, window.location.href);
             } catch (e) {
                 // localStorage not available
             }

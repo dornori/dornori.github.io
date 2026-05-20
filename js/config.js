@@ -20,9 +20,27 @@ const SITE_CONFIG = {
         lang_dir:        'lang/',
         content_dir:     'content/',
         icons_dir:       'assets/icons/',
+        images_dir:      'assets/images/',
         shop_dir:        'shop/',
         js_dir:          'js/',
+        css_dir:         'css/',
         formJsonPath:    (lang) => `${window.__BASE_PATH__ || '/'}lang/${lang}/form.json`,
+    },
+
+    icons: {
+        favicon:         'favicon.ico',
+        appleTouchIcon:  'apple-touch-icon.png',
+        manifest:        'site.webmanifest',
+    },
+
+    images: {
+        logo:            'dornori-logo-transparent.webp',
+    },
+
+    styles: {
+        profiles:        'profiles.css',
+        main:            'main.css',
+        shop:            'shop.css',
     },
 
     storageKeys: {
@@ -98,21 +116,6 @@ const SITE_CONFIG = {
         { id: 'yt',  user: 'dornori_info', base: 'https://youtube.com/@'  },
         { id: 'fb',  user: 'Dornori.info', base: 'https://facebook.com/'  },
         { id: 'web', user: 'dornori.com',  base: 'https://'               },
-    ],
-
-    paymentProviders: [
-        { id: 'visa',       label: 'Visa',             file: 'visa',       enabled: true  },
-        { id: 'mastercard', label: 'Mastercard',        file: 'mastercard', enabled: true  },
-        { id: 'amex',       label: 'American Express',  file: 'amex',       enabled: true  },
-        { id: 'paypal',     label: 'PayPal',            file: 'paypal',     enabled: true  },
-        { id: 'maestro',    label: 'Maestro',           file: 'maestro',    enabled: true  },
-        { id: 'discover',   label: 'Discover',          file: 'discover',   enabled: true  },
-        { id: 'ideal',      label: 'iDEAL',             file: 'ideal',      enabled: true  },
-        { id: 'klarna',     label: 'Klarna',            file: 'klarna',     enabled: true  },
-        { id: 'bancontact', label: 'Bancontact',        file: 'bancontact', enabled: false },
-        { id: 'diners',     label: 'Diners Club',       file: 'diners',     enabled: false },
-        { id: 'jcb',        label: 'JCB',               file: 'jcb',        enabled: false },
-        { id: 'unionpay',   label: 'UnionPay',          file: 'unionpay',   enabled: false },
     ],
 
     footer: [

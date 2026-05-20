@@ -8,17 +8,14 @@ import ENV_CONFIG  from './env-config.js';
 const STORAGE_KEY = SITE_CONFIG.storageKeys.lang;
 const BASE        = () => SITE_CONFIG.appearance.base_path;
 
-// Hardcoded fallback languages (matches your /lang/XX/ directory structure)
-const FALLBACK_LANGUAGES = [
-    { code: 'en', hreflang: 'en' },
-    { code: 'de', hreflang: 'de' },
-    { code: 'es', hreflang: 'es' },
-    { code: 'fr', hreflang: 'fr' },
-    { code: 'it', hreflang: 'it' },
-    { code: 'nl', hreflang: 'nl' },
-    { code: 'pt', hreflang: 'pt' },
-    { code: 'cs', hreflang: 'cs' },
-];
+// Generate fallback languages from shop config
+function getFallbackLanguages() {
+    const supported = (typeof window.CONFIG !== 'undefined' && window.CONFIG.supportedLanguages) 
+        || ['en', 'de', 'es', 'fr', 'it', 'nl', 'pt', 'cs'];
+    return supported.map(code => ({ code, hreflang: code }));
+}
+
+const FALLBACK_LANGUAGES = getFallbackLanguages();
 
 // Get supported languages with fallback if countries.json hasn't loaded
 function getSupportedLanguages() {

@@ -28,13 +28,12 @@ var Shipping = (() => {
     JP: 'en',  // no /lang/ja/ translation file; falls back to English
   };
 
-  const AVAILABLE_LANG_FILES = ['en', 'nl', 'de', 'fr', 'cs', 'es', 'it', 'pt'];
-
   async function load() {
     if (_loaded) return;
     try {
       if (!CONFIG.data) CONFIG.data = {};
       if (!CONFIG.shipping) CONFIG.shipping = {};
+      const AVAILABLE_LANG_FILES = CONFIG.supportedLanguages || ['en', 'nl', 'de', 'fr', 'cs', 'es', 'it', 'pt'];
       const res  = await fetch(CONFIG.data.shippingJson || '/data/shipping.json');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
