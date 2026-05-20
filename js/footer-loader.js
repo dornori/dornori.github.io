@@ -46,7 +46,55 @@ window.renderFooter = () => {
 
         container.appendChild(col);
     });
+
+    // Render payment icons
+    renderPaymentIcons();
 };
+
+function renderPaymentIcons() {
+    const container = document.getElementById('footer-payment');
+    if (!container) return;
+
+    const providers = (SITE_CONFIG.paymentProviders || []).filter(p => p.enabled);
+    if (!providers.length) return;
+
+    const base     = SITE_CONFIG.appearance.base_path;
+    const iconBase = `${base}assets/images/payment-icons/`;
+    const label    = window.T?.footer?.we_accept || 'We accept';
+
+    container.innerHTML = '';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'payment-accepted';
+
+    const labelEl = document.createElement('span');
+    labelEl.className   = 'payment-label';
+    labelEl.textContent = label;
+    wrapper.appendChild(labelEl);
+
+    const iconsEl = document.createElement('div');
+    iconsEl.className = 'payment-icons';
+
+    providers.forEach(p => {
+        const img  = document.createElement('img');
+        img.src    = `${iconBase}${p.file}.webp`;
+        img.alt    = p.label;
+        img.className = 'payment-icon';
+        img.width  = 60;
+        img.height = 38;
+        img.loading = 'lazy';
+        // Fallback to jpeg if webp fails
+        img.onerror = function() {
+            if (!this.src.endsWith('.jpeg')) {
+                this.src = `${iconBase}${p.file}.jpeg`;
+            }
+        };
+        iconsEl.appendChild(img);
+    });
+
+    wrapper.appendChild(iconsEl);
+    container.appendChild(wrapper);
+}
 
 export function initFooter() {
     if (window.T) window.renderFooter();
