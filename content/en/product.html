@@ -238,15 +238,14 @@
     });
     document.addEventListener("shop:langChanged", (e) => {
       const newLang = e.detail?.lang;
-      if (newLang && PRODUCT) {
-        const currentLang = window.LANG || localStorage.getItem('dornori-lang') || 'en';
-        if (newLang !== currentLang) {
-          // Navigate to product page in new language with product ID preserved
-          const basePath = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || '/';
-          const slug = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
-          window.location.href = `${basePath}${newLang}/${slug}/?id=${PRODUCT.id}`;
-          return;
-        }
+      if (newLang && prodId && window.viewPage) {
+        // Update window.LANG so viewPage uses correct language
+        window.LANG = newLang;
+        localStorage.setItem('dornori-lang', newLang);
+        // Navigate to product page in new language with product ID preserved
+        const slug = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
+        window.viewPage(slug, prodId);
+        return;
       }
       buildLangSwitcher();
       renderMeta();
