@@ -34,15 +34,6 @@ var CONFIG = {
     imageDir: "images/products/",
   },
 
-  icons: {
-    cartIcon: "/assets/icons/cart-icon-200x200.svg",
-  },
-
-  products: {
-    // Product variant prefixes that should be treated as standalone products in cart
-    variantPrefixes: ["mushroom-", "ufo-", "star-"],
-  },
-
   taxRate:            0.21,
   taxLabel:           "VAT (21%)",
   taxExemptCountries: [],

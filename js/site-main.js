@@ -19,13 +19,11 @@ import { initFooter }       from './footer-loader.js';
  */
 async function loadAndCacheCountries() {
     const basePath = SITE_CONFIG.appearance.base_path;
-    const cacheKey = SITE_CONFIG.storageKeys.countriesCache;
-    const timestampKey = SITE_CONFIG.storageKeys.cacheTimestamp;
     
     // FIX #5 & #8: Check localStorage cache first (instant, no network)
     try {
-        const cached = localStorage.getItem(cacheKey);
-        const timestamp = localStorage.getItem(timestampKey);
+        const cached = localStorage.getItem('dornori-countries-cache');
+        const timestamp = localStorage.getItem('dornori-cache-timestamp');
         const now = Date.now();
         const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
         
@@ -49,8 +47,8 @@ async function loadAndCacheCountries() {
         
         // FIX #5 & #8: Cache to localStorage for next load
         try {
-            localStorage.setItem(cacheKey, JSON.stringify(countries));
-            localStorage.setItem(timestampKey, Date.now().toString());
+            localStorage.setItem('dornori-countries-cache', JSON.stringify(countries));
+            localStorage.setItem('dornori-cache-timestamp', Date.now().toString());
         } catch (e) {
             // localStorage full or unavailable, continue anyway
         }

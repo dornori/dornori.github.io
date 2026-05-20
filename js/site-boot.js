@@ -9,29 +9,6 @@
 (function () {
     'use strict';
 
-    // ── BOOT CONFIGURATION ─────────────────────────────────────────────────────
-    // Centralized paths for easy configuration
-    var BOOT_CONFIG = {
-        icons: {
-            favicon:        'assets/icons/favicon.ico',
-            appleTouchIcon: 'assets/icons/apple-touch-icon.png',
-            manifest:       'assets/icons/site.webmanifest'
-        },
-        images: {
-            logo:           'assets/images/dornori-logo-transparent.webp'
-        },
-        styles: {
-            profiles:       'css/profiles.css',
-            main:           'css/main.css',
-            shop:           'css/shop.css',
-            shopBridge:     'css/shop-bridge.css',
-            integration:    'css/integration.css'
-        },
-        storage: {
-            langKey:        'dornori-lang'
-        }
-    };
-
     // ── BASE_PATH auto-detection ──────────────────────────────────────────────
     var BASE_PATH = (function() {
         var src = '';
@@ -86,9 +63,9 @@
 
     function injectFavicons() {
         var favicons = [
-            { rel: 'icon',             href: BOOT_CONFIG.icons.favicon,        sizes: 'any' },
-            { rel: 'apple-touch-icon', href: BOOT_CONFIG.icons.appleTouchIcon              },
-            { rel: 'manifest',         href: BOOT_CONFIG.icons.manifest                    },
+            { rel: 'icon',             href: 'assets/icons/favicon.ico',         sizes: 'any' },
+            { rel: 'apple-touch-icon', href: 'assets/icons/apple-touch-icon.png'              },
+            { rel: 'manifest',         href: 'assets/icons/site.webmanifest'                  },
         ];
         favicons.forEach(function (f) {
             var link  = document.createElement('link');
@@ -102,21 +79,21 @@
     injectFavicons();
 
     injectPreloads([
-        { href: BOOT_CONFIG.images.logo,  as: 'image', fetchpriority: 'high' },
-        { href: BOOT_CONFIG.styles.main,  as: 'style' },
-        { href: BOOT_CONFIG.styles.shop,  as: 'style' },
+        { href: 'assets/images/dornori-logo-transparent.webp', as: 'image', fetchpriority: 'high' },
+        { href: 'css/main.css',  as: 'style' },
+        { href: 'css/shop.css',  as: 'style' },
     ]);
 
     injectStyles([
-        BOOT_CONFIG.styles.profiles,
-        BOOT_CONFIG.styles.main,
-        BOOT_CONFIG.styles.shop,
-        BOOT_CONFIG.styles.shopBridge,
-        BOOT_CONFIG.styles.integration,
+        'css/profiles.css',
+        'css/main.css',
+        'css/shop.css',
+        'css/shop-bridge.css',
+        'css/integration.css',
     ]);
 
     // ── Language ──────────────────────────────────────────────────────────────
-    var LANG_KEY = BOOT_CONFIG.storage.langKey;
+    var LANG_KEY = 'dornori-lang';
     var lang = localStorage.getItem(LANG_KEY) || 'en';
     if (!window.__PAGE_LANG__) {
         window.__PAGE_LANG__ = lang;
@@ -179,7 +156,7 @@
     function injectLogoSrc() {
         var logoEl = document.getElementById('banner-img');
         if (logoEl && !logoEl.getAttribute('src')) {
-            logoEl.src = BASE_PATH + BOOT_CONFIG.images.logo;
+            logoEl.src = BASE_PATH + 'assets/images/dornori-logo-transparent.webp';
         }
     }
 

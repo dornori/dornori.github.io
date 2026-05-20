@@ -93,8 +93,7 @@
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     function _cartUrl(lang) {
-        var storageKey = (window.CONFIG && window.CONFIG.storageKeys && window.CONFIG.storageKeys.parentLangKey) || 'dornori-lang';
-        var l    = lang || window.LANG || localStorage.getItem(storageKey) || 'en';
+        var l    = lang || window.LANG || localStorage.getItem('dornori-lang') || 'en';
         var slug = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || 'cart';
         return sitBase + l + '/' + slug + '/';
     }

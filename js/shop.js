@@ -164,10 +164,8 @@ var Shop = (() => {
     const cart  = getCart();
     // If variantId is selected and is itself a standalone product, use it as cartKey base
     // Otherwise use the current product ID + variant suffix
-    const prefixes = CONFIG.products?.variantPrefixes || [];
-    const prefixPattern = new RegExp("^(" + prefixes.join("|") + ")");
-    const cartBase = variantId && prefixPattern.test(variantId) ? variantId : product.id;
-    const vKey = (variantId && !prefixPattern.test(cartBase)) ? variantId : (selectedColor || "");
+    const cartBase = variantId && variantId.match(/^mushroom-|^ufo-|^star-/) ? variantId : product.id;
+    const vKey = (variantId && !cartBase.match(/^mushroom-|^ufo-|^star-/)) ? variantId : (selectedColor || "");
     const key = cartBase + (vKey ? "_" + slugify(vKey) : "");
     const existing = cart.find(i => i.cartKey === key);
     const rawPrice      = variantId ? variantPrice(product, variantId)    : product.price;
@@ -420,8 +418,7 @@ var Shop = (() => {
     wrapper.href = cartUrl;
     wrapper.className = "webshop-cart-icon";
     wrapper.setAttribute("aria-label", t("aria_shopping_cart", "Shopping cart"));
-    const cartIconPath = CONFIG.icons?.cartIcon || "/assets/icons/cart-icon-200x200.svg";
-	wrapper.innerHTML = `<img src="${cartIconPath}" alt="" aria-hidden="true">
+	wrapper.innerHTML = `<img src="/assets/icons/cart-icon-200x200.svg" alt="" aria-hidden="true">
    <span class="webshop-cart-icon__badge" aria-live="polite">0</span>`;
 	
     // Use SPA navigation instead of full page reload
