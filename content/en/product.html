@@ -475,6 +475,7 @@
     renderRelated();
     renderSpecs();
     applyI18n();
+    equaliseButtons();
     initMagnifier();
     initLightbox();
     initQty();
@@ -611,6 +612,30 @@
     /* ════════════════════════════════════════════════════
        VARIANTS
     ════════════════════════════════════════════════════ */
+
+    /* ── equalise variant buttons + action button heights via RAF ── */
+    function equaliseButtons() {
+      requestAnimationFrame(() => {
+        // 1. Variant buttons — all same width (widest wins)
+        const variantBtns = [...document.querySelectorAll('.amz-variant-btn')];
+        if (variantBtns.length > 1) {
+          variantBtns.forEach(b => { b.style.width = ''; });
+          const maxW = Math.max(...variantBtns.map(b => b.offsetWidth));
+          variantBtns.forEach(b => { b.style.width = maxW + 'px'; });
+        }
+
+        // 2. Action buttons — read tallest of Buy Now / Add to Cart, apply to badges
+        const actionBtns = [...document.querySelectorAll('.amz-btn-cart, .amz-btn-buy')];
+        if (actionBtns.length) {
+          const maxH = Math.max(...actionBtns.map(b => b.offsetHeight));
+          document.querySelectorAll('.amz-badge, .amz-badge--summary').forEach(el => {
+            el.style.height    = maxH + 'px';
+            el.style.boxSizing = 'border-box';
+          });
+        }
+      });
+    }
+
     function renderVariants() {
       const wrap = document.getElementById("amz-variants-section");
       const el   = document.getElementById("amz-variants-grid");
@@ -642,6 +667,7 @@
         });
       });
       PRODUCT._allVariants = allVariants;
+      equaliseButtons();
     }
 
     /* ════════════════════════════════════════════════════
