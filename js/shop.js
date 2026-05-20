@@ -652,7 +652,7 @@ var Shop = (() => {
         <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>
-        ${options.showBuyNow !== false ? `<a class="webshop-card-buynow webshop-btn webshop-btn--outline webshop-btn--full" href="${prodUrl}" ${inStock?"":"style=\"pointer-events:none;opacity:.5;\""} style="height:auto;padding:12px 28px;">
+        ${options.showBuyNow !== false ? `<a class="webshop-card-buynow webshop-btn webshop-btn--outline webshop-btn--full" href="${prodUrl}" ${inStock?"":"style=\"pointer-events:none;opacity:.5;\""}>
           ${t("buy_now","Buy Now")}
         </a>` : ""}
         ${(showRelated || showAddons) ? buildRelatedStrip(p, "card", options) : ""}
