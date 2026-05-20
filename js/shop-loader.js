@@ -8,19 +8,25 @@ let _shopModulesLoaded = false;
 
 export async function loadShopModules() {
   if (_shopModulesLoaded) return;
+  _shopModulesLoaded = true; // prevent concurrent calls
   const BASE_PATH = window.__BASE_PATH__ || '/';
-  if (!window.__shopConfigPatched) {
-    await new Promise(resolve => {
-      const check = () => { if (window.__shopConfigPatched) resolve(); else setTimeout(check, 50); };
-      check();
-    });
+
+  // Normal path: site-boot already loaded shop-init which is loading everything.
+  // Just wait for webshop:ready instead of loading scripts a second time.
+  if (window.__shopConfigPatched) {
+    if (!window.__shopInitReady) {
+      await new Promise(resolve => {
+        document.addEventListener('webshop:ready', resolve, { once: true });
+      });
+    }
+    return;
   }
-  
+
+  // Fallback: shop-init never ran — load everything ourselves
   await loadScript(BASE_PATH + 'js/shop-config.js');
   await loadScript(BASE_PATH + 'js/modules/shipping.js');
   await loadScript(BASE_PATH + 'js/modules/currency.js');
   await loadScript(BASE_PATH + 'js/shop.js');
-  _shopModulesLoaded = true;
 
   if (typeof window.Shipping !== 'undefined' && typeof window.Shipping.load === 'function') {
     await window.Shipping.load();
@@ -28,8 +34,8 @@ export async function loadShopModules() {
   if (typeof window.Currency !== 'undefined' && typeof window.Currency.init === 'function') {
     window.Currency.init();
   }
-
   if (!window.__shopInitReady) {
+    window.__shopInitReady = true;
     document.dispatchEvent(new CustomEvent('webshop:ready'));
   }
 }
@@ -46,16 +52,13 @@ export async function mountShopEmbeds(container) {
   if (!shopReady) {
     await new Promise(resolve => {
       if (typeof window.Shop !== 'undefined') { resolve(); return; }
-      const done = () => resolve();
+      let resolved = false;
+      const done = () => { if (!resolved) { resolved = true; resolve(); } };
       document.addEventListener('webshop:ready', done, { once: true });
+      // Reduced from 10s: if shop hasn't fired after 3s, kick-start it ourselves
       setTimeout(() => {
-        if (typeof window.Shop === 'undefined' && !window.__shopBooting) {
-          window.__shopBooting = true;
-          loadShopModules().then(done);
-        } else {
-          done();
-        }
-      }, 10000);
+        if (!resolved) loadShopModules().then(done);
+      }, 3000);
     });
   }
 

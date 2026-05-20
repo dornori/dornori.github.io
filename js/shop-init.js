@@ -157,9 +157,10 @@
             });
         }
         fixLinks(document);
-        new MutationObserver(function (ms) {
+        var obs = new MutationObserver(function (ms) {
             ms.forEach(function (m) { m.addedNodes.forEach(function (n) { if (n.nodeType === 1) fixLinks(n); }); });
-        }).observe(document.body, { childList: true, subtree: true });
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
         document.addEventListener('shop:cartUpdated', function () { fixLinks(document); });
     }
 
