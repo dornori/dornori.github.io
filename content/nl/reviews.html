@@ -20,35 +20,19 @@
   .rv-bar-fill { height: 100%; background: #ff9900; border-radius: 99px; transition: width .6s ease; }
   .rv-bar-num { width: 30px; text-align: right; color: var(--text-muted, #6b6560); }
   .rv-section-title { font-size: 1.1rem; font-weight: 700; margin: 0 0 1rem; padding-bottom: .5rem; border-bottom: 1px solid var(--border, rgba(255,255,255,.15)); }
-  /* ── Video carousel ── */
-  .rv-carousel-wrap { position: relative; margin-bottom: 2.5rem; }
-  .rv-carousel-viewport { overflow: hidden; border-radius: 10px; }
-  .rv-carousel-track { display: flex; transition: transform .38s cubic-bezier(.4,0,.2,1); will-change: transform; }
-  .rv-video-card { flex: 0 0 100%; background: var(--glass, rgba(255,255,255,.06)); border: 1px solid var(--border, rgba(255,255,255,.15)); border-radius: 10px; overflow: hidden; box-sizing: border-box; }
+  .rv-videos { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 2.5rem; }
+  .rv-video-card { background: var(--glass, rgba(255,255,255,.06)); border: 1px solid var(--border, rgba(255,255,255,.15)); border-radius: 10px; overflow: hidden; }
   .rv-video-embed { position: relative; aspect-ratio: 16/9; background: #000; }
   .rv-video-embed iframe, .rv-video-embed video { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
   .rv-video-thumb { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; background: rgba(0,0,0,.35); transition: background .2s; }
   .rv-video-thumb:hover { background: rgba(0,0,0,.5); }
-  .rv-play-btn { width: 56px; height: 56px; background: rgba(255,255,255,.92); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; padding-left: 5px; box-shadow: 0 2px 16px rgba(0,0,0,.5); transition: transform .15s; }
-  .rv-video-thumb:hover .rv-play-btn { transform: scale(1.1); }
+  .rv-play-btn { width: 52px; height: 52px; background: rgba(255,255,255,.92); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; padding-left: 4px; box-shadow: 0 2px 12px rgba(0,0,0,.4); }
   .rv-tiktok-badge { position: absolute; top: 8px; left: 8px; background: #000; color: #fff; font-size: .7rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; letter-spacing: .5px; }
-  .rv-video-info { padding: .85rem 1rem; }
-  .rv-video-info strong { display: block; font-size: .92rem; margin-bottom: .25rem; }
-  .rv-video-info span { font-size: .8rem; color: var(--text-muted, #6b6560); }
-  .rv-video-link { display: inline-block; margin-top: .4rem; font-size: .8rem; color: var(--accent, #c8a96e); text-decoration: none; }
+  .rv-video-info { padding: .75rem; }
+  .rv-video-info strong { display: block; font-size: .88rem; margin-bottom: .2rem; }
+  .rv-video-info span { font-size: .78rem; color: var(--text-muted, #6b6560); }
+  .rv-video-link { display: inline-block; margin-top: .4rem; font-size: .78rem; color: var(--accent, #c8a96e); text-decoration: none; }
   .rv-video-link:hover { text-decoration: underline; }
-  /* Nav buttons */
-  .rv-carousel-btn { position: absolute; top: calc(50% - 24px); width: 42px; height: 42px; border-radius: 50%; border: none; background: rgba(0,0,0,.55); color: #fff; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 2; transition: background .2s, transform .15s; backdrop-filter: blur(4px); }
-  .rv-carousel-btn:hover { background: rgba(0,0,0,.8); transform: scale(1.08); }
-  .rv-carousel-btn:disabled { opacity: .25; pointer-events: none; }
-  .rv-carousel-btn--prev { left: 10px; }
-  .rv-carousel-btn--next { right: 10px; }
-  /* Dots */
-  .rv-carousel-dots { display: flex; justify-content: center; gap: 7px; margin-top: 10px; }
-  .rv-carousel-dot { width: 8px; height: 8px; border-radius: 50%; border: none; background: var(--border, rgba(255,255,255,.2)); cursor: pointer; padding: 0; transition: background .2s, transform .2s; }
-  .rv-carousel-dot.active { background: var(--accent, #c8a96e); transform: scale(1.3); }
-  /* Counter badge */
-  .rv-carousel-counter { position: absolute; bottom: 48px; right: 12px; background: rgba(0,0,0,.5); color: #fff; font-size: .75rem; padding: 2px 8px; border-radius: 99px; pointer-events: none; }
   .rv-filter-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 1.25rem; }
   .rv-filter-label { font-size: .85rem; color: var(--text-muted, #6b6560); }
   .rv-sort-select { padding: 6px 10px; border: 1px solid var(--border, rgba(255,255,255,.2)); border-radius: 6px; background: var(--glass, rgba(255,255,255,.06)); color: var(--text, #1a1714); font-size: .85rem; cursor: pointer; }
@@ -75,7 +59,7 @@
   .rv-empty, .rv-loading { text-align: center; padding: 3rem 1rem; color: var(--text-muted, #6b6560); font-size: .95rem; }
   @media (max-width: 600px) {
     .rv-summary { flex-direction: column; gap: 1.25rem; }
-    .rv-carousel-btn { width: 34px; height: 34px; font-size: .9rem; }
+    .rv-videos { grid-template-columns: 1fr; }
   }
 </style>
 
@@ -178,20 +162,7 @@
         + '<span class="rv-bar-num">' + count + '</span></div>';
     }).join('');
 
-    var videosSection = '';
-    if (videos.length) {
-      var cards = videos.map(function(v, i){ return '<div class="rv-video-card" data-idx="' + i + '">' + renderVideoCardInner(v) + '</div>'; }).join('');
-      var dots = videos.length > 1 ? '<div class="rv-carousel-dots" id="rv-dots">' + videos.map(function(_,i){ return '<button class="rv-carousel-dot' + (i===0?' active':'') + '" data-idx="' + i + '" onclick="rvCarouselGo(' + i + ')"></button>'; }).join('') + '</div>' : '';
-      var prevBtn = videos.length > 1 ? '<button class="rv-carousel-btn rv-carousel-btn--prev" id="rv-prev" onclick="rvCarouselStep(-1)" aria-label="Previous">&#8592;</button>' : '';
-      var nextBtn = videos.length > 1 ? '<button class="rv-carousel-btn rv-carousel-btn--next" id="rv-next" onclick="rvCarouselStep(1)" aria-label="Next">&#8594;</button>' : '';
-      var counter = videos.length > 1 ? '<span class="rv-carousel-counter" id="rv-counter">1 / ' + videos.length + '</span>' : '';
-      videosSection = '<h2 class="rv-section-title">Video Reviews</h2>'
-        + '<div class="rv-carousel-wrap">'
-        + prevBtn + nextBtn + counter
-        + '<div class="rv-carousel-viewport" id="rv-viewport">'
-        + '<div class="rv-carousel-track" id="rv-track">' + cards + '</div>'
-        + '</div>' + dots + '</div>';
-    }
+    var videosSection = videos.length ? '<h2 class="rv-section-title">Video Reviews</h2><div class="rv-videos">' + videos.map(renderVideoCard).join('') + '</div>' : '';
 
     document.getElementById('rv-page').innerHTML =
       '<div class="rv-header">'
@@ -226,10 +197,6 @@
 
   window.rvPlayVideo = function(thumb) {
     var wrap = thumb.closest('.rv-video-embed');
-    // mp4: show native controls
-    var vid = wrap.querySelector('video');
-    if (vid) { thumb.style.display = 'none'; vid.controls = true; vid.play(); return; }
-    // youtube / iframe
     var src = wrap.dataset.src;
     if (!src) return;
     var iframe = document.createElement('iframe');
@@ -240,92 +207,6 @@
     wrap.innerHTML = '';
     wrap.appendChild(iframe);
   };
-
-  // ── Carousel ─────────────────────────────────────────────────────────
-  var _rvIdx = 0;
-  var _rvTotal = 0;
-
-  function rvStopCurrent() {
-    var track = document.getElementById('rv-track');
-    if (!track) return;
-    // Stop iframes (YouTube)
-    track.querySelectorAll('iframe').forEach(function(f){ f.src = f.src; });
-    // Pause mp4
-    track.querySelectorAll('video').forEach(function(v){ v.pause(); });
-  }
-
-  function rvCarouselUpdate(idx) {
-    var track = document.getElementById('rv-track');
-    if (!track) return;
-    rvStopCurrent();
-    _rvIdx = idx;
-    track.style.transform = 'translateX(-' + (idx * 100) + '%)';
-    document.querySelectorAll('.rv-carousel-dot').forEach(function(d){ d.classList.toggle('active', parseInt(d.dataset.idx) === idx); });
-    var counter = document.getElementById('rv-counter');
-    if (counter) counter.textContent = (idx + 1) + ' / ' + _rvTotal;
-    var prev = document.getElementById('rv-prev');
-    var next = document.getElementById('rv-next');
-    if (prev) prev.disabled = idx === 0;
-    if (next) next.disabled = idx === _rvTotal - 1;
-    // Autoplay selected card
-    var cards = track.querySelectorAll('.rv-video-card');
-    var card = cards[idx];
-    if (!card) return;
-    // mp4 autoplay
-    var vid = card.querySelector('video');
-    if (vid) { var thumb = card.querySelector('.rv-video-thumb'); if(thumb) thumb.style.display='none'; vid.controls=true; vid.play().catch(function(){}); return; }
-    // YouTube autoplay
-    var embed = card.querySelector('.rv-video-embed[data-src]');
-    if (embed && embed.dataset.src) {
-      var iframe = document.createElement('iframe');
-      iframe.src = embed.dataset.src;
-      iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
-      iframe.allowFullscreen = true;
-      iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;';
-      embed.innerHTML = '';
-      embed.appendChild(iframe);
-    }
-  }
-
-  window.rvCarouselGo = function(idx) { rvCarouselUpdate(idx); };
-  window.rvCarouselStep = function(dir) {
-    var next = Math.max(0, Math.min(_rvTotal - 1, _rvIdx + dir));
-    rvCarouselUpdate(next);
-  };
-
-  function rvInitCarousel() {
-    var track = document.getElementById('rv-track');
-    if (!track) return;
-    var cards = track.querySelectorAll('.rv-video-card');
-    _rvTotal = cards.length;
-    if (_rvTotal < 2) return;
-    // Touch/swipe
-    var viewport = document.getElementById('rv-viewport');
-    var startX = 0, dragging = false, moved = false;
-    viewport.addEventListener('touchstart', function(e){ startX = e.touches[0].clientX; dragging = true; moved = false; }, { passive: true });
-    viewport.addEventListener('touchmove', function(e){ if (Math.abs(e.touches[0].clientX - startX) > 8) moved = true; }, { passive: true });
-    viewport.addEventListener('touchend', function(e) {
-      if (!dragging || !moved) return;
-      var diff = e.changedTouches[0].clientX - startX;
-      if (Math.abs(diff) > 40) rvCarouselStep(diff < 0 ? 1 : -1);
-      dragging = false;
-    });
-    // Mouse drag
-    viewport.addEventListener('mousedown', function(e){ startX = e.clientX; dragging = true; moved = false; });
-    viewport.addEventListener('mousemove', function(e){ if (dragging && Math.abs(e.clientX - startX) > 8) moved = true; });
-    viewport.addEventListener('mouseup', function(e) {
-      if (!dragging) return;
-      var diff = e.clientX - startX;
-      if (moved && Math.abs(diff) > 40) rvCarouselStep(diff < 0 ? 1 : -1);
-      dragging = false;
-    });
-    viewport.addEventListener('mouseleave', function(){ dragging = false; });
-    // Init state
-    var prev = document.getElementById('rv-prev');
-    if (prev) prev.disabled = true;
-    // Autoplay first
-    rvCarouselUpdate(0);
-  }
 
   window.rvHelpful = function(btn) {
     if (btn.dataset.voted) return;
@@ -366,7 +247,6 @@
       }
       var reviewData = allReviews[pid] || { reviews: [], videos: [], rating: product.rating || 5, reviewCount: product.reviewCount || 0 };
       renderPage(product, reviewData);
-      setTimeout(rvInitCarousel, 80);
     } catch(e) {
       document.getElementById('rv-page').innerHTML = '<div class="rv-empty">Could not load reviews. Please try again.</div>';
     }
