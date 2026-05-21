@@ -173,7 +173,6 @@ let currentCategory = null;
 let currentQuestionId = null;
 let answers = [];
 let questionStack = [];
-let currentReferenceNumber = null;
 
 // ==================== HELPERS ====================
 function generateReferenceNumber() {
@@ -225,6 +224,7 @@ function formatSummaryBullets(answersArray) {
 }
 
 function showSuccessMessage(message, referenceNumber) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     const body = document.getElementById('sf-body');
     const successHtml = `
         <div class="sf-success-box">
@@ -236,21 +236,18 @@ function showSuccessMessage(message, referenceNumber) {
         </div>
     `;
     body.innerHTML = successHtml;
-    // Scroll to top of the page when showing success message
-    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 async function loadFormData() {
-    console.log(`🔍 Loading form.json from: ${formJsonPath}`);
+    console.log(`Loading form.json from: ${formJsonPath}`);
     try {
         const res = await fetch(formJsonPath, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         formData = await res.json();
-        console.log("✅ Successfully loaded form.json");
         populateUI();
     } catch (err) {
-        console.error("❌ Failed to load form.json:", err);
-        document.getElementById('sf-loading').innerHTML = `<p style="color:red">Failed to load form data.<br>Path: ${formJsonPath}<br>Check console (F12)</p>`;
+        console.error("Failed to load form.json:", err);
+        document.getElementById('sf-loading').innerHTML = `<p style="color:red">Failed to load form data.<br>Path: ${formJsonPath}</p>`;
     }
 }
 
@@ -263,20 +260,18 @@ function populateUI() {
     document.getElementById('need-help').textContent = formData.needHumanHelp || "Need human help?";
     document.getElementById('response-time').textContent = formData.responseTime || "Our support team responds within 4 hours (Mon–Fri).";
     document.getElementById('loading-text').textContent = formData.loading || "Loading…";
-    document.getElementById('sf-submit').textContent = formData.submitButton || "📧 Submit";
+    document.getElementById('sf-submit').textContent = formData.submitButton || "Submit";
     document.getElementById('sf-turnstile-err').textContent = formData.turnstileError || "Please complete the security check.";
     document.getElementById('label-name').innerHTML = `${formData.fullName || "Full name"} <span style="color:#ef4444">*</span>`;
     document.getElementById('label-email').innerHTML = `${formData.email || "Email address"} <span style="color:#ef4444">*</span>`;
     document.getElementById('label-order').innerHTML = `${formData.orderNumber || "Order number"} <span style="color:#ef4444">*</span> <span style="color:var(--text-muted);font-weight:400;">${formData.orderNumberHelp || "(numbers only)"}</span>`;
     document.getElementById('label-summary').textContent = formData.troubleshootingSummary || "Troubleshooting summary";
     
-    // Set comments label with character limit from form.json or default to 2000
     const maxChars = formData.maxCommentsChars || 2000;
     document.getElementById('label-comments').innerHTML = `${formData.additionalComments || "Additional comments"} ${formData.commentsOptionalLabel || "(optional)"} <span style="color:var(--text-muted);font-weight:400;">(max ${maxChars} characters)</span>`;
     document.getElementById('sf-desc').placeholder = formData.commentsPlaceholder || "Anything else you'd like to add…";
     document.getElementById('sf-desc').maxLength = maxChars;
     
-    // Initialize character counter
     initCharCounter(maxChars);
 
     const container = document.getElementById('sf-cats');
@@ -303,8 +298,6 @@ function initCharCounter(maxChars) {
         const current = textarea.value.length;
         const remaining = maxChars - current;
         counterDiv.textContent = `${current} / ${maxChars} characters`;
-        
-        // Visual feedback
         if (remaining < 50) {
             counterDiv.classList.add('danger');
             counterDiv.classList.remove('warning');
@@ -384,15 +377,15 @@ window.selectAnswer = function(questionId, optionIndex) {
         const endpoint = formData.endpoints?.resolved_end;
         if (endpoint) {
             if (endpoint.type === 'redirect' && endpoint.redirect_url) {
-                showToast(endpoint.message || '✓ Issue resolved!', endpoint.delay_seconds * 1000 || 2000);
+                showToast(endpoint.message || 'Issue resolved!', endpoint.delay_seconds * 1000 || 2000);
                 setTimeout(() => {
                     window.location.href = endpoint.redirect_url;
                 }, (endpoint.delay_seconds || 2) * 1000);
             } else {
-                showSuccessMessage(endpoint.message || '✓ Issue resolved!', generateReferenceNumber());
+                showSuccessMessage(endpoint.message || 'Issue resolved!', generateReferenceNumber());
             }
         } else {
-            showSuccessMessage('✓ Issue resolved! Thank you.', generateReferenceNumber());
+            showSuccessMessage('Issue resolved! Thank you.', generateReferenceNumber());
         }
         return;
     }
@@ -496,13 +489,12 @@ async function sendSupportRequest() {
     const submitBtn = document.getElementById('sf-submit');
     const originalText = submitBtn.textContent;
     submitBtn.disabled = true;
-    submitBtn.textContent = formData.sendingText || '⏳ Sending...';
+    submitBtn.textContent = formData.sendingText || 'Sending...';
 
-    // Build summary-only message (no Q&A lines)
-    const summaryLine = answers.map((a, i) => {
-        const summaryText = a.summary || a.answer.substring(0, 80);
-        return `${i+1}. ${summaryText}`;
-    }).join(' · ');
+    // Clean comments - remove all line breaks
+    const cleanComments = sanitised.comments ? sanitised.comments.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim() : '';
+    
+    const summaryLine = answers.map((a, i) => `${i+1}. ${a.summary || a.answer.substring(0, 80)}`).join(' · ');
     
     const messageBody = [
         `Name: ${sanitised.name}`,
@@ -510,24 +502,22 @@ async function sendSupportRequest() {
         `Order: ${sanitised.order || 'N/A'}`,
         `Category: ${currentCategory?.title || 'General'}`,
         `Reference: ${referenceNumber}`,
-        '',
-        'Issue Summary:',
-        summaryLine,
-        ...(sanitised.comments ? ['', 'Additional Comments:', sanitised.comments] : [])
-    ].join('\n');
+        `Issue Summary: ${summaryLine}`,
+        ...(cleanComments ? [`Additional Comments: ${cleanComments}`] : [])
+    ].join(' | ');
 
     const payload = {
         referenceNumber: referenceNumber,
         category: "support-request",
         originalCategory: currentCategory?.title || 'General',
         troubleshooting: answers,
-        troubleshootingText: summaryLine,
+        troubleshootingSummary: summaryLine,
         message: messageBody,
         subject: `Dornori Support [${currentCategory?.title || 'General'}] - ${referenceNumber}`,
         name: sanitised.name,
         email: sanitised.email,
         orderNumber: sanitised.order,
-        additionalComments: sanitised.comments,
+        additionalComments: cleanComments,
         timestamp: new Date().toISOString(),
         userAgent: navigator.userAgent
     };
@@ -536,7 +526,7 @@ async function sendSupportRequest() {
         const response = await fetch(workerUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload, null, 2)
         });
         
         if (response.ok) {
@@ -553,7 +543,7 @@ async function sendSupportRequest() {
         }
     } catch (err) {
         console.error(err);
-        showToast(`❌ ${formData.errorPrefix || 'Submission failed'}: ${err.message}. ${formData.tryAgain || 'Please try again.'}`, 5000);
+        showToast(`Submission failed: ${err.message}. Please try again.`, 5000);
         if (turnstileWidgetId && window.turnstile) window.turnstile.reset(turnstileWidgetId);
         turnstileToken = null;
         submitBtn.disabled = false;
@@ -593,7 +583,6 @@ document.addEventListener('click', e => {
     if (e.target.closest('#sf-submit')) sendSupportRequest();
 });
 
-// Digit-only input for order number field
 document.getElementById('sf-order')?.addEventListener('input', function(e) {
     this.value = this.value.replace(/[^0-9]/g, '');
 });
