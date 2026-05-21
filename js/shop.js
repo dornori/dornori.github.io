@@ -600,6 +600,7 @@ var Shop = (() => {
     const discountPercent = p.discount || 0;
     const discountedPrice = discountPercent > 0 ? displayPrice * (1 - discountPercent / 100) : displayPrice;
     const inStock      = p.stock > 0;
+    const showQuantity = p.showQuantity !== false;
 
     let selectorHtml = "";
     if (hasVariants) {
@@ -644,11 +645,11 @@ var Shop = (() => {
         ${selectorHtml}
         <div class="webshop-card-footer">
           ${discountPercent > 0?`<span class="webshop-card-price webshop-card-price--original">${fmt(displayPrice)}</span><span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>`:`<span class="webshop-card-price">${fmt(displayPrice)}</span>`}
-          <div class="webshop-qty-control">
+          ${showQuantity?`<div class="webshop-qty-control">
             <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity"">−</button>
             <span class="webshop-qty-val">1</span>
             <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
-          </div>
+          </div>`:""}
         </div>
         <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
@@ -708,23 +709,24 @@ var Shop = (() => {
       const footer = card.querySelector(".webshop-card-footer");
       if (footer) {
         const qtyVal = footer.querySelector(".webshop-qty-val")?.textContent || qty;
+        const showQuantity = p.showQuantity !== false;
         if (discount > 0) {
           footer.innerHTML = `
             <span class="webshop-card-price webshop-card-price--original">${fmt(price)}</span>
             <span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>
-            <div class="webshop-qty-control">
+            ${showQuantity?`<div class="webshop-qty-control">
               <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity"">−</button>
               <span class="webshop-qty-val">${qtyVal}</span>
               <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
-            </div>`;
+            </div>`:""}`;
         } else {
           footer.innerHTML = `
             <span class="webshop-card-price">${fmt(price)}</span>
-            <div class="webshop-qty-control">
+            ${showQuantity?`<div class="webshop-qty-control">
               <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity"">−</button>
               <span class="webshop-qty-val">${qtyVal}</span>
               <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
-            </div>`;
+            </div>`:""}`;
         }
         
         // Re-wire qty buttons after rebuild
