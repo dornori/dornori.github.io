@@ -677,27 +677,62 @@ var Shop = (() => {
     }
 
     function refresh(currencyOnly = false) {
-      // For currency-only updates on non-variant products, just reformat prices in place
+      // For non-variant products - need to rebuild footer to show both prices correctly
       if (!hasVariants) {
-        if (!currencyOnly) return;
         const discount = p.discount || 0;
+        const discountedPrice = discount > 0 ? p.price * (1 - discount / 100) : p.price;
         const footer = card.querySelector(".webshop-card-footer");
         if (footer) {
-          const origEl = footer.querySelector(".webshop-card-price--original");
-          const discEl = footer.querySelector(".webshop-card-price--discounted");
-          const plainEl = footer.querySelector(".webshop-card-price:not(.webshop-card-price--original):not(.webshop-card-price--discounted)");
+          const qtyVal = footer.querySelector(".webshop-qty-val")?.textContent || qty;
+          const showQuantity = p.showQuantity !== false;
+          
+          // ALWAYS rebuild footer to ensure correct price elements exist
           if (discount > 0) {
-            const discountedPrice = p.price * (1 - discount / 100);
-            if (origEl) origEl.textContent = fmt(p.price);
-            if (discEl) discEl.textContent = fmt(discountedPrice);
+            footer.innerHTML = `
+              <span class="webshop-card-price webshop-card-price--original">${fmt(p.price)}</span>
+              <span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>
+              ${showQuantity ? `<div class="webshop-qty-control">
+                <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity">−</button>
+                <span class="webshop-qty-val">${qtyVal}</span>
+                <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity">+</button>
+              </div>` : ""}`;
           } else {
-            if (plainEl) plainEl.textContent = fmt(p.price);
+            footer.innerHTML = `
+              <span class="webshop-card-price">${fmt(p.price)}</span>
+              ${showQuantity ? `<div class="webshop-qty-control">
+                <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity">−</button>
+                <span class="webshop-qty-val">${qtyVal}</span>
+                <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity">+</button>
+              </div>` : ""}`;
+          }
+          
+          // Re-wire qty buttons after rebuild
+          const qv = footer.querySelector(".webshop-qty-val");
+          footer.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { 
+            const max = p.stock || 99; 
+            qty = Math.min(qty + 1, max); 
+            if (qv) qv.textContent = qty; 
+          });
+          footer.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { 
+            qty = Math.max(1, qty - 1); 
+            if (qv) qv.textContent = qty; 
+          });
+        }
+        
+        // Update discount badge visibility and text
+        const badgeEl = card.querySelector(".webshop-badge--discount");
+        if (badgeEl) {
+          if (discount > 0) {
+            badgeEl.textContent = `${discount}% ${t("off_badge","OFF")}`;
+            badgeEl.style.display = '';
+          } else {
+            badgeEl.style.display = 'none';
           }
         }
-        const badgeEl = card.querySelector(".webshop-badge--discount");
-        if (badgeEl && discount > 0) badgeEl.textContent = `${discount}% ${t("off_badge","OFF")}`;
         return;
       }
+      
+      // For variant products
       const evid    = effectiveVid();
       const price   = evid ? variantPrice(p, evid) : p.price;
       const discount = evid ? variantDiscount(p, evid) : (p.discount || 0);
@@ -714,32 +749,32 @@ var Shop = (() => {
           footer.innerHTML = `
             <span class="webshop-card-price webshop-card-price--original">${fmt(price)}</span>
             <span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>
-            ${showQuantity?`<div class="webshop-qty-control">
-              <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity"">−</button>
+            ${showQuantity ? `<div class="webshop-qty-control">
+              <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity">−</button>
               <span class="webshop-qty-val">${qtyVal}</span>
-              <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
-            </div>`:""}`;
+              <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity">+</button>
+            </div>` : ""}`;
         } else {
           footer.innerHTML = `
             <span class="webshop-card-price">${fmt(price)}</span>
-            ${showQuantity?`<div class="webshop-qty-control">
-              <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity"">−</button>
+            ${showQuantity ? `<div class="webshop-qty-control">
+              <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity">−</button>
               <span class="webshop-qty-val">${qtyVal}</span>
-              <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
-            </div>`:""}`;
+              <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity">+</button>
+            </div>` : ""}`;
         }
         
         // Re-wire qty buttons after rebuild
         const qv = footer.querySelector(".webshop-qty-val");
         footer.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { 
           const evid = effectiveVid(); 
-          const max = evid ? variantStock(p, evid) : (p.stock||99); 
-          qty = Math.min(qty+1, max||99); 
-          qv.textContent = qty; 
+          const max = evid ? variantStock(p, evid) : (p.stock || 99); 
+          qty = Math.min(qty + 1, max || 99); 
+          if (qv) qv.textContent = qty; 
         });
         footer.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { 
-          qty = Math.max(1, qty-1); 
-          qv.textContent = qty; 
+          qty = Math.max(1, qty - 1); 
+          if (qv) qv.textContent = qty; 
         });
       }
       
@@ -775,8 +810,8 @@ var Shop = (() => {
       });
     });
     const qv = card.querySelector(".webshop-qty-val");
-    card.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid = effectiveVid(); const max = evid ? variantStock(p, evid) : (p.stock||99); qty = Math.min(qty+1, max||99); qv.textContent = qty; });
-    card.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty = Math.max(1, qty-1); qv.textContent = qty; });
+    card.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid = effectiveVid(); const max = evid ? variantStock(p, evid) : (p.stock||99); qty = Math.min(qty+1, max||99); if (qv) qv.textContent = qty; });
+    card.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty = Math.max(1, qty-1); if (qv) qv.textContent = qty; });
     addBtn?.addEventListener("click", () => {
       const evid = effectiveVid();
       addToCart(p, qty, evid, selectedColor, img?.src || null);
@@ -838,46 +873,27 @@ var Shop = (() => {
       container.appendChild(grid);
       products.forEach(p => {
         const card = document.createElement("div"); card.className = "webshop-product-card"; card.dataset.cat = p.category || ""; card.dataset.productId = p.id;
-        card.innerHTML = buildProductCard(p); grid.appendChild(card); wireProductCard(card, p);
+        card.innerHTML = buildProductCard(p, { showVariants: true, showRelated: true, showAddons: true });
+        grid.appendChild(card); 
+        wireProductCard(card, p, { showVariants: true, showRelated: true, showAddons: true });
       });
     }
     buildGrid();
+    
     const onLangChange = async () => {
       products = await loadProducts(); // Reload products in the new language
       buildGrid();
     };
+    
     const onCurrencyChange = () => {
+      // Simply call the stored refresh function on each card - it will handle everything
       container.querySelectorAll(".webshop-product-card").forEach(card => {
-        // Prefer the stored refresh fn (set by wireProductCard) so variant state is respected
-        if (typeof card._shopRefresh === "function") { card._shopRefresh(true); return; }
-        // Fallback: determine active variant from DOM
-        const p = products.find(p => p.id === card.dataset.productId); if (!p) return;
-        const activeBtn = card.querySelector(".webshop-variant-btn.active");
-        const vid = activeBtn ? (activeBtn.dataset.variantId === p.id ? null : activeBtn.dataset.variantId) : null;
-        const rawPrice = vid ? variantPrice(p, vid) : p.price;
-        const discountPercent = vid ? variantDiscount(p, vid) : (p.discount || 0);
-        const discountedPrice = discountPercent > 0 ? rawPrice * (1 - discountPercent / 100) : rawPrice;
-        // Update price elements
-        const footer = card.querySelector(".webshop-card-footer");
-        if (footer) {
-          const origEl = footer.querySelector(".webshop-card-price--original");
-          const discEl = footer.querySelector(".webshop-card-price--discounted");
-          const plainEl = footer.querySelector(".webshop-card-price:not(.webshop-card-price--original):not(.webshop-card-price--discounted)");
-          if (discountPercent > 0) {
-            if (origEl) origEl.textContent = fmt(rawPrice);
-            if (discEl) discEl.textContent = fmt(discountedPrice);
-          } else {
-            if (plainEl) plainEl.textContent = fmt(rawPrice);
-          }
-        }
-        // Update discount badge
-        const badgeEl = card.querySelector(".webshop-badge--discount");
-        if (badgeEl) {
-          if (discountPercent > 0) { badgeEl.textContent = `${discountPercent}% ${t("off_badge","OFF")}`; badgeEl.style.display = ""; }
-          else { badgeEl.style.display = "none"; }
+        if (typeof card._shopRefresh === "function") { 
+          card._shopRefresh(true); 
         }
       });
     };
+    
     document.addEventListener("shop:langChanged", onLangChange);
     document.addEventListener("currency:changed", onCurrencyChange);
   }
@@ -1117,8 +1133,8 @@ var Shop = (() => {
         btn.addEventListener("click", () => { container.querySelectorAll(".webshop-product-color").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); selectedColor=btn.dataset.color; if (mainImg) swapMainImg(mainImg, colorImageSrc(p,selectedColor), p.image); });
       });
       const qv = container.querySelector(".webshop-qty-val");
-      container.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid=effectiveVid(); const max=evid?variantStock(p,evid):(p.stock||99); qty=Math.min(qty+1,max||99); qv.textContent=qty; });
-      container.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty=Math.max(1,qty-1); qv.textContent=qty; });
+      container.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid=effectiveVid(); const max=evid?variantStock(p,evid):(p.stock||99); qty=Math.min(qty+1,max||99); if (qv) qv.textContent=qty; });
+      container.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty=Math.max(1,qty-1); if (qv) qv.textContent=qty; });
       atcBtn?.addEventListener("click", () => { const evid=effectiveVid(); addToCart(p,qty,evid,selectedColor,mainImg?.src||null); const itemName=evid?(getVariant(p,evid)?.label||evid):(p.label||p.id); toast(`${itemName} ${t("added","added to cart")}`); });
       wireRelatedStrip(container, p, { showAddons: !!(p.addons?.length), showRelated: !!(p.related?.length) });
     }
@@ -1166,7 +1182,7 @@ var Shop = (() => {
     function render() {
       loadLang().then(() => {
         const cart = getCart();
-        const { subtotal, shipping, total, totalWeight, isFreeShipping } = calculateTotals(cart);
+        const { subtotal, shipping, total, totalWeight, isFreeShipping, totalDiscount } = calculateTotals(cart);
         const count = cart.reduce((a, i) => a + i.qty, 0);
         if (!cart.length) { container.innerHTML = `<p class="webshop-mini-cart__empty">${t("cart_empty","Your cart is empty")}</p>`; return; }
         container.innerHTML = `
