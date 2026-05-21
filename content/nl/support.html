@@ -62,6 +62,9 @@
         .sf-summary-bullets { padding-left: 1.2rem; margin: 0; }
         .sf-summary-bullets li { margin-bottom: 0.5rem; line-height: 1.5; }
         .sf-summary-question { font-weight: 600; color: var(--accent); }
+        .sf-char-counter { font-size: 0.7rem; text-align: right; margin-top: 0.25rem; color: var(--text-muted); }
+        .sf-char-counter.warning { color: #eab308; }
+        .sf-char-counter.danger { color: #ef4444; }
         @media(max-width:520px){ .sf-grid2{ grid-template-columns:1fr; } .sf-cat-grid{ grid-template-columns:1fr; } }
     </style>
 <div id="sf-toast" class="sf-toast"></div>
@@ -128,6 +131,7 @@
             <div class="sf-field">
                 <label class="sf-label" id="label-comments"></label>
                 <textarea id="sf-desc" rows="3" class="sf-input" style="resize:vertical" maxlength="2000" placeholder=""></textarea>
+                <div id="sf-char-counter" class="sf-char-counter">0 / 2000 characters</div>
                 <span class="sf-field-error" id="sf-desc-err"></span>
             </div>
 
@@ -213,8 +217,8 @@ function formatSummaryBullets(answersArray) {
     }
     let html = '<ul class="sf-summary-bullets">';
     answersArray.forEach((item, idx) => {
-        html += `<li><span class="sf-summary-question">Q${idx + 1}:</span> ${escapeHtml(item.question)}<br>`;
-        html += `<span style="margin-left: 1.2rem;">→ <strong>Answer:</strong> ${escapeHtml(item.answer)}</span></li>`;
+        const summaryText = item.summary || item.answer;
+        html += `<li><span class="sf-summary-question">Step ${idx + 1}:</span> ${escapeHtml(summaryText)}</li>`;
     });
     html += '</ul>';
     return html;
@@ -227,11 +231,13 @@ function showSuccessMessage(message, referenceNumber) {
             <i class="fas fa-check-circle"></i>
             <h3>${escapeHtml(formData.successTitle || 'Thank You!')}</h3>
             <div class="sf-ref-number"><i class="fas fa-ticket-alt"></i> REF: ${escapeHtml(referenceNumber)}</div>
-            <p>${escapeHtml(message || formData.successMessage || 'Your support request has been submitted successfully. Our team will contact you within 24 hours.')}</p>
+            <p>${escapeHtml(message || formData.successMessage2 || 'Your support request has been submitted successfully. Our team will contact you within 24 hours.')}</p>
             <p style="font-size: 0.85rem; margin-top: 1rem;">Please save this reference number for future inquiries.</p>
         </div>
     `;
     body.innerHTML = successHtml;
+    // Scroll to top of the page when showing success message
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 async function loadFormData() {
@@ -263,8 +269,15 @@ function populateUI() {
     document.getElementById('label-email').innerHTML = `${formData.email || "Email address"} <span style="color:#ef4444">*</span>`;
     document.getElementById('label-order').innerHTML = `${formData.orderNumber || "Order number"} <span style="color:#ef4444">*</span> <span style="color:var(--text-muted);font-weight:400;">${formData.orderNumberHelp || "(numbers only)"}</span>`;
     document.getElementById('label-summary').textContent = formData.troubleshootingSummary || "Troubleshooting summary";
-    document.getElementById('label-comments').textContent = formData.additionalComments || "Additional comments (optional)";
-    document.getElementById('sf-desc').placeholder = formData.commentsPlaceholder || "Anything else you'd like to add… (optional)";
+    
+    // Set comments label with character limit from form.json or default to 2000
+    const maxChars = formData.maxCommentsChars || 2000;
+    document.getElementById('label-comments').innerHTML = `${formData.additionalComments || "Additional comments"} ${formData.commentsOptionalLabel || "(optional)"} <span style="color:var(--text-muted);font-weight:400;">(max ${maxChars} characters)</span>`;
+    document.getElementById('sf-desc').placeholder = formData.commentsPlaceholder || "Anything else you'd like to add…";
+    document.getElementById('sf-desc').maxLength = maxChars;
+    
+    // Initialize character counter
+    initCharCounter(maxChars);
 
     const container = document.getElementById('sf-cats');
     container.innerHTML = '';
@@ -279,6 +292,32 @@ function populateUI() {
     document.getElementById('sf-loading').style.display = 'none';
     document.getElementById('sf-s1').classList.remove('sf-hidden');
     updateProgress(5, formData.step1 || "Step 1: Choose category");
+}
+
+function initCharCounter(maxChars) {
+    const textarea = document.getElementById('sf-desc');
+    const counterDiv = document.getElementById('sf-char-counter');
+    if (!textarea || !counterDiv) return;
+    
+    const updateCounter = () => {
+        const current = textarea.value.length;
+        const remaining = maxChars - current;
+        counterDiv.textContent = `${current} / ${maxChars} characters`;
+        
+        // Visual feedback
+        if (remaining < 50) {
+            counterDiv.classList.add('danger');
+            counterDiv.classList.remove('warning');
+        } else if (remaining < 200) {
+            counterDiv.classList.add('warning');
+            counterDiv.classList.remove('danger');
+        } else {
+            counterDiv.classList.remove('warning', 'danger');
+        }
+    };
+    
+    textarea.addEventListener('input', updateCounter);
+    updateCounter();
 }
 
 function updateProgress(percent, label) {
@@ -459,8 +498,12 @@ async function sendSupportRequest() {
     submitBtn.disabled = true;
     submitBtn.textContent = formData.sendingText || '⏳ Sending...';
 
-    const troubleshootingText = answers.map((a, i) => `Q${i+1}: ${a.question}\n   Answer: ${a.answer}`).join('\n\n');
-
+    // Build summary-only message (no Q&A lines)
+    const summaryLine = answers.map((a, i) => {
+        const summaryText = a.summary || a.answer.substring(0, 80);
+        return `${i+1}. ${summaryText}`;
+    }).join(' · ');
+    
     const messageBody = [
         `Name: ${sanitised.name}`,
         `Email: ${sanitised.email}`,
@@ -468,9 +511,9 @@ async function sendSupportRequest() {
         `Category: ${currentCategory?.title || 'General'}`,
         `Reference: ${referenceNumber}`,
         '',
-        'Troubleshooting Steps:',
-        ...answers.map((a, i) => `Q${i+1}: ${a.question}\n   Answer: ${a.answer}`),
-        ...(sanitised.comments ? ['', `Additional Comments:\n${sanitised.comments}`] : [])
+        'Issue Summary:',
+        summaryLine,
+        ...(sanitised.comments ? ['', 'Additional Comments:', sanitised.comments] : [])
     ].join('\n');
 
     const payload = {
@@ -478,7 +521,7 @@ async function sendSupportRequest() {
         category: "support-request",
         originalCategory: currentCategory?.title || 'General',
         troubleshooting: answers,
-        troubleshootingText: troubleshootingText,
+        troubleshootingText: summaryLine,
         message: messageBody,
         subject: `Dornori Support [${currentCategory?.title || 'General'}] - ${referenceNumber}`,
         name: sanitised.name,
@@ -550,6 +593,7 @@ document.addEventListener('click', e => {
     if (e.target.closest('#sf-submit')) sendSupportRequest();
 });
 
+// Digit-only input for order number field
 document.getElementById('sf-order')?.addEventListener('input', function(e) {
     this.value = this.value.replace(/[^0-9]/g, '');
 });
