@@ -677,44 +677,22 @@ var Shop = (() => {
     }
 
     function refresh(currencyOnly = false) {
-      // For currency-only updates on non-variant products, rebuild footer to ensure correct price display
+      // For currency-only updates on non-variant products, just reformat prices in place
       if (!hasVariants) {
         if (!currencyOnly) return;
         const discount = p.discount || 0;
-        const discountedPrice = discount > 0 ? p.price * (1 - discount / 100) : p.price;
         const footer = card.querySelector(".webshop-card-footer");
         if (footer) {
-          const qtyVal = footer.querySelector(".webshop-qty-val")?.textContent || qty;
-          const showQuantity = p.showQuantity !== false;
+          const origEl = footer.querySelector(".webshop-card-price--original");
+          const discEl = footer.querySelector(".webshop-card-price--discounted");
+          const plainEl = footer.querySelector(".webshop-card-price:not(.webshop-card-price--original):not(.webshop-card-price--discounted)");
           if (discount > 0) {
-            footer.innerHTML = `
-              <span class="webshop-card-price webshop-card-price--original">${fmt(p.price)}</span>
-              <span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>
-              ${showQuantity?`<div class="webshop-qty-control">
-                <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity"">−</button>
-                <span class="webshop-qty-val">${qtyVal}</span>
-                <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
-              </div>`:""}`;
+            const discountedPrice = p.price * (1 - discount / 100);
+            if (origEl) origEl.textContent = fmt(p.price);
+            if (discEl) discEl.textContent = fmt(discountedPrice);
           } else {
-            footer.innerHTML = `
-              <span class="webshop-card-price">${fmt(p.price)}</span>
-              ${showQuantity?`<div class="webshop-qty-control">
-                <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity"">−</button>
-                <span class="webshop-qty-val">${qtyVal}</span>
-                <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
-              </div>`:""}`;
+            if (plainEl) plainEl.textContent = fmt(p.price);
           }
-          // Re-wire qty buttons after rebuild
-          const qv = footer.querySelector(".webshop-qty-val");
-          footer.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { 
-            const max = p.stock || 99; 
-            qty = Math.min(qty+1, max); 
-            qv.textContent = qty; 
-          });
-          footer.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { 
-            qty = Math.max(1, qty-1); 
-            qv.textContent = qty; 
-          });
         }
         const badgeEl = card.querySelector(".webshop-badge--discount");
         if (badgeEl && discount > 0) badgeEl.textContent = `${discount}% ${t("off_badge","OFF")}`;
