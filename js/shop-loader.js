@@ -1,5 +1,5 @@
 /**
- * shop-loader.js (v4 - with combined flags + currency discount fix)
+ * shop-loader.js (v5 - portable data-shop-grid embed support)
  */
 
 import { loadScript } from './utils/script-loader.js';
@@ -80,10 +80,44 @@ export async function mountShopEmbeds(container) {
     Shop.renderCurrencySelector(currSlot);
   }
 
-  // ── Shop grid (#shop-embed-root) ──────────────────────────────────────────
-  const shopRoot = container && container.querySelector('#shop-embed-root');
-  if (shopRoot && shopRoot.id) {
-    await Shop.renderShop(shopRoot.id);
+  // ── Shop grid: #shop-embed-root (legacy) + data-shop-grid (portable) ────────
+  //
+  //  Usage: <div data-shop-grid [data-filter] [data-columns="3"] [data-category="kits"]></div>
+  //
+  //    data-shop-grid          — required flag; marks this div as a shop grid embed
+  //    data-filter             — presence shows the category filter bar (default: hidden)
+  //    data-columns="N"        — fixed column count; omit for auto responsive grid
+  //    data-category="slug"    — pre-filter to a single category on load
+  //
+  const shopGridEls = container
+    ? container.querySelectorAll('#shop-embed-root, [data-shop-grid]')
+    : [];
+
+  for (const shopRoot of shopGridEls) {
+    if (!shopRoot.id) {
+      // Assign a unique id so renderShop can find the element
+      shopRoot.id = 'shop-grid-' + Math.random().toString(36).slice(2, 8);
+    }
+    // Skip if already populated
+    if (shopRoot.querySelector('.webshop-grid')) continue;
+
+    const gridOptions = {
+      showFilter: shopRoot.id === 'shop-embed-root'
+        ? true                                   // legacy: always show filter
+        : shopRoot.hasAttribute('data-filter'),  // new: opt-in
+      columns:    shopRoot.dataset.columns || 'auto',
+      category:   shopRoot.dataset.category || null,
+    };
+
+    await Shop.renderShop(shopRoot.id, gridOptions);
+
+    // Pre-filter to requested category after render
+    if (gridOptions.category) {
+      const btn = shopRoot.querySelector(
+        `.webshop-filter__btn[data-cat="${gridOptions.category}"]`
+      );
+      if (btn) btn.click();
+    }
   }
 
   // ── Product info (data-product-id) ────────────────────────────────────────
