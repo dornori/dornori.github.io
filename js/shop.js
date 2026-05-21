@@ -678,7 +678,6 @@ var Shop = (() => {
     }
 
     function refresh() {
-      if (!hasVariants) return;
       const evid    = effectiveVid();
       const price   = evid ? variantPrice(p, evid) : p.price;
       const discount = evid ? variantDiscount(p, evid) : (p.discount || 0);
@@ -764,6 +763,9 @@ var Shop = (() => {
       toast(`${itemName} ${t("added","added to cart")}`);
     });
     wireRelatedStrip(card, p, options);
+    // Store refresh so onCurrencyChange can call it with correct variant state
+    card._shopRefresh = refresh;
+    document.addEventListener("currency:changed", refresh);
   }
 
   /* ═══════════════════════════════════════════════════════
@@ -809,12 +811,34 @@ var Shop = (() => {
     };
     const onCurrencyChange = () => {
       container.querySelectorAll(".webshop-product-card").forEach(card => {
+        // Prefer the stored refresh fn (set by wireProductCard) so variant state is respected
+        if (typeof card._shopRefresh === "function") { card._shopRefresh(); return; }
+        // Fallback: determine active variant from DOM
         const p = products.find(p => p.id === card.dataset.productId); if (!p) return;
-        const discountPercent = p.discount || 0;
-        const discountedPrice = discountPercent > 0 ? p.price * (1 - discountPercent / 100) : p.price;
-        const priceEls = card.querySelectorAll(".webshop-card-price");
-        if (discountPercent > 0 && priceEls.length >= 2) { priceEls[0].textContent = fmt(p.price); priceEls[1].textContent = fmt(discountedPrice); }
-        else if (priceEls.length >= 1) { priceEls[0].textContent = fmt(p.price); }
+        const activeBtn = card.querySelector(".webshop-variant-btn.active");
+        const vid = activeBtn ? (activeBtn.dataset.variantId === p.id ? null : activeBtn.dataset.variantId) : null;
+        const rawPrice = vid ? variantPrice(p, vid) : p.price;
+        const discountPercent = vid ? variantDiscount(p, vid) : (p.discount || 0);
+        const discountedPrice = discountPercent > 0 ? rawPrice * (1 - discountPercent / 100) : rawPrice;
+        // Update price elements
+        const footer = card.querySelector(".webshop-card-footer");
+        if (footer) {
+          const origEl = footer.querySelector(".webshop-card-price--original");
+          const discEl = footer.querySelector(".webshop-card-price--discounted");
+          const plainEl = footer.querySelector(".webshop-card-price:not(.webshop-card-price--original):not(.webshop-card-price--discounted)");
+          if (discountPercent > 0) {
+            if (origEl) origEl.textContent = fmt(rawPrice);
+            if (discEl) discEl.textContent = fmt(discountedPrice);
+          } else {
+            if (plainEl) plainEl.textContent = fmt(rawPrice);
+          }
+        }
+        // Update discount badge
+        const badgeEl = card.querySelector(".webshop-badge--discount");
+        if (badgeEl) {
+          if (discountPercent > 0) { badgeEl.textContent = `${discountPercent}% ${t("off_badge","OFF")}`; badgeEl.style.display = ""; }
+          else { badgeEl.style.display = "none"; }
+        }
       });
     };
     document.addEventListener("shop:langChanged", onLangChange);
