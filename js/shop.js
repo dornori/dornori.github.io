@@ -677,7 +677,28 @@ var Shop = (() => {
       return (selectedVariantId === null || selectedVariantId === p.id) ? null : selectedVariantId;
     }
 
-    function refresh() {
+    function refresh(currencyOnly = false) {
+      // For currency-only updates on non-variant products, just reformat prices in place
+      if (!hasVariants) {
+        if (!currencyOnly) return;
+        const discount = p.discount || 0;
+        const footer = card.querySelector(".webshop-card-footer");
+        if (footer) {
+          const origEl = footer.querySelector(".webshop-card-price--original");
+          const discEl = footer.querySelector(".webshop-card-price--discounted");
+          const plainEl = footer.querySelector(".webshop-card-price:not(.webshop-card-price--original):not(.webshop-card-price--discounted)");
+          if (discount > 0) {
+            const discountedPrice = p.price * (1 - discount / 100);
+            if (origEl) origEl.textContent = fmt(p.price);
+            if (discEl) discEl.textContent = fmt(discountedPrice);
+          } else {
+            if (plainEl) plainEl.textContent = fmt(p.price);
+          }
+        }
+        const badgeEl = card.querySelector(".webshop-badge--discount");
+        if (badgeEl && discount > 0) badgeEl.textContent = `${discount}% ${t("off_badge","OFF")}`;
+        return;
+      }
       const evid    = effectiveVid();
       const price   = evid ? variantPrice(p, evid) : p.price;
       const discount = evid ? variantDiscount(p, evid) : (p.discount || 0);
@@ -765,7 +786,7 @@ var Shop = (() => {
     wireRelatedStrip(card, p, options);
     // Store refresh so onCurrencyChange can call it with correct variant state
     card._shopRefresh = refresh;
-    document.addEventListener("currency:changed", refresh);
+    document.addEventListener("currency:changed", () => refresh(true));
   }
 
   /* ═══════════════════════════════════════════════════════
@@ -812,7 +833,7 @@ var Shop = (() => {
     const onCurrencyChange = () => {
       container.querySelectorAll(".webshop-product-card").forEach(card => {
         // Prefer the stored refresh fn (set by wireProductCard) so variant state is respected
-        if (typeof card._shopRefresh === "function") { card._shopRefresh(); return; }
+        if (typeof card._shopRefresh === "function") { card._shopRefresh(true); return; }
         // Fallback: determine active variant from DOM
         const p = products.find(p => p.id === card.dataset.productId); if (!p) return;
         const activeBtn = card.querySelector(".webshop-variant-btn.active");
