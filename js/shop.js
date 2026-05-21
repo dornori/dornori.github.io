@@ -585,52 +585,24 @@ var Shop = (() => {
   }
 
   /* ═══════════════════════════════════════════════════════
-     PRODUCT CARD
+     PRODUCT CARD (SIMPLE VERSION FOR SHOP GRID)
   ═══════════════════════════════════════════════════════ */
-  function buildProductCard(p, options = {}) {
-    // Options: { showVariants: true/false, showRelated: true/false, showAddons: true/false }
-    // Defaults: all false (minimal card with just main product)
-    const showVariants = options.showVariants === true;
-    const showRelated = options.showRelated === true;
-    const showAddons = options.showAddons === true;
-    
-    const hasVariants  = p.variants?.length > 0 && showVariants;
-    // Default display uses the product itself (not first variant)
-    const displayPrice = p.price;
+  function buildProductCardSimple(p, options = {}) {
+    // Simple card for shop grid - NO variants, NO colors, NO addons, NO related
     const discountPercent = p.discount || 0;
-    const discountedPrice = discountPercent > 0 ? displayPrice * (1 - discountPercent / 100) : displayPrice;
-    const inStock      = p.stock > 0;
+    const discountedPrice = discountPercent > 0 ? p.price * (1 - discountPercent / 100) : p.price;
+    const inStock = p.stock > 0;
     const showQuantity = p.showQuantity !== false;
+    let qty = 1;
 
-    let selectorHtml = "";
-    if (hasVariants) {
-      // Prepend a "self" button for the main product, active by default.
-      // Button label comes from data/products.json label field, not the translated name.
-      const selfLabel = p.selfLabel || p.label || p.name || pName(p) || p.id;
-      const selfBtn = `<button class="webshop-variant-btn active" data-variant-id="${p.id}" title="${selfLabel}">${selfLabel}</button>`;
-      selectorHtml = `<div class="webshop-variants">${selfBtn}${p.variants.map((vid) => {
-        const vp = _products[vid];
-        if (!vp) return '';
-        const so = vp.stock != null && vp.stock === 0;
-        const vLabel = vp.label || pName(vp) || vid;
-        return `<button class="webshop-variant-btn${so?" soldout":""}" data-variant-id="${vid}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${vLabel}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
-      }).join("")}</div>`;
-    } else if (p.colors?.length && showVariants) {
-      const so = p.colors_soldout || [];
-      selectorHtml = `<div class="webshop-colors">${p.colors.map((c,i) => {
-        const s = so.includes(c);
-        return `<button class="webshop-color${i===0?" webshop-color--active":""}${s?" webshop-color--soldout":""}" data-color="${c}" title="${c}${s?" ("+t("sold_out","Sold Out")+")" :""}" ${s?'disabled aria-disabled="true"':""}></button>`;
-      }).join("")}</div>`;
-    }
-
-    // Build a lang-aware product URL — ignore p.url which is hardcoded to /en/
-    const lang    = CONFIG.language || resolveLanguage();
-    const base    = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || CONFIG.data?.basePath || '/';
-    const slug    = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
+    // Build a lang-aware product URL
+    const lang = CONFIG.language || resolveLanguage();
+    const base = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || CONFIG.data?.basePath || '/';
+    const slug = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
     const prodUrl = `${base}${lang}/${slug}/?id=${p.id}`;
-    const hasUrl  = !!p.id;
-    const wTag    = `a href="${prodUrl}"`;
-    const wEnd    = 'a';
+    const hasUrl = !!p.id;
+    const wTag = `a href="${prodUrl}"`;
+    const wEnd = 'a';
 
     return `
       <${wTag} class="webshop-card-img-wrap${hasUrl?" webshop-card-img-link":""}"${hasUrl?` title="${pName(p)}"`:""}>
@@ -642,112 +614,35 @@ var Shop = (() => {
       </${wEnd}>
       <div class="webshop-card-body">
         <h3 class="webshop-card-title">${pName(p)}</h3>
-        ${selectorHtml}
         <div class="webshop-card-footer">
-          ${discountPercent > 0?`<span class="webshop-card-price webshop-card-price--original">${fmt(displayPrice)}</span><span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>`:`<span class="webshop-card-price">${fmt(displayPrice)}</span>`}
+          ${discountPercent > 0?`<span class="webshop-card-price webshop-card-price--original">${fmt(p.price)}</span><span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>`:`<span class="webshop-card-price">${fmt(p.price)}</span>`}
           ${showQuantity?`<div class="webshop-qty-control">
-            <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity"">−</button>
+            <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity">−</button>
             <span class="webshop-qty-val">1</span>
-            <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
+            <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity">+</button>
           </div>`:""}
         </div>
         <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>
-        ${(showRelated || showAddons) ? buildRelatedStrip(p, "card", options) : ""}
       </div>`;
   }
 
-  function wireProductCard(card, p, options = {}) {
+  function wireProductCardSimple(card, p, options = {}) {
     let qty = 1;
-    const hasVariants = p.variants?.length > 0;
-
-    // selectedVariantId = null means "main product is selected" (no variant override).
-    // The self-button (data-variant-id === p.id) always maps back to null.
-    let selectedVariantId = null;
-    let selectedColor = !hasVariants && p.colors ? p.colors[0] : null;
-
-    const img     = card.querySelector(".webshop-card-img");
-    const addBtn  = card.querySelector(".webshop-card-atc");
-
-    // effectiveVariantId: null when main product or self-button selected.
-    // Prevents duplicate cart keys and uses product's own price/image/stock.
-    function effectiveVid() {
-      return (selectedVariantId === null || selectedVariantId === p.id) ? null : selectedVariantId;
-    }
+    const addBtn = card.querySelector(".webshop-card-atc");
+    const img = card.querySelector(".webshop-card-img");
+    const discountPercent = p.discount || 0;
 
     function refresh(currencyOnly = false) {
-      // For non-variant products - need to rebuild footer to show both prices correctly
-      if (!hasVariants) {
-        const discount = p.discount || 0;
-        const discountedPrice = discount > 0 ? p.price * (1 - discount / 100) : p.price;
-        const footer = card.querySelector(".webshop-card-footer");
-        if (footer) {
-          const qtyVal = footer.querySelector(".webshop-qty-val")?.textContent || qty;
-          const showQuantity = p.showQuantity !== false;
-          
-          // ALWAYS rebuild footer to ensure correct price elements exist
-          if (discount > 0) {
-            footer.innerHTML = `
-              <span class="webshop-card-price webshop-card-price--original">${fmt(p.price)}</span>
-              <span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>
-              ${showQuantity ? `<div class="webshop-qty-control">
-                <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity">−</button>
-                <span class="webshop-qty-val">${qtyVal}</span>
-                <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity">+</button>
-              </div>` : ""}`;
-          } else {
-            footer.innerHTML = `
-              <span class="webshop-card-price">${fmt(p.price)}</span>
-              ${showQuantity ? `<div class="webshop-qty-control">
-                <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity">−</button>
-                <span class="webshop-qty-val">${qtyVal}</span>
-                <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity">+</button>
-              </div>` : ""}`;
-          }
-          
-          // Re-wire qty buttons after rebuild
-          const qv = footer.querySelector(".webshop-qty-val");
-          footer.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { 
-            const max = p.stock || 99; 
-            qty = Math.min(qty + 1, max); 
-            if (qv) qv.textContent = qty; 
-          });
-          footer.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { 
-            qty = Math.max(1, qty - 1); 
-            if (qv) qv.textContent = qty; 
-          });
-        }
-        
-        // Update discount badge visibility and text
-        const badgeEl = card.querySelector(".webshop-badge--discount");
-        if (badgeEl) {
-          if (discount > 0) {
-            badgeEl.textContent = `${discount}% ${t("off_badge","OFF")}`;
-            badgeEl.style.display = '';
-          } else {
-            badgeEl.style.display = 'none';
-          }
-        }
-        return;
-      }
-      
-      // For variant products
-      const evid    = effectiveVid();
-      const price   = evid ? variantPrice(p, evid) : p.price;
-      const discount = evid ? variantDiscount(p, evid) : (p.discount || 0);
-      const discountedPrice = discount > 0 ? price * (1 - discount / 100) : price;
-      const inStock = evid ? variantInStock(p, evid) : (p.stock > 0);
-      const imgSrc  = evid ? variantImage(p, evid) : p.image;
-      
-      // Always rebuild footer to properly handle discount/no-discount transitions
+      const discountedPrice = discountPercent > 0 ? p.price * (1 - discountPercent / 100) : p.price;
       const footer = card.querySelector(".webshop-card-footer");
       if (footer) {
         const qtyVal = footer.querySelector(".webshop-qty-val")?.textContent || qty;
         const showQuantity = p.showQuantity !== false;
-        if (discount > 0) {
+        if (discountPercent > 0) {
           footer.innerHTML = `
-            <span class="webshop-card-price webshop-card-price--original">${fmt(price)}</span>
+            <span class="webshop-card-price webshop-card-price--original">${fmt(p.price)}</span>
             <span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>
             ${showQuantity ? `<div class="webshop-qty-control">
               <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity">−</button>
@@ -756,7 +651,7 @@ var Shop = (() => {
             </div>` : ""}`;
         } else {
           footer.innerHTML = `
-            <span class="webshop-card-price">${fmt(price)}</span>
+            <span class="webshop-card-price">${fmt(p.price)}</span>
             ${showQuantity ? `<div class="webshop-qty-control">
               <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity">−</button>
               <span class="webshop-qty-val">${qtyVal}</span>
@@ -767,9 +662,8 @@ var Shop = (() => {
         // Re-wire qty buttons after rebuild
         const qv = footer.querySelector(".webshop-qty-val");
         footer.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { 
-          const evid = effectiveVid(); 
-          const max = evid ? variantStock(p, evid) : (p.stock || 99); 
-          qty = Math.min(qty + 1, max || 99); 
+          const max = p.stock || 99; 
+          qty = Math.min(qty + 1, max); 
           if (qv) qv.textContent = qty; 
         });
         footer.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { 
@@ -778,51 +672,43 @@ var Shop = (() => {
         });
       }
       
-      // Update discount badge visibility
+      // Update discount badge visibility and text
       const badgeEl = card.querySelector(".webshop-badge--discount");
       if (badgeEl) {
-        if (discount > 0) {
-          badgeEl.textContent = `${discount}% ${t("off_badge","OFF")}`;
+        if (discountPercent > 0) {
+          badgeEl.textContent = `${discountPercent}% ${t("off_badge","OFF")}`;
           badgeEl.style.display = '';
         } else {
           badgeEl.style.display = 'none';
         }
       }
       
-      if (addBtn)  { addBtn.disabled = !inStock; addBtn.textContent = inStock ? t("add_to_cart","Add to Cart") : t("out_of_stock","Out of Stock"); }
-      if (img)     swapMainImg(img, imgSrc, p.image);
+      if (addBtn) {
+        const inStock = p.stock > 0;
+        addBtn.disabled = !inStock;
+        addBtn.textContent = inStock ? t("add_to_cart","Add to Cart") : t("out_of_stock","Out of Stock");
+      }
     }
 
-    card.querySelectorAll(".webshop-variant-btn:not([disabled])").forEach(btn => {
-      btn.addEventListener("click", () => {
-        card.querySelectorAll(".webshop-variant-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        // Self-button (p.id) → null so cart uses main product key
-        selectedVariantId = (btn.dataset.variantId === p.id) ? null : btn.dataset.variantId;
-        refresh();
-      });
-    });
-    card.querySelectorAll(".webshop-color:not([disabled])").forEach(btn => {
-      btn.addEventListener("click", () => {
-        card.querySelectorAll(".webshop-color").forEach(b => b.classList.remove("webshop-color--active"));
-        btn.classList.add("webshop-color--active"); selectedColor = btn.dataset.color;
-        if (img) swapMainImg(img, colorImageSrc(p, selectedColor), p.image);
-      });
-    });
     const qv = card.querySelector(".webshop-qty-val");
-    card.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid = effectiveVid(); const max = evid ? variantStock(p, evid) : (p.stock||99); qty = Math.min(qty+1, max||99); if (qv) qv.textContent = qty; });
-    card.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty = Math.max(1, qty-1); if (qv) qv.textContent = qty; });
+    card.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { 
+      const max = p.stock || 99; 
+      qty = Math.min(qty + 1, max || 99); 
+      if (qv) qv.textContent = qty; 
+    });
+    card.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { 
+      qty = Math.max(1, qty - 1); 
+      if (qv) qv.textContent = qty; 
+    });
     addBtn?.addEventListener("click", () => {
-      const evid = effectiveVid();
-      addToCart(p, qty, evid, selectedColor, img?.src || null);
-      const itemName = evid ? variantLabel(p, evid) : (p.label || p.id);
+      addToCart(p, qty, null, null, img?.src || null);
+      const itemName = p.label || p.id;
       toast(`${itemName} ${t("added","added to cart")}`);
     });
     const buyNowBtn = card.querySelector(".webshop-card-buynow-overlay");
     buyNowBtn?.addEventListener("click", () => {
-      const evid = effectiveVid();
-      addToCart(p, 1, evid, selectedColor, img?.src || null);
-      const itemName = evid ? variantLabel(p, evid) : (p.label || p.id);
+      addToCart(p, 1, null, null, img?.src || null);
+      const itemName = p.label || p.id;
       toast(`${itemName} ${t("added","added to cart")}`);
       // Navigate to cart
       setTimeout(() => {
@@ -834,14 +720,12 @@ var Shop = (() => {
         }
       }, 100);
     });
-    wireRelatedStrip(card, p, options);
-    // Store refresh so onCurrencyChange can call it with correct variant state
     card._shopRefresh = refresh;
     document.addEventListener("currency:changed", () => refresh(true));
   }
 
   /* ═══════════════════════════════════════════════════════
-     PRODUCT GRID
+     PRODUCT GRID (SHOP) - SIMPLE VERSION
   ═══════════════════════════════════════════════════════ */
   async function renderShop(divId, options = {}) {
     await loadLang();
@@ -873,9 +757,10 @@ var Shop = (() => {
       container.appendChild(grid);
       products.forEach(p => {
         const card = document.createElement("div"); card.className = "webshop-product-card"; card.dataset.cat = p.category || ""; card.dataset.productId = p.id;
-        card.innerHTML = buildProductCard(p, { showVariants: true, showRelated: true, showAddons: true });
+        // Use SIMPLE card for shop grid - NO variants, NO addons, NO related
+        card.innerHTML = buildProductCardSimple(p, { showBuyNow: true });
         grid.appendChild(card); 
-        wireProductCard(card, p, { showVariants: true, showRelated: true, showAddons: true });
+        wireProductCardSimple(card, p);
       });
     }
     buildGrid();
@@ -899,7 +784,7 @@ var Shop = (() => {
   }
 
   /* ═══════════════════════════════════════════════════════
-     PRODUCT INFO
+     PRODUCT INFO (FULL VERSION - KEEPS VARIANTS & ADDONS)
   ═══════════════════════════════════════════════════════ */
   async function renderProductInfo(divId, productId) {
     await loadLang();
@@ -1261,7 +1146,7 @@ var Shop = (() => {
     slugify, buildImagePath, colorImageSrc,
     toast, swapMainImg,
     getVariant, variantPrice, variantWeight, variantImage, variantStock, variantInStock,
-    buildRelatedStrip, wireRelatedStrip, buildProductCard, wireProductCard,
+    buildRelatedStrip, wireRelatedStrip,
     renderCurrencySelector, renderBackButton, renderCartIcon,
     renderShop, renderProductInfo, renderMiniCart, renderBuyNowButton,
     renderTurnstile, submitOrderDetails, submitOrderStatus,
