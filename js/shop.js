@@ -638,7 +638,7 @@ var Shop = (() => {
         ${p.featured?`<span class="webshop-badge">${t("featured","Featured")}</span>`:""}
         ${p.bestseller?`<span class="webshop-badge webshop-badge--bestseller">${t("badge_bestseller","Best Seller")}</span>`:""}
         ${discountPercent > 0?`<span class="webshop-badge webshop-badge--discount">${discountPercent}% ${t("off_badge","OFF")}</span>`:""}
-        ${options.showBuyNow !== false && hasUrl ? `<a class="webshop-card-buynow-overlay" href="${prodUrl}" ${inStock?"":"style=\"pointer-events:none;opacity:.4;\""}>${t("buy_now","Buy Now")}</a>` : ""}
+        ${options.showBuyNow !== false && hasUrl ? `<button class="webshop-card-buynow-overlay" data-product-id="${p.id}" ${inStock?"":"disabled style=\"opacity:.4;\""}>${t("buy_now","Buy Now")}</button>` : ""}
       </${wEnd}>
       <div class="webshop-card-body">
         <h3 class="webshop-card-title">${pName(p)}</h3>
@@ -782,6 +782,22 @@ var Shop = (() => {
       addToCart(p, qty, evid, selectedColor, img?.src || null);
       const itemName = evid ? variantLabel(p, evid) : (p.label || p.id);
       toast(`${itemName} ${t("added","added to cart")}`);
+    });
+    const buyNowBtn = card.querySelector(".webshop-card-buynow-overlay");
+    buyNowBtn?.addEventListener("click", () => {
+      const evid = effectiveVid();
+      addToCart(p, 1, evid, selectedColor, img?.src || null);
+      const itemName = evid ? variantLabel(p, evid) : (p.label || p.id);
+      toast(`${itemName} ${t("added","added to cart")}`);
+      // Navigate to cart
+      setTimeout(() => {
+        if (typeof window.viewPage === 'function') {
+          window.viewPage('cart');
+        } else {
+          const cartUrl = (typeof window !== "undefined" && window.__CART_URL__) || "cart/";
+          window.location.href = cartUrl;
+        }
+      }, 100);
     });
     wireRelatedStrip(card, p, options);
     // Store refresh so onCurrencyChange can call it with correct variant state
