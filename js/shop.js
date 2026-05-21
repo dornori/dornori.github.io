@@ -637,6 +637,7 @@ var Shop = (() => {
         ${p.featured?`<span class="webshop-badge">${t("featured","Featured")}</span>`:""}
         ${p.bestseller?`<span class="webshop-badge webshop-badge--bestseller">${t("badge_bestseller","Best Seller")}</span>`:""}
         ${discountPercent > 0?`<span class="webshop-badge webshop-badge--discount">${discountPercent}% ${t("off_badge","OFF")}</span>`:""}
+        ${options.showBuyNow !== false && hasUrl ? `<a class="webshop-card-buynow-overlay" href="${prodUrl}" ${inStock?"":"style=\"pointer-events:none;opacity:.4;\""}>${t("buy_now","Buy Now")}</a>` : ""}
       </${wEnd}>
       <div class="webshop-card-body">
         <h3 class="webshop-card-title">${pName(p)}</h3>
@@ -652,9 +653,6 @@ var Shop = (() => {
         <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>
-        ${options.showBuyNow !== false ? `<a class="webshop-card-buynow webshop-btn webshop-btn--outline webshop-btn--full" href="${prodUrl}" ${inStock?"":"style=\"pointer-events:none;opacity:.5;\""}>
-          ${t("buy_now","Buy Now")}
-        </a>` : ""}
         ${(showRelated || showAddons) ? buildRelatedStrip(p, "card", options) : ""}
       </div>`;
   }
