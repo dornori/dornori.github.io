@@ -17,7 +17,7 @@
 
         <div id="sf-loading" class="sf-loading">
             <i class="fas fa-spinner fa-spin" style="font-size:1.75rem;color:var(--accent)"></i>
-            <p style="margin-top:.75rem" id="loading-text"></p>
+            <p style="margin-top:.75rem" id="loading-text">Loading...</p>
         </div>
 
         <div id="sf-s1" class="sf-hidden">
@@ -50,7 +50,7 @@
 
             <div class="sf-field">
                 <label class="sf-label" for="sf-order" id="label-order"></label>
-                <input id="sf-order" type="text" class="sf-input" maxlength="30" placeholder="" id="sf-order-placeholder">
+                <input id="sf-order" type="tel" class="sf-input" maxlength="20" inputmode="numeric" placeholder="123456789">
                 <span class="sf-field-error" id="sf-order-err"></span>
                 <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;" id="order-help-text"></small>
             </div>
@@ -152,15 +152,12 @@
     font-weight: 600;
     background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
-.summary-table .summary-text {
-    background: transparent;
-}
 </style>
 
 <script>
 // ==================== CONFIG ====================
 const TURNSTILE_SITE_KEY = (window.CONFIG && window.CONFIG.turnstile && window.CONFIG.turnstile.sitekey) 
-    ? window.CONFIG.turnstile.sitekey : '1x00000000000000000000AA';
+    ? window.CONFIG.turnstile.sitekey : null;
 
 const workerUrl = (window.CONFIG && window.CONFIG.queue && window.CONFIG.queue.endpoint) 
     ? window.CONFIG.queue.endpoint : "https://edge-form-handler-api.dornori-info.workers.dev";
@@ -181,7 +178,6 @@ let formData = {};
 let currentCategory = null;
 let currentQuestionId = null;
 let answers = [];
-let questionStack = [];
 
 // ==================== HELPERS ====================
 function generateReferenceNumber() {
@@ -200,8 +196,9 @@ function isValidEmail(email) {
 }
 
 function isValidOrderNumber(order) {
+    // Only numbers allowed
     if (!order || order.trim() === '') return false;
-    return /^[A-Za-z0-9\-_]+$/.test(order) && order.length >= 2;
+    return /^\d+$/.test(order);
 }
 
 function escapeHtml(str) {
@@ -213,22 +210,10 @@ function formatSummaryTable(answersArray) {
     if (!answersArray || answersArray.length === 0) return '';
     let html = '<table class="summary-table">';
     answersArray.forEach((item, idx) => {
-        html += `<tr><td class="step-number">${idx + 1}</td><td class="summary-text">${escapeHtml(item.summary || item.answer)}</td></tr>`;
+        html += `<tr><td class="step-number">${idx + 1}</td><td class="summary-text">${escapeHtml(item.summary || item.answer)}<\/td><\/tr>`;
     });
-    html += '</table>';
+    html += '<\/table>';
     return html;
-}
-
-function formatSummaryForEmail(answersArray) {
-    if (!answersArray || answersArray.length === 0) return '   ' + (formData.noStepsText || 'No troubleshooting steps recorded.');
-    return answersArray.map((item, idx) => `   ${idx + 1}. ${item.summary || item.answer}`).join('\n');
-}
-
-function formatAdditionalCommentsForEmail(comments) {
-    if (!comments || comments.trim() === '') return '   ' + (formData.noCommentsText || 'No additional comments provided.');
-    const lines = comments.split(/\r?\n/).filter(line => line.trim());
-    if (lines.length === 0) return '   ' + (formData.noCommentsText || 'No additional comments provided.');
-    return lines.map((line, idx) => `   ${idx + 1}. ${line.trim()}`).join('\n');
 }
 
 function showToast(msg, ms = 3000) {
@@ -254,11 +239,11 @@ function showSuccessMessage(message, referenceNumber) {
     const successHtml = `
         <div class="sf-success-box" style="text-align:center;padding:2rem;">
             <i class="fas fa-check-circle" style="font-size:4rem;color:#10b981;margin-bottom:1rem;"></i>
-            <h3 style="font-size:1.5rem;margin-bottom:1rem;color:var(--text);">${escapeHtml(formData.successTitle || 'Thank You!')}</h3>
-            <div class="sf-ref-number" style="font-size:1.2rem;font-weight:700;color:var(--accent);margin:1rem 0;letter-spacing:1px;"><i class="fas fa-ticket-alt"></i> REF: ${escapeHtml(referenceNumber)}</div>
-            <p style="color:var(--text-muted);margin-bottom:0.75rem;line-height:1.6;">${escapeHtml(message)}</p>
-            <p style="font-size: 0.85rem; margin-top: 1rem;color:var(--text-muted);">${escapeHtml(formData.saveReferenceText || 'Please save this reference number for future inquiries.')}</p>
-        </div>
+            <h3 style="font-size:1.5rem;margin-bottom:1rem;color:var(--text);">Thank You!</h3>
+            <div class="sf-ref-number" style="font-size:1.2rem;font-weight:700;color:var(--accent);margin:1rem 0;letter-spacing:1px;"><i class="fas fa-ticket-alt"></i> REF: ${escapeHtml(referenceNumber)}<\/div>
+            <p style="color:var(--text-muted);margin-bottom:0.75rem;line-height:1.6;">${escapeHtml(message)}<\/p>
+            <p style="font-size: 0.85rem; margin-top: 1rem;color:var(--text-muted);">Please save this reference number for future inquiries.<\/p>
+        <\/div>
     `;
     body.innerHTML = successHtml;
     setTimeout(() => { window.scrollTo(0, 0); }, 10);
@@ -272,12 +257,11 @@ async function loadFormData() {
         populateUI();
     } catch (err) {
         console.error("Failed to load form.json:", err);
-        document.getElementById('sf-loading').innerHTML = `<p style="color:red">Failed to load form data.<br>Path: ${formJsonPath}</p>`;
+        document.getElementById('sf-loading').innerHTML = `<p style="color:red">Failed to load form data.<br>Path: ${formJsonPath}<\/p>`;
     }
 }
 
 function populateUI() {
-    // Set all text from language file
     document.getElementById('sf-title').textContent = formData.title || "Support";
     document.getElementById('sf-subtitle').textContent = formData.subtitle || "We're here to help";
     document.getElementById('avg-resolution').textContent = formData.avgResolution || "Avg. resolution 2 min";
@@ -285,33 +269,27 @@ function populateUI() {
     document.getElementById('most-issues').textContent = formData.mostIssuesResolved || "Most issues resolved quickly";
     document.getElementById('need-help').textContent = formData.needHumanHelp || "Need human help?";
     document.getElementById('response-time').textContent = formData.responseTime || "Our support team responds within 4 hours.";
-    document.getElementById('loading-text').textContent = formData.loading || "Loading…";
+    document.getElementById('loading-text').textContent = formData.loading || "Loading...";
     document.getElementById('sf-submit').textContent = formData.submitButton || "Submit";
     
-    const turnstileErr = document.getElementById('sf-turnstile-err');
-    if (turnstileErr) turnstileErr.textContent = formData.turnstileError || "Please complete the security check.";
-    
     const labelName = document.getElementById('label-name');
-    if (labelName) labelName.innerHTML = `${formData.fullName || "Full name"} <span style="color:#ef4444">*</span>`;
+    if (labelName) labelName.innerHTML = `${formData.fullName || "Full name"} <span style="color:#ef4444">*<\/span>`;
     
     const labelEmail = document.getElementById('label-email');
-    if (labelEmail) labelEmail.innerHTML = `${formData.email || "Email address"} <span style="color:#ef4444">*</span>`;
+    if (labelEmail) labelEmail.innerHTML = `${formData.email || "Email address"} <span style="color:#ef4444">*<\/span>`;
     
     const labelOrder = document.getElementById('label-order');
-    if (labelOrder) labelOrder.innerHTML = `${formData.orderNumber || "Order number"} <span style="color:#ef4444">*</span>`;
-    
-    const orderPlaceholder = document.getElementById('sf-order-placeholder');
-    if (orderPlaceholder) orderPlaceholder.placeholder = formData.orderPlaceholder || "e.g. LM-xxxxxx or 100234";
+    if (labelOrder) labelOrder.innerHTML = `${formData.orderNumber || "Order number"} <span style="color:#ef4444">*<\/span> <span style="color:var(--text-muted);font-weight:400;">(numbers only)<\/span>`;
     
     const orderHelpText = document.getElementById('order-help-text');
-    if (orderHelpText) orderHelpText.textContent = formData.orderHelpText || "You can find this in your order confirmation email";
+    if (orderHelpText) orderHelpText.textContent = formData.orderHelpText || "Enter only the digits from your order confirmation email";
     
     const labelSummaryTable = document.getElementById('label-summary-table');
     if (labelSummaryTable) labelSummaryTable.textContent = formData.summaryLabel || "Issue Summary";
     
     const maxChars = formData.maxCommentsChars || 2000;
     const labelComments = document.getElementById('label-comments');
-    if (labelComments) labelComments.innerHTML = `${formData.additionalComments || "Additional comments"} <span style="color:var(--text-muted);font-weight:400;">(${formData.optionalLabel || "optional"}, max ${maxChars})</span>`;
+    if (labelComments) labelComments.innerHTML = `${formData.additionalComments || "Additional comments"} <span style="color:var(--text-muted);font-weight:400;">(${formData.optionalLabel || "optional"}, max ${maxChars})<\/span>`;
     
     const descField = document.getElementById('sf-desc');
     if (descField) {
@@ -370,7 +348,6 @@ function updateProgress(percent, label) {
 function startCategory(cat) {
     currentCategory = cat;
     answers = [];
-    questionStack = [];
     if (cat.questions && cat.questions.length > 0) {
         currentQuestionId = cat.questions[0].id;
         showQuestionById(currentQuestionId);
@@ -455,19 +432,21 @@ function showContactForm() {
 function initTurnstile() {
     const container = document.getElementById('sf-turnstile-container');
     if (!container) return;
-    if (turnstileWidgetId !== null && window.turnstile) {
-        turnstileToken = null;
-        window.turnstile.reset(turnstileWidgetId);
+    
+    if (!TURNSTILE_SITE_KEY || TURNSTILE_SITE_KEY === '1x00000000000000000000AA') {
+        container.style.display = 'none';
+        turnstileToken = 'no-turnstile';
         return;
     }
+    
     if (!window.turnstile) { setTimeout(initTurnstile, 200); return; }
-    turnstileToken = null;
+    
     turnstileWidgetId = window.turnstile.render(container, {
         sitekey: TURNSTILE_SITE_KEY,
-        theme: 'auto',
+        theme: 'light',
         callback: (token) => { turnstileToken = token; },
-        'expired-callback': () => turnstileToken = null,
-        'error-callback': () => turnstileToken = null
+        'expired-callback': () => { turnstileToken = null; },
+        'error-callback': () => { turnstileToken = null; }
     });
 }
 
@@ -492,39 +471,37 @@ function validateForm() {
     const order = stripHtml(document.getElementById('sf-order')?.value || '');
 
     if (!name) {
-        hasError = setFieldError('sf-name', 'sf-name-err', formData.fullNameRequired || 'Full name is required.') || hasError;
+        hasError = setFieldError('sf-name', 'sf-name-err', 'Full name is required.') || hasError;
     } else {
         setFieldError('sf-name', 'sf-name-err', '');
     }
     
-    let emailError = '';
     if (!email) {
-        emailError = formData.emailRequired || 'Email address is required.';
+        hasError = setFieldError('sf-email', 'sf-email-err', 'Email address is required.') || hasError;
     } else if (!isValidEmail(email)) {
-        emailError = formData.emailInvalid || 'Please enter a valid email address.';
-    }
-    if (emailError) {
-        hasError = setFieldError('sf-email', 'sf-email-err', emailError) || hasError;
+        hasError = setFieldError('sf-email', 'sf-email-err', 'Please enter a valid email address.') || hasError;
     } else {
         setFieldError('sf-email', 'sf-email-err', '');
     }
     
-    let orderError = '';
     if (!order) {
-        orderError = formData.orderNumberRequired || 'Order number is required.';
+        hasError = setFieldError('sf-order', 'sf-order-err', 'Order number is required.') || hasError;
     } else if (!isValidOrderNumber(order)) {
-        orderError = formData.orderDigitsOnly || 'Order number can contain letters, numbers, and hyphens only.';
-    }
-    if (orderError) {
-        hasError = setFieldError('sf-order', 'sf-order-err', orderError) || hasError;
+        hasError = setFieldError('sf-order', 'sf-order-err', 'Order number must contain only digits (0-9).') || hasError;
     } else {
         setFieldError('sf-order', 'sf-order-err', '');
     }
 
     const turnstileErr = document.getElementById('sf-turnstile-err');
-    if (!turnstileToken) {
-        if (turnstileErr) turnstileErr.classList.remove('sf-hidden');
-        hasError = true;
+    const turnstileContainer = document.getElementById('sf-turnstile-container');
+    
+    if (turnstileContainer && turnstileContainer.style.display !== 'none') {
+        if (!turnstileToken) {
+            if (turnstileErr) turnstileErr.classList.remove('sf-hidden');
+            hasError = true;
+        } else {
+            if (turnstileErr) turnstileErr.classList.add('sf-hidden');
+        }
     } else {
         if (turnstileErr) turnstileErr.classList.add('sf-hidden');
     }
@@ -535,55 +512,53 @@ function validateForm() {
 async function sendSupportRequest() {
     const { valid, sanitised } = validateForm();
     if (!valid) {
-        showToast(formData.errorFixAbove || 'Please fix the errors above before submitting.', 3000);
+        showToast('Please fix the errors above before submitting.', 3000);
         return;
     }
 
     const referenceNumber = generateReferenceNumber();
     const submitBtn = document.getElementById('sf-submit');
     const originalText = submitBtn?.textContent || 'Submit';
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = formData.sendingText || 'Sending...'; }
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending...'; }
 
-    const summaryEmail = formatSummaryForEmail(answers);
-    const formattedComments = formatAdditionalCommentsForEmail(sanitised.comments);
+    // Extract just the summaries from troubleshooting
+    const troubleshootingSummaries = answers.map((item, idx) => ({
+        step: idx + 1,
+        summary: item.summary || item.answer
+    }));
+
+    // Split additional comments into separate entries (each line becomes its own field)
+    const commentsLines = sanitised.comments 
+        ? sanitised.comments.split(/\r?\n/).filter(line => line.trim().length > 0)
+        : [];
     
-    const messageBody = `========================================
-SUPPORT REQUEST - ${referenceNumber}
-========================================
+    const additionalComments = commentsLines.map((line, idx) => ({
+        line: idx + 1,
+        text: line.trim()
+    }));
 
-CUSTOMER INFORMATION
--------------------
-Name: ${sanitised.name}
-Email: ${sanitised.email}
-Order Number: ${sanitised.order}
-Category: ${currentCategory?.title || 'General'}
-
-ISSUE SUMMARY
-------------
-${summaryEmail}
-
-ADDITIONAL COMMENTS
-------------------
-${formattedComments}
-
-========================================
-Submitted: ${new Date().toLocaleString()}
-User Agent: ${navigator.userAgent}
-========================================`;
-
+    // Clean structured payload - NO long message block
     const payload = {
         referenceNumber: referenceNumber,
-        category: "support-request",
-        originalCategory: currentCategory?.title || 'General',
-        troubleshooting: answers,
-        message: messageBody,
-        subject: `Dornori Support [${currentCategory?.title || 'General'}] - ${referenceNumber}`,
-        name: sanitised.name,
-        email: sanitised.email,
-        orderNumber: sanitised.order,
-        additionalComments: sanitised.comments,
-        timestamp: new Date().toISOString(),
-        userAgent: navigator.userAgent
+        type: "support-request",
+        category: currentCategory?.title || 'General',
+        submittedAt: new Date().toISOString(),
+        
+        customer: {
+            name: sanitised.name,
+            email: sanitised.email,
+            orderNumber: sanitised.order
+        },
+        
+        troubleshooting: troubleshootingSummaries,
+        
+        additionalComments: additionalComments,
+        
+        metadata: {
+            userAgent: navigator.userAgent,
+            language: navigator.language,
+            timestamp: Date.now()
+        }
     };
 
     try {
@@ -597,16 +572,14 @@ User Agent: ${navigator.userAgent}
             if (redirectUrl && redirectUrl.trim()) {
                 window.location.href = redirectUrl;
             } else {
-                const contactEndpoint = formData.endpoints?.contact;
-                const successMessage = contactEndpoint?.message || 'Your support request has been submitted. Our team will respond within 4 hours.';
-                showSuccessMessage(successMessage, referenceNumber);
+                showSuccessMessage('Your support request has been submitted. Our team will respond within 4 hours.', referenceNumber);
             }
         } else {
             throw new Error('Server error');
         }
     } catch (err) {
         console.error(err);
-        showToast(`${formData.submissionErrorText || 'Submission failed'}: ${err.message}. ${formData.retryText || 'Please try again.'}`, 5000);
+        showToast(`Submission failed: ${err.message}. Please try again.`, 5000);
         if (turnstileWidgetId && window.turnstile) window.turnstile.reset(turnstileWidgetId);
         turnstileToken = null;
         if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalText; }
@@ -617,7 +590,6 @@ window.sfReset = function() {
     currentCategory = null;
     currentQuestionId = null;
     answers = [];
-    questionStack = [];
     
     const s1El = document.getElementById('sf-s1');
     const s2El = document.getElementById('sf-s2');
@@ -627,7 +599,7 @@ window.sfReset = function() {
     if (s2El) s2El.classList.add('sf-hidden');
     if (s3El) s3El.classList.add('sf-hidden');
     if (summaryContainer) summaryContainer.style.display = 'none';
-    updateProgress(5, formData.step1Label || "Step 1: Choose category");
+    updateProgress(5, "Step 1: Choose category");
     
     const nameField = document.getElementById('sf-name');
     const emailField = document.getElementById('sf-email');
@@ -646,17 +618,21 @@ window.sfReset = function() {
         const input = document.getElementById(id);
         if (input) input.classList.remove('sf-input-error');
     });
-    turnstileToken = null;
+    
     if (turnstileWidgetId && window.turnstile) window.turnstile.reset(turnstileWidgetId);
-    showToast(formData.resetText || 'Session reset', 1500);
+    turnstileToken = null;
+    showToast('Session reset', 1500);
 };
 
-document.addEventListener('click', e => { if (e.target.closest('#sf-submit')) { e.preventDefault(); sendSupportRequest(); } });
-
+// Order number input - only allow digits
 const orderInput = document.getElementById('sf-order');
 if (orderInput) {
-    orderInput.addEventListener('input', function(e) { this.value = this.value.replace(/[^A-Za-z0-9\-_]/g, ''); });
+    orderInput.addEventListener('input', function(e) {
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
 }
+
+document.addEventListener('click', e => { if (e.target.closest('#sf-submit')) { e.preventDefault(); sendSupportRequest(); } });
 
 loadFormData();
 window.scrollTo(0, 0);
