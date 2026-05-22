@@ -50,7 +50,7 @@
 
             <div class="sf-field">
                 <label class="sf-label" for="sf-order" id="label-order"></label>
-                <input id="sf-order" type="tel" class="sf-input" maxlength="20" inputmode="numeric" placeholder="123456789">
+                <input id="sf-order" type="text" class="sf-input" maxlength="50" placeholder="e.g. LM-12345 or 12345">
                 <span class="sf-field-error" id="sf-order-err"></span>
                 <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;" id="order-help-text"></small>
             </div>
@@ -79,6 +79,7 @@
 </div>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 
 <style>
 .sf-submit {
@@ -279,10 +280,10 @@ function populateUI() {
     if (labelEmail) labelEmail.innerHTML = (formData.email || 'Email address') + ' <span style="color:#ef4444">*</span>';
     
     var labelOrder = document.getElementById('label-order');
-    if (labelOrder) labelOrder.innerHTML = (formData.orderNumber || 'Order number') + ' <span style="color:#ef4444">*</span> <span style="color:var(--text-muted);font-weight:400;">(numbers only)</span>';
+    if (labelOrder) labelOrder.innerHTML = (formData.orderNumber || 'Order number') + ' <span style="color:#ef4444">*</span>';
     
     var orderHelpText = document.getElementById('order-help-text');
-    if (orderHelpText) orderHelpText.textContent = formData.orderHelpText || 'Enter only the digits from your order confirmation email';
+    if (orderHelpText) orderHelpText.textContent = formData.orderHelpText || 'You can find this in your order confirmation email';
     
     var labelSummaryTable = document.getElementById('label-summary-table');
     if (labelSummaryTable) labelSummaryTable.textContent = formData.summaryLabel || 'Issue Summary';
@@ -447,13 +448,11 @@ function initTurnstile() {
         return;
     }
     
-    // Check if turnstile is already loaded globally (from main site)
     if (typeof turnstile === 'undefined') {
         setTimeout(initTurnstile, 200);
         return;
     }
     
-    // Clean up any existing widget
     if (turnstileWidgetId !== null) {
         try {
             turnstile.remove(turnstileWidgetId);
@@ -465,15 +464,9 @@ function initTurnstile() {
     turnstileWidgetId = turnstile.render(container, {
         sitekey: TURNSTILE_SITE_KEY,
         theme: 'light',
-        callback: function(token) { 
-            turnstileToken = token; 
-        },
-        'expired-callback': function() { 
-            turnstileToken = null; 
-        },
-        'error-callback': function() { 
-            turnstileToken = null; 
-        }
+        callback: function(token) { turnstileToken = token; },
+        'expired-callback': function() { turnstileToken = null; },
+        'error-callback': function() { turnstileToken = null; }
     });
 }
 
@@ -517,14 +510,10 @@ function validateForm() {
     if (!order) {
         setFieldError('sf-order', 'sf-order-err', 'Order number is required.');
         hasError = true;
-    } else if (!/^\d+$/.test(order)) {
-        setFieldError('sf-order', 'sf-order-err', 'Order number must contain only digits (0-9).');
-        hasError = true;
     } else {
         setFieldError('sf-order', 'sf-order-err', '');
     }
 
-    // Turnstile validation - only if visible and configured
     var turnstileContainer = document.getElementById('sf-turnstile-container');
     var turnstileErr = document.getElementById('sf-turnstile-err');
     
@@ -555,13 +544,11 @@ async function sendSupportRequest() {
     var originalText = submitBtn?.textContent || 'Submit';
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending...'; }
 
-    // Simple array of troubleshooting summaries (strings only)
     var troubleshootingSummaries = [];
     for (var i = 0; i < answers.length; i++) {
         troubleshootingSummaries.push(answers[i].summary || answers[i].answer);
     }
 
-    // Simple array of additional comments (each line as a string)
     var commentsLines = sanitised.comments 
         ? sanitised.comments.split(/\r?\n/).filter(function(line) { return line.trim().length > 0; })
         : [];
@@ -571,24 +558,19 @@ async function sendSupportRequest() {
         additionalComments.push(commentsLines[i].trim());
     }
 
-    // Clean structured payload - arrays of strings, not objects
+    // FLAT STRUCTURE - matches original working format
     var payload = {
         referenceNumber: referenceNumber,
-        type: 'support-request',
-        category: currentCategory?.title || 'General',
+        category: "support-request",
+        originalCategory: currentCategory?.title || 'General',
         submittedAt: new Date().toISOString(),
-        customer: {
-            name: sanitised.name,
-            email: sanitised.email,
-            orderNumber: sanitised.order
-        },
+        name: sanitised.name,
+        email: sanitised.email,
+        orderNumber: sanitised.order,
         troubleshooting: troubleshootingSummaries,
         additionalComments: additionalComments,
-        metadata: {
-            userAgent: navigator.userAgent,
-            language: navigator.language,
-            timestamp: Date.now()
-        }
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent
     };
 
     try {
@@ -659,14 +641,6 @@ window.sfReset = function() {
     turnstileToken = null;
     showToast('Session reset', 1500);
 };
-
-// Order number input - only allow digits
-var orderInput = document.getElementById('sf-order');
-if (orderInput) {
-    orderInput.addEventListener('input', function(e) {
-        this.value = this.value.replace(/[^0-9]/g, '');
-    });
-}
 
 document.addEventListener('click', function(e) { 
     if (e.target.closest('#sf-submit')) { 
