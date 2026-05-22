@@ -3,7 +3,11 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
  * shop-loader.js (v6 - removed redundant currency handler)
+=======
+ * shop-loader.js (v4 - with combined flags + currency discount fix)
+>>>>>>> parent of 0762379 (Update shop-loader.js)
 =======
  * shop-loader.js (v4 - with combined flags + currency discount fix)
 >>>>>>> parent of 0762379 (Update shop-loader.js)
@@ -100,6 +104,7 @@ export async function mountShopEmbeds(container) {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   // ── Shop grid: #shop-embed-root (legacy) + data-shop-grid (portable) ────────
   //
   //  Usage: <div data-shop-grid [data-filter] [data-columns="3"] [data-category="kits"]></div>
@@ -149,6 +154,8 @@ export async function mountShopEmbeds(container) {
 >>>>>>> parent of 0762379 (Update shop-loader.js)
 =======
 >>>>>>> parent of 0762379 (Update shop-loader.js)
+=======
+>>>>>>> parent of 0762379 (Update shop-loader.js)
   // ── Shop grid (#shop-embed-root) ──────────────────────────────────────────
   const shopRoot = container && container.querySelector('#shop-embed-root');
   if (shopRoot && shopRoot.id) {
@@ -156,6 +163,9 @@ export async function mountShopEmbeds(container) {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> parent of 0762379 (Update shop-loader.js)
+=======
 >>>>>>> parent of 0762379 (Update shop-loader.js)
 =======
 >>>>>>> parent of 0762379 (Update shop-loader.js)
