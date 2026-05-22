@@ -1,5 +1,5 @@
 /**
- * shop-loader.js (v5 - portable data-shop-grid embed support)
+ * shop-loader.js (v6 - removed redundant currency handler)
  */
 
 import { loadScript } from './utils/script-loader.js';
@@ -182,8 +182,6 @@ export async function mountShopEmbeds(container) {
     const card = document.createElement('div');
     card.className = 'webshop-product-card';
     card.dataset.productId = product.id;
-    card.dataset.originalPrice = product.price;
-    card.dataset.discount = product.discount || 0;
     
     // PASS OPTIONS to buildProductCard
     card.innerHTML = Shop.buildProductCard(product, options);
@@ -192,52 +190,7 @@ export async function mountShopEmbeds(container) {
     // PASS OPTIONS to wireProductCard
     Shop.wireProductCard(card, product, options);
     
-    // FIXED: Handle currency changes with discount support
-    const updatePricesOnCurrencyChange = () => {
-      const discountPercent = parseFloat(card.dataset.discount) || 0;
-      const originalPrice = parseFloat(card.dataset.originalPrice) || product.price;
-      const discountedPrice = discountPercent > 0 ? originalPrice * (1 - discountPercent / 100) : originalPrice;
-      
-      // Update main price displays
-      const priceEls = card.querySelectorAll('.webshop-card-price');
-      const originalPriceEls = card.querySelectorAll('.webshop-card-price--original');
-      
-      if (discountPercent > 0 && originalPriceEls.length >= 1 && priceEls.length >= 1) {
-        // Has discount - update both original and discounted
-        originalPriceEls[0].textContent = Shop.fmt(originalPrice);
-        priceEls[0].textContent = Shop.fmt(discountedPrice);
-      } else if (priceEls.length >= 1) {
-        // No discount - just update main price
-        priceEls[0].textContent = Shop.fmt(originalPrice);
-      }
-      
-      // Update any variant prices shown
-      const variantSelect = card.querySelector('.webshop-variant-select');
-      if (variantSelect && variantSelect.options) {
-        const selectedVariantId = variantSelect.value;
-        if (selectedVariantId && selectedVariantId !== product.id) {
-          const variantProduct = productMap[selectedVariantId];
-          if (variantProduct) {
-            const variantDiscount = variantProduct.discount || 0;
-            const variantOriginalPrice = variantProduct.price;
-            const variantDiscountedPrice = variantDiscount > 0 ? variantOriginalPrice * (1 - variantDiscount / 100) : variantOriginalPrice;
-            
-            const priceEl = card.querySelector('.webshop-card-price');
-            const originalPriceEl = card.querySelector('.webshop-card-price--original');
-            
-            if (variantDiscount > 0 && originalPriceEl) {
-              originalPriceEl.textContent = Shop.fmt(variantOriginalPrice);
-              if (priceEl) priceEl.textContent = Shop.fmt(variantDiscountedPrice);
-            } else if (priceEl) {
-              priceEl.textContent = Shop.fmt(variantOriginalPrice);
-              if (originalPriceEl) originalPriceEl.style.display = 'none';
-            }
-          }
-        }
-      }
-    };
-    
-    document.addEventListener('currency:changed', updatePricesOnCurrencyChange);
+
   }
 
   const miniCart = container && container.querySelector('#mini-cart-root');
