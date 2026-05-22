@@ -102,11 +102,15 @@ export async function mountShopEmbeds(container) {
     if (shopRoot.querySelector('.webshop-grid')) continue;
 
     const gridOptions = {
-      showFilter: shopRoot.id === 'shop-embed-root'
-        ? true                                   // legacy: always show filter
-        : shopRoot.hasAttribute('data-filter'),  // new: opt-in
-      columns:    shopRoot.dataset.columns || 'auto',
-      category:   shopRoot.dataset.category || null,
+      showFilter:   shopRoot.id === 'shop-embed-root'
+        ? true                                    // legacy: always show filter
+        : shopRoot.hasAttribute('data-filter'),   // new: opt-in
+      columns:      shopRoot.dataset.columns || 'auto',
+      category:     shopRoot.dataset.category || null,
+      // Product card flags — same as data-shop-products
+      showVariants: shopRoot.hasAttribute('data-variants'),
+      showRelated:  shopRoot.hasAttribute('data-related'),
+      showAddons:   shopRoot.hasAttribute('data-addons'),
     };
 
     await Shop.renderShop(shopRoot.id, gridOptions);

@@ -1,5 +1,5 @@
 /* =========================================================
-   WEBSHOP SHOP ENGINE  –  shop.js  (v5 - FIXED RELATED STRIP)
+   WEBSHOP SHOP ENGINE  –  shop.js  (v6 - portable grid flags, currency/discount fix)
    =========================================================
    Language file structure:
      lang/{lang}/common.json   — UI strings, slugs, profiles
@@ -871,31 +871,29 @@ var Shop = (() => {
       const grid = document.createElement("div"); grid.className = "webshop-grid";
       if (columns !== "auto") grid.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
       container.appendChild(grid);
+      const cardOptions = {
+        showVariants: options.showVariants === true,
+        showRelated:  options.showRelated  === true,
+        showAddons:   options.showAddons   === true,
+      };
       products.forEach(p => {
         const card = document.createElement("div"); card.className = "webshop-product-card"; card.dataset.cat = p.category || ""; card.dataset.productId = p.id;
-        card.innerHTML = buildProductCard(p, { showVariants: true, showRelated: true, showAddons: true });
-        grid.appendChild(card); 
-        wireProductCard(card, p, { showVariants: true, showRelated: true, showAddons: true });
+        card.innerHTML = buildProductCard(p, cardOptions);
+        grid.appendChild(card);
+        wireProductCard(card, p, cardOptions);
       });
     }
     buildGrid();
-    
+
     const onLangChange = async () => {
-      products = await loadProducts(); // Reload products in the new language
+      products = await loadProducts();
       buildGrid();
     };
-    
-    const onCurrencyChange = () => {
-      // Simply call the stored refresh function on each card - it will handle everything
-      container.querySelectorAll(".webshop-product-card").forEach(card => {
-        if (typeof card._shopRefresh === "function") { 
-          card._shopRefresh(true); 
-        }
-      });
-    };
-    
+
+    // NOTE: individual cards already handle currency:changed via wireProductCard.
+    // A second listener here would trigger each card's refresh twice — do not add one.
+
     document.addEventListener("shop:langChanged", onLangChange);
-    document.addEventListener("currency:changed", onCurrencyChange);
   }
 
   /* ═══════════════════════════════════════════════════════
@@ -1069,7 +1067,6 @@ var Shop = (() => {
       });
 
       function refreshInfo() {
-        if (!hasVariants) return;
         const evid = effectiveVid();
         const price   = evid ? variantPrice(p, evid) : p.price;
         const discount = evid ? variantDiscount(p, evid) : (p.discount || 0);
@@ -1077,8 +1074,8 @@ var Shop = (() => {
         const inStk   = evid ? variantInStock(p, evid) : (p.stock > 0);
         const wt      = evid ? variantWeight(p, evid) : (p.weight || 0);
         const imgSrc  = evid ? variantImage(p, evid) : p.image;
-        
-        // Update price display - rebuild price group to show/hide discount elements
+
+        // Rebuild price group — handles both currency changes and variant switches
         const priceGroup = container.querySelector(".webshop-product-price-group");
         if (priceGroup) {
           if (discount > 0) {
@@ -1090,7 +1087,7 @@ var Shop = (() => {
             priceGroup.innerHTML = `<p class="webshop-product-price" id="pinfo-price-${productId}">${fmt(price)}</p>`;
           }
         }
-        
+
         if (stockEl) { stockEl.textContent=inStk?t("in_stock","In Stock"):t("out_of_stock","Out of Stock"); stockEl.className=inStk?"webshop-in-stock":"webshop-out-of-stock"; }
         if (atcBtn)  { atcBtn.disabled=!inStk; atcBtn.textContent=inStk?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock"); }
         if (mainImg) swapMainImg(mainImg, imgSrc, p.image);
@@ -1147,7 +1144,7 @@ var Shop = (() => {
         build();
       }
     });
-    document.addEventListener("currency:changed", build);
+    document.addEventListener("currency:changed", refreshInfo);
   }
 
   /* ─── BUY NOW BUTTON (Standalone) ───────────────────── */
