@@ -55,14 +55,15 @@
                 <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;">You can find this in your order confirmation email</small>
             </div>
 
-            <div class="sf-field">
-                <label class="sf-label" id="label-summary"></label>
-                <div id="sf-summary-box" style="padding:.8rem 1.1rem;border:1px solid var(--border);border-radius:.875rem;background:color-mix(in srgb,var(--bg) 40%,transparent 60%);font-size:.85rem;color:var(--text-muted);line-height:1.6;min-height:80px;"></div>
+            <!-- Simple Summary Table -->
+            <div class="sf-field" id="sf-summary-container" style="display:none;">
+                <label class="sf-label" id="label-summary-table">Issue Summary</label>
+                <div id="sf-summary-table" style="width:100%;margin-top:8px;"></div>
             </div>
 
             <div class="sf-field">
                 <label class="sf-label" id="label-comments"></label>
-                <textarea id="sf-desc" rows="4" class="sf-input" style="resize:vertical" maxlength="2000" placeholder=""></textarea>
+                <textarea id="sf-desc" rows="4" class="sf-input" style="resize:vertical;font-family:monospace;font-size:0.85rem;" maxlength="2000" placeholder=""></textarea>
                 <div id="sf-char-counter" class="sf-char-counter">0 / 2000 characters</div>
                 <span class="sf-field-error" id="sf-desc-err"></span>
             </div>
@@ -136,6 +137,26 @@
     margin-top: 4px;
     color: var(--text-muted);
 }
+/* Simple summary table styles */
+.summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.summary-table td {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+.summary-table .step-number {
+    width: 50px;
+    text-align: center;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.summary-table .summary-text {
+    background: transparent;
+}
 </style>
 
 <script>
@@ -183,15 +204,56 @@ function isValidEmail(email) {
 }
 
 function isValidOrderNumber(order) {
-    // Order number is required - must exist and be valid
     if (!order || order.trim() === '') return false;
-    // Allow letters, numbers, hyphens, and underscores (for order refs like LM-XXXXXX)
     return /^[A-Za-z0-9\-_]+$/.test(order) && order.length >= 2;
 }
 
 function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'})[m]);
+}
+
+function formatSummaryTable(answersArray) {
+    if (!answersArray || answersArray.length === 0) {
+        return '';
+    }
+    
+    let tableHtml = '<table class="summary-table">';
+    
+    answersArray.forEach((item, idx) => {
+        const stepNum = idx + 1;
+        const summary = escapeHtml(item.summary || item.answer);
+        
+        tableHtml += `<tr>`;
+        tableHtml += `<td class="step-number">${stepNum}</td>`;
+        tableHtml += `<td class="summary-text">${summary}</td>`;
+        tableHtml += `</tr>`;
+    });
+    
+    tableHtml += '</table>';
+    return tableHtml;
+}
+
+function formatSummaryForEmail(answersArray) {
+    if (!answersArray || answersArray.length === 0) {
+        return 'No troubleshooting steps recorded.';
+    }
+    
+    let emailText = '';
+    answersArray.forEach((item, idx) => {
+        const stepNum = idx + 1;
+        const summary = item.summary || item.answer;
+        emailText += `   ${stepNum}. ${summary}\n`;
+    });
+    
+    return emailText;
+}
+
+function formatAdditionalCommentsForEmail(comments) {
+    if (!comments || comments.trim() === '') {
+        return 'No additional comments provided.';
+    }
+    return comments.trim();
 }
 
 function showToast(msg, ms = 3000) {
@@ -210,19 +272,6 @@ function showToast(msg, ms = 3000) {
     t.style.borderRadius = '40px';
     t.style.fontSize = '.88rem';
     setTimeout(() => t.style.opacity = '0', ms);
-}
-
-function formatSummaryBullets(answersArray) {
-    if (!answersArray || answersArray.length === 0) {
-        return '<em>No troubleshooting steps recorded.</em>';
-    }
-    let html = '<ul class="sf-summary-bullets" style="margin:0;padding-left:1.2rem;">';
-    answersArray.forEach((item, idx) => {
-        const summaryText = item.summary || item.answer;
-        html += `<li style="margin-bottom:0.5rem;"><span class="sf-summary-question" style="font-weight:600;color:var(--accent);">Step ${idx + 1}:</span> ${escapeHtml(summaryText)}</li>`;
-    });
-    html += '</ul>';
-    return html;
 }
 
 function showSuccessMessage(message, referenceNumber) {
@@ -281,16 +330,16 @@ function populateUI() {
     const labelOrder = document.getElementById('label-order');
     if (labelOrder) labelOrder.innerHTML = `${formData.orderNumber || "Order number"} <span style="color:#ef4444">*</span>`;
     
-    const labelSummary = document.getElementById('label-summary');
-    if (labelSummary) labelSummary.textContent = formData.troubleshootingSummary || "Troubleshooting summary";
+    const labelSummaryTable = document.getElementById('label-summary-table');
+    if (labelSummaryTable) labelSummaryTable.textContent = formData.summaryLabel || "Issue Summary";
     
     const maxChars = formData.maxCommentsChars || 2000;
     const labelComments = document.getElementById('label-comments');
-    if (labelComments) labelComments.innerHTML = `${formData.additionalComments || "Additional comments"} <span style="color:var(--text-muted);font-weight:400;">(optional, max ${maxChars} characters)</span>`;
+    if (labelComments) labelComments.innerHTML = `${formData.additionalComments || "Additional Comments"} <span style="color:var(--text-muted);font-weight:400;">(optional, max ${maxChars} characters)</span>`;
     
     const descField = document.getElementById('sf-desc');
     if (descField) {
-        descField.placeholder = formData.commentsPlaceholder || "Please describe your issue in detail...";
+        descField.placeholder = formData.commentsPlaceholder || "Please describe your issue in detail. Use line breaks to organize your thoughts...";
         descField.maxLength = maxChars;
     }
     
@@ -437,9 +486,16 @@ window.selectAnswer = function(questionId, optionIndex) {
 };
 
 function showContactForm() {
-    const formattedSummary = formatSummaryBullets(answers);
-    const summaryBox = document.getElementById('sf-summary-box');
-    if (summaryBox) summaryBox.innerHTML = formattedSummary;
+    const summaryHtml = formatSummaryTable(answers);
+    const summaryContainer = document.getElementById('sf-summary-container');
+    const summaryTableDiv = document.getElementById('sf-summary-table');
+    
+    if (answers.length > 0 && summaryContainer && summaryTableDiv) {
+        summaryTableDiv.innerHTML = summaryHtml;
+        summaryContainer.style.display = 'block';
+    } else if (summaryContainer) {
+        summaryContainer.style.display = 'none';
+    }
     
     const s1El = document.getElementById('sf-s1');
     const s2El = document.getElementById('sf-s2');
@@ -495,10 +551,8 @@ function validateForm() {
     const email = stripHtml(document.getElementById('sf-email')?.value || '').slice(0, 254);
     const order = stripHtml(document.getElementById('sf-order')?.value || '').slice(0, 30);
 
-    // Name validation (required)
     hasError = setFieldError('sf-name', 'sf-name-err', name ? '' : (formData.fullNameRequired || 'Full name is required.')) || hasError;
     
-    // Email validation (required + valid format)
     let emailError = '';
     if (!email) {
         emailError = formData.emailRequired || 'Email address is required.';
@@ -507,7 +561,6 @@ function validateForm() {
     }
     hasError = setFieldError('sf-email', 'sf-email-err', emailError) || hasError;
     
-    // Order number validation (REQUIRED)
     let orderError = '';
     if (!order) {
         orderError = formData.orderNumberRequired || 'Order number is required.';
@@ -516,7 +569,6 @@ function validateForm() {
     }
     hasError = setFieldError('sf-order', 'sf-order-err', orderError) || hasError;
 
-    // Turnstile validation
     const turnstileErr = document.getElementById('sf-turnstile-err');
     if (!turnstileToken) {
         if (turnstileErr) turnstileErr.classList.remove('sf-hidden');
@@ -525,15 +577,13 @@ function validateForm() {
         if (turnstileErr) turnstileErr.classList.add('sf-hidden');
     }
     
-    // Comments are optional - no validation needed
-    
     return { 
         valid: !hasError, 
         sanitised: { 
             name, 
             email, 
             order, 
-            comments: stripHtml(document.getElementById('sf-desc')?.value || '').slice(0, 2000) 
+            comments: document.getElementById('sf-desc')?.value || '' 
         } 
     };
 }
@@ -553,33 +603,48 @@ async function sendSupportRequest() {
         submitBtn.textContent = formData.sendingText || 'Sending...';
     }
 
-    // Clean comments - preserve line breaks as spaces
-    const cleanComments = sanitised.comments ? sanitised.comments.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim() : '';
+    // Format summary for email (simple numbered list)
+    const summaryEmail = formatSummaryForEmail(answers);
     
-    const summaryLine = answers.map((a, i) => `${i+1}. ${a.summary || a.answer.substring(0, 80)}`).join(' · ');
+    // Format additional comments preserving line breaks
+    const formattedComments = formatAdditionalCommentsForEmail(sanitised.comments);
     
-    const messageBody = [
-        `Name: ${sanitised.name}`,
-        `Email: ${sanitised.email}`,
-        `Order: ${sanitised.order}`,
-        `Category: ${currentCategory?.title || 'General'}`,
-        `Reference: ${referenceNumber}`,
-        `Issue Summary: ${summaryLine}`,
-        ...(cleanComments ? [`Additional Comments: ${cleanComments}`] : [])
-    ].join(' | ');
+    // Build email-friendly message body with clean structure
+    const messageBody = `========================================
+SUPPORT REQUEST - ${referenceNumber}
+========================================
+
+CUSTOMER INFORMATION
+-------------------
+Name: ${sanitised.name}
+Email: ${sanitised.email}
+Order Number: ${sanitised.order}
+Category: ${currentCategory?.title || 'General'}
+
+ISSUE SUMMARY
+------------
+${summaryEmail}
+
+ADDITIONAL COMMENTS
+------------------
+${formattedComments}
+
+========================================
+Submitted: ${new Date().toLocaleString()}
+User Agent: ${navigator.userAgent}
+========================================`;
 
     const payload = {
         referenceNumber: referenceNumber,
         category: "support-request",
         originalCategory: currentCategory?.title || 'General',
         troubleshooting: answers,
-        troubleshootingSummary: summaryLine,
         message: messageBody,
         subject: `Dornori Support [${currentCategory?.title || 'General'}] - ${referenceNumber}`,
         name: sanitised.name,
         email: sanitised.email,
         orderNumber: sanitised.order,
-        additionalComments: cleanComments,
+        additionalComments: sanitised.comments,
         timestamp: new Date().toISOString(),
         userAgent: navigator.userAgent
     };
@@ -628,10 +693,12 @@ window.sfReset = function() {
     const s1El = document.getElementById('sf-s1');
     const s2El = document.getElementById('sf-s2');
     const s3El = document.getElementById('sf-s3');
+    const summaryContainer = document.getElementById('sf-summary-container');
     
     if (s1El) s1El.classList.remove('sf-hidden');
     if (s2El) s2El.classList.add('sf-hidden');
     if (s3El) s3El.classList.add('sf-hidden');
+    if (summaryContainer) summaryContainer.style.display = 'none';
     
     updateProgress(5, "Step 1: Choose category");
     
