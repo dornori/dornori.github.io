@@ -1,5 +1,5 @@
 /* =========================================================
-   WEBSHOP SHOP ENGINE  –  shop.js  (v8 - always call buildRelatedStrip, fixed addons/related rendering)
+   WEBSHOP SHOP ENGINE  –  shop.js  (v9 - build addons/related same as variants, directly inline)
    =========================================================
    Language file structure:
      lang/{lang}/common.json   — UI strings, slugs, profiles
@@ -623,6 +623,49 @@ var Shop = (() => {
       }).join("")}</div>`;
     }
 
+    // Build addons/related HTML directly (same way as variants)
+    let relatedStripHtml = "";
+    if (showAddons && p.addons?.length) {
+      const addonItems = p.addons.map(id => _products[id]).filter(Boolean);
+      if (addonItems.length) {
+        relatedStripHtml += `<div class="webshop-related">
+          <h4 class="webshop-related__title">${t("addons", "Add-ons")}</h4>
+          <div class="webshop-related__list">
+            ${addonItems.map(r => `
+              <div class="webshop-related__item" data-related-id="${r.id}">
+                <img class="webshop-related__img" src="${r.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'}" alt="${pName(r)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
+                <div class="webshop-related__info">
+                  <span class="webshop-related__name">${pName(r)}</span>
+                  ${pDesc(r) ? `<span class="webshop-related__desc">${pDesc(r)}</span>` : ""}
+                  <span class="webshop-related__price">${fmt(r.price)}</span>
+                </div>
+                <button class="webshop-related__add webshop-btn webshop-btn--sm webshop-btn--outline" data-related-id="${r.id}">${t("add_to_cart", "Add")}</button>
+              </div>`).join("")}
+          </div>
+        </div>`;
+      }
+    }
+    if (showRelated && p.related?.length) {
+      const relatedItems = p.related.map(id => _products[id]).filter(Boolean);
+      if (relatedItems.length) {
+        relatedStripHtml += `<div class="webshop-related">
+          <h4 class="webshop-related__title">${t("related_products", "You may also need")}</h4>
+          <div class="webshop-related__list">
+            ${relatedItems.map(r => `
+              <div class="webshop-related__item" data-related-id="${r.id}">
+                <img class="webshop-related__img" src="${r.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'}" alt="${pName(r)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
+                <div class="webshop-related__info">
+                  <span class="webshop-related__name">${pName(r)}</span>
+                  ${pDesc(r) ? `<span class="webshop-related__desc">${pDesc(r)}</span>` : ""}
+                  <span class="webshop-related__price">${fmt(r.price)}</span>
+                </div>
+                <button class="webshop-related__add webshop-btn webshop-btn--sm webshop-btn--outline" data-related-id="${r.id}">${t("add_to_cart", "Add")}</button>
+              </div>`).join("")}
+          </div>
+        </div>`;
+      }
+    }
+
     // Build a lang-aware product URL — ignore p.url which is hardcoded to /en/
     const lang    = CONFIG.language || resolveLanguage();
     const base    = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || CONFIG.data?.basePath || '/';
@@ -654,7 +697,7 @@ var Shop = (() => {
         <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>
-        ${buildRelatedStrip(p, "card", options)}
+        ${relatedStripHtml}
       </div>`;
   }
 
