@@ -1,6 +1,10 @@
 /**
+<<<<<<< HEAD
  * shop-loader.js
 
+=======
+ * shop-loader.js (v4 - with combined flags + currency discount fix)
+>>>>>>> parent of 0762379 (Update shop-loader.js)
  */
 
 import { loadScript } from './utils/script-loader.js';
@@ -81,6 +85,7 @@ export async function mountShopEmbeds(container) {
     Shop.renderCurrencySelector(currSlot);
   }
 
+<<<<<<< HEAD
   // ── Shop grid: #shop-embed-root (legacy) + data-shop-grid (portable) ────────
   //
   //  Usage: <div data-shop-grid [data-filter] [data-columns="3"] [data-category="kits"]></div>
@@ -127,22 +132,6 @@ export async function mountShopEmbeds(container) {
   const shopRoot = container && container.querySelector('#shop-embed-root');
   if (shopRoot && shopRoot.id) {
     await Shop.renderShop(shopRoot.id);
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> parent of 0762379 (Update shop-loader.js)
-=======
->>>>>>> parent of 0762379 (Update shop-loader.js)
-=======
->>>>>>> parent of 0762379 (Update shop-loader.js)
-=======
->>>>>>> parent of 0762379 (Update shop-loader.js)
-=======
->>>>>>> parent of 0762379 (Update shop-loader.js)
-=======
->>>>>>> parent of 0762379 (Update shop-loader.js)
   }
 
   // ── Product info (data-product-id) ────────────────────────────────────────
