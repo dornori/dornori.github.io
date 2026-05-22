@@ -38,28 +38,28 @@
             font-size: 1.2rem;
         }
 
-        .upload-area {
-            border: 2px dashed rgba(168, 213, 181, 0.5);
-            border-radius: 12px;
-            padding: 30px 20px;
-            text-align: center;
-            cursor: pointer;
-            margin-bottom: 24px;
-            transition: all 0.2s;
-        }
-
-        .upload-area:hover {
-            border-color: #a8d5b5;
+        .file-info {
             background: rgba(168, 213, 181, 0.1);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 0.75rem;
+            border: 1px solid rgba(168, 213, 181, 0.3);
         }
 
-        .upload-area.drag-over {
-            border-color: #FFD700;
+        .file-info .path {
+            font-family: monospace;
+            color: #a8d5b5;
+            word-break: break-all;
+        }
+
+        .backup-info {
             background: rgba(255, 215, 0, 0.1);
-        }
-
-        .file-input {
-            display: none;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 0.7rem;
+            border: 1px solid rgba(255, 215, 0, 0.3);
         }
 
         .profile-list {
@@ -89,11 +89,23 @@
         }
 
         .status {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: #9dc8ae;
             margin-top: 16px;
             padding-top: 16px;
             border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .status.success {
+            color: #a8d5b5;
+        }
+
+        .status.error {
+            color: #ff8888;
+        }
+
+        .status.loading {
+            color: #FFD700;
         }
 
         /* Main Editor */
@@ -247,6 +259,21 @@
         .toast.show {
             opacity: 1;
         }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(168,213,181,0.3);
+            border-top-color: #a8d5b5;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -254,50 +281,58 @@
     <div class="sidebar">
         <h2>🎨 Color Editor</h2>
         
-        <div class="upload-area" id="uploadArea">
-            <div>📁 Drop or Click to Upload</div>
-            <div style="font-size: 0.7rem; margin-top: 8px;">profiles.css</div>
-            <input type="file" id="fileInput" accept=".css" class="file-input">
+        <div class="file-info">
+            <div style="margin-bottom: 4px;">📁 Loading from:</div>
+            <div class="path" id="sourcePath">/css/profiles.css</div>
+        </div>
+
+        <div class="backup-info">
+            <div>💾 Backup saved to:</div>
+            <div class="path" id="backupPath">/css/profiles-backup.css</div>
+            <div style="font-size: 0.65rem; margin-top: 6px;">Auto-backup created on every save</div>
         </div>
 
         <div class="profile-list" id="profileList">
             <div style="text-align: center; color: #9dc8ae; padding: 20px;">
-                Upload profiles.css to start
+                <span class="loading-spinner"></span> Loading profiles...
             </div>
         </div>
 
         <div class="status" id="status">
-            Ready
+            Loading...
         </div>
     </div>
 
     <div class="editor">
         <div class="header">
-            <h1 id="profileTitle">No profile loaded</h1>
+            <h1 id="profileTitle">Loading...</h1>
             <div class="header-actions">
-                <button id="saveAllBtn" style="background:#a8d5b5; color:#112b1e; border:none; padding:10px 20px;" disabled>Save All Changes</button>
-                <button id="downloadBtn" style="background:transparent; border:1px solid rgba(255,255,255,0.3); color:#e8f2ec; padding:10px 20px;" disabled>Download CSS</button>
+                <button id="saveAllBtn" style="background:#a8d5b5; color:#112b1e; border:none; padding:10px 20px;" disabled>💾 Save All Changes</button>
+                <button id="downloadBtn" style="background:transparent; border:1px solid rgba(255,255,255,0.3); color:#e8f2ec; padding:10px 20px;" disabled>📥 Download CSS</button>
             </div>
         </div>
 
         <div id="colorGrid" class="color-grid">
-            <div class="no-data">⬆ Upload profiles.css to begin editing</div>
+            <div class="no-data">Loading colors...</div>
         </div>
     </div>
 
     <div id="toast" class="toast"></div>
 
     <script>
+        // ==================== CONFIGURATION ====================
+        // Paths relative to website root
+        const CSS_PATH = '/css/profiles.css';
+        const CSS_BACKUP_PATH = '/css/profiles-backup.css';
+        
         // State
         let originalCssContent = '';
-        let profiles = []; // Array of { name, selector, colors, bodyBg }
+        let profiles = [];
         let currentProfileIndex = -1;
         let currentColors = {};
         let originalColors = {};
 
         // DOM Elements
-        const uploadArea = document.getElementById('uploadArea');
-        const fileInput = document.getElementById('fileInput');
         const profileList = document.getElementById('profileList');
         const profileTitle = document.getElementById('profileTitle');
         const colorGrid = document.getElementById('colorGrid');
@@ -312,6 +347,71 @@
             toastEl.style.color = isError ? '#ff8888' : '#a8d5b5';
             toastEl.classList.add('show');
             setTimeout(() => toastEl.classList.remove('show'), 3000);
+        }
+
+        function setStatus(text, type = 'loading') {
+            statusDiv.innerHTML = type === 'loading' ? '<span class="loading-spinner"></span>' + text : text;
+            statusDiv.className = `status ${type}`;
+        }
+
+        async function loadCSSFile() {
+            setStatus('Loading profiles.css...', 'loading');
+            try {
+                const response = await fetch(CSS_PATH);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                originalCssContent = await response.text();
+                profiles = parseProfiles(originalCssContent);
+                
+                if (profiles.length === 0) {
+                    setStatus('No profiles found in CSS file', 'error');
+                    showToast('No profiles found in CSS file', true);
+                    return;
+                }
+                
+                setStatus(`✅ Loaded ${profiles.length} profile(s) from ${CSS_PATH}`, 'success');
+                showToast(`Loaded ${profiles.length} profile(s)`);
+                
+                // Load first profile by default
+                loadProfile(0);
+            } catch (err) {
+                console.error('Failed to load CSS:', err);
+                setStatus(`❌ Failed to load: ${err.message}`, 'error');
+                showToast(`Failed to load ${CSS_PATH}: ${err.message}`, true);
+                
+                // Show fallback UI for manual upload
+                profileList.innerHTML = `
+                    <div style="text-align: center; color: #ff8888; padding: 20px;">
+                        ⚠️ Could not load profiles.css<br>
+                        <small>Make sure the file exists at ${CSS_PATH}</small>
+                    </div>
+                    <div class="upload-area" id="fallbackUpload" style="margin-top: 16px; border: 1px dashed #a8d5b5; border-radius: 8px; padding: 16px; text-align: center; cursor: pointer;">
+                        📁 Click to upload manually
+                    </div>
+                `;
+                const fallbackUpload = document.getElementById('fallbackUpload');
+                if (fallbackUpload) {
+                    const fileInput = document.createElement('input');
+                    fileInput.type = 'file';
+                    fileInput.accept = '.css';
+                    fileInput.style.display = 'none';
+                    document.body.appendChild(fileInput);
+                    fallbackUpload.onclick = () => fileInput.click();
+                    fileInput.onchange = (e) => {
+                        if (e.target.files.length) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                                originalCssContent = ev.target.result;
+                                profiles = parseProfiles(originalCssContent);
+                                loadProfile(0);
+                                setStatus(`✅ Loaded ${profiles.length} profile(s) from manual upload`, 'success');
+                            };
+                            reader.readAsText(e.target.files[0]);
+                        }
+                    };
+                }
+            }
         }
 
         function parseProfiles(cssText) {
@@ -397,7 +497,7 @@
             
             saveAllBtn.disabled = false;
             downloadBtn.disabled = false;
-            statusDiv.textContent = `Editing: ${profile.name}`;
+            setStatus(`Editing: ${profile.name}`, 'success');
         }
 
         function renderColorCards() {
@@ -422,7 +522,6 @@
             card.dataset.colorName = name;
             
             const displayValue = value;
-            const hexValue = value.startsWith('#') ? value : '#a8d5b5';
             
             card.innerHTML = `
                 <div class="color-header">
@@ -456,7 +555,7 @@
             saveBtn.addEventListener('click', () => {
                 originalColors[name] = currentColors[name];
                 showToast(`✅ Saved: ${name} = ${currentColors[name]}`);
-                statusDiv.textContent = `Saved ${name}`;
+                setStatus(`Saved ${name}`, 'success');
             });
             
             // Discard button
@@ -489,18 +588,17 @@
                     break;
                 }
             }
-            // Also update the actual CSS variable in the iframe/page preview
+            // Also update the actual CSS variable in the page preview
             document.documentElement.style.setProperty(name, newValue);
         }
 
         function valueToHex(value) {
-            if (value.startsWith('#')) return value;
-            if (value.startsWith('rgba')) return '#a8d5b5';
+            if (value && value.startsWith('#')) return value;
             return '#a8d5b5';
         }
 
         function getContrastColor(value) {
-            if (value.startsWith('rgba')) return '#ffffff';
+            if (!value || value.startsWith('rgba')) return '#ffffff';
             if (!value.startsWith('#')) return '#ffffff';
             const r = parseInt(value.substr(1,2), 16);
             const g = parseInt(value.substr(3,2), 16);
@@ -537,31 +635,78 @@
             return updatedCss;
         }
 
-        function saveAllChanges() {
-            if (currentProfileIndex === -1) return;
+        async function saveToServer(cssContent, isBackup = false) {
+            const url = isBackup ? CSS_BACKUP_PATH : CSS_PATH;
+            const method = 'PUT';
             
-            // Update current profile colors
-            profiles[currentProfileIndex].colors = { ...currentColors };
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'text/css',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: cssContent
+            });
             
-            const updatedCss = generateUpdatedCSS();
-            
-            // Create download
-            const blob = new Blob([updatedCss], { type: 'text/css' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'profiles-updated.css';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            showToast(`✅ All changes saved! Downloading profiles-updated.css`);
-            statusDiv.textContent = `All changes saved - check your downloads`;
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return true;
         }
 
-        function downloadCSS() {
+        async function saveAllChanges() {
+            if (currentProfileIndex === -1) {
+                showToast('No profile loaded', true);
+                return;
+            }
+            
+            setStatus('Saving...', 'loading');
+            saveAllBtn.disabled = true;
+            
+            try {
+                // Update current profile colors
+                profiles[currentProfileIndex].colors = { ...currentColors };
+                
+                const updatedCss = generateUpdatedCSS();
+                
+                // 1. Create backup first
+                setStatus('Creating backup...', 'loading');
+                await saveToServer(originalCssContent, true);
+                showToast(`📦 Backup saved to ${CSS_BACKUP_PATH}`);
+                
+                // 2. Save main file
+                setStatus('Saving profiles.css...', 'loading');
+                await saveToServer(updatedCss, false);
+                
+                // Update original content to match saved state
+                originalCssContent = updatedCss;
+                
+                // Reset original colors to current (so discards work properly)
+                for (const profile of profiles) {
+                    if (profile.name === profiles[currentProfileIndex].name) {
+                        originalColors = { ...currentColors };
+                        profile.colors = { ...currentColors };
+                    }
+                }
+                
+                setStatus(`✅ All changes saved to ${CSS_PATH}`, 'success');
+                showToast(`✅ Saved to ${CSS_PATH} (backup created)`);
+                
+            } catch (err) {
+                console.error('Save failed:', err);
+                setStatus(`❌ Save failed: ${err.message}`, 'error');
+                showToast(`Save failed: ${err.message}`, true);
+            } finally {
+                saveAllBtn.disabled = false;
+            }
+        }
+
+        async function downloadCSS() {
+            if (currentProfileIndex === -1) return;
+            
+            profiles[currentProfileIndex].colors = { ...currentColors };
             const updatedCss = generateUpdatedCSS();
+            
             const blob = new Blob([updatedCss], { type: 'text/css' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -574,56 +719,12 @@
             showToast(`📥 Downloaded profiles.css`);
         }
 
-        function handleFile(file) {
-            if (!file || !file.name.endsWith('.css')) {
-                showToast('Please upload a .css file', true);
-                return;
-            }
-            
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                originalCssContent = e.target.result;
-                profiles = parseProfiles(originalCssContent);
-                
-                if (profiles.length === 0) {
-                    showToast('No profiles found in CSS file', true);
-                    return;
-                }
-                
-                showToast(`✅ Loaded ${profiles.length} profile(s)`);
-                statusDiv.textContent = `Loaded ${profiles.length} profiles`;
-                
-                // Load first profile by default
-                loadProfile(0);
-            };
-            reader.readAsText(file);
-        }
-
-        // Drag and drop handlers
-        uploadArea.addEventListener('click', () => fileInput.click());
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('drag-over');
-        });
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('drag-over');
-        });
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('drag-over');
-            const file = e.dataTransfer.files[0];
-            if (file) handleFile(file);
-        });
-        
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length) handleFile(e.target.files[0]);
-        });
-        
+        // Event listeners
         saveAllBtn.addEventListener('click', saveAllChanges);
         downloadBtn.addEventListener('click', downloadCSS);
         
         // Initialize
-        console.log('Color Editor Ready - Upload profiles.css to start');
+        loadCSSFile();
     </script>
 </body>
 </html>
