@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dornori Color Editor - Profile CSS Manager</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: #0d1f15;
+            color: #e8f2ec;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar Menu */
+        .sidebar {
+            width: 300px;
+            background: #112b1e;
+            border-right: 1px solid rgba(255,255,255,0.15);
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar h2 {
+            color: #a8d5b5;
+            margin-top: 0;
+            font-size: 1.2rem;
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(168, 213, 181, 0.5);
+            border-radius: 12px;
+            padding: 30px 20px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 24px;
+            transition: all 0.2s;
+        }
+
+        .upload-area:hover {
+            border-color: #a8d5b5;
+            background: rgba(168, 213, 181, 0.1);
+        }
+
+        .upload-area.drag-over {
+            border-color: #FFD700;
+            background: rgba(255, 215, 0, 0.1);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .profile-list {
+            flex: 1;
+        }
+
+        .profile-item {
+            padding: 12px 16px;
+            margin: 6px 0;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .profile-item:hover {
+            background: rgba(168, 213, 181, 0.2);
+            border-color: #a8d5b5;
+        }
+
+        .profile-item.active {
+            background: #a8d5b5;
+            color: #112b1e;
+            font-weight: 600;
+        }
+
+        .status {
+            font-size: 0.75rem;
+            color: #9dc8ae;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Main Editor */
+        .editor {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .color-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 16px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+
+        .color-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .color-name {
+            font-weight: 600;
+            color: #a8d5b5;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .color-preview {
+            height: 70px;
+            border-radius: 12px;
+            margin: 12px 0;
+            border: 2px solid rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .color-preview:hover {
+            transform: scale(1.01);
+        }
+
+        input[type="color"] {
+            width: 100%;
+            height: 50px;
+            padding: 4px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .value {
+            font-family: monospace;
+            background: rgba(0,0,0,0.3);
+            padding: 6px 10px;
+            border-radius: 6px;
+            margin-top: 8px;
+            font-size: 0.75rem;
+            word-break: break-all;
+        }
+
+        .actions {
+            margin-top: 16px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .save-btn {
+            background: #a8d5b5;
+            color: #112b1e;
+            border: none;
+        }
+
+        .save-btn:hover {
+            background: #8cc29b;
+        }
+
+        .discard-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #e8f2ec;
+        }
+
+        .discard-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 60px;
+            color: #9dc8ae;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #1a3a2a;
+            color: #a8d5b5;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: 1px solid #a8d5b5;
+            font-size: 0.85rem;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>🎨 Color Editor</h2>
+        
+        <div class="upload-area" id="uploadArea">
+            <div>📁 Drop or Click to Upload</div>
+            <div style="font-size: 0.7rem; margin-top: 8px;">profiles.css</div>
+            <input type="file" id="fileInput" accept=".css" class="file-input">
+        </div>
+
+        <div class="profile-list" id="profileList">
+            <div style="text-align: center; color: #9dc8ae; padding: 20px;">
+                Upload profiles.css to start
+            </div>
+        </div>
+
+        <div class="status" id="status">
+            Ready
+        </div>
+    </div>
+
+    <div class="editor">
+        <div class="header">
+            <h1 id="profileTitle">No profile loaded</h1>
+            <div class="header-actions">
+                <button id="saveAllBtn" style="background:#a8d5b5; color:#112b1e; border:none; padding:10px 20px;" disabled>Save All Changes</button>
+                <button id="downloadBtn" style="background:transparent; border:1px solid rgba(255,255,255,0.3); color:#e8f2ec; padding:10px 20px;" disabled>Download CSS</button>
+            </div>
+        </div>
+
+        <div id="colorGrid" class="color-grid">
+            <div class="no-data">⬆ Upload profiles.css to begin editing</div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // State
+        let originalCssContent = '';
+        let profiles = []; // Array of { name, selector, colors, bodyBg }
+        let currentProfileIndex = -1;
+        let currentColors = {};
+        let originalColors = {};
+
+        // DOM Elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const profileList = document.getElementById('profileList');
+        const profileTitle = document.getElementById('profileTitle');
+        const colorGrid = document.getElementById('colorGrid');
+        const saveAllBtn = document.getElementById('saveAllBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const statusDiv = document.getElementById('status');
+        const toastEl = document.getElementById('toast');
+
+        function showToast(msg, isError = false) {
+            toastEl.textContent = msg;
+            toastEl.style.background = isError ? '#3a1a1a' : '#1a3a2a';
+            toastEl.style.color = isError ? '#ff8888' : '#a8d5b5';
+            toastEl.classList.add('show');
+            setTimeout(() => toastEl.classList.remove('show'), 3000);
+        }
+
+        function parseProfiles(cssText) {
+            const profilesList = [];
+            const profileRegex = /\[data-theme="([^"]+)"\]\s*\{([^}]+)\}/g;
+            let match;
+            
+            while ((match = profileRegex.exec(cssText)) !== null) {
+                const profileName = match[1];
+                const blockContent = match[2];
+                
+                // Parse CSS variables
+                const colors = {};
+                const varRegex = /--([^:]+):\s*([^;]+);/g;
+                let varMatch;
+                while ((varMatch = varRegex.exec(blockContent)) !== null) {
+                    colors[`--${varMatch[1].trim()}`] = varMatch[2].trim();
+                }
+                
+                profilesList.push({
+                    name: profileName,
+                    selector: `[data-theme="${profileName}"]`,
+                    colors: colors,
+                    originalBlock: blockContent
+                });
+            }
+            
+            // Also parse :root
+            const rootMatch = cssText.match(/:root\s*\{([^}]+)\}/);
+            if (rootMatch) {
+                const rootColors = {};
+                const varRegex = /--([^:]+):\s*([^;]+);/g;
+                let varMatch;
+                while ((varMatch = varRegex.exec(rootMatch[1])) !== null) {
+                    rootColors[`--${varMatch[1].trim()}`] = varMatch[2].trim();
+                }
+                profilesList.unshift({
+                    name: 'default',
+                    selector: ':root',
+                    colors: rootColors,
+                    originalBlock: rootMatch[1]
+                });
+            }
+            
+            return profilesList;
+        }
+
+        function renderProfileList() {
+            if (profiles.length === 0) {
+                profileList.innerHTML = '<div style="text-align: center; color: #9dc8ae; padding: 20px;">No profiles found in CSS</div>';
+                return;
+            }
+            
+            profileList.innerHTML = profiles.map((profile, idx) => `
+                <div class="profile-item ${idx === currentProfileIndex ? 'active' : ''}" data-index="${idx}">
+                    ${profile.name === 'default' ? '🌙 Default (Root)' : '🎨 ' + profile.name}
+                </div>
+            `).join('');
+            
+            // Add click handlers
+            document.querySelectorAll('.profile-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    const idx = parseInt(el.dataset.index);
+                    loadProfile(idx);
+                });
+            });
+        }
+
+        function loadProfile(index) {
+            if (index < 0 || index >= profiles.length) return;
+            
+            currentProfileIndex = index;
+            const profile = profiles[currentProfileIndex];
+            
+            // Copy colors to current state
+            currentColors = { ...profile.colors };
+            originalColors = { ...profile.colors };
+            
+            profileTitle.textContent = profile.name === 'default' ? 'Default (:root) Theme' : profile.name;
+            
+            renderColorCards();
+            renderProfileList();
+            
+            saveAllBtn.disabled = false;
+            downloadBtn.disabled = false;
+            statusDiv.textContent = `Editing: ${profile.name}`;
+        }
+
+        function renderColorCards() {
+            if (!currentColors || Object.keys(currentColors).length === 0) {
+                colorGrid.innerHTML = '<div class="no-data">No color variables found in this profile</div>';
+                return;
+            }
+            
+            colorGrid.innerHTML = '';
+            
+            const sortedKeys = Object.keys(currentColors).sort();
+            for (const key of sortedKeys) {
+                const value = currentColors[key];
+                const card = createColorCard(key, value);
+                colorGrid.appendChild(card);
+            }
+        }
+
+        function createColorCard(name, value) {
+            const card = document.createElement('div');
+            card.className = 'color-card';
+            card.dataset.colorName = name;
+            
+            const displayValue = value;
+            const hexValue = value.startsWith('#') ? value : '#a8d5b5';
+            
+            card.innerHTML = `
+                <div class="color-header">
+                    <div class="color-name">${name}</div>
+                </div>
+                <div class="color-preview" style="background: ${displayValue}; color: ${getContrastColor(displayValue)}">
+                    ${displayValue}
+                </div>
+                <input type="color" value="${valueToHex(value)}" data-color-name="${name}">
+                <div class="value" id="val-${name.replace(/--/g, '')}">${displayValue}</div>
+                <div class="actions">
+                    <button class="save-btn" data-color-name="${name}">Save</button>
+                    <button class="discard-btn" data-color-name="${name}">Discard</button>
+                </div>
+            `;
+            
+            // Color picker change event
+            const colorInput = card.querySelector('input[type="color"]');
+            colorInput.addEventListener('change', (e) => {
+                const newHex = e.target.value;
+                updateColorPreview(name, newHex);
+                currentColors[name] = newHex;
+                
+                // Update value display
+                const valueDiv = card.querySelector('.value');
+                if (valueDiv) valueDiv.textContent = newHex;
+            });
+            
+            // Save button
+            const saveBtn = card.querySelector('.save-btn');
+            saveBtn.addEventListener('click', () => {
+                originalColors[name] = currentColors[name];
+                showToast(`✅ Saved: ${name} = ${currentColors[name]}`);
+                statusDiv.textContent = `Saved ${name}`;
+            });
+            
+            // Discard button
+            const discardBtn = card.querySelector('.discard-btn');
+            discardBtn.addEventListener('click', () => {
+                if (originalColors[name]) {
+                    currentColors[name] = originalColors[name];
+                    updateColorPreview(name, originalColors[name]);
+                    const valueDiv = card.querySelector('.value');
+                    if (valueDiv) valueDiv.textContent = originalColors[name];
+                    const colorInput = card.querySelector('input[type="color"]');
+                    if (colorInput) colorInput.value = valueToHex(originalColors[name]);
+                    showToast(`↺ Discarded changes to ${name}`);
+                }
+            });
+            
+            return card;
+        }
+
+        function updateColorPreview(name, newValue) {
+            const cards = document.querySelectorAll('.color-card');
+            for (const card of cards) {
+                if (card.dataset.colorName === name) {
+                    const preview = card.querySelector('.color-preview');
+                    if (preview) {
+                        preview.style.background = newValue;
+                        preview.textContent = newValue;
+                        preview.style.color = getContrastColor(newValue);
+                    }
+                    break;
+                }
+            }
+            // Also update the actual CSS variable in the iframe/page preview
+            document.documentElement.style.setProperty(name, newValue);
+        }
+
+        function valueToHex(value) {
+            if (value.startsWith('#')) return value;
+            if (value.startsWith('rgba')) return '#a8d5b5';
+            return '#a8d5b5';
+        }
+
+        function getContrastColor(value) {
+            if (value.startsWith('rgba')) return '#ffffff';
+            if (!value.startsWith('#')) return '#ffffff';
+            const r = parseInt(value.substr(1,2), 16);
+            const g = parseInt(value.substr(3,2), 16);
+            const b = parseInt(value.substr(5,2), 16);
+            return (r*0.299 + g*0.587 + b*0.114) > 186 ? '#112b1e' : '#ffffff';
+        }
+
+        function generateUpdatedCSS() {
+            let updatedCss = originalCssContent;
+            
+            // Update each profile's colors
+            for (const profile of profiles) {
+                if (profile.name === 'default') {
+                    // Update :root block
+                    const rootRegex = /(:root\s*\{)([^}]*)(\})/s;
+                    let newBlock = '{\n';
+                    for (const [key, value] of Object.entries(profile.colors)) {
+                        newBlock += `    ${key}: ${value};\n`;
+                    }
+                    newBlock += '}';
+                    updatedCss = updatedCss.replace(rootRegex, `$1${newBlock}$3`);
+                } else {
+                    // Update data-theme block
+                    const themeRegex = new RegExp(`(\\[data-theme="${profile.name}"\\]\\s*\\{)([^}]*)(\\})`, 's');
+                    let newBlock = '{\n';
+                    for (const [key, value] of Object.entries(profile.colors)) {
+                        newBlock += `    ${key}: ${value};\n`;
+                    }
+                    newBlock += '}';
+                    updatedCss = updatedCss.replace(themeRegex, `$1${newBlock}$3`);
+                }
+            }
+            
+            return updatedCss;
+        }
+
+        function saveAllChanges() {
+            if (currentProfileIndex === -1) return;
+            
+            // Update current profile colors
+            profiles[currentProfileIndex].colors = { ...currentColors };
+            
+            const updatedCss = generateUpdatedCSS();
+            
+            // Create download
+            const blob = new Blob([updatedCss], { type: 'text/css' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'profiles-updated.css';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showToast(`✅ All changes saved! Downloading profiles-updated.css`);
+            statusDiv.textContent = `All changes saved - check your downloads`;
+        }
+
+        function downloadCSS() {
+            const updatedCss = generateUpdatedCSS();
+            const blob = new Blob([updatedCss], { type: 'text/css' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'profiles.css';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast(`📥 Downloaded profiles.css`);
+        }
+
+        function handleFile(file) {
+            if (!file || !file.name.endsWith('.css')) {
+                showToast('Please upload a .css file', true);
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                originalCssContent = e.target.result;
+                profiles = parseProfiles(originalCssContent);
+                
+                if (profiles.length === 0) {
+                    showToast('No profiles found in CSS file', true);
+                    return;
+                }
+                
+                showToast(`✅ Loaded ${profiles.length} profile(s)`);
+                statusDiv.textContent = `Loaded ${profiles.length} profiles`;
+                
+                // Load first profile by default
+                loadProfile(0);
+            };
+            reader.readAsText(file);
+        }
+
+        // Drag and drop handlers
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file) handleFile(file);
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) handleFile(e.target.files[0]);
+        });
+        
+        saveAllBtn.addEventListener('click', saveAllChanges);
+        downloadBtn.addEventListener('click', downloadCSS);
+        
+        // Initialize
+        console.log('Color Editor Ready - Upload profiles.css to start');
+    </script>
+</body>
+</html>
