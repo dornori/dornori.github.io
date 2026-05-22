@@ -1,5 +1,5 @@
 /* =========================================================
-   WEBSHOP SHOP ENGINE  –  shop.js  (v6 - portable grid flags, currency/discount fix)
+   WEBSHOP SHOP ENGINE  –  shop.js  (v8 - always call buildRelatedStrip, fixed addons/related rendering)
    =========================================================
    Language file structure:
      lang/{lang}/common.json   — UI strings, slugs, profiles
@@ -654,7 +654,7 @@ var Shop = (() => {
         <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>
-        ${(showRelated || showAddons) ? buildRelatedStrip(p, "card", options) : ""}
+        ${buildRelatedStrip(p, "card", options)}
       </div>`;
   }
 

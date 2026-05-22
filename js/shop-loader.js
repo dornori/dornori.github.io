@@ -1,5 +1,5 @@
 /**
- * shop-loader.js (v7 - simplified product embed loading, use Shop.getProduct directly)
+ * shop-loader.js (v6 - removed redundant currency handler)
  */
 
 import { loadScript } from './utils/script-loader.js';
@@ -149,18 +149,41 @@ export async function mountShopEmbeds(container) {
       showAddons: el.hasAttribute('data-addons')
     };
     
-    // Ensure Shop is ready and products are loaded
-    await Shop.loadProducts();
+    // Load all products once
+    const allProducts = await Shop.loadProducts();
+    const productMap = {};
+    allProducts.forEach(p => { productMap[p.id] = p; });
     
-    // Get the product directly from Shop's internal cache
-    const product = await Shop.getProduct(slug);
+    let product = null;
+    let preselectedVariantId = null;
+    
+    // Direct product ID match
+    if (productMap[slug]) {
+      product = productMap[slug];
+    } else if (slug.endsWith('-preassembled')) {
+      const variantId = slug.replace(/-preassembled$/, '');
+      const base = productMap['pre-assembled'];
+      if (base) {
+        product = base;
+        preselectedVariantId = variantId;
+      }
+    }
+    
     if (!product) continue;
+    
+    // Clone product if we need to preselect a variant
+    if (preselectedVariantId && product.variants) {
+      const variant = product.variants.find(v => v === preselectedVariantId);
+      if (variant) {
+        product = { ...product, variants: [variant] };
+      }
+    }
     
     const card = document.createElement('div');
     card.className = 'webshop-product-card';
     card.dataset.productId = product.id;
     
-    // PASS OPTIONS to buildProductCard - product should have addons/related/variants
+    // PASS OPTIONS to buildProductCard
     card.innerHTML = Shop.buildProductCard(product, options);
     el.appendChild(card);
     
