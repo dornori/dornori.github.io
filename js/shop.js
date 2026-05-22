@@ -1,5 +1,5 @@
 /* =========================================================
-   WEBSHOP SHOP ENGINE  –  shop.js  (v4 - FIXED)
+   WEBSHOP SHOP ENGINE  –  shop.js
    =========================================================
    Language file structure:
      lang/{lang}/common.json   — UI strings, slugs, profiles
