@@ -3,12 +3,6 @@
 <<<<<<< HEAD
  * shop-loader.js
 
-=======
- * shop-loader.js (v4 - with combined flags + currency discount fix)
->>>>>>> parent of 0762379 (Update shop-loader.js)
-=======
- * shop-loader.js (v4 - with combined flags + currency discount fix)
->>>>>>> parent of 0762379 (Update shop-loader.js)
  */
 
 import { loadScript } from './utils/script-loader.js';
