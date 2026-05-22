@@ -17,7 +17,7 @@
 
         <div id="sf-loading" class="sf-loading">
             <i class="fas fa-spinner fa-spin" style="font-size:1.75rem;color:var(--accent)"></i>
-            <p style="margin-top:.75rem" id="loading-text">Loading...</p>
+            <p style="margin-top:.75rem" id="loading-text"></p>
         </div>
 
         <div id="sf-s1" class="sf-hidden">
@@ -236,17 +236,37 @@ function showToast(msg, ms) {
     setTimeout(function() { t.style.opacity = '0'; }, ms);
 }
 
-function showSuccessMessage(message, referenceNumber) {
+function showSuccessMessage(message, referenceNumber, comments) {
     var body = document.getElementById('sf-body');
+    
+    // Format comments as bullet points if they exist
+    var commentsHtml = '';
+    if (comments && comments.length > 0) {
+        commentsHtml = '<div style="margin-top:1rem;margin-bottom:1rem;padding:1rem;background:color-mix(in srgb, var(--accent) 8%, transparent);border-radius:8px;text-align:left;">' +
+            '<strong style="display:block;margin-bottom:8px;">Your comments:</strong>' +
+            '<ul style="margin:0;padding-left:1.2rem;">';
+        for (var i = 0; i < comments.length; i++) {
+            commentsHtml += '<li style="margin-bottom:4px;">' + escapeHtml(comments[i]) + '</li>';
+        }
+        commentsHtml += '</ul></div>';
+    }
+    
     var successHtml = '<div class="sf-success-box" style="text-align:center;padding:2rem;">' +
         '<i class="fas fa-check-circle" style="font-size:4rem;color:#10b981;margin-bottom:1rem;"></i>' +
         '<h3 style="font-size:1.5rem;margin-bottom:1rem;color:var(--text);">Thank You!</h3>' +
         '<div class="sf-ref-number" style="font-size:1.2rem;font-weight:700;color:var(--accent);margin:1rem 0;letter-spacing:1px;"><i class="fas fa-ticket-alt"></i> REF: ' + escapeHtml(referenceNumber) + '<\/div>' +
         '<p style="color:var(--text-muted);margin-bottom:0.75rem;line-height:1.6;">' + escapeHtml(message) + '<\/p>' +
+        commentsHtml +
         '<p style="font-size: 0.85rem; margin-top: 1rem;color:var(--text-muted);">Please save this reference number for future inquiries.<\/p>' +
         '<\/div>';
     body.innerHTML = successHtml;
-    setTimeout(function() { window.scrollTo(0, 0); }, 10);
+    
+    // Scroll to top
+    setTimeout(function() {
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+    }, 50);
 }
 
 async function loadFormData() {
@@ -409,7 +429,7 @@ window.selectAnswer = function(questionId, optionIndex) {
             showToast(endpoint.message || 'Issue resolved!', (endpoint.delay_seconds || 2) * 1000);
             setTimeout(function() { window.location.href = endpoint.redirect_url; }, (endpoint.delay_seconds || 2) * 1000);
         } else {
-            showSuccessMessage((endpoint && endpoint.message) || 'Issue resolved! Thank you.', generateReferenceNumber());
+            showSuccessMessage((endpoint && endpoint.message) || 'Issue resolved! Thank you.', generateReferenceNumber(), []);
         }
         return;
     }
@@ -534,7 +554,7 @@ function validateForm() {
 async function sendSupportRequest() {
     var validation = validateForm();
     if (!validation.valid) {
-        showToast('Please fix the errors above before submitting.', 3000);
+        showToast('Please fill in all required fields.', 3000);
         return;
     }
     var sanitised = validation.sanitised;
@@ -544,11 +564,13 @@ async function sendSupportRequest() {
     var originalText = submitBtn?.textContent || 'Submit';
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending...'; }
 
+    // Build troubleshooting summaries array
     var troubleshootingSummaries = [];
     for (var i = 0; i < answers.length; i++) {
         troubleshootingSummaries.push(answers[i].summary || answers[i].answer);
     }
 
+    // Split additional comments into separate lines
     var commentsLines = sanitised.comments 
         ? sanitised.comments.split(/\r?\n/).filter(function(line) { return line.trim().length > 0; })
         : [];
@@ -558,17 +580,57 @@ async function sendSupportRequest() {
         additionalComments.push(commentsLines[i].trim());
     }
 
-    // FLAT STRUCTURE - matches original working format
+    // Format comments for email with line breaks
+    var formattedCommentsForEmail = '';
+    if (additionalComments.length > 0) {
+        formattedCommentsForEmail = '\n\nADDITIONAL COMMENTS\n------------------\n';
+        for (var i = 0; i < additionalComments.length; i++) {
+            formattedCommentsForEmail += (i + 1) + '. ' + additionalComments[i] + '\n';
+        }
+    } else {
+        formattedCommentsForEmail = '\n\nADDITIONAL COMMENTS\n------------------\nNone provided.';
+    }
+
+    // Format troubleshooting for email
+    var troubleshootingForEmail = '';
+    if (troubleshootingSummaries.length > 0) {
+        for (var i = 0; i < troubleshootingSummaries.length; i++) {
+            troubleshootingForEmail += (i + 1) + '. ' + troubleshootingSummaries[i] + '\n';
+        }
+    } else {
+        troubleshootingForEmail = 'No troubleshooting steps recorded.';
+    }
+
+    // Build message body for email
+    var messageBody = '========================================\n' +
+        'SUPPORT REQUEST - ' + referenceNumber + '\n' +
+        '========================================\n\n' +
+        'CUSTOMER INFORMATION\n' +
+        '-------------------\n' +
+        'Name: ' + sanitised.name + '\n' +
+        'Email: ' + sanitised.email + '\n' +
+        'Order Number: ' + sanitised.order + '\n' +
+        'Category: ' + (currentCategory?.title || 'General') + '\n\n' +
+        'ISSUE SUMMARY\n' +
+        '------------\n' +
+        troubleshootingForEmail +
+        formattedCommentsForEmail +
+        '\n\n========================================\n' +
+        'Submitted: ' + new Date().toLocaleString() + '\n' +
+        'User Agent: ' + navigator.userAgent + '\n' +
+        '========================================';
+
+    // FLAT STRUCTURE - each field at top level (original working format)
     var payload = {
         referenceNumber: referenceNumber,
         category: "support-request",
         originalCategory: currentCategory?.title || 'General',
-        submittedAt: new Date().toISOString(),
         name: sanitised.name,
         email: sanitised.email,
         orderNumber: sanitised.order,
         troubleshooting: troubleshootingSummaries,
         additionalComments: additionalComments,
+        message: messageBody,
         timestamp: new Date().toISOString(),
         userAgent: navigator.userAgent
     };
@@ -584,7 +646,7 @@ async function sendSupportRequest() {
             if (redirectUrl && redirectUrl.trim()) {
                 window.location.href = redirectUrl;
             } else {
-                showSuccessMessage('Your support request has been submitted. Our team will respond within 4 hours.', referenceNumber);
+                showSuccessMessage('Your support request has been submitted. Our team will respond within 4 hours.', referenceNumber, additionalComments);
             }
         } else {
             throw new Error('Server error');
