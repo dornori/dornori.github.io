@@ -89,6 +89,7 @@
         'css/main.css',
         'css/shop.css',
         'css/shop-bridge.css',
+        'css/integration.css',
     ]);
 
     // ── Language ──────────────────────────────────────────────────────────────

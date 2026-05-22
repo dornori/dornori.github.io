@@ -85,7 +85,6 @@
             _mountCurrencySelector();
             _patchProductLinks();
             _registerEventListeners();
-            _mountShopProductEmbeds(document);
         }).catch(function (e) {
             console.warn('[shop-init] Boot error:', e);
         });
@@ -187,39 +186,6 @@
             if (typeof Shop !== 'undefined') {
                 document.dispatchEvent(new CustomEvent('shop:cartUpdated', { detail: { cart: Shop.getCart() } }));
             }
-        });
-    }
-
-    function _mountShopProductEmbeds(root) {
-        if (typeof Shop === 'undefined') return;
-        var embeds = (root || document).querySelectorAll('[data-shop-products]');
-        if (!embeds.length) return;
-
-        Shop.loadProducts().then(function (allProducts) {
-            var productMap = {};
-            allProducts.forEach(function (p) { productMap[p.id] = p; });
-
-            embeds.forEach(function (el) {
-                if (el.querySelector('.webshop-product-card')) return; // already mounted
-                var slug = el.dataset.shopProducts;
-                if (!slug) return;
-
-                var product = productMap[slug] || null;
-                if (!product) return;
-
-                var options = {
-                    showVariants: el.hasAttribute('data-variants'),
-                    showRelated:  el.hasAttribute('data-related'),
-                    showAddons:   el.hasAttribute('data-addons')
-                };
-
-                var card = document.createElement('div');
-                card.className = 'webshop-product-card';
-                card.dataset.productId = product.id;
-                card.innerHTML = Shop.buildProductCard(product, options);
-                el.appendChild(card);
-                Shop.wireProductCard(card, product, options);
-            });
         });
     }
 

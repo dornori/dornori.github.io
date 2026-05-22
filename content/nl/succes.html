@@ -1,581 +1,104 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Dornori Support · Smart troubleshooting</title>
-    <style>
-        /* baseline reset / theme variables */
-        :root {
-            --text: #1e293b;
-            --text-muted: #475569;
-            --bg: #ffffff;
-            --glass: #ffffff;
-            --border: #e2e8f0;
-            --accent: #c2410c;
-            --header-bg: #f8fafc;
-        }
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --text: #f1f5f9;
-                --text-muted: #94a3b8;
-                --bg: #0f172a;
-                --glass: #1e293b;
-                --border: #334155;
-                --accent: #f97316;
-                --header-bg: #0f172a;
-            }
-        }
-        body { margin: 0; background: var(--bg); padding: 2rem 1rem; font-family: ui-sans-serif, system-ui, sans-serif; }
-        .sf-wrap { max-width: 780px; margin: 0 auto; background: var(--glass); border-radius: 1.5rem; box-shadow: 0 20px 35px -12px rgba(0,0,0,0.2); }
-        .sf-header { background: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 55%, #000 45%) 100%); padding: 2rem; border-radius: 1.25rem 1.25rem 0 0; color: #fff; display: flex; align-items: center; gap: 1rem; }
-        .sf-header i { font-size: 2.25rem; }
-        .sf-body { background: var(--glass); border: 1px solid var(--border); border-top: none; border-radius: 0 0 1.25rem 1.25rem; padding: 2rem; }
-        .sf-progress-track { height: .5rem; background: color-mix(in srgb, var(--border) 50%, transparent 50%); border-radius: 9999px; overflow: hidden; margin-bottom: 2rem; }
-        .sf-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #ea580c 40%)); transition: width .3s; }
-        .sf-progress-row { display: flex; justify-content: space-between; margin-bottom: .5rem; font-size: .85rem; }
-        .sf-progress-step { color: var(--accent); font-weight: 600; }
-        .sf-progress-note { color: var(--text-muted); }
-        .sf-cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .85rem; }
-        .sf-btn { width: 100%; text-align: left; padding: 1rem 1.25rem; border: 1px solid var(--border); border-radius: .875rem; background: transparent; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: .75rem; font-weight: 500; font-size: .95rem; transition: all .15s; }
-        .sf-btn:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent 92%); }
-        .sf-btn i { color: var(--accent); flex-shrink: 0; }
-        .sf-opt { width: 100%; text-align: left; padding: .9rem 1.2rem; border: 1px solid var(--border); border-radius: .875rem; background: transparent; color: var(--text); cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: .95rem; transition: all .15s; margin-bottom: .6rem; }
-        .sf-opt:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent 92%); }
-        .sf-opt i { color: var(--accent); }
-        .sf-q-label { font-size: .8rem; color: var(--accent); margin-bottom: .5rem; letter-spacing: 0.3px; }
-        .sf-q-text { font-size: 1.1rem; font-weight: 600; color: var(--text); margin-bottom: 1.25rem; line-height: 1.4; }
-        .sf-input { width: 100%; padding: .8rem 1.1rem; border: 1px solid var(--border); border-radius: .875rem; background: color-mix(in srgb, var(--bg) 70%, transparent 30%); color: var(--text); font-size: .95rem; outline: none; transition: all .15s; box-sizing: border-box; }
-        .sf-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent 80%); }
-        .sf-input.sf-input-error { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.18); }
-        .sf-label { display: block; font-size: .85rem; font-weight: 600; color: var(--text); margin-bottom: .25rem; }
-        .sf-field-error { font-size: .78rem; color: #ef4444; margin-top: .3rem; min-height: 1rem; }
-        .sf-submit { width: 100%; background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #ea580c 45%)); color: var(--bg); font-weight: 700; padding: .875rem; border-radius: .875rem; border: none; font-size: 1rem; cursor: pointer; transition: opacity .15s; }
-        .sf-submit:hover { opacity: .88; }
-        .sf-submit:disabled { opacity: 0.5; cursor: not-allowed; }
-        .sf-reset { font-size: .82rem; background: transparent; border: 1px solid var(--border); color: var(--text-muted); border-radius: 9999px; padding: .35rem .9rem; cursor: pointer; transition: color .15s; }
-        .sf-reset:hover { color: var(--text); }
-        .sf-hidden { display: none !important; }
-        .sf-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
-        .sf-field { display: flex; flex-direction: column; gap: .25rem; margin-bottom: 1.25rem; }
-        .sf-note { font-size: .82rem; color: var(--text-muted); text-align: center; margin-top: 1.5rem; }
-        .sf-loading { text-align: center; padding: 2.5rem; color: var(--text-muted); }
-        .sf-toast { position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: var(--header-bg); color: var(--text); border: 1px solid var(--border); padding: 10px 18px; border-radius: 40px; font-size: .88rem; opacity: 0; transition: opacity .2s; pointer-events: none; backdrop-filter: blur(8px); }
-        .sf-turnstile-wrap { margin-bottom: 1.25rem; }
-        .sf-turnstile-error { font-size: .78rem; color: #ef4444; margin-top: .3rem; }
-        .sf-success-box { text-align: center; padding: 2rem; }
-        .sf-success-box i { font-size: 4rem; color: #10b981; margin-bottom: 1rem; }
-        .sf-success-box h3 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text); }
-        .sf-success-box p { color: var(--text-muted); margin-bottom: 0.75rem; line-height: 1.6; }
-        .sf-ref-number { font-size: 1.2rem; font-weight: 700; color: var(--accent); margin: 1rem 0; letter-spacing: 1px; }
-        .sf-summary-bullets { padding-left: 1.2rem; margin: 0; }
-        .sf-summary-bullets li { margin-bottom: 0.5rem; line-height: 1.5; }
-        .sf-summary-question { font-weight: 600; color: var(--accent); }
-        textarea.sf-input { font-family: inherit; line-height: 1.5; white-space: pre-wrap; }
-        @media(max-width:520px){ .sf-grid2{ grid-template-columns:1fr; } .sf-cat-grid{ grid-template-columns:1fr; } }
-    </style>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-</head>
-<body>
-<div id="sf-toast" class="sf-toast"></div>
-<div class="sf-wrap">
-    <div class="sf-header">
-        <i class="fas fa-headset"></i>
-        <div>
-            <div id="sf-title" style="font-size:1.4rem;font-weight:700;"></div>
-            <div id="sf-subtitle" style="opacity:.8;font-size:.9rem;margin-top:.2rem;"></div>
-        </div>
-    </div>
-    <div class="sf-body" id="sf-body">
-        <div class="sf-progress-row">
-            <span class="sf-progress-note"><i class="far fa-clock"></i> <span id="avg-resolution"></span></span>
-            <span id="sf-step-label" class="sf-progress-step"></span>
-        </div>
-        <div class="sf-progress-track"><div id="sf-prog" class="sf-progress-fill" style="width:5%"></div></div>
+<!-- content/nl/succes.html -->
+<style>
+  .success-wrap {
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1rem;
+  }
+  .webshop-confetti {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    pointer-events: none;
+    z-index: 9999;
+  }
+  @keyframes fall {
+    0%   { transform: translateY(-20px) rotate(0deg);   opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+  .confetti-piece {
+    position: absolute;
+    border-radius: 2px;
+    animation: fall linear forwards;
+  }
+</style>
 
-        <div id="sf-loading" class="sf-loading">
-            <i class="fas fa-spinner fa-spin" style="font-size:1.75rem;color:var(--accent)"></i>
-            <p style="margin-top:.75rem" id="loading-text">Loading…</p>
-        </div>
+<div class="webshop-confetti" id="confetti-container"></div>
 
-        <div id="sf-s1" class="sf-hidden">
-            <div style="font-size:1.1rem;font-weight:600;margin-bottom:1rem;" id="select-issue"></div>
-            <div id="sf-cats" class="sf-cat-grid"></div>
-            <p class="sf-note"><i class="fas fa-shield-alt"></i> <span id="most-issues"></span></p>
-        </div>
-
-        <div id="sf-s2" class="sf-hidden"></div>
-
-        <div id="sf-s3" class="sf-hidden">
-            <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;">
-                <i class="fas fa-headset" style="font-size:1.4rem;color:var(--accent)"></i>
-                <span style="font-size:1.25rem;font-weight:700;" id="need-help"></span>
-            </div>
-            <p style="color:var(--text-muted);font-size:.9rem;margin-bottom:1.5rem;" id="response-time"></p>
-
-            <div class="sf-grid2">
-                <div class="sf-field">
-                    <label class="sf-label" for="sf-name" id="label-name"></label>
-                    <input id="sf-name" type="text" class="sf-input" autocomplete="name" maxlength="120" required>
-                    <span class="sf-field-error" id="sf-name-err"></span>
-                </div>
-                <div class="sf-field">
-                    <label class="sf-label" for="sf-email" id="label-email"></label>
-                    <input id="sf-email" type="email" class="sf-input" autocomplete="email" maxlength="254" required>
-                    <span class="sf-field-error" id="sf-email-err"></span>
-                </div>
-            </div>
-
-            <div class="sf-field">
-                <label class="sf-label" for="sf-order" id="label-order"></label>
-                <input id="sf-order" type="text" class="sf-input" inputmode="numeric" maxlength="20" placeholder="e.g. 100234">
-                <span class="sf-field-error" id="sf-order-err"></span>
-            </div>
-
-            <div class="sf-field">
-                <label class="sf-label" id="label-summary"></label>
-                <div id="sf-summary-box" style="padding:.8rem 1.1rem;border:1px solid var(--border);border-radius:.875rem;background:color-mix(in srgb,var(--bg) 40%,transparent 60%);font-size:.85rem;color:var(--text-muted);line-height:1.6;min-height:80px;"></div>
-            </div>
-
-            <div class="sf-field">
-                <label class="sf-label" id="label-comments"></label>
-                <!-- Industry standard: 2000 chars, preserve line breaks (white-space: pre-wrap via CSS) -->
-                <textarea id="sf-desc" rows="4" class="sf-input" style="resize:vertical; white-space:pre-wrap;" maxlength="2000" placeholder=""></textarea>
-                <span class="sf-field-error" id="sf-desc-err"></span>
-                <span class="sf-note" style="font-size:0.7rem; text-align:right; margin-top:0.2rem;" id="comments-counter">0 / 2000 characters</span>
-            </div>
-
-            <div class="sf-turnstile-wrap">
-                <div id="sf-turnstile-container"></div>
-                <span class="sf-turnstile-error sf-hidden" id="sf-turnstile-err"></span>
-            </div>
-
-            <button id="sf-submit" class="sf-submit"></button>
-        </div>
-    </div>
+<div class="success-wrap">
+  <div class="webshop-result-page webshop-fade-in" id="result-page">
+    <!-- Filled by JS -->
+  </div>
 </div>
 
 <script>
-// ==================== CONFIG ====================
-const TURNSTILE_SITE_KEY = (window.CONFIG && window.CONFIG.turnstile && window.CONFIG.turnstile.sitekey) 
-    ? window.CONFIG.turnstile.sitekey : '1x00000000000000000000AA';
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  const ref    = params.get('ref') || localStorage.getItem('webshop_last_order') || '—';
+  const status = params.get('status') || 'success';
+  const lang   = window.LANG || localStorage.getItem('dornori-lang') || 'nl';
 
-const workerUrl = (window.CONFIG && window.CONFIG.queue && window.CONFIG.queue.endpoint) 
-    ? window.CONFIG.queue.endpoint : "https://edge-form-handler-api.dornori-info.workers.dev";
-
-const lang = document.documentElement.lang || 'en';
-const formJsonPathFn = (window.CONFIG && window.CONFIG.paths && window.CONFIG.paths.formJsonPath)
-    ? window.CONFIG.paths.formJsonPath
-    : (l) => `${window.__BASE_PATH__ || '/'}lang/${l}/form.json`;
-const formJsonPath = typeof formJsonPathFn === 'function' ? formJsonPathFn(lang) : formJsonPathFn;
-
-const redirectUrl = (window.CONFIG && window.CONFIG.redirect && window.CONFIG.redirect.onSuccess)
-    ? window.CONFIG.redirect.onSuccess
-    : null;
-
-let turnstileWidgetId = null;
-let turnstileToken = null;
-let formData = {};
-let currentCategory = null;
-let currentQuestionId = null;
-let answers = [];       // store { question, answer, summary }
-let currentReferenceNumber = null;
-
-// ==================== HELPERS ====================
-function generateReferenceNumber() {
-    const timestamp = Date.now().toString();
-    const randomDigits = Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
-    return `DOR-TICKET-${timestamp.slice(-6)}${randomDigits.slice(0, 4)}`;
-}
-
-function stripHtml(str) {
-    if (typeof str !== 'string') return '';
-    let clean = str.replace(/<[^>]*>/g, '');
-    return clean.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-                .replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&nbsp;/g, ' ').trim();
-}
-
-function isValidEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) && email.length <= 254;
-}
-
-function isValidOrderNumber(order) {
-    if (!order) return false;
-    return /^\d+$/.test(order);
-}
-
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'})[m]);
-}
-
-function showToast(msg, ms = 3000) {
-    const t = document.getElementById('sf-toast');
-    if (!t) return;
-    t.textContent = msg;
-    t.style.opacity = '1';
-    setTimeout(() => t.style.opacity = '0', ms);
-}
-
-// ========== NEW: Returns only the troubleshooting summary (no Q&A lines, just condensed) ==========
-function getTroubleshootingSummaryOnly(answersArray) {
-    if (!answersArray || answersArray.length === 0) {
-        return "No troubleshooting steps recorded.";
-    }
-    // Build a clean summary using the summary field (or fallback to truncated answer)
-    const summaryItems = answersArray.map((item, idx) => {
-        const summaryText = item.summary || item.answer.substring(0, 80);
-        return `${idx+1}. ${summaryText}`;
-    });
-    return summaryItems.join(' · ');
-}
-
-// Format for display in the UI (bulleted summary for user preview)
-function formatSummaryBullets(answersArray) {
-    if (!answersArray || answersArray.length === 0) {
-        return '<em>No troubleshooting steps recorded.</em>';
-    }
-    let html = '<ul class="sf-summary-bullets">';
-    answersArray.forEach((item, idx) => {
-        const displaySummary = item.summary || item.answer.substring(0, 100);
-        html += `<li><span class="sf-summary-question">🔍 Step ${idx+1}:</span> ${escapeHtml(displaySummary)}</li>`;
-    });
-    html += '</ul>';
-    return html;
-}
-
-function showSuccessMessage(message, referenceNumber) {
-    const body = document.getElementById('sf-body');
-    const successHtml = `
-        <div class="sf-success-box">
-            <i class="fas fa-check-circle"></i>
-            <h3>${escapeHtml(formData.successTitle || 'Thank You!')}</h3>
-            <div class="sf-ref-number"><i class="fas fa-ticket-alt"></i> REF: ${escapeHtml(referenceNumber)}</div>
-            <p>${escapeHtml(message || formData.successMessage || 'Your support request has been submitted successfully. Our team will contact you within 24 hours.')}</p>
-            <p style="font-size: 0.85rem; margin-top: 1rem;">Please save this reference number for future inquiries.</p>
+  function render() {
+    const page = document.getElementById('result-page');
+    if (!page) return;
+    if (status === 'success') {
+      page.innerHTML = `
+        <div class="webshop-result-icon webshop-result-icon--success">✓</div>
+        <h1>${Shop.t('success_title', 'Bestelling bevestigd!')}</h1>
+        <p>${Shop.t('success_message', 'Bedankt voor uw aankoop. U ontvangt binnenkort een bevestigingsmail.')}</p>
+        <p>${Shop.t('success_ref', 'Uw bestelnummer is')}:</p>
+        <div class="webshop-ref-badge">${ref}</div>
+        <p style="font-size:0.82rem;color:var(--c-text-muted);">
+          Bewaar dit nummer voor het geval u contact moet opnemen met de klantenservice.
+        </p>
+        <a href="/${lang}/" class="webshop-btn webshop-btn--primary" style="margin-top:8px;">
+          ${Shop.t('continue_shopping', 'Verder winkelen')}
+        </a>
+      `;
+      launchConfetti();
+    } else {
+      const cartSlug = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || 'winkelwagen';
+      page.innerHTML = `
+        <div class="webshop-result-icon webshop-result-icon--cancel">⚠</div>
+        <h1>${Shop.t('cancel_title', 'Betaling geannuleerd')}</h1>
+        <p>${Shop.t('cancel_message', 'Uw bestelling is niet verwerkt. Uw winkelwagen is bewaard.')}</p>
+        <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap;">
+          <a href="/${lang}/${cartSlug}/" class="webshop-btn webshop-btn--primary">${Shop.t('return_to_cart', 'Terug naar winkelwagen')}</a>
+          <a href="/${lang}/" class="webshop-btn webshop-btn--outline">${Shop.t('continue_shopping', 'Verder winkelen')}</a>
         </div>
-    `;
-    body.innerHTML = successHtml;
-}
-
-async function loadFormData() {
-    console.log(`🔍 Loading form.json from: ${formJsonPath}`);
-    try {
-        const res = await fetch(formJsonPath, { cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        formData = await res.json();
-        console.log("✅ Successfully loaded form.json");
-        populateUI();
-    } catch (err) {
-        console.error("❌ Failed to load form.json:", err);
-        document.getElementById('sf-loading').innerHTML = `<p style="color:red">Failed to load form data.<br>Path: ${formJsonPath}<br>Check console (F12)</p>`;
+      `;
     }
-}
+  }
 
-function populateUI() {
-    document.getElementById('sf-title').textContent = formData.title || "Dornori Support";
-    document.getElementById('sf-subtitle').textContent = formData.subtitle || "We're here to help";
-    document.getElementById('avg-resolution').textContent = formData.avgResolution || "Avg. resolution 2 min";
-    document.getElementById('select-issue').textContent = formData.selectIssue || "Select your issue";
-    document.getElementById('most-issues').textContent = formData.mostIssuesResolved || "Most issues resolved in under 2 minutes";
-    document.getElementById('need-help').textContent = formData.needHumanHelp || "Need human help?";
-    document.getElementById('response-time').textContent = formData.responseTime || "Our support team responds within 4 hours (Mon–Fri).";
-    document.getElementById('loading-text').textContent = formData.loading || "Loading…";
-    document.getElementById('sf-submit').textContent = formData.submitButton || "📧 Submit";
-    document.getElementById('sf-turnstile-err').textContent = formData.turnstileError || "Please complete the security check.";
-    document.getElementById('label-name').innerHTML = `${formData.fullName || "Full name"} <span style="color:#ef4444">*</span>`;
-    document.getElementById('label-email').innerHTML = `${formData.email || "Email address"} <span style="color:#ef4444">*</span>`;
-    document.getElementById('label-order').innerHTML = `${formData.orderNumber || "Order number"} <span style="color:#ef4444">*</span> <span style="color:var(--text-muted);font-weight:400;">${formData.orderNumberHelp || "(numbers only)"}</span>`;
-    document.getElementById('label-summary').textContent = formData.troubleshootingSummary || "Issue summary (based on your answers)";
-    document.getElementById('label-comments').textContent = formData.additionalComments || "Additional information (optional)";
-    document.getElementById('sf-desc').placeholder = formData.commentsPlaceholder || "Provide any extra details that might help us resolve your request faster… (max 2000 characters)";
-
-    const container = document.getElementById('sf-cats');
-    container.innerHTML = '';
-    (formData.categories || []).forEach(cat => {
-        const btn = document.createElement('button');
-        btn.className = 'sf-btn';
-        btn.innerHTML = `<i class="fas fa-chevron-circle-right"></i> ${escapeHtml(cat.title)}`;
-        btn.onclick = () => startCategory(cat);
-        container.appendChild(btn);
-    });
-
-    document.getElementById('sf-loading').style.display = 'none';
-    document.getElementById('sf-s1').classList.remove('sf-hidden');
-    updateProgress(5, formData.step1 || "Step 1: Choose category");
-}
-
-function updateProgress(percent, label) {
-    document.getElementById('sf-prog').style.width = percent + '%';
-    document.getElementById('sf-step-label').textContent = label;
-}
-
-function startCategory(cat) {
-    currentCategory = cat;
-    answers = [];
-    if (cat.questions && cat.questions.length > 0) {
-        currentQuestionId = cat.questions[0].id;
-        showQuestionById(currentQuestionId);
-    } else {
-        showContactForm();
-    }
-}
-
-function findQuestion(questionId) {
-    if (!currentCategory || !currentCategory.questions) return null;
-    return currentCategory.questions.find(q => q.id === questionId);
-}
-
-function showQuestionById(questionId) {
-    const question = findQuestion(questionId);
-    if (!question) {
-        showContactForm();
-        return;
-    }
-    
-    let html = `<div class="sf-q-label"><i class="fas fa-question-circle"></i> Troubleshooting</div>`;
-    html += `<div class="sf-q-text">${escapeHtml(question.text)}</div>`;
-    question.options.forEach((opt, idx) => {
-        html += `<button class="sf-opt" onclick="selectAnswer('${questionId}', ${idx})"><span>${escapeHtml(opt.text)}</span><i class="fas fa-arrow-right"></i></button>`;
-    });
-    html += `<div style="margin-top:1rem"><button class="sf-reset" onclick="sfReset()"><i class="fas fa-undo-alt"></i> ${formData.startOver || "Start over"}</button></div>`;
-    document.getElementById('sf-s2').innerHTML = html;
-    document.getElementById('sf-s1').classList.add('sf-hidden');
-    document.getElementById('sf-s2').classList.remove('sf-hidden');
-    document.getElementById('sf-s3').classList.add('sf-hidden');
-    updateProgress(45, formData.step2 || "Step 2: Troubleshooting");
-}
-
-window.selectAnswer = function(questionId, optionIndex) {
-    const question = findQuestion(questionId);
-    if (!question) return;
-    const opt = question.options[optionIndex];
-    // Store answer with summary (if exists) or fallback to truncated answer text
-    answers.push({
-        question: question.text,
-        answer: opt.text,
-        summary: opt.summary || opt.text.substring(0, 120)
-    });
-    
-    const nextId = opt.next;
-    if (nextId === 'resolved_end') {
-        const endpoint = formData.endpoints?.resolved_end;
-        if (endpoint && endpoint.type === 'redirect' && endpoint.redirect_url) {
-            showToast(endpoint.message || '✓ Issue resolved!', endpoint.delay_seconds * 1000 || 2000);
-            setTimeout(() => { window.location.href = endpoint.redirect_url; }, (endpoint.delay_seconds || 2) * 1000);
-        } else {
-            showSuccessMessage(endpoint?.message || '✓ Issue resolved! Thank you.', generateReferenceNumber());
-        }
-        return;
-    }
-    if (nextId === 'contact') {
-        showContactForm();
-        return;
-    }
-    const nextQuestion = findQuestion(nextId);
-    if (nextQuestion) {
-        currentQuestionId = nextId;
-        showQuestionById(nextId);
-    } else {
-        showContactForm();
-    }
-};
-
-function showContactForm() {
-    // Show only the summary (bullet format, human readable)
-    const formattedSummary = formatSummaryBullets(answers);
-    document.getElementById('sf-summary-box').innerHTML = formattedSummary;
-    document.getElementById('sf-s1').classList.add('sf-hidden');
-    document.getElementById('sf-s2').classList.add('sf-hidden');
-    document.getElementById('sf-s3').classList.remove('sf-hidden');
-    updateProgress(85, formData.step3 || "Step 3: Contact support");
-    initTurnstile();
-    attachCommentsCounter();
-}
-
-function attachCommentsCounter() {
-    const textarea = document.getElementById('sf-desc');
-    const counterSpan = document.getElementById('comments-counter');
-    if (textarea && counterSpan) {
-        const update = () => { counterSpan.textContent = `${textarea.value.length} / 2000 characters`; };
-        textarea.addEventListener('input', update);
-        update();
-    }
-}
-
-function initTurnstile() {
-    const container = document.getElementById('sf-turnstile-container');
+  function launchConfetti() {
+    const container = document.getElementById('confetti-container');
     if (!container) return;
-    if (turnstileWidgetId !== null && window.turnstile) {
-        turnstileToken = null;
-        window.turnstile.reset(turnstileWidgetId);
-        return;
+    const colors = ['#c8a96e', '#1a1714', '#f0e4cc', '#4a7c59', '#9b3a3a', '#ede9e3'];
+    for (let i = 0; i < 80; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.cssText = `
+        left: ${Math.random() * 100}%;
+        top: ${-Math.random() * 20}px;
+        background: ${colors[Math.floor(Math.random() * colors.length)]};
+        width: ${4 + Math.random() * 8}px;
+        height: ${4 + Math.random() * 8}px;
+        border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+        animation-duration: ${2 + Math.random() * 3}s;
+        animation-delay: ${Math.random() * 1.5}s;
+      `;
+      container.appendChild(el);
+      el.addEventListener('animationend', () => el.remove());
     }
-    if (!window.turnstile) {
-        setTimeout(initTurnstile, 200);
-        return;
-    }
-    turnstileToken = null;
-    turnstileWidgetId = window.turnstile.render(container, {
-        sitekey: TURNSTILE_SITE_KEY,
-        theme: 'auto',
-        callback: (token) => { turnstileToken = token; },
-        'expired-callback': () => turnstileToken = null,
-        'error-callback': () => turnstileToken = null
+  }
+
+  if (typeof Shop !== 'undefined') {
+    Shop.loadLang().then(render);
+  } else {
+    document.addEventListener('webshop:ready', () => {
+      Shop.loadLang().then(render);
     });
-}
-
-function setFieldError(inputId, errorId, message) {
-    const input = document.getElementById(inputId);
-    const errEl = document.getElementById(errorId);
-    if (message) {
-        input.classList.add('sf-input-error');
-        errEl.textContent = message;
-        return true;
-    } else {
-        input.classList.remove('sf-input-error');
-        errEl.textContent = '';
-        return false;
-    }
-}
-
-function validateForm() {
-    let hasError = false;
-    const name = stripHtml(document.getElementById('sf-name').value).slice(0, 120);
-    const email = stripHtml(document.getElementById('sf-email').value).slice(0, 254);
-    const order = stripHtml(document.getElementById('sf-order').value).slice(0, 20);
-    hasError = setFieldError('sf-name', 'sf-name-err', name ? '' : (formData.fullNameRequired || 'Full name is required.')) || hasError;
-    hasError = setFieldError('sf-email', 'sf-email-err', (email && isValidEmail(email)) ? '' : (formData.emailInvalid || 'Valid email address is required.')) || hasError;
-    if (!order) {
-        hasError = setFieldError('sf-order', 'sf-order-err', formData.orderNumberRequired || 'Order number is required.') || hasError;
-    } else if (!isValidOrderNumber(order)) {
-        hasError = setFieldError('sf-order', 'sf-order-err', formData.orderDigitsOnly || 'Order number must contain only digits (0-9).') || hasError;
-    } else {
-        setFieldError('sf-order', 'sf-order-err', '');
-    }
-    const turnstileErr = document.getElementById('sf-turnstile-err');
-    if (!turnstileToken) {
-        turnstileErr.classList.remove('sf-hidden');
-        hasError = true;
-    } else {
-        turnstileErr.classList.add('sf-hidden');
-    }
-    return { valid: !hasError, sanitised: { name, email, order, comments: stripHtml(document.getElementById('sf-desc').value).slice(0, 2000) } };
-}
-
-async function sendSupportRequest() {
-    const { valid, sanitised } = validateForm();
-    if (!valid) {
-        showToast(formData.errorFixAbove || 'Please fix the errors above before submitting.', 3000);
-        return;
-    }
-
-    const referenceNumber = generateReferenceNumber();
-    const submitBtn = document.getElementById('sf-submit');
-    const originalText = submitBtn.textContent;
-    submitBtn.disabled = true;
-    submitBtn.textContent = formData.sendingText || '⏳ Sending...';
-
-    // ========== BUILD NEW MESSAGE: remove Q&A lines, only final summary text + optional comments ==========
-    const troubleshootingSummaryOnly = getTroubleshootingSummaryOnly(answers);
-    const additionalCommentsRaw = sanitised.comments.trim();
-    // preserve line breaks in additional comments (already kept via textarea value)
-    const formattedComments = additionalCommentsRaw ? `\n\n━━━ Additional Information ━━━\n${additionalCommentsRaw}` : '';
-    
-    const messageBody = [
-        `Name: ${sanitised.name}`,
-        `Email: ${sanitised.email}`,
-        `Order: ${sanitised.order || 'N/A'}`,
-        `Category: ${currentCategory?.title || 'General'}`,
-        `Reference: ${referenceNumber}`,
-        ``,
-        `📌 Issue summary (troubleshooting outcome):`,
-        `${troubleshootingSummaryOnly}`,
-        `${formattedComments}`
-    ].join('\n');
-
-    const payload = {
-        referenceNumber: referenceNumber,
-        category: "support-request",
-        originalCategory: currentCategory?.title || 'General',
-        troubleshooting: answers,            // keep for structured backup (but not shown in main email if endpoint uses message)
-        troubleshootingSummaryClean: troubleshootingSummaryOnly,  // new clean field for logs
-        message: messageBody,                // THIS is what gets delivered - clean, readable, no Q/A dump
-        subject: `Dornori Support [${currentCategory?.title || 'General'}] - ${referenceNumber}`,
-        name: sanitised.name,
-        email: sanitised.email,
-        orderNumber: sanitised.order,
-        additionalComments: sanitised.comments,  // raw with line breaks preserved
-        timestamp: new Date().toISOString(),
-        userAgent: navigator.userAgent
-    };
-
-    try {
-        const response = await fetch(workerUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        
-        if (response.ok) {
-            if (redirectUrl && redirectUrl.trim() !== '') {
-                window.location.href = redirectUrl;
-            } else {
-                const contactEndpoint = formData.endpoints?.contact;
-                const successMessage = contactEndpoint?.message || 'Your support request has been submitted. Our team will respond within 4 hours.';
-                showSuccessMessage(successMessage, referenceNumber);
-            }
-        } else {
-            const result = await response.json();
-            throw new Error(result.error || 'Server error');
-        }
-    } catch (err) {
-        console.error(err);
-        showToast(`❌ ${formData.errorPrefix || 'Submission failed'}: ${err.message}. ${formData.tryAgain || 'Please try again.'}`, 5000);
-        if (turnstileWidgetId && window.turnstile) window.turnstile.reset(turnstileWidgetId);
-        turnstileToken = null;
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
-    }
-}
-
-window.sfReset = function() {
-    currentCategory = null;
-    currentQuestionId = null;
-    answers = [];
-    document.getElementById('sf-s1').classList.remove('sf-hidden');
-    document.getElementById('sf-s2').classList.add('sf-hidden');
-    document.getElementById('sf-s3').classList.add('sf-hidden');
-    updateProgress(5, "Step 1: Choose category");
-    document.getElementById('sf-name').value = '';
-    document.getElementById('sf-email').value = '';
-    document.getElementById('sf-order').value = '';
-    document.getElementById('sf-desc').value = '';
-    const counter = document.getElementById('comments-counter');
-    if (counter) counter.textContent = '0 / 2000 characters';
-    ['sf-name-err', 'sf-email-err', 'sf-order-err', 'sf-desc-err'].forEach(id => {
-        const errEl = document.getElementById(id);
-        if (errEl) errEl.textContent = '';
-    });
-    ['sf-name', 'sf-email', 'sf-order', 'sf-desc'].forEach(id => {
-        const input = document.getElementById(id);
-        if (input) input.classList.remove('sf-input-error');
-    });
-    turnstileToken = null;
-    if (turnstileWidgetId && window.turnstile) window.turnstile.reset(turnstileWidgetId);
-    showToast('Session reset', 1500);
-};
-
-document.addEventListener('click', e => {
-    if (e.target.closest('#sf-submit')) sendSupportRequest();
-});
-document.getElementById('sf-order')?.addEventListener('input', function(e) {
-    this.value = this.value.replace(/[^0-9]/g, '');
-});
-
-loadFormData();
-window.scrollTo(0,0);
+  }
+})();
 </script>
-</body>
-</html>
