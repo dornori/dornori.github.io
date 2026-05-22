@@ -79,7 +79,6 @@
 </div>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 
 <style>
 .sf-submit {
@@ -448,14 +447,33 @@ function initTurnstile() {
         return;
     }
     
-    if (!window.turnstile) { setTimeout(initTurnstile, 200); return; }
+    // Check if turnstile is already loaded globally (from main site)
+    if (typeof turnstile === 'undefined') {
+        setTimeout(initTurnstile, 200);
+        return;
+    }
     
-    turnstileWidgetId = window.turnstile.render(container, {
+    // Clean up any existing widget
+    if (turnstileWidgetId !== null) {
+        try {
+            turnstile.remove(turnstileWidgetId);
+        } catch(e) {}
+        turnstileWidgetId = null;
+    }
+    
+    turnstileToken = null;
+    turnstileWidgetId = turnstile.render(container, {
         sitekey: TURNSTILE_SITE_KEY,
         theme: 'light',
-        callback: function(token) { turnstileToken = token; },
-        'expired-callback': function() { turnstileToken = null; },
-        'error-callback': function() { turnstileToken = null; }
+        callback: function(token) { 
+            turnstileToken = token; 
+        },
+        'expired-callback': function() { 
+            turnstileToken = null; 
+        },
+        'error-callback': function() { 
+            turnstileToken = null; 
+        }
     });
 }
 
@@ -506,7 +524,7 @@ function validateForm() {
         setFieldError('sf-order', 'sf-order-err', '');
     }
 
-    // Turnstile validation
+    // Turnstile validation - only if visible and configured
     var turnstileContainer = document.getElementById('sf-turnstile-container');
     var turnstileErr = document.getElementById('sf-turnstile-err');
     
@@ -592,7 +610,9 @@ async function sendSupportRequest() {
     } catch (err) {
         console.error(err);
         showToast('Submission failed: ' + err.message + '. Please try again.', 5000);
-        if (turnstileWidgetId && window.turnstile) window.turnstile.reset(turnstileWidgetId);
+        if (turnstileWidgetId !== null && typeof turnstile !== 'undefined') {
+            try { turnstile.reset(turnstileWidgetId); } catch(e) {}
+        }
         turnstileToken = null;
         if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalText; }
     }
@@ -633,7 +653,9 @@ window.sfReset = function() {
         if (input) input.classList.remove('sf-input-error');
     }
     
-    if (turnstileWidgetId && window.turnstile) window.turnstile.reset(turnstileWidgetId);
+    if (turnstileWidgetId !== null && typeof turnstile !== 'undefined') {
+        try { turnstile.reset(turnstileWidgetId); } catch(e) {}
+    }
     turnstileToken = null;
     showToast('Session reset', 1500);
 };
