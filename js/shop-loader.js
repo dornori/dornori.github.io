@@ -1,5 +1,5 @@
 /**
- * shop-loader.js (v6 - removed redundant currency handler)
+ * shop-loader.js (v7 - fixed addon/related data attributes, ensured product cache populated)
  */
 
 import { loadScript } from './utils/script-loader.js';
@@ -134,6 +134,11 @@ export async function mountShopEmbeds(container) {
 
   // ── data-shop-products embeds WITH FEATURE FLAGS ─────────────────────────────
   const shopProductEls = container ? container.querySelectorAll('[data-shop-products]') : [];
+  
+  // Ensure products are fully loaded into Shop's cache before processing embeds
+  if (shopProductEls.length > 0) {
+    await Shop.loadProducts();
+  }
   
   for (const el of shopProductEls) {
     // Skip if already populated
