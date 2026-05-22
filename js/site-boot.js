@@ -80,16 +80,20 @@
 
     injectPreloads([
         { href: 'assets/images/dornori-logo-transparent.webp', as: 'image', fetchpriority: 'high' },
-        { href: 'css/main.css',  as: 'style' },
-        { href: 'css/shop.css',  as: 'style' },
+        { href: 'css/variables.css', as: 'style' },
+        { href: 'css/base.css',      as: 'style' },
+        { href: 'css/shop.css',      as: 'style' },
     ]);
 
     injectStyles([
+        'css/variables.css',
         'css/profiles.css',
-        'css/main.css',
+        'css/base.css',
+        'css/layout.css',
+        'css/components.css',
+        'css/pages.css',
         'css/shop.css',
         'css/shop-bridge.css',
-        'css/integration.css',
     ]);
 
     // ── Language ──────────────────────────────────────────────────────────────
