@@ -155,7 +155,7 @@ const workerUrl = (window.CONFIG && window.CONFIG.queue && window.CONFIG.queue.e
 const lang = document.documentElement.lang || 'en';
 const formJsonPathFn = (window.CONFIG && window.CONFIG.paths && window.CONFIG.paths.formJsonPath)
     ? window.CONFIG.paths.formJsonPath
-    : (l) => `../../lang/${l}/form.json`;
+    : (l) => `${window.__BASE_PATH__ || '/'}lang/${l}/form.json`;
 const formJsonPath = typeof formJsonPathFn === 'function' ? formJsonPathFn(lang) : formJsonPathFn;
 
 const redirectUrl = (window.CONFIG && window.CONFIG.redirect && window.CONFIG.redirect.onSuccess)
@@ -461,17 +461,30 @@ async function sendSupportRequest() {
 
     const troubleshootingText = answers.map((a, i) => `Q${i+1}: ${a.question}\n   Answer: ${a.answer}`).join('\n\n');
 
+    const messageBody = [
+        `Name: ${sanitised.name}`,
+        `Email: ${sanitised.email}`,
+        `Order: ${sanitised.order || 'N/A'}`,
+        `Category: ${currentCategory?.title || 'General'}`,
+        `Reference: ${referenceNumber}`,
+        '',
+        'Troubleshooting Steps:',
+        ...answers.map((a, i) => `Q${i+1}: ${a.question}\n   Answer: ${a.answer}`),
+        ...(sanitised.comments ? ['', `Additional Comments:\n${sanitised.comments}`] : [])
+    ].join('\n');
+
     const payload = {
         referenceNumber: referenceNumber,
         category: "support-request",
         originalCategory: currentCategory?.title || 'General',
         troubleshooting: answers,
         troubleshootingText: troubleshootingText,
+        message: messageBody,
+        subject: `Dornori Support [${currentCategory?.title || 'General'}] - ${referenceNumber}`,
         name: sanitised.name,
         email: sanitised.email,
         orderNumber: sanitised.order,
         additionalComments: sanitised.comments,
-        turnstileToken: turnstileToken,
         timestamp: new Date().toISOString(),
         userAgent: navigator.userAgent
     };
