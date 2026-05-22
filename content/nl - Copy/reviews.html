@@ -1,0 +1,348 @@
+<!-- reviews.html -->
+<style>
+  .rv-page{max-width:900px;margin:0 auto;padding:2rem 1.25rem 4rem;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--text,#1a1714)}
+  .rv-breadcrumb{font-size:.8rem;color:var(--text-muted,#6b6560);margin-bottom:.75rem}
+  .rv-breadcrumb a{color:var(--accent,#c8a96e);text-decoration:none}
+  .rv-breadcrumb a:hover{text-decoration:underline}
+  .rv-title{font-size:1.5rem;font-weight:700;margin:0 0 .2rem}
+  .rv-subtitle{font-size:.9rem;color:var(--text-muted,#6b6560);margin:0 0 1.75rem}
+
+  /* ── rating summary ── */
+  .rv-summary{display:flex;gap:2rem;align-items:flex-start;background:var(--glass,rgba(255,255,255,.06));border:1px solid var(--border,rgba(255,255,255,.2));border-radius:12px;padding:1.5rem;margin-bottom:2rem;flex-wrap:wrap}
+  .rv-summary-score{text-align:center;min-width:90px}
+  .rv-big-score{font-size:3.5rem;font-weight:800;line-height:1;color:var(--accent,#c8a96e)}
+  .rv-big-stars{font-size:1.3rem;color:#ff9900;letter-spacing:2px;margin:.25rem 0}
+  .rv-big-count{font-size:.8rem;color:var(--text-muted,#6b6560)}
+  .rv-breakdown{flex:1;min-width:200px;display:flex;flex-direction:column;gap:6px}
+  .rv-bar-row{display:flex;align-items:center;gap:8px;font-size:.82rem}
+  .rv-bar-label{width:40px;color:var(--accent,#c8a96e);cursor:pointer;white-space:nowrap}
+  .rv-bar-label:hover{text-decoration:underline}
+  .rv-bar-track{flex:1;height:10px;background:var(--border,rgba(255,255,255,.15));border-radius:99px;overflow:hidden}
+  .rv-bar-fill{height:100%;background:#ff9900;border-radius:99px;transition:width .6s ease}
+  .rv-bar-num{width:30px;text-align:right;color:var(--text-muted,#6b6560)}
+
+  .rv-section-title{font-size:1.1rem;font-weight:700;margin:0 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border,rgba(255,255,255,.15))}
+
+  /* ── VIDEO PLAYER ── */
+  .vc{margin-bottom:2.5rem}
+
+  /* main player */
+  .vc-player{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:14px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.45)}
+
+  /* thumbnail state */
+  .vc-thumb-state{position:absolute;inset:0;cursor:pointer}
+  .vc-thumb-state img{width:100%;height:100%;object-fit:cover;display:block}
+  .vc-thumb-state-bg{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.75) 0%,rgba(0,0,0,.1) 45%,transparent 100%)}
+  .vc-big-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);width:72px;height:72px;background:rgba(255,255,255,.95);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.8rem;padding-left:6px;box-shadow:0 4px 28px rgba(0,0,0,.55);transition:transform .15s,background .15s}
+  .vc-thumb-state:hover .vc-big-play{transform:translate(-50%,-60%) scale(1.1);background:#fff}
+  .vc-thumb-meta{position:absolute;bottom:0;left:0;right:0;padding:1.1rem 1.25rem}
+  .vc-thumb-meta strong{display:block;color:#fff;font-size:1.05rem;font-weight:700;text-shadow:0 1px 6px rgba(0,0,0,.9)}
+  .vc-thumb-meta span{color:rgba(255,255,255,.7);font-size:.82rem}
+  .vc-type-pill{display:inline-block;font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px;margin-right:6px;vertical-align:middle}
+  .vc-type-pill.yt{background:#f00;color:#fff}
+  .vc-type-pill.tt{background:#000;color:#fff}
+  .vc-type-pill.mp4{background:rgba(255,255,255,.2);color:#fff}
+
+  /* tiktok state */
+  .vc-tiktok-state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;background:linear-gradient(135deg,#010101,#1a1a2e);color:#fff;padding:2rem}
+  .vc-tiktok-icon{width:60px;height:60px;background:#fe2c55;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.9rem}
+  .vc-tiktok-state p{margin:0;opacity:.75;font-size:.9rem;text-align:center}
+  .vc-tiktok-btn{color:#fff;font-weight:700;font-size:1rem;text-decoration:none;border:2px solid #fe2c55;padding:10px 28px;border-radius:99px;transition:background .2s,color .2s;background:#fe2c55}
+  .vc-tiktok-btn:hover{background:transparent;color:#fe2c55}
+
+  /* live iframe/video */
+  .vc-live{position:absolute;inset:0}
+  .vc-live iframe,.vc-live video{position:absolute;inset:0;width:100%;height:100%;border:none}
+
+  /* ── thumbnail strip ── */
+  .vc-strip-wrap{position:relative;margin-top:12px;padding:0 36px}
+  .vc-strip{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;scroll-behavior:smooth}
+  .vc-strip::-webkit-scrollbar{display:none}
+  .vc-tile{flex:0 0 calc(25% - 6px);scroll-snap-align:start;border-radius:8px;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:border-color .2s,opacity .2s,transform .2s,box-shadow .2s;opacity:.55;background:#000}
+  .vc-tile:hover{opacity:.85;transform:translateY(-2px)}
+  .vc-tile.active{border-color:var(--accent,#c8a96e);opacity:1;transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,.4)}
+  .vc-tile-img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}
+  .vc-tile-imgwrap{width:100%;aspect-ratio:16/9;position:relative;overflow:hidden;background:#111}
+  .vc-tile-imgwrap .vc-type-pill{position:absolute;top:5px;left:5px}
+  .vc-tile-label{padding:5px 7px;font-size:.7rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--c-surface,#faf8f5);color:var(--text,#1a1714)}
+  /* strip nav */
+  .vc-nav{position:absolute;top:calc(50% - 22px);width:30px;height:30px;border-radius:50%;border:none;background:var(--c-surface,#fff);color:var(--text,#111);box-shadow:0 2px 8px rgba(0,0,0,.22);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.8rem;z-index:2;transition:box-shadow .2s,transform .15s}
+  .vc-nav:hover{box-shadow:0 4px 14px rgba(0,0,0,.3);transform:scale(1.1)}
+  .vc-nav:disabled{opacity:.2;pointer-events:none}
+  .vc-nav--prev{left:0}
+  .vc-nav--next{right:0}
+
+  /* ── review cards ── */
+  .rv-filter-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1.25rem}
+  .rv-filter-label{font-size:.85rem;color:var(--text-muted,#6b6560)}
+  .rv-sort-select{padding:6px 10px;border:1px solid var(--border,rgba(255,255,255,.2));border-radius:6px;background:var(--glass,rgba(255,255,255,.06));color:var(--text,#1a1714);font-size:.85rem;cursor:pointer}
+  .rv-star-filter{display:flex;gap:6px;flex-wrap:wrap}
+  .rv-star-btn{padding:5px 10px;border:1px solid var(--border,rgba(255,255,255,.2));border-radius:6px;background:transparent;color:var(--text,#1a1714);font-size:.82rem;cursor:pointer;transition:all .15s}
+  .rv-star-btn.active,.rv-star-btn:hover{border-color:var(--accent,#c8a96e);background:color-mix(in srgb,var(--accent,#c8a96e) 12%,transparent)}
+  .rv-list{display:flex;flex-direction:column}
+  .rv-card{padding:1.25rem 0;border-bottom:1px solid var(--border,rgba(255,255,255,.1))}
+  .rv-card:last-child{border-bottom:none}
+  .rv-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:.5rem}
+  .rv-author-row{display:flex;align-items:center;gap:.6rem}
+  .rv-avatar{width:36px;height:36px;border-radius:50%;background:var(--accent,#c8a96e);color:var(--bg,#1a3a2a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0}
+  .rv-author-info strong{display:block;font-size:.9rem}
+  .rv-author-info span{font-size:.78rem;color:var(--text-muted,#6b6560)}
+  .rv-card-stars{color:#ff9900;font-size:1rem;letter-spacing:1px}
+  .rv-verified{display:inline-flex;align-items:center;gap:4px;font-size:.75rem;color:#2e7d32;background:rgba(46,125,50,.1);padding:2px 8px;border-radius:99px}
+  .rv-card-title{font-weight:700;font-size:1rem;margin:.5rem 0 .35rem}
+  .rv-card-body{font-size:.9rem;line-height:1.65;opacity:.9}
+  .rv-card-footer{display:flex;align-items:center;gap:1rem;margin-top:.75rem;flex-wrap:wrap}
+  .rv-date{font-size:.78rem;color:var(--text-muted,#6b6560)}
+  .rv-helpful{font-size:.8rem;color:var(--text-muted,#6b6560);display:flex;align-items:center;gap:6px}
+  .rv-helpful-btn{padding:3px 10px;border:1px solid var(--border,rgba(255,255,255,.2));border-radius:99px;background:transparent;color:var(--text,#1a1714);font-size:.78rem;cursor:pointer;transition:all .15s}
+  .rv-helpful-btn:hover{border-color:var(--accent,#c8a96e)}
+  .rv-empty,.rv-loading{text-align:center;padding:3rem 1rem;color:var(--text-muted,#6b6560);font-size:.95rem}
+  @media(max-width:600px){
+    .rv-summary{flex-direction:column;gap:1.25rem}
+    .vc-tile{flex:0 0 calc(50% - 4px)}
+    .vc-strip-wrap{padding:0 28px}
+  }
+</style>
+
+<div class="rv-page" id="rv-page">
+  <div class="rv-loading">Loading reviews…</div>
+</div>
+
+<script>
+(function(){
+  var BASE=(window.SHOP_CONFIG&&window.SHOP_CONFIG.basePath)?window.SHOP_CONFIG.basePath:'../../';
+  var params=new URLSearchParams(window.location.search);
+  var pid=window.__PRODUCT_ID__||params.get('id')||null;
+  window.__PRODUCT_ID__=null;
+
+  function stars(n){var f=Math.floor(n),h=(n-f)>=.5;return '★'.repeat(f)+(h?'½':'')+'☆'.repeat(5-f-(h?1:0));}
+  function fmtDate(d){try{return new Date(d).toLocaleDateString(window.LANG==='nl'?'nl-NL':'en-GB',{year:'numeric',month:'long',day:'numeric'});}catch(e){return d;}}
+  function initials(n){return n.trim().split(/\s+/).map(function(w){return w[0];}).join('').slice(0,2).toUpperCase();}
+  function ytId(url){return(url.match(/embed\/([^?&]+)/)||[])[1]||'';}
+  function ytThumb(url){return 'https://img.youtube.com/vi/'+ytId(url)+'/mqdefault.jpg';}
+
+  /* ─────────────────────────────────────────
+     VIDEO CAROUSEL STATE
+  ───────────────────────────────────────── */
+  var _vids=[], _cur=0;
+
+  function vcThumbHTML(v,i){
+    var imgWrap='';
+    if(v.type==='youtube') imgWrap='<img class="vc-tile-img" src="'+ytThumb(v.url)+'" alt="'+v.title+'" loading="lazy">';
+    else if(v.type==='mp4') imgWrap='<div style="width:100%;height:100%;background:#111;display:flex;align-items:center;justify-content:center;"><span style="font-size:1.8rem;opacity:.5;">▶</span></div>';
+    else imgWrap='<div style="width:100%;height:100%;background:#1a1a2e;display:flex;align-items:center;justify-content:center;"><span style="font-size:1.5rem;">🎵</span></div>';
+    var pill={'youtube':'<span class="vc-type-pill yt">YT</span>','tiktok':'<span class="vc-type-pill tt">TT</span>','mp4':'<span class="vc-type-pill mp4">MP4</span>'}[v.type]||'';
+    return '<div class="vc-tile'+(i===0?' active':'')+'" data-idx="'+i+'" onclick="vcGo('+i+')">'
+      +'<div class="vc-tile-imgwrap">'+pill+imgWrap+'</div>'
+      +'<div class="vc-tile-label">'+v.title+'</div>'
+      +'</div>';
+  }
+
+  function vcBuildHTML(videos){
+    if(!videos.length) return '';
+    var v=videos[0];
+    /* main player — starts with thumbnail of first video */
+    var playerInner=vcThumbStateHTML(v);
+    var tiles=videos.map(vcThumbHTML).join('');
+    return '<h2 class="rv-section-title">Video Reviews</h2>'
+      +'<div class="vc">'
+      +'<div class="vc-player" id="vc-player">'+playerInner+'</div>'
+      +'<div class="vc-strip-wrap">'
+      +'<button class="vc-nav vc-nav--prev" id="vc-prev" onclick="vcScroll(-1)">&#8592;</button>'
+      +'<div class="vc-strip" id="vc-strip">'+tiles+'</div>'
+      +'<button class="vc-nav vc-nav--next" id="vc-next" onclick="vcScroll(1)">&#8594;</button>'
+      +'</div></div>';
+  }
+
+  function vcThumbStateHTML(v){
+    if(v.type==='tiktok'){
+      return '<div class="vc-tiktok-state">'
+        +'<div class="vc-tiktok-icon">🎵</div>'
+        +'<p>'+v.title+'</p>'
+        +'<p style="font-size:.8rem;opacity:.6;">by '+v.author+'</p>'
+        +'<a class="vc-tiktok-btn" href="'+v.url+'" target="_blank" rel="noopener">Watch on TikTok ↗</a>'
+        +'</div>';
+    }
+    var img='';
+    if(v.type==='youtube') img='<img src="'+ytThumb(v.url)+'" alt="'+v.title+'">';
+    else img='<div style="width:100%;height:100%;background:#111;"></div>';
+    var pill={'youtube':'<span class="vc-type-pill yt">YouTube</span>','mp4':'<span class="vc-type-pill mp4">Video</span>'}[v.type]||'';
+    return '<div class="vc-thumb-state" onclick="vcPlay()">'
+      +img
+      +'<div class="vc-thumb-state-bg"></div>'
+      +'<div class="vc-big-play">▶</div>'
+      +'<div class="vc-thumb-meta">'+pill+'<strong>'+v.title+'</strong><span>'+v.author+'</span></div>'
+      +'</div>';
+  }
+
+  /* load video into main player */
+  window.vcPlay=function(){
+    var v=_vids[_cur]; if(!v) return;
+    var player=document.getElementById('vc-player'); if(!player) return;
+    if(v.type==='youtube'){
+      var id=ytId(v.url);
+      var f=document.createElement('iframe');
+      f.setAttribute('allow','autoplay;encrypted-media;picture-in-picture;fullscreen');
+      f.allowFullscreen=true;
+      f.src='https://www.youtube.com/embed/'+id+'?autoplay=1&rel=0&modestbranding=1';
+      f.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:none;';
+      player.innerHTML='<div class="vc-live"></div>';
+      player.querySelector('.vc-live').appendChild(f);
+    } else if(v.type==='mp4'){
+      var src=v.url.startsWith('/')?BASE+v.url.slice(1):v.url;
+      var vid=document.createElement('video');
+      vid.controls=true; vid.autoplay=true; vid.playsInline=true;
+      vid.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;';
+      var s=document.createElement('source'); s.src=src; s.type='video/mp4';
+      vid.appendChild(s);
+      player.innerHTML='<div class="vc-live"></div>';
+      player.querySelector('.vc-live').appendChild(vid);
+      vid.play().catch(function(){});
+    }
+    /* tiktok: handled as external link — already visible in thumb state */
+  };
+
+  /* switch to video i */
+  window.vcGo=function(i){
+    if(i===_cur){
+      /* clicking active tile re-plays */
+      vcPlay(); return;
+    }
+    /* stop current */
+    var player=document.getElementById('vc-player');
+    if(player){
+      var f=player.querySelector('iframe'); if(f){var s=f.src;f.src='';f.src=s;}
+      var v2=player.querySelector('video'); if(v2) v2.pause();
+    }
+    _cur=i;
+    /* update tiles */
+    document.querySelectorAll('.vc-tile').forEach(function(t){t.classList.toggle('active',+t.dataset.idx===i);});
+    /* set thumb state then autoplay */
+    if(player){
+      player.innerHTML=vcThumbStateHTML(_vids[i]);
+      /* autoplay immediately (except tiktok) */
+      if(_vids[i].type!=='tiktok') vcPlay();
+    }
+  };
+
+  window.vcScroll=function(dir){
+    var strip=document.getElementById('vc-strip'); if(!strip) return;
+    strip.scrollBy({left:dir*strip.offsetWidth*.6,behavior:'smooth'});
+  };
+
+  function vcInitSwipe(){
+    var player=document.getElementById('vc-player'); if(!player) return;
+    var sx=0,sy=0,drag=false;
+    player.addEventListener('touchstart',function(e){sx=e.touches[0].clientX;sy=e.touches[0].clientY;drag=true;},{passive:true});
+    player.addEventListener('touchend',function(e){
+      if(!drag)return; drag=false;
+      var dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy;
+      if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50){
+        var ni=Math.max(0,Math.min(_vids.length-1,_cur+(dx<0?1:-1)));
+        if(ni!==_cur) vcGo(ni);
+      }
+    });
+  }
+
+  /* ─────────────────────────────────────────
+     REVIEWS
+  ───────────────────────────────────────── */
+  function reviewCard(r){
+    var vf=r.verified?'<span class="rv-verified">✓ Verified Purchase</span>':'';
+    return '<div class="rv-card" data-rating="'+r.rating+'" data-helpful="'+(r.helpful||0)+'" data-date="'+(r.date||'')+'">'
+      +'<div class="rv-card-top">'
+      +'<div class="rv-author-row">'
+      +'<div class="rv-avatar">'+initials(r.author)+'</div>'
+      +'<div class="rv-author-info"><strong>'+r.author+'</strong><span>'+(r.location||'')+'</span></div>'
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">'
+      +'<span class="rv-card-stars">'+stars(r.rating)+'</span>'+vf+'</div></div>'
+      +'<div class="rv-card-title">'+r.title+'</div>'
+      +'<div class="rv-card-body">'+r.body+'</div>'
+      +'<div class="rv-card-footer">'
+      +'<span class="rv-date">'+fmtDate(r.date)+'</span>'
+      +'<span class="rv-helpful">Helpful? <button class="rv-helpful-btn" data-base="'+(r.helpful||0)+'" onclick="rvHelpful(this)">👍 '+(r.helpful||0)+'</button></span>'
+      +'</div></div>';
+  }
+
+  function renderPage(product,rd){
+    var pName=product.label||product.name||product.id;
+    var rating=product.rating||5;
+    var total=product.reviewCount||0;
+    var breakdown=rd.ratingBreakdown||{};
+    var reviews=rd.reviews||[];
+    _vids=rd.videos||[];
+    _cur=0;
+
+    var totalV=Object.values(breakdown).reduce(function(a,b){return a+b;},0)||1;
+    var barsHTML=[5,4,3,2,1].map(function(n){
+      var c=breakdown[n]||0,p=Math.round(c/totalV*100);
+      return '<div class="rv-bar-row"><span class="rv-bar-label" onclick="rvFilterStars('+n+')">'+n+' ★</span>'
+        +'<div class="rv-bar-track"><div class="rv-bar-fill" style="width:'+p+'%"></div></div>'
+        +'<span class="rv-bar-num">'+c+'</span></div>';
+    }).join('');
+
+    document.getElementById('rv-page').innerHTML=
+      '<div class="rv-breadcrumb"><a href="#" onclick="if(window.viewPage)window.viewPage(\'product\',\''+product.id+'\');return false;">← '+pName+'</a> › Customer Reviews</div>'
+      +'<h1 class="rv-title">Customer Reviews</h1>'
+      +'<p class="rv-subtitle">'+pName+'</p>'
+      +'<div class="rv-summary">'
+      +'<div class="rv-summary-score"><div class="rv-big-score">'+rating+'</div><div class="rv-big-stars">'+stars(rating)+'</div><div class="rv-big-count">'+Number(total).toLocaleString()+' reviews</div></div>'
+      +'<div class="rv-breakdown">'+barsHTML+'</div>'
+      +'</div>'
+      +vcBuildHTML(_vids)
+      +'<h2 class="rv-section-title">Written Reviews</h2>'
+      +'<div class="rv-filter-bar">'
+      +'<span class="rv-filter-label">Filter:</span>'
+      +'<div class="rv-star-filter">'
+      +'<button class="rv-star-btn active" data-stars="0" onclick="rvFilterStars(0)">All</button>'
+      +[5,4,3,2,1].map(function(n){return '<button class="rv-star-btn" data-stars="'+n+'" onclick="rvFilterStars('+n+')">'+n+' ★</button>';}).join('')
+      +'</div>'
+      +'<select class="rv-sort-select" onchange="rvSort(this.value)">'
+      +'<option value="recent">Most recent</option><option value="helpful">Most helpful</option>'
+      +'<option value="high">Highest rated</option><option value="low">Lowest rated</option>'
+      +'</select></div>'
+      +'<div class="rv-list" id="rv-list">'+(reviews.length?reviews.map(reviewCard).join(''):'<div class="rv-empty">No written reviews yet.</div>')+'</div>';
+
+    vcInitSwipe();
+  }
+
+  window.rvFilterStars=function(n){
+    document.querySelectorAll('.rv-star-btn').forEach(function(b){b.classList.toggle('active',+b.dataset.stars===n);});
+    document.querySelectorAll('.rv-card').forEach(function(c){c.style.display=(n===0||+c.dataset.rating===n)?'':'none';});
+  };
+  window.rvSort=function(v){
+    var list=document.getElementById('rv-list');if(!list)return;
+    var cards=[].slice.call(list.querySelectorAll('.rv-card'));
+    cards.sort(function(a,b){
+      if(v==='helpful')return +b.dataset.helpful - +a.dataset.helpful;
+      if(v==='high')   return +b.dataset.rating  - +a.dataset.rating;
+      if(v==='low')    return +a.dataset.rating  - +b.dataset.rating;
+      return new Date(b.dataset.date)-new Date(a.dataset.date);
+    });
+    cards.forEach(function(c){list.appendChild(c);});
+  };
+  window.rvHelpful=function(btn){
+    if(btn.dataset.voted)return;
+    btn.dataset.voted='1';
+    btn.textContent='👍 '+(+btn.dataset.base+1);
+    btn.style.borderColor='var(--accent)';
+  };
+
+  async function load(){
+    try{
+      var pr=await fetch(BASE+'data/products.json');
+      var rr=await fetch(BASE+'data/reviews.json');
+      var products=await pr.json();
+      var allReviews=await rr.json();
+      var product=pid?products.find(function(p){return p.id===pid;}):null;
+      if(!product){document.getElementById('rv-page').innerHTML='<div class="rv-empty">No product specified.</div>';return;}
+      renderPage(product,allReviews[pid]||{});
+    }catch(e){
+      console.error(e);
+      document.getElementById('rv-page').innerHTML='<div class="rv-empty">Could not load reviews.</div>';
+    }
+  }
+  load();
+})();
+</script>

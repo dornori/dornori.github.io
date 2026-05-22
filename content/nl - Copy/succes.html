@@ -1,0 +1,104 @@
+<!-- content/nl/succes.html -->
+<style>
+  .success-wrap {
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1rem;
+  }
+  .webshop-confetti {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    pointer-events: none;
+    z-index: 9999;
+  }
+  @keyframes fall {
+    0%   { transform: translateY(-20px) rotate(0deg);   opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+  .confetti-piece {
+    position: absolute;
+    border-radius: 2px;
+    animation: fall linear forwards;
+  }
+</style>
+
+<div class="webshop-confetti" id="confetti-container"></div>
+
+<div class="success-wrap">
+  <div class="webshop-result-page webshop-fade-in" id="result-page">
+    <!-- Filled by JS -->
+  </div>
+</div>
+
+<script>
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  const ref    = params.get('ref') || localStorage.getItem('webshop_last_order') || '—';
+  const status = params.get('status') || 'success';
+  const lang   = window.LANG || localStorage.getItem('dornori-lang') || 'nl';
+
+  function render() {
+    const page = document.getElementById('result-page');
+    if (!page) return;
+    if (status === 'success') {
+      page.innerHTML = `
+        <div class="webshop-result-icon webshop-result-icon--success">✓</div>
+        <h1>${Shop.t('success_title', 'Bestelling bevestigd!')}</h1>
+        <p>${Shop.t('success_message', 'Bedankt voor uw aankoop. U ontvangt binnenkort een bevestigingsmail.')}</p>
+        <p>${Shop.t('success_ref', 'Uw bestelnummer is')}:</p>
+        <div class="webshop-ref-badge">${ref}</div>
+        <p style="font-size:0.82rem;color:var(--c-text-muted);">
+          Bewaar dit nummer voor het geval u contact moet opnemen met de klantenservice.
+        </p>
+        <a href="/${lang}/" class="webshop-btn webshop-btn--primary" style="margin-top:8px;">
+          ${Shop.t('continue_shopping', 'Verder winkelen')}
+        </a>
+      `;
+      launchConfetti();
+    } else {
+      const cartSlug = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || 'winkelwagen';
+      page.innerHTML = `
+        <div class="webshop-result-icon webshop-result-icon--cancel">⚠</div>
+        <h1>${Shop.t('cancel_title', 'Betaling geannuleerd')}</h1>
+        <p>${Shop.t('cancel_message', 'Uw bestelling is niet verwerkt. Uw winkelwagen is bewaard.')}</p>
+        <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap;">
+          <a href="/${lang}/${cartSlug}/" class="webshop-btn webshop-btn--primary">${Shop.t('return_to_cart', 'Terug naar winkelwagen')}</a>
+          <a href="/${lang}/" class="webshop-btn webshop-btn--outline">${Shop.t('continue_shopping', 'Verder winkelen')}</a>
+        </div>
+      `;
+    }
+  }
+
+  function launchConfetti() {
+    const container = document.getElementById('confetti-container');
+    if (!container) return;
+    const colors = ['#c8a96e', '#1a1714', '#f0e4cc', '#4a7c59', '#9b3a3a', '#ede9e3'];
+    for (let i = 0; i < 80; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.cssText = `
+        left: ${Math.random() * 100}%;
+        top: ${-Math.random() * 20}px;
+        background: ${colors[Math.floor(Math.random() * colors.length)]};
+        width: ${4 + Math.random() * 8}px;
+        height: ${4 + Math.random() * 8}px;
+        border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+        animation-duration: ${2 + Math.random() * 3}s;
+        animation-delay: ${Math.random() * 1.5}s;
+      `;
+      container.appendChild(el);
+      el.addEventListener('animationend', () => el.remove());
+    }
+  }
+
+  if (typeof Shop !== 'undefined') {
+    Shop.loadLang().then(render);
+  } else {
+    document.addEventListener('webshop:ready', () => {
+      Shop.loadLang().then(render);
+    });
+  }
+})();
+</script>
