@@ -623,6 +623,7 @@ var Shop = (() => {
       }).join("")}</div>`;
     }
 
+<<<<<<< HEAD
     // Build addons/related HTML directly (same way as variants)
     let relatedStripHtml = "";
     if (showAddons && p.addons?.length) {
@@ -666,6 +667,8 @@ var Shop = (() => {
       }
     }
 
+=======
+>>>>>>> parent of 3f5e95f (Update shop.js)
     // Build a lang-aware product URL — ignore p.url which is hardcoded to /en/
     const lang    = CONFIG.language || resolveLanguage();
     const base    = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || CONFIG.data?.basePath || '/';
@@ -697,7 +700,11 @@ var Shop = (() => {
         <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>
+<<<<<<< HEAD
         ${relatedStripHtml}
+=======
+        ${(showRelated || showAddons) ? buildRelatedStrip(p, "card", options) : ""}
+>>>>>>> parent of 3f5e95f (Update shop.js)
       </div>`;
   }
 
@@ -921,9 +928,15 @@ var Shop = (() => {
       };
       products.forEach(p => {
         const card = document.createElement("div"); card.className = "webshop-product-card"; card.dataset.cat = p.category || ""; card.dataset.productId = p.id;
+<<<<<<< HEAD
         card.innerHTML = buildProductCard(p, cardOptions);
         grid.appendChild(card);
         wireProductCard(card, p, cardOptions);
+=======
+        card.innerHTML = buildProductCard(p, { showVariants: true, showRelated: true, showAddons: true });
+        grid.appendChild(card); 
+        wireProductCard(card, p, { showVariants: true, showRelated: true, showAddons: true });
+>>>>>>> parent of 3f5e95f (Update shop.js)
       });
     }
     buildGrid();
