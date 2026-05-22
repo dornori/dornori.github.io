@@ -17,7 +17,7 @@
 
         <div id="sf-loading" class="sf-loading">
             <i class="fas fa-spinner fa-spin" style="font-size:1.75rem;color:var(--accent)"></i>
-            <p style="margin-top:.75rem" id="loading-text">Loading…</p>
+            <p style="margin-top:.75rem" id="loading-text"></p>
         </div>
 
         <div id="sf-s1" class="sf-hidden">
@@ -38,34 +38,33 @@
             <div class="sf-grid2">
                 <div class="sf-field">
                     <label class="sf-label" for="sf-name" id="label-name"></label>
-                    <input id="sf-name" type="text" class="sf-input" autocomplete="name" maxlength="120" required>
+                    <input id="sf-name" type="text" class="sf-input" autocomplete="name" maxlength="120">
                     <span class="sf-field-error" id="sf-name-err"></span>
                 </div>
                 <div class="sf-field">
                     <label class="sf-label" for="sf-email" id="label-email"></label>
-                    <input id="sf-email" type="email" class="sf-input" autocomplete="email" maxlength="254" required>
+                    <input id="sf-email" type="email" class="sf-input" autocomplete="email" maxlength="254">
                     <span class="sf-field-error" id="sf-email-err"></span>
                 </div>
             </div>
 
             <div class="sf-field">
                 <label class="sf-label" for="sf-order" id="label-order"></label>
-                <input id="sf-order" type="text" class="sf-input" maxlength="30" placeholder="e.g. LM-xxxxxx or 100234" required>
+                <input id="sf-order" type="text" class="sf-input" maxlength="30" placeholder="" id="sf-order-placeholder">
                 <span class="sf-field-error" id="sf-order-err"></span>
-                <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;">You can find this in your order confirmation email</small>
+                <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;" id="order-help-text"></small>
             </div>
 
-            <!-- Simple Summary Table -->
             <div class="sf-field" id="sf-summary-container" style="display:none;">
-                <label class="sf-label" id="label-summary-table">Issue Summary</label>
+                <label class="sf-label" id="label-summary-table"></label>
                 <div id="sf-summary-table" style="width:100%;margin-top:8px;"></div>
             </div>
 
             <div class="sf-field">
                 <label class="sf-label" id="label-comments"></label>
-                <textarea id="sf-desc" rows="6" class="sf-input" style="resize:vertical;font-family:monospace;font-size:0.85rem;line-height:1.5;" maxlength="2000" placeholder=""></textarea>
-                <div id="sf-char-counter" class="sf-char-counter">0 / 2000 characters</div>
-                <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;">Each line will become a separate entry in the support ticket.</small>
+                <textarea id="sf-desc" rows="6" class="sf-input" style="resize:vertical;font-family:monospace;font-size:0.85rem;line-height:1.5;" maxlength="2000"></textarea>
+                <div id="sf-char-counter" class="sf-char-counter">0 / 2000</div>
+                <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;" id="comments-help-text"></small>
                 <span class="sf-field-error" id="sf-desc-err"></span>
             </div>
 
@@ -83,7 +82,6 @@
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 
 <style>
-/* Support form submit button - dynamic styling */
 .sf-submit {
     width: 100%;
     background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #000000 30%));
@@ -138,7 +136,6 @@
     margin-top: 4px;
     color: var(--text-muted);
 }
-/* Simple summary table styles */
 .summary-table {
     width: 100%;
     border-collapse: collapse;
@@ -161,7 +158,7 @@
 </style>
 
 <script>
-// ==================== CONFIG (from config.js) ====================
+// ==================== CONFIG ====================
 const TURNSTILE_SITE_KEY = (window.CONFIG && window.CONFIG.turnstile && window.CONFIG.turnstile.sitekey) 
     ? window.CONFIG.turnstile.sitekey : '1x00000000000000000000AA';
 
@@ -195,9 +192,7 @@ function generateReferenceNumber() {
 
 function stripHtml(str) {
     if (typeof str !== 'string') return '';
-    let clean = str.replace(/<[^>]*>/g, '');
-    return clean.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-                .replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&nbsp;/g, ' ').trim();
+    return str.replace(/<[^>]*>/g, '').trim();
 }
 
 function isValidEmail(email) {
@@ -215,65 +210,25 @@ function escapeHtml(str) {
 }
 
 function formatSummaryTable(answersArray) {
-    if (!answersArray || answersArray.length === 0) {
-        return '';
-    }
-    
-    let tableHtml = '<table class="summary-table">';
-    
+    if (!answersArray || answersArray.length === 0) return '';
+    let html = '<table class="summary-table">';
     answersArray.forEach((item, idx) => {
-        const stepNum = idx + 1;
-        const summary = escapeHtml(item.summary || item.answer);
-        
-        tableHtml += `<tr>`;
-        tableHtml += `<td class="step-number">${stepNum}</td>`;
-        tableHtml += `<td class="summary-text">${summary}</td>`;
-        tableHtml += `</tr>`;
+        html += `<tr><td class="step-number">${idx + 1}</td><td class="summary-text">${escapeHtml(item.summary || item.answer)}</td></tr>`;
     });
-    
-    tableHtml += '</table>';
-    return tableHtml;
+    html += '</table>';
+    return html;
 }
 
 function formatSummaryForEmail(answersArray) {
-    if (!answersArray || answersArray.length === 0) {
-        return '   No troubleshooting steps recorded.';
-    }
-    
-    let emailText = '';
-    answersArray.forEach((item, idx) => {
-        const stepNum = idx + 1;
-        const summary = item.summary || item.answer;
-        emailText += `   ${stepNum}. ${summary}\n`;
-    });
-    
-    return emailText;
+    if (!answersArray || answersArray.length === 0) return '   ' + (formData.noStepsText || 'No troubleshooting steps recorded.');
+    return answersArray.map((item, idx) => `   ${idx + 1}. ${item.summary || item.answer}`).join('\n');
 }
 
 function formatAdditionalCommentsForEmail(comments) {
-    if (!comments || comments.trim() === '') {
-        return '   No additional comments provided.';
-    }
-    
-    // Split by line breaks and format each line as a separate numbered entry
-    const lines = comments.split(/\r?\n/);
-    let formattedLines = '';
-    let lineCounter = 0;
-    
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmedLine = line.trim();
-        
-        if (trimmedLine !== '') {
-            lineCounter++;
-            formattedLines += `   ${lineCounter}. ${trimmedLine}\n`;
-        } else if (line === '' && i > 0 && i < lines.length - 1) {
-            // Empty line - add a blank line indicator
-            formattedLines += `   \n`;
-        }
-    }
-    
-    return formattedLines || '   No additional comments provided.';
+    if (!comments || comments.trim() === '') return '   ' + (formData.noCommentsText || 'No additional comments provided.');
+    const lines = comments.split(/\r?\n/).filter(line => line.trim());
+    if (lines.length === 0) return '   ' + (formData.noCommentsText || 'No additional comments provided.');
+    return lines.map((line, idx) => `   ${idx + 1}. ${line.trim()}`).join('\n');
 }
 
 function showToast(msg, ms = 3000) {
@@ -301,21 +256,15 @@ function showSuccessMessage(message, referenceNumber) {
             <i class="fas fa-check-circle" style="font-size:4rem;color:#10b981;margin-bottom:1rem;"></i>
             <h3 style="font-size:1.5rem;margin-bottom:1rem;color:var(--text);">${escapeHtml(formData.successTitle || 'Thank You!')}</h3>
             <div class="sf-ref-number" style="font-size:1.2rem;font-weight:700;color:var(--accent);margin:1rem 0;letter-spacing:1px;"><i class="fas fa-ticket-alt"></i> REF: ${escapeHtml(referenceNumber)}</div>
-            <p style="color:var(--text-muted);margin-bottom:0.75rem;line-height:1.6;">${escapeHtml(message || formData.successMessage2 || 'Your support request has been submitted successfully. Our team will contact you within 24 hours.')}</p>
-            <p style="font-size: 0.85rem; margin-top: 1rem;color:var(--text-muted);">Please save this reference number for future inquiries.</p>
+            <p style="color:var(--text-muted);margin-bottom:0.75rem;line-height:1.6;">${escapeHtml(message)}</p>
+            <p style="font-size: 0.85rem; margin-top: 1rem;color:var(--text-muted);">${escapeHtml(formData.saveReferenceText || 'Please save this reference number for future inquiries.')}</p>
         </div>
     `;
     body.innerHTML = successHtml;
-    
-    setTimeout(function() {
-        window.scrollTo(0, 0);
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
-    }, 10);
+    setTimeout(() => { window.scrollTo(0, 0); }, 10);
 }
 
 async function loadFormData() {
-    console.log(`Loading form.json from: ${formJsonPath}`);
     try {
         const res = await fetch(formJsonPath, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -328,18 +277,19 @@ async function loadFormData() {
 }
 
 function populateUI() {
-    document.getElementById('sf-title').textContent = formData.title || "Dornori Support";
+    // Set all text from language file
+    document.getElementById('sf-title').textContent = formData.title || "Support";
     document.getElementById('sf-subtitle').textContent = formData.subtitle || "We're here to help";
     document.getElementById('avg-resolution').textContent = formData.avgResolution || "Avg. resolution 2 min";
     document.getElementById('select-issue').textContent = formData.selectIssue || "Select your issue";
-    document.getElementById('most-issues').textContent = formData.mostIssuesResolved || "Most issues resolved in under 2 minutes";
+    document.getElementById('most-issues').textContent = formData.mostIssuesResolved || "Most issues resolved quickly";
     document.getElementById('need-help').textContent = formData.needHumanHelp || "Need human help?";
-    document.getElementById('response-time').textContent = formData.responseTime || "Our support team responds within 4 hours (Mon–Fri).";
+    document.getElementById('response-time').textContent = formData.responseTime || "Our support team responds within 4 hours.";
     document.getElementById('loading-text').textContent = formData.loading || "Loading…";
     document.getElementById('sf-submit').textContent = formData.submitButton || "Submit";
     
-    const turnstileErrMsg = document.getElementById('sf-turnstile-err');
-    if (turnstileErrMsg) turnstileErrMsg.textContent = formData.turnstileError || "Please complete the security check.";
+    const turnstileErr = document.getElementById('sf-turnstile-err');
+    if (turnstileErr) turnstileErr.textContent = formData.turnstileError || "Please complete the security check.";
     
     const labelName = document.getElementById('label-name');
     if (labelName) labelName.innerHTML = `${formData.fullName || "Full name"} <span style="color:#ef4444">*</span>`;
@@ -350,18 +300,27 @@ function populateUI() {
     const labelOrder = document.getElementById('label-order');
     if (labelOrder) labelOrder.innerHTML = `${formData.orderNumber || "Order number"} <span style="color:#ef4444">*</span>`;
     
+    const orderPlaceholder = document.getElementById('sf-order-placeholder');
+    if (orderPlaceholder) orderPlaceholder.placeholder = formData.orderPlaceholder || "e.g. LM-xxxxxx or 100234";
+    
+    const orderHelpText = document.getElementById('order-help-text');
+    if (orderHelpText) orderHelpText.textContent = formData.orderHelpText || "You can find this in your order confirmation email";
+    
     const labelSummaryTable = document.getElementById('label-summary-table');
     if (labelSummaryTable) labelSummaryTable.textContent = formData.summaryLabel || "Issue Summary";
     
     const maxChars = formData.maxCommentsChars || 2000;
     const labelComments = document.getElementById('label-comments');
-    if (labelComments) labelComments.innerHTML = `${formData.additionalComments || "Additional Comments"} <span style="color:var(--text-muted);font-weight:400;">(optional, max ${maxChars} characters)</span>`;
+    if (labelComments) labelComments.innerHTML = `${formData.additionalComments || "Additional comments"} <span style="color:var(--text-muted);font-weight:400;">(${formData.optionalLabel || "optional"}, max ${maxChars})</span>`;
     
     const descField = document.getElementById('sf-desc');
     if (descField) {
-        descField.placeholder = "Please describe your issue in detail.\nEach line will become a separate entry in the support ticket.\n\nExample:\nThe package arrived damaged\nThe box was crushed on one side\nThe inner product has a scratch";
+        descField.placeholder = formData.commentsPlaceholder || "Each line becomes a separate entry in the ticket.";
         descField.maxLength = maxChars;
     }
+    
+    const commentsHelpText = document.getElementById('comments-help-text');
+    if (commentsHelpText) commentsHelpText.textContent = formData.commentsHelpText || "Each line will become a separate numbered entry in the support ticket.";
     
     initCharCounter(maxChars);
 
@@ -379,30 +338,24 @@ function populateUI() {
 
     const loadingEl = document.getElementById('sf-loading');
     if (loadingEl) loadingEl.style.display = 'none';
-    
     const s1El = document.getElementById('sf-s1');
     if (s1El) s1El.classList.remove('sf-hidden');
     
-    updateProgress(5, formData.step1 || "Step 1: Choose category");
+    updateProgress(5, formData.step1Label || "Step 1: Choose category");
 }
 
 function initCharCounter(maxChars) {
     const textarea = document.getElementById('sf-desc');
     const counterDiv = document.getElementById('sf-char-counter');
     if (!textarea || !counterDiv) return;
-    
     const updateCounter = () => {
         const current = textarea.value.length;
         const remaining = maxChars - current;
-        counterDiv.textContent = `${current} / ${maxChars} characters`;
+        counterDiv.textContent = `${current} / ${maxChars}`;
         counterDiv.classList.remove('warning', 'danger');
-        if (remaining < 50) {
-            counterDiv.classList.add('danger');
-        } else if (remaining < 200) {
-            counterDiv.classList.add('warning');
-        }
+        if (remaining < 50) counterDiv.classList.add('danger');
+        else if (remaining < 200) counterDiv.classList.add('warning');
     };
-    
     textarea.addEventListener('input', updateCounter);
     updateCounter();
 }
@@ -418,7 +371,6 @@ function startCategory(cat) {
     currentCategory = cat;
     answers = [];
     questionStack = [];
-    
     if (cat.questions && cat.questions.length > 0) {
         currentQuestionId = cat.questions[0].id;
         showQuestionById(currentQuestionId);
@@ -434,98 +386,69 @@ function findQuestion(questionId) {
 
 function showQuestionById(questionId) {
     const question = findQuestion(questionId);
-    if (!question) {
-        showContactForm();
-        return;
-    }
+    if (!question) { showContactForm(); return; }
     
-    let html = `<div class="sf-q-label" style="font-size:.8rem;color:var(--accent);margin-bottom:.5rem;"><i class="fas fa-question-circle"></i> Troubleshooting</div>`;
+    let html = `<div class="sf-q-label" style="font-size:.8rem;color:var(--accent);margin-bottom:.5rem;"><i class="fas fa-question-circle"></i> ${formData.troubleshootingLabel || "Troubleshooting"}</div>`;
     html += `<div class="sf-q-text" style="font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:1.25rem;">${escapeHtml(question.text)}</div>`;
 
     question.options.forEach((opt, idx) => {
-        html += `<button class="sf-opt" style="width:100%;text-align:left;padding:.9rem 1.2rem;border:1px solid var(--border);border-radius:.875rem;background:transparent;color:var(--text);cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:.95rem;margin-bottom:.6rem;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.background='color-mix(in srgb,var(--accent) 8%,transparent 92%)'" onmouseout="this.style.borderColor='var(--border)';this.style.background='transparent'" onclick="selectAnswer('${questionId}', ${idx})"><span>${escapeHtml(opt.text)}</span><i class="fas fa-arrow-right" style="color:var(--accent);flex-shrink:0;"></i></button>`;
+        html += `<button class="sf-opt" style="width:100%;text-align:left;padding:.9rem 1.2rem;border:1px solid var(--border);border-radius:.875rem;background:transparent;color:var(--text);cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:.95rem;margin-bottom:.6rem;" onclick="selectAnswer('${questionId}', ${idx})"><span>${escapeHtml(opt.text)}</span><i class="fas fa-arrow-right" style="color:var(--accent);flex-shrink:0;"></i></button>`;
     });
 
-    html += `<div style="margin-top:1rem"><button class="sf-reset" style="font-size:.82rem;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:9999px;padding:.35rem .9rem;cursor:pointer;transition:color .15s;" onclick="sfReset()"><i class="fas fa-undo-alt"></i> ${formData.startOver || "Start over"}</button></div>`;
+    html += `<div style="margin-top:1rem"><button class="sf-reset" style="font-size:.82rem;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:9999px;padding:.35rem .9rem;cursor:pointer;" onclick="sfReset()"><i class="fas fa-undo-alt"></i> ${formData.startOverLabel || "Start over"}</button></div>`;
 
     const s2El = document.getElementById('sf-s2');
     const s1El = document.getElementById('sf-s1');
     const s3El = document.getElementById('sf-s3');
-    
     if (s2El) s2El.innerHTML = html;
     if (s1El) s1El.classList.add('sf-hidden');
     if (s2El) s2El.classList.remove('sf-hidden');
     if (s3El) s3El.classList.add('sf-hidden');
-    
-    updateProgress(45, formData.step2 || "Step 2: Troubleshooting");
+    updateProgress(45, formData.step2Label || "Step 2: Troubleshooting");
 }
 
 window.selectAnswer = function(questionId, optionIndex) {
     const question = findQuestion(questionId);
     if (!question) return;
-    
     const opt = question.options[optionIndex];
-    
     answers.push({
         question: question.text,
         answer: opt.text,
         summary: opt.summary || opt.text
     });
-    
     const nextId = opt.next;
-    
     if (nextId === 'resolved_end') {
         const endpoint = formData.endpoints?.resolved_end;
-        if (endpoint) {
-            if (endpoint.type === 'redirect' && endpoint.redirect_url) {
-                showToast(endpoint.message || 'Issue resolved!', endpoint.delay_seconds * 1000 || 2000);
-                setTimeout(() => {
-                    window.location.href = endpoint.redirect_url;
-                }, (endpoint.delay_seconds || 2) * 1000);
-            } else {
-                showSuccessMessage(endpoint.message || 'Issue resolved! Thank you.', generateReferenceNumber());
-            }
+        if (endpoint && endpoint.type === 'redirect' && endpoint.redirect_url) {
+            showToast(endpoint.message || 'Issue resolved!', (endpoint.delay_seconds || 2) * 1000);
+            setTimeout(() => { window.location.href = endpoint.redirect_url; }, (endpoint.delay_seconds || 2) * 1000);
         } else {
-            showSuccessMessage('Issue resolved! Thank you.', generateReferenceNumber());
+            showSuccessMessage(endpoint?.message || 'Issue resolved! Thank you.', generateReferenceNumber());
         }
         return;
     }
-    
-    if (nextId === 'contact') {
-        showContactForm();
-        return;
-    }
-    
+    if (nextId === 'contact') { showContactForm(); return; }
     const nextQuestion = findQuestion(nextId);
-    if (nextQuestion) {
-        currentQuestionId = nextId;
-        showQuestionById(nextId);
-    } else {
-        showContactForm();
-    }
+    if (nextQuestion) { currentQuestionId = nextId; showQuestionById(nextId); }
+    else { showContactForm(); }
 };
 
 function showContactForm() {
     const summaryHtml = formatSummaryTable(answers);
     const summaryContainer = document.getElementById('sf-summary-container');
     const summaryTableDiv = document.getElementById('sf-summary-table');
-    
     if (answers.length > 0 && summaryContainer && summaryTableDiv) {
         summaryTableDiv.innerHTML = summaryHtml;
         summaryContainer.style.display = 'block';
-    } else if (summaryContainer) {
-        summaryContainer.style.display = 'none';
-    }
+    } else if (summaryContainer) { summaryContainer.style.display = 'none'; }
     
     const s1El = document.getElementById('sf-s1');
     const s2El = document.getElementById('sf-s2');
     const s3El = document.getElementById('sf-s3');
-    
     if (s1El) s1El.classList.add('sf-hidden');
     if (s2El) s2El.classList.add('sf-hidden');
     if (s3El) s3El.classList.remove('sf-hidden');
-    
-    updateProgress(85, formData.step3 || "Step 3: Contact support");
+    updateProgress(85, formData.step3Label || "Step 3: Contact support");
     initTurnstile();
 }
 
@@ -537,10 +460,7 @@ function initTurnstile() {
         window.turnstile.reset(turnstileWidgetId);
         return;
     }
-    if (!window.turnstile) {
-        setTimeout(initTurnstile, 200);
-        return;
-    }
+    if (!window.turnstile) { setTimeout(initTurnstile, 200); return; }
     turnstileToken = null;
     turnstileWidgetId = window.turnstile.render(container, {
         sitekey: TURNSTILE_SITE_KEY,
@@ -567,11 +487,15 @@ function setFieldError(inputId, errorId, message) {
 
 function validateForm() {
     let hasError = false;
-    const name = stripHtml(document.getElementById('sf-name')?.value || '').slice(0, 120);
-    const email = stripHtml(document.getElementById('sf-email')?.value || '').slice(0, 254);
-    const order = stripHtml(document.getElementById('sf-order')?.value || '').slice(0, 30);
+    const name = stripHtml(document.getElementById('sf-name')?.value || '');
+    const email = stripHtml(document.getElementById('sf-email')?.value || '');
+    const order = stripHtml(document.getElementById('sf-order')?.value || '');
 
-    hasError = setFieldError('sf-name', 'sf-name-err', name ? '' : (formData.fullNameRequired || 'Full name is required.')) || hasError;
+    if (!name) {
+        hasError = setFieldError('sf-name', 'sf-name-err', formData.fullNameRequired || 'Full name is required.') || hasError;
+    } else {
+        setFieldError('sf-name', 'sf-name-err', '');
+    }
     
     let emailError = '';
     if (!email) {
@@ -579,7 +503,11 @@ function validateForm() {
     } else if (!isValidEmail(email)) {
         emailError = formData.emailInvalid || 'Please enter a valid email address.';
     }
-    hasError = setFieldError('sf-email', 'sf-email-err', emailError) || hasError;
+    if (emailError) {
+        hasError = setFieldError('sf-email', 'sf-email-err', emailError) || hasError;
+    } else {
+        setFieldError('sf-email', 'sf-email-err', '');
+    }
     
     let orderError = '';
     if (!order) {
@@ -587,7 +515,11 @@ function validateForm() {
     } else if (!isValidOrderNumber(order)) {
         orderError = formData.orderDigitsOnly || 'Order number can contain letters, numbers, and hyphens only.';
     }
-    hasError = setFieldError('sf-order', 'sf-order-err', orderError) || hasError;
+    if (orderError) {
+        hasError = setFieldError('sf-order', 'sf-order-err', orderError) || hasError;
+    } else {
+        setFieldError('sf-order', 'sf-order-err', '');
+    }
 
     const turnstileErr = document.getElementById('sf-turnstile-err');
     if (!turnstileToken) {
@@ -597,15 +529,7 @@ function validateForm() {
         if (turnstileErr) turnstileErr.classList.add('sf-hidden');
     }
     
-    return { 
-        valid: !hasError, 
-        sanitised: { 
-            name, 
-            email, 
-            order, 
-            comments: document.getElementById('sf-desc')?.value || '' 
-        } 
-    };
+    return { valid: !hasError, sanitised: { name, email, order, comments: document.getElementById('sf-desc')?.value || '' } };
 }
 
 async function sendSupportRequest() {
@@ -618,18 +542,11 @@ async function sendSupportRequest() {
     const referenceNumber = generateReferenceNumber();
     const submitBtn = document.getElementById('sf-submit');
     const originalText = submitBtn?.textContent || 'Submit';
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = formData.sendingText || 'Sending...';
-    }
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = formData.sendingText || 'Sending...'; }
 
-    // Format summary for email (simple numbered list)
     const summaryEmail = formatSummaryForEmail(answers);
-    
-    // Format additional comments - each line becomes its own numbered entry
     const formattedComments = formatAdditionalCommentsForEmail(sanitised.comments);
     
-    // Build email-friendly message body with clean structure
     const messageBody = `========================================
 SUPPORT REQUEST - ${referenceNumber}
 ========================================
@@ -644,9 +561,11 @@ Category: ${currentCategory?.title || 'General'}
 ISSUE SUMMARY
 ------------
 ${summaryEmail}
+
 ADDITIONAL COMMENTS
 ------------------
 ${formattedComments}
+
 ========================================
 Submitted: ${new Date().toLocaleString()}
 User Agent: ${navigator.userAgent}
@@ -671,11 +590,11 @@ User Agent: ${navigator.userAgent}
         const response = await fetch(workerUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload, null, 2)
+            body: JSON.stringify(payload)
         });
         
         if (response.ok) {
-            if (redirectUrl && redirectUrl.trim() !== '') {
+            if (redirectUrl && redirectUrl.trim()) {
                 window.location.href = redirectUrl;
             } else {
                 const contactEndpoint = formData.endpoints?.contact;
@@ -683,22 +602,14 @@ User Agent: ${navigator.userAgent}
                 showSuccessMessage(successMessage, referenceNumber);
             }
         } else {
-            let errorMsg = 'Server error';
-            try {
-                const result = await response.json();
-                errorMsg = result.error || errorMsg;
-            } catch(e) {}
-            throw new Error(errorMsg);
+            throw new Error('Server error');
         }
     } catch (err) {
         console.error(err);
-        showToast(`Submission failed: ${err.message}. Please try again.`, 5000);
+        showToast(`${formData.submissionErrorText || 'Submission failed'}: ${err.message}. ${formData.retryText || 'Please try again.'}`, 5000);
         if (turnstileWidgetId && window.turnstile) window.turnstile.reset(turnstileWidgetId);
         turnstileToken = null;
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
-        }
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalText; }
     }
 }
 
@@ -712,19 +623,16 @@ window.sfReset = function() {
     const s2El = document.getElementById('sf-s2');
     const s3El = document.getElementById('sf-s3');
     const summaryContainer = document.getElementById('sf-summary-container');
-    
     if (s1El) s1El.classList.remove('sf-hidden');
     if (s2El) s2El.classList.add('sf-hidden');
     if (s3El) s3El.classList.add('sf-hidden');
     if (summaryContainer) summaryContainer.style.display = 'none';
-    
-    updateProgress(5, "Step 1: Choose category");
+    updateProgress(5, formData.step1Label || "Step 1: Choose category");
     
     const nameField = document.getElementById('sf-name');
     const emailField = document.getElementById('sf-email');
     const orderField = document.getElementById('sf-order');
     const descField = document.getElementById('sf-desc');
-    
     if (nameField) nameField.value = '';
     if (emailField) emailField.value = '';
     if (orderField) orderField.value = '';
@@ -734,39 +642,22 @@ window.sfReset = function() {
         const errEl = document.getElementById(id);
         if (errEl) errEl.textContent = '';
     });
-    
     ['sf-name', 'sf-email', 'sf-order', 'sf-desc'].forEach(id => {
         const input = document.getElementById(id);
         if (input) input.classList.remove('sf-input-error');
     });
-    
     turnstileToken = null;
-    if (turnstileWidgetId && window.turnstile) {
-        window.turnstile.reset(turnstileWidgetId);
-    }
-    
-    showToast('Session reset', 1500);
+    if (turnstileWidgetId && window.turnstile) window.turnstile.reset(turnstileWidgetId);
+    showToast(formData.resetText || 'Session reset', 1500);
 };
 
-// Event listeners
-document.addEventListener('click', e => {
-    if (e.target.closest('#sf-submit')) {
-        e.preventDefault();
-        sendSupportRequest();
-    }
-});
+document.addEventListener('click', e => { if (e.target.closest('#sf-submit')) { e.preventDefault(); sendSupportRequest(); } });
 
-// Order number input - allow letters, numbers, hyphens, underscores
 const orderInput = document.getElementById('sf-order');
 if (orderInput) {
-    orderInput.addEventListener('input', function(e) {
-        this.value = this.value.replace(/[^A-Za-z0-9\-_]/g, '');
-    });
+    orderInput.addEventListener('input', function(e) { this.value = this.value.replace(/[^A-Za-z0-9\-_]/g, ''); });
 }
 
-// Load the form data
 loadFormData();
-
-// Initial scroll to top
 window.scrollTo(0, 0);
 </script>
