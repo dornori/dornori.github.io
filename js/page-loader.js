@@ -302,7 +302,11 @@ export function initPageLoader() {
             pageContent.querySelectorAll('script').forEach(orig => {
                 const s = document.createElement('script');
                 [...orig.attributes].forEach(a => s.setAttribute(a.name, a.value));
-                if (!orig.src) s.textContent = orig.textContent;
+                if (!orig.src) {
+                    // Wrap inline scripts in IIFE to scope const/let declarations
+                    // Prevents "Identifier already declared" errors on re-navigation
+                    s.textContent = `(function(){${orig.textContent}})();`;
+                }
                 orig.replaceWith(s);
             });
 

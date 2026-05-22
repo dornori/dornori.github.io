@@ -161,7 +161,7 @@ export async function mountShopEmbeds(container) {
       const discountedPrice = discountPercent > 0 ? originalPrice * (1 - discountPercent / 100) : originalPrice;
       
       // Update main price displays
-      const priceEls = card.querySelectorAll('.webshop-card-price');
+      const priceEls = card.querySelectorAll('.webshop-card-price:not(.webshop-card-price--original)');
       const originalPriceEls = card.querySelectorAll('.webshop-card-price--original');
       
       if (discountPercent > 0 && originalPriceEls.length >= 1 && priceEls.length >= 1) {
