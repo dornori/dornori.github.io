@@ -63,8 +63,9 @@
 
             <div class="sf-field">
                 <label class="sf-label" id="label-comments"></label>
-                <textarea id="sf-desc" rows="4" class="sf-input" style="resize:vertical;font-family:monospace;font-size:0.85rem;" maxlength="2000" placeholder=""></textarea>
+                <textarea id="sf-desc" rows="6" class="sf-input" style="resize:vertical;font-family:monospace;font-size:0.85rem;line-height:1.5;" maxlength="2000" placeholder=""></textarea>
                 <div id="sf-char-counter" class="sf-char-counter">0 / 2000 characters</div>
+                <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;">Each line will become a separate entry in the support ticket.</small>
                 <span class="sf-field-error" id="sf-desc-err"></span>
             </div>
 
@@ -236,7 +237,7 @@ function formatSummaryTable(answersArray) {
 
 function formatSummaryForEmail(answersArray) {
     if (!answersArray || answersArray.length === 0) {
-        return 'No troubleshooting steps recorded.';
+        return '   No troubleshooting steps recorded.';
     }
     
     let emailText = '';
@@ -251,9 +252,28 @@ function formatSummaryForEmail(answersArray) {
 
 function formatAdditionalCommentsForEmail(comments) {
     if (!comments || comments.trim() === '') {
-        return 'No additional comments provided.';
+        return '   No additional comments provided.';
     }
-    return comments.trim();
+    
+    // Split by line breaks and format each line as a separate numbered entry
+    const lines = comments.split(/\r?\n/);
+    let formattedLines = '';
+    let lineCounter = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmedLine = line.trim();
+        
+        if (trimmedLine !== '') {
+            lineCounter++;
+            formattedLines += `   ${lineCounter}. ${trimmedLine}\n`;
+        } else if (line === '' && i > 0 && i < lines.length - 1) {
+            // Empty line - add a blank line indicator
+            formattedLines += `   \n`;
+        }
+    }
+    
+    return formattedLines || '   No additional comments provided.';
 }
 
 function showToast(msg, ms = 3000) {
@@ -339,7 +359,7 @@ function populateUI() {
     
     const descField = document.getElementById('sf-desc');
     if (descField) {
-        descField.placeholder = formData.commentsPlaceholder || "Please describe your issue in detail. Use line breaks to organize your thoughts...";
+        descField.placeholder = "Please describe your issue in detail.\nEach line will become a separate entry in the support ticket.\n\nExample:\nThe package arrived damaged\nThe box was crushed on one side\nThe inner product has a scratch";
         descField.maxLength = maxChars;
     }
     
@@ -606,7 +626,7 @@ async function sendSupportRequest() {
     // Format summary for email (simple numbered list)
     const summaryEmail = formatSummaryForEmail(answers);
     
-    // Format additional comments preserving line breaks
+    // Format additional comments - each line becomes its own numbered entry
     const formattedComments = formatAdditionalCommentsForEmail(sanitised.comments);
     
     // Build email-friendly message body with clean structure
@@ -624,11 +644,9 @@ Category: ${currentCategory?.title || 'General'}
 ISSUE SUMMARY
 ------------
 ${summaryEmail}
-
 ADDITIONAL COMMENTS
 ------------------
 ${formattedComments}
-
 ========================================
 Submitted: ${new Date().toLocaleString()}
 User Agent: ${navigator.userAgent}
