@@ -15,7 +15,7 @@ var Shop = (() => {
   let _langLoadPromise = null;
   let _products = {};
 
-  /* ═══════════════════════════════════════════════════════
+  /* ═══════════════════════════════════════════════════════ 
      LANGUAGE RESOLUTION
   ═══════════════════════════════════════════════════════ */
   function detectBrowserLanguage() {
@@ -623,7 +623,7 @@ var Shop = (() => {
       }).join("")}</div>`;
     }
 
-<<<<<<< HEAD
+
     // Build addons/related HTML directly (same way as variants)
     let relatedStripHtml = "";
     if (showAddons && p.addons?.length) {
@@ -700,7 +700,7 @@ var Shop = (() => {
         <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>
-<<<<<<< HEAD
+
         ${relatedStripHtml}
 =======
         ${(showRelated || showAddons) ? buildRelatedStrip(p, "card", options) : ""}
@@ -893,8 +893,7 @@ var Shop = (() => {
       };
       products.forEach(p => {
         const card = document.createElement("div"); card.className = "webshop-product-card"; card.dataset.cat = p.category || ""; card.dataset.productId = p.id;
-<<<<<<< HEAD
-<<<<<<< HEAD
+
         card.innerHTML = buildProductCard(p, cardOptions);
         grid.appendChild(card);
         wireProductCard(card, p, cardOptions);
@@ -913,16 +912,23 @@ var Shop = (() => {
     }
     buildGrid();
 >>>>>>> parent of e1e5a6b (Update shop.js)
+=======
+        card.innerHTML = buildProductCard(p); grid.appendChild(card); wireProductCard(card, p);
+      });
+    }
+    buildGrid();
+>>>>>>> parent of e1e5a6b (Update shop.js)
     const onLangChange = async () => {
       products = await loadProducts();
       buildGrid();
     };
-<<<<<<< HEAD
 
     // NOTE: individual cards already handle currency:changed via wireProductCard.
     // A second listener here would trigger each card's refresh twice — do not add one.
 
 =======
+=======
+>>>>>>> parent of e1e5a6b (Update shop.js)
     const onCurrencyChange = () => {
       container.querySelectorAll(".webshop-product-card").forEach(card => {
         // Prefer the stored refresh fn (set by wireProductCard) so variant state is respected
@@ -955,7 +961,6 @@ var Shop = (() => {
         }
       });
     };
->>>>>>> parent of e1e5a6b (Update shop.js)
     document.addEventListener("shop:langChanged", onLangChange);
   }
 
