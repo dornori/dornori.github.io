@@ -1,5 +1,5 @@
 /* =========================================================
-   WEBSHOP SHOP ENGINE  –  shop.js  (v7 - fixed addons/related rendering, language override logic)
+   WEBSHOP SHOP ENGINE  –  shop.js  (v6 - portable grid flags, currency/discount fix)
    =========================================================
    Language file structure:
      lang/{lang}/common.json   — UI strings, slugs, profiles
@@ -291,23 +291,11 @@ var Shop = (() => {
     // 2. Try to overlay language-specific overrides
     if (lang && langDir) {
       const langProducts = await safeFetch(langDir + lang + '/products.json');
-      if (langProducts && Array.isArray(langProducts) && Array.isArray(all)) {
+      if (langProducts && Array.isArray(all)) {
         all = all.map(p => {
-          const override = langProducts.find(op => op && op.id === p.id);
+          const override = langProducts[p.id];
           if (override) {
-            // Merge: override text fields but preserve structural fields (variants, addons, related, etc)
-            const merged = { ...p };
-            Object.entries(override).forEach(([key, val]) => {
-              // Always apply overrides for text/translation fields
-              if (val != null) {
-                merged[key] = val;
-              }
-            });
-            // Ensure structural fields are from base if not explicitly overridden
-            if (!override.variants) merged.variants = p.variants;
-            if (!override.addons) merged.addons = p.addons;
-            if (!override.related) merged.related = p.related;
-            return merged;
+            return { ...p, ...override };
           }
           return p;
         });

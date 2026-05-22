@@ -1,5 +1,5 @@
 /**
- * shop-loader.js (v7 - fixed addon/related data attributes, ensured product cache populated)
+ * shop-loader.js (v7 - simplified product embed loading, use Shop.getProduct directly)
  */
 
 import { loadScript } from './utils/script-loader.js';
@@ -135,11 +135,6 @@ export async function mountShopEmbeds(container) {
   // ── data-shop-products embeds WITH FEATURE FLAGS ─────────────────────────────
   const shopProductEls = container ? container.querySelectorAll('[data-shop-products]') : [];
   
-  // Ensure products are fully loaded into Shop's cache before processing embeds
-  if (shopProductEls.length > 0) {
-    await Shop.loadProducts();
-  }
-  
   for (const el of shopProductEls) {
     // Skip if already populated
     if (el.querySelector('.webshop-card-img')) continue;
@@ -154,41 +149,18 @@ export async function mountShopEmbeds(container) {
       showAddons: el.hasAttribute('data-addons')
     };
     
-    // Load all products once
-    const allProducts = await Shop.loadProducts();
-    const productMap = {};
-    allProducts.forEach(p => { productMap[p.id] = p; });
+    // Ensure Shop is ready and products are loaded
+    await Shop.loadProducts();
     
-    let product = null;
-    let preselectedVariantId = null;
-    
-    // Direct product ID match
-    if (productMap[slug]) {
-      product = productMap[slug];
-    } else if (slug.endsWith('-preassembled')) {
-      const variantId = slug.replace(/-preassembled$/, '');
-      const base = productMap['pre-assembled'];
-      if (base) {
-        product = base;
-        preselectedVariantId = variantId;
-      }
-    }
-    
+    // Get the product directly from Shop's internal cache
+    const product = await Shop.getProduct(slug);
     if (!product) continue;
-    
-    // Clone product if we need to preselect a variant
-    if (preselectedVariantId && product.variants) {
-      const variant = product.variants.find(v => v === preselectedVariantId);
-      if (variant) {
-        product = { ...product, variants: [variant] };
-      }
-    }
     
     const card = document.createElement('div');
     card.className = 'webshop-product-card';
     card.dataset.productId = product.id;
     
-    // PASS OPTIONS to buildProductCard
+    // PASS OPTIONS to buildProductCard - product should have addons/related/variants
     card.innerHTML = Shop.buildProductCard(product, options);
     el.appendChild(card);
     
