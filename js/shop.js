@@ -1,5 +1,5 @@
 /* =========================================================
-   WEBSHOP SHOP ENGINE  –  shop.js
+   WEBSHOP SHOP ENGINE  –  shop.js  (v5 - FIXED RELATED STRIP)
    =========================================================
    Language file structure:
      lang/{lang}/common.json   — UI strings, slugs, profiles
@@ -168,14 +168,17 @@ var Shop = (() => {
     const vKey = (variantId && !cartBase.match(/^mushroom-|^ufo-|^star-/)) ? variantId : (selectedColor || "");
     const key = cartBase + (vKey ? "_" + slugify(vKey) : "");
     const existing = cart.find(i => i.cartKey === key);
-    const price  = variantId ? variantPrice(product, variantId)  : product.price;
+    const rawPrice      = variantId ? variantPrice(product, variantId)    : product.price;
+    const discount      = variantId ? variantDiscount(product, variantId) : (product.discount || 0);
+    const price         = discount > 0 ? rawPrice * (1 - discount / 100) : rawPrice;
+    const originalPrice = discount > 0 ? rawPrice : null;
     const weight = variantId ? variantWeight(product, variantId) : (product.weight || 0);
     const image  = imageOverride || (variantId ? variantImage(product, variantId) : selectedColor ? colorImageSrc(product, selectedColor) : product.image);
     const label  = variantId ? variantLabel(product, variantId) : selectedColor;
     const maxQty = variantId ? variantStock(product, variantId) : (product.stock || 99);
     const resolvedName = pName(product) || product.name || product.id;
     if (existing) { existing.qty = Math.min(existing.qty + qty, maxQty || 99); }
-    else cart.push({ ...product, name: resolvedName, cartKey: key, qty, price, weight, image, selectedColor: label, variantId });
+    else cart.push({ ...product, name: resolvedName, cartKey: key, qty, price, originalPrice, discount, weight, image, selectedColor: label, variantId });
     saveCart(cart); return cart;
   }
   function removeFromCart(cartKey) { saveCart(getCart().filter(i => i.cartKey !== cartKey)); }
@@ -193,13 +196,19 @@ var Shop = (() => {
   /* ─── TOTALS ────────────────────────────────────────── */
   function calculateTotals(cart, isBusiness = false, countryCode = null) {
     const subtotal    = cart.reduce((a, i) => a + i.price * i.qty, 0);
+    const totalDiscount = cart.reduce((a, i) => {
+      if (i.originalPrice && i.discount > 0) {
+        return a + (i.originalPrice - i.price) * i.qty;
+      }
+      return a;
+    }, 0);
     const totalWeight = cart.reduce((a, i) => a + (i.weight || 0) * i.qty, 0);
     let cfg = { base: CONFIG.shipping.base, perKg: CONFIG.shipping.perKg, freeThreshold: CONFIG.shipping.freeThreshold, estimatedDays: CONFIG.shipping.estimatedDays };
     if (countryCode && typeof Shipping !== "undefined") cfg = Shipping.getRate(countryCode);
     const isFreeShipping = subtotal >= cfg.freeThreshold;
     const shipping       = isFreeShipping ? 0 : cfg.base + totalWeight * cfg.perKg;
     const tax            = isBusiness ? 0 : subtotal * CONFIG.taxRate;
-    return { subtotal, shipping, tax, total: subtotal + shipping + tax, totalWeight, isFreeShipping, estimatedDays: cfg.estimatedDays };
+    return { subtotal, shipping, tax, total: subtotal + shipping + tax, totalWeight, isFreeShipping, estimatedDays: cfg.estimatedDays, totalDiscount };
   }
 
   /* ─── LANG LOADER ───────────────────────────────────── */
@@ -298,40 +307,9 @@ var Shop = (() => {
   }
   
   async function getProduct(id) {
+    // Use cache if populated; otherwise load via loadProducts() to avoid duplicate fetches
     if (_products[id]) return _products[id];
-    await loadLang();
-    const lang = CONFIG.language || resolveLanguage();
-    const langDir = CONFIG.data.langDir || '';
-    
-    const safeFetch = url => fetch(url)
-      .then(r => { if (!r.ok) throw 0; return r.json(); })
-      .catch(() => null);
-    
-    // 1. Load base products
-    const src = CONFIG.data?.productsJson || "data/products.json";
-    let all = [];
-    try {
-      all = await fetch(src).then(r => { if (!r.ok) throw 0; return r.json(); });
-    } catch(e) {
-      console.warn('Failed to load base products from', src);
-      return null;
-    }
-    
-    // 2. Overlay language-specific overrides
-    if (lang && langDir) {
-      const langProducts = await safeFetch(langDir + lang + '/products.json');
-      if (langProducts && Array.isArray(all)) {
-        all = all.map(p => {
-          const override = langProducts[p.id];
-          if (override) {
-            return { ...p, ...override };
-          }
-          return p;
-        });
-      }
-    }
-    
-    all.forEach(p => { _products[p.id] = p; });
+    if (Object.keys(_products).length === 0) await loadProducts();
     return _products[id] || null;
   }
   function generateOrderRef() { return "LM-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(36).substr(2,5).toUpperCase(); }
@@ -372,7 +350,7 @@ var Shop = (() => {
       if (Currency.waitForReady) await Currency.waitForReady();
       const active = Currency.getActive();
       container.className = "profile-selector-wrap";
-      container.innerHTML = "CURRENCY " +
+      container.innerHTML = (window.T?.ui?.currency || LANG?.ui?.currency || 'CURRENCY') + ' ' +
         `<select class="profile-select" aria-label="Currency">
           ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
         </select>`;
@@ -381,6 +359,7 @@ var Shop = (() => {
     
     build();
     document.addEventListener("currency:changed", build);
+    document.addEventListener("shop:langChanged", build);
   }
 
   /* ─── LANGUAGE SWITCHER ─────────────────────────────── */
@@ -438,7 +417,7 @@ var Shop = (() => {
     const wrapper = document.createElement("a");
     wrapper.href = cartUrl;
     wrapper.className = "webshop-cart-icon";
-    wrapper.setAttribute("aria-label", "Shopping cart");
+    wrapper.setAttribute("aria-label", t("aria_shopping_cart", "Shopping cart"));
 	wrapper.innerHTML = `<img src="/assets/icons/cart-icon-200x200.svg" alt="" aria-hidden="true">
    <span class="webshop-cart-icon__badge" aria-live="polite">0</span>`;
 	
@@ -485,13 +464,14 @@ var Shop = (() => {
                   <div class="webshop-cart-hover-panel__info">
                     <span class="webshop-cart-hover-panel__name">${item.name}</span>
                     ${(item.selectedColor || item.label) ? `<span class="webshop-cart-hover-panel__name" style="font-size:.8em;opacity:.7;">${item.selectedColor || item.label}</span>` : ""}
-                    <span class="webshop-cart-hover-panel__qty">${item.qty} × ${fmt(item.price)}</span>
+                    <span class="webshop-cart-hover-panel__qty">${item.qty} × ${fmt(item.price)}${item.originalPrice ? ` <s style="opacity:.5;font-size:.85em;">${fmt(item.originalPrice)}</s> <span style="color:#cc0c39;font-size:.75em;font-weight:600;">-${item.discount}%</span>` : ""}</span>
                   </div>
                 </a>
                 <button class="webshop-cart-hover-panel__remove" data-key="${item.cartKey}" aria-label="${t("remove","Remove")}">✕</button>
               </li>`).join("")}
           </ul>
           <div class="webshop-cart-hover-panel__footer">
+            ${(() => { const s = cart.reduce((a,i) => a + (i.originalPrice ? (i.originalPrice - i.price) * i.qty : 0), 0); return s > 0 ? `<div class="webshop-cart-hover-panel__totals" style="color:#cc0c39;font-weight:600;"><span>${t("you_save","You save")}</span><span>-${fmt(s)}</span></div>` : ""; })()}
             <div class="webshop-cart-hover-panel__totals">
               <span>${t("subtotal","Subtotal")}</span><span>${fmt(subtotal)}</span>
             </div>
@@ -532,59 +512,71 @@ var Shop = (() => {
     return null;
   }
 
-  function buildRelatedStrip(product, context = "card") {
+  function buildRelatedStrip(product, context = "card", options = {}) {
     /* Check display flags - control what to show
-     * showAddons: true/false (default true) - show addons section
-     * showRelated: true/false (default true) - show related products section
+     * options.showAddons: true/false (default false) - show addons section
+     * options.showRelated: true/false (default false) - show related products section
      * 
-     * Examples:
-     * 1. Just product with variants (no addons/related): showAddons: false, showRelated: false
-     * 2. Product, variants and addons: showAddons: true, showRelated: false
-     * 3. Product and related: showAddons: false, showRelated: true
+     * FIXED: Now shows BOTH addons AND related when both flags are true
      */
-    const showAddons = product.showAddons !== false;
-    const showRelated = product.showRelated !== false;
+    const showAddons = options.showAddons === true;
+    const showRelated = options.showRelated === true;
     
-    /* Determine which items to display based on flags */
-    let ids = null;
-    let title = t("related_products", "You may also need");
+    let html = '';
     
+    // Show ADDONS section if flag is true AND product has addons
     if (showAddons && product.addons?.length) {
-      ids = product.addons;
-      title = t("addons", "Add-ons");
-    } else if (showRelated && product.related?.length) {
-      ids = product.related;
-      title = t("related_products", "Related Products");
+      const addonItems = product.addons.map(_resolveRelated).filter(Boolean);
+      if (addonItems.length) {
+        html += `<div class="webshop-related${context === "info" ? " webshop-related--info" : ""}">
+          <h4 class="webshop-related__title">${t("addons", "Add-ons")}</h4>
+          <div class="webshop-related__list">
+            ${addonItems.map(r => `
+              <div class="webshop-related__item" data-related-id="${r.id}">
+                <img class="webshop-related__img" src="${r.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'}" alt="${pName(r)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
+                <div class="webshop-related__info">
+                  <span class="webshop-related__name">${pName(r)}</span>
+                  ${pDesc(r) ? `<span class="webshop-related__desc">${pDesc(r)}</span>` : ""}
+                  <span class="webshop-related__price">${fmt(r.price)}</span>
+                </div>
+                <button class="webshop-related__add webshop-btn webshop-btn--sm webshop-btn--outline" data-related-id="${r.id}">${t("add_to_cart", "Add")}</button>
+              </div>`).join("")}
+          </div>
+        </div>`;
+      }
     }
     
-    if (!ids?.length) return "";
-    const items = ids.map(_resolveRelated).filter(Boolean);
-    if (!items.length) return "";
+    // Show RELATED section if flag is true AND product has related
+    if (showRelated && product.related?.length) {
+      const relatedItems = product.related.map(_resolveRelated).filter(Boolean);
+      if (relatedItems.length) {
+        html += `<div class="webshop-related${context === "info" ? " webshop-related--info" : ""}">
+          <h4 class="webshop-related__title">${t("related_products", "You may also need")}</h4>
+          <div class="webshop-related__list">
+            ${relatedItems.map(r => `
+              <div class="webshop-related__item" data-related-id="${r.id}">
+                <img class="webshop-related__img" src="${r.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'}" alt="${pName(r)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
+                <div class="webshop-related__info">
+                  <span class="webshop-related__name">${pName(r)}</span>
+                  ${pDesc(r) ? `<span class="webshop-related__desc">${pDesc(r)}</span>` : ""}
+                  <span class="webshop-related__price">${fmt(r.price)}</span>
+                </div>
+                <button class="webshop-related__add webshop-btn webshop-btn--sm webshop-btn--outline" data-related-id="${r.id}">${t("add_to_cart", "Add")}</button>
+              </div>`).join("")}
+          </div>
+        </div>`;
+      }
+    }
     
-    return `<div class="webshop-related${context === "info" ? " webshop-related--info" : ""}">
-        <h4 class="webshop-related__title">${title}</h4>
-        <div class="webshop-related__list">
-          ${items.map(r => `
-            <div class="webshop-related__item" data-related-id="${r.id}">
-              <img class="webshop-related__img" src="${r.image || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'}" alt="${pName(r)}" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
-              <div class="webshop-related__info">
-                <span class="webshop-related__name">${pName(r)}</span>
-                ${pDesc(r) ? `<span class="webshop-related__desc">${pDesc(r)}</span>` : ""}
-                <span class="webshop-related__price">${fmt(r.price)}</span>
-              </div>
-              <button class="webshop-related__add webshop-btn webshop-btn--sm webshop-btn--outline" data-related-id="${r.id}">${t("add_to_cart", "Add")}</button>
-            </div>`).join("")}
-        </div>
-      </div>`;
+    return html;
   }
 
-  function wireRelatedStrip(container, product) {
-    const ids = product.addons || product.related;
-    if (!ids?.length) return;
+  function wireRelatedStrip(container, product, options = {}) {
+    // Single listener per button — avoids double-fire when both addons + related shown
     container.querySelectorAll(".webshop-related__add").forEach(btn => {
       btn.addEventListener("click", e => {
         e.stopPropagation();
-        const rel = _resolveRelated(btn.dataset.relatedId) || ids.map(_resolveRelated).find(r => r?.id === btn.dataset.relatedId);
+        const rel = _resolveRelated(btn.dataset.relatedId);
         if (!rel) return;
         addToCart(rel, 1);
         toast(`${pName(rel)} ${t("added", "added to cart")}`);
@@ -595,13 +587,20 @@ var Shop = (() => {
   /* ═══════════════════════════════════════════════════════
      PRODUCT CARD
   ═══════════════════════════════════════════════════════ */
-  function buildProductCard(p) {
-    const hasVariants  = p.variants?.length > 0;
+  function buildProductCard(p, options = {}) {
+    // Options: { showVariants: true/false, showRelated: true/false, showAddons: true/false }
+    // Defaults: all false (minimal card with just main product)
+    const showVariants = options.showVariants === true;
+    const showRelated = options.showRelated === true;
+    const showAddons = options.showAddons === true;
+    
+    const hasVariants  = p.variants?.length > 0 && showVariants;
     // Default display uses the product itself (not first variant)
     const displayPrice = p.price;
     const discountPercent = p.discount || 0;
     const discountedPrice = discountPercent > 0 ? displayPrice * (1 - discountPercent / 100) : displayPrice;
     const inStock      = p.stock > 0;
+    const showQuantity = p.showQuantity !== false;
 
     let selectorHtml = "";
     if (hasVariants) {
@@ -616,7 +615,7 @@ var Shop = (() => {
         const vLabel = vp.label || pName(vp) || vid;
         return `<button class="webshop-variant-btn${so?" soldout":""}" data-variant-id="${vid}" ${so?`disabled title="${t("sold_out","Sold Out")}"`:""}>${vLabel}${so?` <em>(${t("sold_out","Sold Out")})</em>`:""}</button>`;
       }).join("")}</div>`;
-    } else if (p.colors?.length) {
+    } else if (p.colors?.length && showVariants) {
       const so = p.colors_soldout || [];
       selectorHtml = `<div class="webshop-colors">${p.colors.map((c,i) => {
         const s = so.includes(c);
@@ -637,28 +636,29 @@ var Shop = (() => {
       <${wTag} class="webshop-card-img-wrap${hasUrl?" webshop-card-img-link":""}"${hasUrl?` title="${pName(p)}"`:""}>
         <img class="webshop-card-img" src="${p.image}" alt="${pName(p)}" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
         ${p.featured?`<span class="webshop-badge">${t("featured","Featured")}</span>`:""}
-        ${p.bestseller?`<span class="webshop-badge webshop-badge--bestseller">Best Seller</span>`:""}
-        ${discountPercent > 0?`<span class="webshop-badge webshop-badge--discount">${discountPercent}% OFF</span>`:""}
+        ${p.bestseller?`<span class="webshop-badge webshop-badge--bestseller">${t("badge_bestseller","Best Seller")}</span>`:""}
+        ${discountPercent > 0?`<span class="webshop-badge webshop-badge--discount">${discountPercent}% ${t("off_badge","OFF")}</span>`:""}
+        ${options.showBuyNow !== false && hasUrl ? `<button class="webshop-card-buynow-overlay" data-product-id="${p.id}" ${inStock?"":"disabled style=\"opacity:.4;\""}>${t("buy_now","Buy Now")}</button>` : ""}
       </${wEnd}>
       <div class="webshop-card-body">
         <h3 class="webshop-card-title">${pName(p)}</h3>
         ${selectorHtml}
         <div class="webshop-card-footer">
           ${discountPercent > 0?`<span class="webshop-card-price webshop-card-price--original">${fmt(displayPrice)}</span><span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>`:`<span class="webshop-card-price">${fmt(displayPrice)}</span>`}
-          <div class="webshop-qty-control">
-            <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease">−</button>
+          ${showQuantity?`<div class="webshop-qty-control">
+            <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity"">−</button>
             <span class="webshop-qty-val">1</span>
-            <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase">+</button>
-          </div>
+            <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
+          </div>`:""}
         </div>
         <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>
-        ${buildRelatedStrip(p, "card")}
+        ${(showRelated || showAddons) ? buildRelatedStrip(p, "card", options) : ""}
       </div>`;
   }
 
-  function wireProductCard(card, p) {
+  function wireProductCard(card, p, options = {}) {
     let qty = 1;
     const hasVariants = p.variants?.length > 0;
 
@@ -676,8 +676,63 @@ var Shop = (() => {
       return (selectedVariantId === null || selectedVariantId === p.id) ? null : selectedVariantId;
     }
 
-    function refresh() {
-      if (!hasVariants) return;
+    function refresh(currencyOnly = false) {
+      // For non-variant products - need to rebuild footer to show both prices correctly
+      if (!hasVariants) {
+        const discount = p.discount || 0;
+        const discountedPrice = discount > 0 ? p.price * (1 - discount / 100) : p.price;
+        const footer = card.querySelector(".webshop-card-footer");
+        if (footer) {
+          const qtyVal = footer.querySelector(".webshop-qty-val")?.textContent || qty;
+          const showQuantity = p.showQuantity !== false;
+          
+          // ALWAYS rebuild footer to ensure correct price elements exist
+          if (discount > 0) {
+            footer.innerHTML = `
+              <span class="webshop-card-price webshop-card-price--original">${fmt(p.price)}</span>
+              <span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>
+              ${showQuantity ? `<div class="webshop-qty-control">
+                <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity">−</button>
+                <span class="webshop-qty-val">${qtyVal}</span>
+                <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity">+</button>
+              </div>` : ""}`;
+          } else {
+            footer.innerHTML = `
+              <span class="webshop-card-price">${fmt(p.price)}</span>
+              ${showQuantity ? `<div class="webshop-qty-control">
+                <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity">−</button>
+                <span class="webshop-qty-val">${qtyVal}</span>
+                <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity">+</button>
+              </div>` : ""}`;
+          }
+          
+          // Re-wire qty buttons after rebuild
+          const qv = footer.querySelector(".webshop-qty-val");
+          footer.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { 
+            const max = p.stock || 99; 
+            qty = Math.min(qty + 1, max); 
+            if (qv) qv.textContent = qty; 
+          });
+          footer.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { 
+            qty = Math.max(1, qty - 1); 
+            if (qv) qv.textContent = qty; 
+          });
+        }
+        
+        // Update discount badge visibility and text
+        const badgeEl = card.querySelector(".webshop-badge--discount");
+        if (badgeEl) {
+          if (discount > 0) {
+            badgeEl.textContent = `${discount}% ${t("off_badge","OFF")}`;
+            badgeEl.style.display = '';
+          } else {
+            badgeEl.style.display = 'none';
+          }
+        }
+        return;
+      }
+      
+      // For variant products
       const evid    = effectiveVid();
       const price   = evid ? variantPrice(p, evid) : p.price;
       const discount = evid ? variantDiscount(p, evid) : (p.discount || 0);
@@ -689,36 +744,37 @@ var Shop = (() => {
       const footer = card.querySelector(".webshop-card-footer");
       if (footer) {
         const qtyVal = footer.querySelector(".webshop-qty-val")?.textContent || qty;
+        const showQuantity = p.showQuantity !== false;
         if (discount > 0) {
           footer.innerHTML = `
             <span class="webshop-card-price webshop-card-price--original">${fmt(price)}</span>
             <span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>
-            <div class="webshop-qty-control">
-              <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease">−</button>
+            ${showQuantity ? `<div class="webshop-qty-control">
+              <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity">−</button>
               <span class="webshop-qty-val">${qtyVal}</span>
-              <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase">+</button>
-            </div>`;
+              <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity">+</button>
+            </div>` : ""}`;
         } else {
           footer.innerHTML = `
             <span class="webshop-card-price">${fmt(price)}</span>
-            <div class="webshop-qty-control">
-              <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease">−</button>
+            ${showQuantity ? `<div class="webshop-qty-control">
+              <button class="webshop-qty-btn webshop-qty-btn--minus" aria-label="Decrease quantity">−</button>
               <span class="webshop-qty-val">${qtyVal}</span>
-              <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase">+</button>
-            </div>`;
+              <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity">+</button>
+            </div>` : ""}`;
         }
         
         // Re-wire qty buttons after rebuild
         const qv = footer.querySelector(".webshop-qty-val");
         footer.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { 
           const evid = effectiveVid(); 
-          const max = evid ? variantStock(p, evid) : (p.stock||99); 
-          qty = Math.min(qty+1, max||99); 
-          qv.textContent = qty; 
+          const max = evid ? variantStock(p, evid) : (p.stock || 99); 
+          qty = Math.min(qty + 1, max || 99); 
+          if (qv) qv.textContent = qty; 
         });
         footer.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { 
-          qty = Math.max(1, qty-1); 
-          qv.textContent = qty; 
+          qty = Math.max(1, qty - 1); 
+          if (qv) qv.textContent = qty; 
         });
       }
       
@@ -726,7 +782,7 @@ var Shop = (() => {
       const badgeEl = card.querySelector(".webshop-badge--discount");
       if (badgeEl) {
         if (discount > 0) {
-          badgeEl.textContent = `${discount}% OFF`;
+          badgeEl.textContent = `${discount}% ${t("off_badge","OFF")}`;
           badgeEl.style.display = '';
         } else {
           badgeEl.style.display = 'none';
@@ -754,15 +810,34 @@ var Shop = (() => {
       });
     });
     const qv = card.querySelector(".webshop-qty-val");
-    card.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid = effectiveVid(); const max = evid ? variantStock(p, evid) : (p.stock||99); qty = Math.min(qty+1, max||99); qv.textContent = qty; });
-    card.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty = Math.max(1, qty-1); qv.textContent = qty; });
+    card.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid = effectiveVid(); const max = evid ? variantStock(p, evid) : (p.stock||99); qty = Math.min(qty+1, max||99); if (qv) qv.textContent = qty; });
+    card.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty = Math.max(1, qty-1); if (qv) qv.textContent = qty; });
     addBtn?.addEventListener("click", () => {
       const evid = effectiveVid();
       addToCart(p, qty, evid, selectedColor, img?.src || null);
       const itemName = evid ? variantLabel(p, evid) : (p.label || p.id);
       toast(`${itemName} ${t("added","added to cart")}`);
     });
-    wireRelatedStrip(card, p);
+    const buyNowBtn = card.querySelector(".webshop-card-buynow-overlay");
+    buyNowBtn?.addEventListener("click", () => {
+      const evid = effectiveVid();
+      addToCart(p, 1, evid, selectedColor, img?.src || null);
+      const itemName = evid ? variantLabel(p, evid) : (p.label || p.id);
+      toast(`${itemName} ${t("added","added to cart")}`);
+      // Navigate to cart
+      setTimeout(() => {
+        if (typeof window.viewPage === 'function') {
+          window.viewPage('cart');
+        } else {
+          const cartUrl = (typeof window !== "undefined" && window.__CART_URL__) || "cart/";
+          window.location.href = cartUrl;
+        }
+      }, 100);
+    });
+    wireRelatedStrip(card, p, options);
+    // Store refresh so onCurrencyChange can call it with correct variant state
+    card._shopRefresh = refresh;
+    document.addEventListener("currency:changed", () => refresh(true));
   }
 
   /* ═══════════════════════════════════════════════════════
@@ -798,24 +873,27 @@ var Shop = (() => {
       container.appendChild(grid);
       products.forEach(p => {
         const card = document.createElement("div"); card.className = "webshop-product-card"; card.dataset.cat = p.category || ""; card.dataset.productId = p.id;
-        card.innerHTML = buildProductCard(p); grid.appendChild(card); wireProductCard(card, p);
+        card.innerHTML = buildProductCard(p, { showVariants: true, showRelated: true, showAddons: true });
+        grid.appendChild(card); 
+        wireProductCard(card, p, { showVariants: true, showRelated: true, showAddons: true });
       });
     }
     buildGrid();
+    
     const onLangChange = async () => {
       products = await loadProducts(); // Reload products in the new language
       buildGrid();
     };
+    
     const onCurrencyChange = () => {
+      // Simply call the stored refresh function on each card - it will handle everything
       container.querySelectorAll(".webshop-product-card").forEach(card => {
-        const p = products.find(p => p.id === card.dataset.productId); if (!p) return;
-        const discountPercent = p.discount || 0;
-        const discountedPrice = discountPercent > 0 ? p.price * (1 - discountPercent / 100) : p.price;
-        const priceEls = card.querySelectorAll(".webshop-card-price");
-        if (discountPercent > 0 && priceEls.length >= 2) { priceEls[0].textContent = fmt(p.price); priceEls[1].textContent = fmt(discountedPrice); }
-        else if (priceEls.length >= 1) { priceEls[0].textContent = fmt(p.price); }
+        if (typeof card._shopRefresh === "function") { 
+          card._shopRefresh(true); 
+        }
       });
     };
+    
     document.addEventListener("shop:langChanged", onLangChange);
     document.addEventListener("currency:changed", onCurrencyChange);
   }
@@ -897,14 +975,14 @@ var Shop = (() => {
             <h1 class="webshop-product-name">${pName(p)}</h1>
             ${p.rating ? `<div class="webshop-product-rating">
               <span class="webshop-rating-stars">${p.rating} ★</span>
-              <span class="webshop-rating-count">(${p.reviewCount || 0} reviews)</span>
+              <span class="webshop-rating-count">(${p.reviewCount || 0} ${t("reviews_suffix","reviews")})</span>
             </div>` : ''}
-            ${p.bestseller ? `<span class="webshop-badge-inline webshop-badge-inline--bestseller">Best Seller</span>` : ''}
+            ${p.bestseller ? `<span class="webshop-badge-inline webshop-badge-inline--bestseller">${t("badge_bestseller","Best Seller")}</span>` : ''}
             <div class="webshop-product-price-group">
               ${discountPercent > 0 ? `
                 <p class="webshop-product-price-original">${fmt(displayPrice)}</p>
                 <p class="webshop-product-price" id="pinfo-price-${productId}">${fmt(discountedPrice)}</p>
-                <p class="webshop-product-price-discount">Save ${discountPercent}%</p>
+                <p class="webshop-product-price-discount">${t("save_percent","Save {0}%").replace("{0}",discountPercent)}</p>
               ` : `
                 <p class="webshop-product-price" id="pinfo-price-${productId}">${fmt(displayPrice)}</p>
               `}
@@ -926,42 +1004,42 @@ var Shop = (() => {
             </div>
             <button id="pinfo-atc-${productId}" class="webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>${t("add_to_cart","Add to Cart")}</button>
             <a class="webshop-btn webshop-btn--outline webshop-btn--full" href="${(typeof window !== 'undefined' && window.__CART_URL__) || 'cart/'}" style="margin-top:10px;display:flex;align-items:center;justify-content:center;">${t("view_cart","View Cart")}</a>
-            ${buildRelatedStrip(p,"info")}
+            ${buildRelatedStrip(p,"info", { showAddons: !!(p.addons?.length), showRelated: !!(p.related?.length) })}
           </div>
         </div>
         <div class="webshop-product-info-section">
           <div class="webshop-product-info-tabs">
-            <button class="webshop-info-tab-btn active" data-tab="features">Features & Specs</button>
-            <button class="webshop-info-tab-btn" data-tab="details">Item details</button>
-            <button class="webshop-info-tab-btn" data-tab="materials">Materials & Care</button>
-            <button class="webshop-info-tab-btn" data-tab="additional">Additional details</button>
+            <button class="webshop-info-tab-btn active" data-tab="features">${t("tab_features","Features & Specs")}</button>
+            <button class="webshop-info-tab-btn" data-tab="details">${t("tab_details","Item details")}</button>
+            <button class="webshop-info-tab-btn" data-tab="materials">${t("tab_materials","Materials & Care")}</button>
+            <button class="webshop-info-tab-btn" data-tab="additional">${t("tab_additional","Additional details")}</button>
           </div>
           <div class="webshop-info-tab-content active" id="features-tab">
             <div class="webshop-info-property">
-              <span class="webshop-info-label">Category</span>
+              <span class="webshop-info-label">${t("spec_category","Category")}</span>
               <span class="webshop-info-value">${pCategory(p)}</span>
             </div>
             <div class="webshop-info-property">
-              <span class="webshop-info-label">Weight</span>
+              <span class="webshop-info-label">${t("spec_weight","Weight")}</span>
               <span class="webshop-info-value">${fmtWeight(p.weight || 0)}</span>
             </div>
             ${p.dimensions ? `<div class="webshop-info-property">
-              <span class="webshop-info-label">Dimensions</span>
+              <span class="webshop-info-label">${t("spec_dimensions","Dimensions")}</span>
               <span class="webshop-info-value">${p.dimensions.l}×${p.dimensions.w}×${p.dimensions.h} cm</span>
             </div>` : ''}
           </div>
           <div class="webshop-info-tab-content" id="details-tab">
             <div class="webshop-info-property">
-              <span class="webshop-info-label">Product ID</span>
+              <span class="webshop-info-label">${t("spec_product_id","Product ID")}</span>
               <span class="webshop-info-value">${p.id}</span>
             </div>
             <div class="webshop-info-property">
-              <span class="webshop-info-label">In Stock</span>
-              <span class="webshop-info-value">${inStock ? 'Yes' : 'No'}</span>
+              <span class="webshop-info-label">${t("spec_in_stock","In Stock")}</span>
+              <span class="webshop-info-value">${inStock ? t('spec_yes','Yes') : t('spec_no','No')}</span>
             </div>
             ${p.rating ? `<div class="webshop-info-property">
-              <span class="webshop-info-label">Customer Rating</span>
-              <span class="webshop-info-value">${p.rating} stars (${p.reviewCount || 0} reviews)</span>
+              <span class="webshop-info-label">${t("spec_customer_rating","Customer Rating")}</span>
+              <span class="webshop-info-value">${p.rating} ${t("stars_suffix","stars")} (${p.reviewCount || 0} ${t("reviews_suffix","reviews")})</span>
             </div>` : ''}
           </div>
           <div class="webshop-info-tab-content" id="materials-tab">
@@ -1007,7 +1085,7 @@ var Shop = (() => {
             priceGroup.innerHTML = `
               <p class="webshop-product-price-original">${fmt(price)}</p>
               <p class="webshop-product-price" id="pinfo-price-${productId}">${fmt(discountedPrice)}</p>
-              <p class="webshop-product-price-discount">Save ${discount}%</p>`;
+              <p class="webshop-product-price-discount">${t("save_percent","Save {0}%").replace("{0}",discount)}</p>`;
           } else {
             priceGroup.innerHTML = `<p class="webshop-product-price" id="pinfo-price-${productId}">${fmt(price)}</p>`;
           }
@@ -1055,10 +1133,10 @@ var Shop = (() => {
         btn.addEventListener("click", () => { container.querySelectorAll(".webshop-product-color").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); selectedColor=btn.dataset.color; if (mainImg) swapMainImg(mainImg, colorImageSrc(p,selectedColor), p.image); });
       });
       const qv = container.querySelector(".webshop-qty-val");
-      container.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid=effectiveVid(); const max=evid?variantStock(p,evid):(p.stock||99); qty=Math.min(qty+1,max||99); qv.textContent=qty; });
-      container.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty=Math.max(1,qty-1); qv.textContent=qty; });
+      container.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid=effectiveVid(); const max=evid?variantStock(p,evid):(p.stock||99); qty=Math.min(qty+1,max||99); if (qv) qv.textContent=qty; });
+      container.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty=Math.max(1,qty-1); if (qv) qv.textContent=qty; });
       atcBtn?.addEventListener("click", () => { const evid=effectiveVid(); addToCart(p,qty,evid,selectedColor,mainImg?.src||null); const itemName=evid?(getVariant(p,evid)?.label||evid):(p.label||p.id); toast(`${itemName} ${t("added","added to cart")}`); });
-      wireRelatedStrip(container, p);
+      wireRelatedStrip(container, p, { showAddons: !!(p.addons?.length), showRelated: !!(p.related?.length) });
     }
     build();
     document.addEventListener("shop:langChanged", async () => {
@@ -1072,6 +1150,29 @@ var Shop = (() => {
     document.addEventListener("currency:changed", build);
   }
 
+  /* ─── BUY NOW BUTTON (Standalone) ───────────────────── */
+  function renderBuyNowButton(divId, productId, options = {}) {
+    const { label = "Buy Now", className = "" } = options;
+    const container = document.getElementById(divId);
+    if (!container) return;
+    
+    loadLang().then(() => {
+      loadProducts().then(() => {
+        const product = _products[productId];
+        if (!product) { console.warn(`Product not found: ${productId}`); return; }
+        
+        const prodSlug = options.productSlug || slugify(productId);
+        const lang = CONFIG.language || "en";
+        const prodUrl = `/${lang}/${prodSlug}/?id=${product.id}`;
+        const inStock = product.stock > 0;
+        
+        container.innerHTML = `<a class="webshop-btn webshop-btn--primary webshop-btn--full ${className}" href="${prodUrl}" ${inStock?"":'style="pointer-events:none;opacity:.5;"'}>
+          ${label || t("buy_now","Buy Now")}
+        </a>`;
+      });
+    });
+  }
+
   /* ─── MINI CART ─────────────────────────────────────── */
   function renderMiniCart(divId, options = {}) {
     const { cartUrl = (typeof window !== "undefined" && window.__CART_URL__) || "cart/" } = options;
@@ -1081,7 +1182,7 @@ var Shop = (() => {
     function render() {
       loadLang().then(() => {
         const cart = getCart();
-        const { subtotal, shipping, total, totalWeight, isFreeShipping } = calculateTotals(cart);
+        const { subtotal, shipping, total, totalWeight, isFreeShipping, totalDiscount } = calculateTotals(cart);
         const count = cart.reduce((a, i) => a + i.qty, 0);
         if (!cart.length) { container.innerHTML = `<p class="webshop-mini-cart__empty">${t("cart_empty","Your cart is empty")}</p>`; return; }
         container.innerHTML = `
@@ -1098,6 +1199,7 @@ var Shop = (() => {
           </li>`).join("")}</ul>
           <div class="webshop-mini-cart__totals">
             <div class="webshop-mini-cart__row"><span>${t("subtotal","Subtotal")}</span><span>${fmt(subtotal)}</span></div>
+            ${totalDiscount > 0 ? `<div class="webshop-mini-cart__row" style="color:#c8522d;font-weight:600;"><span>${t("you_save","You Save")}</span><span style="color:#c8522d;">-${fmt(totalDiscount)}</span></div>` : ""}
             <div class="webshop-mini-cart__row"><span>${t("shipping","Shipping")}</span><span>${isFreeShipping?t("free","FREE"):fmt(shipping)}</span></div>
             <div class="webshop-mini-cart__row"><span>${t("weight","Weight")}</span><span>${fmtWeight(totalWeight)}</span></div>
             <div class="webshop-mini-cart__row webshop-mini-cart__row--total"><span>${t("total","Total")}</span><span>${fmt(total)}</span></div>
@@ -1138,11 +1240,11 @@ var Shop = (() => {
       total_eur: "€"+totals.total.toFixed(2), total_display: fmt(totals.total),
       total_weight: fmtWeight(totals.totalWeight||0),
     };
-    try { const ok = await sendToQueue("payment-pending", data); return ok; } catch(e) { console.warn("Queue failed",e); return false; }
+    try { const fn = (typeof sendToQueue !== "undefined" ? sendToQueue : window.sendToQueue); if (!fn) { console.warn("sendToQueue not available"); return false; } const ok = await fn("payment-pending", data); return ok; } catch(e) { console.warn("Queue failed",e); return false; }
   }
   
   async function submitOrderStatus(orderRef, status) {
-    try { await sendToQueue("payment-success", { _subject:`Order ${status}: ${orderRef}`, order_ref:orderRef, status }); } catch {}
+    try { const fn = (typeof sendToQueue !== "undefined" ? sendToQueue : window.sendToQueue); if (fn) await fn("payment-success", { _subject:`Order ${status}: ${orderRef}`, order_ref:orderRef, status }); } catch {}
   }
 
   /* ─── PUBLIC API ────────────────────────────────────── */
@@ -1161,7 +1263,7 @@ var Shop = (() => {
     getVariant, variantPrice, variantWeight, variantImage, variantStock, variantInStock,
     buildRelatedStrip, wireRelatedStrip, buildProductCard, wireProductCard,
     renderCurrencySelector, renderBackButton, renderCartIcon,
-    renderShop, renderProductInfo, renderMiniCart,
+    renderShop, renderProductInfo, renderMiniCart, renderBuyNowButton,
     renderTurnstile, submitOrderDetails, submitOrderStatus,
   };
 })();
