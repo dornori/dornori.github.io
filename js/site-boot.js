@@ -93,6 +93,7 @@
         'css/components.css',
         'css/pages.css',
         'css/shop.css',
+        'css/product.css',
         'css/shop-bridge.css',
     ]);
 

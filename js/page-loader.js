@@ -300,6 +300,16 @@ export function initPageLoader() {
             if (productId) window.__PRODUCT_ID__ = productId;
             rewriteContentPaths(pageContent);
             pageContent.querySelectorAll('script').forEach(orig => {
+                // Skip scripts that try to load already-loaded core scripts
+                if (orig.src && (
+                    orig.src.includes('site-boot.js') ||
+                    orig.src.includes('page-init.js') ||
+                    orig.src.includes('shop.js')
+                )) {
+                    orig.remove();
+                    return;
+                }
+                
                 const s = document.createElement('script');
                 [...orig.attributes].forEach(a => s.setAttribute(a.name, a.value));
                 if (!orig.src) {
