@@ -642,6 +642,7 @@ var Shop = (() => {
       </${wEnd}>
       <div class="webshop-card-body">
         <h3 class="webshop-card-title">${pName(p)}</h3>
+        ${p.label ? `<div class="webshop-card-label">${p.label}</div>` : ''}
         ${selectorHtml}
         <div class="webshop-card-footer">
           ${discountPercent > 0?`<span class="webshop-card-price webshop-card-price--original">${fmt(displayPrice)}</span><span class="webshop-card-price webshop-card-price--discounted">${fmt(discountedPrice)}</span>`:`<span class="webshop-card-price">${fmt(displayPrice)}</span>`}
@@ -979,6 +980,7 @@ var Shop = (() => {
           <div class="webshop-product-details">
             <p class="webshop-product-category">${pCategory(p)}</p>
             <h1 class="webshop-product-name">${pName(p)}</h1>
+            ${p.label ? `<div class="webshop-product-label">${p.label}</div>` : ''}
             ${p.rating ? `<div class="webshop-product-rating">
               <span class="webshop-rating-stars">${p.rating} ★</span>
               <span class="webshop-rating-count">(${p.reviewCount || 0} ${t("reviews_suffix","reviews")})</span>
@@ -1188,7 +1190,7 @@ var Shop = (() => {
     function render() {
       loadLang().then(() => {
         const cart = getCart();
-        const { subtotal, shipping, total, totalWeight, isFreeShipping } = calculateTotals(cart);
+        const { subtotal, shipping, total, totalWeight, isFreeShipping, totalDiscount } = calculateTotals(cart);
         const count = cart.reduce((a, i) => a + i.qty, 0);
         if (!cart.length) { container.innerHTML = `<p class="webshop-mini-cart__empty">${t("cart_empty","Your cart is empty")}</p>`; return; }
         container.innerHTML = `
