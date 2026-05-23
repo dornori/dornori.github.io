@@ -516,7 +516,8 @@
         let db = null;
 
         function rgbaToHex(rgba) {
-            if (!rgba || !rgba.startsWith('rgba')) return null;
+            if (!rgba || typeof rgba !== 'string') return null;
+            if (!rgba.startsWith('rgba')) return null;
             const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
             if (!match) return null;
             const r = parseInt(match[1]);
@@ -527,6 +528,7 @@
 
         function valueToHex(value) {
             if (!value) return '#a8d5b5';
+            if (typeof value !== 'string') return '#a8d5b5';
             if (value.startsWith('#')) return value;
             const hex = rgbaToHex(value);
             if (hex) return hex;
@@ -795,10 +797,15 @@
         }
 
         async function reconnectFromSaved() {
+            setStatus('Reconnecting...', 'loading');
             try {
                 const savedHandle = await getHandle('folderHandle');
                 if (savedHandle) {
-                    const permission = await savedHandle.requestPermission({ mode: 'readwrite' });
+                    // Check if permission still exists
+                    let permission = await savedHandle.queryPermission({ mode: 'readwrite' });
+                    if (permission === 'prompt') {
+                        permission = await savedHandle.requestPermission({ mode: 'readwrite' });
+                    }
                     if (permission === 'granted') {
                         dirHandle = savedHandle;
                         document.getElementById('folderInfo').innerHTML = `📁 ${dirHandle.name}`;
@@ -806,13 +813,23 @@
                         await loadCSS();
                         await renderBackupList();
                         setStatus(`Connected to ${dirHandle.name}`, 'success');
+                        showToast(`Reconnected to ${dirHandle.name}`);
                         return true;
+                    } else {
+                        // Permission denied, need to reopen
+                        setStatus('Permission expired. Click Open Site Folder to reconnect.', 'error');
+                        document.getElementById('folderInfo').innerHTML = `⚠️ Permission expired - click Open Folder`;
+                        return false;
                     }
+                } else {
+                    setStatus('No saved folder. Click Open Site Folder to start.', 'info');
+                    return false;
                 }
             } catch (err) {
-                console.log('No saved folder or reconnect failed');
+                console.error('Reconnect error:', err);
+                setStatus('Could not reconnect. Click Open Site Folder.', 'error');
+                return false;
             }
-            return false;
         }
 
         function updateProfileDropdown() {
@@ -1061,9 +1078,13 @@
         document.getElementById('editorView').style.display = 'block';
         document.getElementById('settingsView').classList.remove('active');
 
+        // Initialize - try to reconnect on load
         (async function() {
             await initDB();
-            await reconnectFromSaved();
+            const reconnected = await reconnectFromSaved();
+            if (!reconnected) {
+                setStatus('Click "Open Site Folder" to start', 'info');
+            }
         })();
     </script>
 </body>
