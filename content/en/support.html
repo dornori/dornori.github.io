@@ -50,7 +50,7 @@
 
             <div class="sf-field">
                 <label class="sf-label" for="sf-order" id="label-order"></label>
-                <input id="sf-order" type="text" class="sf-input" maxlength="50" placeholder="e.g. LM-12345 or 12345">
+                <input id="sf-order" type="text" class="sf-input" maxlength="50">
                 <span class="sf-field-error" id="sf-order-err"></span>
                 <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;" id="order-help-text"></small>
             </div>
@@ -239,16 +239,13 @@ function showToast(msg, ms) {
 function showSuccessMessage(message, referenceNumber, comments) {
     var body = document.getElementById('sf-body');
     
-    // Format comments as bullet points if they exist
+    // Format comments if they exist
     var commentsHtml = '';
-    if (comments && comments.length > 0) {
+    if (comments && typeof comments === 'string' && comments.trim()) {
         commentsHtml = '<div style="margin-top:1rem;margin-bottom:1rem;padding:1rem;background:color-mix(in srgb, var(--accent) 8%, transparent);border-radius:8px;text-align:left;">' +
             '<strong style="display:block;margin-bottom:8px;">Your comments:</strong>' +
-            '<ul style="margin:0;padding-left:1.2rem;">';
-        for (var i = 0; i < comments.length; i++) {
-            commentsHtml += '<li style="margin-bottom:4px;">' + escapeHtml(comments[i]) + '</li>';
-        }
-        commentsHtml += '</ul></div>';
+            '<p style="margin:0;line-height:1.6;white-space:pre-wrap;word-wrap:break-word;">' + escapeHtml(comments) + '</p>' +
+            '</div>';
     }
     
     var successHtml = '<div class="sf-success-box" style="text-align:center;padding:2rem;">' +
@@ -310,16 +307,16 @@ function populateUI() {
     
     var maxChars = formData.maxCommentsChars || 2000;
     var labelComments = document.getElementById('label-comments');
-    if (labelComments) labelComments.innerHTML = (formData.additionalComments || 'Additional comments') + ' <span style="color:var(--text-muted);font-weight:400;">(optional, max ' + maxChars + ')</span>';
+    if (labelComments) labelComments.innerHTML = (formData.additionalComments || 'Additional comments') + ' <span style="color:#ef4444">*</span>';
     
     var descField = document.getElementById('sf-desc');
     if (descField) {
-        descField.placeholder = formData.commentsPlaceholder || 'Each line becomes a separate entry.';
+        descField.placeholder = formData.commentsPlaceholder || 'Enter your comments';
         descField.maxLength = maxChars;
     }
     
     var commentsHelpText = document.getElementById('comments-help-text');
-    if (commentsHelpText) commentsHelpText.textContent = formData.commentsHelpText || 'Each line will become a separate entry.';
+    if (commentsHelpText) commentsHelpText.textContent = formData.commentsHelpText || 'Please provide additional details about your issue.';
     
     initCharCounter(maxChars);
 
@@ -509,29 +506,44 @@ function validateForm() {
     var name = stripHtml(document.getElementById('sf-name')?.value || '');
     var email = stripHtml(document.getElementById('sf-email')?.value || '');
     var order = stripHtml(document.getElementById('sf-order')?.value || '');
+    var comments = stripHtml(document.getElementById('sf-desc')?.value || '');
 
+    // Name validation
     if (!name) {
-        setFieldError('sf-name', 'sf-name-err', 'Full name is required.');
+        setFieldError('sf-name', 'sf-name-err', formData.fullNameRequired || 'Full name is required.');
         hasError = true;
     } else {
         setFieldError('sf-name', 'sf-name-err', '');
     }
     
+    // Email validation
     if (!email) {
-        setFieldError('sf-email', 'sf-email-err', 'Email address is required.');
+        setFieldError('sf-email', 'sf-email-err', formData.emailRequired || 'Email address is required.');
         hasError = true;
     } else if (!isValidEmail(email)) {
-        setFieldError('sf-email', 'sf-email-err', 'Please enter a valid email address.');
+        setFieldError('sf-email', 'sf-email-err', formData.emailInvalid || 'Please enter a valid email address.');
         hasError = true;
     } else {
         setFieldError('sf-email', 'sf-email-err', '');
     }
     
+    // Order number validation - digits only
     if (!order) {
-        setFieldError('sf-order', 'sf-order-err', 'Order number is required.');
+        setFieldError('sf-order', 'sf-order-err', formData.orderNumberRequired || 'Order number is required.');
+        hasError = true;
+    } else if (!/^\d+$/.test(order)) {
+        setFieldError('sf-order', 'sf-order-err', formData.orderDigitsOnly || 'Order number must contain digits only.');
         hasError = true;
     } else {
         setFieldError('sf-order', 'sf-order-err', '');
+    }
+
+    // Comments validation - now required
+    if (!comments) {
+        setFieldError('sf-desc', 'sf-desc-err', formData.commentsRequired || 'Additional comments are required.');
+        hasError = true;
+    } else {
+        setFieldError('sf-desc', 'sf-desc-err', '');
     }
 
     var turnstileContainer = document.getElementById('sf-turnstile-container');
@@ -548,7 +560,7 @@ function validateForm() {
         if (turnstileErr) turnstileErr.classList.add('sf-hidden');
     }
     
-    return { valid: !hasError, sanitised: { name: name, email: email, order: order, comments: document.getElementById('sf-desc')?.value || '' } };
+    return { valid: !hasError, sanitised: { name: name, email: email, order: order, comments: comments } };
 }
 
 async function sendSupportRequest() {
@@ -570,23 +582,13 @@ async function sendSupportRequest() {
         troubleshootingSummaries.push(answers[i].summary || answers[i].answer);
     }
 
-    // Split additional comments into separate lines
-    var commentsLines = sanitised.comments 
-        ? sanitised.comments.split(/\r?\n/).filter(function(line) { return line.trim().length > 0; })
-        : [];
+    // Comments as single field (no line splitting)
+    var additionalComments = sanitised.comments.trim();
     
-    var additionalComments = [];
-    for (var i = 0; i < commentsLines.length; i++) {
-        additionalComments.push(commentsLines[i].trim());
-    }
-
-    // Format comments for email with line breaks
+    // Format comments for email
     var formattedCommentsForEmail = '';
-    if (additionalComments.length > 0) {
-        formattedCommentsForEmail = '\n\nADDITIONAL COMMENTS\n------------------\n';
-        for (var i = 0; i < additionalComments.length; i++) {
-            formattedCommentsForEmail += (i + 1) + '. ' + additionalComments[i] + '\n';
-        }
+    if (additionalComments) {
+        formattedCommentsForEmail = '\n\nADDITIONAL COMMENTS\n------------------\n' + additionalComments;
     } else {
         formattedCommentsForEmail = '\n\nADDITIONAL COMMENTS\n------------------\nNone provided.';
     }
@@ -620,7 +622,7 @@ async function sendSupportRequest() {
         'User Agent: ' + navigator.userAgent + '\n' +
         '========================================';
 
-    // FLAT STRUCTURE - each field at top level (original working format)
+    // FLAT STRUCTURE - each field at top level
     var payload = {
         referenceNumber: referenceNumber,
         category: "support-request",
