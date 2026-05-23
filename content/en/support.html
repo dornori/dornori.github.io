@@ -183,6 +183,7 @@ var currentCategory = null;
 var currentQuestionId = null;
 var answers = [];
 var isSubmitting = false;
+var isTurnstileInitialized = false;
 
 // ==================== HELPERS ====================
 function generateReferenceNumber() {
@@ -450,19 +451,30 @@ function showContactForm() {
     if (s2El) s2El.classList.add('sf-hidden');
     if (s3El) s3El.classList.remove('sf-hidden');
     updateProgress(85, formData.step3Label || 'Step 3: Contact support');
+    
+    // Reset turnstile flag so it re-initializes properly
+    isTurnstileInitialized = false;
     initTurnstile();
 }
 
-function cleanupTurnstile() {
+function destroyTurnstile() {
     if (turnstileWidgetId !== null) {
         try {
             if (typeof turnstile !== 'undefined' && turnstile.remove) {
                 turnstile.remove(turnstileWidgetId);
             }
-        } catch(e) {}
+        } catch(e) {
+            console.warn('Turnstile remove error:', e);
+        }
         turnstileWidgetId = null;
     }
     turnstileToken = null;
+    
+    // Clear the container
+    var container = document.getElementById('sf-turnstile-container');
+    if (container) {
+        container.innerHTML = '';
+    }
 }
 
 function initTurnstile() {
@@ -475,19 +487,23 @@ function initTurnstile() {
         return;
     }
     
-    cleanupTurnstile();
-    container.innerHTML = '';
-    container.style.display = 'block';
-    
+    // Wait for Turnstile to be available (loaded by parent SPA)
     if (typeof turnstile === 'undefined') {
         setTimeout(initTurnstile, 200);
         return;
     }
     
+    // Clean up any existing widget first
+    destroyTurnstile();
+    
+    // Show container
+    container.style.display = 'block';
+    
     try {
         turnstileWidgetId = turnstile.render(container, {
             sitekey: TURNSTILE_SITE_KEY,
             theme: 'light',
+            'render': 'explicit',
             callback: function(token) { 
                 turnstileToken = token;
                 var err = document.getElementById('sf-turnstile-err');
@@ -495,7 +511,7 @@ function initTurnstile() {
                     err.textContent = '';
                     err.classList.add('sf-hidden');
                 }
-                container.classList.remove('sf-input-error');
+                if (container) container.classList.remove('sf-input-error');
             },
             'expired-callback': function() { 
                 turnstileToken = null;
@@ -504,18 +520,20 @@ function initTurnstile() {
                     err.textContent = formData.turnstileExpiredError || 'Security verification expired. Please try again.';
                     err.classList.remove('sf-hidden');
                 }
-                container.classList.add('sf-input-error');
+                if (container) container.classList.add('sf-input-error');
             },
-            'error-callback': function() { 
+            'error-callback': function(errorCode) { 
                 turnstileToken = null;
                 var err = document.getElementById('sf-turnstile-err');
+                var errorMsg = formData.turnstileFailedError || 'Security verification failed. Please refresh the page.';
                 if (err) {
-                    err.textContent = formData.turnstileFailedError || 'Security verification failed. Please refresh the page.';
+                    err.textContent = errorMsg;
                     err.classList.remove('sf-hidden');
                 }
-                container.classList.add('sf-input-error');
+                if (container) container.classList.add('sf-input-error');
             }
         });
+        isTurnstileInitialized = true;
     } catch(e) {
         console.error('Turnstile render error:', e);
     }
@@ -600,7 +618,7 @@ function validateForm() {
             name: stripHtml(nameInput), 
             email: stripHtml(emailInput), 
             order: stripHtml(orderInput), 
-            comments: stripHtml(document.getElementById('sf-desc')?.value || '')  // Stripped AFTER submission, NOT validated
+            comments: stripHtml(document.getElementById('sf-desc')?.value || '')
         } 
     };
 }
@@ -610,7 +628,7 @@ async function sendSupportRequest() {
     
     var validation = validateForm();
     if (!validation.valid) {
-        return;  // Toast already shown in validateForm()
+        return;
     }
     
     isSubmitting = true;
@@ -624,13 +642,11 @@ async function sendSupportRequest() {
         submitBtn.textContent = formData.sendingText || 'Sending...';
     }
 
-    // Build troubleshooting summaries
     var troubleshootingSummaries = [];
     for (var i = 0; i < answers.length; i++) {
         troubleshootingSummaries.push(answers[i].summary || answers[i].answer);
     }
 
-    // Comments are already stripped via stripHtml() in validateForm()
     var additionalComments = [];
     if (sanitised.comments) {
         var lines = sanitised.comments.split(/\r?\n/);
@@ -675,7 +691,7 @@ async function sendSupportRequest() {
         console.error(err);
         showToast((formData.submissionErrorText || 'Submission failed') + '. ' + (formData.retryText || 'Please try again.'), 5000, true);
         
-        // Reset Turnstile so user can try again
+        // Reset Turnstile on error
         if (turnstileWidgetId !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
             try { 
                 turnstile.reset(turnstileWidgetId);
@@ -709,12 +725,15 @@ window.sfReset = function() {
     if (summaryContainer) summaryContainer.style.display = 'none';
     updateProgress(5, formData.step1Label || 'Step 1: Choose category');
     
-    document.getElementById('sf-name').value = '';
-    document.getElementById('sf-email').value = '';
-    document.getElementById('sf-order').value = '';
-    document.getElementById('sf-desc').value = '';
+    var nameField = document.getElementById('sf-name');
+    var emailField = document.getElementById('sf-email');
+    var orderField = document.getElementById('sf-order');
+    var descField = document.getElementById('sf-desc');
+    if (nameField) nameField.value = '';
+    if (emailField) emailField.value = '';
+    if (orderField) orderField.value = '';
+    if (descField) descField.value = '';
     
-    // Clear all errors
     var errorIds = ['sf-name-err', 'sf-email-err', 'sf-order-err'];
     for (var i = 0; i < errorIds.length; i++) {
         var errEl = document.getElementById(errorIds[i]);
@@ -726,23 +745,796 @@ window.sfReset = function() {
         if (input) input.classList.remove('sf-input-error');
     }
     
-    // Reset Turnstile
-    if (turnstileWidgetId !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
-        try { 
-            turnstile.reset(turnstileWidgetId);
-            turnstileToken = null;
-        } catch(e) {}
-    }
+    // Reset Turnstile properly
+    destroyTurnstile();
     
-    var turnstileContainer = document.getElementById('sf-turnstile-container');
     var turnstileErr = document.getElementById('sf-turnstile-err');
-    if (turnstileContainer) turnstileContainer.classList.remove('sf-input-error');
     if (turnstileErr) turnstileErr.classList.add('sf-hidden');
     
     showToast(formData.resetText || 'Session reset', 1500);
 };
 
-// Event listeners
+// Clean up on page unload / SPA navigation
+window.addEventListener('beforeunload', function() {
+    destroyTurnstile();
+});
+
+document.addEventListener('click', function(e) { 
+    if (e.target.closest('#sf-submit')) { 
+        e.preventDefault(); 
+        sendSupportRequest(); 
+    } 
+});
+
+document.addEventListener('input', function(e) {
+    if (e.target.id === 'sf-order') {
+        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+    }
+});
+
+loadFormData();
+window.scrollTo(0, 0);
+</script><div id="sf-toast" class="sf-toast"></div>
+<div class="sf-wrap">
+    <div class="sf-header">
+        <i class="fas fa-headset"></i>
+        <div>
+            <div id="sf-title" style="font-size:1.4rem;font-weight:700;"></div>
+            <div id="sf-subtitle" style="opacity:.8;font-size:.9rem;margin-top:.2rem;"></div>
+        </div>
+    </div>
+
+    <div class="sf-body" id="sf-body">
+        <div class="sf-progress-row">
+            <span class="sf-progress-note"><i class="far fa-clock"></i> <span id="avg-resolution"></span></span>
+            <span id="sf-step-label" class="sf-progress-step"></span>
+        </div>
+        <div class="sf-progress-track"><div id="sf-prog" class="sf-progress-fill" style="width:5%"></div></div>
+
+        <div id="sf-loading" class="sf-loading">
+            <i class="fas fa-spinner fa-spin" style="font-size:1.75rem;color:var(--accent)"></i>
+            <p style="margin-top:.75rem" id="loading-text"></p>
+        </div>
+
+        <div id="sf-s1" class="sf-hidden">
+            <div style="font-size:1.1rem;font-weight:600;margin-bottom:1rem;" id="select-issue"></div>
+            <div id="sf-cats" class="sf-cat-grid"></div>
+            <p class="sf-note"><i class="fas fa-shield-alt"></i> <span id="most-issues"></span></p>
+        </div>
+
+        <div id="sf-s2" class="sf-hidden"></div>
+
+        <div id="sf-s3" class="sf-hidden">
+            <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;">
+                <i class="fas fa-headset" style="font-size:1.4rem;color:var(--accent)"></i>
+                <span style="font-size:1.25rem;font-weight:700;" id="need-help"></span>
+            </div>
+            <p style="color:var(--text-muted);font-size:.9rem;margin-bottom:1.5rem;" id="response-time"></p>
+
+            <div class="sf-grid2">
+                <div class="sf-field">
+                    <label class="sf-label" for="sf-name" id="label-name"></label>
+                    <input id="sf-name" type="text" class="sf-input" autocomplete="name" maxlength="120">
+                    <span class="sf-field-error" id="sf-name-err"></span>
+                </div>
+                <div class="sf-field">
+                    <label class="sf-label" for="sf-email" id="label-email"></label>
+                    <input id="sf-email" type="email" class="sf-input" autocomplete="email" maxlength="254">
+                    <span class="sf-field-error" id="sf-email-err"></span>
+                </div>
+            </div>
+
+            <div class="sf-field">
+                <label class="sf-label" for="sf-order" id="label-order"></label>
+                <input id="sf-order" type="text" class="sf-input" maxlength="50" inputmode="numeric" pattern="[0-9]*">
+                <span class="sf-field-error" id="sf-order-err"></span>
+                <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;" id="order-help-text"></small>
+            </div>
+
+            <div class="sf-field" id="sf-summary-container" style="display:none;">
+                <label class="sf-label" id="label-summary-table"></label>
+                <div id="sf-summary-table" style="width:100%;margin-top:8px;"></div>
+            </div>
+
+            <div class="sf-field">
+                <label class="sf-label" id="label-comments"></label>
+                <textarea id="sf-desc" rows="6" class="sf-input" style="resize:vertical;font-family:monospace;font-size:0.85rem;line-height:1.5;" maxlength="2000"></textarea>
+                <div id="sf-char-counter" class="sf-char-counter">0 / 2000</div>
+                <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;" id="comments-help-text"></small>
+            </div>
+
+            <div class="sf-turnstile-wrap">
+                <div id="sf-turnstile-container"></div>
+                <span class="sf-turnstile-error sf-hidden" id="sf-turnstile-err"></span>
+            </div>
+
+            <button id="sf-submit" class="sf-submit"></button>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+.sf-submit {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #000000 30%));
+    color: var(--bg);
+    font-weight: 700;
+    padding: .875rem;
+    border-radius: .875rem;
+    border: none;
+    font-size: 1rem;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 1rem;
+}
+.sf-submit:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.sf-submit:active {
+    transform: translateY(0);
+}
+.sf-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+.sf-input-error {
+    border-color: #ef4444 !important;
+}
+.sf-field-error {
+    font-size: 0.75rem;
+    color: #ef4444;
+    margin-top: 4px;
+    display: block;
+}
+.sf-turnstile-error {
+    font-size: 0.75rem;
+    color: #ef4444;
+    margin-top: 4px;
+    display: block;
+}
+.sf-char-counter.warning {
+    color: #eab308;
+}
+.sf-char-counter.danger {
+    color: #ef4444;
+}
+.sf-char-counter {
+    font-size: 0.7rem;
+    text-align: right;
+    margin-top: 4px;
+    color: var(--text-muted);
+}
+.summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.summary-table td {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+.summary-table .step-number {
+    width: 50px;
+    text-align: center;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.sf-hidden {
+    display: none !important;
+}
+.sf-submit-loading {
+    opacity: 0.7;
+    cursor: wait;
+}
+</style>
+
+<script>
+// ==================== CONFIG ====================
+var TURNSTILE_SITE_KEY = (window.CONFIG && window.CONFIG.turnstile && window.CONFIG.turnstile.sitekey) 
+    ? window.CONFIG.turnstile.sitekey : null;
+
+var workerUrl = (window.CONFIG && window.CONFIG.queue && window.CONFIG.queue.endpoint) 
+    ? window.CONFIG.queue.endpoint : "https://edge-form-handler-api.dornori-info.workers.dev";
+
+var lang = document.documentElement.lang || 'en';
+var formJsonPath = (window.CONFIG && window.CONFIG.paths && window.CONFIG.paths.formJsonPath)
+    ? (typeof window.CONFIG.paths.formJsonPath === 'function' ? window.CONFIG.paths.formJsonPath(lang) : window.CONFIG.paths.formJsonPath)
+    : (window.__BASE_PATH__ || '/') + 'lang/' + lang + '/form.json';
+
+var redirectUrl = (window.CONFIG && window.CONFIG.redirect && window.CONFIG.redirect.onSuccess)
+    ? window.CONFIG.redirect.onSuccess
+    : null;
+
+var turnstileWidgetId = null;
+var turnstileToken = null;
+var formData = {};
+var currentCategory = null;
+var currentQuestionId = null;
+var answers = [];
+var isSubmitting = false;
+var isTurnstileInitialized = false;
+
+// ==================== HELPERS ====================
+function generateReferenceNumber() {
+    var timestamp = Date.now().toString();
+    var randomDigits = Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
+    return 'DOR-TICKET-' + timestamp.slice(-6) + randomDigits.slice(0, 4);
+}
+
+function stripHtml(str) {
+    if (typeof str !== 'string') return '';
+    return str.replace(/<[^>]*>/g, '').trim();
+}
+
+function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) && email.length <= 254;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
+function formatSummaryTable(answersArray) {
+    if (!answersArray || answersArray.length === 0) return '';
+    var html = '<table class="summary-table">';
+    for (var i = 0; i < answersArray.length; i++) {
+        var item = answersArray[i];
+        var stepNum = i + 1;
+        var summary = escapeHtml(item.summary || item.answer);
+        html += '<tr><td class="step-number">' + stepNum + '</td><td class="summary-text">' + summary + '</td></tr>';
+    }
+    html += '</table>';
+    return html;
+}
+
+function showToast(msg, ms, isError) {
+    ms = ms || 3000;
+    var t = document.getElementById('sf-toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.style.opacity = '1';
+    t.style.position = 'fixed';
+    t.style.bottom = '20px';
+    t.style.right = '20px';
+    t.style.zIndex = '9999';
+    t.style.background = isError ? '#ef4444' : 'var(--header-bg)';
+    t.style.color = isError ? '#fff' : 'var(--text)';
+    t.style.border = isError ? 'none' : '1px solid var(--border)';
+    t.style.padding = '10px 18px';
+    t.style.borderRadius = '40px';
+    t.style.fontSize = '.88rem';
+    t.style.fontWeight = isError ? '600' : 'normal';
+    setTimeout(function() { t.style.opacity = '0'; }, ms);
+}
+
+function showSuccessMessage(message, referenceNumber) {
+    var body = document.getElementById('sf-body');
+    var successTitle = formData.successTitle || 'Thank You!';
+    var saveReferenceText = formData.saveReferenceText || 'Please save this reference number for future inquiries.';
+    
+    var successHtml = '<div class="sf-success-box" style="text-align:center;padding:2rem;">' +
+        '<i class="fas fa-check-circle" style="font-size:4rem;color:#10b981;margin-bottom:1rem;"></i>' +
+        '<h3 style="font-size:1.5rem;margin-bottom:1rem;color:var(--text);">' + escapeHtml(successTitle) + '</h3>' +
+        '<div class="sf-ref-number" style="font-size:1.2rem;font-weight:700;color:var(--accent);margin:1rem 0;letter-spacing:1px;"><i class="fas fa-ticket-alt"></i> REF: ' + escapeHtml(referenceNumber) + '</div>' +
+        '<p style="color:var(--text-muted);margin-bottom:0.75rem;line-height:1.6;">' + escapeHtml(message) + '</p>' +
+        '<p style="font-size: 0.85rem; margin-top: 1rem;color:var(--text-muted);">' + escapeHtml(saveReferenceText) + '</p>' +
+        '</div>';
+    body.innerHTML = successHtml;
+    
+    setTimeout(function() {
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+    }, 50);
+}
+
+async function loadFormData() {
+    try {
+        var res = await fetch(formJsonPath, { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        formData = await res.json();
+        populateUI();
+    } catch (err) {
+        console.error('Failed to load form.json:', err);
+        var loadingEl = document.getElementById('sf-loading');
+        if (loadingEl) loadingEl.innerHTML = '<p style="color:red">Failed to load form data.<br>Path: ' + formJsonPath + '</p>';
+    }
+}
+
+function populateUI() {
+    document.getElementById('sf-title').textContent = formData.title || 'Support';
+    document.getElementById('sf-subtitle').textContent = formData.subtitle || 'We\'re here to help';
+    document.getElementById('avg-resolution').textContent = formData.avgResolution || 'Avg. resolution 2 min';
+    document.getElementById('select-issue').textContent = formData.selectIssue || 'Select your issue';
+    document.getElementById('most-issues').textContent = formData.mostIssuesResolved || 'Most issues resolved quickly';
+    document.getElementById('need-help').textContent = formData.needHumanHelp || 'Need human help?';
+    document.getElementById('response-time').textContent = formData.responseTime || 'Our support team responds within 4 hours.';
+    document.getElementById('loading-text').textContent = formData.loading || 'Loading...';
+    document.getElementById('sf-submit').textContent = formData.submitButton || 'Submit';
+    
+    var labelName = document.getElementById('label-name');
+    if (labelName) labelName.innerHTML = (formData.fullName || 'Full name') + ' <span style="color:#ef4444">*</span>';
+    
+    var labelEmail = document.getElementById('label-email');
+    if (labelEmail) labelEmail.innerHTML = (formData.email || 'Email address') + ' <span style="color:#ef4444">*</span>';
+    
+    var labelOrder = document.getElementById('label-order');
+    if (labelOrder) labelOrder.innerHTML = (formData.orderNumber || 'Order number') + ' <span style="color:#ef4444">*</span>';
+    
+    var orderHelpText = document.getElementById('order-help-text');
+    if (orderHelpText) orderHelpText.textContent = formData.orderHelpText || 'You can find this in your order confirmation email';
+    
+    var labelSummaryTable = document.getElementById('label-summary-table');
+    if (labelSummaryTable) labelSummaryTable.textContent = formData.summaryLabel || 'Issue Summary';
+    
+    var maxChars = formData.maxCommentsChars || 2000;
+    var labelComments = document.getElementById('label-comments');
+    if (labelComments) labelComments.textContent = (formData.additionalComments || 'Additional comments') + ' <span style="color:var(--text-muted);font-weight:normal;">(optional)</span>';
+    
+    var descField = document.getElementById('sf-desc');
+    if (descField) {
+        descField.placeholder = formData.commentsPlaceholder || 'Enter your comments';
+        descField.maxLength = maxChars;
+    }
+    
+    var commentsHelpText = document.getElementById('comments-help-text');
+    if (commentsHelpText) commentsHelpText.textContent = formData.commentsHelpText || 'Please provide additional details about your issue.';
+    
+    initCharCounter(maxChars);
+
+    var container = document.getElementById('sf-cats');
+    if (container) {
+        container.innerHTML = '';
+        var categories = formData.categories || [];
+        for (var i = 0; i < categories.length; i++) {
+            var cat = categories[i];
+            var btn = document.createElement('button');
+            btn.className = 'sf-btn';
+            btn.innerHTML = '<i class="fas fa-chevron-circle-right"></i> ' + escapeHtml(cat.title);
+            btn.onclick = (function(c) { return function() { startCategory(c); }; })(cat);
+            container.appendChild(btn);
+        }
+    }
+
+    var loadingEl = document.getElementById('sf-loading');
+    if (loadingEl) loadingEl.style.display = 'none';
+    var s1El = document.getElementById('sf-s1');
+    if (s1El) s1El.classList.remove('sf-hidden');
+    
+    updateProgress(5, formData.step1Label || 'Step 1: Choose category');
+}
+
+function initCharCounter(maxChars) {
+    var textarea = document.getElementById('sf-desc');
+    var counterDiv = document.getElementById('sf-char-counter');
+    if (!textarea || !counterDiv) return;
+    var updateCounter = function() {
+        var current = textarea.value.length;
+        var remaining = maxChars - current;
+        counterDiv.textContent = current + ' / ' + maxChars;
+        counterDiv.classList.remove('warning', 'danger');
+        if (remaining < 50) counterDiv.classList.add('danger');
+        else if (remaining < 200) counterDiv.classList.add('warning');
+    };
+    textarea.addEventListener('input', updateCounter);
+    updateCounter();
+}
+
+function updateProgress(percent, label) {
+    var progEl = document.getElementById('sf-prog');
+    var stepLabel = document.getElementById('sf-step-label');
+    if (progEl) progEl.style.width = percent + '%';
+    if (stepLabel) stepLabel.textContent = label;
+}
+
+function startCategory(cat) {
+    currentCategory = cat;
+    answers = [];
+    if (cat.questions && cat.questions.length > 0) {
+        currentQuestionId = cat.questions[0].id;
+        showQuestionById(currentQuestionId);
+    } else {
+        showContactForm();
+    }
+}
+
+function findQuestion(questionId) {
+    if (!currentCategory || !currentCategory.questions) return null;
+    for (var i = 0; i < currentCategory.questions.length; i++) {
+        if (currentCategory.questions[i].id === questionId) return currentCategory.questions[i];
+    }
+    return null;
+}
+
+function showQuestionById(questionId) {
+    var question = findQuestion(questionId);
+    if (!question) { showContactForm(); return; }
+    
+    var troubleshootingLabel = formData.troubleshootingLabel || 'Troubleshooting';
+    var html = '<div class="sf-q-label" style="font-size:.8rem;color:var(--accent);margin-bottom:.5rem;"><i class="fas fa-question-circle"></i> ' + troubleshootingLabel + '</div>';
+    html += '<div class="sf-q-text" style="font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:1.25rem;">' + escapeHtml(question.text) + '</div>';
+
+    for (var i = 0; i < question.options.length; i++) {
+        var opt = question.options[i];
+        html += '<button class="sf-opt" style="width:100%;text-align:left;padding:.9rem 1.2rem;border:1px solid var(--border);border-radius:.875rem;background:transparent;color:var(--text);cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:.95rem;margin-bottom:.6rem;" onclick="selectAnswer(\'' + questionId + '\', ' + i + ')"><span>' + escapeHtml(opt.text) + '</span><i class="fas fa-arrow-right" style="color:var(--accent);flex-shrink:0;"></i></button>';
+    }
+
+    var startOverLabel = formData.startOverLabel || 'Start over';
+    html += '<div style="margin-top:1rem"><button class="sf-reset" style="font-size:.82rem;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:9999px;padding:.35rem .9rem;cursor:pointer;" onclick="sfReset()"><i class="fas fa-undo-alt"></i> ' + startOverLabel + '</button></div>';
+
+    var s2El = document.getElementById('sf-s2');
+    var s1El = document.getElementById('sf-s1');
+    var s3El = document.getElementById('sf-s3');
+    if (s2El) s2El.innerHTML = html;
+    if (s1El) s1El.classList.add('sf-hidden');
+    if (s2El) s2El.classList.remove('sf-hidden');
+    if (s3El) s3El.classList.add('sf-hidden');
+    updateProgress(45, formData.step2Label || 'Step 2: Troubleshooting');
+}
+
+window.selectAnswer = function(questionId, optionIndex) {
+    var question = findQuestion(questionId);
+    if (!question) return;
+    var opt = question.options[optionIndex];
+    answers.push({
+        question: question.text,
+        answer: opt.text,
+        summary: opt.summary || opt.text
+    });
+    var nextId = opt.next;
+    if (nextId === 'resolved_end') {
+        var endpoint = formData.endpoints && formData.endpoints.resolved_end;
+        if (endpoint && endpoint.type === 'redirect' && endpoint.redirect_url) {
+            showToast(endpoint.message || 'Issue resolved!', (endpoint.delay_seconds || 2) * 1000);
+            setTimeout(function() { window.location.href = endpoint.redirect_url; }, (endpoint.delay_seconds || 2) * 1000);
+        } else {
+            showSuccessMessage((endpoint && endpoint.message) || 'Issue resolved! Thank you.', generateReferenceNumber());
+        }
+        return;
+    }
+    if (nextId === 'contact') { showContactForm(); return; }
+    var nextQuestion = findQuestion(nextId);
+    if (nextQuestion) { currentQuestionId = nextId; showQuestionById(nextId); }
+    else { showContactForm(); }
+};
+
+function showContactForm() {
+    var summaryHtml = formatSummaryTable(answers);
+    var summaryContainer = document.getElementById('sf-summary-container');
+    var summaryTableDiv = document.getElementById('sf-summary-table');
+    if (answers.length > 0 && summaryContainer && summaryTableDiv) {
+        summaryTableDiv.innerHTML = summaryHtml;
+        summaryContainer.style.display = 'block';
+    } else if (summaryContainer) { summaryContainer.style.display = 'none'; }
+    
+    var s1El = document.getElementById('sf-s1');
+    var s2El = document.getElementById('sf-s2');
+    var s3El = document.getElementById('sf-s3');
+    if (s1El) s1El.classList.add('sf-hidden');
+    if (s2El) s2El.classList.add('sf-hidden');
+    if (s3El) s3El.classList.remove('sf-hidden');
+    updateProgress(85, formData.step3Label || 'Step 3: Contact support');
+    
+    // Reset turnstile flag so it re-initializes properly
+    isTurnstileInitialized = false;
+    initTurnstile();
+}
+
+function destroyTurnstile() {
+    if (turnstileWidgetId !== null) {
+        try {
+            if (typeof turnstile !== 'undefined' && turnstile.remove) {
+                turnstile.remove(turnstileWidgetId);
+            }
+        } catch(e) {
+            console.warn('Turnstile remove error:', e);
+        }
+        turnstileWidgetId = null;
+    }
+    turnstileToken = null;
+    
+    // Clear the container
+    var container = document.getElementById('sf-turnstile-container');
+    if (container) {
+        container.innerHTML = '';
+    }
+}
+
+function initTurnstile() {
+    var container = document.getElementById('sf-turnstile-container');
+    if (!container) return;
+    
+    if (!TURNSTILE_SITE_KEY || TURNSTILE_SITE_KEY === '1x00000000000000000000AA') {
+        container.style.display = 'none';
+        turnstileToken = 'no-turnstile-required';
+        return;
+    }
+    
+    // Wait for Turnstile to be available (loaded by parent SPA)
+    if (typeof turnstile === 'undefined') {
+        setTimeout(initTurnstile, 200);
+        return;
+    }
+    
+    // Clean up any existing widget first
+    destroyTurnstile();
+    
+    // Show container
+    container.style.display = 'block';
+    
+    try {
+        turnstileWidgetId = turnstile.render(container, {
+            sitekey: TURNSTILE_SITE_KEY,
+            theme: 'light',
+            'render': 'explicit',
+            callback: function(token) { 
+                turnstileToken = token;
+                var err = document.getElementById('sf-turnstile-err');
+                if (err) {
+                    err.textContent = '';
+                    err.classList.add('sf-hidden');
+                }
+                if (container) container.classList.remove('sf-input-error');
+            },
+            'expired-callback': function() { 
+                turnstileToken = null;
+                var err = document.getElementById('sf-turnstile-err');
+                if (err) {
+                    err.textContent = formData.turnstileExpiredError || 'Security verification expired. Please try again.';
+                    err.classList.remove('sf-hidden');
+                }
+                if (container) container.classList.add('sf-input-error');
+            },
+            'error-callback': function(errorCode) { 
+                turnstileToken = null;
+                var err = document.getElementById('sf-turnstile-err');
+                var errorMsg = formData.turnstileFailedError || 'Security verification failed. Please refresh the page.';
+                if (err) {
+                    err.textContent = errorMsg;
+                    err.classList.remove('sf-hidden');
+                }
+                if (container) container.classList.add('sf-input-error');
+            }
+        });
+        isTurnstileInitialized = true;
+    } catch(e) {
+        console.error('Turnstile render error:', e);
+    }
+}
+
+function setFieldError(inputId, errorId, message) {
+    var input = document.getElementById(inputId);
+    var errEl = document.getElementById(errorId);
+    if (message) {
+        if (input) input.classList.add('sf-input-error');
+        if (errEl) errEl.textContent = message;
+        return true;
+    } else {
+        if (input) input.classList.remove('sf-input-error');
+        if (errEl) errEl.textContent = '';
+        return false;
+    }
+}
+
+function validateForm() {
+    var hasError = false;
+    var nameInput = document.getElementById('sf-name')?.value || '';
+    var emailInput = document.getElementById('sf-email')?.value || '';
+    var orderInput = document.getElementById('sf-order')?.value || '';
+
+    // Clear previous errors
+    setFieldError('sf-name', 'sf-name-err', '');
+    setFieldError('sf-email', 'sf-email-err', '');
+    setFieldError('sf-order', 'sf-order-err', '');
+    
+    var turnstileContainer = document.getElementById('sf-turnstile-container');
+    var turnstileErr = document.getElementById('sf-turnstile-err');
+    if (turnstileErr) turnstileErr.classList.add('sf-hidden');
+    if (turnstileContainer) turnstileContainer.classList.remove('sf-input-error');
+
+    // REQUIRED: Full name
+    if (!nameInput.trim()) {
+        setFieldError('sf-name', 'sf-name-err', formData.fullNameRequired || 'Full name is required.');
+        hasError = true;
+    }
+    
+    // REQUIRED: Email
+    if (!emailInput.trim()) {
+        setFieldError('sf-email', 'sf-email-err', formData.emailRequired || 'Email address is required.');
+        hasError = true;
+    } else if (!isValidEmail(emailInput)) {
+        setFieldError('sf-email', 'sf-email-err', formData.emailInvalid || 'Please enter a valid email address.');
+        hasError = true;
+    }
+    
+    // REQUIRED: Order number (digits only)
+    if (!orderInput.trim()) {
+        setFieldError('sf-order', 'sf-order-err', formData.orderNumberRequired || 'Order number is required.');
+        hasError = true;
+    } else if (!/^\d+$/.test(orderInput.trim())) {
+        setFieldError('sf-order', 'sf-order-err', formData.orderDigitsOnly || 'Order number must contain digits only.');
+        hasError = true;
+    }
+
+    // COMMENTS: NOT validated - completely optional
+
+    // Turnstile validation (if enabled)
+    var turnstileEnabled = TURNSTILE_SITE_KEY && TURNSTILE_SITE_KEY !== '1x00000000000000000000AA';
+    if (turnstileEnabled && turnstileWidgetId !== null) {
+        if (!turnstileToken) {
+            if (turnstileErr) {
+                turnstileErr.textContent = formData.turnstileError || 'Please complete the security check.';
+                turnstileErr.classList.remove('sf-hidden');
+            }
+            if (turnstileContainer) turnstileContainer.classList.add('sf-input-error');
+            hasError = true;
+        }
+    }
+
+    if (hasError) {
+        showToast(formData.errorFixAbove || 'Please fix the errors above before submitting.', 3000, true);
+    }
+    
+    return { 
+        valid: !hasError, 
+        sanitised: { 
+            name: stripHtml(nameInput), 
+            email: stripHtml(emailInput), 
+            order: stripHtml(orderInput), 
+            comments: stripHtml(document.getElementById('sf-desc')?.value || '')
+        } 
+    };
+}
+
+async function sendSupportRequest() {
+    if (isSubmitting) return;
+    
+    var validation = validateForm();
+    if (!validation.valid) {
+        return;
+    }
+    
+    isSubmitting = true;
+    var sanitised = validation.sanitised;
+    var referenceNumber = generateReferenceNumber();
+    var submitBtn = document.getElementById('sf-submit');
+    var originalText = submitBtn?.textContent || 'Submit';
+    
+    if (submitBtn) { 
+        submitBtn.disabled = true; 
+        submitBtn.textContent = formData.sendingText || 'Sending...';
+    }
+
+    var troubleshootingSummaries = [];
+    for (var i = 0; i < answers.length; i++) {
+        troubleshootingSummaries.push(answers[i].summary || answers[i].answer);
+    }
+
+    var additionalComments = [];
+    if (sanitised.comments) {
+        var lines = sanitised.comments.split(/\r?\n/);
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (line.length > 0) {
+                additionalComments.push(line);
+            }
+        }
+    }
+
+    var payload = {
+        referenceNumber: referenceNumber,
+        category: "support-request",
+        originalCategory: currentCategory?.title || 'General',
+        name: sanitised.name,
+        email: sanitised.email,
+        orderNumber: sanitised.order,
+        troubleshooting: troubleshootingSummaries,
+        additionalComments: additionalComments,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent
+    };
+
+    try {
+        var response = await fetch(workerUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+            if (redirectUrl && redirectUrl.trim()) {
+                window.location.href = redirectUrl;
+            } else {
+                showSuccessMessage('Your support request has been submitted. Our team will respond within 4 hours.', referenceNumber);
+            }
+        } else {
+            throw new Error('Server returned ' + response.status);
+        }
+    } catch (err) {
+        console.error(err);
+        showToast((formData.submissionErrorText || 'Submission failed') + '. ' + (formData.retryText || 'Please try again.'), 5000, true);
+        
+        // Reset Turnstile on error
+        if (turnstileWidgetId !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
+            try { 
+                turnstile.reset(turnstileWidgetId);
+                turnstileToken = null;
+            } catch(e) {}
+        }
+        
+        if (submitBtn) { 
+            submitBtn.disabled = false; 
+            submitBtn.textContent = originalText;
+        }
+        isSubmitting = false;
+        return;
+    }
+    
+    isSubmitting = false;
+}
+
+window.sfReset = function() {
+    currentCategory = null;
+    currentQuestionId = null;
+    answers = [];
+    
+    var s1El = document.getElementById('sf-s1');
+    var s2El = document.getElementById('sf-s2');
+    var s3El = document.getElementById('sf-s3');
+    var summaryContainer = document.getElementById('sf-summary-container');
+    if (s1El) s1El.classList.remove('sf-hidden');
+    if (s2El) s2El.classList.add('sf-hidden');
+    if (s3El) s3El.classList.add('sf-hidden');
+    if (summaryContainer) summaryContainer.style.display = 'none';
+    updateProgress(5, formData.step1Label || 'Step 1: Choose category');
+    
+    var nameField = document.getElementById('sf-name');
+    var emailField = document.getElementById('sf-email');
+    var orderField = document.getElementById('sf-order');
+    var descField = document.getElementById('sf-desc');
+    if (nameField) nameField.value = '';
+    if (emailField) emailField.value = '';
+    if (orderField) orderField.value = '';
+    if (descField) descField.value = '';
+    
+    var errorIds = ['sf-name-err', 'sf-email-err', 'sf-order-err'];
+    for (var i = 0; i < errorIds.length; i++) {
+        var errEl = document.getElementById(errorIds[i]);
+        if (errEl) errEl.textContent = '';
+    }
+    var inputIds = ['sf-name', 'sf-email', 'sf-order'];
+    for (var i = 0; i < inputIds.length; i++) {
+        var input = document.getElementById(inputIds[i]);
+        if (input) input.classList.remove('sf-input-error');
+    }
+    
+    // Reset Turnstile properly
+    destroyTurnstile();
+    
+    var turnstileErr = document.getElementById('sf-turnstile-err');
+    if (turnstileErr) turnstileErr.classList.add('sf-hidden');
+    
+    showToast(formData.resetText || 'Session reset', 1500);
+};
+
+// Clean up on page unload / SPA navigation
+window.addEventListener('beforeunload', function() {
+    destroyTurnstile();
+});
+
 document.addEventListener('click', function(e) { 
     if (e.target.closest('#sf-submit')) { 
         e.preventDefault(); 
