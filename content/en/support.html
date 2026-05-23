@@ -297,7 +297,7 @@ function populateUI() {
     
     var maxChars = formData.maxCommentsChars || 2000;
     var labelComments = document.getElementById('label-comments');
-    if (labelComments) labelComments.innerHTML = (formData.additionalComments || 'Additional comments') + ' <span style="color:#ef4444">*</span>';
+    if (labelComments) labelComments.textContent = formData.additionalComments || 'Additional comments';
     
     var descField = document.getElementById('sf-desc');
     if (descField) {
@@ -546,13 +546,8 @@ function validateForm() {
         setFieldError('sf-order', 'sf-order-err', '');
     }
 
-    // Comments validation - now required
-    if (!commentsInput.trim()) {
-        setFieldError('sf-desc', 'sf-desc-err', formData.commentsRequired || 'Additional comments are required.');
-        hasError = true;
-    } else {
-        setFieldError('sf-desc', 'sf-desc-err', '');
-    }
+    // Comments - optional, no validation
+    setFieldError('sf-desc', 'sf-desc-err', '');
 
     var turnstileContainer = document.getElementById('sf-turnstile-container');
     var turnstileErr = document.getElementById('sf-turnstile-err');
@@ -578,13 +573,6 @@ function validateForm() {
 
 async function sendSupportRequest() {
     var validation = validateForm();
-    console.log('Validation result:', validation);
-    console.log('Valid:', validation.valid);
-    console.log('Name:', validation.sanitised.name);
-    console.log('Email:', validation.sanitised.email);
-    console.log('Order:', validation.sanitised.order);
-    console.log('Comments:', validation.sanitised.comments);
-    
     if (!validation.valid) {
         showToast('Please fill in all required fields.', 3000);
         return;
