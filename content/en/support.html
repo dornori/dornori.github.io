@@ -80,9 +80,19 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
 <style>
+:root {
+    --accent: #6366f1;
+    --bg: #ffffff;
+    --text: #1f2937;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --header-bg: #f3f4f6;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
 .sf-submit {
     width: 100%;
-    background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #000000 30%));
+    background: linear-gradient(135deg, var(--accent), #4f46e5);
     color: var(--bg);
     font-weight: 700;
     padding: .875rem;
@@ -148,7 +158,7 @@
     width: 50px;
     text-align: center;
     font-weight: 600;
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    background: rgba(99, 102, 241, 0.1);
 }
 .sf-hidden {
     display: none !important;
@@ -156,6 +166,107 @@
 .sf-submit-loading {
     opacity: 0.7;
     cursor: wait;
+}
+.sf-btn {
+    width: 100%;
+    text-align: left;
+    padding: 1rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+    font-size: 1rem;
+    color: var(--text);
+    transition: all 0.2s;
+}
+.sf-btn:hover {
+    border-color: var(--accent);
+    background: rgba(99, 102, 241, 0.05);
+    transform: translateX(4px);
+}
+.sf-wrap {
+    max-width: 600px;
+    margin: 0 auto;
+    background: var(--bg);
+    border-radius: 1.5rem;
+    box-shadow: 0 20px 35px -10px rgba(0,0,0,0.1);
+    overflow: hidden;
+    font-family: var(--font-sans);
+}
+.sf-header {
+    background: var(--header-bg);
+    padding: 1.5rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+}
+.sf-header i {
+    font-size: 2rem;
+    color: var(--accent);
+}
+.sf-body {
+    padding: 1.5rem;
+}
+.sf-progress-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+.sf-progress-track {
+    background: var(--border);
+    height: 6px;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+.sf-progress-fill {
+    background: var(--accent);
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+.sf-note {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 1rem;
+    text-align: center;
+}
+.sf-grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.sf-field {
+    margin-bottom: 1rem;
+}
+.sf-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+}
+.sf-input {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    font-size: 0.95rem;
+    font-family: var(--font-sans);
+    transition: all 0.2s;
+}
+.sf-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+.sf-turnstile-wrap {
+    margin: 1rem 0;
 }
 </style>
 
@@ -209,7 +320,7 @@
             'sf-turnstile-err', 'sf-summary-container', 'sf-summary-table',
             'label-name', 'label-email', 'label-order', 'label-comments',
             'label-summary-table', 'order-help-text', 'comments-help-text',
-            'sf-char-counter'
+            'sf-char-counter', 'sf-body'
         ];
         
         for (var i = 0; i < elementIds.length; i++) {
@@ -299,11 +410,11 @@
     }
     
     function showSuccessMessage(message, referenceNumber) {
-        var body = document.getElementById('sf-body');
+        var body = dom['sf-body'] || document.getElementById('sf-body');
         var successTitle = formData.successTitle || 'Thank You!';
         var saveReferenceText = formData.saveReferenceText || 'Please save this reference number for future inquiries.';
         
-        var successHtml = '<div class="sf-success-box" style="text-align:center;padding:2rem;">' +
+        var successHtml = '<div class="sf-success-box" style="text-align:center;padding:2rem;" tabindex="-1">' +
             '<i class="fas fa-check-circle" style="font-size:4rem;color:#10b981;margin-bottom:1rem;"></i>' +
             '<h3 style="font-size:1.5rem;margin-bottom:1rem;color:var(--text);">' + escapeHtml(successTitle) + '</h3>' +
             '<div class="sf-ref-number" style="font-size:1.2rem;font-weight:700;color:var(--accent);margin:1rem 0;letter-spacing:1px;"><i class="fas fa-ticket-alt"></i> REF: ' + escapeHtml(referenceNumber) + '</div>' +
@@ -315,7 +426,6 @@
         // Move focus to success message for accessibility
         var successBox = body.querySelector('.sf-success-box');
         if (successBox) {
-            successBox.setAttribute('tabindex', '-1');
             successBox.focus();
         }
         
@@ -513,6 +623,115 @@
         else { showContactForm(); }
     }
     
+    function destroyTurnstile() {
+        if (turnstileWidgetId !== null) {
+            try {
+                if (typeof turnstile !== 'undefined' && turnstile.remove) {
+                    turnstile.remove(turnstileWidgetId);
+                }
+            } catch(e) {
+                console.warn('Turnstile remove error:', e);
+            }
+            turnstileWidgetId = null;
+        }
+        turnstileToken = null;
+        isTurnstileInitialized = false;
+        
+        // Clear the container HTML completely
+        if (dom['sf-turnstile-container']) {
+            while (dom['sf-turnstile-container'].firstChild) {
+                dom['sf-turnstile-container'].removeChild(dom['sf-turnstile-container'].firstChild);
+            }
+        }
+    }
+    
+    function initTurnstile() {
+        if (!dom['sf-turnstile-container']) return;
+        
+        // If Turnstile is disabled (test key)
+        if (!TURNSTILE_SITE_KEY || TURNSTILE_SITE_KEY === '1x00000000000000000000AA') {
+            dom['sf-turnstile-container'].style.display = 'none';
+            turnstileToken = 'no-turnstile-required';
+            isTurnstileInitialized = true;
+            return;
+        }
+        
+        // Wait for Turnstile to be available (loaded by parent SPA)
+        if (typeof turnstile === 'undefined') {
+            setTimeout(initTurnstile, 200);
+            return;
+        }
+        
+        // Check if container already has a widget
+        var existingIframe = dom['sf-turnstile-container'].querySelector('iframe');
+        if (existingIframe && turnstileWidgetId !== null && isTurnstileInitialized) {
+            // Widget already exists, just reset it
+            try {
+                turnstile.reset(turnstileWidgetId);
+                turnstileToken = null;
+                if (dom['sf-turnstile-err']) {
+                    dom['sf-turnstile-err'].classList.add('sf-hidden');
+                }
+                return;
+            } catch(e) {
+                // If reset fails, destroy and recreate
+                destroyTurnstile();
+            }
+        } else {
+            // Clean up any existing widget first
+            destroyTurnstile();
+        }
+        
+        // Show container
+        dom['sf-turnstile-container'].style.display = 'block';
+        
+        try {
+            turnstileWidgetId = turnstile.render(dom['sf-turnstile-container'], {
+                sitekey: TURNSTILE_SITE_KEY,
+                theme: 'light',
+                callback: function(token) { 
+                    turnstileToken = token;
+                    if (dom['sf-turnstile-err']) {
+                        dom['sf-turnstile-err'].textContent = '';
+                        dom['sf-turnstile-err'].classList.add('sf-hidden');
+                    }
+                    if (dom['sf-turnstile-container']) {
+                        dom['sf-turnstile-container'].classList.remove('sf-input-error');
+                    }
+                },
+                'expired-callback': function() { 
+                    turnstileToken = null;
+                    if (dom['sf-turnstile-err']) {
+                        dom['sf-turnstile-err'].textContent = formData.turnstileExpiredError || 'Security verification expired. Please try again.';
+                        dom['sf-turnstile-err'].classList.remove('sf-hidden');
+                    }
+                    if (dom['sf-turnstile-container']) {
+                        dom['sf-turnstile-container'].classList.add('sf-input-error');
+                    }
+                },
+                'error-callback': function(errorCode) { 
+                    turnstileToken = null;
+                    if (dom['sf-turnstile-err']) {
+                        var errorMsg = formData.turnstileFailedError || 'Security verification failed. Please disable private browsing mode or refresh the page.';
+                        dom['sf-turnstile-err'].textContent = errorMsg;
+                        dom['sf-turnstile-err'].classList.remove('sf-hidden');
+                    }
+                    if (dom['sf-turnstile-container']) {
+                        dom['sf-turnstile-container'].classList.add('sf-input-error');
+                    }
+                }
+            });
+            isTurnstileInitialized = true;
+        } catch(e) {
+            console.error('Turnstile render error:', e);
+            if (dom['sf-turnstile-err']) {
+                dom['sf-turnstile-err'].textContent = formData.turnstileLoadError || 'Security check failed to load. Please disable private browsing mode or refresh the page.';
+                dom['sf-turnstile-err'].classList.remove('sf-hidden');
+            }
+            isTurnstileInitialized = false;
+        }
+    }
+    
     function showContactForm() {
         var summaryHtml = formatSummaryTable(answers);
         if (answers.length > 0 && dom['sf-summary-container'] && dom['sf-summary-table']) {
@@ -527,86 +746,20 @@
         if (dom['sf-s3']) dom['sf-s3'].classList.remove('sf-hidden');
         updateProgress(85, formData.step3Label || 'Step 3: Contact support');
         
-        isTurnstileInitialized = false;
-        initTurnstile();
-    }
-    
-    function destroyTurnstile() {
-        if (turnstileWidgetId !== null) {
+        // Only reinitialize if Turnstile hasn't been initialized yet
+        if (!isTurnstileInitialized || turnstileWidgetId === null) {
+            initTurnstile();
+        } else if (turnstileWidgetId !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
+            // Just reset the existing widget
             try {
-                if (typeof turnstile !== 'undefined' && turnstile.remove) {
-                    turnstile.remove(turnstileWidgetId);
+                turnstile.reset(turnstileWidgetId);
+                turnstileToken = null;
+                if (dom['sf-turnstile-err']) {
+                    dom['sf-turnstile-err'].classList.add('sf-hidden');
                 }
             } catch(e) {
-                console.warn('Turnstile remove error:', e);
-            }
-            turnstileWidgetId = null;
-        }
-        turnstileToken = null;
-        
-        if (dom['sf-turnstile-container']) {
-            dom['sf-turnstile-container'].innerHTML = '';
-        }
-    }
-    
-    function initTurnstile() {
-        if (!dom['sf-turnstile-container']) return;
-        
-        if (!TURNSTILE_SITE_KEY || TURNSTILE_SITE_KEY === '1x00000000000000000000AA') {
-            dom['sf-turnstile-container'].style.display = 'none';
-            turnstileToken = 'no-turnstile-required';
-            return;
-        }
-        
-        // Wait for Turnstile to be available (loaded by parent SPA)
-        if (typeof turnstile === 'undefined') {
-            setTimeout(initTurnstile, 200);
-            return;
-        }
-        
-        // Clean up any existing widget first
-        destroyTurnstile();
-        
-        // Show container
-        dom['sf-turnstile-container'].style.display = 'block';
-        
-        try {
-            turnstileWidgetId = turnstile.render(dom['sf-turnstile-container'], {
-                sitekey: TURNSTILE_SITE_KEY,
-                theme: 'light',
-                'render': 'explicit',
-                callback: function(token) { 
-                    turnstileToken = token;
-                    if (dom['sf-turnstile-err']) {
-                        dom['sf-turnstile-err'].textContent = '';
-                        dom['sf-turnstile-err'].classList.add('sf-hidden');
-                    }
-                    if (dom['sf-turnstile-container']) dom['sf-turnstile-container'].classList.remove('sf-input-error');
-                },
-                'expired-callback': function() { 
-                    turnstileToken = null;
-                    if (dom['sf-turnstile-err']) {
-                        dom['sf-turnstile-err'].textContent = formData.turnstileExpiredError || 'Security verification expired. Please try again.';
-                        dom['sf-turnstile-err'].classList.remove('sf-hidden');
-                    }
-                    if (dom['sf-turnstile-container']) dom['sf-turnstile-container'].classList.add('sf-input-error');
-                },
-                'error-callback': function(errorCode) { 
-                    turnstileToken = null;
-                    if (dom['sf-turnstile-err']) {
-                        var errorMsg = formData.turnstileFailedError || 'Security verification failed. Please disable private browsing mode or refresh the page.';
-                        dom['sf-turnstile-err'].textContent = errorMsg;
-                        dom['sf-turnstile-err'].classList.remove('sf-hidden');
-                    }
-                    if (dom['sf-turnstile-container']) dom['sf-turnstile-container'].classList.add('sf-input-error');
-                }
-            });
-            isTurnstileInitialized = true;
-        } catch(e) {
-            console.error('Turnstile render error:', e);
-            if (dom['sf-turnstile-err']) {
-                dom['sf-turnstile-err'].textContent = formData.turnstileLoadError || 'Security check failed to load. Please disable private browsing mode or refresh the page.';
-                dom['sf-turnstile-err'].classList.remove('sf-hidden');
+                console.warn('Turnstile reset failed, reinitializing:', e);
+                initTurnstile();
             }
         }
     }
@@ -673,20 +826,12 @@
         // Turnstile validation (required for security)
         var turnstileEnabled = TURNSTILE_SITE_KEY && TURNSTILE_SITE_KEY !== '1x00000000000000000000AA';
         if (turnstileEnabled) {
-            if (!turnstileToken) {
+            if (!turnstileToken || turnstileToken === 'no-turnstile-required') {
                 if (dom['sf-turnstile-err']) {
                     dom['sf-turnstile-err'].textContent = formData.turnstileRequired || 'Security verification required. Please complete the check.';
                     dom['sf-turnstile-err'].classList.remove('sf-hidden');
                 }
                 if (dom['sf-turnstile-container']) dom['sf-turnstile-container'].classList.add('sf-input-error');
-                hasError = true;
-            } else if (turnstileWidgetId === null && turnstileToken === 'no-turnstile-required') {
-                // Turnstile not initialized - this is fine, skip validation
-            } else if (turnstileWidgetId === null && turnstileToken !== 'no-turnstile-required') {
-                if (dom['sf-turnstile-err']) {
-                    dom['sf-turnstile-err'].textContent = formData.turnstileLoadError || 'Security check failed to initialize. Please disable private browsing mode or refresh the page.';
-                    dom['sf-turnstile-err'].classList.remove('sf-hidden');
-                }
                 hasError = true;
             }
         }
@@ -812,6 +957,7 @@
                     turnstileToken = null;
                 } catch(e) {
                     console.warn('Turnstile reset failed:', e);
+                    initTurnstile();
                 }
             }
             
