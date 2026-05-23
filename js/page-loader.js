@@ -2,7 +2,6 @@
 import SITE_CONFIG from './config.js';
 import ENV_CONFIG from './env-config.js';
 import { mountSlideshow } from './slideshow.js';
-import { initEmbedForms }  from './embed-form.js';
 import { injectHreflangTags, getSlug, canonicalSlug } from './i18n.js';
 import { mountShopEmbeds } from './shop-loader.js';
 
@@ -221,7 +220,7 @@ export function initPageLoader() {
         if (alreadyPopulated && loadedLang === lang) {
             rewriteContentPaths(homeView);
             homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
-            initEmbedForms();
+
             wireShopCards(homeView);
             mountShopEmbeds(homeView);
             homeView.classList.remove('hidden');
@@ -240,7 +239,7 @@ export function initPageLoader() {
             homeView.dataset.loadedLang = lang;   // ← record which lang is now displayed
         rewriteContentPaths(homeView);
             homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
-            initEmbedForms();
+
             wireShopCards(homeView);
             mountShopEmbeds(homeView);
         } catch {
@@ -320,7 +319,7 @@ export function initPageLoader() {
             });
 
             pageContent.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
-            initEmbedForms();
+
             wireShopCards(pageContent);
             mountShopEmbeds(pageContent);
             homeView.classList.add('hidden');
