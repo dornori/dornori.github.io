@@ -223,10 +223,12 @@ main {
 }
 .view-inner p { margin-bottom: 20px; }
 
-/* Default heading colour */
-h2, h3, h4 { color: var(--accent); }
+/* Default heading colours — use profile heading tokens, fall back to --accent */
+h2 { color: var(--color-h2, var(--accent)); }
+h3 { color: var(--color-h3, var(--accent)); }
+h4 { color: var(--color-h4, var(--accent)); }
 .product-content h2,
-.product-content h3 { color: var(--accent); }
+.product-content h3 { color: var(--color-h3, var(--accent)); }
 
 
 /* =============================================================================
@@ -238,7 +240,7 @@ header {
     position: sticky;
     top: 0;
     z-index: 1000;
-    background: var(--header-bg, var(--bg));
+    background: var(--bg-header, var(--bg));
 }
 
 /* --- 4a. Logo & wordmark --------------------------------------------------- */
@@ -341,7 +343,7 @@ header {
     padding: 0 24px;
     gap: 16px;
 
-    background: var(--header-bg, var(--bg));
+    background: var(--bg-header, var(--bg));
     border-bottom: 1px solid var(--border);
     box-shadow: 0 2px 0 0 var(--accent);
     overflow: visible;
@@ -530,7 +532,7 @@ nav.top-nav {
         flex-direction: row;
         justify-content: space-around;
         align-items: stretch;
-        background: var(--header-bg, var(--bg));
+        background: var(--bg-header, var(--bg));
         border-bottom: 1px solid var(--border);
         box-shadow: 0 2px 0 0 var(--accent);
     }
@@ -785,7 +787,7 @@ nav.top-nav {
 
 /* Waitlist / newsletter card */
 .waitlist-card {
-    background: var(--glass);
+    background: var(--bg-card);
     backdrop-filter: blur(20px);
     border: 1px solid var(--border);
     padding: 40px;
@@ -996,7 +998,7 @@ input {
     border: 1px solid var(--border);
     border-radius: 8px;
     overflow: hidden;
-    background: var(--glass);
+    background: var(--bg-card);
     transition: border-color 0.2s, transform 0.2s;
 }
 .hw-card:hover { border-color: var(--accent); transform: translateY(-2px); }
@@ -1519,7 +1521,7 @@ input {
     padding: 1.5rem;
     border: 1px solid var(--border);
     border-radius: 12px;
-    background: var(--glass);
+    background: var(--bg-card);
 }
 .accessories-row h3 {
     font-family: var(--font-mono);
@@ -1539,7 +1541,7 @@ input {
     border: 1px solid var(--accent);
     border-radius: 10px;
     margin: 1.5rem 0;
-    background: var(--glass);
+    background: var(--bg-card);
 }
 .lever-callout__symbol { font-size: 2rem; line-height: 1; }
 .lever-callout__text   { font-family: var(--font-sans); font-size: 0.95rem; line-height: 1.7; color: var(--text); }
@@ -1585,7 +1587,7 @@ input {
 .sf-header i { font-size: 2.25rem; }
 
 .sf-body {
-    background: var(--glass);
+    background: var(--bg-card);
     border: 1px solid var(--border);
     border-top: none;
     border-radius: 0 0 1.25rem 1.25rem;
@@ -1684,7 +1686,7 @@ input {
     bottom: 20px;
     right: 20px;
     z-index: 9999;
-    background: var(--header-bg);
+    background: var(--bg-header);
     color: var(--text);
     border: 1px solid var(--border);
     padding: 10px 18px;
@@ -1767,7 +1769,7 @@ input {
     width: 100%;
     padding: 40px 60px;
     border-top: 1px solid var(--footer-border);
-    background: var(--footer-bg, #050505);
+    background: var(--bg-footer, #050505);
     margin-top: auto;
 }
 .footer-container {
@@ -1953,8 +1955,8 @@ input {
 #topBar,
 #page-content-inner {
     --c-bg:        var(--bg);
-    --c-surface:   var(--header-bg, var(--bg));
-    --c-surface-2: var(--glass, rgba(255,255,255,0.06));
+    --c-surface:   var(--bg-header, var(--bg));
+    --c-surface-2: var(--bg-card, rgba(255,255,255,0.06));
     --c-border:    var(--border);
     --c-text:      var(--text);
     --c-text-2:    var(--text);
@@ -2008,35 +2010,23 @@ input {
 
 /* =============================================================================
    17. THEME OVERRIDES
+   ─────────────────────────────────────────────────────────────────────────────
+   All per-profile colours are now controlled by tokens in profiles.css.
+   These rules only re-map the shop's internal --c-* tokens to the profile
+   tokens so that shop.css components pick up the correct profile colours
+   in the header context (where background is --bg-header, not --bg).
    ============================================================================= */
 
-/* cutting-mat: header uses white-on-green instead of default */
-[data-theme="cutting-mat"] #main-header {
-    --c-text:    #ffffff;
-    --c-white:   #ffffff;
-    --c-accent:  #7aad8e;
-    --c-border:  rgba(255, 255, 255, 0.35);
-    --c-surface: var(--header-bg, #3d251e);
-}
-[data-theme="cutting-mat"] #main-header .webshop-cart-icon {
-    background: rgba(255, 255, 255, 0.12);
-    color: #ffffff;
-    box-shadow: none;
-}
-[data-theme="cutting-mat"] #main-header .webshop-cart-icon:hover {
-    background: #7aad8e;
-    color: #1a3a2a;
-    box-shadow: none;
-    transform: scale(1.05);
-}
-[data-theme="cutting-mat"] .webshop-cart-hover-panel {
-    background: #3d251e;
-    border-color: rgba(255, 255, 255, 0.2);
-    color: #ffffff;
-}
-[data-theme="cutting-mat"] .webshop-cart-hover-panel::before {
-    background: #3d251e;
-    border-color: rgba(255, 255, 255, 0.2);
+/* Re-scope shop's internal cart/panel tokens to the header's background context */
+[data-theme] #main-header {
+    --c-cart-bg:          var(--cart-bg);
+    --c-cart-text:        var(--cart-text);
+    --c-cart-bg-hover:    var(--cart-bg-hover);
+    --c-cart-text-hover:  var(--cart-text-hover);
+    --c-cart-shadow-hover:var(--cart-shadow-hover);
+    --c-panel-bg:         var(--cart-panel-bg);
+    --c-panel-border:     var(--cart-panel-border);
+    --c-panel-text:       var(--cart-panel-text);
 }
 
 

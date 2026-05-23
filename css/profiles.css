@@ -1,112 +1,247 @@
-/* ─────────────────────────────────────────────────────────────────────────────
-   profiles.css — Dornori theme profiles
-   ─────────────────────────────────────────────────────────────────────────────
+/* =============================================================================
+   profiles.css — Dornori Theme Profiles  v2.0
+   =============================================================================
+
    HOW TO ADD A NEW PROFILE
    ─────────────────────────────────────────────────────────────────────────────
-   1. Add a new [data-theme="your-name"] block below with your token overrides.
-   2. Add the matching [data-theme="your-name"] body {} block to set the raster.
-   3. Add a matching entry to the profiles array in data/profiles.json:
-         "your-name"
-   That's it — the selector in the settings bar will include it automatically.
+   1. Copy the template block at the bottom of this file.
+   2. Replace "my-profile" with your profile name everywhere.
+   3. Fill in all token values (use the token reference as a guide).
+   4. Add the body {} block with --grid-line set to your preferred grid colour.
+   5. Add "my-profile" to data/profiles.json.
+
+   The profile selector in the settings bar will pick it up automatically.
    ─────────────────────────────────────────────────────────────────────────────
 
-   DESIGN TOKENS (all profiles must define these)
-   ───────────────────────────────────────────────
-   --accent       primary brand / highlight colour
-   --bg           page background colour
-   --glass        card / surface tint (rgba)
-   --border       border / separator colour
-   --text         primary text
-   --text-muted   secondary / placeholder text
-   --color-h1     hero overlay h2 / main page titles
-   --color-h2     section titles, page h2s
-   --color-h3     sub-headings, way/usp titles, section-headings
-   --color-h4     small accent labels (e.g. "Everything in the box")
-   --color-cta    button text on hero CTAs
-   ───────────────────────────────────────────────────────────────────────────── */
-/* ─────────────────────────────────────────────────────────────────────────────
-   ADD YOUR NEXT PROFILE HERE — copy the block below as a starting point:
+   TOKEN REFERENCE — what each token controls
+   ─────────────────────────────────────────────────────────────────────────────
 
-[data-theme="my-profile"] {
-    --bg: #xxxxxx;
-    --glass: rgba(r, g, b, 0.04);
-    --border: rgba(r, g, b, 0.20);
-    --accent: #xxxxxx;
-    --text: #xxxxxx;
-    --text-muted: #xxxxxx;
-    --header-bg: #xxxxxx;
-    --footer-bg: #xxxxxx;
-    --color-h1: #xxxxxx;
-    --color-h2: #xxxxxx;
-    --color-h3: #xxxxxx;
-    --color-h4: #xxxxxx;
-    --color-cta: #xxxxxx;
-}
+   BACKGROUNDS
+   --bg                  Page background (body fill)
+   --bg-header           Header / top-bar background
+   --bg-footer           Footer background
+   --bg-card             Card, panel, info-box background tint
+                         Must be semi-transparent rgba so content shows through
+                         e.g. rgba(255,255,255,0.04) on dark, rgba(0,0,0,0.04) on light
 
-[data-theme="my-profile"] body {
-    background-color: var(--bg);
-    background-image:
-        radial-gradient(circle at center, transparent 0%, var(--bg) 95%),
-        linear-gradient(rgba(r, g, b, 0.08) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(r, g, b, 0.08) 1px, transparent 1px);
-    background-size: 100% 100%, 50px 50px, 50px 50px;
-}
-   ───────────────────────────────────────────────────────────────────────────── */
+   BORDERS & LINES
+   --border              All borders, dividers, input outlines
+                         Semi-transparent rgba preferred for flexibility
+                         e.g. rgba(255,255,255,0.28) on dark, rgba(0,0,0,0.12) on light
+
+   TEXT
+   --text                Body copy, paragraphs, table cells, form labels
+   --text-muted          Secondary text, captions, placeholders, helper text
+   --text-dim            Tertiary text — faintest level (timestamps, footnotes)
+
+   HEADINGS
+   --color-h1            Hero title — the large overlaid heading on the home video/image
+   --color-h2            Section titles across all pages (e.g. "How it works")
+   --color-h3            Sub-headings, feature titles, card titles, USP labels
+   --color-h4            Small accent labels (e.g. "Everything in the box")
+                         TIP: set all four to the same value for a clean uniform look,
+                         or give each a distinct colour for an expressive profile.
+
+   LINKS
+   --link                Hyperlink colour (inline text links, breadcrumbs)
+   --link-hover          Hyperlink colour on hover / focus
+
+   INTERACTIVE / ACCENT
+   --accent              Nav-link hover, active-tab underline, focus rings,
+                         outline-button hover border + text, progress bars,
+                         icon highlights, .link-btn text colour
+
+   BUTTONS — primary (filled)
+   --btn-bg              Primary / Add-to-Cart / Checkout button background
+   --btn-text            Text colour on primary buttons
+   --btn-bg-hover        Primary button background on hover
+   --btn-text-hover      Text colour on primary button hover
+
+   BUTTONS — buy-now card overlay (product grid "Buy Now" chip)
+   --btn-buynow-bg       Buy Now overlay background (semi-transparent on rest)
+   --btn-buynow-text     Buy Now overlay text colour
+   --btn-buynow-border   Buy Now overlay border colour
+   --btn-buynow-bg-hover Buy Now overlay background on hover (solid)
+
+   CART ICON (floating header button)
+   --cart-bg             Cart icon background at rest
+   --cart-text           Cart icon symbol / badge colour at rest
+   --cart-bg-hover       Cart icon background on hover
+   --cart-text-hover     Cart icon symbol colour on hover
+   --cart-shadow-hover   Box-shadow on cart icon hover (or "none")
+
+   TOAST NOTIFICATION
+   --toast-bg            Toast pill background
+   --toast-text          Toast pill text colour
+
+   CART HOVER PANEL (dropdown)
+   --cart-panel-bg       Cart hover dropdown background
+   --cart-panel-border   Cart hover dropdown border colour
+   --cart-panel-text     Cart hover dropdown text colour
+
+   BACKGROUND GRID
+   --grid-line           Raster grid line colour — semi-transparent rgba
+                         e.g. rgba(255,255,255,0.18) on dark,
+                              rgba(0,0,0,0.08) on light
+
+   ─────────────────────────────────────────────────────────────────────────────
+   NOTE ON h2/h3/h4 IN GENERIC LAYOUT CONTEXTS
+   ─────────────────────────────────────────────────────────────────────────────
+   layout.css contains a broad rule:  h2, h3, h4 { color: var(--accent); }
+   pages.css overrides specific page selectors with --color-h2/h3/h4.
+   Until layout.css is updated to use --color-h2/h3/h4 directly, heading
+   colours inside page sections are controlled by --color-h*, but headings
+   in generic layout areas (nav, cards, etc.) still follow --accent.
+   ============================================================================= */
 
 
-/* ── DEFAULT (dark) ─────────────────────────────────────────────────────────
-   Applied via :root so it is the baseline even before JS sets data-theme.     */
+/* =============================================================================
+   DARK  (default — applied via :root so it works before JS sets data-theme)
+   ============================================================================= */
+
 :root,
 [data-theme="dark"] {
-    --accent: #BED4E1;
-    --bg: #050505;
-    --glass: rgba(255, 255, 255, 0.02);
-    --border: #FFFFFF;
-    --text: #BED4E1;
-    --text-muted: #888888;
-    --header-bg: #333333;
-    --footer-bg: #333333;
-    --color-h1: #BED4E1;
-    --color-h2: #BED4E1;
-    --color-h3: #BED4E1;
-    --color-h4: #BED4E1;
-    --color-cta: #BED4E1;
+
+    /* Backgrounds */
+    --bg:                 #050505;
+    --bg-header:          #333333;
+    --bg-footer:          #333333;
+    --bg-card:            rgba(255, 255, 255, 0.02);
+
+    /* Borders */
+    --border:             #FFFFFF;
+
+    /* Text */
+    --text:               #BED4E1;
+    --text-muted:         #888888;
+    --text-dim:           #555555;
+
+    /* Headings */
+    --color-h1:           #BED4E1;
+    --color-h2:           #BED4E1;
+    --color-h3:           #BED4E1;
+    --color-h4:           #BED4E1;
+
+    /* Links */
+    --link:               #BED4E1;
+    --link-hover:         #ffffff;
+
+    /* Interactive / accent */
+    --accent:             #BED4E1;
+
+    /* Primary buttons */
+    --btn-bg:             #BED4E1;
+    --btn-text:           #050505;
+    --btn-bg-hover:       #d8e8f0;
+    --btn-text-hover:     #050505;
+
+    /* Buy Now card overlay */
+    --btn-buynow-bg:      rgba(190, 212, 225, 0.9);
+    --btn-buynow-text:    #050505;
+    --btn-buynow-border:  #BED4E1;
+    --btn-buynow-bg-hover:#BED4E1;
+
+    /* Cart icon */
+    --cart-bg:            rgba(255, 255, 255, 0.10);
+    --cart-text:          #BED4E1;
+    --cart-bg-hover:      #BED4E1;
+    --cart-text-hover:    #050505;
+    --cart-shadow-hover:  0 2px 12px rgba(190, 212, 225, 0.4);
+
+    /* Toast */
+    --toast-bg:           #1a1a1a;
+    --toast-text:         #BED4E1;
+
+    /* Cart hover panel */
+    --cart-panel-bg:      #1a1a1a;
+    --cart-panel-border:  rgba(255, 255, 255, 0.15);
+    --cart-panel-text:    #BED4E1;
+
+    /* Grid */
+    --grid-line:          rgba(245, 242, 155, 0.03);
 }
 
 [data-theme="dark"] body {
     background-color: var(--bg);
     background-image:
         radial-gradient(circle at center, transparent 0%, var(--bg) 95%),
-        linear-gradient(rgba(245, 242, 155, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(245, 242, 155, 0.03) 1px, transparent 1px);
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
     background-size: 100% 100%, 50px 50px, 50px 50px;
 }
 
 
-/* ── LIGHT ──────────────────────────────────────────────────────────────────
-   Clean paper-white with dark raster lines.                                   */
+/* =============================================================================
+   LIGHT
+   ============================================================================= */
+
 [data-theme="light"] {
-    --bg: #f5f5f0;
-    --glass: rgba(0, 0, 0, 0.04);
-    --border: rgba(0, 0, 0, 0.12);
-    --accent: #7a6800;
-    --text: #111111;
-    --text-muted: #666666;
-    --header-bg: #f5f5f0;
-    --footer-bg: #f5f5f0;
-    --color-h1: #111111;
-    --color-h2: #111111;
-    --color-h3: #111111;
-    --color-h4: #111111;
-    --color-cta: #111111;
+
+    /* Backgrounds */
+    --bg:                 #f5f5f0;
+    --bg-header:          #f5f5f0;
+    --bg-footer:          #f5f5f0;
+    --bg-card:            rgba(0, 0, 0, 0.04);
+
+    /* Borders */
+    --border:             rgba(0, 0, 0, 0.12);
+
+    /* Text */
+    --text:               #111111;
+    --text-muted:         #666666;
+    --text-dim:           #999999;
+
+    /* Headings */
+    --color-h1:           #111111;
+    --color-h2:           #111111;
+    --color-h3:           #111111;
+    --color-h4:           #111111;
+
+    /* Links */
+    --link:               #7a6800;
+    --link-hover:         #111111;
+
+    /* Interactive / accent */
+    --accent:             #7a6800;
+
+    /* Primary buttons */
+    --btn-bg:             #111111;
+    --btn-text:           #f5f5f0;
+    --btn-bg-hover:       #333333;
+    --btn-text-hover:     #ffffff;
+
+    /* Buy Now card overlay */
+    --btn-buynow-bg:      rgba(255, 255, 255, 0.92);
+    --btn-buynow-text:    #111111;
+    --btn-buynow-border:  rgba(0, 0, 0, 0.25);
+    --btn-buynow-bg-hover:#111111;
+
+    /* Cart icon */
+    --cart-bg:            #111111;
+    --cart-text:          #f5f5f0;
+    --cart-bg-hover:      #7a6800;
+    --cart-text-hover:    #ffffff;
+    --cart-shadow-hover:  0 2px 12px rgba(0, 0, 0, 0.2);
+
+    /* Toast */
+    --toast-bg:           #111111;
+    --toast-text:         #f5f5f0;
+
+    /* Cart hover panel */
+    --cart-panel-bg:      #ffffff;
+    --cart-panel-border:  rgba(0, 0, 0, 0.10);
+    --cart-panel-text:    #111111;
+
+    /* Grid */
+    --grid-line:          rgba(0, 0, 0, 0.08);
 }
 
 [data-theme="light"] body {
     background-color: var(--bg);
     background-image:
         radial-gradient(circle at center, transparent 0%, var(--bg) 95%),
-        linear-gradient(rgba(0, 0, 0, 0.08) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 0, 0, 0.08) 1px, transparent 1px);
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
     background-size: 100% 100%, 50px 50px, 50px 50px;
 }
 
@@ -120,205 +255,228 @@
 }
 
 
-/* ── CUTTING MAT ────────────────────────────────────────────────────────────
-   Deep green base, bright white raster grid — classic self-healing mat feel. 
-  original: #1a3a2a;
-*/
-
-/* cutting-mat: Buy Now overlay button */
-[data-theme="cutting-mat"] .webshop-card-buynow-overlay {
-    background: rgba(168, 213, 181, 0.9);  /* mint green background */
-    color: #1a3a2a;  /* dark green text */
-    border-color: #a8d5b5;
-}
-[data-theme="cutting-mat"] .webshop-product-card:hover .webshop-card-buynow-overlay {
-    background: #a8d5b5;
-    color: #1a3a2a;
-}
-
-/* cutting-mat: Primary buttons (Add to Cart, Checkout) */
-[data-theme="cutting-mat"] .webshop-btn--primary,
-[data-theme="cutting-mat"] .webshop-btn--checkout {
-    background-color: #a8d5b5;  /* mint green */
-    color: #1a3a2a;  /* dark green text */
-}
-[data-theme="cutting-mat"] .webshop-btn--primary:hover,
-[data-theme="cutting-mat"] .webshop-btn--checkout:hover {
-    background-color: #7aad8e;  /* darker mint on hover */
-    color: #ffffff;
-}
+/* =============================================================================
+   CUTTING MAT  (deep green — classic self-healing mat)
+   ============================================================================= */
 
 [data-theme="cutting-mat"] {
-    --bg: #1a3a2a;
-    --glass: rgba(255, 255, 255, 0.06);
-    --border: rgba(255, 255, 255, 0.28);
-    --accent: #a8d5b5;
-    --text: #e8f2ec;
-    --text-muted: #9dc8ae;
-    --header-bg: #112b1e;
-    --footer-bg: #112b1e;
-    --hover-green: #7aad8e;
-    --color-h1: #e50b0b;
-    --color-h2: #8aff9d;
-    --color-h3: #0037db;
-    --color-h4: #ffffff;
-    --color-cta: #FFD700;
-}
 
-/* ── CUTTING-MAT: profile selector — light at rest, mint on hover ── */
-[data-theme="cutting-mat"] .profile-select {
-    color: #e8f2ec;
-    border-color: rgba(255, 255, 255, 0.3);
-}
-[data-theme="cutting-mat"] .profile-select:hover,
-[data-theme="cutting-mat"] .profile-select:focus {
-    color: #a8d5b5;
-    border-color: #a8d5b5;
-    outline: none;
-}
+    /* Backgrounds */
+    --bg:                 #1a3a2a;
+    --bg-header:          #112b1e;
+    --bg-footer:          #112b1e;
+    --bg-card:            rgba(255, 255, 255, 0.06);
 
-/* ── CUTTING-MAT: currency selector — light at rest, mint on hover ── */
-[data-theme="cutting-mat"] #topBar .webshop-currency-selector {
-    border-color: rgba(255, 255, 255, 0.3);
-}
-[data-theme="cutting-mat"] #topBar .webshop-currency-selector__label svg {
-    stroke: #e8f2ec;
-}
-[data-theme="cutting-mat"] #topBar .webshop-currency-selector__select {
-    color: #e8f2ec;
-}
-[data-theme="cutting-mat"] #topBar .webshop-currency-selector__select:hover,
-[data-theme="cutting-mat"] #topBar .webshop-currency-selector__select:focus {
-    color: #a8d5b5;
-    outline: none;
-}
-[data-theme="cutting-mat"] #topBar .webshop-currency-selector:focus-within {
-    border-color: #a8d5b5;
+    /* Borders */
+    --border:             rgba(255, 255, 255, 0.28);
+
+    /* Text */
+    --text:               #e8f2ec;
+    --text-muted:         #9dc8ae;
+    --text-dim:           #6a9e7e;
+
+    /* Headings */
+    --color-h1:           #e50b0b;
+    --color-h2:           #8aff9d;
+    --color-h3:           #0037db;
+    --color-h4:           #ffffff;
+
+    /* Links */
+    --link:               #a8d5b5;
+    --link-hover:         #ffffff;
+
+    /* Interactive / accent */
+    --accent:             #a8d5b5;
+
+    /* Primary buttons */
+    --btn-bg:             #a8d5b5;
+    --btn-text:           #1a3a2a;
+    --btn-bg-hover:       #7aad8e;
+    --btn-text-hover:     #ffffff;
+
+    /* Buy Now card overlay */
+    --btn-buynow-bg:      rgba(168, 213, 181, 0.9);
+    --btn-buynow-text:    #1a3a2a;
+    --btn-buynow-border:  #a8d5b5;
+    --btn-buynow-bg-hover:#a8d5b5;
+
+    /* Cart icon */
+    --cart-bg:            rgba(255, 255, 255, 0.10);
+    --cart-text:          #e8f2ec;
+    --cart-bg-hover:      #a8d5b5;
+    --cart-text-hover:    #1a3a2a;
+    --cart-shadow-hover:  0 2px 12px rgba(168, 213, 181, 0.4);
+
+    /* Toast */
+    --toast-bg:           #1a2e22;
+    --toast-text:         #e8f2ec;
+
+    /* Cart hover panel */
+    --cart-panel-bg:      #112b1e;
+    --cart-panel-border:  rgba(255, 255, 255, 0.20);
+    --cart-panel-text:    #e8f2ec;
+
+    /* Grid */
+    --grid-line:          rgba(255, 255, 255, 0.18);
 }
 
 [data-theme="cutting-mat"] body {
     background-color: var(--bg);
     background-image:
         radial-gradient(circle at center, transparent 0%, var(--bg) 92%),
-        linear-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.18) 1px, transparent 1px);
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
     background-size: 100% 100%, 50px 50px, 50px 50px;
 }
 
-/* ── CUTTING-MAT: Fix light buttons (primary + outline) ───────────────────── */
-[data-theme="cutting-mat"] .webshop-btn--primary,
-[data-theme="cutting-mat"] .webshop-btn--checkout {
-    background-color: var(--accent);     /* your nice mint green */
-    color: #1a3a2a;                      /* dark text for strong contrast */
-    border-color: var(--accent);
-}
 
-[data-theme="cutting-mat"] .webshop-btn--outline,
-[data-theme="cutting-mat"] .webshop-btn--back-shop {
-    color: var(--text);                  /* normal light text */
-    border-color: var(--border);
-}
+/* =============================================================================
+   CUTTING BLUE  (sky blue — bright cutting mat variant)
+   ============================================================================= */
 
-/* Optional: make hover even clearer --hover-green #1a3a2a */
-[data-theme="cutting-mat"] .webshop-btn--primary:hover,
-[data-theme="cutting-mat"] .webshop-btn--checkout:hover {
-    background-color: var(#996633);
-    color: #996633;
-}
-
-/* ── CUTTING MAT ────────────────────────────────────────────────────────────
-   Deep blue base, bright white raster grid — classic self-healing mat feel. 
-  original: #1a3a2a;
-*/
 [data-theme="cutting-blue"] {
-    --bg: #4EC6FF;
-    --glass: rgba(255, 255, 255, 0.04);
-    --border: rgba(255, 255, 255, 0.35);
-    --accent: #ffffff;
-    --text: #3d251e;
-    --text-muted: #7aad8e;
-    --header-bg: #0080C0;
-    --footer-bg: #0080C0;
-    --color-h1: #3d251e;
-    --color-h2: #3d251e;
-    --color-h3: #3d251e;
-    --color-h4: #3d251e;
-    --color-cta: #3d251e;
-}
-[data-theme="cutting-blue"] .webshop-card-buynow-overlay {
-    background: rgba(78, 198, 255, 0.9);
-    color: #3d251e;
-    border-color: #4EC6FF;
-}
-[data-theme="cutting-blue"] .webshop-product-card:hover .webshop-card-buynow-overlay {
-    background: #4EC6FF;
-    color: #3d251e;
-}
 
-[data-theme="cutting-blue"] .webshop-btn--primary,
-[data-theme="cutting-blue"] .webshop-btn--checkout {
-    background-color: #4EC6FF;
-    color: #3d251e;
-}
-[data-theme="cutting-blue"] .webshop-btn--primary:hover,
-[data-theme="cutting-blue"] .webshop-btn--checkout:hover {
-    background-color: #0080C0;
-    color: #ffffff;
+    /* Backgrounds */
+    --bg:                 #4EC6FF;
+    --bg-header:          #0080C0;
+    --bg-footer:          #0080C0;
+    --bg-card:            rgba(255, 255, 255, 0.04);
+
+    /* Borders */
+    --border:             rgba(255, 255, 255, 0.35);
+
+    /* Text */
+    --text:               #3d251e;
+    --text-muted:         #5a3c32;
+    --text-dim:           #7a5a50;
+
+    /* Headings */
+    --color-h1:           #3d251e;
+    --color-h2:           #3d251e;
+    --color-h3:           #3d251e;
+    --color-h4:           #3d251e;
+
+    /* Links */
+    --link:               #0080C0;
+    --link-hover:         #3d251e;
+
+    /* Interactive / accent */
+    --accent:             #ffffff;
+
+    /* Primary buttons */
+    --btn-bg:             #0080C0;
+    --btn-text:           #ffffff;
+    --btn-bg-hover:       #005a8a;
+    --btn-text-hover:     #ffffff;
+
+    /* Buy Now card overlay */
+    --btn-buynow-bg:      rgba(78, 198, 255, 0.9);
+    --btn-buynow-text:    #3d251e;
+    --btn-buynow-border:  #4EC6FF;
+    --btn-buynow-bg-hover:#0080C0;
+
+    /* Cart icon */
+    --cart-bg:            rgba(255, 255, 255, 0.12);
+    --cart-text:          #ffffff;
+    --cart-bg-hover:      #7aad8e;
+    --cart-text-hover:    #0080C0;
+    --cart-shadow-hover:  0 2px 12px rgba(122, 173, 142, 0.4);
+
+    /* Toast */
+    --toast-bg:           #0080C0;
+    --toast-text:         #ffffff;
+
+    /* Cart hover panel */
+    --cart-panel-bg:      #0080C0;
+    --cart-panel-border:  rgba(255, 255, 255, 0.20);
+    --cart-panel-text:    #ffffff;
+
+    /* Grid */
+    --grid-line:          rgba(255, 255, 255, 0.18);
 }
 
 [data-theme="cutting-blue"] body {
     background-color: var(--bg);
     background-image:
         radial-gradient(circle at center, transparent 0%, var(--bg) 92%),
-        linear-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.18) 1px, transparent 1px);
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
     background-size: 100% 100%, 50px 50px, 50px 50px;
 }
 
 
-/* ── CUTTING-MAT: toast — dark background so white text is readable ── */
-[data-theme="cutting-mat"] .webshop-toast {
-    background: #1a2e22;
-    color: #e8f2ec;
+/* =============================================================================
+   TEMPLATE — copy this block to create a new profile
+   =============================================================================
+
+[data-theme="my-profile"] {
+
+    -- Backgrounds --
+    --bg:                 #xxxxxx;
+    --bg-header:          #xxxxxx;
+    --bg-footer:          #xxxxxx;
+    --bg-card:            rgba(r, g, b, 0.04);
+
+    -- Borders --
+    --border:             rgba(r, g, b, 0.20);
+
+    -- Text --
+    --text:               #xxxxxx;
+    --text-muted:         #xxxxxx;
+    --text-dim:           #xxxxxx;
+
+    -- Headings --
+    --color-h1:           #xxxxxx;
+    --color-h2:           #xxxxxx;
+    --color-h3:           #xxxxxx;
+    --color-h4:           #xxxxxx;
+
+    -- Links --
+    --link:               #xxxxxx;
+    --link-hover:         #xxxxxx;
+
+    -- Interactive / accent --
+    --accent:             #xxxxxx;
+
+    -- Primary buttons --
+    --btn-bg:             #xxxxxx;
+    --btn-text:           #xxxxxx;
+    --btn-bg-hover:       #xxxxxx;
+    --btn-text-hover:     #xxxxxx;
+
+    -- Buy Now card overlay --
+    --btn-buynow-bg:      rgba(r, g, b, 0.9);
+    --btn-buynow-text:    #xxxxxx;
+    --btn-buynow-border:  #xxxxxx;
+    --btn-buynow-bg-hover:#xxxxxx;
+
+    -- Cart icon --
+    --cart-bg:            rgba(r, g, b, 0.10);
+    --cart-text:          #xxxxxx;
+    --cart-bg-hover:      #xxxxxx;
+    --cart-text-hover:    #xxxxxx;
+    --cart-shadow-hover:  0 2px 12px rgba(r, g, b, 0.4);
+
+    -- Toast --
+    --toast-bg:           #xxxxxx;
+    --toast-text:         #xxxxxx;
+
+    -- Cart hover panel --
+    --cart-panel-bg:      #xxxxxx;
+    --cart-panel-border:  rgba(r, g, b, 0.20);
+    --cart-panel-text:    #xxxxxx;
+
+    -- Grid --
+    --grid-line:          rgba(r, g, b, 0.08);
 }
 
-/* ── CUTTING-MAT: cart icon in header — light at rest, mint on hover ── */
-[data-theme="cutting-mat"] .webshop-cart-icon {
-    background: rgba(255, 255, 255, 0.1);
-    color: #e8f2ec;
-    box-shadow: none;
-}
-[data-theme="cutting-mat"] .webshop-cart-icon:hover {
-    background: #a8d5b5;
-    color: #1a3a2a;
-    box-shadow: 0 2px 12px rgba(168, 213, 181, 0.4);
-    transform: scale(1.05);
+[data-theme="my-profile"] body {
+    background-color: var(--bg);
+    background-image:
+        radial-gradient(circle at center, transparent 0%, var(--bg) 95%),
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 100% 100%, 50px 50px, 50px 50px;
 }
 
-/* ── CUTTING-BLUE: same treatment ── */
-[data-theme="cutting-blue"] .profile-select {
-    color: #ffffff;
-    border-color: rgba(255, 255, 255, 0.45);
-}
-[data-theme="cutting-blue"] .profile-select:hover,
-[data-theme="cutting-blue"] .profile-select:focus {
-    color: #7aad8e;
-    border-color: #7aad8e;
-    outline: none;
-}
-[data-theme="cutting-blue"] #topBar .webshop-currency-selector__select {
-    color: #ffffff;
-}
-[data-theme="cutting-blue"] #topBar .webshop-currency-selector__select:hover,
-[data-theme="cutting-blue"] #topBar .webshop-currency-selector__select:focus {
-    color: #7aad8e;
-}
-[data-theme="cutting-blue"] .webshop-cart-icon {
-    background: rgba(255, 255, 255, 0.12);
-    color: #ffffff;
-}
-[data-theme="cutting-blue"] .webshop-cart-icon:hover {
-    background: #7aad8e;
-    color: #0080C0;
-    box-shadow: 0 2px 12px rgba(122, 173, 142, 0.4);
-}
+   ============================================================================= */
