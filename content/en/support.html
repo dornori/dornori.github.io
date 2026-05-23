@@ -481,17 +481,32 @@ function initTurnstile() {
             turnstileToken = null;
             var err = document.getElementById('sf-turnstile-err');
             if (err) {
-                err.textContent = formData.turnstileExpiredError || 'Security verification expired. Please try again.';
+                err.textContent = 'Security verification expired. Please complete the challenge again.';
                 err.classList.remove('sf-hidden');
             }
+            showToast('Security verification expired. Please try again.', 4000);
         },
-        'error-callback': function() { 
+        'error-callback': function(errorCode) { 
             turnstileToken = null;
             var err = document.getElementById('sf-turnstile-err');
+            var errorMsg = 'Security verification failed. ';
+            
+            // Provide specific error messages based on error code
+            if (errorCode === 'challenge-error') {
+                errorMsg += 'Please try again or disable private browser mode.';
+            } else if (errorCode === 'challenge-expired') {
+                errorMsg += 'Challenge expired. Please refresh and try again.';
+            } else if (errorCode === 'network-error') {
+                errorMsg += 'Network error. Please check your connection.';
+            } else {
+                errorMsg += 'If using a private/incognito browser, please disable it. If problem persists, check your internet connection.';
+            }
+            
             if (err) {
-                err.textContent = formData.turnstileFailedError || 'Security verification failed. If using private browser mode, please disable it.';
+                err.textContent = errorMsg;
                 err.classList.remove('sf-hidden');
             }
+            showToast(errorMsg, 5000);
         }
     });
 }
@@ -542,6 +557,24 @@ function validateForm() {
         hasError = true;
     } else {
         setFieldError('sf-order', 'sf-order-err', '');
+    }
+
+    // Turnstile validation - only if enabled
+    var turnstileContainer = document.getElementById('sf-turnstile-container');
+    var turnstileErr = document.getElementById('sf-turnstile-err');
+    
+    if (turnstileContainer && turnstileContainer.style.display !== 'none' && TURNSTILE_SITE_KEY && TURNSTILE_SITE_KEY !== '1x00000000000000000000AA') {
+        if (!turnstileToken) {
+            if (turnstileErr) {
+                turnstileErr.textContent = 'Security verification failed. Please complete the Cloudflare challenge.';
+                turnstileErr.classList.remove('sf-hidden');
+            }
+            hasError = true;
+        } else {
+            if (turnstileErr) turnstileErr.classList.add('sf-hidden');
+        }
+    } else {
+        if (turnstileErr) turnstileErr.classList.add('sf-hidden');
     }
 
     return { valid: !hasError, sanitised: { name: stripHtml(nameInput), email: stripHtml(emailInput), order: stripHtml(orderInput), comments: commentsInput } };
