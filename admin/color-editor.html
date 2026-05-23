@@ -62,6 +62,16 @@
             word-break: break-all;
         }
 
+        .backup-info {
+            background: rgba(255, 215, 0, 0.1);
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 16px;
+            font-size: 0.65rem;
+            text-align: center;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+
         .profile-list {
             flex: 1;
         }
@@ -93,6 +103,14 @@
             margin-top: 16px;
             padding-top: 16px;
             border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .status.success {
+            color: #a8d5b5;
+        }
+
+        .status.error {
+            color: #ff8888;
         }
 
         .editor {
@@ -243,6 +261,10 @@
             No folder selected
         </div>
 
+        <div class="backup-info" id="backupInfo">
+            💾 Backups: admin/profile-backups/
+        </div>
+
         <div class="profile-list" id="profileList">
             <div style="text-align: center; color: #9dc8ae; padding: 20px;">
                 Open a folder to start
@@ -277,6 +299,48 @@
         let currentColors = {};
         let originalColors = {};
 
+        // IndexedDB setup
+        const DB_NAME = 'ColorEditorDB';
+        const STORE_NAME = 'folderHandle';
+        let db = null;
+
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    db = request.result;
+                    resolve();
+                };
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME);
+                    }
+                };
+            });
+        }
+
+        async function saveHandle(id, handle) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.put(handle, id);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function getHandle(id) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.get(id);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
         function showToast(msg, isError = false) {
             const toast = document.getElementById('toast');
             toast.textContent = msg;
@@ -290,6 +354,15 @@
             const statusDiv = document.getElementById('status');
             statusDiv.innerHTML = text;
             statusDiv.className = `status ${type}`;
+        }
+
+        async function ensureDirectory(path) {
+            const parts = path.split('/').filter(Boolean);
+            let current = dirHandle;
+            for (const part of parts) {
+                current = await current.getDirectoryHandle(part, { create: true });
+            }
+            return current;
         }
 
         async function readFile(path) {
@@ -317,15 +390,38 @@
             await w.close();
         }
 
-        async function openFolder() {
+        async function openAndSaveFolder() {
             try {
                 dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-                document.getElementById('folderInfo').innerHTML = `📁 ${dirHandle.name}<br>${dirHandle.name}/css/profiles.css`;
-                localStorage.setItem('color-editor-folder', dirHandle.name);
+                await saveHandle('folderHandle', dirHandle);
+                document.getElementById('folderInfo').innerHTML = `📁 ${dirHandle.name}<br><span style="font-family:monospace">${dirHandle.name}/css/profiles.css</span>`;
+                await ensureDirectory('admin/profile-backups');
                 await loadCSS();
             } catch (err) {
-                showToast('Failed to open folder: ' + err.message, true);
+                if (err.name !== 'AbortError') {
+                    showToast('Failed to open folder: ' + err.message, true);
+                }
             }
+        }
+
+        async function reconnectFromSaved() {
+            try {
+                const savedHandle = await getHandle('folderHandle');
+                if (savedHandle) {
+                    // Verify permission still exists
+                    const permission = await savedHandle.requestPermission({ mode: 'readwrite' });
+                    if (permission === 'granted') {
+                        dirHandle = savedHandle;
+                        document.getElementById('folderInfo').innerHTML = `📁 ${dirHandle.name}<br><span style="font-family:monospace">${dirHandle.name}/css/profiles.css</span>`;
+                        await ensureDirectory('admin/profile-backups');
+                        await loadCSS();
+                        return true;
+                    }
+                }
+            } catch (err) {
+                console.log('No saved folder or reconnect failed');
+            }
+            return false;
         }
 
         async function loadCSS() {
@@ -481,7 +577,7 @@
 
         function getTimestamp() {
             const now = new Date();
-            return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+            return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
         }
 
         function generateUpdatedCSS() {
@@ -521,13 +617,11 @@
                 profiles[currentProfileIndex].colors = { ...currentColors };
                 const updatedCss = generateUpdatedCSS();
                 
-                // Create timestamped backup
                 const timestamp = getTimestamp();
-                const backupPath = `css/profiles-backup-${timestamp}.css`;
+                const backupPath = `admin/profile-backups/profiles-backup-${timestamp}.css`;
                 await writeFile(backupPath, originalCssContent);
-                showToast(`📦 Backup saved to ${backupPath}`);
+                showToast(`📦 Backup: admin/profile-backups/profiles-backup-${timestamp}.css`);
                 
-                // Save main file
                 await writeFile('css/profiles.css', updatedCss);
                 
                 originalCssContent = updatedCss;
@@ -540,7 +634,7 @@
                 }
                 
                 setStatus(`✅ All changes saved`, 'success');
-                showToast(`✅ Saved to css/profiles.css (backup created)`);
+                showToast(`✅ Saved to css/profiles.css`);
                 
             } catch (err) {
                 console.error('Save failed:', err);
@@ -551,17 +645,16 @@
             }
         }
 
-        document.getElementById('openBtn').addEventListener('click', openFolder);
+        // Event listeners
+        document.getElementById('openBtn').addEventListener('click', openAndSaveFolder);
         document.getElementById('saveAllBtn').addEventListener('click', saveAllChanges);
-        
-        // Check if we have a saved folder reference
+
+        // Initialize and try to reconnect
         (async function() {
-            const saved = localStorage.getItem('color-editor-folder');
-            if (saved) {
-                try {
-                    const handles = await window.showDirectoryPicker();
-                    // This requires user interaction, can't auto-open
-                } catch {}
+            await initDB();
+            const reconnected = await reconnectFromSaved();
+            if (!reconnected) {
+                setStatus('Click "Open Site Folder" to start', 'info');
             }
         })();
     </script>
