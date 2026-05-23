@@ -50,7 +50,7 @@
 
             <div class="sf-field">
                 <label class="sf-label" for="sf-order" id="label-order"></label>
-                <input id="sf-order" type="text" class="sf-input" maxlength="50">
+                <input id="sf-order" type="text" class="sf-input" maxlength="50" inputmode="numeric" pattern="[0-9]*">
                 <span class="sf-field-error" id="sf-order-err"></span>
                 <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;" id="order-help-text"></small>
             </div>
@@ -177,6 +177,7 @@ var formData = {};
 var currentCategory = null;
 var currentQuestionId = null;
 var answers = [];
+var isSubmitting = false;
 
 // ==================== HELPERS ====================
 function generateReferenceNumber() {
@@ -547,8 +548,12 @@ function validateForm() {
 }
 
 async function sendSupportRequest() {
+    if (isSubmitting) return;
+    isSubmitting = true;
+    
     var validation = validateForm();
     if (!validation.valid) {
+        isSubmitting = false;
         showToast('Please fill in all required fields.', 3000);
         return;
     }
@@ -614,6 +619,7 @@ async function sendSupportRequest() {
         }
         turnstileToken = null;
         if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalText; }
+        isSubmitting = false;
     }
 }
 
@@ -667,5 +673,13 @@ document.addEventListener('click', function(e) {
 });
 
 loadFormData();
+
+// Filter order field to digits only
+document.addEventListener('input', function(e) {
+    if (e.target.id === 'sf-order') {
+        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+    }
+});
+
 window.scrollTo(0, 0);
 </script>
