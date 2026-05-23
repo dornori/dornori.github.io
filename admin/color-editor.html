@@ -1,952 +1,1026 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dornori Color Editor</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dornori — Profile Editor</title>
+<style>
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --app-bg:       #0a0f0c;
+  --panel-bg:     #0f1a13;
+  --surface:      #162018;
+  --surface-2:    #1c2b20;
+  --border:       rgba(255,255,255,0.08);
+  --border-hi:    rgba(168,213,181,0.35);
+  --text:         #d4e8da;
+  --text-muted:   #7a9e87;
+  --text-dim:     #4a6b55;
+  --accent:       #a8d5b5;
+  --accent-dark:  #6aad84;
+  --danger:       #d97070;
+  --warning:      #d4a847;
+  --font-ui:      'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+  --font-label:   -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --radius:       6px;
+  --radius-lg:    10px;
+  --transition:   0.15s ease;
+}
+html, body { height: 100%; overflow: hidden; background: var(--app-bg); color: var(--text); font-family: var(--font-label); font-size: 13px; }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0d1f15;
-            color: #e8f2ec;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
+/* ── Layout ── */
+.app { display: flex; height: 100vh; overflow: hidden; }
+.sidebar { width: 220px; min-width: 220px; background: var(--panel-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
 
-        .sidebar {
-            width: 200px;
-            background: #112b1e;
-            border-right: 1px solid rgba(255,255,255,0.15);
-            padding: 20px 0;
-            display: flex;
-            flex-direction: column;
-        }
+/* ── Sidebar ── */
+.sidebar-logo { padding: 18px 16px 14px; border-bottom: 1px solid var(--border); }
+.sidebar-logo .logo-title { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+.sidebar-logo .logo-sub { font-size: 0.68rem; color: var(--text-dim); margin-top: 2px; letter-spacing: 0.05em; }
+.sidebar-section { padding: 10px 10px 4px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim); }
+.nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 14px; margin: 1px 6px; border-radius: var(--radius); cursor: pointer; font-size: 0.8rem; color: var(--text-muted); transition: all var(--transition); border: 1px solid transparent; }
+.nav-item:hover { background: var(--surface); color: var(--text); }
+.nav-item.active { background: rgba(168,213,181,0.1); color: var(--accent); border-color: rgba(168,213,181,0.2); }
+.nav-item .nav-icon { font-size: 0.9rem; width: 16px; text-align: center; flex-shrink: 0; }
+.sidebar-footer { margin-top: auto; padding: 12px; border-top: 1px solid var(--border); }
 
-        .logo {
-            padding: 0 20px 20px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #a8d5b5;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            margin-bottom: 16px;
-        }
+/* ── Toolbar ── */
+.toolbar { padding: 10px 20px; background: var(--panel-bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-height: 52px; }
+.toolbar-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); flex-shrink: 0; }
+.profile-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.profile-tab { padding: 5px 14px; border-radius: 100px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; cursor: pointer; border: 1px solid var(--border); color: var(--text-muted); background: transparent; transition: all var(--transition); white-space: nowrap; }
+.profile-tab:hover { border-color: var(--accent); color: var(--accent); }
+.profile-tab.active { background: var(--accent); color: #0f1a13; border-color: var(--accent); }
+.toolbar-right { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 
-        .nav-item {
-            padding: 10px 20px;
-            margin: 2px 0;
-            cursor: pointer;
-            font-size: 0.85rem;
-            color: #9dc8ae;
-            transition: all 0.2s;
-        }
+/* ── Buttons ── */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: var(--radius); font-size: 0.76rem; font-weight: 600; letter-spacing: 0.04em; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); transition: all var(--transition); white-space: nowrap; font-family: var(--font-label); }
+.btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(168,213,181,0.06); }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-primary { background: var(--accent); color: #0f1a13; border-color: var(--accent); font-weight: 700; }
+.btn-primary:hover { background: #c8edd5; border-color: #c8edd5; color: #0a0f0c; }
+.btn-danger { border-color: rgba(217,112,112,0.4); color: var(--danger); }
+.btn-danger:hover { background: rgba(217,112,112,0.1); border-color: var(--danger); }
+.btn-sm { padding: 4px 10px; font-size: 0.7rem; }
 
-        .nav-item:hover {
-            background: rgba(168, 213, 181, 0.1);
-            color: #a8d5b5;
-        }
+/* ── Section view panels ── */
+.view { display: none; flex: 1; flex-direction: column; }
+.view.active { display: flex; }
 
-        .nav-item.active {
-            background: #a8d5b5;
-            color: #112b1e;
-            font-weight: 500;
-        }
+/* ── Section header ── */
+.section-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.section-header h2 { font-size: 1rem; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+.section-header p { font-size: 0.76rem; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
 
-        .main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
+/* ── Token Groups ── */
+.token-area { padding: 20px 24px; flex: 1; overflow-y: auto; }
+.token-group { margin-bottom: 28px; }
+.token-group-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.token-group-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+.token-group-desc { font-size: 0.68rem; color: var(--text-dim); margin-left: auto; }
+.token-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.token-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); transition: border-color var(--transition); }
+.token-row:hover { border-color: var(--border-hi); }
+.token-row.modified { border-color: rgba(168,213,181,0.4); background: rgba(168,213,181,0.04); }
+.color-swatch { width: 28px; height: 28px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.12); flex-shrink: 0; cursor: pointer; position: relative; overflow: hidden; }
+.color-swatch input[type=color] { position: absolute; inset: -4px; width: calc(100% + 8px); height: calc(100% + 8px); opacity: 0; cursor: pointer; border: none; padding: 0; }
+.token-info { flex: 1; min-width: 0; }
+.token-name { font-family: var(--font-ui); font-size: 0.7rem; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.token-desc { font-size: 0.65rem; color: var(--text-dim); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.token-value { font-family: var(--font-ui); font-size: 0.68rem; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 3px; padding: 3px 7px; min-width: 80px; max-width: 140px; cursor: text; transition: border-color var(--transition); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.token-value:focus { outline: none; border-color: var(--accent); color: var(--text); }
+.dot-modified { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; display: none; }
+.token-row.modified .dot-modified { display: block; }
 
-        .toolbar {
-            padding: 12px 24px;
-            background: rgba(0,0,0,0.2);
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
+/* ── Opacity token (rgba) ── */
+.token-row.has-opacity { flex-wrap: wrap; }
+.opacity-row { width: 100%; display: flex; align-items: center; gap: 8px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
+.opacity-label { font-size: 0.65rem; color: var(--text-dim); flex-shrink: 0; width: 52px; }
+.opacity-range { flex: 1; accent-color: var(--accent); }
+.opacity-val { font-family: var(--font-ui); font-size: 0.65rem; color: var(--text-muted); width: 32px; text-align: right; }
 
-        .profile-selector {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
+/* ── Settings view ── */
+.settings-area { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; flex: 1; overflow-y: auto; }
+.settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; }
+.settings-card h3 { font-size: 0.8rem; font-weight: 700; color: var(--text); margin-bottom: 10px; letter-spacing: -0.01em; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.settings-row:last-child { border-bottom: none; }
+.settings-row label { font-size: 0.75rem; color: var(--text-muted); }
+.settings-row span { font-family: var(--font-ui); font-size: 0.7rem; color: var(--text-dim); }
+.folder-path { font-family: var(--font-ui); font-size: 0.7rem; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; word-break: break-all; }
 
-        .profile-dropdown {
-            background: rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: #e8f2ec;
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            font-family: monospace;
-        }
+/* ── Backup list ── */
+.backup-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; max-height: 220px; overflow-y: auto; }
+.backup-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: var(--surface-2); border-radius: 5px; border: 1px solid var(--border); font-size: 0.72rem; }
+.backup-item .bk-name { flex: 1; font-family: var(--font-ui); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.backup-item .bk-size { color: var(--text-dim); flex-shrink: 0; }
+.backup-item .bk-actions { display: flex; gap: 4px; flex-shrink: 0; }
 
-        .save-btn {
-            background: #a8d5b5;
-            color: #112b1e;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-        }
+/* ── Profile Manager view ── */
+.profile-manager { padding: 20px 24px; flex: 1; overflow-y: auto; }
+.profile-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.profile-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; cursor: pointer; transition: all var(--transition); }
+.profile-card:hover { border-color: var(--border-hi); }
+.profile-card.selected { border-color: var(--accent); background: rgba(168,213,181,0.05); }
+.profile-swatches { display: flex; gap: 4px; margin-bottom: 12px; }
+.profile-swatch { height: 6px; flex: 1; border-radius: 3px; }
+.profile-name { font-size: 0.82rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.profile-meta { font-size: 0.68rem; color: var(--text-dim); }
 
-        .save-btn:hover {
-            background: #8cc29b;
-            transform: translateY(-1px);
-        }
+/* ── Preview panel ── */
+.preview-bar { padding: 8px 20px; background: var(--panel-bg); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.preview-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
+.preview-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.preview-chip { display: flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 100px; font-size: 0.65rem; border: 1px solid var(--border); background: var(--surface); }
+.preview-chip .chip-dot { width: 8px; height: 8px; border-radius: 50%; }
+.preview-chip span { color: var(--text-dim); font-family: var(--font-ui); }
 
-        .save-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
+/* ── Diff / Modal ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 999; backdrop-filter: blur(3px); }
+.modal-overlay.active { display: flex; }
+.modal { background: var(--panel-bg); border: 1px solid var(--border-hi); border-radius: var(--radius-lg); width: min(700px, 90vw); max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
+.modal-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.modal-header h3 { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+.modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; padding: 2px 6px; border-radius: 4px; transition: color var(--transition); }
+.modal-close:hover { color: var(--text); }
+.modal-body { padding: 16px 18px; overflow-y: auto; flex: 1; }
+.diff-table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+.diff-table th { padding: 6px 10px; text-align: left; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); border-bottom: 1px solid var(--border); }
+.diff-table td { padding: 5px 10px; border-bottom: 1px solid var(--border); font-family: var(--font-ui); vertical-align: middle; }
+.diff-table td:first-child { color: var(--accent); }
+.diff-same td { color: var(--text-dim); }
+.diff-changed { background: rgba(168,213,181,0.04); }
+.diff-changed td:nth-child(2) { color: var(--danger); text-decoration: line-through; opacity: 0.6; }
+.diff-changed td:nth-child(3) { color: var(--accent); }
+.mini-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; border: 1px solid rgba(255,255,255,0.1); }
 
-        .editor-area {
-            flex: 1;
-            overflow-y: auto;
-            padding: 24px;
-        }
+/* ── Toast ── */
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface); border: 1px solid var(--border-hi); color: var(--accent); padding: 9px 20px; border-radius: 100px; font-size: 0.76rem; font-weight: 500; z-index: 9999; opacity: 0; transition: all 0.2s; pointer-events: none; white-space: nowrap; letter-spacing: 0.02em; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.error { border-color: rgba(217,112,112,0.4); color: var(--danger); }
 
-        .color-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-            gap: 16px;
-        }
+/* ── Status ── */
+.status-bar { padding: 6px 20px; background: var(--panel-bg); border-top: 1px solid var(--border); font-size: 0.68rem; color: var(--text-dim); display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; }
+.status-dot.ok { background: var(--accent); }
+.status-dot.err { background: var(--danger); }
+.status-dot.loading { background: var(--warning); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-        .color-card {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 12px;
-            padding: 16px;
-        }
+/* ── No-data / empty ── */
+.empty { padding: 40px; text-align: center; color: var(--text-dim); font-size: 0.8rem; }
+.empty .empty-icon { font-size: 2rem; margin-bottom: 10px; }
+.empty p { margin-top: 6px; line-height: 1.6; }
 
-        .color-name {
-            font-weight: 600;
-            color: #a8d5b5;
-            font-family: monospace;
-            font-size: 0.75rem;
-            margin-bottom: 8px;
-        }
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface-2); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hi); }
 
-        .color-preview {
-            height: 55px;
-            border-radius: 8px;
-            margin: 8px 0;
-            border: 2px solid rgba(255,255,255,0.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            cursor: pointer;
-        }
-
-        input[type="color"] {
-            width: 100%;
-            height: 40px;
-            background: rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-        .value {
-            font-family: monospace;
-            background: rgba(0,0,0,0.3);
-            padding: 4px 8px;
-            border-radius: 6px;
-            margin-top: 8px;
-            font-size: 0.65rem;
-            word-break: break-all;
-        }
-
-        .actions {
-            margin-top: 10px;
-            display: flex;
-            gap: 8px;
-        }
-
-        .btn-small {
-            padding: 4px 12px;
-            border-radius: 6px;
-            font-size: 0.7rem;
-            cursor: pointer;
-        }
-
-        .btn-save {
-            background: #a8d5b5;
-            color: #112b1e;
-            border: none;
-        }
-
-        .btn-discard {
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.3);
-            color: #e8f2ec;
-        }
-
-        .settings-panel {
-            display: none;
-            padding: 24px;
-            max-width: 900px;
-            margin: 0 auto;
-            width: 100%;
-            overflow-y: auto;
-        }
-
-        .settings-panel.active {
-            display: block;
-        }
-
-        .settings-card {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .settings-card h3 {
-            font-size: 0.9rem;
-            color: #a8d5b5;
-            margin-bottom: 12px;
-        }
-
-        .folder-row {
-            background: rgba(0,0,0,0.3);
-            padding: 10px 12px;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 0.7rem;
-            word-break: break-all;
-            margin-bottom: 8px;
-        }
-
-        .open-folder-btn {
-            background: rgba(168, 213, 181, 0.2);
-            border: 1px solid #a8d5b5;
-            color: #a8d5b5;
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-top: 8px;
-            width: 100%;
-            font-size: 0.8rem;
-        }
-
-        .open-folder-btn:hover {
-            background: rgba(168, 213, 181, 0.3);
-        }
-
-        .backup-list {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .backup-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 12px;
-            background: rgba(0,0,0,0.2);
-            border-radius: 8px;
-            margin-bottom: 6px;
-            font-size: 0.7rem;
-            font-family: monospace;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .restore-btn, .preview-btn {
-            background: rgba(168, 213, 181, 0.2);
-            border: 1px solid #a8d5b5;
-            color: #a8d5b5;
-            padding: 4px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.65rem;
-            margin-left: 6px;
-        }
-
-        .restore-btn:hover, .preview-btn:hover {
-            background: #a8d5b5;
-            color: #112b1e;
-        }
-
-        .status {
-            font-size: 0.7rem;
-            color: #9dc8ae;
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #1a3a2a;
-            color: #a8d5b5;
-            padding: 8px 16px;
-            border-radius: 8px;
-            border: 1px solid #a8d5b5;
-            font-size: 0.75rem;
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .toast.show {
-            opacity: 1;
-        }
-
-        .no-data {
-            text-align: center;
-            padding: 40px;
-            color: #9dc8ae;
-            font-size: 0.8rem;
-        }
-
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.9);
-            z-index: 2000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-overlay.active {
-            display: flex;
-        }
-
-        .modal {
-            background: #112b1e;
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 12px;
-            max-width: 900px;
-            width: 90%;
-            max-height: 85vh;
-            overflow-y: auto;
-        }
-
-        .modal-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            color: #9dc8ae;
-            font-size: 1.2rem;
-            cursor: pointer;
-        }
-
-        .modal-body {
-            padding: 20px;
-        }
-
-        .diff-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.75rem;
-        }
-
-        .diff-table th {
-            text-align: left;
-            padding: 10px;
-            background: rgba(0,0,0,0.3);
-            color: #a8d5b5;
-            font-weight: 600;
-        }
-
-        .diff-table td {
-            padding: 10px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            font-family: monospace;
-            vertical-align: middle;
-        }
-
-        .diff-old {
-            color: #ff8888;
-            text-decoration: line-through;
-        }
-
-        .diff-new {
-            color: #88ff88;
-        }
-
-        .diff-same {
-            color: #9dc8ae;
-        }
-
-        .color-swatch {
-            display: inline-block;
-            width: 18px;
-            height: 18px;
-            border-radius: 4px;
-            margin-right: 8px;
-            border: 1px solid rgba(255,255,255,0.2);
-            vertical-align: middle;
-        }
-    </style>
+/* ── Misc ── */
+code { font-family: var(--font-ui); }
+.tag { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 3px; font-size: 0.64rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.tag-new { background: rgba(168,213,181,0.12); color: var(--accent); }
+.tag-changed { background: rgba(212,168,71,0.12); color: var(--warning); }
+.divider { height: 1px; background: var(--border); margin: 8px 0; }
+</style>
 </head>
 <body>
+<div class="app">
 
-    <div class="sidebar">
-        <div class="logo">🎨 Color Editor</div>
-        <div class="nav-item active" data-view="editor">🎨 Editor</div>
-        <div class="nav-item" data-view="settings">⚙️ Settings</div>
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-title">Profile Editor</div>
+      <div class="logo-sub">Dornori Design System</div>
     </div>
 
-    <div class="main">
-        <div class="toolbar">
-            <div class="profile-selector">
-                <select id="profileSelect" class="profile-dropdown" disabled>
-                    <option value="">No folder open</option>
-                </select>
-            </div>
-            <button id="saveAllBtn" class="save-btn" disabled>💾 Save All Changes</button>
-        </div>
+    <div class="sidebar-section">Profiles</div>
+    <div class="nav-item active" data-view="backgrounds"><span class="nav-icon">◻</span> Backgrounds</div>
+    <div class="nav-item" data-view="borders"><span class="nav-icon">⬚</span> Borders</div>
+    <div class="nav-item" data-view="text"><span class="nav-icon">T</span> Text</div>
+    <div class="nav-item" data-view="headings"><span class="nav-icon">H</span> Headings</div>
+    <div class="nav-item" data-view="links"><span class="nav-icon">↗</span> Links</div>
+    <div class="nav-item" data-view="accent"><span class="nav-icon">◆</span> Accent / Nav</div>
+    <div class="nav-item" data-view="buttons"><span class="nav-icon">▣</span> Buttons</div>
+    <div class="nav-item" data-view="cart"><span class="nav-icon">◉</span> Cart Icon</div>
+    <div class="nav-item" data-view="buynow"><span class="nav-icon">⊞</span> Buy Now</div>
+    <div class="nav-item" data-view="toast"><span class="nav-icon">◌</span> Toast</div>
+    <div class="nav-item" data-view="cartpanel"><span class="nav-icon">☰</span> Cart Panel</div>
+    <div class="nav-item" data-view="grid"><span class="nav-icon">⊟</span> Background Grid</div>
 
-        <div id="editorView" class="editor-area">
-            <div id="colorGrid" class="color-grid">
-                <div class="no-data">Open a folder in Settings to start editing colors</div>
-            </div>
-        </div>
+    <div class="divider" style="margin:8px 10px;"></div>
+    <div class="sidebar-section">Tools</div>
+    <div class="nav-item" data-view="profiles"><span class="nav-icon">⊕</span> All Profiles</div>
+    <div class="nav-item" data-view="settings"><span class="nav-icon">⚙</span> Settings</div>
 
-        <div id="settingsView" class="settings-panel">
-            <div class="settings-card">
-                <h3>📂 Folder Access</h3>
-                <div id="folderInfo" class="folder-row">No folder selected</div>
-                <button id="openFolderBtn" class="open-folder-btn">📂 Open Site Folder</button>
-            </div>
+    <div class="sidebar-footer">
+      <button class="btn btn-sm" id="saveAllBtn" disabled style="width:100%;justify-content:center;">💾 Save to File</button>
+    </div>
+  </aside>
 
-            <div class="settings-card">
-                <h3>📁 Config Path</h3>
-                <div id="configPath" class="folder-row">admin/config.json</div>
-                <div id="savedPath" class="folder-row" style="margin-top:8px">Saved path: <span id="savedPathValue">—</span></div>
-            </div>
+  <!-- ── Main ── -->
+  <div class="main">
 
-            <div class="settings-card">
-                <h3>💾 Backups</h3>
-                <div id="backupLocation" class="folder-row">admin/profile-backups/</div>
-                <div id="backupList" class="backup-list">
-                    <div class="no-data">Open a folder to see backups</div>
-                </div>
-            </div>
-
-            <div class="status" id="status">Ready</div>
-        </div>
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <span class="toolbar-title">Profile</span>
+      <div class="profile-tabs" id="profileTabs"></div>
+      <div class="toolbar-right">
+        <button class="btn btn-sm" id="undoBtn" disabled title="Discard changes to current section">↩ Discard</button>
+        <button class="btn btn-sm btn-primary" id="applyPreviewBtn" disabled>▶ Preview</button>
+      </div>
     </div>
 
-    <div id="previewModal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 id="modalTitle">Backup Preview</h3>
-                <button class="modal-close" onclick="closeModal()">✕</button>
-            </div>
-            <div class="modal-body" id="modalBody">
-                Loading...
-            </div>
+    <!-- Content views -->
+    <div class="content">
+
+      <!-- ── BACKGROUNDS ── -->
+      <div class="view active" id="view-backgrounds">
+        <div class="section-header">
+          <h2>Backgrounds</h2>
+          <p>Controls all background colours across the page, header, footer, and cards/panels.</p>
         </div>
+        <div class="token-area">
+          <div class="token-group">
+            <div class="token-group-header">
+              <span class="token-group-title">Page</span>
+              <span class="token-group-desc">Main body fill</span>
+            </div>
+            <div class="token-grid" id="grp-bg-page"></div>
+          </div>
+          <div class="token-group">
+            <div class="token-group-header">
+              <span class="token-group-title">Header & Footer</span>
+              <span class="token-group-desc">Top bar and footer strip</span>
+            </div>
+            <div class="token-grid" id="grp-bg-chrome"></div>
+          </div>
+          <div class="token-group">
+            <div class="token-group-header">
+              <span class="token-group-title">Cards & Panels</span>
+              <span class="token-group-desc">Info boxes, feature panels — must be semi-transparent rgba</span>
+            </div>
+            <div class="token-grid" id="grp-bg-card"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── BORDERS ── -->
+      <div class="view" id="view-borders">
+        <div class="section-header"><h2>Borders</h2><p>All dividers, outlines, and separator lines across the site.</p></div>
+        <div class="token-area">
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">Border</span><span class="token-group-desc">Used on cards, inputs, nav, separators</span></div>
+            <div class="token-grid" id="grp-border"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TEXT ── -->
+      <div class="view" id="view-text">
+        <div class="section-header"><h2>Text</h2><p>Body copy, paragraphs, table cells, labels, and captions.</p></div>
+        <div class="token-area">
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">Text Levels</span><span class="token-group-desc">Three levels: primary → muted → dim</span></div>
+            <div class="token-grid" id="grp-text"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── HEADINGS ── -->
+      <div class="view" id="view-headings">
+        <div class="section-header"><h2>Headings</h2><p>H1–H4 colours. Set all to the same value for a clean uniform look, or use distinct colours for an expressive profile. Falls back to <code>--accent</code> in generic layout contexts.</p></div>
+        <div class="token-area">
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">H1 — Hero</span><span class="token-group-desc">Large overlay title on home video / image</span></div>
+            <div class="token-grid" id="grp-h1"></div>
+          </div>
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">H2 — Section Titles</span><span class="token-group-desc">"How it works", "In the box", page-level titles</span></div>
+            <div class="token-grid" id="grp-h2"></div>
+          </div>
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">H3 — Sub-headings</span><span class="token-group-desc">Feature titles, card titles, USP labels</span></div>
+            <div class="token-grid" id="grp-h3"></div>
+          </div>
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">H4 — Small Labels</span><span class="token-group-desc">e.g. "Everything in the box", small accent labels</span></div>
+            <div class="token-grid" id="grp-h4"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── LINKS ── -->
+      <div class="view" id="view-links">
+        <div class="section-header"><h2>Links</h2><p>Inline text hyperlinks, breadcrumbs, and anchor elements.</p></div>
+        <div class="token-area">
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">Hyperlinks</span><span class="token-group-desc">Inline <code>&lt;a&gt;</code> elements — rest and hover</span></div>
+            <div class="token-grid" id="grp-links"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ACCENT ── -->
+      <div class="view" id="view-accent">
+        <div class="section-header"><h2>Accent / Navigation</h2><p>Used for nav-link hover, active tab underlines, focus rings, outline button hover, progress bars, and icon highlights. Not for buttons — that's controlled separately.</p></div>
+        <div class="token-area">
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">Accent Colour</span></div>
+            <div class="token-grid" id="grp-accent"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── BUTTONS ── -->
+      <div class="view" id="view-buttons">
+        <div class="section-header"><h2>Buttons — Primary</h2><p>Controls Add-to-Cart, Checkout, hero CTA buttons, and form submit buttons. Outline and ghost buttons use <code>--border</code> and <code>--accent</code> automatically.</p></div>
+        <div class="token-area">
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">Rest State</span></div>
+            <div class="token-grid" id="grp-btn-rest"></div>
+          </div>
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">Hover State</span></div>
+            <div class="token-grid" id="grp-btn-hover"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CART ICON ── -->
+      <div class="view" id="view-cart">
+        <div class="section-header"><h2>Cart Icon</h2><p>The floating circular cart button in the header.</p></div>
+        <div class="token-area">
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">Rest State</span></div>
+            <div class="token-grid" id="grp-cart-rest"></div>
+          </div>
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">Hover State</span></div>
+            <div class="token-grid" id="grp-cart-hover"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── BUY NOW ── -->
+      <div class="view" id="view-buynow">
+        <div class="section-header"><h2>Buy Now Overlay</h2><p>The "BUY NOW" chip that appears over product cards in the shop grid.</p></div>
+        <div class="token-area">
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">Rest State</span></div>
+            <div class="token-grid" id="grp-buynow-rest"></div>
+          </div>
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">Hover State</span><span class="token-group-desc">Background becomes solid on hover</span></div>
+            <div class="token-grid" id="grp-buynow-hover"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TOAST ── -->
+      <div class="view" id="view-toast">
+        <div class="section-header"><h2>Toast Notification</h2><p>The pill notification that appears when items are added to cart.</p></div>
+        <div class="token-area">
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">Toast Colours</span></div>
+            <div class="token-grid" id="grp-toast"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CART PANEL ── -->
+      <div class="view" id="view-cartpanel">
+        <div class="section-header"><h2>Cart Hover Panel</h2><p>The dropdown panel that appears when hovering the cart icon.</p></div>
+        <div class="token-area">
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">Panel Colours</span></div>
+            <div class="token-grid" id="grp-cartpanel"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── GRID ── -->
+      <div class="view" id="view-grid">
+        <div class="section-header"><h2>Background Grid</h2><p>The subtle raster grid lines on the page background. Must be a semi-transparent rgba value.</p></div>
+        <div class="token-area">
+          <div class="token-group">
+            <div class="token-group-header"><span class="token-group-title">Grid Line Colour</span><span class="token-group-desc">e.g. rgba(255,255,255,0.18) dark · rgba(0,0,0,0.08) light</span></div>
+            <div class="token-grid" id="grp-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ALL PROFILES ── -->
+      <div class="view" id="view-profiles">
+        <div class="section-header"><h2>All Profiles</h2><p>Overview of all profiles with their key colours.</p></div>
+        <div class="profile-manager">
+          <div class="profile-cards" id="profileCards"></div>
+        </div>
+      </div>
+
+      <!-- ── SETTINGS ── -->
+      <div class="view" id="view-settings">
+        <div class="section-header"><h2>Settings</h2><p>File access and backup management.</p></div>
+        <div class="settings-area">
+          <div class="settings-card">
+            <h3>📂 Site Folder</h3>
+            <div id="folderInfo" class="folder-path">No folder selected</div>
+            <div style="margin-top:10px;display:flex;gap:8px;">
+              <button class="btn" id="openFolderBtn">📂 Open Site Folder</button>
+            </div>
+          </div>
+          <div class="settings-card">
+            <h3>💾 Backups</h3>
+            <div id="backupList" class="backup-list">
+              <div class="empty"><p>Open a folder to see backups</p></div>
+            </div>
+          </div>
+          <div class="settings-card">
+            <h3>⚠️ Danger Zone</h3>
+            <div class="settings-row">
+              <label>Reset current profile to last saved</label>
+              <button class="btn btn-danger btn-sm" id="resetProfileBtn" disabled>Reset Profile</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+
+    <!-- Preview bar -->
+    <div class="preview-bar" id="previewBar" style="display:none">
+      <span class="preview-label">Preview</span>
+      <div class="preview-chips" id="previewChips"></div>
     </div>
 
-    <div id="toast" class="toast"></div>
+    <!-- Status bar -->
+    <div class="status-bar">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Open a site folder in Settings to begin</span>
+    </div>
 
-    <script>
-        let dirHandle = null;
-        let originalCssContent = '';
-        let profiles = [];
-        let currentProfileIndex = -1;
-        let currentColors = {};
-        let originalColors = {};
-        let currentFolderPath = '';
+  </div><!-- /main -->
+</div><!-- /app -->
 
-        const CONFIG_FILE = 'config.json';
+<!-- Diff modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">Backup Preview</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
 
-        function rgbaToHex(rgba) {
-            if (!rgba || typeof rgba !== 'string') return null;
-            if (!rgba.startsWith('rgba')) return null;
-            const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-            if (!match) return null;
-            const r = parseInt(match[1]);
-            const g = parseInt(match[2]);
-            const b = parseInt(match[3]);
-            return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-        }
+<div class="toast" id="toast"></div>
 
-        function valueToHex(value) {
-            if (!value) return '#a8d5b5';
-            if (typeof value !== 'string') return '#a8d5b5';
-            if (value.startsWith('#')) return value;
-            const hex = rgbaToHex(value);
-            if (hex) return hex;
-            return '#a8d5b5';
-        }
+<script>
+// ══════════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════════
+let dirHandle = null;
+let profiles = [];           // [{name, colors:{token:value}}]
+let originalCssContent = '';
+let currentProfileIdx = 0;
+let savedColors = {};        // colors as loaded from file
+const CONFIG_FILE = 'config.json';
 
-        function showToast(msg, isError = false) {
-            const toast = document.getElementById('toast');
-            toast.textContent = msg;
-            toast.style.background = isError ? '#3a1a1a' : '#1a3a2a';
-            toast.style.color = isError ? '#ff8888' : '#a8d5b5';
-            toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 3000);
-        }
+// ── Token Schema ─────────────────────────────────────────────────────
+// Maps token name → { desc, group }
+const TOKEN_SCHEMA = {
+  '--bg':                  { desc: 'Main page background',                     group: 'grp-bg-page' },
+  '--bg-header':           { desc: 'Header / top-bar background',              group: 'grp-bg-chrome' },
+  '--bg-footer':           { desc: 'Footer background',                        group: 'grp-bg-chrome' },
+  '--bg-card':             { desc: 'Cards and panels (must be rgba)',           group: 'grp-bg-card' },
+  '--border':              { desc: 'Borders, dividers, input outlines',         group: 'grp-border' },
+  '--text':                { desc: 'Body copy, paragraphs, labels',             group: 'grp-text' },
+  '--text-muted':          { desc: 'Captions, placeholders, helper text',       group: 'grp-text' },
+  '--text-dim':            { desc: 'Timestamps, footnotes — faintest level',    group: 'grp-text' },
+  '--color-h1':            { desc: 'Hero overlay title',                        group: 'grp-h1' },
+  '--color-h2':            { desc: 'Section titles across pages',               group: 'grp-h2' },
+  '--color-h3':            { desc: 'Sub-headings, feature titles',              group: 'grp-h3' },
+  '--color-h4':            { desc: 'Small accent labels',                       group: 'grp-h4' },
+  '--link':                { desc: 'Inline hyperlink colour',                   group: 'grp-links' },
+  '--link-hover':          { desc: 'Hyperlink on hover / focus',                group: 'grp-links' },
+  '--accent':              { desc: 'Nav hover, tabs, focus rings, icon highlights', group: 'grp-accent' },
+  '--btn-bg':              { desc: 'Primary button background',                 group: 'grp-btn-rest' },
+  '--btn-text':            { desc: 'Primary button text colour',                group: 'grp-btn-rest' },
+  '--btn-bg-hover':        { desc: 'Primary button background on hover',        group: 'grp-btn-hover' },
+  '--btn-text-hover':      { desc: 'Primary button text on hover',              group: 'grp-btn-hover' },
+  '--cart-bg':             { desc: 'Cart icon background at rest',              group: 'grp-cart-rest' },
+  '--cart-text':           { desc: 'Cart icon symbol / badge at rest',          group: 'grp-cart-rest' },
+  '--cart-bg-hover':       { desc: 'Cart icon background on hover',             group: 'grp-cart-hover' },
+  '--cart-text-hover':     { desc: 'Cart icon symbol on hover',                 group: 'grp-cart-hover' },
+  '--cart-shadow-hover':   { desc: 'Cart icon box-shadow on hover',             group: 'grp-cart-hover' },
+  '--btn-buynow-bg':       { desc: 'Buy Now overlay background (semi-transparent)', group: 'grp-buynow-rest' },
+  '--btn-buynow-text':     { desc: 'Buy Now overlay text',                      group: 'grp-buynow-rest' },
+  '--btn-buynow-border':   { desc: 'Buy Now overlay border',                    group: 'grp-buynow-rest' },
+  '--btn-buynow-bg-hover': { desc: 'Buy Now overlay background on hover (solid)', group: 'grp-buynow-hover' },
+  '--toast-bg':            { desc: 'Toast notification background',             group: 'grp-toast' },
+  '--toast-text':          { desc: 'Toast notification text',                   group: 'grp-toast' },
+  '--cart-panel-bg':       { desc: 'Cart dropdown background',                  group: 'grp-cartpanel' },
+  '--cart-panel-border':   { desc: 'Cart dropdown border',                      group: 'grp-cartpanel' },
+  '--cart-panel-text':     { desc: 'Cart dropdown text',                        group: 'grp-cartpanel' },
+  '--grid-line':           { desc: 'Background raster grid lines (rgba)',        group: 'grp-grid' },
+};
 
-        function setStatus(text, type = 'info') {
-            const statusDiv = document.getElementById('status');
-            statusDiv.innerHTML = text;
-            statusDiv.className = `status ${type}`;
-        }
+// Non-colour tokens (box-shadow strings, etc.)
+const TEXT_TOKENS = new Set(['--cart-shadow-hover']);
 
-        // Save config to file
-        async function saveConfig(path) {
-            const config = { folderPath: path };
-            try {
-                const response = await fetch(CONFIG_FILE, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(config, null, 2)
-                });
-                if (response.ok) {
-                    document.getElementById('savedPathValue').textContent = path;
-                    return true;
-                }
-            } catch (err) {
-                console.log('PUT failed, trying POST');
-                try {
-                    const response = await fetch(CONFIG_FILE, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(config, null, 2)
-                    });
-                    if (response.ok) {
-                        document.getElementById('savedPathValue').textContent = path;
-                        return true;
-                    }
-                } catch (e) {}
-            }
-            // Fallback: download config file
-            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = CONFIG_FILE;
-            a.click();
-            URL.revokeObjectURL(url);
-            showToast('⚠️ Download config.json and place in admin folder', true);
-            document.getElementById('savedPathValue').textContent = path + ' (saved locally)';
-            return false;
-        }
+// ══════════════════════════════════════════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════════════════════════════════════════
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+}
 
-        // Load config from file
-        async function loadConfig() {
-            try {
-                const response = await fetch(CONFIG_FILE);
-                if (response.ok) {
-                    const config = await response.json();
-                    if (config.folderPath) {
-                        document.getElementById('savedPathValue').textContent = config.folderPath;
-                        return config.folderPath;
-                    }
-                }
-            } catch (err) {
-                console.log('No config file yet');
-            }
-            document.getElementById('savedPathValue').textContent = '—';
-            return null;
-        }
+function setStatus(text, type = '') {
+  document.getElementById('statusText').textContent = text;
+  const dot = document.getElementById('statusDot');
+  dot.className = 'status-dot' + (type === 'ok' ? ' ok' : type === 'err' ? ' err' : type === 'loading' ? ' loading' : '');
+}
 
-        async function ensureDirectory(path) {
-            const parts = path.split('/').filter(Boolean);
-            let current = dirHandle;
-            for (const part of parts) {
-                current = await current.getDirectoryHandle(part, { create: true });
-            }
-            return current;
-        }
+function closeModal() { document.getElementById('modalOverlay').classList.remove('active'); }
+document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
 
-        async function readFile(path) {
-            const parts = path.split('/').filter(Boolean);
-            let h = dirHandle;
-            for (const p of parts.slice(0, -1)) {
-                try { h = await h.getDirectoryHandle(p); }
-                catch { return null; }
-            }
-            try {
-                const fh = await h.getFileHandle(parts.at(-1));
-                return await (await fh.getFile()).text();
-            } catch { return null; }
-        }
+// Parse an rgba/hex value to {r,g,b,a}
+function parseColor(val) {
+  if (!val) return null;
+  val = val.trim();
+  if (val.startsWith('rgba')) {
+    const m = val.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)/);
+    if (m) return { r: +m[1], g: +m[2], b: +m[3], a: m[4] !== undefined ? +m[4] : 1 };
+  }
+  if (val.startsWith('#')) {
+    let h = val.slice(1);
+    if (h.length === 3) h = h.split('').map(c => c+c).join('');
+    if (h.length === 6) return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16), a: 1 };
+    if (h.length === 8) return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16), a: parseInt(h.slice(6,8),16)/255 };
+  }
+  return null;
+}
 
-        async function writeFile(path, content) {
-            const parts = path.split('/').filter(Boolean);
-            let h = dirHandle;
-            for (const p of parts.slice(0, -1)) {
-                h = await h.getDirectoryHandle(p, { create: true });
-            }
-            const fh = await h.getFileHandle(parts.at(-1), { create: true });
-            const w = await fh.createWritable();
-            await w.write(content);
-            await w.close();
-        }
+function toHex(val) {
+  const c = parseColor(val);
+  if (!c) return '#888888';
+  return '#' + [c.r, c.g, c.b].map(x => Math.round(Math.max(0,Math.min(255,x))).toString(16).padStart(2,'0')).join('');
+}
 
-        async function listBackups() {
-            try {
-                const backupDir = await ensureDirectory('admin/profile-backups');
-                const backups = [];
-                for await (const entry of backupDir.values()) {
-                    if (entry.kind === 'file' && entry.name.startsWith('profiles-backup-')) {
-                        const stats = await entry.getFile();
-                        backups.push({
-                            name: entry.name,
-                            path: `admin/profile-backups/${entry.name}`,
-                            size: stats.size,
-                            modified: stats.lastModified
-                        });
-                    }
-                }
-                backups.sort((a, b) => b.modified - a.modified);
-                return backups;
-            } catch {
-                return [];
-            }
-        }
+function colorToRgba(hexVal, alpha) {
+  const c = parseColor(hexVal);
+  if (!c) return hexVal;
+  const a = Math.round(alpha * 100) / 100;
+  if (a >= 1) return `#${[c.r,c.g,c.b].map(x=>x.toString(16).padStart(2,'0')).join('')}`;
+  return `rgba(${c.r}, ${c.g}, ${c.b}, ${a})`;
+}
 
-        async function renderBackupList() {
-            const container = document.getElementById('backupList');
-            const backups = await listBackups();
-            
-            if (backups.length === 0) {
-                container.innerHTML = '<div class="no-data">No backups found</div>';
-                return;
-            }
-            
-            container.innerHTML = backups.map(b => `
-                <div class="backup-item">
-                    <span>📄 ${b.name}</span>
-                    <span>${(b.size/1024).toFixed(1)} KB</span>
-                    <div>
-                        <button class="preview-btn" data-backup="${b.path}">Preview</button>
-                        <button class="restore-btn" data-backup="${b.path}">Restore</button>
-                    </div>
-                </div>
-            `).join('');
-            
-            document.querySelectorAll('.preview-btn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    await previewBackup(btn.dataset.backup);
-                });
-            });
-            
-            document.querySelectorAll('.restore-btn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    await restoreBackup(btn.dataset.backup);
-                });
-            });
-        }
+function isRgba(val) { return typeof val === 'string' && val.trim().startsWith('rgba'); }
+function getAlpha(val) { const c = parseColor(val); return c ? c.a : 1; }
 
-        async function previewBackup(backupPath) {
-            if (!dirHandle) return showToast('No folder open', true);
-            try {
-                const backupContent = await readFile(backupPath);
-                if (!backupContent) return showToast('Could not read backup', true);
-                
-                const backupProfiles = parseProfiles(backupContent);
-                const currentProfileName = profiles[currentProfileIndex]?.name;
-                const backupProfile = backupProfiles.find(p => p.name === currentProfileName);
-                const currentProfile = profiles.find(p => p.name === currentProfileName);
-                
-                if (!backupProfile || !currentProfile) {
-                    showToast('Could not find matching profile', true);
-                    return;
-                }
-                
-                const allKeys = new Set([...Object.keys(backupProfile.colors), ...Object.keys(currentProfile.colors)]);
-                const sortedKeys = Array.from(allKeys).sort();
-                
-                let html = '<table class="diff-table"><thead><tr><th>Variable</th><th>Current</th><th>Backup</th><th>Status</th></tr></thead><tbody>';
-                for (const key of sortedKeys) {
-                    const currentVal = currentProfile.colors[key] || '—';
-                    const backupVal = backupProfile.colors[key] || '—';
-                    const swatch = (v) => v !== '—' && (v.startsWith('#') || v.startsWith('rgba')) 
-                        ? `<span class="color-swatch" style="background:${v}"></span>` : '';
-                    
-                    if (currentVal === backupVal) {
-                        html += `<tr><td><code>${key}</code></td><td class="diff-same">${swatch(currentVal)}${currentVal}</td><td class="diff-same">${swatch(backupVal)}${backupVal}</td><td>✓ Same</td></tr>`;
-                    } else {
-                        html += `<tr><td><code>${key}</code></td><td class="diff-old">${swatch(currentVal)}${currentVal}</td><td class="diff-new">${swatch(backupVal)}${backupVal}</td><td>⚠ Different</td></tr>`;
-                    }
-                }
-                html += '</tbody></table>';
-                
-                document.getElementById('modalTitle').innerHTML = `📋 Preview: ${backupPath.split('/').pop()}`;
-                document.getElementById('modalBody').innerHTML = html;
-                document.getElementById('previewModal').classList.add('active');
-            } catch (err) {
-                showToast('Preview failed: ' + err.message, true);
-            }
-        }
+// ══════════════════════════════════════════════════════════════════════
+// FILE OPERATIONS
+// ══════════════════════════════════════════════════════════════════════
+async function readFile(path) {
+  const parts = path.split('/').filter(Boolean);
+  let h = dirHandle;
+  for (const p of parts.slice(0, -1)) { try { h = await h.getDirectoryHandle(p); } catch { return null; } }
+  try { const fh = await h.getFileHandle(parts.at(-1)); return await (await fh.getFile()).text(); } catch { return null; }
+}
 
-        window.closeModal = () => document.getElementById('previewModal').classList.remove('active');
+async function writeFile(path, content) {
+  const parts = path.split('/').filter(Boolean);
+  let h = dirHandle;
+  for (const p of parts.slice(0, -1)) { h = await h.getDirectoryHandle(p, { create: true }); }
+  const fh = await h.getFileHandle(parts.at(-1), { create: true });
+  const w = await fh.createWritable(); await w.write(content); await w.close();
+}
 
-        async function restoreBackup(backupPath) {
-            if (!dirHandle) return showToast('No folder open', true);
-            try {
-                const backupContent = await readFile(backupPath);
-                if (!backupContent) return showToast('Could not read backup', true);
-                await writeFile('css/profiles.css', backupContent);
-                showToast(`✅ Restored from ${backupPath.split('/').pop()}`);
-                await loadCSS();
-            } catch (err) {
-                showToast(`Restore failed: ${err.message}`, true);
-            }
-        }
+async function ensureDir(path) {
+  const parts = path.split('/').filter(Boolean);
+  let h = dirHandle;
+  for (const p of parts) h = await h.getDirectoryHandle(p, { create: true });
+  return h;
+}
 
-        async function openAndSaveFolder() {
-            try {
-                dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-                currentFolderPath = dirHandle.name;
-                document.getElementById('folderInfo').innerHTML = `📁 ${currentFolderPath}`;
-                await ensureDirectory('admin/profile-backups');
-                await saveConfig(currentFolderPath);
-                await loadCSS();
-                await renderBackupList();
-                setStatus(`Connected to ${currentFolderPath}`, 'success');
-                showToast(`Connected to ${currentFolderPath}`);
-            } catch (err) {
-                if (err.name !== 'AbortError') {
-                    showToast('Failed to open folder: ' + err.message, true);
-                }
-            }
-        }
+function getTimestamp() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}_${String(n.getHours()).padStart(2,'0')}${String(n.getMinutes()).padStart(2,'0')}${String(n.getSeconds()).padStart(2,'0')}`;
+}
 
-        async function reconnectFromConfig() {
-            const savedPath = await loadConfig();
-            if (!savedPath) {
-                setStatus('No saved folder. Click "Open Site Folder" to start.', 'info');
-                return false;
-            }
-            
-            setStatus(`Try to reconnect to "${savedPath}"...`, 'loading');
-            try {
-                // Request folder picker with suggested name
-                dirHandle = await window.showDirectoryPicker({
-                    id: 'dornori-root',
-                    mode: 'readwrite',
-                    startIn: savedPath
-                });
-                currentFolderPath = dirHandle.name;
-                document.getElementById('folderInfo').innerHTML = `📁 ${currentFolderPath} (reconnected)`;
-                await ensureDirectory('admin/profile-backups');
-                await loadCSS();
-                await renderBackupList();
-                setStatus(`Reconnected to ${currentFolderPath}`, 'success');
-                showToast(`Reconnected to ${currentFolderPath}`);
-                return true;
-            } catch (err) {
-                setStatus(`Could not auto-reconnect. Click "Open Site Folder".`, 'error');
-                return false;
-            }
-        }
+// ══════════════════════════════════════════════════════════════════════
+// CSS PARSING
+// ══════════════════════════════════════════════════════════════════════
+function parseProfiles(cssText) {
+  const list = [];
+  // Match :root,\n[data-theme="dark"] { } block
+  const rootMatch = cssText.match(/:root[\s\S]*?\[data-theme="dark"\]\s*\{([^}]+)\}/);
+  if (rootMatch) {
+    list.push({ name: 'dark', colors: extractVars(rootMatch[1]) });
+  }
+  // Match remaining [data-theme="x"] { } blocks
+  const re = /\[data-theme="([^"]+)"\]\s*\{([^}]+)\}/g;
+  let m;
+  while ((m = re.exec(cssText))) {
+    if (m[1] === 'dark' && list.find(p => p.name === 'dark')) continue; // already captured
+    list.push({ name: m[1], colors: extractVars(m[2]) });
+  }
+  // Deduplicate by name (keep first)
+  const seen = new Set();
+  return list.filter(p => { if (seen.has(p.name)) return false; seen.add(p.name); return true; });
+}
 
-        function updateProfileDropdown() {
-            const select = document.getElementById('profileSelect');
-            if (!profiles.length) {
-                select.innerHTML = '<option value="">No profiles found</option>';
-                select.disabled = true;
-                return;
-            }
-            select.innerHTML = profiles.map((p, i) => `<option value="${i}" ${i === currentProfileIndex ? 'selected' : ''}>${p.name === 'default' ? '🌙 Default' : '🎨 ' + p.name}</option>`).join('');
-            select.disabled = false;
-        }
+function extractVars(block) {
+  const colors = {};
+  const re = /--([^:;\s]+)\s*:\s*([^;]+);/g;
+  let m;
+  while ((m = re.exec(block))) colors[`--${m[1].trim()}`] = m[2].trim();
+  return colors;
+}
 
-        async function loadCSS() {
-            if (!dirHandle) return;
-            setStatus('Loading profiles.css...', 'loading');
-            try {
-                const content = await readFile('css/profiles.css');
-                if (!content) {
-                    setStatus('❌ css/profiles.css not found', 'error');
-                    return;
-                }
-                originalCssContent = content;
-                profiles = parseProfiles(content);
-                if (!profiles.length) {
-                    setStatus('No profiles found', 'error');
-                    return;
-                }
-                updateProfileDropdown();
-                setStatus(`✅ Loaded ${profiles.length} profiles`, 'success');
-                loadProfile(0);
-            } catch (err) {
-                setStatus('Error loading CSS: ' + err.message, 'error');
-            }
-        }
+function generateUpdatedCSS() {
+  let css = originalCssContent;
+  for (const profile of profiles) {
+    const isDefault = profile.name === 'dark';
+    // Build the token block
+    let block = '\n';
+    for (const [k, v] of Object.entries(profile.colors)) {
+      block += `    ${k}: ${v};\n`;
+    }
+    let regex;
+    if (isDefault) {
+      // :root,\n[data-theme="dark"] { ... }
+      regex = /(:root[\s\S]*?\[data-theme="dark"\]\s*\{)([^}]*)(\})/;
+    } else {
+      // Only the first [data-theme="x"] { } token block (not body)
+      regex = new RegExp(`(\\[data-theme="${profile.name}"\\]\\s*\\{)([^}]*)(\\})`);
+    }
+    css = css.replace(regex, `$1${block}$3`);
+  }
+  return css;
+}
 
-        function parseProfiles(cssText) {
-            const list = [];
-            const profileRegex = /\[data-theme="([^"]+)"\]\s*\{([^}]+)\}/g;
-            let match;
-            while ((match = profileRegex.exec(cssText))) {
-                const colors = {};
-                const varRegex = /--([^:]+):\s*([^;]+);/g;
-                let vm;
-                while ((vm = varRegex.exec(match[2]))) colors[`--${vm[1].trim()}`] = vm[2].trim();
-                list.push({ name: match[1], colors });
-            }
-            const rootMatch = cssText.match(/:root\s*\{([^}]+)\}/);
-            if (rootMatch) {
-                const colors = {};
-                const varRegex = /--([^:]+):\s*([^;]+);/g;
-                let vm;
-                while ((vm = varRegex.exec(rootMatch[1]))) colors[`--${vm[1].trim()}`] = vm[2].trim();
-                list.unshift({ name: 'default', colors });
-            }
-            return list;
-        }
+// ══════════════════════════════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════════════════════════════
+function renderProfileTabs() {
+  const container = document.getElementById('profileTabs');
+  container.innerHTML = profiles.map((p, i) => `
+    <button class="profile-tab${i === currentProfileIdx ? ' active' : ''}" data-idx="${i}">
+      ${p.name}
+    </button>
+  `).join('');
+  container.querySelectorAll('.profile-tab').forEach(btn => {
+    btn.onclick = () => { currentProfileIdx = parseInt(btn.dataset.idx); renderAll(); };
+  });
+}
 
-        function loadProfile(index) {
-            currentProfileIndex = index;
-            const profile = profiles[index];
-            currentColors = { ...profile.colors };
-            originalColors = { ...profile.colors };
-            document.getElementById('saveAllBtn').disabled = false;
-            updateProfileDropdown();
-            renderColorCards();
-        }
+function renderAll() {
+  renderProfileTabs();
+  renderAllGroups();
+  renderProfileCards();
+  updatePreviewBar();
+  syncButtonStates();
+}
 
-        function renderColorCards() {
-            const container = document.getElementById('colorGrid');
-            if (!currentColors || Object.keys(currentColors).length === 0) {
-                container.innerHTML = '<div class="no-data">No color variables</div>';
-                return;
-            }
-            container.innerHTML = '';
-            for (const [name, value] of Object.entries(currentColors)) {
-                const hex = valueToHex(value);
-                const card = document.createElement('div');
-                card.className = 'color-card';
-                card.innerHTML = `
-                    <div class="color-name">${name}</div>
-                    <div class="color-preview" style="background:${value}">${value}</div>
-                    <input type="color" value="${hex}">
-                    <div class="value">${value}</div>
-                    <div class="actions">
-                        <button class="btn-small btn-save">Save</button>
-                        <button class="btn-small btn-discard">Discard</button>
-                    </div>
-                `;
-                const colorInput = card.querySelector('input');
-                const preview = card.querySelector('.color-preview');
-                const valDiv = card.querySelector('.value');
-                colorInput.onchange = (e) => {
-                    currentColors[name] = e.target.value;
-                    preview.style.background = e.target.value;
-                    preview.textContent = e.target.value;
-                    valDiv.textContent = e.target.value;
-                };
-                card.querySelector('.btn-save').onclick = () => {
-                    originalColors[name] = currentColors[name];
-                    showToast(`✅ Saved ${name}`);
-                };
-                card.querySelector('.btn-discard').onclick = () => {
-                    if (originalColors[name]) {
-                        currentColors[name] = originalColors[name];
-                        preview.style.background = originalColors[name];
-                        preview.textContent = originalColors[name];
-                        valDiv.textContent = originalColors[name];
-                        colorInput.value = valueToHex(originalColors[name]);
-                        showToast(`↺ Discarded ${name}`);
-                    }
-                };
-                container.appendChild(card);
-            }
-        }
+function renderAllGroups() {
+  // Clear all group containers
+  Object.values(TOKEN_SCHEMA).forEach(s => {
+    const el = document.getElementById(s.group);
+    if (el) el.innerHTML = '';
+  });
+  const profile = profiles[currentProfileIdx];
+  if (!profile) return;
 
-        function getTimestamp() {
-            const now = new Date();
-            return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
-        }
+  for (const [token, schema] of Object.entries(TOKEN_SCHEMA)) {
+    const container = document.getElementById(schema.group);
+    if (!container) continue;
+    const value = profile.colors[token] || '';
+    container.appendChild(buildTokenRow(token, value, schema.desc, profile));
+  }
+}
 
-        function generateUpdatedCSS() {
-            let css = originalCssContent;
-            for (const profile of profiles) {
-                const regex = profile.name === 'default' 
-                    ? /(:root\s*\{)([^}]*)(\})/s
-                    : new RegExp(`(\\[data-theme="${profile.name}"\\]\\s*\\{)([^}]*)(\\})`, 's');
-                let block = '\n';
-                for (const [k, v] of Object.entries(profile.colors)) block += `    ${k}: ${v};\n`;
-                css = css.replace(regex, `$1${block}$3`);
-            }
-            return css;
-        }
+function buildTokenRow(token, value, desc, profile) {
+  const isText = TEXT_TOKENS.has(token);
+  const isRgbaVal = isRgba(value);
+  const isSaved = (savedColors[profile.name] || {})[token] === value;
+  const row = document.createElement('div');
+  row.className = 'token-row' + (isSaved ? '' : ' modified') + (isRgbaVal ? ' has-opacity' : '');
+  row.dataset.token = token;
 
-        async function saveAllChanges() {
-            if (!dirHandle || currentProfileIndex === -1) return showToast('No folder or profile', true);
-            setStatus('Saving...', 'loading');
-            document.getElementById('saveAllBtn').disabled = true;
-            try {
-                profiles[currentProfileIndex].colors = { ...currentColors };
-                const updated = generateUpdatedCSS();
-                const ts = getTimestamp();
-                await writeFile(`admin/profile-backups/profiles-backup-${ts}.css`, originalCssContent);
-                await writeFile('css/profiles.css', updated);
-                originalCssContent = updated;
-                for (const p of profiles) if (p.name === profiles[currentProfileIndex].name) p.colors = { ...currentColors };
-                originalColors = { ...currentColors };
-                await renderBackupList();
-                setStatus('✅ Saved', 'success');
-                showToast('✅ Saved with backup');
-            } catch (err) {
-                setStatus(`❌ Save failed: ${err.message}`, 'error');
-                showToast(`Save failed: ${err.message}`, true);
-            } finally {
-                document.getElementById('saveAllBtn').disabled = false;
-            }
-        }
+  if (isText) {
+    // Text input for non-colour tokens like box-shadow
+    row.innerHTML = `
+      <div class="token-info" style="flex:1">
+        <div class="token-name">${token}</div>
+        <div class="token-desc">${desc}</div>
+      </div>
+      <div class="dot-modified"></div>
+      <input type="text" class="token-value" value="${value}" title="${token}" style="max-width:200px">
+    `;
+    const input = row.querySelector('.token-value');
+    input.addEventListener('change', () => {
+      profile.colors[token] = input.value.trim();
+      row.classList.toggle('modified', (savedColors[profile.name] || {})[token] !== profile.colors[token]);
+      updatePreviewBar();
+      syncButtonStates();
+    });
+  } else {
+    const hex = toHex(value);
+    const alpha = isRgbaVal ? getAlpha(value) : 1;
+    row.innerHTML = `
+      <div class="color-swatch" style="background:${value}" title="Click to pick colour">
+        <input type="color" value="${hex}">
+      </div>
+      <div class="token-info">
+        <div class="token-name">${token}</div>
+        <div class="token-desc">${desc}</div>
+      </div>
+      <div class="dot-modified"></div>
+      <div class="token-value" title="${value}" contenteditable="true" spellcheck="false">${value}</div>
+      ${isRgbaVal ? `
+      <div class="opacity-row">
+        <span class="opacity-label">Opacity</span>
+        <input type="range" class="opacity-range" min="0" max="1" step="0.01" value="${alpha}">
+        <span class="opacity-val">${Math.round(alpha*100)}%</span>
+      </div>` : ''}
+    `;
 
-        document.getElementById('profileSelect').onchange = (e) => loadProfile(parseInt(e.target.value));
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.onclick = () => {
-                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-                item.classList.add('active');
-                const view = item.dataset.view;
-                document.getElementById('editorView').style.display = view === 'editor' ? 'block' : 'none';
-                document.getElementById('settingsView').classList.toggle('active', view === 'settings');
-                if (view === 'settings') renderBackupList();
-            };
-        });
-        document.getElementById('openFolderBtn').onclick = openAndSaveFolder;
-        document.getElementById('saveAllBtn').onclick = saveAllChanges;
-        document.getElementById('editorView').style.display = 'block';
-        document.getElementById('settingsView').classList.remove('active');
+    const swatch = row.querySelector('.color-swatch');
+    const colorInput = row.querySelector('input[type=color]');
+    const valueDiv = row.querySelector('.token-value');
 
-        // Try to reconnect from config
-        (async () => {
-            await reconnectFromConfig();
-        })();
-    </script>
+    const applyColor = (hex, opacityOverride) => {
+      const currentAlpha = opacityOverride !== undefined ? opacityOverride : (isRgbaVal ? (row.querySelector('.opacity-range') ? +row.querySelector('.opacity-range').value : 1) : 1);
+      const newVal = isRgbaVal ? colorToRgba(hex, currentAlpha) : hex;
+      profile.colors[token] = newVal;
+      swatch.style.background = newVal;
+      valueDiv.textContent = newVal;
+      if (valueDiv.title !== undefined) valueDiv.title = newVal;
+      row.classList.toggle('modified', (savedColors[profile.name] || {})[token] !== newVal);
+      updatePreviewBar();
+      syncButtonStates();
+    };
+
+    colorInput.addEventListener('input', e => applyColor(e.target.value));
+
+    valueDiv.addEventListener('blur', () => {
+      const manual = valueDiv.textContent.trim();
+      profile.colors[token] = manual;
+      swatch.style.background = manual;
+      const c = parseColor(manual);
+      if (c) colorInput.value = toHex(manual);
+      row.classList.toggle('modified', (savedColors[profile.name] || {})[token] !== manual);
+      updatePreviewBar();
+      syncButtonStates();
+    });
+
+    if (isRgbaVal) {
+      const range = row.querySelector('.opacity-range');
+      const opVal = row.querySelector('.opacity-val');
+      range.addEventListener('input', () => {
+        const a = +range.value;
+        opVal.textContent = Math.round(a * 100) + '%';
+        applyColor(toHex(profile.colors[token] || value), a);
+      });
+    }
+  }
+  return row;
+}
+
+function renderProfileCards() {
+  const container = document.getElementById('profileCards');
+  if (!container) return;
+  container.innerHTML = profiles.map((p, i) => {
+    const bg   = p.colors['--bg'] || '#333';
+    const acc  = p.colors['--accent'] || '#888';
+    const h1   = p.colors['--color-h1'] || acc;
+    const h2   = p.colors['--color-h2'] || acc;
+    const btn  = p.colors['--btn-bg'] || acc;
+    const txt  = p.colors['--text'] || '#ccc';
+    return `
+    <div class="profile-card${i === currentProfileIdx ? ' selected' : ''}" data-idx="${i}">
+      <div class="profile-swatches">
+        <div class="profile-swatch" style="background:${bg}"></div>
+        <div class="profile-swatch" style="background:${acc}"></div>
+        <div class="profile-swatch" style="background:${h1}"></div>
+        <div class="profile-swatch" style="background:${btn}"></div>
+        <div class="profile-swatch" style="background:${txt}"></div>
+      </div>
+      <div class="profile-name">${p.name}</div>
+      <div class="profile-meta">${Object.keys(p.colors).length} tokens</div>
+    </div>`;
+  }).join('');
+  container.querySelectorAll('.profile-card').forEach(c => {
+    c.onclick = () => { currentProfileIdx = parseInt(c.dataset.idx); renderAll(); showView('backgrounds'); };
+  });
+}
+
+function updatePreviewBar() {
+  const bar = document.getElementById('previewBar');
+  const chips = document.getElementById('previewChips');
+  const profile = profiles[currentProfileIdx];
+  if (!profile) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  const key = ['--bg','--accent','--btn-bg','--color-h1','--color-h2','--text'];
+  chips.innerHTML = key.map(k => {
+    const v = profile.colors[k] || '#888';
+    return `<div class="preview-chip"><div class="chip-dot" style="background:${v}"></div><span>${k.replace('--','')}: ${v}</span></div>`;
+  }).join('');
+}
+
+function syncButtonStates() {
+  const hasFolder = !!dirHandle;
+  const hasProfiles = profiles.length > 0;
+  document.getElementById('saveAllBtn').disabled = !hasFolder || !hasProfiles;
+  document.getElementById('undoBtn').disabled = !hasProfiles;
+  document.getElementById('applyPreviewBtn').disabled = !hasProfiles;
+  document.getElementById('resetProfileBtn').disabled = !hasProfiles;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════════════════
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const view = document.getElementById('view-' + name);
+  if (view) view.classList.add('active');
+  const nav = document.querySelector(`.nav-item[data-view="${name}"]`);
+  if (nav) nav.classList.add('active');
+}
+
+document.querySelectorAll('.nav-item[data-view]').forEach(item => {
+  item.addEventListener('click', () => {
+    showView(item.dataset.view);
+    if (item.dataset.view === 'settings') renderBackupList();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// FOLDER & CSS LOADING
+// ══════════════════════════════════════════════════════════════════════
+async function openFolder() {
+  try {
+    dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    document.getElementById('folderInfo').textContent = '📁 ' + dirHandle.name;
+    await ensureDir('admin/profile-backups');
+    await loadCSS();
+    await renderBackupList();
+    setStatus('Connected to ' + dirHandle.name, 'ok');
+    showToast('✅ Connected to ' + dirHandle.name);
+    syncButtonStates();
+  } catch (err) {
+    if (err.name !== 'AbortError') { showToast('Failed: ' + err.message, true); setStatus('Error: ' + err.message, 'err'); }
+  }
+}
+
+async function loadCSS() {
+  setStatus('Loading profiles.css…', 'loading');
+  const content = await readFile('css/profiles.css');
+  if (!content) { setStatus('css/profiles.css not found', 'err'); return; }
+  originalCssContent = content;
+  profiles = parseProfiles(content);
+  // Save a copy of the colours as loaded
+  savedColors = {};
+  profiles.forEach(p => { savedColors[p.name] = { ...p.colors }; });
+  setStatus(`Loaded ${profiles.length} profiles`, 'ok');
+  currentProfileIdx = 0;
+  renderAll();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SAVE
+// ══════════════════════════════════════════════════════════════════════
+async function saveAllChanges() {
+  if (!dirHandle) return showToast('No folder open', true);
+  setStatus('Saving…', 'loading');
+  document.getElementById('saveAllBtn').disabled = true;
+  try {
+    const updated = generateUpdatedCSS();
+    const ts = getTimestamp();
+    await writeFile(`admin/profile-backups/profiles-backup-${ts}.css`, originalCssContent);
+    await writeFile('css/profiles.css', updated);
+    originalCssContent = updated;
+    savedColors = {};
+    profiles.forEach(p => { savedColors[p.name] = { ...p.colors }; });
+    // Re-render to clear modified flags
+    renderAll();
+    await renderBackupList();
+    setStatus('Saved ✓', 'ok');
+    showToast('✅ Saved with backup');
+  } catch (err) {
+    setStatus('Save failed: ' + err.message, 'err');
+    showToast('Save failed: ' + err.message, true);
+  } finally {
+    syncButtonStates();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// BACKUPS
+// ══════════════════════════════════════════════════════════════════════
+async function renderBackupList() {
+  const container = document.getElementById('backupList');
+  if (!dirHandle) { container.innerHTML = '<div class="empty"><p>Open a folder to see backups</p></div>'; return; }
+  try {
+    const dir = await ensureDir('admin/profile-backups');
+    const backups = [];
+    for await (const e of dir.values()) {
+      if (e.kind === 'file' && e.name.startsWith('profiles-backup-')) {
+        const f = await e.getFile();
+        backups.push({ name: e.name, path: `admin/profile-backups/${e.name}`, size: f.size, mod: f.lastModified });
+      }
+    }
+    backups.sort((a, b) => b.mod - a.mod);
+    if (!backups.length) { container.innerHTML = '<div class="empty"><p>No backups yet</p></div>'; return; }
+    container.innerHTML = backups.slice(0, 20).map(b => `
+      <div class="backup-item">
+        <span class="bk-name" title="${b.name}">${b.name.replace('profiles-backup-','')}</span>
+        <span class="bk-size">${(b.size/1024).toFixed(1)} KB</span>
+        <div class="bk-actions">
+          <button class="btn btn-sm" data-bk="${b.path}" data-action="preview">Diff</button>
+          <button class="btn btn-sm btn-danger" data-bk="${b.path}" data-action="restore">Restore</button>
+        </div>
+      </div>`).join('');
+    container.querySelectorAll('[data-action]').forEach(btn => {
+      btn.onclick = () => btn.dataset.action === 'preview' ? previewBackup(btn.dataset.bk) : restoreBackup(btn.dataset.bk);
+    });
+  } catch (err) { container.innerHTML = `<div class="empty"><p>Error: ${err.message}</p></div>`; }
+}
+
+async function previewBackup(path) {
+  if (!dirHandle) return;
+  const content = await readFile(path);
+  if (!content) return showToast('Could not read backup', true);
+  const bkProfiles = parseProfiles(content);
+  const cur = profiles[currentProfileIdx];
+  const bk = bkProfiles.find(p => p.name === cur.name);
+  if (!bk) return showToast('Profile not found in backup', true);
+  const keys = new Set([...Object.keys(cur.colors), ...Object.keys(bk.colors)]);
+  let html = '<table class="diff-table"><thead><tr><th>Token</th><th>Current</th><th>Backup</th></tr></thead><tbody>';
+  for (const k of [...keys].sort()) {
+    const cv = cur.colors[k] || '—', bv = bk.colors[k] || '—';
+    const sw = v => v !== '—' ? `<span class="mini-swatch" style="background:${v}"></span>` : '';
+    if (cv === bv) {
+      html += `<tr class="diff-same"><td>${k}</td><td>${sw(cv)}${cv}</td><td>${sw(bv)}${bv}</td></tr>`;
+    } else {
+      html += `<tr class="diff-changed"><td>${k}</td><td>${sw(cv)}${cv}</td><td>${sw(bv)}${bv}</td></tr>`;
+    }
+  }
+  html += '</tbody></table>';
+  document.getElementById('modalTitle').textContent = 'Diff: ' + path.split('/').pop().replace('profiles-backup-','');
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+async function restoreBackup(path) {
+  if (!confirm('Restore this backup? Current profiles.css will be overwritten.')) return;
+  const content = await readFile(path);
+  if (!content) return showToast('Could not read backup', true);
+  await writeFile('css/profiles.css', content);
+  showToast('✅ Restored');
+  await loadCSS();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ACTIONS
+// ══════════════════════════════════════════════════════════════════════
+document.getElementById('openFolderBtn').onclick = openFolder;
+document.getElementById('saveAllBtn').onclick = saveAllChanges;
+
+document.getElementById('undoBtn').onclick = () => {
+  const p = profiles[currentProfileIdx];
+  if (!p || !savedColors[p.name]) return;
+  p.colors = { ...savedColors[p.name] };
+  renderAllGroups();
+  updatePreviewBar();
+  showToast('↩ Discarded changes');
+};
+
+document.getElementById('resetProfileBtn').onclick = () => {
+  document.getElementById('undoBtn').click();
+};
+
+document.getElementById('applyPreviewBtn').onclick = () => {
+  const p = profiles[currentProfileIdx];
+  if (!p) return;
+  // Inject tokens into the page for live preview
+  const root = document.documentElement;
+  for (const [k, v] of Object.entries(p.colors)) root.style.setProperty(k, v);
+  showToast('▶ Preview applied to this page');
+};
+
+// Init
+syncButtonStates();
+</script>
 </body>
 </html>
