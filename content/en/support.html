@@ -161,18 +161,33 @@
 
 <script>
 // ==================== CONFIG ====================
-var TURNSTILE_SITE_KEY = (window.CONFIG && window.CONFIG.turnstile && window.CONFIG.turnstile.sitekey) 
+// Allow window.CONFIG to be set by parent SPA
+window.CONFIG = window.CONFIG || {};
+
+var TURNSTILE_SITE_KEY = (window.CONFIG.turnstile && window.CONFIG.turnstile.sitekey) 
     ? window.CONFIG.turnstile.sitekey : null;
 
-var workerUrl = (window.CONFIG && window.CONFIG.queue && window.CONFIG.queue.endpoint) 
+var workerUrl = (window.CONFIG.queue && window.CONFIG.queue.endpoint) 
     ? window.CONFIG.queue.endpoint : "https://edge-form-handler-api.dornori-info.workers.dev";
 
 var lang = document.documentElement.lang || 'en';
-var formJsonPath = (window.CONFIG && window.CONFIG.paths && window.CONFIG.paths.formJsonPath)
-    ? (typeof window.CONFIG.paths.formJsonPath === 'function' ? window.CONFIG.paths.formJsonPath(lang) : window.CONFIG.paths.formJsonPath)
-    : (window.__BASE_PATH__ || '/') + 'lang/' + lang + '/form.json';
 
-var redirectUrl = (window.CONFIG && window.CONFIG.redirect && window.CONFIG.redirect.onSuccess)
+// Original path logic - try CONFIG first, then fallback to relative path
+var formJsonPath = null;
+if (window.CONFIG.paths && window.CONFIG.paths.formJsonPath) {
+    if (typeof window.CONFIG.paths.formJsonPath === 'function') {
+        formJsonPath = window.CONFIG.paths.formJsonPath(lang);
+    } else {
+        formJsonPath = window.CONFIG.paths.formJsonPath;
+    }
+} else if (window.__BASE_PATH__) {
+    formJsonPath = window.__BASE_PATH__ + 'lang/' + lang + '/form.json';
+} else {
+    // Fallback: try multiple possible locations
+    formJsonPath = './form.json';  // Try same directory first
+}
+
+var redirectUrl = (window.CONFIG.redirect && window.CONFIG.redirect.onSuccess)
     ? window.CONFIG.redirect.onSuccess
     : null;
 
@@ -219,7 +234,7 @@ function formatSummaryTable(answersArray) {
         var summary = escapeHtml(item.summary || item.answer);
         html += '<tr><td class="step-number">' + stepNum + '</td><td class="summary-text">' + summary + '</td></tr>';
     }
-    html += '</tr>';
+    html += '<table>';
     return html;
 }
 
@@ -244,14 +259,12 @@ function showToast(msg, ms, isError) {
 }
 
 function resetFormState() {
-    // Clear all form data
     currentCategory = null;
     currentQuestionId = null;
     answers = [];
     turnstileToken = null;
     isSubmitting = false;
     
-    // Clear input fields
     var nameField = document.getElementById('sf-name');
     var emailField = document.getElementById('sf-email');
     var orderField = document.getElementById('sf-order');
@@ -261,7 +274,6 @@ function resetFormState() {
     if (orderField) orderField.value = '';
     if (descField) descField.value = '';
     
-    // Clear errors
     var errorIds = ['sf-name-err', 'sf-email-err', 'sf-order-err'];
     for (var i = 0; i < errorIds.length; i++) {
         var errEl = document.getElementById(errorIds[i]);
@@ -273,7 +285,6 @@ function resetFormState() {
         if (input) input.classList.remove('sf-input-error');
     }
     
-    // Reset Turnstile
     if (turnstileWidgetId !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
         try { 
             turnstile.reset(turnstileWidgetId);
@@ -285,7 +296,6 @@ function resetFormState() {
     if (turnstileContainer) turnstileContainer.classList.remove('sf-input-error');
     if (turnstileErr) turnstileErr.classList.add('sf-hidden');
     
-    // Reset to step 1
     var s1El = document.getElementById('sf-s1');
     var s2El = document.getElementById('sf-s2');
     var s3El = document.getElementById('sf-s3');
@@ -313,7 +323,6 @@ function showSuccessMessage(message, referenceNumber) {
         '</div>';
     body.innerHTML = successHtml;
     
-    // Add event listener for new ticket button
     var newTicketBtn = document.getElementById('sf-new-ticket');
     if (newTicketBtn) {
         newTicketBtn.onclick = function() {
@@ -329,15 +338,43 @@ function showSuccessMessage(message, referenceNumber) {
 }
 
 async function loadFormData() {
-    try {
-        var res = await fetch(formJsonPath, { cache: 'no-store' });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        formData = await res.json();
-        populateUI();
-    } catch (err) {
-        console.error('Failed to load form.json:', err);
-        var loadingEl = document.getElementById('sf-loading');
-        if (loadingEl) loadingEl.innerHTML = '<p style="color:red">Failed to load form data.<br>Path: ' + formJsonPath + '</p>';
+    // Try multiple paths if first fails
+    var pathsToTry = [
+        formJsonPath,
+        './form.json',
+        '/form.json',
+        '/lang/' + lang + '/form.json',
+        window.location.pathname.replace(/\/[^/]*$/, '/') + 'form.json'
+    ];
+    
+    // Remove duplicates and nulls
+    pathsToTry = pathsToTry.filter(function(p, i, self) { return p && self.indexOf(p) === i; });
+    
+    var lastError = null;
+    
+    for (var i = 0; i < pathsToTry.length; i++) {
+        var path = pathsToTry[i];
+        try {
+            console.log('Trying to load form.json from:', path);
+            var res = await fetch(path, { cache: 'no-store' });
+            if (res.ok) {
+                formData = await res.json();
+                console.log('Successfully loaded from:', path);
+                populateUI();
+                return;
+            } else {
+                lastError = new Error('HTTP ' + res.status + ' for ' + path);
+            }
+        } catch (err) {
+            lastError = err;
+            console.warn('Failed to load from:', path, err);
+        }
+    }
+    
+    console.error('Failed to load form.json from all paths:', lastError);
+    var loadingEl = document.getElementById('sf-loading');
+    if (loadingEl) {
+        loadingEl.innerHTML = '<p style="color:red">Failed to load form data. Please refresh the page or contact support.<br>Tried: ' + pathsToJoin.join(', ') + '</p>';
     }
 }
 
@@ -685,7 +722,6 @@ async function sendSupportRequest() {
         submitBtn.textContent = formData.sendingText || 'Sending...';
     }
 
-    // Make a copy of current answers
     var currentAnswers = answers.slice();
     var troubleshootingSummaries = [];
     for (var i = 0; i < currentAnswers.length; i++) {
@@ -724,7 +760,6 @@ async function sendSupportRequest() {
         });
         
         if (response.ok) {
-            // CRITICAL: Clear all state BEFORE showing success
             resetFormState();
             
             if (redirectUrl && redirectUrl.trim()) {
@@ -754,10 +789,8 @@ async function sendSupportRequest() {
     }
 }
 
-// Make resetFormState globally available
 window.resetFormState = resetFormState;
 
-// Event listeners
 document.addEventListener('click', function(e) { 
     if (e.target.closest('#sf-submit')) { 
         e.preventDefault(); 
@@ -771,7 +804,6 @@ document.addEventListener('input', function(e) {
     }
 });
 
-// Clean up on page unload
 window.addEventListener('beforeunload', function() {
     destroyTurnstile();
 });
