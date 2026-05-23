@@ -14,20 +14,26 @@ import ENV_CONFIG from './env-config.js';
 
 /* ─── HTML template ────────────────────────────────────────────────────────── */
 function buildFormHTML(uid) {
+    const tf = (window.T && window.T.embedForm) || {};
+    const placeholder  = tf.placeholder  || 'Subscribe';
+    const joinLabel    = tf.join         || 'Join';
+    const disclaimer   = tf.disclaimer   || 'By subscribing, you accept our';
+    const termsLabel   = tf.terms        || 'Terms';
+    const privacyLabel = tf.privacy      || 'Privacy Policy';
     return /* html */`
 <div class="waitlist-card">
   <div id="ef-form-container-${uid}">
     <form id="ef-waitlist-form-${uid}" class="ef-waitlist-form" novalidate>
       <div id="ef-captcha-${uid}" class="ef-captcha-slot"></div>
       <div class="input-row">
-        <input type="email" name="email" placeholder="Subscribe" required
+        <input type="email" name="email" placeholder="${placeholder}" required
                autocomplete="email" aria-label="Email address">
-        <button type="submit" class="submit-btn" id="ef-sub-btn-${uid}">Join</button>
+        <button type="submit" class="submit-btn" id="ef-sub-btn-${uid}">${joinLabel}</button>
       </div>
       <p class="disclaimer-text">
-        By subscribing, you accept our
-        <button type="button" class="link-btn" data-page="terms">Terms</button> &amp;
-        <button type="button" class="link-btn" data-page="privacy">Privacy Policy</button>.
+        ${disclaimer}
+        <button type="button" class="link-btn" data-page="terms">${termsLabel}</button> &amp;
+        <button type="button" class="link-btn" data-page="privacy">${privacyLabel}</button>.
       </p>
       <div style="display:flex;justify-content:center;width:100%;">
         <span class="credit-item">

@@ -16,10 +16,21 @@ export async function loadShopModules() {
     });
   }
   
-  await loadScript(BASE_PATH + 'js/shop-config.js');
-  await loadScript(BASE_PATH + 'js/modules/shipping.js');
-  await loadScript(BASE_PATH + 'js/modules/currency.js');
-  await loadScript(BASE_PATH + 'js/shop.js');
+  // Guard: these may already be loaded by site-boot.js → shop-init.js
+  // loadScript checks for existing <script[src]> so double-loading is already
+  // prevented, but skip entirely if globals already exist to avoid re-execution.
+  if (typeof window.CONFIG === 'undefined') {
+    await loadScript(BASE_PATH + 'js/shop-config.js');
+  }
+  if (typeof window.Shipping === 'undefined') {
+    await loadScript(BASE_PATH + 'js/modules/shipping.js');
+  }
+  if (typeof window.Currency === 'undefined') {
+    await loadScript(BASE_PATH + 'js/modules/currency.js');
+  }
+  if (typeof window.Shop === 'undefined') {
+    await loadScript(BASE_PATH + 'js/shop.js');
+  }
   _shopModulesLoaded = true;
 
   if (typeof window.Shipping !== 'undefined' && typeof window.Shipping.load === 'function') {
@@ -48,6 +59,8 @@ export async function mountShopEmbeds(container) {
       if (typeof window.Shop !== 'undefined') { resolve(); return; }
       const done = () => resolve();
       document.addEventListener('webshop:ready', done, { once: true });
+      // Fallback: if webshop:ready never fires (e.g. shop-init.js not in load chain),
+      // try loading modules ourselves after a short grace period.
       setTimeout(() => {
         if (typeof window.Shop === 'undefined' && !window.__shopBooting) {
           window.__shopBooting = true;
@@ -55,7 +68,7 @@ export async function mountShopEmbeds(container) {
         } else {
           done();
         }
-      }, 10000);
+      }, 3000);
     });
   }
 

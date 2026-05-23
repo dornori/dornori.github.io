@@ -217,9 +217,8 @@ export function initPageLoader() {
         // Only skip the fetch when English content is already loaded in the correct language.
         // After a NL→EN switch homeView holds Dutch content, so we must NOT take this shortcut.
         const alreadyPopulated = homeView.querySelector('h2, .slideshow-root, .webshop-product-card');
-        const loadedLang       = homeView.dataset.loadedLang
-                               || (window.__PAGE_LANG__ === 'en' ? 'en' : null);
-        if (lang === 'en' && alreadyPopulated && loadedLang === 'en') {
+        const loadedLang       = homeView.dataset.loadedLang || null;
+        if (alreadyPopulated && loadedLang === lang) {
             rewriteContentPaths(homeView);
             homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
             initEmbedForms();

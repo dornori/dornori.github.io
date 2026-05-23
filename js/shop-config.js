@@ -56,10 +56,12 @@ var CONFIG = {
     productsJson: (window.__BASE_PATH__ || '/') + 'data/products.json',
   },
 
+  // NOTE: shop-init.js re-patches these to absolute paths using SHOP_CONFIG.jsPath.
+  // The values below are relative-path fallbacks only; do not rely on them directly.
   modules: [
-    "js/modules/currency.js",
-    "js/modules/shipping.js",
-    "js/modules/payment.js",
+    (window.__BASE_PATH__ || '/') + "js/modules/currency.js",
+    (window.__BASE_PATH__ || '/') + "js/modules/shipping.js",
+    (window.__BASE_PATH__ || '/') + "js/modules/payment.js",
   ],
 
   payment: {

@@ -1,21 +1,16 @@
-const CACHE_NAME = 'dornori-v3';
+const CACHE_NAME = 'dornori-v4';
 
-// Only cache static assets — not pages (redirects break cache.addAll)
+// Only cache static assets that actually exist
 const URLS_TO_CACHE = [
-  '/css/main.css',
+  '/css/variables.css',
+  '/css/base.css',
+  '/css/layout.css',
+  '/css/components.css',
+  '/css/pages.css',
   '/css/shop.css',
   '/css/shop-bridge.css',
   '/css/profiles.css',
-  '/css/integration.css',
-  '/css/about.css',
-  '/css/built.css',
-  '/css/gallery.css',
-  '/css/home.css',
-  '/css/kit.css',
-  '/css/parts.css',
   '/css/product.css',
-  '/css/success.css',
-  '/css/support.css',
   '/data/products.json',
   '/data/countries.json',
   '/data/shipping.json',
@@ -61,9 +56,24 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // Network-first for lang files (change with deployments)
+  if (url.includes('/lang/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
   // Cache-first for static assets
-  if (url.includes('/css/') || url.includes('/js/') ||
-      url.includes('/assets/') || url.includes('/lang/')) {
+  if (url.includes('/css/') || url.includes('/js/') || url.includes('/assets/')) {
     event.respondWith(
       caches.match(event.request).then(cached => {
         if (cached) return cached;

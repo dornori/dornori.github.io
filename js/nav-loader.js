@@ -139,16 +139,18 @@ window.renderNav = () => {
             if (item.icon) fetchSVG(iconPath(item.icon)).then(svg => { setSVGContent(iconEl, svg); });
         });
 
-        // Mobile cart slot
-        const mobileCartSlot     = document.createElement('div');
-        mobileCartSlot.id        = 'mobile-cart-icon-slot';
-        mobileCartSlot.className = 'mobile-nav-item mobile-nav-cart-slot';
-        mobileNav.appendChild(mobileCartSlot);
-
-        if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
-            const cartUrl = window.__CART_URL__ || navHref('cart');
-            Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl });
+        // Mobile cart slot — preserve existing so cart icon doesn't flash on language switch
+        let mobileCartSlot = document.getElementById('mobile-cart-icon-slot');
+        if (!mobileCartSlot) {
+            mobileCartSlot           = document.createElement('div');
+            mobileCartSlot.id        = 'mobile-cart-icon-slot';
+            mobileCartSlot.className = 'mobile-nav-item mobile-nav-cart-slot';
+            if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
+                const cartUrl = window.__CART_URL__ || navHref('cart');
+                Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl });
+            }
         }
+        mobileNav.appendChild(mobileCartSlot);
     }
 };
 

@@ -98,7 +98,10 @@
     ]);
 
     // ── Language ──────────────────────────────────────────────────────────────
-    var LANG_KEY = 'dornori-lang';
+    // Use CONFIG.storageKeys.lang if already defined (shop-config.js loaded before this),
+    // otherwise fall back to the same literal used in config.js so keys stay in sync.
+    var LANG_KEY = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys && CONFIG.storageKeys.parentLangKey)
+                  || 'dornori-lang';
     var lang = localStorage.getItem(LANG_KEY) || 'en';
     if (!window.__PAGE_LANG__) {
         window.__PAGE_LANG__ = lang;
@@ -310,7 +313,7 @@
 
         document.addEventListener('home:ready', removeSkeleton, { once: true });
         document.addEventListener('page:ready', removeSkeleton, { once: true });
-        // Fallback: remove after 6s no matter what
+        // Fallback: remove after 4s no matter what
         setTimeout(removeSkeleton, 4000);
     })();
 

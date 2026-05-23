@@ -93,7 +93,8 @@
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     function _cartUrl(lang) {
-        var l    = lang || window.LANG || localStorage.getItem('dornori-lang') || 'en';
+        var langKey = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys && CONFIG.storageKeys.parentLangKey) || 'dornori-lang';
+        var l    = lang || window.LANG || localStorage.getItem(langKey) || 'en';
         var slug = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || 'cart';
         return sitBase + l + '/' + slug + '/';
     }
@@ -149,7 +150,8 @@
 
     function _patchProductLinks() {
         function fixLinks(root) {
-            var lang = window.LANG || localStorage.getItem('dornori-lang') || 'en';
+            var langKey2 = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys && CONFIG.storageKeys.parentLangKey) || 'dornori-lang';
+            var lang = window.LANG || localStorage.getItem(langKey2) || 'en';
             var slug = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
             (root || document).querySelectorAll('a[href*="product.html?id="]').forEach(function (a) {
                 var id = a.getAttribute('href').split('product.html?id=')[1];
@@ -205,7 +207,8 @@
             });
         }
         build();
-        document.addEventListener('currency:changed', build);
+        // Do NOT re-build on currency:changed — the <select> already reflects the new value.
+        // Rebuilding causes a flash and loses focus. The change event on the select handles it.
     }
 
 })();

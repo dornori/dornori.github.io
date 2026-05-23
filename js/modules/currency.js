@@ -15,9 +15,14 @@ var Currency = (() => {
   async function load() {
     if (_loaded) return;
     try {
-      const res      = await fetch(CONFIG.data.countriesJson);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const countries = await res.json();
+      // Use shared cache if site-main.js already fetched countries, otherwise fetch
+      let countries = window.__countriesCache;
+      if (!countries) {
+        const res = await fetch(CONFIG.data.countriesJson);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        countries = await res.json();
+        window.__countriesCache = countries;
+      }
 
       const seen = new Set();
       countries.forEach(c => {
@@ -48,9 +53,10 @@ var Currency = (() => {
   async function detectFromIP() {
     try {
       if (!window.__geoData) {
-        // Shared promise prevents duplicate ipapi.co requests (currency + geo-popup race)
+        // Shared promise prevents duplicate geo API requests (currency + geo-popup race)
         if (!window.__geoDataPromise) {
-          window.__geoDataPromise = fetch('https://ipapi.co/json/').then(r => r.json());
+          const geoUrl = (typeof ENV_CONFIG !== 'undefined' && ENV_CONFIG.GEO_API) || 'https://ipapi.co/json/';
+          window.__geoDataPromise = fetch(geoUrl).then(r => r.json());
         }
         window.__geoData = await window.__geoDataPromise;
       }
