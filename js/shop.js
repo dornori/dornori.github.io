@@ -838,6 +838,13 @@ var Shop = (() => {
     if (!container) return;
     const { columns = "auto", showFilter = true } = options;
 
+    // Read feature flags from container data attributes (or passed options)
+    const cardOptions = {
+      showVariants: options.showVariants !== undefined ? options.showVariants : container.hasAttribute('data-variants'),
+      showRelated:  options.showRelated  !== undefined ? options.showRelated  : container.hasAttribute('data-related'),
+      showAddons:   options.showAddons   !== undefined ? options.showAddons   : container.hasAttribute('data-addons'),
+    };
+
     function buildGrid() {
       container.innerHTML = ""; container.classList.add("webshop-shop");
       if (showFilter) {
@@ -861,7 +868,7 @@ var Shop = (() => {
       container.appendChild(grid);
       products.forEach(p => {
         const card = document.createElement("div"); card.className = "webshop-product-card"; card.dataset.cat = p.category || ""; card.dataset.productId = p.id;
-        card.innerHTML = buildProductCard(p); grid.appendChild(card); wireProductCard(card, p);
+        card.innerHTML = buildProductCard(p, cardOptions); grid.appendChild(card); wireProductCard(card, p, cardOptions);
       });
     }
     buildGrid();
