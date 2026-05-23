@@ -1010,13 +1010,17 @@ document.getElementById('resetProfileBtn').onclick = () => {
   document.getElementById('undoBtn').click();
 };
 
-document.getElementById('applyPreviewBtn').onclick = () => {
+document.getElementById('applyPreviewBtn').onclick = async () => {
   const p = profiles[currentProfileIdx];
   if (!p) return;
-  // Inject tokens into the page for live preview
-  const root = document.documentElement;
-  for (const [k, v] of Object.entries(p.colors)) root.style.setProperty(k, v);
-  showToast('▶ Preview applied to this page');
+  // Build a query string of all tokens so preview-mock.html can apply them
+  const params = new URLSearchParams({ theme: p.name });
+  for (const [k, v] of Object.entries(p.colors)) params.set(k, v);
+  // Resolve preview-mock.html relative to this file's location
+  const base = window.location.href.replace(/\/[^/]+$/, '/');
+  const url = `${base}preview-mock.html?${params.toString()}`;
+  window.open(url, 'dornori-preview');
+  showToast('▶ Opened preview-mock.html');
 };
 
 // Init
