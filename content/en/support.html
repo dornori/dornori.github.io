@@ -65,7 +65,6 @@
                 <textarea id="sf-desc" rows="6" class="sf-input" style="resize:vertical;font-family:monospace;font-size:0.85rem;line-height:1.5;" maxlength="2000"></textarea>
                 <div id="sf-char-counter" class="sf-char-counter">0 / 2000</div>
                 <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;" id="comments-help-text"></small>
-                <span class="sf-field-error" id="sf-desc-err"></span>
             </div>
 
             <div class="sf-turnstile-wrap">
@@ -79,7 +78,6 @@
 </div>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 
 <style>
 .sf-submit {
@@ -152,6 +150,13 @@
     font-weight: 600;
     background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
+.sf-hidden {
+    display: none !important;
+}
+.sf-submit-loading {
+    opacity: 0.7;
+    cursor: wait;
+}
 </style>
 
 <script>
@@ -212,13 +217,13 @@ function formatSummaryTable(answersArray) {
         var item = answersArray[i];
         var stepNum = i + 1;
         var summary = escapeHtml(item.summary || item.answer);
-        html += '<tr><td class="step-number">' + stepNum + '<\/td><td class="summary-text">' + summary + '<\/td><\/tr>';
+        html += '<tr><td class="step-number">' + stepNum + '</td><td class="summary-text">' + summary + '</td></tr>';
     }
-    html += '<\/table>';
+    html += '</table>';
     return html;
 }
 
-function showToast(msg, ms) {
+function showToast(msg, ms, isError) {
     ms = ms || 3000;
     var t = document.getElementById('sf-toast');
     if (!t) return;
@@ -228,28 +233,30 @@ function showToast(msg, ms) {
     t.style.bottom = '20px';
     t.style.right = '20px';
     t.style.zIndex = '9999';
-    t.style.background = 'var(--header-bg)';
-    t.style.color = 'var(--text)';
-    t.style.border = '1px solid var(--border)';
+    t.style.background = isError ? '#ef4444' : 'var(--header-bg)';
+    t.style.color = isError ? '#fff' : 'var(--text)';
+    t.style.border = isError ? 'none' : '1px solid var(--border)';
     t.style.padding = '10px 18px';
     t.style.borderRadius = '40px';
     t.style.fontSize = '.88rem';
+    t.style.fontWeight = isError ? '600' : 'normal';
     setTimeout(function() { t.style.opacity = '0'; }, ms);
 }
 
-function showSuccessMessage(message, referenceNumber, comments) {
+function showSuccessMessage(message, referenceNumber) {
     var body = document.getElementById('sf-body');
+    var successTitle = formData.successTitle || 'Thank You!';
+    var saveReferenceText = formData.saveReferenceText || 'Please save this reference number for future inquiries.';
     
     var successHtml = '<div class="sf-success-box" style="text-align:center;padding:2rem;">' +
         '<i class="fas fa-check-circle" style="font-size:4rem;color:#10b981;margin-bottom:1rem;"></i>' +
-        '<h3 style="font-size:1.5rem;margin-bottom:1rem;color:var(--text);">Thank You!</h3>' +
-        '<div class="sf-ref-number" style="font-size:1.2rem;font-weight:700;color:var(--accent);margin:1rem 0;letter-spacing:1px;"><i class="fas fa-ticket-alt"></i> REF: ' + escapeHtml(referenceNumber) + '<\/div>' +
-        '<p style="color:var(--text-muted);margin-bottom:0.75rem;line-height:1.6;">' + escapeHtml(message) + '<\/p>' +
-        '<p style="font-size: 0.85rem; margin-top: 1rem;color:var(--text-muted);">Please save this reference number for future inquiries.<\/p>' +
-        '<\/div>';
+        '<h3 style="font-size:1.5rem;margin-bottom:1rem;color:var(--text);">' + escapeHtml(successTitle) + '</h3>' +
+        '<div class="sf-ref-number" style="font-size:1.2rem;font-weight:700;color:var(--accent);margin:1rem 0;letter-spacing:1px;"><i class="fas fa-ticket-alt"></i> REF: ' + escapeHtml(referenceNumber) + '</div>' +
+        '<p style="color:var(--text-muted);margin-bottom:0.75rem;line-height:1.6;">' + escapeHtml(message) + '</p>' +
+        '<p style="font-size: 0.85rem; margin-top: 1rem;color:var(--text-muted);">' + escapeHtml(saveReferenceText) + '</p>' +
+        '</div>';
     body.innerHTML = successHtml;
     
-    // Scroll to top
     setTimeout(function() {
         window.scrollTo(0, 0);
         document.documentElement.scrollTop = 0;
@@ -266,7 +273,7 @@ async function loadFormData() {
     } catch (err) {
         console.error('Failed to load form.json:', err);
         var loadingEl = document.getElementById('sf-loading');
-        if (loadingEl) loadingEl.innerHTML = '<p style="color:red">Failed to load form data.<br>Path: ' + formJsonPath + '<\/p>';
+        if (loadingEl) loadingEl.innerHTML = '<p style="color:red">Failed to load form data.<br>Path: ' + formJsonPath + '</p>';
     }
 }
 
@@ -298,7 +305,7 @@ function populateUI() {
     
     var maxChars = formData.maxCommentsChars || 2000;
     var labelComments = document.getElementById('label-comments');
-    if (labelComments) labelComments.textContent = formData.additionalComments || 'Additional comments';
+    if (labelComments) labelComments.textContent = (formData.additionalComments || 'Additional comments') + ' <span style="color:var(--text-muted);font-weight:normal;">(optional)</span>';
     
     var descField = document.getElementById('sf-desc');
     if (descField) {
@@ -380,16 +387,16 @@ function showQuestionById(questionId) {
     if (!question) { showContactForm(); return; }
     
     var troubleshootingLabel = formData.troubleshootingLabel || 'Troubleshooting';
-    var html = '<div class="sf-q-label" style="font-size:.8rem;color:var(--accent);margin-bottom:.5rem;"><i class="fas fa-question-circle"></i> ' + troubleshootingLabel + '<\/div>';
-    html += '<div class="sf-q-text" style="font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:1.25rem;">' + escapeHtml(question.text) + '<\/div>';
+    var html = '<div class="sf-q-label" style="font-size:.8rem;color:var(--accent);margin-bottom:.5rem;"><i class="fas fa-question-circle"></i> ' + troubleshootingLabel + '</div>';
+    html += '<div class="sf-q-text" style="font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:1.25rem;">' + escapeHtml(question.text) + '</div>';
 
     for (var i = 0; i < question.options.length; i++) {
         var opt = question.options[i];
-        html += '<button class="sf-opt" style="width:100%;text-align:left;padding:.9rem 1.2rem;border:1px solid var(--border);border-radius:.875rem;background:transparent;color:var(--text);cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:.95rem;margin-bottom:.6rem;" onclick="selectAnswer(\'' + questionId + '\', ' + i + ')"><span>' + escapeHtml(opt.text) + '<\/span><i class="fas fa-arrow-right" style="color:var(--accent);flex-shrink:0;"><\/i><\/button>';
+        html += '<button class="sf-opt" style="width:100%;text-align:left;padding:.9rem 1.2rem;border:1px solid var(--border);border-radius:.875rem;background:transparent;color:var(--text);cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:.95rem;margin-bottom:.6rem;" onclick="selectAnswer(\'' + questionId + '\', ' + i + ')"><span>' + escapeHtml(opt.text) + '</span><i class="fas fa-arrow-right" style="color:var(--accent);flex-shrink:0;"></i></button>';
     }
 
     var startOverLabel = formData.startOverLabel || 'Start over';
-    html += '<div style="margin-top:1rem"><button class="sf-reset" style="font-size:.82rem;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:9999px;padding:.35rem .9rem;cursor:pointer;" onclick="sfReset()"><i class="fas fa-undo-alt"></i> ' + startOverLabel + '<\/button><\/div>';
+    html += '<div style="margin-top:1rem"><button class="sf-reset" style="font-size:.82rem;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:9999px;padding:.35rem .9rem;cursor:pointer;" onclick="sfReset()"><i class="fas fa-undo-alt"></i> ' + startOverLabel + '</button></div>';
 
     var s2El = document.getElementById('sf-s2');
     var s1El = document.getElementById('sf-s1');
@@ -417,7 +424,7 @@ window.selectAnswer = function(questionId, optionIndex) {
             showToast(endpoint.message || 'Issue resolved!', (endpoint.delay_seconds || 2) * 1000);
             setTimeout(function() { window.location.href = endpoint.redirect_url; }, (endpoint.delay_seconds || 2) * 1000);
         } else {
-            showSuccessMessage((endpoint && endpoint.message) || 'Issue resolved! Thank you.', generateReferenceNumber(), []);
+            showSuccessMessage((endpoint && endpoint.message) || 'Issue resolved! Thank you.', generateReferenceNumber());
         }
         return;
     }
@@ -446,69 +453,72 @@ function showContactForm() {
     initTurnstile();
 }
 
+function cleanupTurnstile() {
+    if (turnstileWidgetId !== null) {
+        try {
+            if (typeof turnstile !== 'undefined' && turnstile.remove) {
+                turnstile.remove(turnstileWidgetId);
+            }
+        } catch(e) {}
+        turnstileWidgetId = null;
+    }
+    turnstileToken = null;
+}
+
 function initTurnstile() {
     var container = document.getElementById('sf-turnstile-container');
     if (!container) return;
     
     if (!TURNSTILE_SITE_KEY || TURNSTILE_SITE_KEY === '1x00000000000000000000AA') {
         container.style.display = 'none';
-        turnstileToken = 'no-turnstile';
+        turnstileToken = 'no-turnstile-required';
         return;
     }
+    
+    cleanupTurnstile();
+    container.innerHTML = '';
+    container.style.display = 'block';
     
     if (typeof turnstile === 'undefined') {
         setTimeout(initTurnstile, 200);
         return;
     }
     
-    if (turnstileWidgetId !== null) {
-        try {
-            turnstile.remove(turnstileWidgetId);
-        } catch(e) {}
-        turnstileWidgetId = null;
+    try {
+        turnstileWidgetId = turnstile.render(container, {
+            sitekey: TURNSTILE_SITE_KEY,
+            theme: 'light',
+            callback: function(token) { 
+                turnstileToken = token;
+                var err = document.getElementById('sf-turnstile-err');
+                if (err) {
+                    err.textContent = '';
+                    err.classList.add('sf-hidden');
+                }
+                container.classList.remove('sf-input-error');
+            },
+            'expired-callback': function() { 
+                turnstileToken = null;
+                var err = document.getElementById('sf-turnstile-err');
+                if (err) {
+                    err.textContent = formData.turnstileExpiredError || 'Security verification expired. Please try again.';
+                    err.classList.remove('sf-hidden');
+                }
+                container.classList.add('sf-input-error');
+            },
+            'error-callback': function() { 
+                turnstileToken = null;
+                var err = document.getElementById('sf-turnstile-err');
+                if (err) {
+                    err.textContent = formData.turnstileFailedError || 'Security verification failed. Please refresh the page.';
+                    err.classList.remove('sf-hidden');
+                }
+                container.classList.add('sf-input-error');
+            }
+        });
+    } catch(e) {
+        console.error('Turnstile render error:', e);
     }
-    
-    turnstileToken = null;
-    turnstileWidgetId = turnstile.render(container, {
-        sitekey: TURNSTILE_SITE_KEY,
-        theme: 'light',
-        callback: function(token) { 
-            turnstileToken = token;
-            var err = document.getElementById('sf-turnstile-err');
-            if (err) err.classList.add('sf-hidden');
-        },
-        'expired-callback': function() { 
-            turnstileToken = null;
-            var err = document.getElementById('sf-turnstile-err');
-            if (err) {
-                err.textContent = 'Security verification expired. Please complete the challenge again.';
-                err.classList.remove('sf-hidden');
-            }
-            showToast('Security verification expired. Please try again.', 4000);
-        },
-        'error-callback': function(errorCode) { 
-            turnstileToken = null;
-            var err = document.getElementById('sf-turnstile-err');
-            var errorMsg = 'Security verification failed. ';
-            
-            // Provide specific error messages based on error code
-            if (errorCode === 'challenge-error') {
-                errorMsg += 'Please try again or disable private browser mode.';
-            } else if (errorCode === 'challenge-expired') {
-                errorMsg += 'Challenge expired. Please refresh and try again.';
-            } else if (errorCode === 'network-error') {
-                errorMsg += 'Network error. Please check your connection.';
-            } else {
-                errorMsg += 'If using a private/incognito browser, please disable it. If problem persists, check your internet connection.';
-            }
-            
-            if (err) {
-                err.textContent = errorMsg;
-                err.classList.remove('sf-hidden');
-            }
-            showToast(errorMsg, 5000);
-        }
-    });
 }
 
 function setFieldError(inputId, errorId, message) {
@@ -530,87 +540,104 @@ function validateForm() {
     var nameInput = document.getElementById('sf-name')?.value || '';
     var emailInput = document.getElementById('sf-email')?.value || '';
     var orderInput = document.getElementById('sf-order')?.value || '';
-    var commentsInput = document.getElementById('sf-desc')?.value || '';
 
-    if (!nameInput.trim()) {
-        setFieldError('sf-name', 'sf-name-err', 'Full name is required.');
-        hasError = true;
-    } else {
-        setFieldError('sf-name', 'sf-name-err', '');
-    }
+    // Clear previous errors
+    setFieldError('sf-name', 'sf-name-err', '');
+    setFieldError('sf-email', 'sf-email-err', '');
+    setFieldError('sf-order', 'sf-order-err', '');
     
-    if (!emailInput.trim()) {
-        setFieldError('sf-email', 'sf-email-err', 'Email address is required.');
-        hasError = true;
-    } else if (!isValidEmail(emailInput)) {
-        setFieldError('sf-email', 'sf-email-err', 'Please enter a valid email address.');
-        hasError = true;
-    } else {
-        setFieldError('sf-email', 'sf-email-err', '');
-    }
-    
-    if (!orderInput.trim()) {
-        setFieldError('sf-order', 'sf-order-err', 'Order number is required.');
-        hasError = true;
-    } else if (!/^\d+$/.test(orderInput.trim())) {
-        setFieldError('sf-order', 'sf-order-err', 'Order number must contain digits only.');
-        hasError = true;
-    } else {
-        setFieldError('sf-order', 'sf-order-err', '');
-    }
-
-    // Turnstile validation - only if enabled
     var turnstileContainer = document.getElementById('sf-turnstile-container');
     var turnstileErr = document.getElementById('sf-turnstile-err');
+    if (turnstileErr) turnstileErr.classList.add('sf-hidden');
+    if (turnstileContainer) turnstileContainer.classList.remove('sf-input-error');
+
+    // REQUIRED: Full name
+    if (!nameInput.trim()) {
+        setFieldError('sf-name', 'sf-name-err', formData.fullNameRequired || 'Full name is required.');
+        hasError = true;
+    }
     
-    if (turnstileContainer && turnstileContainer.style.display !== 'none' && TURNSTILE_SITE_KEY && TURNSTILE_SITE_KEY !== '1x00000000000000000000AA') {
-        if (!turnstileToken) {
-            if (turnstileErr) {
-                turnstileErr.textContent = 'Security verification failed. Please complete the Cloudflare challenge.';
-                turnstileErr.classList.remove('sf-hidden');
-            }
-            hasError = true;
-        } else {
-            if (turnstileErr) turnstileErr.classList.add('sf-hidden');
-        }
-    } else {
-        if (turnstileErr) turnstileErr.classList.add('sf-hidden');
+    // REQUIRED: Email
+    if (!emailInput.trim()) {
+        setFieldError('sf-email', 'sf-email-err', formData.emailRequired || 'Email address is required.');
+        hasError = true;
+    } else if (!isValidEmail(emailInput)) {
+        setFieldError('sf-email', 'sf-email-err', formData.emailInvalid || 'Please enter a valid email address.');
+        hasError = true;
+    }
+    
+    // REQUIRED: Order number (digits only)
+    if (!orderInput.trim()) {
+        setFieldError('sf-order', 'sf-order-err', formData.orderNumberRequired || 'Order number is required.');
+        hasError = true;
+    } else if (!/^\d+$/.test(orderInput.trim())) {
+        setFieldError('sf-order', 'sf-order-err', formData.orderDigitsOnly || 'Order number must contain digits only.');
+        hasError = true;
     }
 
-    return { valid: !hasError, sanitised: { name: stripHtml(nameInput), email: stripHtml(emailInput), order: stripHtml(orderInput), comments: commentsInput } };
+    // COMMENTS: NOT validated - completely optional
+
+    // Turnstile validation (if enabled)
+    var turnstileEnabled = TURNSTILE_SITE_KEY && TURNSTILE_SITE_KEY !== '1x00000000000000000000AA';
+    if (turnstileEnabled && turnstileWidgetId !== null) {
+        if (!turnstileToken) {
+            if (turnstileErr) {
+                turnstileErr.textContent = formData.turnstileError || 'Please complete the security check.';
+                turnstileErr.classList.remove('sf-hidden');
+            }
+            if (turnstileContainer) turnstileContainer.classList.add('sf-input-error');
+            hasError = true;
+        }
+    }
+
+    if (hasError) {
+        showToast(formData.errorFixAbove || 'Please fix the errors above before submitting.', 3000, true);
+    }
+    
+    return { 
+        valid: !hasError, 
+        sanitised: { 
+            name: stripHtml(nameInput), 
+            email: stripHtml(emailInput), 
+            order: stripHtml(orderInput), 
+            comments: stripHtml(document.getElementById('sf-desc')?.value || '')  // Stripped AFTER submission, NOT validated
+        } 
+    };
 }
 
 async function sendSupportRequest() {
     if (isSubmitting) return;
-    isSubmitting = true;
     
     var validation = validateForm();
     if (!validation.valid) {
-        isSubmitting = false;
-        showToast('Please fill in all required fields.', 3000);
-        return;
+        return;  // Toast already shown in validateForm()
     }
+    
+    isSubmitting = true;
     var sanitised = validation.sanitised;
-
     var referenceNumber = generateReferenceNumber();
     var submitBtn = document.getElementById('sf-submit');
     var originalText = submitBtn?.textContent || 'Submit';
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending...'; }
+    
+    if (submitBtn) { 
+        submitBtn.disabled = true; 
+        submitBtn.textContent = formData.sendingText || 'Sending...';
+    }
 
-    // Build troubleshooting summaries array
+    // Build troubleshooting summaries
     var troubleshootingSummaries = [];
     for (var i = 0; i < answers.length; i++) {
         troubleshootingSummaries.push(answers[i].summary || answers[i].answer);
     }
 
-    // Split comments by newlines into array and sanitize
+    // Comments are already stripped via stripHtml() in validateForm()
     var additionalComments = [];
     if (sanitised.comments) {
         var lines = sanitised.comments.split(/\r?\n/);
         for (var i = 0; i < lines.length; i++) {
             var line = lines[i].trim();
             if (line.length > 0) {
-                additionalComments.push(stripHtml(line));
+                additionalComments.push(line);
             }
         }
     }
@@ -639,21 +666,32 @@ async function sendSupportRequest() {
             if (redirectUrl && redirectUrl.trim()) {
                 window.location.href = redirectUrl;
             } else {
-                showSuccessMessage('Your support request has been submitted. Our team will respond within 4 hours.', referenceNumber, additionalComments);
+                showSuccessMessage('Your support request has been submitted. Our team will respond within 4 hours.', referenceNumber);
             }
         } else {
-            throw new Error('Server error');
+            throw new Error('Server returned ' + response.status);
         }
     } catch (err) {
         console.error(err);
-        showToast('Submission failed: ' + err.message + '. Please try again.', 5000);
-        if (turnstileWidgetId !== null && typeof turnstile !== 'undefined') {
-            try { turnstile.reset(turnstileWidgetId); } catch(e) {}
+        showToast((formData.submissionErrorText || 'Submission failed') + '. ' + (formData.retryText || 'Please try again.'), 5000, true);
+        
+        // Reset Turnstile so user can try again
+        if (turnstileWidgetId !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
+            try { 
+                turnstile.reset(turnstileWidgetId);
+                turnstileToken = null;
+            } catch(e) {}
         }
-        turnstileToken = null;
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalText; }
+        
+        if (submitBtn) { 
+            submitBtn.disabled = false; 
+            submitBtn.textContent = originalText;
+        }
         isSubmitting = false;
+        return;
     }
+    
+    isSubmitting = false;
 }
 
 window.sfReset = function() {
@@ -669,35 +707,42 @@ window.sfReset = function() {
     if (s2El) s2El.classList.add('sf-hidden');
     if (s3El) s3El.classList.add('sf-hidden');
     if (summaryContainer) summaryContainer.style.display = 'none';
-    updateProgress(5, 'Step 1: Choose category');
+    updateProgress(5, formData.step1Label || 'Step 1: Choose category');
     
-    var nameField = document.getElementById('sf-name');
-    var emailField = document.getElementById('sf-email');
-    var orderField = document.getElementById('sf-order');
-    var descField = document.getElementById('sf-desc');
-    if (nameField) nameField.value = '';
-    if (emailField) emailField.value = '';
-    if (orderField) orderField.value = '';
-    if (descField) descField.value = '';
+    document.getElementById('sf-name').value = '';
+    document.getElementById('sf-email').value = '';
+    document.getElementById('sf-order').value = '';
+    document.getElementById('sf-desc').value = '';
     
-    var errorIds = ['sf-name-err', 'sf-email-err', 'sf-order-err', 'sf-desc-err'];
+    // Clear all errors
+    var errorIds = ['sf-name-err', 'sf-email-err', 'sf-order-err'];
     for (var i = 0; i < errorIds.length; i++) {
         var errEl = document.getElementById(errorIds[i]);
         if (errEl) errEl.textContent = '';
     }
-    var inputIds = ['sf-name', 'sf-email', 'sf-order', 'sf-desc'];
+    var inputIds = ['sf-name', 'sf-email', 'sf-order'];
     for (var i = 0; i < inputIds.length; i++) {
         var input = document.getElementById(inputIds[i]);
         if (input) input.classList.remove('sf-input-error');
     }
     
-    if (turnstileWidgetId !== null && typeof turnstile !== 'undefined') {
-        try { turnstile.reset(turnstileWidgetId); } catch(e) {}
+    // Reset Turnstile
+    if (turnstileWidgetId !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
+        try { 
+            turnstile.reset(turnstileWidgetId);
+            turnstileToken = null;
+        } catch(e) {}
     }
-    turnstileToken = null;
-    showToast('Session reset', 1500);
+    
+    var turnstileContainer = document.getElementById('sf-turnstile-container');
+    var turnstileErr = document.getElementById('sf-turnstile-err');
+    if (turnstileContainer) turnstileContainer.classList.remove('sf-input-error');
+    if (turnstileErr) turnstileErr.classList.add('sf-hidden');
+    
+    showToast(formData.resetText || 'Session reset', 1500);
 };
 
+// Event listeners
 document.addEventListener('click', function(e) { 
     if (e.target.closest('#sf-submit')) { 
         e.preventDefault(); 
@@ -705,14 +750,12 @@ document.addEventListener('click', function(e) {
     } 
 });
 
-loadFormData();
-
-// Filter order field to digits only
 document.addEventListener('input', function(e) {
     if (e.target.id === 'sf-order') {
         e.target.value = e.target.value.replace(/[^0-9]/g, '');
     }
 });
 
+loadFormData();
 window.scrollTo(0, 0);
 </script>
