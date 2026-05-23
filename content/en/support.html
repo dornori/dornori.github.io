@@ -241,11 +241,14 @@ function showSuccessMessage(message, referenceNumber, comments) {
     
     // Format comments if they exist
     var commentsHtml = '';
-    if (comments && typeof comments === 'string' && comments.trim()) {
+    if (comments && Array.isArray(comments) && comments.length > 0) {
         commentsHtml = '<div style="margin-top:1rem;margin-bottom:1rem;padding:1rem;background:color-mix(in srgb, var(--accent) 8%, transparent);border-radius:8px;text-align:left;">' +
             '<strong style="display:block;margin-bottom:8px;">Your comments:</strong>' +
-            '<p style="margin:0;line-height:1.6;white-space:pre-wrap;word-wrap:break-word;">' + escapeHtml(comments) + '</p>' +
-            '</div>';
+            '<ul style="margin:0;padding-left:1.2rem;">';
+        for (var i = 0; i < comments.length; i++) {
+            commentsHtml += '<li style="margin-bottom:4px;">' + escapeHtml(comments[i]) + '</li>';
+        }
+        commentsHtml += '</ul></div>';
     }
     
     var successHtml = '<div class="sf-success-box" style="text-align:center;padding:2rem;">' +
@@ -582,47 +585,11 @@ async function sendSupportRequest() {
         troubleshootingSummaries.push(answers[i].summary || answers[i].answer);
     }
 
-    // Comments as single field (no line splitting)
-    var additionalComments = sanitised.comments.trim();
-    
-    // Format comments for email
-    var formattedCommentsForEmail = '';
-    if (additionalComments) {
-        formattedCommentsForEmail = '\n\nADDITIONAL COMMENTS\n------------------\n' + additionalComments;
-    } else {
-        formattedCommentsForEmail = '\n\nADDITIONAL COMMENTS\n------------------\nNone provided.';
-    }
+    // Split comments by newlines into array
+    var additionalComments = sanitised.comments 
+        ? sanitised.comments.split(/\r?\n/).filter(function(line) { return line.trim().length > 0; }).map(function(line) { return line.trim(); })
+        : [];
 
-    // Format troubleshooting for email
-    var troubleshootingForEmail = '';
-    if (troubleshootingSummaries.length > 0) {
-        for (var i = 0; i < troubleshootingSummaries.length; i++) {
-            troubleshootingForEmail += (i + 1) + '. ' + troubleshootingSummaries[i] + '\n';
-        }
-    } else {
-        troubleshootingForEmail = 'No troubleshooting steps recorded.';
-    }
-
-    // Build message body for email
-    var messageBody = '========================================\n' +
-        'SUPPORT REQUEST - ' + referenceNumber + '\n' +
-        '========================================\n\n' +
-        'CUSTOMER INFORMATION\n' +
-        '-------------------\n' +
-        'Name: ' + sanitised.name + '\n' +
-        'Email: ' + sanitised.email + '\n' +
-        'Order Number: ' + sanitised.order + '\n' +
-        'Category: ' + (currentCategory?.title || 'General') + '\n\n' +
-        'ISSUE SUMMARY\n' +
-        '------------\n' +
-        troubleshootingForEmail +
-        formattedCommentsForEmail +
-        '\n\n========================================\n' +
-        'Submitted: ' + new Date().toLocaleString() + '\n' +
-        'User Agent: ' + navigator.userAgent + '\n' +
-        '========================================';
-
-    // FLAT STRUCTURE - each field at top level
     var payload = {
         referenceNumber: referenceNumber,
         category: "support-request",
@@ -632,7 +599,6 @@ async function sendSupportRequest() {
         orderNumber: sanitised.order,
         troubleshooting: troubleshootingSummaries,
         additionalComments: additionalComments,
-        message: messageBody,
         timestamp: new Date().toISOString(),
         userAgent: navigator.userAgent
     };
