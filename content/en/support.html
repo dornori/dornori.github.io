@@ -80,19 +80,9 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
 <style>
-:root {
-    --accent: #6366f1;
-    --bg: #ffffff;
-    --text: #1f2937;
-    --text-muted: #6b7280;
-    --border: #e5e7eb;
-    --header-bg: #f3f4f6;
-    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-}
-
 .sf-submit {
     width: 100%;
-    background: linear-gradient(135deg, var(--accent), #4f46e5);
+    background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #000000 30%));
     color: var(--bg);
     font-weight: 700;
     padding: .875rem;
@@ -158,7 +148,7 @@
     width: 50px;
     text-align: center;
     font-weight: 600;
-    background: rgba(99, 102, 241, 0.1);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .sf-hidden {
     display: none !important;
@@ -167,107 +157,6 @@
     opacity: 0.7;
     cursor: wait;
 }
-.sf-btn {
-    width: 100%;
-    text-align: left;
-    padding: 1rem;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    margin-bottom: 0.75rem;
-    cursor: pointer;
-    font-size: 1rem;
-    color: var(--text);
-    transition: all 0.2s;
-}
-.sf-btn:hover {
-    border-color: var(--accent);
-    background: rgba(99, 102, 241, 0.05);
-    transform: translateX(4px);
-}
-.sf-wrap {
-    max-width: 600px;
-    margin: 0 auto;
-    background: var(--bg);
-    border-radius: 1.5rem;
-    box-shadow: 0 20px 35px -10px rgba(0,0,0,0.1);
-    overflow: hidden;
-    font-family: var(--font-sans);
-}
-.sf-header {
-    background: var(--header-bg);
-    padding: 1.5rem;
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    border-bottom: 1px solid var(--border);
-}
-.sf-header i {
-    font-size: 2rem;
-    color: var(--accent);
-}
-.sf-body {
-    padding: 1.5rem;
-}
-.sf-progress-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    margin-bottom: 0.5rem;
-}
-.sf-progress-track {
-    background: var(--border);
-    height: 6px;
-    border-radius: 10px;
-    overflow: hidden;
-    margin-bottom: 1.5rem;
-}
-.sf-progress-fill {
-    background: var(--accent);
-    height: 100%;
-    width: 0%;
-    transition: width 0.3s ease;
-}
-.sf-note {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    margin-top: 1rem;
-    text-align: center;
-}
-.sf-grid2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-.sf-field {
-    margin-bottom: 1rem;
-}
-.sf-label {
-    display: block;
-    font-size: 0.85rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: var(--text);
-}
-.sf-input {
-    width: 100%;
-    padding: 0.7rem 1rem;
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    font-size: 0.95rem;
-    font-family: var(--font-sans);
-    transition: all 0.2s;
-}
-.sf-input:focus {
-    outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-.sf-turnstile-wrap {
-    margin: 1rem 0;
-}
 </style>
 
 <script>
@@ -275,7 +164,6 @@
 (function() {
     'use strict';
     
-    // Configuration
     var TURNSTILE_SITE_KEY = (window.CONFIG && window.CONFIG.turnstile && window.CONFIG.turnstile.sitekey) 
         ? window.CONFIG.turnstile.sitekey : null;
     
@@ -291,7 +179,7 @@
         ? window.CONFIG.redirect.onSuccess
         : null;
     
-    // DOM Elements cache
+    // DOM cache
     var dom = {};
     var turnstileWidgetId = null;
     var turnstileToken = null;
@@ -300,54 +188,26 @@
     var currentQuestionId = null;
     var answers = [];
     var isSubmitting = false;
-    var isTurnstileInitialized = false;
     var abortController = null;
     var jsonLoadRetries = 0;
     var MAX_JSON_RETRIES = 3;
     var JSON_RETRY_DELAY = 1000;
-    
-    // Event listeners registry for cleanup
     var eventListeners = [];
     
-    // ==================== DOM CACHE ====================
-    function cacheDomElements() {
-        var elementIds = [
-            'sf-toast', 'sf-title', 'sf-subtitle', 'avg-resolution', 'sf-step-label', 
-            'sf-prog', 'sf-loading', 'loading-text', 'sf-s1', 'sf-s2', 'sf-s3',
-            'select-issue', 'sf-cats', 'most-issues', 'need-help', 'response-time',
-            'sf-name', 'sf-email', 'sf-order', 'sf-desc', 'sf-submit',
-            'sf-name-err', 'sf-email-err', 'sf-order-err', 'sf-turnstile-container',
-            'sf-turnstile-err', 'sf-summary-container', 'sf-summary-table',
-            'label-name', 'label-email', 'label-order', 'label-comments',
-            'label-summary-table', 'order-help-text', 'comments-help-text',
-            'sf-char-counter', 'sf-body'
-        ];
-        
-        for (var i = 0; i < elementIds.length; i++) {
-            dom[elementIds[i]] = document.getElementById(elementIds[i]);
+    // Cache DOM elements
+    function cacheDom() {
+        var ids = ['sf-toast', 'sf-title', 'sf-subtitle', 'avg-resolution', 'sf-step-label', 'sf-prog', 'sf-loading', 'loading-text', 'sf-s1', 'sf-s2', 'sf-s3', 'select-issue', 'sf-cats', 'most-issues', 'need-help', 'response-time', 'sf-name', 'sf-email', 'sf-order', 'sf-desc', 'sf-submit', 'sf-name-err', 'sf-email-err', 'sf-order-err', 'sf-turnstile-container', 'sf-turnstile-err', 'sf-summary-container', 'sf-summary-table', 'label-name', 'label-email', 'label-order', 'label-comments', 'label-summary-table', 'order-help-text', 'comments-help-text', 'sf-char-counter'];
+        for (var i = 0; i < ids.length; i++) {
+            dom[ids[i]] = document.getElementById(ids[i]);
         }
     }
     
-    // ==================== SAFE HTML ====================
-    function sanitizeText(str) {
-        if (typeof str !== 'string') return '';
-        var div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
+    // Safe text setter (fixes XSS)
+    function setText(id, text) {
+        var el = dom[id] || document.getElementById(id);
+        if (el) el.textContent = text;
     }
     
-    function setTextContent(elementId, text, isHtml) {
-        var element = dom[elementId] || document.getElementById(elementId);
-        if (!element) return;
-        
-        if (isHtml) {
-            element.innerHTML = sanitizeText(text);
-        } else {
-            element.textContent = text;
-        }
-    }
-    
-    // ==================== HELPERS ====================
     function generateReferenceNumber() {
         var timestamp = Date.now().toString();
         var randomDigits = Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
@@ -386,31 +246,28 @@
         return html;
     }
     
-    function showToast(msg, duration, isError) {
-        duration = duration || 3000;
-        if (!dom['sf-toast']) return;
-        
-        dom['sf-toast'].textContent = msg;
-        dom['sf-toast'].style.opacity = '1';
-        dom['sf-toast'].style.position = 'fixed';
-        dom['sf-toast'].style.bottom = '20px';
-        dom['sf-toast'].style.right = '20px';
-        dom['sf-toast'].style.zIndex = '9999';
-        dom['sf-toast'].style.background = isError ? '#ef4444' : 'var(--header-bg)';
-        dom['sf-toast'].style.color = isError ? '#fff' : 'var(--text)';
-        dom['sf-toast'].style.border = isError ? 'none' : '1px solid var(--border)';
-        dom['sf-toast'].style.padding = '10px 18px';
-        dom['sf-toast'].style.borderRadius = '40px';
-        dom['sf-toast'].style.fontSize = '.88rem';
-        dom['sf-toast'].style.fontWeight = isError ? '600' : 'normal';
-        
-        setTimeout(function() { 
-            if (dom['sf-toast']) dom['sf-toast'].style.opacity = '0'; 
-        }, duration);
+    function showToast(msg, ms, isError) {
+        ms = ms || 3000;
+        var t = dom['sf-toast'];
+        if (!t) return;
+        t.textContent = msg;
+        t.style.opacity = '1';
+        t.style.position = 'fixed';
+        t.style.bottom = '20px';
+        t.style.right = '20px';
+        t.style.zIndex = '9999';
+        t.style.background = isError ? '#ef4444' : 'var(--header-bg)';
+        t.style.color = isError ? '#fff' : 'var(--text)';
+        t.style.border = isError ? 'none' : '1px solid var(--border)';
+        t.style.padding = '10px 18px';
+        t.style.borderRadius = '40px';
+        t.style.fontSize = '.88rem';
+        t.style.fontWeight = isError ? '600' : 'normal';
+        setTimeout(function() { t.style.opacity = '0'; }, ms);
     }
     
     function showSuccessMessage(message, referenceNumber) {
-        var body = dom['sf-body'] || document.getElementById('sf-body');
+        var body = document.getElementById('sf-body');
         var successTitle = formData.successTitle || 'Thank You!';
         var saveReferenceText = formData.saveReferenceText || 'Please save this reference number for future inquiries.';
         
@@ -423,16 +280,11 @@
             '</div>';
         body.innerHTML = successHtml;
         
-        // Move focus to success message for accessibility
         var successBox = body.querySelector('.sf-success-box');
-        if (successBox) {
-            successBox.focus();
-        }
+        if (successBox) successBox.focus();
         
         setTimeout(function() {
             window.scrollTo(0, 0);
-            document.documentElement.scrollTop = 0;
-            document.body.scrollTop = 0;
         }, 50);
     }
     
@@ -445,67 +297,41 @@
             populateUI();
         } catch (err) {
             console.error('Failed to load form.json:', err);
-            
             if (jsonLoadRetries < MAX_JSON_RETRIES) {
                 jsonLoadRetries++;
-                showToast(formData.retryLoadText || 'Retrying to load form...', 2000, false);
                 setTimeout(loadFormDataWithRetry, JSON_RETRY_DELAY);
             } else {
                 if (dom['sf-loading']) {
-                    dom['sf-loading'].innerHTML = '<p style="color:red">' + 
-                        (formData.loadErrorText || 'Failed to load form data. Please refresh the page.') + 
-                        '<br>Path: ' + escapeHtml(formJsonPath) + '</p>';
+                    dom['sf-loading'].innerHTML = '<p style="color:red">Failed to load form data.<br>Path: ' + formJsonPath + '</p>';
                 }
-                showToast(formData.loadErrorText || 'Failed to load form. Please refresh the page.', 5000, true);
             }
         }
     }
     
     function populateUI() {
-        setTextContent('sf-title', formData.title || 'Support');
-        setTextContent('sf-subtitle', formData.subtitle || 'We\'re here to help');
-        setTextContent('avg-resolution', formData.avgResolution || 'Avg. resolution 2 min');
-        setTextContent('select-issue', formData.selectIssue || 'Select your issue');
-        setTextContent('most-issues', formData.mostIssuesResolved || 'Most issues resolved quickly');
-        setTextContent('need-help', formData.needHumanHelp || 'Need human help?');
-        setTextContent('response-time', formData.responseTime || 'Our support team responds within 4 hours.');
-        setTextContent('loading-text', formData.loading || 'Loading...');
-        
+        setText('sf-title', formData.title || 'Support');
+        setText('sf-subtitle', formData.subtitle || 'We\'re here to help');
+        setText('avg-resolution', formData.avgResolution || 'Avg. resolution 2 min');
+        setText('select-issue', formData.selectIssue || 'Select your issue');
+        setText('most-issues', formData.mostIssuesResolved || 'Most issues resolved quickly');
+        setText('need-help', formData.needHumanHelp || 'Need human help?');
+        setText('response-time', formData.responseTime || 'Our support team responds within 4 hours.');
+        setText('loading-text', formData.loading || 'Loading...');
         if (dom['sf-submit']) dom['sf-submit'].textContent = formData.submitButton || 'Submit';
         
-        if (dom['label-name']) {
-            dom['label-name'].innerHTML = (formData.fullName || 'Full name') + ' <span style="color:#ef4444">*</span>';
-        }
-        
-        if (dom['label-email']) {
-            dom['label-email'].innerHTML = (formData.email || 'Email address') + ' <span style="color:#ef4444">*</span>';
-        }
-        
-        if (dom['label-order']) {
-            dom['label-order'].innerHTML = (formData.orderNumber || 'Order number') + ' <span style="color:#ef4444">*</span>';
-        }
-        
-        if (dom['order-help-text']) {
-            dom['order-help-text'].textContent = formData.orderHelpText || 'You can find this in your order confirmation email';
-        }
-        
-        if (dom['label-summary-table']) {
-            dom['label-summary-table'].textContent = formData.summaryLabel || 'Issue Summary';
-        }
+        if (dom['label-name']) dom['label-name'].innerHTML = (formData.fullName || 'Full name') + ' <span style="color:#ef4444">*</span>';
+        if (dom['label-email']) dom['label-email'].innerHTML = (formData.email || 'Email address') + ' <span style="color:#ef4444">*</span>';
+        if (dom['label-order']) dom['label-order'].innerHTML = (formData.orderNumber || 'Order number') + ' <span style="color:#ef4444">*</span>';
+        if (dom['order-help-text']) dom['order-help-text'].textContent = formData.orderHelpText || 'You can find this in your order confirmation email';
+        if (dom['label-summary-table']) dom['label-summary-table'].textContent = formData.summaryLabel || 'Issue Summary';
         
         var maxChars = formData.maxCommentsChars || 2000;
-        if (dom['label-comments']) {
-            dom['label-comments'].innerHTML = (formData.additionalComments || 'Additional comments') + ' <span style="color:var(--text-muted);font-weight:normal;">(optional)</span>';
-        }
-        
+        if (dom['label-comments']) dom['label-comments'].innerHTML = (formData.additionalComments || 'Additional comments') + ' <span style="color:var(--text-muted);font-weight:normal;">(optional)</span>';
         if (dom['sf-desc']) {
             dom['sf-desc'].placeholder = formData.commentsPlaceholder || 'Enter your comments';
             dom['sf-desc'].maxLength = maxChars;
         }
-        
-        if (dom['comments-help-text']) {
-            dom['comments-help-text'].textContent = formData.commentsHelpText || 'Please provide additional details about your issue.';
-        }
+        if (dom['comments-help-text']) dom['comments-help-text'].textContent = formData.commentsHelpText || 'Please provide additional details about your issue.';
         
         initCharCounter(maxChars);
         
@@ -525,13 +351,11 @@
         
         if (dom['sf-loading']) dom['sf-loading'].style.display = 'none';
         if (dom['sf-s1']) dom['sf-s1'].classList.remove('sf-hidden');
-        
         updateProgress(5, formData.step1Label || 'Step 1: Choose category');
     }
     
     function initCharCounter(maxChars) {
         if (!dom['sf-desc'] || !dom['sf-char-counter']) return;
-        
         var updateCounter = function() {
             var current = dom['sf-desc'].value.length;
             var remaining = maxChars - current;
@@ -540,7 +364,6 @@
             if (remaining < 50) dom['sf-char-counter'].classList.add('danger');
             else if (remaining < 200) dom['sf-char-counter'].classList.add('warning');
         };
-        
         dom['sf-desc'].addEventListener('input', updateCounter);
         eventListeners.push({element: dom['sf-desc'], type: 'input', handler: updateCounter});
         updateCounter();
@@ -575,7 +398,7 @@
         if (!question) { showContactForm(); return; }
         
         var troubleshootingLabel = formData.troubleshootingLabel || 'Troubleshooting';
-        var html = '<div class="sf-q-label" style="font-size:.8rem;color:var(--accent);margin-bottom:.5rem;"><i class="fas fa-question-circle"></i> ' + escapeHtml(troubleshootingLabel) + '</div>';
+        var html = '<div class="sf-q-label" style="font-size:.8rem;color:var(--accent);margin-bottom:.5rem;"><i class="fas fa-question-circle"></i> ' + troubleshootingLabel + '</div>';
         html += '<div class="sf-q-text" style="font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:1.25rem;">' + escapeHtml(question.text) + '</div>';
         
         for (var i = 0; i < question.options.length; i++) {
@@ -584,7 +407,7 @@
         }
         
         var startOverLabel = formData.startOverLabel || 'Start over';
-        html += '<div style="margin-top:1rem"><button class="sf-reset" style="font-size:.82rem;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:9999px;padding:.35rem .9rem;cursor:pointer;" onclick="window.sfResetExternal()"><i class="fas fa-undo-alt"></i> ' + escapeHtml(startOverLabel) + '</button></div>';
+        html += '<div style="margin-top:1rem"><button class="sf-reset" style="font-size:.82rem;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:9999px;padding:.35rem .9rem;cursor:pointer;" onclick="window.sfResetExternal()"><i class="fas fa-undo-alt"></i> ' + startOverLabel + '</button></div>';
         
         if (dom['sf-s2']) dom['sf-s2'].innerHTML = html;
         if (dom['sf-s1']) dom['sf-s1'].classList.add('sf-hidden');
@@ -594,10 +417,6 @@
     }
     
     window.selectAnswerExternal = function(questionId, optionIndex) {
-        selectAnswer(questionId, optionIndex);
-    };
-    
-    function selectAnswer(questionId, optionIndex) {
         var question = findQuestion(questionId);
         if (!question) return;
         var opt = question.options[optionIndex];
@@ -621,7 +440,7 @@
         var nextQuestion = findQuestion(nextId);
         if (nextQuestion) { currentQuestionId = nextId; showQuestionById(nextId); }
         else { showContactForm(); }
-    }
+    };
     
     function destroyTurnstile() {
         if (turnstileWidgetId !== null) {
@@ -635,9 +454,6 @@
             turnstileWidgetId = null;
         }
         turnstileToken = null;
-        isTurnstileInitialized = false;
-        
-        // Clear the container HTML completely
         if (dom['sf-turnstile-container']) {
             while (dom['sf-turnstile-container'].firstChild) {
                 dom['sf-turnstile-container'].removeChild(dom['sf-turnstile-container'].firstChild);
@@ -646,89 +462,70 @@
     }
     
     function initTurnstile() {
-        if (!dom['sf-turnstile-container']) return;
+        var container = dom['sf-turnstile-container'];
+        if (!container) return;
         
-        // If Turnstile is disabled (test key)
         if (!TURNSTILE_SITE_KEY || TURNSTILE_SITE_KEY === '1x00000000000000000000AA') {
-            dom['sf-turnstile-container'].style.display = 'none';
+            container.style.display = 'none';
             turnstileToken = 'no-turnstile-required';
-            isTurnstileInitialized = true;
             return;
         }
         
-        // Wait for Turnstile to be available (loaded by parent SPA)
         if (typeof turnstile === 'undefined') {
             setTimeout(initTurnstile, 200);
             return;
         }
         
-        // Check if container already has a widget
-        var existingIframe = dom['sf-turnstile-container'].querySelector('iframe');
-        if (existingIframe && turnstileWidgetId !== null && isTurnstileInitialized) {
-            // Widget already exists, just reset it
+        // Check if widget already exists - FIXES the warning
+        if (turnstileWidgetId !== null && container.querySelector('iframe')) {
             try {
                 turnstile.reset(turnstileWidgetId);
-                turnstileToken = null;
-                if (dom['sf-turnstile-err']) {
-                    dom['sf-turnstile-err'].classList.add('sf-hidden');
-                }
                 return;
             } catch(e) {
-                // If reset fails, destroy and recreate
                 destroyTurnstile();
             }
         } else {
-            // Clean up any existing widget first
             destroyTurnstile();
         }
         
-        // Show container
-        dom['sf-turnstile-container'].style.display = 'block';
+        container.style.display = 'block';
         
         try {
-            turnstileWidgetId = turnstile.render(dom['sf-turnstile-container'], {
+            turnstileWidgetId = turnstile.render(container, {
                 sitekey: TURNSTILE_SITE_KEY,
                 theme: 'light',
+                'render': 'explicit',
                 callback: function(token) { 
                     turnstileToken = token;
-                    if (dom['sf-turnstile-err']) {
-                        dom['sf-turnstile-err'].textContent = '';
-                        dom['sf-turnstile-err'].classList.add('sf-hidden');
+                    var err = dom['sf-turnstile-err'];
+                    if (err) {
+                        err.textContent = '';
+                        err.classList.add('sf-hidden');
                     }
-                    if (dom['sf-turnstile-container']) {
-                        dom['sf-turnstile-container'].classList.remove('sf-input-error');
-                    }
+                    if (container) container.classList.remove('sf-input-error');
                 },
                 'expired-callback': function() { 
                     turnstileToken = null;
-                    if (dom['sf-turnstile-err']) {
-                        dom['sf-turnstile-err'].textContent = formData.turnstileExpiredError || 'Security verification expired. Please try again.';
-                        dom['sf-turnstile-err'].classList.remove('sf-hidden');
+                    var err = dom['sf-turnstile-err'];
+                    if (err) {
+                        err.textContent = formData.turnstileExpiredError || 'Security verification expired. Please try again.';
+                        err.classList.remove('sf-hidden');
                     }
-                    if (dom['sf-turnstile-container']) {
-                        dom['sf-turnstile-container'].classList.add('sf-input-error');
-                    }
+                    if (container) container.classList.add('sf-input-error');
                 },
                 'error-callback': function(errorCode) { 
                     turnstileToken = null;
-                    if (dom['sf-turnstile-err']) {
-                        var errorMsg = formData.turnstileFailedError || 'Security verification failed. Please disable private browsing mode or refresh the page.';
-                        dom['sf-turnstile-err'].textContent = errorMsg;
-                        dom['sf-turnstile-err'].classList.remove('sf-hidden');
+                    var err = dom['sf-turnstile-err'];
+                    var errorMsg = formData.turnstileFailedError || 'Security verification failed. Please disable private browsing mode or refresh the page.';
+                    if (err) {
+                        err.textContent = errorMsg;
+                        err.classList.remove('sf-hidden');
                     }
-                    if (dom['sf-turnstile-container']) {
-                        dom['sf-turnstile-container'].classList.add('sf-input-error');
-                    }
+                    if (container) container.classList.add('sf-input-error');
                 }
             });
-            isTurnstileInitialized = true;
         } catch(e) {
             console.error('Turnstile render error:', e);
-            if (dom['sf-turnstile-err']) {
-                dom['sf-turnstile-err'].textContent = formData.turnstileLoadError || 'Security check failed to load. Please disable private browsing mode or refresh the page.';
-                dom['sf-turnstile-err'].classList.remove('sf-hidden');
-            }
-            isTurnstileInitialized = false;
         }
     }
     
@@ -746,41 +543,19 @@
         if (dom['sf-s3']) dom['sf-s3'].classList.remove('sf-hidden');
         updateProgress(85, formData.step3Label || 'Step 3: Contact support');
         
-        // Only reinitialize if Turnstile hasn't been initialized yet
-        if (!isTurnstileInitialized || turnstileWidgetId === null) {
-            initTurnstile();
-        } else if (turnstileWidgetId !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
-            // Just reset the existing widget
-            try {
-                turnstile.reset(turnstileWidgetId);
-                turnstileToken = null;
-                if (dom['sf-turnstile-err']) {
-                    dom['sf-turnstile-err'].classList.add('sf-hidden');
-                }
-            } catch(e) {
-                console.warn('Turnstile reset failed, reinitializing:', e);
-                initTurnstile();
-            }
-        }
+        initTurnstile();
     }
     
     function setFieldError(inputId, errorId, message) {
-        var input = dom[inputId] || document.getElementById(inputId);
-        var errEl = dom[errorId] || document.getElementById(errorId);
-        
+        var input = dom[inputId];
+        var errEl = dom[errorId];
         if (message) {
             if (input) input.classList.add('sf-input-error');
-            if (errEl) {
-                errEl.textContent = message;
-                errEl.classList.remove('sf-hidden');
-            }
+            if (errEl) errEl.textContent = message;
             return true;
         } else {
             if (input) input.classList.remove('sf-input-error');
-            if (errEl) {
-                errEl.textContent = '';
-                errEl.classList.add('sf-hidden');
-            }
+            if (errEl) errEl.textContent = '';
             return false;
         }
     }
@@ -791,7 +566,6 @@
         var emailInput = dom['sf-email']?.value || '';
         var orderInput = dom['sf-order']?.value || '';
         
-        // Clear previous errors
         setFieldError('sf-name', 'sf-name-err', '');
         setFieldError('sf-email', 'sf-email-err', '');
         setFieldError('sf-order', 'sf-order-err', '');
@@ -799,13 +573,11 @@
         if (dom['sf-turnstile-err']) dom['sf-turnstile-err'].classList.add('sf-hidden');
         if (dom['sf-turnstile-container']) dom['sf-turnstile-container'].classList.remove('sf-input-error');
         
-        // REQUIRED: Full name
         if (!nameInput.trim()) {
             setFieldError('sf-name', 'sf-name-err', formData.fullNameRequired || 'Full name is required.');
             hasError = true;
         }
         
-        // REQUIRED: Email
         if (!emailInput.trim()) {
             setFieldError('sf-email', 'sf-email-err', formData.emailRequired || 'Email address is required.');
             hasError = true;
@@ -814,7 +586,6 @@
             hasError = true;
         }
         
-        // REQUIRED: Order number
         if (!orderInput.trim()) {
             setFieldError('sf-order', 'sf-order-err', formData.orderNumberRequired || 'Order number is required.');
             hasError = true;
@@ -823,12 +594,11 @@
             hasError = true;
         }
         
-        // Turnstile validation (required for security)
         var turnstileEnabled = TURNSTILE_SITE_KEY && TURNSTILE_SITE_KEY !== '1x00000000000000000000AA';
         if (turnstileEnabled) {
-            if (!turnstileToken || turnstileToken === 'no-turnstile-required') {
+            if (!turnstileToken) {
                 if (dom['sf-turnstile-err']) {
-                    dom['sf-turnstile-err'].textContent = formData.turnstileRequired || 'Security verification required. Please complete the check.';
+                    dom['sf-turnstile-err'].textContent = formData.turnstileError || 'Please complete the security check.';
                     dom['sf-turnstile-err'].classList.remove('sf-hidden');
                 }
                 if (dom['sf-turnstile-container']) dom['sf-turnstile-container'].classList.add('sf-input-error');
@@ -837,7 +607,6 @@
         }
         
         if (hasError) {
-            // Focus first error field for accessibility
             var firstError = document.querySelector('.sf-input-error');
             if (firstError) firstError.focus();
             showToast(formData.errorFixAbove || 'Please fix the errors above before submitting.', 3000, true);
@@ -855,18 +624,14 @@
     }
     
     async function sendSupportRequest() {
-        // Prevent race condition with proper locking
         if (isSubmitting) {
             showToast(formData.alreadySubmittingText || 'Submission already in progress...', 2000, false);
             return;
         }
         
         var validation = validateForm();
-        if (!validation.valid) {
-            return;
-        }
+        if (!validation.valid) return;
         
-        // Set submitting flag with atomic operation
         isSubmitting = true;
         var sanitised = validation.sanitised;
         var referenceNumber = generateReferenceNumber();
@@ -888,9 +653,7 @@
             var lines = sanitised.comments.split(/\r?\n/);
             for (var i = 0; i < lines.length; i++) {
                 var line = lines[i].trim();
-                if (line.length > 0) {
-                    additionalComments.push(line);
-                }
+                if (line.length > 0) additionalComments.push(line);
             }
         }
         
@@ -908,14 +671,11 @@
             turnstileToken: turnstileToken
         };
         
-        // Create abort controller for timeout
-        if (abortController) {
-            abortController.abort();
-        }
+        if (abortController) abortController.abort();
         abortController = new AbortController();
         var timeoutId = setTimeout(function() {
             if (abortController) abortController.abort();
-        }, 30000); // 30 second timeout
+        }, 30000);
         
         try {
             var response = await fetch(workerUrl, {
@@ -931,34 +691,25 @@
                 if (redirectUrl && redirectUrl.trim()) {
                     window.location.href = redirectUrl;
                 } else {
-                    showSuccessMessage(formData.successMessage || 'Your support request has been submitted. Our team will respond within 4 hours.', referenceNumber);
+                    showSuccessMessage('Your support request has been submitted. Our team will respond within 4 hours.', referenceNumber);
                 }
             } else {
-                var errorText = await response.text();
-                throw new Error('Server returned ' + response.status + ': ' + errorText);
+                throw new Error('Server returned ' + response.status);
             }
         } catch (err) {
             clearTimeout(timeoutId);
-            console.error('Submission error:', err);
-            
-            var errorMsg = formData.submissionErrorText || 'Submission failed';
+            console.error(err);
+            var errorMsg = (formData.submissionErrorText || 'Submission failed') + '. ' + (formData.retryText || 'Please try again.');
             if (err.name === 'AbortError') {
-                errorMsg = formData.timeoutErrorText || 'Request timed out. Please check your connection and try again.';
-            } else {
-                errorMsg += '. ' + (formData.retryText || 'Please try again.');
+                errorMsg = formData.timeoutErrorText || 'Request timed out. Please try again.';
             }
-            
             showToast(errorMsg, 5000, true);
             
-            // Reset Turnstile on error
             if (turnstileWidgetId !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
                 try { 
                     turnstile.reset(turnstileWidgetId);
                     turnstileToken = null;
-                } catch(e) {
-                    console.warn('Turnstile reset failed:', e);
-                    initTurnstile();
-                }
+                } catch(e) {}
             }
             
             if (submitBtn) { 
@@ -991,12 +742,12 @@
         
         var errorIds = ['sf-name-err', 'sf-email-err', 'sf-order-err'];
         for (var i = 0; i < errorIds.length; i++) {
-            var errEl = dom[errorIds[i]] || document.getElementById(errorIds[i]);
+            var errEl = dom[errorIds[i]];
             if (errEl) errEl.textContent = '';
         }
         var inputIds = ['sf-name', 'sf-email', 'sf-order'];
         for (var i = 0; i < inputIds.length; i++) {
-            var input = dom[inputIds[i]] || document.getElementById(inputIds[i]);
+            var input = dom[inputIds[i]];
             if (input) input.classList.remove('sf-input-error');
         }
         
@@ -1004,7 +755,6 @@
         
         if (dom['sf-turnstile-err']) dom['sf-turnstile-err'].classList.add('sf-hidden');
         
-        // Move focus back to category section for accessibility
         if (dom['sf-cats']) {
             var firstCat = dom['sf-cats'].querySelector('button');
             if (firstCat) firstCat.focus();
@@ -1013,12 +763,9 @@
         showToast(formData.resetText || 'Session reset', 1500);
     }
     
-    window.sfResetExternal = function() {
-        resetForm();
-    };
+    window.sfResetExternal = resetForm;
     
     function cleanup() {
-        // Remove all registered event listeners
         for (var i = 0; i < eventListeners.length; i++) {
             var listener = eventListeners[i];
             if (listener.element) {
@@ -1026,18 +773,13 @@
             }
         }
         eventListeners = [];
-        
-        // Abort any pending requests
         if (abortController) {
             abortController.abort();
             abortController = null;
         }
-        
-        // Destroy Turnstile
         destroyTurnstile();
     }
     
-    // Setup event listeners with cleanup capability
     function setupEventListeners() {
         var submitHandler = function(e) { 
             if (e.target.closest('#sf-submit')) { 
@@ -1059,20 +801,14 @@
         eventListeners.push({element: document, type: 'input', handler: orderInputHandler});
     }
     
-    // Initialize
     function init() {
-        cacheDomElements();
+        cacheDom();
         setupEventListeners();
         loadFormDataWithRetry();
         window.scrollTo(0, 0);
-        
-        // Cleanup on page unload / SPA navigation
-        window.addEventListener('beforeunload', function() {
-            cleanup();
-        });
+        window.addEventListener('beforeunload', cleanup);
     }
     
-    // Start the application
     init();
 })();
 </script>
