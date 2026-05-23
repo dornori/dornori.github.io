@@ -175,6 +175,7 @@
             border-radius: 6px;
             margin-top: 8px;
             font-size: 0.65rem;
+            word-break: break-all;
         }
 
         .actions {
@@ -205,7 +206,7 @@
         .settings-panel {
             display: none;
             padding: 24px;
-            max-width: 600px;
+            max-width: 900px;
             margin: 0 auto;
             width: 100%;
             overflow-y: auto;
@@ -259,7 +260,7 @@
         }
 
         .backup-list {
-            max-height: 300px;
+            max-height: 400px;
             overflow-y: auto;
         }
 
@@ -273,13 +274,15 @@
             margin-bottom: 6px;
             font-size: 0.7rem;
             font-family: monospace;
+            flex-wrap: wrap;
+            gap: 8px;
         }
 
         .backup-item:hover {
             background: rgba(0,0,0,0.4);
         }
 
-        .restore-btn {
+        .restore-btn, .preview-btn {
             background: rgba(168, 213, 181, 0.2);
             border: 1px solid #a8d5b5;
             color: #a8d5b5;
@@ -287,9 +290,10 @@
             border-radius: 6px;
             cursor: pointer;
             font-size: 0.65rem;
+            margin-left: 6px;
         }
 
-        .restore-btn:hover {
+        .restore-btn:hover, .preview-btn:hover {
             background: #a8d5b5;
             color: #112b1e;
         }
@@ -327,6 +331,114 @@
             color: #9dc8ae;
             font-size: 0.8rem;
         }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: #112b1e;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 12px;
+            max-width: 900px;
+            width: 90%;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background: #112b1e;
+        }
+
+        .modal-header h3 {
+            color: #a8d5b5;
+            font-size: 1rem;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: #9dc8ae;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .diff-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+
+        .diff-table th {
+            text-align: left;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            color: #a8d5b5;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        .diff-table td {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-family: monospace;
+            vertical-align: middle;
+        }
+
+        .diff-table code {
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+        }
+
+        .diff-old {
+            color: #ff8888;
+            text-decoration: line-through;
+        }
+
+        .diff-new {
+            color: #88ff88;
+        }
+
+        .diff-same {
+            color: #9dc8ae;
+        }
+
+        .color-swatch {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            margin-right: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+            vertical-align: middle;
+        }
     </style>
 </head>
 <body>
@@ -347,14 +459,12 @@
             <button id="saveAllBtn" class="save-btn" disabled>💾 Save All Changes</button>
         </div>
 
-        <!-- Editor View -->
         <div id="editorView" class="editor-area">
             <div id="colorGrid" class="color-grid">
                 <div class="no-data">Open a folder in Settings to start editing colors</div>
             </div>
         </div>
 
-        <!-- Settings View -->
         <div id="settingsView" class="settings-panel">
             <div class="settings-card">
                 <h3>📂 Folder Access</h3>
@@ -379,6 +489,18 @@
         </div>
     </div>
 
+    <div id="previewModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Backup Preview</h3>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                Loading...
+            </div>
+        </div>
+    </div>
+
     <div id="toast" class="toast"></div>
 
     <script>
@@ -389,10 +511,27 @@
         let currentColors = {};
         let originalColors = {};
 
-        // IndexedDB setup
         const DB_NAME = 'ColorEditorDB';
         const STORE_NAME = 'folderHandle';
         let db = null;
+
+        function rgbaToHex(rgba) {
+            if (!rgba || !rgba.startsWith('rgba')) return null;
+            const match = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+            if (!match) return null;
+            const r = parseInt(match[1]);
+            const g = parseInt(match[2]);
+            const b = parseInt(match[3]);
+            return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        }
+
+        function valueToHex(value) {
+            if (!value) return '#a8d5b5';
+            if (value.startsWith('#')) return value;
+            const hex = rgbaToHex(value);
+            if (hex) return hex;
+            return '#a8d5b5';
+        }
 
         function initDB() {
             return new Promise((resolve, reject) => {
@@ -515,9 +654,19 @@
                 <div class="backup-item">
                     <span>📄 ${b.name}</span>
                     <span style="font-size:0.6rem">${(b.size/1024).toFixed(1)} KB</span>
-                    <button class="restore-btn" data-backup="${b.path}">Restore</button>
+                    <div>
+                        <button class="preview-btn" data-backup="${b.path}">Preview</button>
+                        <button class="restore-btn" data-backup="${b.path}">Restore</button>
+                    </div>
                 </div>
             `).join('');
+            
+            document.querySelectorAll('.preview-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const backupPath = btn.dataset.backup;
+                    await previewBackup(backupPath);
+                });
+            });
             
             document.querySelectorAll('.restore-btn').forEach(btn => {
                 btn.addEventListener('click', async () => {
@@ -525,6 +674,85 @@
                     await restoreBackup(backupPath);
                 });
             });
+        }
+
+        async function previewBackup(backupPath) {
+            if (!dirHandle) {
+                showToast('No folder open', true);
+                return;
+            }
+            
+            try {
+                const backupContent = await readFile(backupPath);
+                if (!backupContent) {
+                    showToast('Could not read backup', true);
+                    return;
+                }
+                
+                const backupProfiles = parseProfiles(backupContent);
+                const currentProfiles = profiles;
+                
+                const currentProfileName = currentProfileIndex >= 0 ? profiles[currentProfileIndex].name : null;
+                const backupProfile = backupProfiles.find(p => p.name === currentProfileName);
+                const currentProfile = currentProfiles.find(p => p.name === currentProfileName);
+                
+                if (!backupProfile || !currentProfile) {
+                    showToast('Could not find matching profile in backup', true);
+                    return;
+                }
+                
+                const allKeys = new Set([...Object.keys(backupProfile.colors), ...Object.keys(currentProfile.colors)]);
+                const sortedKeys = Array.from(allKeys).sort();
+                
+                let diffHtml = '<table class="diff-table">';
+                diffHtml += '<thead><tr><th>Variable</th><th>Current</th><th>Backup</th><th>Status</th></tr></thead><tbody>';
+                
+                for (const key of sortedKeys) {
+                    const currentVal = currentProfile.colors[key] || '—';
+                    const backupVal = backupProfile.colors[key] || '—';
+                    
+                    const currentSwatch = (currentVal !== '—' && (currentVal.startsWith('#') || currentVal.startsWith('rgba')))
+                        ? `<span class="color-swatch" style="background:${currentVal}"></span>`
+                        : '';
+                    const backupSwatch = (backupVal !== '—' && (backupVal.startsWith('#') || backupVal.startsWith('rgba')))
+                        ? `<span class="color-swatch" style="background:${backupVal}"></span>`
+                        : '';
+                    
+                    let status = '';
+                    let currentClass = '';
+                    let backupClass = '';
+                    
+                    if (currentVal === backupVal) {
+                        status = '✓ Same';
+                        currentClass = 'diff-same';
+                        backupClass = 'diff-same';
+                    } else {
+                        status = '⚠ Different';
+                        currentClass = 'diff-old';
+                        backupClass = 'diff-new';
+                    }
+                    
+                    diffHtml += `<tr>
+                        <td><code>${key}</code></td>
+                        <td class="${currentClass}">${currentSwatch}${currentVal}</td>
+                        <td class="${backupClass}">${backupSwatch}${backupVal}</td>
+                        <td>${status}</td>
+                    </tr>`;
+                }
+                
+                diffHtml += '</tbody></table>';
+                
+                document.getElementById('modalTitle').innerHTML = `📋 Preview: ${backupPath.split('/').pop()}`;
+                document.getElementById('modalBody').innerHTML = diffHtml;
+                document.getElementById('previewModal').classList.add('active');
+                
+            } catch (err) {
+                showToast(`Preview failed: ${err.message}`, true);
+            }
+        }
+
+        window.closeModal = function() {
+            document.getElementById('previewModal').classList.remove('active');
         }
 
         async function restoreBackup(backupPath) {
@@ -638,7 +866,6 @@
         function parseProfiles(cssText) {
             const profilesList = [];
             
-            // Parse data-theme profiles
             const profileRegex = /\[data-theme="([^"]+)"\]\s*\{([^}]+)\}/g;
             let match;
             while ((match = profileRegex.exec(cssText)) !== null) {
@@ -653,7 +880,6 @@
                 profilesList.push({ name: profileName, colors: colors });
             }
             
-            // Parse :root
             const rootMatch = cssText.match(/:root\s*\{([^}]+)\}/);
             if (rootMatch) {
                 const rootColors = {};
@@ -692,12 +918,13 @@
             
             container.innerHTML = '';
             for (const [name, value] of Object.entries(currentColors)) {
+                const hexValue = valueToHex(value);
                 const card = document.createElement('div');
                 card.className = 'color-card';
                 card.innerHTML = `
                     <div class="color-name">${name}</div>
                     <div class="color-preview" style="background: ${value}">${value}</div>
-                    <input type="color" value="${value.startsWith('#') ? value : '#a8d5b5'}">
+                    <input type="color" value="${hexValue}">
                     <div class="value">${value}</div>
                     <div class="actions">
                         <button class="btn-small btn-save">Save</button>
@@ -730,7 +957,7 @@
                         preview.style.background = originalColors[name];
                         preview.textContent = originalColors[name];
                         valueDiv.textContent = originalColors[name];
-                        colorInput.value = originalColors[name].startsWith('#') ? originalColors[name] : '#a8d5b5';
+                        colorInput.value = valueToHex(originalColors[name]);
                         showToast(`↺ Discarded ${name}`);
                     }
                 });
@@ -808,7 +1035,6 @@
             }
         }
 
-        // Profile dropdown change handler
         document.getElementById('profileSelect').addEventListener('change', (e) => {
             const idx = parseInt(e.target.value);
             if (!isNaN(idx)) {
@@ -816,7 +1042,6 @@
             }
         });
 
-        // Navigation
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', () => {
                 document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -833,7 +1058,6 @@
         document.getElementById('openFolderBtn').addEventListener('click', openAndSaveFolder);
         document.getElementById('saveAllBtn').addEventListener('click', saveAllChanges);
 
-        // Initialize
         document.getElementById('editorView').style.display = 'block';
         document.getElementById('settingsView').classList.remove('active');
 
