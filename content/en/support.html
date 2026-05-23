@@ -471,9 +471,27 @@ function initTurnstile() {
     turnstileWidgetId = turnstile.render(container, {
         sitekey: TURNSTILE_SITE_KEY,
         theme: 'light',
-        callback: function(token) { turnstileToken = token; },
-        'expired-callback': function() { turnstileToken = null; },
-        'error-callback': function() { turnstileToken = null; }
+        callback: function(token) { 
+            turnstileToken = token;
+            var err = document.getElementById('sf-turnstile-err');
+            if (err) err.classList.add('sf-hidden');
+        },
+        'expired-callback': function() { 
+            turnstileToken = null;
+            var err = document.getElementById('sf-turnstile-err');
+            if (err) {
+                err.textContent = formData.turnstileExpiredError || 'Security verification expired. Please try again.';
+                err.classList.remove('sf-hidden');
+            }
+        },
+        'error-callback': function() { 
+            turnstileToken = null;
+            var err = document.getElementById('sf-turnstile-err');
+            if (err) {
+                err.textContent = formData.turnstileFailedError || 'Security verification failed. If using private browser mode, please disable it.';
+                err.classList.remove('sf-hidden');
+            }
+        }
     });
 }
 
@@ -539,9 +557,14 @@ function validateForm() {
     var turnstileContainer = document.getElementById('sf-turnstile-container');
     var turnstileErr = document.getElementById('sf-turnstile-err');
     
+    // Check if Turnstile is required and needs to pass
     if (turnstileContainer && turnstileContainer.style.display !== 'none' && TURNSTILE_SITE_KEY && TURNSTILE_SITE_KEY !== '1x00000000000000000000AA') {
         if (!turnstileToken) {
-            if (turnstileErr) turnstileErr.classList.remove('sf-hidden');
+            // Turnstile token missing - security challenge failed
+            if (turnstileErr) {
+                turnstileErr.textContent = formData.turnstileFailedError || 'Security verification failed. If using a private/anonymous browser, please disable it. If this persists, check your internet connection.';
+                turnstileErr.classList.remove('sf-hidden');
+            }
             hasError = true;
         } else {
             if (turnstileErr) turnstileErr.classList.add('sf-hidden');
