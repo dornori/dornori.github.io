@@ -516,58 +516,33 @@ function validateForm() {
     var orderInput = document.getElementById('sf-order')?.value || '';
     var commentsInput = document.getElementById('sf-desc')?.value || '';
 
-    // Name validation
     if (!nameInput.trim()) {
-        setFieldError('sf-name', 'sf-name-err', formData.fullNameRequired || 'Full name is required.');
+        setFieldError('sf-name', 'sf-name-err', 'Full name is required.');
         hasError = true;
     } else {
         setFieldError('sf-name', 'sf-name-err', '');
     }
     
-    // Email validation
     if (!emailInput.trim()) {
-        setFieldError('sf-email', 'sf-email-err', formData.emailRequired || 'Email address is required.');
+        setFieldError('sf-email', 'sf-email-err', 'Email address is required.');
         hasError = true;
     } else if (!isValidEmail(emailInput)) {
-        setFieldError('sf-email', 'sf-email-err', formData.emailInvalid || 'Please enter a valid email address.');
+        setFieldError('sf-email', 'sf-email-err', 'Please enter a valid email address.');
         hasError = true;
     } else {
         setFieldError('sf-email', 'sf-email-err', '');
     }
     
-    // Order number validation - digits only
     if (!orderInput.trim()) {
-        setFieldError('sf-order', 'sf-order-err', formData.orderNumberRequired || 'Order number is required.');
+        setFieldError('sf-order', 'sf-order-err', 'Order number is required.');
         hasError = true;
     } else if (!/^\d+$/.test(orderInput.trim())) {
-        setFieldError('sf-order', 'sf-order-err', formData.orderDigitsOnly || 'Order number must contain digits only.');
+        setFieldError('sf-order', 'sf-order-err', 'Order number must contain digits only.');
         hasError = true;
     } else {
         setFieldError('sf-order', 'sf-order-err', '');
     }
 
-    // Comments - optional, no validation
-    setFieldError('sf-desc', 'sf-desc-err', '');
-
-    var turnstileContainer = document.getElementById('sf-turnstile-container');
-    var turnstileErr = document.getElementById('sf-turnstile-err');
-    
-    // Check if Turnstile is required and needs to pass
-    if (turnstileContainer && turnstileContainer.style.display !== 'none' && TURNSTILE_SITE_KEY && TURNSTILE_SITE_KEY !== '1x00000000000000000000AA') {
-        if (!turnstileToken) {
-            // Turnstile token missing - security challenge failed
-            if (turnstileErr) {
-                turnstileErr.textContent = formData.turnstileFailedError || 'Security verification failed. If using a private/anonymous browser, please disable it. If this persists, check your internet connection.';
-                turnstileErr.classList.remove('sf-hidden');
-            }
-            hasError = true;
-        } else {
-            if (turnstileErr) turnstileErr.classList.add('sf-hidden');
-        }
-    } else {
-        if (turnstileErr) turnstileErr.classList.add('sf-hidden');
-    }
-    
     return { valid: !hasError, sanitised: { name: stripHtml(nameInput), email: stripHtml(emailInput), order: stripHtml(orderInput), comments: commentsInput } };
 }
 
@@ -590,10 +565,17 @@ async function sendSupportRequest() {
         troubleshootingSummaries.push(answers[i].summary || answers[i].answer);
     }
 
-    // Split comments by newlines into array
-    var additionalComments = sanitised.comments 
-        ? sanitised.comments.split(/\r?\n/).filter(function(line) { return line.trim().length > 0; }).map(function(line) { return line.trim(); })
-        : [];
+    // Split comments by newlines into array and sanitize
+    var additionalComments = [];
+    if (sanitised.comments) {
+        var lines = sanitised.comments.split(/\r?\n/);
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (line.length > 0) {
+                additionalComments.push(stripHtml(line));
+            }
+        }
+    }
 
     var payload = {
         referenceNumber: referenceNumber,
