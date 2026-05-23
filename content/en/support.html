@@ -475,14 +475,15 @@ function initTurnstile() {
         return;
     }
     
-    cleanupTurnstile();
-    container.innerHTML = '';
-    container.style.display = 'block';
-    
+    // Wait for Turnstile to be available (loaded by parent SPA)
     if (typeof turnstile === 'undefined') {
         setTimeout(initTurnstile, 200);
         return;
     }
+    
+    cleanupTurnstile();
+    container.innerHTML = '';
+    container.style.display = 'block';
     
     try {
         turnstileWidgetId = turnstile.render(container, {
@@ -600,7 +601,7 @@ function validateForm() {
             name: stripHtml(nameInput), 
             email: stripHtml(emailInput), 
             order: stripHtml(orderInput), 
-            comments: stripHtml(document.getElementById('sf-desc')?.value || '')  // Stripped AFTER submission, NOT validated
+            comments: stripHtml(document.getElementById('sf-desc')?.value || '')
         } 
     };
 }
@@ -610,7 +611,7 @@ async function sendSupportRequest() {
     
     var validation = validateForm();
     if (!validation.valid) {
-        return;  // Toast already shown in validateForm()
+        return;
     }
     
     isSubmitting = true;
@@ -624,13 +625,11 @@ async function sendSupportRequest() {
         submitBtn.textContent = formData.sendingText || 'Sending...';
     }
 
-    // Build troubleshooting summaries
     var troubleshootingSummaries = [];
     for (var i = 0; i < answers.length; i++) {
         troubleshootingSummaries.push(answers[i].summary || answers[i].answer);
     }
 
-    // Comments are already stripped via stripHtml() in validateForm()
     var additionalComments = [];
     if (sanitised.comments) {
         var lines = sanitised.comments.split(/\r?\n/);
@@ -675,7 +674,6 @@ async function sendSupportRequest() {
         console.error(err);
         showToast((formData.submissionErrorText || 'Submission failed') + '. ' + (formData.retryText || 'Please try again.'), 5000, true);
         
-        // Reset Turnstile so user can try again
         if (turnstileWidgetId !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
             try { 
                 turnstile.reset(turnstileWidgetId);
@@ -714,7 +712,6 @@ window.sfReset = function() {
     document.getElementById('sf-order').value = '';
     document.getElementById('sf-desc').value = '';
     
-    // Clear all errors
     var errorIds = ['sf-name-err', 'sf-email-err', 'sf-order-err'];
     for (var i = 0; i < errorIds.length; i++) {
         var errEl = document.getElementById(errorIds[i]);
@@ -726,7 +723,6 @@ window.sfReset = function() {
         if (input) input.classList.remove('sf-input-error');
     }
     
-    // Reset Turnstile
     if (turnstileWidgetId !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
         try { 
             turnstile.reset(turnstileWidgetId);
@@ -742,7 +738,6 @@ window.sfReset = function() {
     showToast(formData.resetText || 'Session reset', 1500);
 };
 
-// Event listeners
 document.addEventListener('click', function(e) { 
     if (e.target.closest('#sf-submit')) { 
         e.preventDefault(); 
