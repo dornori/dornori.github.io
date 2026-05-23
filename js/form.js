@@ -68,7 +68,7 @@ function renderCategories() {
 
   showStep('step1');
   updateProgress(5);
-  document.getElementById('progressText').innerHTML = 'Step 1: Choose category';
+  document.getElementById('progressText').innerHTML = currentData.step1Label || 'Step 1: Choose category';
 }
 
 function startCategory(category) {
@@ -109,7 +109,7 @@ function renderCurrentQuestion() {
   document.getElementById('troubleshooting').innerHTML = html;
   showStep('troubleshooting');
   updateProgress(45);
-  document.getElementById('progressText').innerHTML = 'Step 2: Troubleshooting';
+  document.getElementById('progressText').innerHTML = currentData.step2Label || 'Step 2: Troubleshooting';
 }
 
 window.selectAnswer = function (optionIndex) {
@@ -152,7 +152,7 @@ function showContactForm() {
   document.getElementById('issueDescription').value = summary;
   showStep('contactForm');
   updateProgress(85);
-  document.getElementById('progressText').innerHTML = 'Step 3: Contact support';
+  document.getElementById('progressText').innerHTML = currentData.step3Label || 'Step 3: Contact support';
 }
 
 document.getElementById('supportForm')?.addEventListener('submit', async function (e) {
@@ -167,7 +167,7 @@ document.getElementById('supportForm')?.addEventListener('submit', async functio
 
   const submitBtn   = e.target.querySelector('button[type="submit"]');
   const originalText = submitBtn.innerHTML;
-  submitBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Sending...';
+  submitBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> ' + (currentData.sendingText || 'Sending...');
   submitBtn.disabled  = true;
 
   const category = currentCategory?.title || 'General';
@@ -223,7 +223,7 @@ function resetFullSession() {
   issueSummary = [];
   renderCategories();
   updateProgress(5);
-  document.getElementById('progressText').innerHTML = 'Step 1: Choose category';
+  document.getElementById('progressText').innerHTML = currentData.step1Label || 'Step 1: Choose category';
   showToast("Session reset", 1500);
 }
 

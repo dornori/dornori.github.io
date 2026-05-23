@@ -197,7 +197,8 @@
             Currency.waitForReady().then(function () {
                 var active = Currency.getActive();
                 container.className = 'profile-selector-wrap';
-                container.innerHTML = 'CURRENCY <select class="profile-select" aria-label="Currency">' +
+                const currencyLabel = (window.T?.ui?.currency || 'Currency').toUpperCase();
+                container.innerHTML = currencyLabel + ' <select class="profile-select" aria-label="' + (window.T?.ui?.currency || 'Currency') + '">' +
                     Currency.list().map(function (c) {
                         return '<option value="' + c.code + '"' + (c.code === active ? ' selected' : '') + '>' +
                                c.code + ' ' + c.symbol + '</option>';
