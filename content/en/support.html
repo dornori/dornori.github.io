@@ -239,24 +239,11 @@ function showToast(msg, ms) {
 function showSuccessMessage(message, referenceNumber, comments) {
     var body = document.getElementById('sf-body');
     
-    // Format comments if they exist
-    var commentsHtml = '';
-    if (comments && Array.isArray(comments) && comments.length > 0) {
-        commentsHtml = '<div style="margin-top:1rem;margin-bottom:1rem;padding:1rem;background:color-mix(in srgb, var(--accent) 8%, transparent);border-radius:8px;text-align:left;">' +
-            '<strong style="display:block;margin-bottom:8px;">Your comments:</strong>' +
-            '<ul style="margin:0;padding-left:1.2rem;">';
-        for (var i = 0; i < comments.length; i++) {
-            commentsHtml += '<li style="margin-bottom:4px;">' + escapeHtml(comments[i]) + '</li>';
-        }
-        commentsHtml += '</ul></div>';
-    }
-    
     var successHtml = '<div class="sf-success-box" style="text-align:center;padding:2rem;">' +
         '<i class="fas fa-check-circle" style="font-size:4rem;color:#10b981;margin-bottom:1rem;"></i>' +
         '<h3 style="font-size:1.5rem;margin-bottom:1rem;color:var(--text);">Thank You!</h3>' +
         '<div class="sf-ref-number" style="font-size:1.2rem;font-weight:700;color:var(--accent);margin:1rem 0;letter-spacing:1px;"><i class="fas fa-ticket-alt"></i> REF: ' + escapeHtml(referenceNumber) + '<\/div>' +
         '<p style="color:var(--text-muted);margin-bottom:0.75rem;line-height:1.6;">' + escapeHtml(message) + '<\/p>' +
-        commentsHtml +
         '<p style="font-size: 0.85rem; margin-top: 1rem;color:var(--text-muted);">Please save this reference number for future inquiries.<\/p>' +
         '<\/div>';
     body.innerHTML = successHtml;
@@ -506,13 +493,13 @@ function setFieldError(inputId, errorId, message) {
 
 function validateForm() {
     var hasError = false;
-    var name = stripHtml(document.getElementById('sf-name')?.value || '');
-    var email = stripHtml(document.getElementById('sf-email')?.value || '');
-    var order = stripHtml(document.getElementById('sf-order')?.value || '');
-    var comments = stripHtml(document.getElementById('sf-desc')?.value || '');
+    var nameInput = document.getElementById('sf-name')?.value || '';
+    var emailInput = document.getElementById('sf-email')?.value || '';
+    var orderInput = document.getElementById('sf-order')?.value || '';
+    var commentsInput = document.getElementById('sf-desc')?.value || '';
 
     // Name validation
-    if (!name) {
+    if (!nameInput.trim()) {
         setFieldError('sf-name', 'sf-name-err', formData.fullNameRequired || 'Full name is required.');
         hasError = true;
     } else {
@@ -520,10 +507,10 @@ function validateForm() {
     }
     
     // Email validation
-    if (!email) {
+    if (!emailInput.trim()) {
         setFieldError('sf-email', 'sf-email-err', formData.emailRequired || 'Email address is required.');
         hasError = true;
-    } else if (!isValidEmail(email)) {
+    } else if (!isValidEmail(emailInput)) {
         setFieldError('sf-email', 'sf-email-err', formData.emailInvalid || 'Please enter a valid email address.');
         hasError = true;
     } else {
@@ -531,10 +518,10 @@ function validateForm() {
     }
     
     // Order number validation - digits only
-    if (!order) {
+    if (!orderInput.trim()) {
         setFieldError('sf-order', 'sf-order-err', formData.orderNumberRequired || 'Order number is required.');
         hasError = true;
-    } else if (!/^\d+$/.test(order)) {
+    } else if (!/^\d+$/.test(orderInput.trim())) {
         setFieldError('sf-order', 'sf-order-err', formData.orderDigitsOnly || 'Order number must contain digits only.');
         hasError = true;
     } else {
@@ -542,7 +529,7 @@ function validateForm() {
     }
 
     // Comments validation - now required
-    if (!comments) {
+    if (!commentsInput.trim()) {
         setFieldError('sf-desc', 'sf-desc-err', formData.commentsRequired || 'Additional comments are required.');
         hasError = true;
     } else {
@@ -563,7 +550,7 @@ function validateForm() {
         if (turnstileErr) turnstileErr.classList.add('sf-hidden');
     }
     
-    return { valid: !hasError, sanitised: { name: name, email: email, order: order, comments: comments } };
+    return { valid: !hasError, sanitised: { name: stripHtml(nameInput), email: stripHtml(emailInput), order: stripHtml(orderInput), comments: commentsInput } };
 }
 
 async function sendSupportRequest() {
