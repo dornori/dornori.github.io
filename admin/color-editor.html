@@ -94,10 +94,6 @@
             font-family: monospace;
         }
 
-        .profile-dropdown option {
-            background: #112b1e;
-        }
-
         .save-btn {
             background: #a8d5b5;
             color: #112b1e;
@@ -106,7 +102,6 @@
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
-            transition: all 0.2s;
         }
 
         .save-btn:hover {
@@ -117,7 +112,6 @@
         .save-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
-            transform: none;
         }
 
         .editor-area {
@@ -228,9 +222,6 @@
             font-size: 0.9rem;
             color: #a8d5b5;
             margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
         }
 
         .folder-row {
@@ -276,10 +267,6 @@
             font-family: monospace;
             flex-wrap: wrap;
             gap: 8px;
-        }
-
-        .backup-item:hover {
-            background: rgba(0,0,0,0.4);
         }
 
         .restore-btn, .preview-btn {
@@ -365,14 +352,6 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            position: sticky;
-            top: 0;
-            background: #112b1e;
-        }
-
-        .modal-header h3 {
-            color: #a8d5b5;
-            font-size: 1rem;
         }
 
         .modal-close {
@@ -399,8 +378,6 @@
             background: rgba(0,0,0,0.3);
             color: #a8d5b5;
             font-weight: 600;
-            position: sticky;
-            top: 0;
         }
 
         .diff-table td {
@@ -408,13 +385,6 @@
             border-bottom: 1px solid rgba(255,255,255,0.1);
             font-family: monospace;
             vertical-align: middle;
-        }
-
-        .diff-table code {
-            background: rgba(0,0,0,0.3);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.7rem;
         }
 
         .diff-old {
@@ -453,7 +423,7 @@
         <div class="toolbar">
             <div class="profile-selector">
                 <select id="profileSelect" class="profile-dropdown" disabled>
-                    <option value="">Loading...</option>
+                    <option value="">No folder open</option>
                 </select>
             </div>
             <button id="saveAllBtn" class="save-btn" disabled>💾 Save All Changes</button>
@@ -473,8 +443,9 @@
             </div>
 
             <div class="settings-card">
-                <h3>📁 Current Path</h3>
-                <div id="cssPath" class="folder-row">css/profiles.css</div>
+                <h3>📁 Config Path</h3>
+                <div id="configPath" class="folder-row">admin/config.json</div>
+                <div id="savedPath" class="folder-row" style="margin-top:8px">Saved path: <span id="savedPathValue">—</span></div>
             </div>
 
             <div class="settings-card">
@@ -510,10 +481,9 @@
         let currentProfileIndex = -1;
         let currentColors = {};
         let originalColors = {};
+        let currentFolderPath = '';
 
-        const DB_NAME = 'ColorEditorDB';
-        const STORE_NAME = 'folderHandle';
-        let db = null;
+        const CONFIG_FILE = 'config.json';
 
         function rgbaToHex(rgba) {
             if (!rgba || typeof rgba !== 'string') return null;
@@ -535,43 +505,6 @@
             return '#a8d5b5';
         }
 
-        function initDB() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open(DB_NAME, 1);
-                request.onerror = () => reject(request.error);
-                request.onsuccess = () => {
-                    db = request.result;
-                    resolve();
-                };
-                request.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    if (!db.objectStoreNames.contains(STORE_NAME)) {
-                        db.createObjectStore(STORE_NAME);
-                    }
-                };
-            });
-        }
-
-        async function saveHandle(id, handle) {
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NAME, 'readwrite');
-                const store = tx.objectStore(STORE_NAME);
-                const request = store.put(handle, id);
-                request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
-            });
-        }
-
-        async function getHandle(id) {
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(STORE_NAME, 'readonly');
-                const store = tx.objectStore(STORE_NAME);
-                const request = store.get(id);
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
-        }
-
         function showToast(msg, isError = false) {
             const toast = document.getElementById('toast');
             toast.textContent = msg;
@@ -585,6 +518,64 @@
             const statusDiv = document.getElementById('status');
             statusDiv.innerHTML = text;
             statusDiv.className = `status ${type}`;
+        }
+
+        // Save config to file
+        async function saveConfig(path) {
+            const config = { folderPath: path };
+            try {
+                const response = await fetch(CONFIG_FILE, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config, null, 2)
+                });
+                if (response.ok) {
+                    document.getElementById('savedPathValue').textContent = path;
+                    return true;
+                }
+            } catch (err) {
+                console.log('PUT failed, trying POST');
+                try {
+                    const response = await fetch(CONFIG_FILE, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(config, null, 2)
+                    });
+                    if (response.ok) {
+                        document.getElementById('savedPathValue').textContent = path;
+                        return true;
+                    }
+                } catch (e) {}
+            }
+            // Fallback: download config file
+            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = CONFIG_FILE;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('⚠️ Download config.json and place in admin folder', true);
+            document.getElementById('savedPathValue').textContent = path + ' (saved locally)';
+            return false;
+        }
+
+        // Load config from file
+        async function loadConfig() {
+            try {
+                const response = await fetch(CONFIG_FILE);
+                if (response.ok) {
+                    const config = await response.json();
+                    if (config.folderPath) {
+                        document.getElementById('savedPathValue').textContent = config.folderPath;
+                        return config.folderPath;
+                    }
+                }
+            } catch (err) {
+                console.log('No config file yet');
+            }
+            document.getElementById('savedPathValue').textContent = '—';
+            return null;
         }
 
         async function ensureDirectory(path) {
@@ -655,7 +646,7 @@
             container.innerHTML = backups.map(b => `
                 <div class="backup-item">
                     <span>📄 ${b.name}</span>
-                    <span style="font-size:0.6rem">${(b.size/1024).toFixed(1)} KB</span>
+                    <span>${(b.size/1024).toFixed(1)} KB</span>
                     <div>
                         <button class="preview-btn" data-backup="${b.path}">Preview</button>
                         <button class="restore-btn" data-backup="${b.path}">Restore</button>
@@ -665,115 +656,69 @@
             
             document.querySelectorAll('.preview-btn').forEach(btn => {
                 btn.addEventListener('click', async () => {
-                    const backupPath = btn.dataset.backup;
-                    await previewBackup(backupPath);
+                    await previewBackup(btn.dataset.backup);
                 });
             });
             
             document.querySelectorAll('.restore-btn').forEach(btn => {
                 btn.addEventListener('click', async () => {
-                    const backupPath = btn.dataset.backup;
-                    await restoreBackup(backupPath);
+                    await restoreBackup(btn.dataset.backup);
                 });
             });
         }
 
         async function previewBackup(backupPath) {
-            if (!dirHandle) {
-                showToast('No folder open', true);
-                return;
-            }
-            
+            if (!dirHandle) return showToast('No folder open', true);
             try {
                 const backupContent = await readFile(backupPath);
-                if (!backupContent) {
-                    showToast('Could not read backup', true);
-                    return;
-                }
+                if (!backupContent) return showToast('Could not read backup', true);
                 
                 const backupProfiles = parseProfiles(backupContent);
-                const currentProfiles = profiles;
-                
-                const currentProfileName = currentProfileIndex >= 0 ? profiles[currentProfileIndex].name : null;
+                const currentProfileName = profiles[currentProfileIndex]?.name;
                 const backupProfile = backupProfiles.find(p => p.name === currentProfileName);
-                const currentProfile = currentProfiles.find(p => p.name === currentProfileName);
+                const currentProfile = profiles.find(p => p.name === currentProfileName);
                 
                 if (!backupProfile || !currentProfile) {
-                    showToast('Could not find matching profile in backup', true);
+                    showToast('Could not find matching profile', true);
                     return;
                 }
                 
                 const allKeys = new Set([...Object.keys(backupProfile.colors), ...Object.keys(currentProfile.colors)]);
                 const sortedKeys = Array.from(allKeys).sort();
                 
-                let diffHtml = '<table class="diff-table">';
-                diffHtml += '<thead><tr><th>Variable</th><th>Current</th><th>Backup</th><th>Status</th></tr></thead><tbody>';
-                
+                let html = '<table class="diff-table"><thead><tr><th>Variable</th><th>Current</th><th>Backup</th><th>Status</th></tr></thead><tbody>';
                 for (const key of sortedKeys) {
                     const currentVal = currentProfile.colors[key] || '—';
                     const backupVal = backupProfile.colors[key] || '—';
-                    
-                    const currentSwatch = (currentVal !== '—' && (currentVal.startsWith('#') || currentVal.startsWith('rgba')))
-                        ? `<span class="color-swatch" style="background:${currentVal}"></span>`
-                        : '';
-                    const backupSwatch = (backupVal !== '—' && (backupVal.startsWith('#') || backupVal.startsWith('rgba')))
-                        ? `<span class="color-swatch" style="background:${backupVal}"></span>`
-                        : '';
-                    
-                    let status = '';
-                    let currentClass = '';
-                    let backupClass = '';
+                    const swatch = (v) => v !== '—' && (v.startsWith('#') || v.startsWith('rgba')) 
+                        ? `<span class="color-swatch" style="background:${v}"></span>` : '';
                     
                     if (currentVal === backupVal) {
-                        status = '✓ Same';
-                        currentClass = 'diff-same';
-                        backupClass = 'diff-same';
+                        html += `<tr><td><code>${key}</code></td><td class="diff-same">${swatch(currentVal)}${currentVal}</td><td class="diff-same">${swatch(backupVal)}${backupVal}</td><td>✓ Same</td></tr>`;
                     } else {
-                        status = '⚠ Different';
-                        currentClass = 'diff-old';
-                        backupClass = 'diff-new';
+                        html += `<tr><td><code>${key}</code></td><td class="diff-old">${swatch(currentVal)}${currentVal}</td><td class="diff-new">${swatch(backupVal)}${backupVal}</td><td>⚠ Different</td></tr>`;
                     }
-                    
-                    diffHtml += `<tr>
-                        <td><code>${key}</code></td>
-                        <td class="${currentClass}">${currentSwatch}${currentVal}</td>
-                        <td class="${backupClass}">${backupSwatch}${backupVal}</td>
-                        <td>${status}</td>
-                    </tr>`;
                 }
-                
-                diffHtml += '</tbody></table>';
+                html += '</tbody></table>';
                 
                 document.getElementById('modalTitle').innerHTML = `📋 Preview: ${backupPath.split('/').pop()}`;
-                document.getElementById('modalBody').innerHTML = diffHtml;
+                document.getElementById('modalBody').innerHTML = html;
                 document.getElementById('previewModal').classList.add('active');
-                
             } catch (err) {
-                showToast(`Preview failed: ${err.message}`, true);
+                showToast('Preview failed: ' + err.message, true);
             }
         }
 
-        window.closeModal = function() {
-            document.getElementById('previewModal').classList.remove('active');
-        }
+        window.closeModal = () => document.getElementById('previewModal').classList.remove('active');
 
         async function restoreBackup(backupPath) {
-            if (!dirHandle) {
-                showToast('No folder open', true);
-                return;
-            }
-            
+            if (!dirHandle) return showToast('No folder open', true);
             try {
                 const backupContent = await readFile(backupPath);
-                if (!backupContent) {
-                    showToast('Could not read backup', true);
-                    return;
-                }
-                
+                if (!backupContent) return showToast('Could not read backup', true);
                 await writeFile('css/profiles.css', backupContent);
                 showToast(`✅ Restored from ${backupPath.split('/').pop()}`);
                 await loadCSS();
-                setStatus(`Restored from backup`, 'success');
             } catch (err) {
                 showToast(`Restore failed: ${err.message}`, true);
             }
@@ -782,13 +727,14 @@
         async function openAndSaveFolder() {
             try {
                 dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-                await saveHandle('folderHandle', dirHandle);
-                document.getElementById('folderInfo').innerHTML = `📁 ${dirHandle.name}`;
+                currentFolderPath = dirHandle.name;
+                document.getElementById('folderInfo').innerHTML = `📁 ${currentFolderPath}`;
                 await ensureDirectory('admin/profile-backups');
+                await saveConfig(currentFolderPath);
                 await loadCSS();
                 await renderBackupList();
-                setStatus(`Connected to ${dirHandle.name}`, 'success');
-                showToast(`Connected to ${dirHandle.name}`);
+                setStatus(`Connected to ${currentFolderPath}`, 'success');
+                showToast(`Connected to ${currentFolderPath}`);
             } catch (err) {
                 if (err.name !== 'AbortError') {
                     showToast('Failed to open folder: ' + err.message, true);
@@ -796,38 +742,31 @@
             }
         }
 
-        async function reconnectFromSaved() {
-            setStatus('Reconnecting...', 'loading');
+        async function reconnectFromConfig() {
+            const savedPath = await loadConfig();
+            if (!savedPath) {
+                setStatus('No saved folder. Click "Open Site Folder" to start.', 'info');
+                return false;
+            }
+            
+            setStatus(`Try to reconnect to "${savedPath}"...`, 'loading');
             try {
-                const savedHandle = await getHandle('folderHandle');
-                if (savedHandle) {
-                    // Check if permission still exists
-                    let permission = await savedHandle.queryPermission({ mode: 'readwrite' });
-                    if (permission === 'prompt') {
-                        permission = await savedHandle.requestPermission({ mode: 'readwrite' });
-                    }
-                    if (permission === 'granted') {
-                        dirHandle = savedHandle;
-                        document.getElementById('folderInfo').innerHTML = `📁 ${dirHandle.name}`;
-                        await ensureDirectory('admin/profile-backups');
-                        await loadCSS();
-                        await renderBackupList();
-                        setStatus(`Connected to ${dirHandle.name}`, 'success');
-                        showToast(`Reconnected to ${dirHandle.name}`);
-                        return true;
-                    } else {
-                        // Permission denied, need to reopen
-                        setStatus('Permission expired. Click Open Site Folder to reconnect.', 'error');
-                        document.getElementById('folderInfo').innerHTML = `⚠️ Permission expired - click Open Folder`;
-                        return false;
-                    }
-                } else {
-                    setStatus('No saved folder. Click Open Site Folder to start.', 'info');
-                    return false;
-                }
+                // Request folder picker with suggested name
+                dirHandle = await window.showDirectoryPicker({
+                    id: 'dornori-root',
+                    mode: 'readwrite',
+                    startIn: savedPath
+                });
+                currentFolderPath = dirHandle.name;
+                document.getElementById('folderInfo').innerHTML = `📁 ${currentFolderPath} (reconnected)`;
+                await ensureDirectory('admin/profile-backups');
+                await loadCSS();
+                await renderBackupList();
+                setStatus(`Reconnected to ${currentFolderPath}`, 'success');
+                showToast(`Reconnected to ${currentFolderPath}`);
+                return true;
             } catch (err) {
-                console.error('Reconnect error:', err);
-                setStatus('Could not reconnect. Click Open Site Folder.', 'error');
+                setStatus(`Could not auto-reconnect. Click "Open Site Folder".`, 'error');
                 return false;
             }
         }
@@ -839,146 +778,109 @@
                 select.disabled = true;
                 return;
             }
-            
-            select.innerHTML = profiles.map((profile, idx) => 
-                `<option value="${idx}" ${idx === currentProfileIndex ? 'selected' : ''}>
-                    ${profile.name === 'default' ? '🌙 Default (Root)' : '🎨 ' + profile.name}
-                </option>`
-            ).join('');
+            select.innerHTML = profiles.map((p, i) => `<option value="${i}" ${i === currentProfileIndex ? 'selected' : ''}>${p.name === 'default' ? '🌙 Default' : '🎨 ' + p.name}</option>`).join('');
             select.disabled = false;
         }
 
         async function loadCSS() {
             if (!dirHandle) return;
             setStatus('Loading profiles.css...', 'loading');
-            
             try {
                 const content = await readFile('css/profiles.css');
                 if (!content) {
                     setStatus('❌ css/profiles.css not found', 'error');
-                    showToast('css/profiles.css not found', true);
                     return;
                 }
-                
                 originalCssContent = content;
                 profiles = parseProfiles(content);
-                
-                if (profiles.length === 0) {
-                    setStatus('No profiles found in CSS', 'error');
-                    document.getElementById('colorGrid').innerHTML = '<div class="no-data">No profiles found in CSS file</div>';
+                if (!profiles.length) {
+                    setStatus('No profiles found', 'error');
                     return;
                 }
-                
                 updateProfileDropdown();
                 setStatus(`✅ Loaded ${profiles.length} profiles`, 'success');
-                showToast(`Loaded ${profiles.length} profiles`);
                 loadProfile(0);
-                
             } catch (err) {
                 setStatus('Error loading CSS: ' + err.message, 'error');
-                showToast('Error loading CSS', true);
             }
         }
 
         function parseProfiles(cssText) {
-            const profilesList = [];
-            
+            const list = [];
             const profileRegex = /\[data-theme="([^"]+)"\]\s*\{([^}]+)\}/g;
             let match;
-            while ((match = profileRegex.exec(cssText)) !== null) {
-                const profileName = match[1];
-                const blockContent = match[2];
+            while ((match = profileRegex.exec(cssText))) {
                 const colors = {};
                 const varRegex = /--([^:]+):\s*([^;]+);/g;
-                let varMatch;
-                while ((varMatch = varRegex.exec(blockContent)) !== null) {
-                    colors[`--${varMatch[1].trim()}`] = varMatch[2].trim();
-                }
-                profilesList.push({ name: profileName, colors: colors });
+                let vm;
+                while ((vm = varRegex.exec(match[2]))) colors[`--${vm[1].trim()}`] = vm[2].trim();
+                list.push({ name: match[1], colors });
             }
-            
             const rootMatch = cssText.match(/:root\s*\{([^}]+)\}/);
             if (rootMatch) {
-                const rootColors = {};
+                const colors = {};
                 const varRegex = /--([^:]+):\s*([^;]+);/g;
-                let varMatch;
-                while ((varMatch = varRegex.exec(rootMatch[1])) !== null) {
-                    rootColors[`--${varMatch[1].trim()}`] = varMatch[2].trim();
-                }
-                profilesList.unshift({ name: 'default', colors: rootColors });
+                let vm;
+                while ((vm = varRegex.exec(rootMatch[1]))) colors[`--${vm[1].trim()}`] = vm[2].trim();
+                list.unshift({ name: 'default', colors });
             }
-            
-            return profilesList;
+            return list;
         }
 
         function loadProfile(index) {
-            if (index < 0 || index >= profiles.length) return;
-            
             currentProfileIndex = index;
-            const profile = profiles[currentProfileIndex];
+            const profile = profiles[index];
             currentColors = { ...profile.colors };
             originalColors = { ...profile.colors };
-            
             document.getElementById('saveAllBtn').disabled = false;
             updateProfileDropdown();
-            setStatus(`Editing: ${profile.name}`, 'success');
-            
             renderColorCards();
         }
 
         function renderColorCards() {
             const container = document.getElementById('colorGrid');
             if (!currentColors || Object.keys(currentColors).length === 0) {
-                container.innerHTML = '<div class="no-data">No color variables found in this profile</div>';
+                container.innerHTML = '<div class="no-data">No color variables</div>';
                 return;
             }
-            
             container.innerHTML = '';
             for (const [name, value] of Object.entries(currentColors)) {
-                const hexValue = valueToHex(value);
+                const hex = valueToHex(value);
                 const card = document.createElement('div');
                 card.className = 'color-card';
                 card.innerHTML = `
                     <div class="color-name">${name}</div>
-                    <div class="color-preview" style="background: ${value}">${value}</div>
-                    <input type="color" value="${hexValue}">
+                    <div class="color-preview" style="background:${value}">${value}</div>
+                    <input type="color" value="${hex}">
                     <div class="value">${value}</div>
                     <div class="actions">
                         <button class="btn-small btn-save">Save</button>
                         <button class="btn-small btn-discard">Discard</button>
                     </div>
                 `;
-                
                 const colorInput = card.querySelector('input');
                 const preview = card.querySelector('.color-preview');
-                const valueDiv = card.querySelector('.value');
-                const saveBtn = card.querySelector('.btn-save');
-                const discardBtn = card.querySelector('.btn-discard');
-                
-                colorInput.addEventListener('change', (e) => {
-                    const newVal = e.target.value;
-                    currentColors[name] = newVal;
-                    preview.style.background = newVal;
-                    preview.textContent = newVal;
-                    valueDiv.textContent = newVal;
-                });
-                
-                saveBtn.addEventListener('click', () => {
+                const valDiv = card.querySelector('.value');
+                colorInput.onchange = (e) => {
+                    currentColors[name] = e.target.value;
+                    preview.style.background = e.target.value;
+                    preview.textContent = e.target.value;
+                    valDiv.textContent = e.target.value;
+                };
+                card.querySelector('.btn-save').onclick = () => {
                     originalColors[name] = currentColors[name];
                     showToast(`✅ Saved ${name}`);
-                });
-                
-                discardBtn.addEventListener('click', () => {
+                };
+                card.querySelector('.btn-discard').onclick = () => {
                     if (originalColors[name]) {
                         currentColors[name] = originalColors[name];
                         preview.style.background = originalColors[name];
                         preview.textContent = originalColors[name];
-                        valueDiv.textContent = originalColors[name];
+                        valDiv.textContent = originalColors[name];
                         colorInput.value = valueToHex(originalColors[name]);
                         showToast(`↺ Discarded ${name}`);
                     }
-                });
-                
+                };
                 container.appendChild(card);
             }
         }
@@ -990,60 +892,33 @@
 
         function generateUpdatedCSS() {
             let css = originalCssContent;
-            
             for (const profile of profiles) {
-                if (profile.name === 'default') {
-                    const rootRegex = /(:root\s*\{)([^}]*)(\})/s;
-                    let block = '\n';
-                    for (const [key, val] of Object.entries(profile.colors)) {
-                        block += `    ${key}: ${val};\n`;
-                    }
-                    css = css.replace(rootRegex, `$1${block}$3`);
-                } else {
-                    const themeRegex = new RegExp(`(\\[data-theme="${profile.name}"\\]\\s*\\{)([^}]*)(\\})`, 's');
-                    let block = '\n';
-                    for (const [key, val] of Object.entries(profile.colors)) {
-                        block += `    ${key}: ${val};\n`;
-                    }
-                    css = css.replace(themeRegex, `$1${block}$3`);
-                }
+                const regex = profile.name === 'default' 
+                    ? /(:root\s*\{)([^}]*)(\})/s
+                    : new RegExp(`(\\[data-theme="${profile.name}"\\]\\s*\\{)([^}]*)(\\})`, 's');
+                let block = '\n';
+                for (const [k, v] of Object.entries(profile.colors)) block += `    ${k}: ${v};\n`;
+                css = css.replace(regex, `$1${block}$3`);
             }
-            
             return css;
         }
 
         async function saveAllChanges() {
-            if (currentProfileIndex === -1 || !dirHandle) {
-                showToast('No profile loaded or folder not open', true);
-                return;
-            }
-            
+            if (!dirHandle || currentProfileIndex === -1) return showToast('No folder or profile', true);
             setStatus('Saving...', 'loading');
             document.getElementById('saveAllBtn').disabled = true;
-            
             try {
                 profiles[currentProfileIndex].colors = { ...currentColors };
-                const updatedCss = generateUpdatedCSS();
-                
-                const timestamp = getTimestamp();
-                const backupPath = `admin/profile-backups/profiles-backup-${timestamp}.css`;
-                await writeFile(backupPath, originalCssContent);
-                
-                await writeFile('css/profiles.css', updatedCss);
-                
-                originalCssContent = updatedCss;
-                
-                for (const profile of profiles) {
-                    if (profile.name === profiles[currentProfileIndex].name) {
-                        originalColors = { ...currentColors };
-                        profile.colors = { ...currentColors };
-                    }
-                }
-                
+                const updated = generateUpdatedCSS();
+                const ts = getTimestamp();
+                await writeFile(`admin/profile-backups/profiles-backup-${ts}.css`, originalCssContent);
+                await writeFile('css/profiles.css', updated);
+                originalCssContent = updated;
+                for (const p of profiles) if (p.name === profiles[currentProfileIndex].name) p.colors = { ...currentColors };
+                originalColors = { ...currentColors };
                 await renderBackupList();
-                setStatus(`✅ Saved`, 'success');
-                showToast(`✅ Saved with backup`);
-                
+                setStatus('✅ Saved', 'success');
+                showToast('✅ Saved with backup');
             } catch (err) {
                 setStatus(`❌ Save failed: ${err.message}`, 'error');
                 showToast(`Save failed: ${err.message}`, true);
@@ -1052,39 +927,25 @@
             }
         }
 
-        document.getElementById('profileSelect').addEventListener('change', (e) => {
-            const idx = parseInt(e.target.value);
-            if (!isNaN(idx)) {
-                loadProfile(idx);
-            }
-        });
-
+        document.getElementById('profileSelect').onchange = (e) => loadProfile(parseInt(e.target.value));
         document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', () => {
+            item.onclick = () => {
                 document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
                 item.classList.add('active');
                 const view = item.dataset.view;
                 document.getElementById('editorView').style.display = view === 'editor' ? 'block' : 'none';
                 document.getElementById('settingsView').classList.toggle('active', view === 'settings');
-                if (view === 'settings') {
-                    renderBackupList();
-                }
-            });
+                if (view === 'settings') renderBackupList();
+            };
         });
-
-        document.getElementById('openFolderBtn').addEventListener('click', openAndSaveFolder);
-        document.getElementById('saveAllBtn').addEventListener('click', saveAllChanges);
-
+        document.getElementById('openFolderBtn').onclick = openAndSaveFolder;
+        document.getElementById('saveAllBtn').onclick = saveAllChanges;
         document.getElementById('editorView').style.display = 'block';
         document.getElementById('settingsView').classList.remove('active');
 
-        // Initialize - try to reconnect on load
-        (async function() {
-            await initDB();
-            const reconnected = await reconnectFromSaved();
-            if (!reconnected) {
-                setStatus('Click "Open Site Folder" to start', 'info');
-            }
+        // Try to reconnect from config
+        (async () => {
+            await reconnectFromConfig();
         })();
     </script>
 </body>
