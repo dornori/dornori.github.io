@@ -219,7 +219,7 @@ function formatSummaryTable(answersArray) {
         var summary = escapeHtml(item.summary || item.answer);
         html += '<tr><td class="step-number">' + stepNum + '</td><td class="summary-text">' + summary + '</td></tr>';
     }
-    html += '</table>';
+    html += '</tr>';
     return html;
 }
 
@@ -243,6 +243,61 @@ function showToast(msg, ms, isError) {
     setTimeout(function() { t.style.opacity = '0'; }, ms);
 }
 
+function resetFormState() {
+    // Clear all form data
+    currentCategory = null;
+    currentQuestionId = null;
+    answers = [];
+    turnstileToken = null;
+    isSubmitting = false;
+    
+    // Clear input fields
+    var nameField = document.getElementById('sf-name');
+    var emailField = document.getElementById('sf-email');
+    var orderField = document.getElementById('sf-order');
+    var descField = document.getElementById('sf-desc');
+    if (nameField) nameField.value = '';
+    if (emailField) emailField.value = '';
+    if (orderField) orderField.value = '';
+    if (descField) descField.value = '';
+    
+    // Clear errors
+    var errorIds = ['sf-name-err', 'sf-email-err', 'sf-order-err'];
+    for (var i = 0; i < errorIds.length; i++) {
+        var errEl = document.getElementById(errorIds[i]);
+        if (errEl) errEl.textContent = '';
+    }
+    var inputIds = ['sf-name', 'sf-email', 'sf-order'];
+    for (var i = 0; i < inputIds.length; i++) {
+        var input = document.getElementById(inputIds[i]);
+        if (input) input.classList.remove('sf-input-error');
+    }
+    
+    // Reset Turnstile
+    if (turnstileWidgetId !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
+        try { 
+            turnstile.reset(turnstileWidgetId);
+        } catch(e) {}
+    }
+    
+    var turnstileContainer = document.getElementById('sf-turnstile-container');
+    var turnstileErr = document.getElementById('sf-turnstile-err');
+    if (turnstileContainer) turnstileContainer.classList.remove('sf-input-error');
+    if (turnstileErr) turnstileErr.classList.add('sf-hidden');
+    
+    // Reset to step 1
+    var s1El = document.getElementById('sf-s1');
+    var s2El = document.getElementById('sf-s2');
+    var s3El = document.getElementById('sf-s3');
+    var summaryContainer = document.getElementById('sf-summary-container');
+    if (s1El) s1El.classList.remove('sf-hidden');
+    if (s2El) s2El.classList.add('sf-hidden');
+    if (s3El) s3El.classList.add('sf-hidden');
+    if (summaryContainer) summaryContainer.style.display = 'none';
+    
+    updateProgress(5, (formData.step1Label || 'Step 1: Choose category'));
+}
+
 function showSuccessMessage(message, referenceNumber) {
     var body = document.getElementById('sf-body');
     var successTitle = formData.successTitle || 'Thank You!';
@@ -254,8 +309,17 @@ function showSuccessMessage(message, referenceNumber) {
         '<div class="sf-ref-number" style="font-size:1.2rem;font-weight:700;color:var(--accent);margin:1rem 0;letter-spacing:1px;"><i class="fas fa-ticket-alt"></i> REF: ' + escapeHtml(referenceNumber) + '</div>' +
         '<p style="color:var(--text-muted);margin-bottom:0.75rem;line-height:1.6;">' + escapeHtml(message) + '</p>' +
         '<p style="font-size: 0.85rem; margin-top: 1rem;color:var(--text-muted);">' + escapeHtml(saveReferenceText) + '</p>' +
+        '<button id="sf-new-ticket" style="margin-top:1.5rem;background:var(--accent);color:var(--bg);border:none;padding:10px 24px;border-radius:40px;font-weight:600;cursor:pointer;">➕ Start New Ticket</button>' +
         '</div>';
     body.innerHTML = successHtml;
+    
+    // Add event listener for new ticket button
+    var newTicketBtn = document.getElementById('sf-new-ticket');
+    if (newTicketBtn) {
+        newTicketBtn.onclick = function() {
+            location.reload();
+        };
+    }
     
     setTimeout(function() {
         window.scrollTo(0, 0);
@@ -396,7 +460,7 @@ function showQuestionById(questionId) {
     }
 
     var startOverLabel = formData.startOverLabel || 'Start over';
-    html += '<div style="margin-top:1rem"><button class="sf-reset" style="font-size:.82rem;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:9999px;padding:.35rem .9rem;cursor:pointer;" onclick="sfReset()"><i class="fas fa-undo-alt"></i> ' + startOverLabel + '</button></div>';
+    html += '<div style="margin-top:1rem"><button class="sf-reset" style="font-size:.82rem;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:9999px;padding:.35rem .9rem;cursor:pointer;" onclick="resetFormState()"><i class="fas fa-undo-alt"></i> ' + startOverLabel + '</button></div>';
 
     var s2El = document.getElementById('sf-s2');
     var s1El = document.getElementById('sf-s1');
@@ -453,7 +517,7 @@ function showContactForm() {
     initTurnstile();
 }
 
-function cleanupTurnstile() {
+function destroyTurnstile() {
     if (turnstileWidgetId !== null) {
         try {
             if (typeof turnstile !== 'undefined' && turnstile.remove) {
@@ -463,6 +527,11 @@ function cleanupTurnstile() {
         turnstileWidgetId = null;
     }
     turnstileToken = null;
+    
+    var container = document.getElementById('sf-turnstile-container');
+    if (container) {
+        container.innerHTML = '';
+    }
 }
 
 function initTurnstile() {
@@ -475,20 +544,19 @@ function initTurnstile() {
         return;
     }
     
-    // Wait for Turnstile to be available (loaded by parent SPA)
     if (typeof turnstile === 'undefined') {
         setTimeout(initTurnstile, 200);
         return;
     }
     
-    cleanupTurnstile();
-    container.innerHTML = '';
+    destroyTurnstile();
     container.style.display = 'block';
     
     try {
         turnstileWidgetId = turnstile.render(container, {
             sitekey: TURNSTILE_SITE_KEY,
             theme: 'light',
+            'render': 'explicit',
             callback: function(token) { 
                 turnstileToken = token;
                 var err = document.getElementById('sf-turnstile-err');
@@ -496,7 +564,7 @@ function initTurnstile() {
                     err.textContent = '';
                     err.classList.add('sf-hidden');
                 }
-                container.classList.remove('sf-input-error');
+                if (container) container.classList.remove('sf-input-error');
             },
             'expired-callback': function() { 
                 turnstileToken = null;
@@ -505,16 +573,17 @@ function initTurnstile() {
                     err.textContent = formData.turnstileExpiredError || 'Security verification expired. Please try again.';
                     err.classList.remove('sf-hidden');
                 }
-                container.classList.add('sf-input-error');
+                if (container) container.classList.add('sf-input-error');
             },
             'error-callback': function() { 
                 turnstileToken = null;
                 var err = document.getElementById('sf-turnstile-err');
+                var errorMsg = formData.turnstileFailedError || 'Security verification failed. Please refresh the page.';
                 if (err) {
-                    err.textContent = formData.turnstileFailedError || 'Security verification failed. Please refresh the page.';
+                    err.textContent = errorMsg;
                     err.classList.remove('sf-hidden');
                 }
-                container.classList.add('sf-input-error');
+                if (container) container.classList.add('sf-input-error');
             }
         });
     } catch(e) {
@@ -542,7 +611,6 @@ function validateForm() {
     var emailInput = document.getElementById('sf-email')?.value || '';
     var orderInput = document.getElementById('sf-order')?.value || '';
 
-    // Clear previous errors
     setFieldError('sf-name', 'sf-name-err', '');
     setFieldError('sf-email', 'sf-email-err', '');
     setFieldError('sf-order', 'sf-order-err', '');
@@ -552,13 +620,11 @@ function validateForm() {
     if (turnstileErr) turnstileErr.classList.add('sf-hidden');
     if (turnstileContainer) turnstileContainer.classList.remove('sf-input-error');
 
-    // REQUIRED: Full name
     if (!nameInput.trim()) {
         setFieldError('sf-name', 'sf-name-err', formData.fullNameRequired || 'Full name is required.');
         hasError = true;
     }
     
-    // REQUIRED: Email
     if (!emailInput.trim()) {
         setFieldError('sf-email', 'sf-email-err', formData.emailRequired || 'Email address is required.');
         hasError = true;
@@ -567,7 +633,6 @@ function validateForm() {
         hasError = true;
     }
     
-    // REQUIRED: Order number (digits only)
     if (!orderInput.trim()) {
         setFieldError('sf-order', 'sf-order-err', formData.orderNumberRequired || 'Order number is required.');
         hasError = true;
@@ -576,9 +641,6 @@ function validateForm() {
         hasError = true;
     }
 
-    // COMMENTS: NOT validated - completely optional
-
-    // Turnstile validation (if enabled)
     var turnstileEnabled = TURNSTILE_SITE_KEY && TURNSTILE_SITE_KEY !== '1x00000000000000000000AA';
     if (turnstileEnabled && turnstileWidgetId !== null) {
         if (!turnstileToken) {
@@ -610,9 +672,7 @@ async function sendSupportRequest() {
     if (isSubmitting) return;
     
     var validation = validateForm();
-    if (!validation.valid) {
-        return;
-    }
+    if (!validation.valid) return;
     
     isSubmitting = true;
     var sanitised = validation.sanitised;
@@ -625,9 +685,11 @@ async function sendSupportRequest() {
         submitBtn.textContent = formData.sendingText || 'Sending...';
     }
 
+    // Make a copy of current answers
+    var currentAnswers = answers.slice();
     var troubleshootingSummaries = [];
-    for (var i = 0; i < answers.length; i++) {
-        troubleshootingSummaries.push(answers[i].summary || answers[i].answer);
+    for (var i = 0; i < currentAnswers.length; i++) {
+        troubleshootingSummaries.push(currentAnswers[i].summary || currentAnswers[i].answer);
     }
 
     var additionalComments = [];
@@ -662,6 +724,9 @@ async function sendSupportRequest() {
         });
         
         if (response.ok) {
+            // CRITICAL: Clear all state BEFORE showing success
+            resetFormState();
+            
             if (redirectUrl && redirectUrl.trim()) {
                 window.location.href = redirectUrl;
             } else {
@@ -686,58 +751,13 @@ async function sendSupportRequest() {
             submitBtn.textContent = originalText;
         }
         isSubmitting = false;
-        return;
     }
-    
-    isSubmitting = false;
 }
 
-window.sfReset = function() {
-    currentCategory = null;
-    currentQuestionId = null;
-    answers = [];
-    
-    var s1El = document.getElementById('sf-s1');
-    var s2El = document.getElementById('sf-s2');
-    var s3El = document.getElementById('sf-s3');
-    var summaryContainer = document.getElementById('sf-summary-container');
-    if (s1El) s1El.classList.remove('sf-hidden');
-    if (s2El) s2El.classList.add('sf-hidden');
-    if (s3El) s3El.classList.add('sf-hidden');
-    if (summaryContainer) summaryContainer.style.display = 'none';
-    updateProgress(5, formData.step1Label || 'Step 1: Choose category');
-    
-    document.getElementById('sf-name').value = '';
-    document.getElementById('sf-email').value = '';
-    document.getElementById('sf-order').value = '';
-    document.getElementById('sf-desc').value = '';
-    
-    var errorIds = ['sf-name-err', 'sf-email-err', 'sf-order-err'];
-    for (var i = 0; i < errorIds.length; i++) {
-        var errEl = document.getElementById(errorIds[i]);
-        if (errEl) errEl.textContent = '';
-    }
-    var inputIds = ['sf-name', 'sf-email', 'sf-order'];
-    for (var i = 0; i < inputIds.length; i++) {
-        var input = document.getElementById(inputIds[i]);
-        if (input) input.classList.remove('sf-input-error');
-    }
-    
-    if (turnstileWidgetId !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
-        try { 
-            turnstile.reset(turnstileWidgetId);
-            turnstileToken = null;
-        } catch(e) {}
-    }
-    
-    var turnstileContainer = document.getElementById('sf-turnstile-container');
-    var turnstileErr = document.getElementById('sf-turnstile-err');
-    if (turnstileContainer) turnstileContainer.classList.remove('sf-input-error');
-    if (turnstileErr) turnstileErr.classList.add('sf-hidden');
-    
-    showToast(formData.resetText || 'Session reset', 1500);
-};
+// Make resetFormState globally available
+window.resetFormState = resetFormState;
 
+// Event listeners
 document.addEventListener('click', function(e) { 
     if (e.target.closest('#sf-submit')) { 
         e.preventDefault(); 
@@ -749,6 +769,11 @@ document.addEventListener('input', function(e) {
     if (e.target.id === 'sf-order') {
         e.target.value = e.target.value.replace(/[^0-9]/g, '');
     }
+});
+
+// Clean up on page unload
+window.addEventListener('beforeunload', function() {
+    destroyTurnstile();
 });
 
 loadFormData();
