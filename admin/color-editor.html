@@ -20,7 +20,6 @@
             overflow: hidden;
         }
 
-        /* Sidebar Navigation */
         .sidebar {
             width: 200px;
             background: #112b1e;
@@ -59,7 +58,6 @@
             font-weight: 500;
         }
 
-        /* Main Content */
         .main {
             flex: 1;
             display: flex;
@@ -74,20 +72,30 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
         }
 
         .profile-selector {
             display: flex;
             align-items: center;
             gap: 12px;
+            flex-wrap: wrap;
         }
 
-        .profile-badge {
-            background: rgba(168,213,181,0.15);
+        .profile-dropdown {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #e8f2ec;
             padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
             font-family: monospace;
+        }
+
+        .profile-dropdown option {
+            background: #112b1e;
         }
 
         .save-btn {
@@ -194,13 +202,13 @@
             color: #e8f2ec;
         }
 
-        /* Settings Panel */
         .settings-panel {
             display: none;
             padding: 24px;
             max-width: 600px;
             margin: 0 auto;
             width: 100%;
+            overflow-y: auto;
         }
 
         .settings-panel.active {
@@ -332,7 +340,9 @@
     <div class="main">
         <div class="toolbar">
             <div class="profile-selector">
-                <span class="profile-badge" id="profileBadge">No profile</span>
+                <select id="profileSelect" class="profile-dropdown" disabled>
+                    <option value="">Loading...</option>
+                </select>
             </div>
             <button id="saveAllBtn" class="save-btn" disabled>💾 Save All Changes</button>
         </div>
@@ -577,6 +587,22 @@
             return false;
         }
 
+        function updateProfileDropdown() {
+            const select = document.getElementById('profileSelect');
+            if (!profiles.length) {
+                select.innerHTML = '<option value="">No profiles found</option>';
+                select.disabled = true;
+                return;
+            }
+            
+            select.innerHTML = profiles.map((profile, idx) => 
+                `<option value="${idx}" ${idx === currentProfileIndex ? 'selected' : ''}>
+                    ${profile.name === 'default' ? '🌙 Default (Root)' : '🎨 ' + profile.name}
+                </option>`
+            ).join('');
+            select.disabled = false;
+        }
+
         async function loadCSS() {
             if (!dirHandle) return;
             setStatus('Loading profiles.css...', 'loading');
@@ -594,9 +620,11 @@
                 
                 if (profiles.length === 0) {
                     setStatus('No profiles found in CSS', 'error');
+                    document.getElementById('colorGrid').innerHTML = '<div class="no-data">No profiles found in CSS file</div>';
                     return;
                 }
                 
+                updateProfileDropdown();
                 setStatus(`✅ Loaded ${profiles.length} profiles`, 'success');
                 showToast(`Loaded ${profiles.length} profiles`);
                 loadProfile(0);
@@ -610,6 +638,7 @@
         function parseProfiles(cssText) {
             const profilesList = [];
             
+            // Parse data-theme profiles
             const profileRegex = /\[data-theme="([^"]+)"\]\s*\{([^}]+)\}/g;
             let match;
             while ((match = profileRegex.exec(cssText)) !== null) {
@@ -624,6 +653,7 @@
                 profilesList.push({ name: profileName, colors: colors });
             }
             
+            // Parse :root
             const rootMatch = cssText.match(/:root\s*\{([^}]+)\}/);
             if (rootMatch) {
                 const rootColors = {};
@@ -638,32 +668,25 @@
             return profilesList;
         }
 
-        function renderProfileList() {
-            const badge = document.getElementById('profileBadge');
-            if (currentProfileIndex >= 0 && profiles[currentProfileIndex]) {
-                badge.textContent = profiles[currentProfileIndex].name === 'default' ? '🌙 Default' : `🎨 ${profiles[currentProfileIndex].name}`;
-            } else {
-                badge.textContent = 'No profile';
-            }
-        }
-
         function loadProfile(index) {
+            if (index < 0 || index >= profiles.length) return;
+            
             currentProfileIndex = index;
             const profile = profiles[currentProfileIndex];
             currentColors = { ...profile.colors };
             originalColors = { ...profile.colors };
             
             document.getElementById('saveAllBtn').disabled = false;
+            updateProfileDropdown();
             setStatus(`Editing: ${profile.name}`, 'success');
             
             renderColorCards();
-            renderProfileList();
         }
 
         function renderColorCards() {
             const container = document.getElementById('colorGrid');
             if (!currentColors || Object.keys(currentColors).length === 0) {
-                container.innerHTML = '<div class="no-data">No color variables found</div>';
+                container.innerHTML = '<div class="no-data">No color variables found in this profile</div>';
                 return;
             }
             
@@ -785,6 +808,14 @@
             }
         }
 
+        // Profile dropdown change handler
+        document.getElementById('profileSelect').addEventListener('change', (e) => {
+            const idx = parseInt(e.target.value);
+            if (!isNaN(idx)) {
+                loadProfile(idx);
+            }
+        });
+
         // Navigation
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', () => {
@@ -802,7 +833,7 @@
         document.getElementById('openFolderBtn').addEventListener('click', openAndSaveFolder);
         document.getElementById('saveAllBtn').addEventListener('click', saveAllChanges);
 
-        // Initialize editor view as block, settings as hidden
+        // Initialize
         document.getElementById('editorView').style.display = 'block';
         document.getElementById('settingsView').classList.remove('active');
 
