@@ -23,6 +23,7 @@ export function initSocials() {
             const a = document.createElement('a');
             a.href = item.base + item.user;
             a.target = "_blank";
+            a.rel = "noopener noreferrer";
             a.className = 'social-link';
             a.setAttribute('data-type', item.id);
             a.innerHTML = ICONS[item.id] || ICONS.web;

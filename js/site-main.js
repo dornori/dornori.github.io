@@ -138,6 +138,8 @@ async function init() {
 
     // Countries already fetched and cached by loadAndCacheCountries() above — no second fetch needed
     window.__countries = window.__countriesCache || [];
+    // Signal geo-popup.js that countries data is ready
+    document.dispatchEvent(new CustomEvent('countries:ready'));
 
     await initI18n();
     initNavigation();

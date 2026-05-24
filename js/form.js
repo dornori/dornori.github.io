@@ -48,7 +48,7 @@ async function loadFormData() {
     document.getElementById('loadingIndicator').innerHTML = `
       <i class="fas fa-exclamation-triangle text-3xl text-red-500"></i>
       <p class="mt-2">Failed to load support data.</p>
-      <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-amber-500 text-white rounded-lg">Retry</button>
+      <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-amber-500 text-white rounded-lg">' + (currentData?.ui?.retry || 'Retry') + '</button>
     `;
   }
 }
@@ -68,7 +68,7 @@ function renderCategories() {
 
   showStep('step1');
   updateProgress(5);
-  document.getElementById('progressText').innerHTML = currentData.step1Label || 'Step 1: Choose category';
+  document.getElementById('progressText').innerHTML = currentData?.ui?.step1 || currentData?.step1Label || 'Step 1: Choose category';
 }
 
 function startCategory(category) {
@@ -109,7 +109,7 @@ function renderCurrentQuestion() {
   document.getElementById('troubleshooting').innerHTML = html;
   showStep('troubleshooting');
   updateProgress(45);
-  document.getElementById('progressText').innerHTML = currentData.step2Label || 'Step 2: Troubleshooting';
+  document.getElementById('progressText').innerHTML = currentData?.ui?.step2 || currentData?.step2Label || 'Step 2: Troubleshooting';
 }
 
 window.selectAnswer = function (optionIndex) {
@@ -152,7 +152,7 @@ function showContactForm() {
   document.getElementById('issueDescription').value = summary;
   showStep('contactForm');
   updateProgress(85);
-  document.getElementById('progressText').innerHTML = currentData.step3Label || 'Step 3: Contact support';
+  document.getElementById('progressText').innerHTML = currentData?.ui?.step3 || currentData?.step3Label || 'Step 3: Contact support';
 }
 
 document.getElementById('supportForm')?.addEventListener('submit', async function (e) {
@@ -163,11 +163,11 @@ document.getElementById('supportForm')?.addEventListener('submit', async functio
   const orderNumber = document.getElementById('orderNumber').value.trim();
   const description = document.getElementById('issueDescription').value;
 
-  if (!name || !email) { showToast("Please provide your name and email.", 3000); return; }
+  if (!name || !email) { showToast(currentData?.ui?.validationName || "Please provide your name and email.", 3000); return; }
 
   const submitBtn   = e.target.querySelector('button[type="submit"]');
   const originalText = submitBtn.innerHTML;
-  submitBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> ' + (currentData.sendingText || 'Sending...');
+  submitBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> ' + (currentData?.ui?.sending || currentData?.sendingText || 'Sending...');
   submitBtn.disabled  = true;
 
   const category = currentCategory?.title || 'General';
@@ -183,11 +183,11 @@ document.getElementById('supportForm')?.addEventListener('submit', async functio
         order: orderNumber,
         subject: `Dornori Support: ${category}`,
         message: `Name: ${name}\nEmail: ${email}\nOrder: ${orderNumber || 'N/A'}\nCategory: ${category}\n\nIssue Details:\n${description}`,
-        _autoresponse: "Thank you for contacting Dornori Support. We'll respond within 4 hours."
+        _autoresponse: currentData?.ui?.autoResponse || "Thank you for contacting Dornori Support. We'll respond within 4 hours."
       })
     });
     if (response.ok) {
-      showToast("Support request sent! Check your email for confirmation.", 3000);
+      showToast(currentData?.ui?.successMsg || "Support request sent! Check your email for confirmation.", 3000);
       setTimeout(() => {
         if (typeof window.showResolvedModal === 'function') {
           window.showResolvedModal();
@@ -223,8 +223,8 @@ function resetFullSession() {
   issueSummary = [];
   renderCategories();
   updateProgress(5);
-  document.getElementById('progressText').innerHTML = currentData.step1Label || 'Step 1: Choose category';
-  showToast("Session reset", 1500);
+  document.getElementById('progressText').innerHTML = currentData?.ui?.step1 || currentData?.step1Label || 'Step 1: Choose category';
+  showToast(currentData?.ui?.sessionReset || "Session reset", 1500);
 }
 
 function escapeHtml(str) {
@@ -235,12 +235,15 @@ function escapeHtml(str) {
 window.renderCategories      = renderCategories;
 window.updateProgress        = updateProgress;
 window.resetFullSession      = resetFullSession;
-window.currentCategory       = null;
-window.currentQuestionIndex  = 0;
-window.issueSummary          = [];
+// currentCategory, currentQuestionIndex, issueSummary are module-level vars.
+// Do not shadow them on window — window.x stays null while the real vars update.
 
 window.reloadSupportData = function (lang) {
   window.__SUPPORT_LANG__ = lang;
   loadFormData();
 };
-document.addEventListener('DOMContentLoaded', loadFormData);
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadFormData);
+} else {
+  loadFormData();
+}

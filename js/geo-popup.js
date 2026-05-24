@@ -149,9 +149,12 @@ import SITE_CONFIG from './config.js';
 
   function boot() {
     if (tryInit()) return;
+    // Listen for countries:ready in case site-main.js fires it after we start
+    document.addEventListener('countries:ready', function () { tryInit(); }, { once: true });
+    // Also poll as fallback — 100 attempts × 100ms = 10s max (up from 3s)
     var attempts = 0;
     var timer = setInterval(function () {
-      if (tryInit() || ++attempts > 30) clearInterval(timer);
+      if (tryInit() || ++attempts > 100) clearInterval(timer);
     }, 100);
   }
 

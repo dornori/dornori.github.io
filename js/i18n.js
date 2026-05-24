@@ -49,12 +49,19 @@ export async function loadCountries() {
     return data;
 }
 
+const _langCache = {};
+
 export async function loadLanguage(langCode) {
+    // Return in-memory cache if already loaded for this code
+    if (_langCache[langCode]) return _langCache[langCode];
+
     const url = BASE() + SITE_CONFIG.paths.lang_dir + langCode + '/common.json';
     try {
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.json();
+        const data = await res.json();
+        _langCache[langCode] = data;
+        return data;
     } catch {
         if (langCode !== 'en') return loadLanguage('en');
         return {};

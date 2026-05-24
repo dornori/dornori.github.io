@@ -38,7 +38,10 @@ const Payment = (() => {
   }
 
   function _resolveUrl(path) {
-    return window.location.origin + path;
+    const base = (window.__BASE_PATH__ && window.__BASE_PATH__ !== '/') ? window.__BASE_PATH__ : '';
+    // If path already starts with base, don't double-prefix
+    const resolved = (base && !path.startsWith(base)) ? base + path.replace(/^\//, '') : path;
+    return window.location.origin + resolved;
   }
 
   /* ── PayPal adapter ──────────────────────────────────── */
@@ -54,6 +57,10 @@ const Payment = (() => {
       );
     },
     async render(cart, totals, orderRef, el) {
+      // Use the currently active display currency, not the hardcoded config default
+      const activeCurrency = (typeof Currency !== 'undefined' && Currency.getActive)
+        ? Currency.getActive()
+        : cfg.currency;
       if (!window.paypal) {
         el.innerHTML = `<div style="padding:20px;text-align:center;border:1px dashed var(--c-border);border-radius:var(--radius);color:var(--c-text-3);font-size:0.85rem;line-height:1.6;">
           <strong style="display:block;margin-bottom:6px;">PayPal not loaded</strong>
@@ -143,21 +150,21 @@ const Payment = (() => {
       this._elements = this._instance.elements({ clientSecret, appearance: cfg.appearance });
       el.innerHTML   = `
         <div id="stripe-pe" style="margin-bottom:14px;"></div>
-        <button class="webshop-btn webshop-btn--primary webshop-btn--full" id="stripe-pay">Pay Now</button>
+        <button class="webshop-btn webshop-btn--primary webshop-btn--full" id="stripe-pay">${(window.T && window.T.ui && window.T.ui.payNow) || "Pay Now"}</button>
         <p id="stripe-err" style="color:#c0392b;font-size:0.82rem;margin-top:8px;display:none;"></p>`;
       this._elements.create("payment").mount("#stripe-pe");
 
       const btn = el.querySelector("#stripe-pay");
       const err = el.querySelector("#stripe-err");
       btn.addEventListener("click", async () => {
-        btn.disabled = true; btn.textContent = "Processing…"; err.style.display = "none";
+        btn.disabled = true; btn.textContent = (window.T && window.T.ui && window.T.ui.processing) || "Processing…"; err.style.display = "none";
         const { error } = await this._instance.confirmPayment({
           elements: this._elements,
           confirmParams: { return_url: _resolveUrl(cfg.returnPath) + "?ref=" + orderRef },
         });
         if (error) {
           err.textContent = error.message; err.style.display = "block";
-          btn.disabled = false; btn.textContent = "Pay Now";
+          btn.disabled = false; btn.textContent = (window.T && window.T.ui && window.T.ui.payNow) || "Pay Now";
           _dispatch("payment:error", { orderRef, processor: "stripe", error });
         }
         // success: Stripe redirects to returnUrl
@@ -196,6 +203,11 @@ const Payment = (() => {
   async function switchProcessor(name) {
     if (!_adapters[name]) return;
     _ready = false;
+    // Reset Stripe state so it fully re-initialises if switched back
+    if (_stripe._instance) {
+      _stripe._instance = null;
+      _stripe._elements = null;
+    }
     CONFIG.payment.activeProcessor = name;
     await init();
   }

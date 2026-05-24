@@ -64,6 +64,7 @@ export function mountSlideshow(root) {
             <picture style="width:100%;height:100%;display:block;">
                 <source srcset="${folder}${name}.webp" type="image/webp">
                 <img src="${folder}${name}.jpg"
+                     alt="${name.replace(/-_/g, ' ')}"
                      style="width:100%;height:100%;object-fit:cover;display:block;"
                      draggable="false">
             </picture>`;
@@ -98,6 +99,18 @@ export function mountSlideshow(root) {
     }
 
     startTimer();
+
+    // ── CLEANUP — stop timer when element is removed from DOM ────────────────
+    // Prevents interval leaks during SPA navigation
+    const _obs = new MutationObserver(() => {
+        if (!document.contains(root)) {
+            clearInterval(timer);
+            _obs.disconnect();
+        }
+    });
+    _obs.observe(document.body, { childList: true, subtree: true });
+    // Also expose destroy() for explicit teardown
+    root._slideshowDestroy = () => { clearInterval(timer); _obs.disconnect(); };
 
     // ── DOT INDICATORS ───────────────────────────────────────────────────────
     const dotsWrap = document.createElement('div');
