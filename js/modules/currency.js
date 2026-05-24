@@ -53,15 +53,19 @@ var Currency = (() => {
   async function detectFromIP() {
     try {
       if (!window.__geoData) {
-        // Shared promise prevents duplicate geo API requests (currency + geo-popup race)
+        // Single shared promise — geo-popup.js reuses window.__geoData set here.
+        // Primary: ipapi.co. If blocked (CORS/ad-blocker), fall back silently to null.
         if (!window.__geoDataPromise) {
-          const geoUrl = (typeof ENV_CONFIG !== 'undefined' && ENV_CONFIG.GEO_API) || 'https://ipapi.co/json/';
-          window.__geoDataPromise = fetch(geoUrl).then(r => r.json());
+          const geoUrl = (typeof ENV_CONFIG !== 'undefined' && ENV_CONFIG.GEO_API)
+                         || 'https://ipapi.co/json/';
+          window.__geoDataPromise = fetch(geoUrl, { mode: 'cors' })
+            .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .catch(() => null); // blocked by ad-blocker or CORS — degrade gracefully
         }
         window.__geoData = await window.__geoDataPromise;
       }
       const data = window.__geoData;
-      if (data.currency && _rates[data.currency]) return data.currency;
+      if (data && data.currency && _rates[data.currency]) return data.currency;
     } catch { console.warn('[Currency] IP detect failed.'); }
     return 'EUR';
   }

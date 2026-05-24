@@ -1,6 +1,5 @@
-const CACHE_NAME = 'dornori-v4';
+const CACHE_NAME = 'dornori-v5';
 
-// Only cache static assets that actually exist
 const URLS_TO_CACHE = [
   '/css/variables.css',
   '/css/base.css',
@@ -15,6 +14,11 @@ const URLS_TO_CACHE = [
   '/data/countries.json',
   '/data/shipping.json',
 ];
+
+// Only cache full (non-partial) successful responses
+function isCacheable(response) {
+  return response && response.ok && response.status !== 206;
+}
 
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -40,12 +44,15 @@ self.addEventListener('fetch', event => {
 
   const url = event.request.url;
 
-  // Network-first for data and geo API
-  if (url.includes('/data/') || url.includes('/api/') || url.includes('ipapi.co')) {
+  // Never intercept external API calls — let them go direct (or fail gracefully)
+  if (!url.startsWith(self.location.origin)) return;
+
+  // Network-first for /data/ and /api/
+  if (url.includes('/data/') || url.includes('/api/')) {
     event.respondWith(
       fetch(event.request)
         .then(response => {
-          if (response.ok) {
+          if (isCacheable(response)) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
           }
@@ -61,7 +68,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(event.request)
         .then(response => {
-          if (response.ok) {
+          if (isCacheable(response)) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
           }
@@ -78,7 +85,7 @@ self.addEventListener('fetch', event => {
       caches.match(event.request).then(cached => {
         if (cached) return cached;
         return fetch(event.request).then(response => {
-          if (response.ok) {
+          if (isCacheable(response)) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
           }
@@ -89,5 +96,5 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // HTML pages — network only, no caching
+  // Everything else (HTML, images, etc.) — network only, no caching
 });
