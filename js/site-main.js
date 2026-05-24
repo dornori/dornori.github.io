@@ -8,6 +8,7 @@ import { initI18n } from './i18n.js';
 import { initNavigation }   from './nav-loader.js';
 import { initStickyBanner } from './sticky-banner.js';
 import { initSocials }      from './social-loader.js';
+import { initEmbedForms }   from './embed-form.js';
 import { initPageLoader }   from './page-loader.js';
 import { initFooter }       from './footer-loader.js';
 
@@ -144,6 +145,7 @@ async function init() {
     initStickyBanner();
     initSocials();
     initFooter();
+    initEmbedForms();
     initPageLoader();
 }
 
