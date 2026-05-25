@@ -1489,11 +1489,39 @@ input {
   [data-shop-products] .webshop-card-img-wrap { aspect-ratio: 1 / 1 !important; }
 }
 
+/* ── MOBILE FIX: data-shop-products as grid cells (built / kit / parts pages) ──
+   CSS grid items default to min-width:auto, which lets them expand beyond their
+   1fr column width when their content has intrinsic width > the column.
+   On the shop page the card IS the direct grid child so this is never an issue;
+   on content pages (built/kit/parts) the [data-shop-products] div is the grid
+   child and needs min-width:0 so the grid can actually shrink it to 1fr.
+   width:100% + overflow:hidden on the card ensure it fills and clips cleanly. */
+@media (max-width: 768px) {
+  [data-shop-products] {
+    min-width: 0;
+    overflow: hidden;
+    width: 100%;
+  }
+  [data-shop-products] .webshop-product-card {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 /* --- 11d. Parts page ------------------------------------------------------- */
 
 /* parts page reuses card__part (§7d) and float helpers (§8) */
 
 /* --- 11e. Built page ------------------------------------------------------- */
+
+/* The webshop-grids on built.html have inline style="gap:1rem" which overrides
+   the shop.css mobile gap:12px rule. Force the correct mobile gap here so the
+   two columns fit cleanly within the page-view content area on narrow phones.  */
+@media (max-width: 768px) {
+  #page-content-inner .webshop-grid {
+    gap: 10px !important;
+  }
+}
 
 .built-header { margin-bottom: 1.5rem; }
 .built-header h2 {
@@ -2149,11 +2177,14 @@ input {
   }
 }
 
-/* 2. Ensure full-width page padding on small phones                         */
+/* 2. Ensure full-width page padding on small phones
+   NOTE: Padding removed from .view-inner / #page-content-inner — #page-view
+   already provides clamp(16px,5vw,80px) horizontal padding. The extra padding
+   here created a double-squeeze that caused webshop-grid right columns to
+   overflow and be clipped on built/kit/parts pages (mobile only).            */
 @media (max-width: 480px) {
-  .view-inner,
-  .page-content-inner,
-  #page-content-inner {
+  /* padding omitted on purpose — see note above */
+  .page-content-inner--standalone {
     padding-left: 16px;
     padding-right: 16px;
   }
