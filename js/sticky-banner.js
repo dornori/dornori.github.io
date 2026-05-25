@@ -20,11 +20,13 @@ export function initStickyBanner() {
     const SCROLL_END   = 80;
 
     function onScroll() {
-        const sy = window.scrollY;
-        const t  = Math.min(1, Math.max(0, (sy - SCROLL_START) / (SCROLL_END - SCROLL_START)));
-        logoWrap.style.width     = (8 - 5 * t) + 'vw';
-        wordmark.style.fontSize  = (3.2 - 1.2 * t) + 'vw';
-        header.classList.toggle('header--scrolled', t > 0.5);
+        // Header shrinking on scroll has been removed.
+        // Logo and wordmark now remain at full size regardless of scroll position.
+        // const sy = window.scrollY;
+        // const t  = Math.min(1, Math.max(0, (sy - SCROLL_START) / (SCROLL_END - SCROLL_START)));
+        // logoWrap.style.width     = (8 - 5 * t) + 'vw';
+        // wordmark.style.fontSize  = (3.2 - 1.2 * t) + 'vw';
+        // header.classList.toggle('header--scrolled', t > 0.5);
     }
 
     window.addEventListener('scroll', onScroll, { passive: true });
