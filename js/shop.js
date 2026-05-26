@@ -492,6 +492,12 @@ var Shop = (() => {
       if (badge) { badge.textContent = count; badge.classList.toggle("webshop-cart-icon__badge--hidden", count === 0); }
       renderDropdown();
     }
+    
+    // Hide badge and hover panel on mobile
+    if (window.innerWidth <= 768) {
+      if (wrapper) wrapper.querySelector(".webshop-cart-icon__badge").style.display = "none";
+      if (dropdown) dropdown.style.display = "none";
+    }
 
     updateBadge();
     document.addEventListener("shop:cartUpdated", updateBadge);
