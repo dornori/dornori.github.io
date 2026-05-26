@@ -1235,11 +1235,45 @@ var Shop = (() => {
       if (typeof window.turnstile === "undefined") { resolve(null); return; }
       const sitekey = CONFIG.turnstile?.sitekey || ""; if (!sitekey) { resolve(null); return; }
       containerEl.innerHTML = ""; let resolved = false; let widgetId = null;
-      widgetId = window.turnstile.render(containerEl, { sitekey, theme: "light",
-        callback: tk => { if (!resolved) { resolved=true; resolve(tk); } },
-        "error-callback": () => { if (!resolved) { resolved=true; if (widgetId !== null) window.turnstile.reset(widgetId); reject(new Error("Turnstile failed")); } },
-        "expired-callback": () => { if (!resolved) { resolved=true; if (widgetId !== null) window.turnstile.reset(widgetId); reject(new Error("Turnstile expired")); } },
-      });
+      const isMobile = window.innerWidth <= 768;
+      let retries = 0;
+      const maxRetries = isMobile ? 3 : 1;
+      
+      function attemptRender() {
+        try {
+          widgetId = window.turnstile.render(containerEl, { sitekey, theme: "light",
+            callback: tk => { if (!resolved) { resolved=true; resolve(tk); } },
+            "error-callback": () => { 
+              if (!resolved) { 
+                resolved = true;
+                if (widgetId !== null) {
+                  try { window.turnstile.remove(widgetId); } catch(e) {}
+                }
+                // Retry on mobile
+                if (isMobile && retries < maxRetries) {
+                  retries++;
+                  console.warn(`Turnstile failed on mobile, retrying (${retries}/${maxRetries})...`);
+                  resolved = false;
+                  setTimeout(attemptRender, 500);
+                } else {
+                  reject(new Error("Turnstile failed"));
+                }
+              } 
+            },
+            "expired-callback": () => { if (!resolved) { resolved=true; if (widgetId !== null) window.turnstile.reset(widgetId); reject(new Error("Turnstile expired")); } },
+          });
+        } catch(e) {
+          if (isMobile && retries < maxRetries) {
+            retries++;
+            console.warn(`Turnstile render error on mobile, retrying (${retries}/${maxRetries})...`, e);
+            setTimeout(attemptRender, 500);
+          } else {
+            reject(e);
+          }
+        }
+      }
+      
+      attemptRender();
     });
   }
   

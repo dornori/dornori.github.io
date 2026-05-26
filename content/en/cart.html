@@ -184,7 +184,7 @@
       <div class="webshop-ship-chip">
         🚚 <span data-i18n="estimated_delivery">Estimated delivery</span>: <strong id="cart-delivery-estimate">3–5 business days</strong>
       </div>
-      <div id="cart-captcha-container" style="margin-bottom:14px;min-height:0;"></div>
+      <div id="cart-captcha-container" style="margin-bottom:14px;min-height:65px;"></div>
       <div id="cart-payment-mount"></div>
       <div class="webshop-secure-badge">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -681,6 +681,16 @@
         try {
           await Shop.renderTurnstile(captchaEl);
         } catch(captchaErr) {
+          // On mobile, block if Turnstile is configured but fails
+          if (window.innerWidth <= 768 && CONFIG.turnstile && CONFIG.turnstile.sitekey) {
+            console.error('Turnstile failed on mobile:', captchaErr);
+            mount.innerHTML = '<div style="padding:20px;text-align:center;border:1px dashed var(--c-border,var(--border));border-radius:8px;opacity:.7;font-size:.85rem;line-height:1.6;color:#cc0c39;">' +
+              '<strong style="display:block;margin-bottom:6px;">Security verification failed</strong>' +
+              'The security check could not load. Please refresh and try again.' +
+            '</div>';
+            return;
+          }
+          // On desktop, allow proceeding
           console.warn('Turnstile failed, proceeding without it:', captchaErr);
           if (captchaEl) captchaEl.innerHTML = '';
         }
