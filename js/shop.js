@@ -1278,7 +1278,6 @@ var Shop = (() => {
   }
   
   async function submitOrderDetails(orderRef, formData, cart, captchaEl = null) {
-
     // Validate Turnstile token before submitting to Cloudflare
     if (captchaEl && CONFIG.turnstile && CONFIG.turnstile.sitekey) {
       const token = (typeof window.turnstile !== "undefined") ? window.turnstile.getResponse() : null;
