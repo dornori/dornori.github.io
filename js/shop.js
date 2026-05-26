@@ -1245,11 +1245,11 @@ var Shop = (() => {
   
   async function submitOrderDetails(orderRef, formData, cart, captchaEl = null) {
     // Validate Turnstile token before submitting to Cloudflare
-    if (captchaEl && typeof window.turnstile !== "undefined") {
-      const token = window.turnstile.getResponse();
+    if (captchaEl && CONFIG.turnstile && CONFIG.turnstile.sitekey) {
+      const token = (typeof window.turnstile !== "undefined") ? window.turnstile.getResponse() : null;
       if (!token) {
-        console.warn("Turnstile token not available");
-        return false;
+        console.error("Turnstile validation failed - no token available");
+        throw new Error("Security verification failed. Please complete the Turnstile check.");
       }
     }
     
