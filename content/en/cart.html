@@ -349,16 +349,15 @@
     }
     tbody.innerHTML = cart.map(function(item) {
       var fb = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 72'%3E%3Crect fill='%23ede9e3' width='72' height='72'/%3E%3C/svg%3E";
+      var savingsText = '';
+      if (item.originalPrice) {
+        var saved = (item.originalPrice - item.price) * item.qty;
+        savingsText = '<div style="font-size:.75rem;color:#cc0c39;font-weight:600;">you save ' + item.discount + '%<br>' + Shop.fmt(saved) + '</div>';
+      }
       return '<tr>' +
         '<td><img class="webshop-cart-item-img" src="' + (resolveImg(item.image) || fb) + '" alt="' + item.name + '"></td>' +
         '<td><div class="webshop-cart-item-name">' + item.name + '</div>' +
           '<div class="webshop-cart-item-color">' + (item.selectedColor || item.label || '') + '</div>' +
-          '<div class="webshop-cart-item-price">' + 
-            item.qty + ' × ' + Shop.fmt(item.price) +
-            (item.originalPrice ? ' <s style="opacity:.5;font-size:.85em;">' + Shop.fmt(item.originalPrice) + '</s>' : '') +
-            (item.discount ? ' <span style="color:#cc0c39;font-size:.75em;font-weight:600;">-' + item.discount + '%</span>' : '') +
-          '</div>' +
-          '<div class="webshop-cart-item-total">' + Shop.fmt((parseFloat(item.price)||0) * item.qty) + '</div>' +
         '</td>' +
         '<td><div class="webshop-qty-control">' +
           '<button class="webshop-qty-btn webshop-qty-btn--minus" data-key="' + item.cartKey + '">−</button>' +
@@ -366,9 +365,9 @@
           '<button class="webshop-qty-btn webshop-qty-btn--plus" data-key="' + item.cartKey + '">+</button>' +
         '</div></td>' +
         '<td class="webshop-cart-item-total">' +
+          savingsText +
           (item.originalPrice ? '<s style="opacity:.5;font-size:.85em;display:block;">' + Shop.fmt(item.originalPrice * item.qty) + '</s>' : '') +
           Shop.fmt((parseFloat(item.price)||0) * item.qty) +
-          (item.discount ? ' <span style="color:#cc0c39;font-size:.75em;font-weight:600;white-space:nowrap;">-' + item.discount + '%</span>' : '') +
         '</td>' +
         '<td><button class="webshop-cart-remove" data-key="' + item.cartKey + '">✕</button></td>' +
       '</tr>';
