@@ -349,8 +349,13 @@
     }
     tbody.innerHTML = cart.map(function(item) {
       var fb = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 72'%3E%3Crect fill='%23ede9e3' width='72' height='72'/%3E%3C/svg%3E";
-      var discountLine = (item.discount ? '<div style="color:#cc0c39;font-size:.75em;font-weight:600;">-' + item.discount + '%</div>' : '');
-      var originalPriceLine = (item.originalPrice ? '<s style="opacity:.5;font-size:.85em;">' + Shop.fmt(item.originalPrice * item.qty) + '</s>' : '');
+      var pricingHtml = '';
+      if (item.originalPrice) {
+        pricingHtml = '<div style="font-size:.75em;"><span style="color:#cc0c39;font-weight:600;">-' + item.discount + '%</span> <s style="opacity:.5;">' + Shop.fmt(item.originalPrice * item.qty) + '</s></div>' +
+                      '<div>' + Shop.fmt((parseFloat(item.price)||0) * item.qty) + '</div>';
+      } else {
+        pricingHtml = '<div>' + Shop.fmt((parseFloat(item.price)||0) * item.qty) + '</div>';
+      }
       return '<tr>' +
         '<td><img class="webshop-cart-item-img" src="' + (resolveImg(item.image) || fb) + '" alt="' + item.name + '"></td>' +
         '<td><div class="webshop-cart-item-name">' + item.name + '</div>' +
@@ -362,9 +367,7 @@
           '<button class="webshop-qty-btn webshop-qty-btn--plus" data-key="' + item.cartKey + '">+</button>' +
         '</div></td>' +
         '<td class="webshop-cart-item-total">' +
-          discountLine +
-          originalPriceLine +
-          '<div>' + Shop.fmt((parseFloat(item.price)||0) * item.qty) + '</div>' +
+          pricingHtml +
         '</td>' +
         '<td><button class="webshop-cart-remove" data-key="' + item.cartKey + '">✕</button></td>' +
       '</tr>';
