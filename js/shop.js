@@ -1234,11 +1234,11 @@ var Shop = (() => {
     return new Promise((resolve, reject) => {
       if (typeof window.turnstile === "undefined") { resolve(null); return; }
       const sitekey = CONFIG.turnstile?.sitekey || ""; if (!sitekey) { resolve(null); return; }
-      containerEl.innerHTML = ""; let resolved = false;
-      window.turnstile.render(containerEl, { sitekey, theme: "light",
+      containerEl.innerHTML = ""; let resolved = false; let widgetId = null;
+      widgetId = window.turnstile.render(containerEl, { sitekey, theme: "light",
         callback: tk => { if (!resolved) { resolved=true; resolve(tk); } },
-        "error-callback": () => { if (!resolved) { resolved=true; window.turnstile.reset(containerEl); reject(new Error("Turnstile failed")); } },
-        "expired-callback": () => { if (!resolved) { resolved=true; window.turnstile.reset(containerEl); reject(new Error("Turnstile expired")); } },
+        "error-callback": () => { if (!resolved) { resolved=true; if (widgetId !== null) window.turnstile.reset(widgetId); reject(new Error("Turnstile failed")); } },
+        "expired-callback": () => { if (!resolved) { resolved=true; if (widgetId !== null) window.turnstile.reset(widgetId); reject(new Error("Turnstile expired")); } },
       });
     });
   }

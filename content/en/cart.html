@@ -669,6 +669,16 @@
     mount.innerHTML = '<div style="padding:16px;text-align:center;opacity:.6;font-size:.85rem;">' + T('loading_payment', 'Loading payment…') + '</div>';
     var t = Shop.calculateTotals(cart, isBusiness, formData.country);
     try {
+      // Render Turnstile in cart step 3
+      var captchaEl = document.getElementById('cart-captcha-container');
+      if (captchaEl && typeof Shop !== 'undefined' && typeof Shop.renderTurnstile === 'function') {
+        try {
+          await Shop.renderTurnstile(captchaEl);
+        } catch(captchaErr) {
+          console.warn('Turnstile failed, proceeding without it:', captchaErr);
+          if (captchaEl) captchaEl.innerHTML = '';
+        }
+      }
       await Payment.init();
       await Payment.render(cart, { subtotal: t.subtotal, shipping: t.isFreeShipping ? 0 : t.shipping, tax: t.tax, total: t.total }, orderRef, mount);
     } catch(e) {
