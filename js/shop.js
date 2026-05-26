@@ -1244,6 +1244,15 @@ var Shop = (() => {
   }
   
   async function submitOrderDetails(orderRef, formData, cart, captchaEl = null) {
+    // Validate Turnstile token before submitting to Cloudflare
+    if (captchaEl && typeof window.turnstile !== "undefined") {
+      const token = window.turnstile.getResponse();
+      if (!token) {
+        console.warn("Turnstile token not available");
+        return false;
+      }
+    }
+    
     const totals = calculateTotals(cart, formData.isBusiness, formData.country);
     const cartSummary = cart.map(i=>`${i.qty}× ${i.name}${i.selectedColor?` (${i.selectedColor})`:""} @ ${fmt(i.price)} | ${fmtWeight((i.weight||0)*i.qty)}`).join("\n");
     const filtered = {}; Object.entries(formData).forEach(([k,v]) => { if (v!=null&&v!=="") filtered[k]=v; });
