@@ -1245,14 +1245,11 @@ var Shop = (() => {
   
   async function submitOrderDetails(orderRef, formData, cart, captchaEl = null) {
     const totals = calculateTotals(cart, formData.isBusiness, formData.country);
-    const cartItems = {};
-    cart.forEach((i, idx) => {
-      cartItems[`item_${idx + 1}`] = `${i.qty}× ${i.name}${i.selectedColor ? ` (${i.selectedColor})` : ""} @ ${fmt(i.price)} each | total: ${fmt((parseFloat(i.price)||0)*i.qty)} | weight: ${fmtWeight((i.weight||0)*i.qty)}`;
-    });
+    const items = cart.map(i => `${i.qty}× ${i.name}${i.selectedColor ? ` (${i.selectedColor})` : ""} @ ${fmt(i.price)} each | total: ${fmt((parseFloat(i.price)||0)*i.qty)} | weight: ${fmtWeight((i.weight||0)*i.qty)}`);
     const filtered = {}; Object.entries(formData).forEach(([k,v]) => { if (v!=null&&v!=="") filtered[k]=v; });
     const data = {
       _subject: `New Order ${orderRef}`, order_ref: orderRef, status: "PENDING_PAYMENT",
-      display_currency: CONFIG.currencyCode, ...filtered, ...cartItems,
+      display_currency: CONFIG.currencyCode, ...filtered, items,
       subtotal_eur: "€"+totals.subtotal.toFixed(2), subtotal_display: fmt(totals.subtotal),
       tax: fmt(totals.tax), shipping: totals.isFreeShipping?"FREE":fmt(totals.shipping),
       total_eur: "€"+totals.total.toFixed(2), total_display: fmt(totals.total),
