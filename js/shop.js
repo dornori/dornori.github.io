@@ -174,11 +174,12 @@ var Shop = (() => {
     const originalPrice = discount > 0 ? rawPrice : null;
     const weight = variantId ? variantWeight(product, variantId) : (product.weight || 0);
     const image  = imageOverride || (variantId ? variantImage(product, variantId) : selectedColor ? colorImageSrc(product, selectedColor) : product.image);
-    const label  = variantId ? variantLabel(product, variantId) : selectedColor;
+    const variantLabel  = variantId ? variantLabel(product, variantId) : selectedColor;
+    const productLabel = variantId ? _products[variantId]?.label : product.label;
     const maxQty = variantId ? variantStock(product, variantId) : (product.stock || 99);
     const resolvedName = pName(product) || product.name || product.id;
     if (existing) { existing.qty = Math.min(existing.qty + qty, maxQty || 99); }
-    else cart.push({ ...product, name: resolvedName, cartKey: key, qty, price, originalPrice, discount, weight, image, selectedColor: label, variantId });
+    else cart.push({ ...product, name: resolvedName, cartKey: key, qty, price, originalPrice, discount, weight, image, selectedColor: variantLabel, productLabel: productLabel, variantId });
     saveCart(cart); return cart;
   }
   function removeFromCart(cartKey) { saveCart(getCart().filter(i => i.cartKey !== cartKey)); }
@@ -1246,7 +1247,7 @@ var Shop = (() => {
   async function submitOrderDetails(orderRef, formData, cart, captchaEl = null) {
     const totals = calculateTotals(cart, formData.isBusiness, formData.country);
     const items = cart.map(i => {
-      const label = i.selectedColor ? ` — ${i.selectedColor}` : "";
+      const label = i.productLabel ? ` — ${i.productLabel}` : "";
       return `${i.qty}× ${i.name}${label} @ ${fmt(i.price)} each | total: ${fmt((parseFloat(i.price)||0)*i.qty)} | weight: ${fmtWeight((i.weight||0)*i.qty)}`;
     });
     const filtered = {}; Object.entries(formData).forEach(([k,v]) => { if (v!=null&&v!=="") filtered[k]=v; });
