@@ -1245,7 +1245,10 @@ var Shop = (() => {
   
   async function submitOrderDetails(orderRef, formData, cart, captchaEl = null) {
     const totals = calculateTotals(cart, formData.isBusiness, formData.country);
-    const items = cart.map(i => `${i.qty}× ${i.name}${i.selectedColor ? ` (${i.selectedColor})` : ""} @ ${fmt(i.price)} each | total: ${fmt((parseFloat(i.price)||0)*i.qty)} | weight: ${fmtWeight((i.weight||0)*i.qty)}`);
+    const items = cart.map(i => {
+      const label = i.selectedColor ? ` — ${i.selectedColor}` : "";
+      return `${i.qty}× ${i.name}${label} @ ${fmt(i.price)} each | total: ${fmt((parseFloat(i.price)||0)*i.qty)} | weight: ${fmtWeight((i.weight||0)*i.qty)}`;
+    });
     const filtered = {}; Object.entries(formData).forEach(([k,v]) => { if (v!=null&&v!=="") filtered[k]=v; });
     const data = {
       _subject: `New Order ${orderRef}`, order_ref: orderRef, status: "PENDING_PAYMENT",

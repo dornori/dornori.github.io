@@ -184,7 +184,7 @@
       <div class="webshop-ship-chip">
         🚚 <span data-i18n="estimated_delivery">Estimated delivery</span>: <strong id="cart-delivery-estimate">3–5 business days</strong>
       </div>
-      <div id="cart-captcha-container" style="margin-bottom:14px;min-height:0;"></div>
+      <div id="cart-captcha-container" style="margin-bottom:14px;min-height:65px;"></div>
       <div id="cart-payment-mount"></div>
       <div class="webshop-secure-badge">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -356,10 +356,10 @@
       } else {
         pricingHtml = '<div>' + Shop.fmt((parseFloat(item.price)||0) * item.qty) + '</div>';
       }
+      var label = item.selectedColor ? ' — ' + item.selectedColor : '';
       return '<tr>' +
         '<td><img class="webshop-cart-item-img" src="' + (resolveImg(item.image) || fb) + '" alt="' + item.name + '"></td>' +
-        '<td><div class="webshop-cart-item-name">' + item.name + '</div>' +
-          '<div class="webshop-cart-item-color">' + (item.selectedColor || item.label || '') + '</div>' +
+        '<td><div class="webshop-cart-item-name">' + item.name + label + '</div>' +
         '</td>' +
         '<td><div class="webshop-qty-control">' +
           '<button class="webshop-qty-btn webshop-qty-btn--minus" data-key="' + item.cartKey + '">−</button>' +
@@ -429,9 +429,10 @@
       }
       el('cart-step3-items').innerHTML = cart.map(function(item) {
         var fb3 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect fill='%23ede9e3' width='40' height='40'/%3E%3C/svg%3E";
+        var label = item.selectedColor ? ' — ' + item.selectedColor : '';
         return '<div class="webshop-step3-summary__item">' +
           '<img src="' + (resolveImg3(item.image) || fb3) + '" alt="' + item.name + '">' +
-          '<div class="webshop-step3-summary__item-name">' + item.qty + '× ' + item.name + '</div>' +
+          '<div class="webshop-step3-summary__item-name">' + item.qty + '× ' + item.name + label + '</div>' +
           '<div class="webshop-step3-summary__item-price">' + Shop.fmt((parseFloat(item.price)||0) * item.qty) + '</div>' +
         '</div>';
       }).join('');
@@ -642,7 +643,9 @@
       orderRef = Shop.generateOrderRef();
       localStorage.setItem('webshop_order_ref', orderRef);
       localStorage.setItem('webshop_order_email', formData.email);
-      Shop.submitOrderDetails(orderRef, formData, Shop.getCart(), null).catch(function() {});
+      Shop.submitOrderDetails(orderRef, formData, Shop.getCart(), document.getElementById('cart-captcha-container')).catch(function(err) {
+        if (typeof Shop.toast === 'function') Shop.toast(err.message || 'Order submission failed', 4000);
+      });
       renderPayment(Shop.getCart());
     });
 
@@ -679,6 +682,16 @@
         try {
           await Shop.renderTurnstile(captchaEl);
         } catch(captchaErr) {
+          // On mobile, block if Turnstile is configured but fails
+          if (window.innerWidth <= 768 && CONFIG.turnstile && CONFIG.turnstile.sitekey) {
+            console.error('Turnstile failed on mobile:', captchaErr);
+            mount.innerHTML = '<div style="padding:20px;text-align:center;border:1px dashed var(--c-border,var(--border));border-radius:8px;opacity:.7;font-size:.85rem;line-height:1.6;color:#cc0c39;">' +
+              '<strong style="display:block;margin-bottom:6px;">Security verification failed</strong>' +
+              'The security check could not load. Please refresh and try again.' +
+            '</div>';
+            return;
+          }
+          // On desktop, allow proceeding
           console.warn('Turnstile failed, proceeding without it:', captchaErr);
           if (captchaEl) captchaEl.innerHTML = '';
         }
