@@ -229,7 +229,7 @@ export function initPageLoader() {
             pageView.dataset.loadedLang = lang;
         }
         pageView.classList.remove('hidden');
-        window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
+        document.getElementById('home-view')?.classList.add('hidden'); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
         updateSEO('');
         document.dispatchEvent(new CustomEvent('home:ready'));
     };
@@ -297,6 +297,7 @@ export function initPageLoader() {
                 orig.replaceWith(s);
             });
 
+            document.getElementById('home-view')?.classList.add('hidden');
             pageView.classList.remove('hidden');
             pageContent.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
 
