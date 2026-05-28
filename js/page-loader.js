@@ -148,6 +148,21 @@ function _doWireShopCards(container) {
 export function initPageLoader() {
     const pageView    = document.getElementById('page-view');
     const pageContent = pageView;
+    const main        = document.querySelector('main');
+    const header      = document.getElementById('main-header');
+
+    // ── SYNC HEADER HEIGHT TO MAIN PADDING ───────────────────────────────────
+    function syncHeaderHeight() {
+        if (header && main && window.innerWidth <= 768) {
+            const headerHeight = header.offsetHeight;
+            main.style.paddingTop = headerHeight + 'px';
+        }
+    }
+    
+    // Sync on load and resize
+    window.addEventListener('load', syncHeaderHeight);
+    window.addEventListener('resize', syncHeaderHeight);
+    syncHeaderHeight();
 
     const fallbackLang = () => (SITE_CONFIG.languages && SITE_CONFIG.languages[0] ? SITE_CONFIG.languages[0].code : 'en');
 
