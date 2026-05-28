@@ -212,35 +212,20 @@ export function initPageLoader() {
     // ── LOAD HOME ─────────────────────────────────────────────────────────────
     window.loadHome = async () => {
         const lang = window.LANG || fallbackLang();
-        // Only skip the fetch when English content is already loaded in the correct language.
-        const alreadyPopulated = pageView.querySelector('h2, .slideshow-root, .webshop-product-card');
-        const loadedLang       = pageView.dataset.loadedLang || null;
-        if (alreadyPopulated && loadedLang === lang) {
-            rewriteContentPaths(pageView);
-            pageView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
-
-            wireShopCards(pageView);
-            mountShopEmbeds(pageView);
-            pageView.classList.remove('hidden');
-            window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
-            updateSEO('');
-            document.dispatchEvent(new CustomEvent('home:ready'));
-            return;
-        }
+        const base = SITE_CONFIG.appearance.base_path;
+        
         try {
-            const base = SITE_CONFIG.appearance.base_path;
             const res  = await fetch(`${base}content/${lang}/home.html`);
             if (!res.ok) throw new Error();
             const html = await res.text();
             pageView.innerHTML = html;
-            pageView.dataset.loadedLang = lang;   // ← record which lang is now displayed
-        rewriteContentPaths(pageView);
+            pageView.dataset.loadedLang = lang;
+            rewriteContentPaths(pageView);
             pageView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
-
             wireShopCards(pageView);
             mountShopEmbeds(pageView);
-        } catch {
-            // home.html may not exist for every language yet
+        } catch (err) {
+            if (ENV_CONFIG.DEBUG) console.error('Home load error:', err);
             pageView.dataset.loadedLang = lang;
         }
         pageView.classList.remove('hidden');
