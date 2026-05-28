@@ -159,10 +159,16 @@ export function initPageLoader() {
         }
     }
     
-    // Sync on load and resize
-    window.addEventListener('load', syncHeaderHeight);
+    // Sync after DOM ready and on resize
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(syncHeaderHeight, 50);
+        });
+    } else {
+        setTimeout(syncHeaderHeight, 50);
+    }
     window.addEventListener('resize', syncHeaderHeight);
-    syncHeaderHeight();
+    window.addEventListener('load', syncHeaderHeight);
 
     const fallbackLang = () => (SITE_CONFIG.languages && SITE_CONFIG.languages[0] ? SITE_CONFIG.languages[0].code : 'en');
 

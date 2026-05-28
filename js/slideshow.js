@@ -1,18 +1,21 @@
 /**
- * DORNORI SLIDESHOW ENGINE
+ * DORNORI SLIDESHOW ENGINE — UNIFIED
  *
  * Attributes (all optional except gallery-images):
- *   gallery-size      e.g. "800x400" or "16/9"
- *   gallery-border    "yes" | "no"
- *   gallery-shape     "rounded" | "square"
+ *   gallery-size      e.g. "800x400" or "16/9" (default "16/9")
+ *   gallery-border    "yes" | "no" (default "no")
+ *   gallery-shape     "rounded" | "square" (default "square")
  *   gallery-images    comma-separated image names (no extension)
  *   gallery-folder    URL prefix for images
  *   gallery-interval  milliseconds between auto-advances (default 4000)
+ *   gallery-mode      "auto" | "manual" (default "manual")
+ *   gallery-controls  "dots" | "none" (default "dots")
  *
  * Interactions:
  *   Desktop — click left half to go back, right half to go forward
  *   Mobile  — swipe left/right
  *   Both    — dot indicators clickable, timer resets on any interaction
+ *   Auto    — auto-advances if gallery-mode="auto"
  */
 export function mountSlideshow(root) {
     if (root.getAttribute('ss-mounted')) return;
