@@ -312,7 +312,7 @@ export function initPageLoader() {
                 orig.replaceWith(s);
             });
 
-            pageView.classList.add('hidden');
+            pageView.classList.remove('hidden');
             pageContent.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
 
             wireShopCards(pageContent);
