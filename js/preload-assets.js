@@ -2,6 +2,8 @@
 // Preloads critical assets (video posters + product images) on home page load
 // Easy to add/remove assets by editing arrays below
 
+let _assetsPreloaded = false;
+
 const preloadConfig = {
   // Home page video posters
   videoPosterImages: [
@@ -54,9 +56,15 @@ function preloadAssets(assetPaths, asType = 'image') {
 }
 
 /**
- * Initialize preloading when home page is ready
+ * Initialize preloading - only preload once per session
  */
 function initPreloadAssets() {
+  // Already preloaded in this session, skip
+  if (_assetsPreloaded) return;
+  
+  // Mark as preloaded
+  _assetsPreloaded = true;
+  
   // Preload video posters
   preloadAssets(preloadConfig.videoPosterImages, 'image');
   
@@ -71,6 +79,8 @@ function initPreloadAssets() {
 document.addEventListener('home:ready', initPreloadAssets);
 
 // Also initialize on first load if home is already shown
-if (document.getElementById('home-view') && !document.getElementById('home-view').classList.contains('hidden')) {
-  initPreloadAssets();
+if (!window.__PAGE_SLUG__ || window.__PAGE_SLUG__ === 'home') {
+  if (document.getElementById('page-view') && !document.getElementById('page-view').classList.contains('hidden')) {
+    initPreloadAssets();
+  }
 }
