@@ -10,27 +10,6 @@
 (function() {
   'use strict';
 
-  // Create a reference element to measure safe area
-  const createSafeAreaMeasure = () => {
-    const el = document.createElement('div');
-    el.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      padding-top: env(safe-area-inset-top);
-      padding-left: env(safe-area-inset-left);
-      padding-right: env(safe-area-inset-right);
-      pointer-events: none;
-      visibility: hidden;
-    `;
-    return el;
-  };
-
-  const safeAreaEl = createSafeAreaMeasure();
-
-  // Measure and apply header offset
   function measureAndApply() {
     // Get actual header element
     const mobileNav = document.querySelector('.mobile-nav');
@@ -38,8 +17,6 @@
     const header = mobileNav || mainHeader;
 
     if (!header) {
-      // If header doesn't exist yet, retry
-      requestAnimationFrame(measureAndApply);
       return;
     }
 
@@ -47,14 +24,15 @@
     const rect = header.getBoundingClientRect();
     const headerHeight = Math.round(rect.height);
 
-    // Get safe-area-inset-top
-    const styles = window.getComputedStyle(safeAreaEl);
-    const safeAreaTop = parseFloat(styles.paddingTop) || 0;
+    // Get safe-area-inset-top from computed styles
+    const htmlStyle = window.getComputedStyle(document.documentElement);
+    const safeAreaTop = parseFloat(htmlStyle.getPropertyValue('--safe-area-inset-top')) || 
+                        parseInt(htmlStyle.paddingTop) || 0;
 
     // Total distance from viewport top to content start
     const totalOffset = headerHeight + safeAreaTop;
 
-    // Apply scroll-margin-top to page-view so scroll-into-view has proper spacing
+    // Apply scroll-margin-top to page-view
     const pageView = document.getElementById('page-view');
     if (pageView) {
       pageView.style.scrollMarginTop = totalOffset + 'px';
@@ -63,7 +41,6 @@
     // Apply padding-top to main viewport so content doesn't hide behind header
     const main = document.querySelector('main#viewport');
     if (main) {
-      // Only override on mobile where this is critical
       if (window.innerWidth <= 768) {
         main.style.paddingTop = totalOffset + 'px';
       } else {
@@ -77,32 +54,36 @@
     window.__totalOffset = totalOffset;
   }
 
-  // Measure on load with retries for mobile nav to be populated
-  let retries = 0;
-  function measureWithRetry() {
+  // Wait for DOM and nav to be ready, then measure
+  function init() {
+    // If nav already populated, measure immediately
     const mobileNav = document.querySelector('.mobile-nav');
-    const mainHeader = document.querySelector('#main-header');
-    
-    // For mobile: wait until nav has children (populated)
-    // For desktop: wait until mainHeader exists
-    const navReady = (mobileNav && mobileNav.children.length > 0) || mainHeader;
-    
-    if (!navReady && retries < 50) {
-      retries++;
-      setTimeout(measureWithRetry, 50);
+    if (mobileNav && mobileNav.children.length > 0) {
+      measureAndApply();
       return;
     }
-    
-    measureAndApply();
+
+    // Otherwise wait for nav to be populated
+    let attempts = 0;
+    const checkNav = setInterval(() => {
+      const nav = document.querySelector('.mobile-nav');
+      attempts++;
+
+      if ((nav && nav.children.length > 0) || attempts > 100) {
+        clearInterval(checkNav);
+        measureAndApply();
+      }
+    }, 50);
   }
 
+  // Start after DOM is ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', measureWithRetry);
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    measureWithRetry();
+    init();
   }
 
-  // Re-measure on resize (header might change on orientation change)
+  // Re-measure on resize
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
@@ -120,17 +101,5 @@
       behavior: 'smooth'
     });
   };
-
-  // Intercept scrollIntoView calls on page-view
-  const pageView = document.getElementById('page-view');
-  if (pageView) {
-    const originalScrollIntoView = pageView.scrollIntoView;
-    pageView.scrollIntoView = function(options) {
-      if (!options) options = {};
-      // Use our custom function instead
-      window.scrollToContent(this, 0);
-      return;
-    };
-  }
 
 })();
