@@ -148,7 +148,7 @@ function _doWireShopCards(container) {
 export function initPageLoader() {
     const homeView    = document.getElementById('home-view');
     const pageView    = document.getElementById('page-view');
-    const pageContent = document.getElementById('page-content-inner');
+    const pageContent = pageView;
 
     const fallbackLang = () => (SITE_CONFIG.languages && SITE_CONFIG.languages[0] ? SITE_CONFIG.languages[0].code : 'en');
 
