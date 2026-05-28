@@ -148,27 +148,6 @@ function _doWireShopCards(container) {
 export function initPageLoader() {
     const pageView    = document.getElementById('page-view');
     const pageContent = pageView;
-    const main        = document.querySelector('main');
-    const header      = document.getElementById('main-header');
-
-    // ── SYNC HEADER HEIGHT TO MAIN PADDING ───────────────────────────────────
-    function syncHeaderHeight() {
-        if (header && main && window.innerWidth <= 768) {
-            const headerHeight = header.offsetHeight;
-            main.style.paddingTop = headerHeight + 'px';
-        }
-    }
-    
-    // Sync after DOM ready and on resize
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(syncHeaderHeight, 50);
-        });
-    } else {
-        setTimeout(syncHeaderHeight, 50);
-    }
-    window.addEventListener('resize', syncHeaderHeight);
-    window.addEventListener('load', syncHeaderHeight);
 
     const fallbackLang = () => (SITE_CONFIG.languages && SITE_CONFIG.languages[0] ? SITE_CONFIG.languages[0].code : 'en');
 
@@ -281,11 +260,11 @@ export function initPageLoader() {
     }
 
     // ── VIEW PAGE ────────────────────────────────────────────────────────────
-    window.viewPage = async (slug, productId, fromPopstate = false) => {
+    window.viewPage = async (slug, productId, fromPopstate = false, skipSpinner = false) => {
         const page = SITE_CONFIG.pages[slug];
         if (!page) { if (ENV_CONFIG.DEBUG) console.error(`Page "${slug}" not found in config`); return; }
 
-        showSpinner();
+        if (!skipSpinner) showSpinner();
 
         try {
             const res = await fetch(contentPath(page));
@@ -364,7 +343,8 @@ export function initPageLoader() {
             if (SITE_CONFIG.pages[slug]) {
                 // fromPopstate=true prevents viewPage from pushing a NEW history entry
                 // on top of the one the browser already created for this URL
-                window.viewPage(slug, null, true);
+                // skipSpinner=true since page was server-rendered
+                window.viewPage(slug, null, true, true);
                 return;
             }
         }

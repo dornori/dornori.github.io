@@ -13,14 +13,14 @@ const preloadConfig = {
 
   // UFO and Mushroom product images (add colorways/variants as needed)
   productImages: [
-    '/assets/images/products/ufo-spaceblue.webp',
-    '/assets/images/products/ufo-spacered.webp',
-    '/assets/images/products/ufo-forestgreen.webp',
-    '/assets/images/products/ufo-sunsetgold.webp',
-    '/assets/images/products/mushroom-spaceblue.webp',
-    '/assets/images/products/mushroom-spacered.webp',
-    '/assets/images/products/mushroom-forestgreen.webp',
-    '/assets/images/products/mushroom-sunsetgold.webp',
+    '/assets/images/UFO-product/dornori-UFO-lamp-retracted-color-midnightblack.webp',
+    '/assets/images/UFO-product/dornori-UFO-lamp-retracted-color-redphantom.webp',
+    '/assets/images/UFO-product/dornori-UFO-lamp-retracted-color-silvershadow.webp',
+    '/assets/images/UFO-product/dornori-UFO-lamp-retracted-color-spaceblue.webp',
+    '/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-black-blue.webp',
+    '/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-green-red.webp',
+    '/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-red-red.webp',
+    '/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-white-blue.webp',
   ],
 };
 
