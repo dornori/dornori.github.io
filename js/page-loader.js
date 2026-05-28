@@ -146,7 +146,6 @@ function _doWireShopCards(container) {
 
 
 export function initPageLoader() {
-    const homeView    = document.getElementById('home-view');
     const pageView    = document.getElementById('page-view');
     const pageContent = pageView;
 
@@ -214,17 +213,15 @@ export function initPageLoader() {
     window.loadHome = async () => {
         const lang = window.LANG || fallbackLang();
         // Only skip the fetch when English content is already loaded in the correct language.
-        // After a NL→EN switch homeView holds Dutch content, so we must NOT take this shortcut.
-        const alreadyPopulated = homeView.querySelector('h2, .slideshow-root, .webshop-product-card');
-        const loadedLang       = homeView.dataset.loadedLang || null;
+        const alreadyPopulated = pageView.querySelector('h2, .slideshow-root, .webshop-product-card');
+        const loadedLang       = pageView.dataset.loadedLang || null;
         if (alreadyPopulated && loadedLang === lang) {
-            rewriteContentPaths(homeView);
-            homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
+            rewriteContentPaths(pageView);
+            pageView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
 
-            wireShopCards(homeView);
-            mountShopEmbeds(homeView);
-            homeView.classList.remove('hidden');
-            pageView.classList.add('hidden');
+            wireShopCards(pageView);
+            mountShopEmbeds(pageView);
+            pageView.classList.remove('hidden');
             window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
             updateSEO('');
             document.dispatchEvent(new CustomEvent('home:ready'));
@@ -235,19 +232,18 @@ export function initPageLoader() {
             const res  = await fetch(`${base}content/${lang}/home.html`);
             if (!res.ok) throw new Error();
             const html = await res.text();
-            homeView.innerHTML = html;
-            homeView.dataset.loadedLang = lang;   // ← record which lang is now displayed
-        rewriteContentPaths(homeView);
-            homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
+            pageView.innerHTML = html;
+            pageView.dataset.loadedLang = lang;   // ← record which lang is now displayed
+        rewriteContentPaths(pageView);
+            pageView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
 
-            wireShopCards(homeView);
-            mountShopEmbeds(homeView);
+            wireShopCards(pageView);
+            mountShopEmbeds(pageView);
         } catch {
             // home.html may not exist for every language yet
-            homeView.dataset.loadedLang = lang;
+            pageView.dataset.loadedLang = lang;
         }
-        homeView.classList.remove('hidden');
-        pageView.classList.add('hidden');
+        pageView.classList.remove('hidden');
         window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
         updateSEO('');
         document.dispatchEvent(new CustomEvent('home:ready'));
@@ -260,8 +256,6 @@ export function initPageLoader() {
         el.id = 'page-loading-spinner';
         el.innerHTML = '<div class="page-spinner"></div>';
         pageContent.innerHTML = '';
-        homeView.classList.add('hidden');
-        pageView.classList.remove('hidden');
         pageContent.appendChild(el);
     }
 
@@ -322,8 +316,6 @@ export function initPageLoader() {
 
             wireShopCards(pageContent);
             mountShopEmbeds(pageContent);
-            homeView.classList.add('hidden');
-            pageView.classList.remove('hidden');
             window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
 
             const lang = window.LANG || fallbackLang();
@@ -344,16 +336,12 @@ export function initPageLoader() {
                 <p style="font-family:var(--font-mono);font-size:.8rem;color:var(--muted);">${err.message}</p>
                 <button onclick="window.showHome()">${T.returnHome || 'Return Home'}</button>
             `;
-            homeView.classList.add('hidden');
-            pageView.classList.remove('hidden');
             window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
         }
     };
 
     // ── SHOW HOME ────────────────────────────────────────────────────────────
     window.showHome = () => {
-        pageView.classList.add('hidden');
-        homeView.classList.remove('hidden');
         window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
         const lang    = window.LANG || fallbackLang();
         const base    = SITE_CONFIG.appearance.base_path;
@@ -416,8 +404,6 @@ export function initPageLoader() {
             window.viewPage(e.state.slug, e.state.productId || null, true);
         } else {
             // Restore home view without pushing new history
-            pageView.classList.add('hidden');
-            homeView.classList.remove('hidden');
             window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
             window.loadHome();
             updateSEO('');
