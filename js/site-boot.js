@@ -326,6 +326,7 @@
         { id: 'lang', src: 'js/lang-bridge.js', deps: ['cfg'] },
         { id: 'shop', src: 'js/shop-init.js',   deps: ['lang'] },
         { id: 'main', src: 'js/site-main.js',   module: true },
+        { id: 'preload', src: 'js/preload-assets.js', module: true },
         { id: 'geo',  src: 'js/geo-popup.js',   module: true },
     ]);
 
