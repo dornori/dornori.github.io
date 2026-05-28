@@ -229,7 +229,12 @@ export function initPageLoader() {
             pageView.dataset.loadedLang = lang;
         }
         pageView.classList.remove('hidden');
-        document.getElementById('home-view')?.classList.add('hidden'); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
+        document.getElementById('home-view')?.classList.add('hidden');
+        // Scroll with header offset consideration
+        const offset = window.__totalOffset || 0;
+        window.scrollTo(0, -offset);
+        document.documentElement.scrollTop = -offset;
+        document.body.scrollTop = -offset;
         updateSEO('');
         document.dispatchEvent(new CustomEvent('home:ready'));
     };
@@ -303,7 +308,10 @@ export function initPageLoader() {
 
             wireShopCards(pageContent);
             mountShopEmbeds(pageContent);
-            window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
+            const offset = window.__totalOffset || 0;
+            window.scrollTo(0, -offset);
+            document.documentElement.scrollTop = -offset;
+            document.body.scrollTop = -offset;
 
             const lang = window.LANG || fallbackLang();
             const qs   = productId ? `?id=${productId}` : '';
@@ -323,7 +331,10 @@ export function initPageLoader() {
                 <p style="font-family:var(--font-mono);font-size:.8rem;color:var(--muted);">${err.message}</p>
                 <button onclick="window.showHome()">${T.returnHome || 'Return Home'}</button>
             `;
-            window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
+            const offset = window.__totalOffset || 0;
+            window.scrollTo(0, -offset);
+            document.documentElement.scrollTop = -offset;
+            document.body.scrollTop = -offset;
         }
     };
 
