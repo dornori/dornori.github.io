@@ -77,11 +77,29 @@
     window.__totalOffset = totalOffset;
   }
 
-  // Measure on load
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', measureAndApply);
-  } else {
+  // Measure on load with retries for mobile nav to be populated
+  let retries = 0;
+  function measureWithRetry() {
+    const mobileNav = document.querySelector('.mobile-nav');
+    const mainHeader = document.querySelector('#main-header');
+    
+    // For mobile: wait until nav has children (populated)
+    // For desktop: wait until mainHeader exists
+    const navReady = (mobileNav && mobileNav.children.length > 0) || mainHeader;
+    
+    if (!navReady && retries < 50) {
+      retries++;
+      setTimeout(measureWithRetry, 50);
+      return;
+    }
+    
     measureAndApply();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', measureWithRetry);
+  } else {
+    measureWithRetry();
   }
 
   // Re-measure on resize (header might change on orientation change)
