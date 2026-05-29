@@ -18,7 +18,13 @@
 
   tryUntilApplied();
   document.addEventListener('nav:ready', function () { requestAnimationFrame(apply); });
-  document.addEventListener('home:ready', function () { requestAnimationFrame(apply); });
+  document.addEventListener('home:ready', function () {
+    requestAnimationFrame(function() {
+      var main = document.querySelector('main#viewport');
+      console.log('[header-measure] after home:ready, main.style.paddingTop =', main && main.style.paddingTop);
+      apply();
+    });
+  });
   document.addEventListener('page:ready', function () { requestAnimationFrame(apply); });
   window.addEventListener('resize', apply);
   window.measureHeader = apply;
