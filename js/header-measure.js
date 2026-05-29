@@ -57,7 +57,7 @@
     // Apply scroll-margin-top to page-view so scroll-into-view has proper spacing
     const pageView = document.getElementById('page-view');
     if (pageView) {
-      pageView.style.scrollMarginTop = totalOffset + 'px';
+      pageView.style.scrollMarginTop = totalOffset - 30 + 'px';
     }
 
     // Apply padding-top to main viewport so content doesn't hide behind header
@@ -65,7 +65,7 @@
     if (main) {
       // Only override on mobile where this is critical
       if (window.innerWidth <= 768) {
-        main.style.paddingTop = totalOffset + 'px';
+        main.style.paddingTop = totalOffset - 30 + 'px';
       } else {
         main.style.paddingTop = '';
       }
@@ -83,9 +83,6 @@
   } else {
     measureAndApply();
   }
-
-  // Re-measure after full page load (images/fonts may affect header size)
-  window.addEventListener('load', measureAndApply);
 
   // Re-measure on resize (header might change on orientation change)
   let resizeTimer;
