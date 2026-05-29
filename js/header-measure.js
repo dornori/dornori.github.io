@@ -4,8 +4,8 @@
     if (!nav) return false;
     var rect = nav.getBoundingClientRect();
     var h = rect.bottom - rect.y;
-    console.log('[header-measure] using:', h);
-    if (!h) return false;
+    console.log('[header-measure] children:', nav.children.length, 'h:', h);
+    if (!h || nav.children.length === 0) return false;
     var main = document.querySelector('main#viewport');
     if (main) main.style.paddingTop = h + 'px';
     window.__totalOffset = h;
