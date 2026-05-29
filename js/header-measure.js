@@ -29,8 +29,8 @@
     const safeAreaTop = parseFloat(htmlStyle.getPropertyValue('--safe-area-inset-top')) || 
                         parseInt(htmlStyle.paddingTop) || 0;
 
-    // Total distance from viewport top to content start
-    const totalOffset = headerHeight + safeAreaTop;
+    // Total distance from viewport top to content start (minus 2px for perfect alignment)
+    const totalOffset = headerHeight + safeAreaTop - 2;
 
     // Apply scroll-margin-top to page-view
     const pageView = document.getElementById('page-view');
