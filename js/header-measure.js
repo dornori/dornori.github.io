@@ -43,9 +43,9 @@
       return;
     }
 
-    // Get real computed height of header; subtract 30px to account for logo div overflow
+    // Get real computed height of header
     const rect = header.getBoundingClientRect();
-    const headerHeight = Math.round(rect.height) - 30;
+    const headerHeight = Math.round(rect.height);
 
     // Get safe-area-inset-top
     const styles = window.getComputedStyle(safeAreaEl);
