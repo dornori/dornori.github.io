@@ -13,25 +13,6 @@
 (function () {
   'use strict';
 
-  // Measure safe-area-inset-top via a temporary attached element
-  function getSafeAreaTop() {
-    var el = document.createElement('div');
-    el.style.cssText = [
-      'position:fixed',
-      'top:0',
-      'left:0',
-      'width:1px',
-      'height:1px',
-      'padding-top:env(safe-area-inset-top,0px)',
-      'pointer-events:none',
-      'visibility:hidden',
-    ].join(';');
-    document.body.appendChild(el);
-    var val = parseFloat(window.getComputedStyle(el).paddingTop) || 0;
-    document.body.removeChild(el);
-    return val;
-  }
-
   function measureAndApply() {
     var header = document.querySelector('.mobile-nav') || document.getElementById('main-header');
     if (!header) return;
@@ -40,12 +21,13 @@
     // If header has no height yet, bail — we'll be called again via nav:ready
     if (headerHeight === 0) return;
 
-    var safeAreaTop  = getSafeAreaTop();
-    var totalOffset  = headerHeight + safeAreaTop;
+    // getBoundingClientRect().height already includes the nav's own
+    // padding-top:env(safe-area-inset-top), so don't add it again.
+    var totalOffset  = headerHeight;
 
     // Store for page-loader scroll calls
     window.__headerHeight = headerHeight;
-    window.__safeAreaTop  = safeAreaTop;
+    window.__safeAreaTop  = 0;
     window.__totalOffset  = totalOffset;
 
     // Push content below fixed header on mobile
