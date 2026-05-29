@@ -57,7 +57,7 @@
     // Apply scroll-margin-top to page-view so scroll-into-view has proper spacing
     const pageView = document.getElementById('page-view');
     if (pageView) {
-      pageView.style.scrollMarginTop = totalOffset + 'px';
+      pageView.style.scrollMarginTop = totalOffset - 30 + 'px';
     }
 
     // Apply padding-top to main viewport so content doesn't hide behind header
