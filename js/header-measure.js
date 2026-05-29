@@ -11,7 +11,14 @@
     window.__totalOffset = h;
   }
 
-  document.addEventListener('nav:ready', function () { requestAnimationFrame(apply); });
+  // Try immediately in case nav:ready already fired before this script loaded
+  apply();
+
+  // Also listen for nav:ready in case we loaded first
+  document.addEventListener('nav:ready', function () {
+    requestAnimationFrame(apply);
+  });
+
   window.addEventListener('resize', apply);
   window.addEventListener('load', apply);
   window.measureHeader = apply;
