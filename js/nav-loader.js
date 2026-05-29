@@ -114,6 +114,18 @@ window.renderNav = () => {
     const mobileNav = document.getElementById('mobile-nav');
     if (mobileNav) {
         mobileNav.innerHTML = '';
+
+        // Logo in mobile nav
+        const logoWrap = document.createElement('div');
+        logoWrap.className = 'mobile-nav-logo';
+        logoWrap.onclick = () => window.showHome && window.showHome();
+        const logoImg = document.getElementById('banner-img');
+        const basePath = SITE_CONFIG.appearance.base_path;
+        logoWrap.innerHTML = `
+            <img src="${basePath}assets/images/dornori-logo-transparent.webp" alt="Dornori" class="billboard-logo">
+            <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
+        `;
+        mobileNav.appendChild(logoWrap);
         SITE_CONFIG.navigation.forEach(item => {
             if (!item.enabled) return;
             const t = T.nav?.[item.slug] || {};
