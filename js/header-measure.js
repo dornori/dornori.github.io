@@ -29,6 +29,7 @@
   };
 
   const safeAreaEl = createSafeAreaMeasure();
+  document.body.appendChild(safeAreaEl);
 
   // Measure and apply header offset
   function measureAndApply() {
