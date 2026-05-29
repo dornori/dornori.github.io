@@ -1,21 +1,20 @@
 (function () {
-  var applied = false;
-
   function apply() {
     var nav = document.querySelector('.mobile-nav') || document.getElementById('main-header');
     if (!nav) return false;
-    var bottom = nav.getBoundingClientRect().bottom;
+    var rect = nav.getBoundingClientRect();
+    console.log('[header-measure] nav rect:', JSON.stringify(rect.toJSON()), 'bottom:', rect.bottom, 'height:', rect.height);
+    var bottom = rect.bottom;
     if (!bottom) return false;
     var main = document.querySelector('main#viewport');
-    if (main) main.style.paddingTop = bottom + 'px';
-    var pv = document.getElementById('page-view');
-    if (pv) pv.style.scrollMarginTop = bottom + 'px';
+    if (main) {
+      console.log('[header-measure] setting paddingTop to', bottom + 'px', '(was:', main.style.paddingTop, ')');
+      main.style.paddingTop = bottom + 'px';
+    }
     window.__totalOffset = bottom;
-    applied = true;
     return true;
   }
 
-  // Keep retrying until we get a real measurement
   function tryUntilApplied() {
     if (!apply()) requestAnimationFrame(tryUntilApplied);
   }
