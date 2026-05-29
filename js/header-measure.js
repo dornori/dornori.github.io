@@ -65,7 +65,7 @@
     if (main) {
       // Only override on mobile where this is critical
       if (window.innerWidth <= 768) {
-        main.style.paddingTop = totalOffset + 'px';
+        main.style.paddingTop = totalOffset - 30 + 'px';
       } else {
         main.style.paddingTop = '';
       }
