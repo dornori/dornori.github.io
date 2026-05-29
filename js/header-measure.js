@@ -2,16 +2,11 @@
   function apply() {
     var nav = document.querySelector('.mobile-nav') || document.getElementById('main-header');
     if (!nav) return false;
-    var rect = nav.getBoundingClientRect();
-    console.log('[header-measure] nav rect:', JSON.stringify(rect.toJSON()), 'bottom:', rect.bottom, 'height:', rect.height);
-    var bottom = rect.bottom;
-    if (!bottom) return false;
+    var h = nav.getBoundingClientRect().height;
+    if (!h) return false;
     var main = document.querySelector('main#viewport');
-    if (main) {
-      console.log('[header-measure] setting paddingTop to', bottom + 'px', '(was:', main.style.paddingTop, ')');
-      main.style.paddingTop = bottom + 'px';
-    }
-    window.__totalOffset = bottom;
+    if (main) main.style.paddingTop = h + 'px';
+    window.__totalOffset = h;
     return true;
   }
 
@@ -21,6 +16,8 @@
 
   tryUntilApplied();
   document.addEventListener('nav:ready', function () { requestAnimationFrame(apply); });
+  document.addEventListener('home:ready', function () { requestAnimationFrame(apply); });
+  document.addEventListener('page:ready', function () { requestAnimationFrame(apply); });
   window.addEventListener('resize', apply);
   window.measureHeader = apply;
 })();
