@@ -3,10 +3,8 @@
     var nav = document.querySelector('.mobile-nav') || document.getElementById('main-header');
     if (!nav) return false;
     var rect = nav.getBoundingClientRect();
-    var h = rect.bottom - rect.top - rect.y + rect.top;
-    // bottom minus where it actually starts from viewport top
-    h = rect.bottom - Math.max(0, rect.y);
-    console.log('[header-measure] rect.y:', rect.y, 'rect.bottom:', rect.bottom, 'rect.height:', rect.height, '=> using:', h);
+    var h = rect.bottom - rect.y;
+    console.log('[header-measure] using:', h);
     if (!h) return false;
     var main = document.querySelector('main#viewport');
     if (main) main.style.paddingTop = h + 'px';
