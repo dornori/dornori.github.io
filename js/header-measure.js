@@ -10,71 +10,51 @@
 (function() {
   'use strict';
 
-  // Create a reference element to measure safe area
-  const createSafeAreaMeasure = () => {
-    const el = document.createElement('div');
-    el.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      padding-top: env(safe-area-inset-top);
-      padding-left: env(safe-area-inset-left);
-      padding-right: env(safe-area-inset-right);
-      pointer-events: none;
-      visibility: hidden;
-    `;
-    return el;
-  };
-
-  const safeAreaEl = createSafeAreaMeasure();
-
   // Measure and apply header offset
   function measureAndApply() {
-    // Get actual header element
-    const mobileNav = document.querySelector('.mobile-nav');
-    const mainHeader = document.querySelector('#main-header');
-    const header = mobileNav || mainHeader;
+    if (window.innerWidth > 768) {
+      // Desktop: clear any mobile overrides
+      const main = document.querySelector('main#viewport');
+      if (main) main.style.paddingTop = '';
+      return;
+    }
 
-    if (!header) {
-      // If header doesn't exist yet, retry
+    const mainHeader = document.querySelector('#main-header');
+    const mobileNav  = document.querySelector('.mobile-nav');
+
+    if (!mainHeader || !mobileNav) {
       requestAnimationFrame(measureAndApply);
       return;
     }
 
-    // Get real computed height of header; subtract 30px to account for logo div overflow
-    const rect = header.getBoundingClientRect();
-    const headerHeight = Math.round(rect.height) - 46.5;
+    // Step 1: measure the logo header height (includes safe-area-inset-top)
+    const headerRect   = mainHeader.getBoundingClientRect();
+    const headerHeight = Math.ceil(headerRect.height);
 
-    // Get safe-area-inset-top
-    const styles = window.getComputedStyle(safeAreaEl);
-    const safeAreaTop = parseFloat(styles.paddingTop) || 0;
+    // Step 2: push mobile-nav down so it sits directly below the logo header
+    document.documentElement.style.setProperty('--mobile-header-height', headerHeight + 'px');
 
-    // Total distance from viewport top to content start
-    const totalOffset = headerHeight + safeAreaTop;
+    // Step 3: after layout settles, measure the bottom of the mobile nav bar
+    requestAnimationFrame(() => {
+      const navRect    = mobileNav.getBoundingClientRect();
+      const totalOffset = Math.ceil(navRect.bottom);
 
-    // Apply scroll-margin-top to page-view so scroll-into-view has proper spacing
-    const pageView = document.getElementById('page-view');
-    if (pageView) {
-      pageView.style.scrollMarginTop = totalOffset + 'px';
-    }
-
-    // Apply padding-top to main viewport so content doesn't hide behind header
-    const main = document.querySelector('main#viewport');
-    if (main) {
-      // Only override on mobile where this is critical
-      if (window.innerWidth <= 768) {
+      // Apply padding-top to main so content starts below the full fixed header
+      const main = document.querySelector('main#viewport');
+      if (main) {
         main.style.paddingTop = totalOffset + 'px';
-      } else {
-        main.style.paddingTop = '';
       }
-    }
 
-    // Store for use in scroll functions
-    window.__headerHeight = headerHeight;
-    window.__safeAreaTop = safeAreaTop;
-    window.__totalOffset = totalOffset;
+      const pageView = document.getElementById('page-view');
+      if (pageView) {
+        pageView.style.scrollMarginTop = totalOffset + 'px';
+      }
+
+      window.__headerHeight = headerHeight;
+      window.__safeAreaTop  = 0; // already baked into headerHeight via env()
+      window.__totalOffset  = totalOffset;
+      document.documentElement.style.setProperty('--mobile-total-offset', totalOffset + 'px');
+    });
   }
 
   // Measure on load
