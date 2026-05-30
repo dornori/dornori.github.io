@@ -12,49 +12,38 @@
 
   // Measure and apply header offset
   function measureAndApply() {
+    const mobileNav  = document.querySelector('.mobile-nav');
+    const mainHeader = document.querySelector('#main-header');
+
     if (window.innerWidth > 768) {
-      // Desktop: clear any mobile overrides
+      // Desktop: clear mobile overrides
       const main = document.querySelector('main#viewport');
       if (main) main.style.paddingTop = '';
       return;
     }
 
-    const mainHeader = document.querySelector('#main-header');
-    const mobileNav  = document.querySelector('.mobile-nav');
-
-    if (!mainHeader || !mobileNav) {
+    const header = mobileNav || mainHeader;
+    if (!header) {
       requestAnimationFrame(measureAndApply);
       return;
     }
 
-    // Step 1: measure the logo header height (includes safe-area-inset-top)
-    const headerRect   = mainHeader.getBoundingClientRect();
-    const headerHeight = Math.ceil(headerRect.height);
+    // .mobile-nav is fixed at top:0 — its bottom edge IS the total offset needed
+    const rect        = header.getBoundingClientRect();
+    const totalOffset = Math.ceil(rect.bottom);
 
-    // Step 2: push mobile-nav down so it sits directly below the logo header
-    document.documentElement.style.setProperty('--mobile-header-height', headerHeight + 'px');
+    // Apply padding-top to main so content starts below the fixed nav
+    const main = document.querySelector('main#viewport');
+    if (main) main.style.paddingTop = totalOffset + 'px';
 
-    // Step 3: after layout settles, measure the bottom of the mobile nav bar
-    requestAnimationFrame(() => {
-      const navRect    = mobileNav.getBoundingClientRect();
-      const totalOffset = Math.ceil(navRect.bottom);
+    // Apply scroll-margin-top to page-view
+    const pageView = document.getElementById('page-view');
+    if (pageView) pageView.style.scrollMarginTop = totalOffset + 'px';
 
-      // Apply padding-top to main so content starts below the full fixed header
-      const main = document.querySelector('main#viewport');
-      if (main) {
-        main.style.paddingTop = totalOffset + 'px';
-      }
-
-      const pageView = document.getElementById('page-view');
-      if (pageView) {
-        pageView.style.scrollMarginTop = totalOffset + 'px';
-      }
-
-      window.__headerHeight = headerHeight;
-      window.__safeAreaTop  = 0; // already baked into headerHeight via env()
-      window.__totalOffset  = totalOffset;
-      document.documentElement.style.setProperty('--mobile-total-offset', totalOffset + 'px');
-    });
+    // Store for scroll helpers
+    window.__headerHeight = totalOffset;
+    window.__safeAreaTop  = 0;
+    window.__totalOffset  = totalOffset;
   }
 
   // Measure on load
