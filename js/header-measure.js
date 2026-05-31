@@ -43,12 +43,33 @@
       return;
     }
 
-    // Measure .mobile-nav minus #main-header height to get true content offset
+    // Measure all candidate elements so we can identify which matches reality
     const rect = header.getBoundingClientRect();
-    const mainHeaderHeight = mainHeader ? mainHeader.getBoundingClientRect().height : 0;
     const navHeight = rect.height;
-    const headerHeight = navHeight - mainHeaderHeight;
-    console.log('[header-measure] navHeight:', navHeight, 'mainHeaderHeight:', mainHeaderHeight, 'headerHeight:', headerHeight);
+
+    const elMainHeader    = document.querySelector('#main-header');
+    const elLogoWrap      = document.querySelector('.billboard-logo-wrap');
+    const elLogoImg       = document.querySelector('.billboard-logo');
+    const elTopNav        = document.querySelector('.top-nav');
+    const elMobileNavItem = document.querySelector('.mobile-nav-item');
+    const elMobileNavIcon = document.querySelector('.mobile-nav-icon');
+
+    const hMainHeader    = elMainHeader    ? elMainHeader.getBoundingClientRect().height    : 'n/a';
+    const hLogoWrap      = elLogoWrap      ? elLogoWrap.getBoundingClientRect().height      : 'n/a';
+    const hLogoImg       = elLogoImg       ? elLogoImg.getBoundingClientRect().height       : 'n/a';
+    const hTopNav        = elTopNav        ? elTopNav.getBoundingClientRect().height        : 'n/a';
+    const hMobileNavItem = elMobileNavItem ? elMobileNavItem.getBoundingClientRect().height : 'n/a';
+    const hMobileNavIcon = elMobileNavIcon ? elMobileNavIcon.getBoundingClientRect().height : 'n/a';
+
+    console.log('[header-measure] navHeight:', navHeight);
+    console.log('[header-measure] #main-header:', hMainHeader);
+    console.log('[header-measure] .billboard-logo-wrap:', hLogoWrap);
+    console.log('[header-measure] .billboard-logo (img):', hLogoImg);
+    console.log('[header-measure] .top-nav:', hTopNav);
+    console.log('[header-measure] .mobile-nav-item:', hMobileNavItem);
+    console.log('[header-measure] .mobile-nav-icon:', hMobileNavIcon);
+
+    const headerHeight = Math.round(rect.height) - 46.5;
 
     // Get safe-area-inset-top
     const styles = window.getComputedStyle(safeAreaEl);
@@ -56,7 +77,6 @@
 
     // Total distance from viewport top to content start
     const totalOffset = headerHeight + safeAreaTop;
-    console.log('[header-measure] safeAreaTop:', safeAreaTop, 'totalOffset:', totalOffset);
 
     // Apply scroll-margin-top to page-view so scroll-into-view has proper spacing
     const pageView = document.getElementById('page-view');
