@@ -43,13 +43,28 @@
       return;
     }
 
-    // Calculate: .mobile-nav height minus .billboard-logo-wrap height (measured after image loads)
+    // Wait for logo image to fully load before measuring anything
     const logoImg = document.querySelector('.billboard-logo');
     const measure = () => {
-      const navHeight = header.getBoundingClientRect().height;
+      const logAll = (label) => {
+        console.log('[header-measure] --- ' + label + ' ---');
+        console.log('[header-measure] .mobile-nav:', document.querySelector('.mobile-nav')?.getBoundingClientRect().height);
+        console.log('[header-measure] #main-header:', document.querySelector('#main-header')?.getBoundingClientRect().height);
+        console.log('[header-measure] .billboard-logo-wrap:', document.querySelector('.billboard-logo-wrap')?.getBoundingClientRect().height);
+        console.log('[header-measure] .billboard-logo (img):', document.querySelector('.billboard-logo')?.getBoundingClientRect().height);
+        console.log('[header-measure] .billboard-wordmark:', document.querySelector('.billboard-wordmark')?.getBoundingClientRect().height);
+        console.log('[header-measure] .top-nav:', document.querySelector('.top-nav')?.getBoundingClientRect().height);
+        console.log('[header-measure] .cart-icon-header-slot:', document.querySelector('.cart-icon-header-slot')?.getBoundingClientRect().height);
+        console.log('[header-measure] .mobile-nav-item (first):', document.querySelector('.mobile-nav-item')?.getBoundingClientRect().height);
+        console.log('[header-measure] .mobile-nav-icon (first):', document.querySelector('.mobile-nav-icon')?.getBoundingClientRect().height);
+        console.log('[header-measure] .mobile-nav-label (first):', document.querySelector('.mobile-nav-label')?.getBoundingClientRect().height);
+      };
+      logAll('after logo load');
+
+      const navHeight = document.querySelector('.mobile-nav')?.getBoundingClientRect().height || 0;
       const logoWrapHeight = document.querySelector('.billboard-logo-wrap')?.getBoundingClientRect().height || 0;
       const headerHeight = navHeight - logoWrapHeight;
-      console.log('[header-measure] navHeight:', navHeight, '- logoWrapHeight:', logoWrapHeight, '= headerHeight:', headerHeight);
+      console.log('[header-measure] RESULT: navHeight:', navHeight, '- logoWrapHeight:', logoWrapHeight, '= headerHeight:', headerHeight);
 
       // Get safe-area-inset-top
       const styles = window.getComputedStyle(safeAreaEl);
