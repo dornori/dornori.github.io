@@ -48,6 +48,7 @@
     const navItem = header.querySelector('.mobile-nav-item');
     const navItemHeight = navItem ? Math.round(navItem.getBoundingClientRect().height) : 46.5;
     const headerHeight = Math.round(rect.height) - navItemHeight;
+    console.log('[header-measure] navHeight:', Math.round(rect.height), 'navItemHeight:', navItemHeight, 'headerHeight:', headerHeight);
 
     // Get safe-area-inset-top
     const styles = window.getComputedStyle(safeAreaEl);
@@ -55,6 +56,7 @@
 
     // Total distance from viewport top to content start
     const totalOffset = headerHeight + safeAreaTop;
+    console.log('[header-measure] safeAreaTop:', safeAreaTop, 'totalOffset:', totalOffset);
 
     // Apply scroll-margin-top to page-view so scroll-into-view has proper spacing
     const pageView = document.getElementById('page-view');
