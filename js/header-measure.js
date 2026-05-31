@@ -43,13 +43,13 @@
       return;
     }
 
-    // Measure nav total height minus logo wrap height
+    // Measure .mobile-nav height minus .mobile-nav-item height to get true content offset
     const rect = header.getBoundingClientRect();
-    const logoWrap = document.querySelector('.billboard-logo-wrap');
-    const logoWrapHeight = logoWrap ? Math.round(logoWrap.getBoundingClientRect().height) : 0;
+    const navItem = document.querySelector('.mobile-nav-item');
+    const navItemHeight = navItem ? Math.round(navItem.getBoundingClientRect().height) : 0;
     const navHeight = Math.round(rect.height);
-    const headerHeight = navHeight - logoWrapHeight;
-    console.log('[header-measure] navHeight:', navHeight, 'logoWrapHeight:', logoWrapHeight, 'headerHeight:', headerHeight);
+    const headerHeight = navHeight - navItemHeight;
+    console.log('[header-measure] navHeight:', navHeight, 'navItemHeight:', navItemHeight, 'headerHeight:', headerHeight);
 
     // Get safe-area-inset-top
     const styles = window.getComputedStyle(safeAreaEl);
