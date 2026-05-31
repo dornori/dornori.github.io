@@ -96,9 +96,9 @@
     };
 
     if (logoImg && !logoImg.complete) {
-      logoImg.addEventListener('load', measure, { once: true });
+      logoImg.addEventListener('load', () => requestAnimationFrame(measure), { once: true });
     } else {
-      measure();
+      requestAnimationFrame(measure);
     }
   }
 
