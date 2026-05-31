@@ -43,49 +43,55 @@
       return;
     }
 
-    // Get real computed height of header; subtract logo wrap height once image is fully loaded
-    const logoImg = document.querySelector('.billboard-logo');
+    // Get real computed height of header; subtract 30px to account for logo div overflow
+    const rect = header.getBoundingClientRect();
+    const headerHeight = Math.round(rect.height) - 46.5;
 
-    const doMeasure = () => {
-      const navHeight = header.getBoundingClientRect().height;
-      const logoWrapHeight = document.querySelector('.billboard-logo-wrap').getBoundingClientRect().height;
-      const headerHeight = navHeight - logoWrapHeight;
-      console.log('[header-measure] navHeight:', navHeight, 'logoWrapHeight:', logoWrapHeight, 'headerHeight:', headerHeight);
-
-      // Get safe-area-inset-top
-      const styles = window.getComputedStyle(safeAreaEl);
-      const safeAreaTop = parseFloat(styles.paddingTop) || 0;
-
-      // Total distance from viewport top to content start
-      const totalOffset = headerHeight + safeAreaTop;
-
-      // Apply scroll-margin-top to page-view so scroll-into-view has proper spacing
-      const pageView = document.getElementById('page-view');
-      if (pageView) {
-        pageView.style.scrollMarginTop = totalOffset + 'px';
-      }
-
-      // Apply padding-top to main viewport so content doesn't hide behind header
-      const main = document.querySelector('main#viewport');
-      if (main) {
-        if (window.innerWidth <= 768) {
-          main.style.paddingTop = totalOffset + 'px';
-        } else {
-          main.style.paddingTop = '';
-        }
-      }
-
-      // Store for use in scroll functions
-      window.__headerHeight = headerHeight;
-      window.__safeAreaTop = safeAreaTop;
-      window.__totalOffset = totalOffset;
+    const logAll = (label) => {
+      console.log('[header-measure] --- ' + label + ' ---');
+      console.log('[header-measure] .mobile-nav:', document.querySelector('.mobile-nav')?.getBoundingClientRect().height);
+      console.log('[header-measure] #main-header:', document.querySelector('#main-header')?.getBoundingClientRect().height);
+      console.log('[header-measure] .billboard-logo-wrap:', document.querySelector('.billboard-logo-wrap')?.getBoundingClientRect().height);
+      console.log('[header-measure] .billboard-logo (img):', document.querySelector('.billboard-logo')?.getBoundingClientRect().height);
+      console.log('[header-measure] .billboard-wordmark:', document.querySelector('.billboard-wordmark')?.getBoundingClientRect().height);
+      console.log('[header-measure] .top-nav:', document.querySelector('.top-nav')?.getBoundingClientRect().height);
+      console.log('[header-measure] .cart-icon-header-slot:', document.querySelector('.cart-icon-header-slot')?.getBoundingClientRect().height);
+      console.log('[header-measure] .mobile-nav-item (first):', document.querySelector('.mobile-nav-item')?.getBoundingClientRect().height);
+      console.log('[header-measure] .mobile-nav-icon (first):', document.querySelector('.mobile-nav-icon')?.getBoundingClientRect().height);
+      console.log('[header-measure] .mobile-nav-label (first):', document.querySelector('.mobile-nav-label')?.getBoundingClientRect().height);
     };
 
-    if (logoImg && !logoImg.complete) {
-      logoImg.addEventListener('load', doMeasure, { once: true });
-    } else {
-      doMeasure();
+    logAll('immediate');
+    setTimeout(() => logAll('after 1s'), 1000);
+
+    // Get safe-area-inset-top
+    const styles = window.getComputedStyle(safeAreaEl);
+    const safeAreaTop = parseFloat(styles.paddingTop) || 0;
+
+    // Total distance from viewport top to content start
+    const totalOffset = headerHeight + safeAreaTop;
+
+    // Apply scroll-margin-top to page-view so scroll-into-view has proper spacing
+    const pageView = document.getElementById('page-view');
+    if (pageView) {
+      pageView.style.scrollMarginTop = totalOffset + 'px';
     }
+
+    // Apply padding-top to main viewport so content doesn't hide behind header
+    const main = document.querySelector('main#viewport');
+    if (main) {
+      // Only override on mobile where this is critical
+      if (window.innerWidth <= 768) {
+        main.style.paddingTop = totalOffset + 'px';
+      } else {
+        main.style.paddingTop = '';
+      }
+    }
+
+    // Store for use in scroll functions
+    window.__headerHeight = headerHeight;
+    window.__safeAreaTop = safeAreaTop;
+    window.__totalOffset = totalOffset;
   }
 
   // Measure on load
