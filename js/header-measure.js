@@ -43,63 +43,49 @@
       return;
     }
 
-    // Measure all candidate elements so we can identify which matches reality
-    const rect = header.getBoundingClientRect();
-    const navHeight = rect.height;
+    // Get real computed height of header; subtract logo wrap height once image is fully loaded
+    const logoImg = document.querySelector('.billboard-logo');
 
-    const elMainHeader    = document.querySelector('#main-header');
-    const elLogoWrap      = document.querySelector('.billboard-logo-wrap');
-    const elLogoImg       = document.querySelector('.billboard-logo');
-    const elTopNav        = document.querySelector('.top-nav');
-    const elMobileNavItem = document.querySelector('.mobile-nav-item');
-    const elMobileNavIcon = document.querySelector('.mobile-nav-icon');
+    const doMeasure = () => {
+      const navHeight = header.getBoundingClientRect().height;
+      const logoWrapHeight = document.querySelector('.billboard-logo-wrap').getBoundingClientRect().height;
+      const headerHeight = navHeight - logoWrapHeight;
+      console.log('[header-measure] navHeight:', navHeight, 'logoWrapHeight:', logoWrapHeight, 'headerHeight:', headerHeight);
 
-    const hMainHeader    = elMainHeader    ? elMainHeader.getBoundingClientRect().height    : 'n/a';
-    const hLogoWrap      = elLogoWrap      ? elLogoWrap.getBoundingClientRect().height      : 'n/a';
-    const hLogoImg       = elLogoImg       ? elLogoImg.getBoundingClientRect().height       : 'n/a';
-    const hTopNav        = elTopNav        ? elTopNav.getBoundingClientRect().height        : 'n/a';
-    const hMobileNavItem = elMobileNavItem ? elMobileNavItem.getBoundingClientRect().height : 'n/a';
-    const hMobileNavIcon = elMobileNavIcon ? elMobileNavIcon.getBoundingClientRect().height : 'n/a';
+      // Get safe-area-inset-top
+      const styles = window.getComputedStyle(safeAreaEl);
+      const safeAreaTop = parseFloat(styles.paddingTop) || 0;
 
-    console.log('[header-measure] navHeight:', navHeight);
-    console.log('[header-measure] #main-header:', hMainHeader);
-    console.log('[header-measure] .billboard-logo-wrap:', hLogoWrap);
-    console.log('[header-measure] .billboard-logo (img):', hLogoImg);
-    console.log('[header-measure] .top-nav:', hTopNav);
-    console.log('[header-measure] .mobile-nav-item:', hMobileNavItem);
-    console.log('[header-measure] .mobile-nav-icon:', hMobileNavIcon);
+      // Total distance from viewport top to content start
+      const totalOffset = headerHeight + safeAreaTop;
 
-    const headerHeight = Math.round(rect.height) - 46.5;
-
-    // Get safe-area-inset-top
-    const styles = window.getComputedStyle(safeAreaEl);
-    const safeAreaTop = parseFloat(styles.paddingTop) || 0;
-
-    // Total distance from viewport top to content start
-    const totalOffset = headerHeight + safeAreaTop;
-
-    // Apply scroll-margin-top to page-view so scroll-into-view has proper spacing
-    const pageView = document.getElementById('page-view');
-    if (pageView) {
-      pageView.style.scrollMarginTop = totalOffset + 'px';
-    }
-
-    // Apply padding-top to main viewport so content doesn't hide behind header
-    const main = document.querySelector('main#viewport');
-    if (main) {
-      // Only override on mobile where this is critical
-      if (window.innerWidth <= 768) {
-        main.style.paddingTop = totalOffset + 'px';
-      } else {
-        main.style.paddingTop = '';
+      // Apply scroll-margin-top to page-view so scroll-into-view has proper spacing
+      const pageView = document.getElementById('page-view');
+      if (pageView) {
+        pageView.style.scrollMarginTop = totalOffset + 'px';
       }
-    }
 
-    // Store for use in scroll functions
-    window.__headerHeight = headerHeight;
-    window.__safeAreaTop = safeAreaTop;
-    window.__totalOffset = totalOffset;
-  }
+      // Apply padding-top to main viewport so content doesn't hide behind header
+      const main = document.querySelector('main#viewport');
+      if (main) {
+        if (window.innerWidth <= 768) {
+          main.style.paddingTop = totalOffset + 'px';
+        } else {
+          main.style.paddingTop = '';
+        }
+      }
+
+      // Store for use in scroll functions
+      window.__headerHeight = headerHeight;
+      window.__safeAreaTop = safeAreaTop;
+      window.__totalOffset = totalOffset;
+    };
+
+    if (logoImg && !logoImg.complete) {
+      logoImg.addEventListener('load', doMeasure, { once: true });
+    } else {
+      doMeasure();
+    }
 
   // Measure on load
   if (document.readyState === 'loading') {
