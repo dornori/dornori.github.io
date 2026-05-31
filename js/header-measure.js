@@ -43,10 +43,11 @@
       return;
     }
 
-    // Get real computed height of header; use actual icon bar height as the offset (not the full 130px incl. logo space)
+    // Get real computed height of header; subtract logo height dynamically instead of hardcoded value
     const rect = header.getBoundingClientRect();
-    const navItem = header.querySelector('.mobile-nav-item');
-    const headerHeight = navItem ? Math.round(navItem.getBoundingClientRect().height) : Math.round(rect.height) - 46.5;
+    const logoWrap = document.querySelector('.billboard-logo-wrap');
+    const logoHeight = logoWrap ? Math.round(logoWrap.getBoundingClientRect().height) : 0;
+    const headerHeight = Math.round(rect.height) - logoHeight;
 
     // Get safe-area-inset-top
     const styles = window.getComputedStyle(safeAreaEl);
