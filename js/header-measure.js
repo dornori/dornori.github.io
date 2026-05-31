@@ -96,9 +96,9 @@
     };
 
     if (logoImg && !logoImg.complete) {
-      logoImg.addEventListener('load', () => setTimeout(measure, 1000), { once: true });
+      logoImg.addEventListener('load', () => setTimeout(measure, 250), { once: true });
     } else {
-      setTimeout(measure, 1000);
+      setTimeout(measure, 250);
     }
   }
 
