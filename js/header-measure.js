@@ -43,11 +43,11 @@
       return;
     }
 
-    // Measure actual nav height minus the logo overflow above it
+    // Get real computed height of header; subtract logo height to account for logo overflow above nav
     const rect = header.getBoundingClientRect();
     const logoWrap = document.querySelector('.billboard-logo-wrap');
-    const logoOverflow = logoWrap ? Math.round(logoWrap.getBoundingClientRect().height) : 0;
-    const headerHeight = Math.round(rect.height) - logoOverflow;
+    const logoHeight = logoWrap ? Math.round(logoWrap.getBoundingClientRect().height) : 46.5;
+    const headerHeight = Math.round(rect.height) - logoHeight;
 
     // Get safe-area-inset-top
     const styles = window.getComputedStyle(safeAreaEl);
