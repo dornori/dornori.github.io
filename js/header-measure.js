@@ -43,11 +43,11 @@
       return;
     }
 
-    // Get real computed height of header; subtract logo height dynamically instead of hardcoded value
+    // Subtract actual nav item height from actual nav height to get true content offset
     const rect = header.getBoundingClientRect();
-    const logoWrap = document.querySelector('.billboard-logo-wrap');
-    const logoHeight = logoWrap ? Math.round(logoWrap.getBoundingClientRect().height) : 0;
-    const headerHeight = Math.round(rect.height) - logoHeight;
+    const navItem = header.querySelector('.mobile-nav-item');
+    const navItemHeight = navItem ? Math.round(navItem.getBoundingClientRect().height) : 46.5;
+    const headerHeight = Math.round(rect.height) - navItemHeight;
 
     // Get safe-area-inset-top
     const styles = window.getComputedStyle(safeAreaEl);
