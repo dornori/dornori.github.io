@@ -86,6 +86,7 @@
     } else {
       doMeasure();
     }
+  }
 
   // Measure on load
   if (document.readyState === 'loading') {
