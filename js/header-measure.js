@@ -43,11 +43,10 @@
       return;
     }
 
-    // Get real computed height of header; subtract logo height to account for logo overflow above nav
+    // Get real computed height of header; use actual icon bar height as the offset (not the full 130px incl. logo space)
     const rect = header.getBoundingClientRect();
-    const logoWrap = document.querySelector('.billboard-logo-wrap');
-    const logoHeight = logoWrap ? Math.round(logoWrap.getBoundingClientRect().height) : 46.5;
-    const headerHeight = Math.round(rect.height) - logoHeight;
+    const navItem = header.querySelector('.mobile-nav-item');
+    const headerHeight = navItem ? Math.round(navItem.getBoundingClientRect().height) : Math.round(rect.height) - 46.5;
 
     // Get safe-area-inset-top
     const styles = window.getComputedStyle(safeAreaEl);
