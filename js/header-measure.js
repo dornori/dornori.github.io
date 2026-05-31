@@ -43,12 +43,11 @@
       return;
     }
 
-    // Subtract actual nav item height from actual nav height to get true content offset
+    // Subtract actual #main-header height dynamically instead of hardcoded value
     const rect = header.getBoundingClientRect();
-    const navItem = header.querySelector('.mobile-nav-item');
-    const navItemHeight = navItem ? Math.round(navItem.getBoundingClientRect().height) : 46.5;
-    const headerHeight = Math.round(rect.height) - navItemHeight;
-    console.log('[header-measure] navHeight:', Math.round(rect.height), 'navItemHeight:', navItemHeight, 'headerHeight:', headerHeight);
+    const mainHeaderHeight = mainHeader ? Math.round(mainHeader.getBoundingClientRect().height) : 46.5;
+    const headerHeight = Math.round(rect.height) - mainHeaderHeight;
+    console.log('[header-measure] navHeight:', Math.round(rect.height), 'mainHeaderHeight:', mainHeaderHeight, 'headerHeight:', headerHeight);
 
     // Get safe-area-inset-top
     const styles = window.getComputedStyle(safeAreaEl);
