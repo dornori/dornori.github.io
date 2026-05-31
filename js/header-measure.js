@@ -43,13 +43,12 @@
       return;
     }
 
-    // Measure .mobile-nav height minus .mobile-nav-item height to get true content offset
+    // Measure .mobile-nav minus #main-header height to get true content offset
     const rect = header.getBoundingClientRect();
-    const navItem = document.querySelector('.mobile-nav-item');
-    const navItemHeight = navItem ? Math.round(navItem.getBoundingClientRect().height) : 0;
-    const navHeight = Math.round(rect.height);
-    const headerHeight = navHeight - navItemHeight;
-    console.log('[header-measure] navHeight:', navHeight, 'navItemHeight:', navItemHeight, 'headerHeight:', headerHeight);
+    const mainHeaderHeight = mainHeader ? mainHeader.getBoundingClientRect().height : 0;
+    const navHeight = rect.height;
+    const headerHeight = navHeight - mainHeaderHeight;
+    console.log('[header-measure] navHeight:', navHeight, 'mainHeaderHeight:', mainHeaderHeight, 'headerHeight:', headerHeight);
 
     // Get safe-area-inset-top
     const styles = window.getComputedStyle(safeAreaEl);
