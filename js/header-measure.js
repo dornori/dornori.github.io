@@ -43,11 +43,13 @@
       return;
     }
 
-    // Subtract actual #main-header height dynamically instead of hardcoded value
+    // Measure nav total height minus logo wrap height
     const rect = header.getBoundingClientRect();
-    const mainHeaderHeight = mainHeader ? Math.round(mainHeader.getBoundingClientRect().height) : 46.5;
-    const headerHeight = Math.round(rect.height) - mainHeaderHeight;
-    console.log('[header-measure] navHeight:', Math.round(rect.height), 'mainHeaderHeight:', mainHeaderHeight, 'headerHeight:', headerHeight);
+    const logoWrap = document.querySelector('.billboard-logo-wrap');
+    const logoWrapHeight = logoWrap ? Math.round(logoWrap.getBoundingClientRect().height) : 0;
+    const navHeight = Math.round(rect.height);
+    const headerHeight = navHeight - logoWrapHeight;
+    console.log('[header-measure] navHeight:', navHeight, 'logoWrapHeight:', logoWrapHeight, 'headerHeight:', headerHeight);
 
     // Get safe-area-inset-top
     const styles = window.getComputedStyle(safeAreaEl);
