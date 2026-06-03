@@ -48,11 +48,14 @@ export function mountSlideshow(root) {
     const cornerCSS = shape  === 'rounded' ? '12px' : '0px';
 
     root.setAttribute('ss-mounted', 'true');
+    const isFullBleed = !size.includes('x');
     root.style.cssText += `
-        position: relative; display: block; margin: 0 auto; overflow: hidden;
-        width: ${width}; max-width: 100%; height: ${height}; aspect-ratio: ${aspect};
+        position: relative; display: block; overflow: hidden;
+        width: ${isFullBleed ? '100vw' : width}; max-width: ${isFullBleed ? '100vw' : width};
+        ${isFullBleed ? 'left: 50%; transform: translateX(-50%);' : 'margin: 0 auto;'}
+        height: ${height}; aspect-ratio: ${aspect};
         border: ${borderCSS}; border-radius: ${cornerCSS};
-        cursor: pointer; user-select: none;
+        cursor: pointer; user-select: none; margin-bottom: 3rem;
     `;
 
     // ── SLIDES ───────────────────────────────────────────────────────────────
