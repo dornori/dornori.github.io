@@ -10,6 +10,8 @@
  *   gallery-interval  milliseconds between auto-advances (default 4000)
  *   gallery-mode      "auto" | "manual" (default "manual")
  *   gallery-controls  "dots" | "none" (default "dots")
+ *   gallery-fullbleed "yes" | "no" (default "no") — stretch to 100vw breaking
+ *                     out of any container. Only use on top-level hero slideshows.
  *
  * Interactions:
  *   Desktop — click left half to go back, right half to go forward
@@ -33,7 +35,8 @@ export function mountSlideshow(root) {
     const shape    = root.getAttribute('gallery-shape')    || 'square';
     const images   = root.getAttribute('gallery-images')   || '';
     const folder   = root.getAttribute('gallery-folder')   || '';
-    const interval = parseInt(root.getAttribute('gallery-interval') || DEFAULT_INTERVAL, 10);
+    const interval   = parseInt(root.getAttribute('gallery-interval') || DEFAULT_INTERVAL, 10);
+    const fullbleed  = root.getAttribute('gallery-fullbleed') === 'yes';
 
     const imgList = images.split(',').map(s => s.trim()).filter(Boolean);
     if (!imgList.length) return;
@@ -53,11 +56,10 @@ export function mountSlideshow(root) {
     const cornerCSS = shape  === 'rounded' ? '12px' : '0px';
 
     root.setAttribute('ss-mounted', 'true');
-    const isFullBleed = !size.includes('x');
     root.style.cssText += `
         position: relative; display: block; overflow: hidden;
-        width: ${isFullBleed ? '100vw' : width}; max-width: ${isFullBleed ? '100vw' : width};
-        ${isFullBleed ? 'left: 50%; transform: translateX(-50%);' : 'margin: 0 auto;'}
+        width: ${fullbleed ? '100vw' : width}; max-width: ${fullbleed ? '100vw' : width};
+        ${fullbleed ? 'left: 50%; transform: translateX(-50%);' : 'margin: 0 auto;'}
         height: ${height}; aspect-ratio: ${aspect};
         border: ${borderCSS}; border-radius: ${cornerCSS};
         cursor: pointer; user-select: none; margin-bottom: 3rem;
