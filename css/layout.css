@@ -1,2277 +1,943 @@
-/* =============================================================================
-   layout.css — Dornori  (merged & standardised)
-   =============================================================================
-   This single file replaces:
-     css/main.css, css/home.css, css/about.css,
-     css/kit.css,  css/parts.css, css/built.css, css/integration.css
-
-   Load order in site-boot.js:
-     1. css/profiles.css        — theme tokens  (--bg, --accent, --border …)
-     2. css/main.css            — this file
-     3. css/shop.css            — shop widget styles
-     4. css/shop-bridge.css     — maps --c-* shop vars onto profile tokens
-
-   TABLE OF CONTENTS
-   -----------------
-   1.  DESIGN TOKENS (typography only — colours live in profiles.css)
-   2.  BASE RESET
-   3.  LAYOUT  (body, main, home-view, page-view)
-   4.  HEADER
-       4a. Logo & wordmark
-       4b. Top settings bar (#topBar)
-       4c. Profile selector
-       4d. Theme toggle (legacy, kept hidden)
-   5.  NAVIGATION
-       5a. Desktop nav
-       5b. Mobile nav
-   6.  BUTTONS
-       6a. button__primary
-       6b. button__ghost
-       6c. button__outline
-       6d. button__submit
-       6e. button__reset / link
-       6f. Hero CTA row
-   7.  CARDS
-       7a. card__option  (shop-option card)
-       7b. card__way     (home "three ways" card)
-       7c. card__usp     (home USP card)
-       7d. card__part    (hardware thumbnail)
-   8.  GRIDS & SECTION LAYOUTS
-       8a. home-stats bar
-       8b. options-grid (3-col)
-       8c. lifestyle photo grid
-       8d. about-grid (2-col)
-   9.  HERO VIDEO + OVERLAYS
-   10. SLIDESHOWS
-       10a. hero-slideshow   (built page, horizontal)
-       10b. kit-ss1          (kit page, 6-slide)
-       10c. kit-ss2          (kit page, 13-slide)
-       10d. vert-slideshow   (built page, vertical)
-   11. PAGE SECTIONS
-       11a. Home page
-       11b. About page
-       11c. Kit page
-       11d. Parts page
-       11e. Built page
-   12. SUPPORT FORM  (.sf-*)
-   13. SOCIAL DOCK
-   14. FOOTER
-   15. CART ICON SLOT (header + mobile nav)
-   16. SHOP WIDGET INTEGRATION (currency selector, cart panel)
-   17. THEME OVERRIDES (cutting-mat, cutting-blue)
-   18. UTILITY CLASSES
-   19. RESPONSIVE OVERRIDES
-   ============================================================================= */
-
-
-/* =============================================================================
-   1. DESIGN TOKENS — typography only
-   ============================================================================= */
-
-:root {
-    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-mono: Impact, ui-monospace, "SF Mono", Menlo, monospace;
-
-    /* Logo dot animation colour — always yellow regardless of theme */
-    --dot-color: #fff200;
-
-    /* Footer text colours — footer is always dark, so these are fixed */
-    --footer-text:         #555;
-    --footer-text-dim:     #444;
-    --footer-heading:      #F5F29B;
-    --footer-border:       rgba(245, 242, 155, 0.15);
-
-    /* Social brand hover colours */
-    --social-ig:      #E1306C;
-    --social-x:       #FFFFFF;
-    --social-yt:      #FF0000;
-    --social-fb:      #1877F2;
-    --social-li:      #0077B5;
-    --social-tt:      #00f2ea;
-    --social-gh:      #fafafa;
-    --social-discord: #5865F2;
-    --social-tg:      #26A5E4;
-
-    /* Overlay text on dark video — always white */
-    --overlay-text:      #ffffff;
-    --overlay-highlight: #FFD700;
-}
-
-
-/* =============================================================================
-   2. BASE RESET
-   ============================================================================= */
-
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-html {
-    height: 100%;
-    scrollbar-width: auto;
-}
-html::-webkit-scrollbar { display: block; }
-
-body {
-    background-color: var(--bg);
-    color: var(--text);
-    font-family: var(--font-sans);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow-x: hidden;
-    overflow-y: scroll;
-    scrollbar-width: auto;
-    background-image:
-        radial-gradient(circle at center, transparent 0%, var(--bg) 95%),
-        linear-gradient(rgba(245, 242, 155, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(245, 242, 155, 0.03) 1px, transparent 1px);
-    background-size: 100% 100%, 50px 50px, 50px 50px;
-}
-
-
-/* =============================================================================
-   3. LAYOUT
-   ============================================================================= */
-
-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0 0 40px 0;
-    text-align: center;
-    width: 100%;
-}
-
-#home-view,
-#page-view {
-    width: 100%;
-}
-
-/* Content container — constrains text/cards to 1440px, centred.
-   Hero videos, header, and footer intentionally sit outside this. */
-.container {
-    width: 100%;
-    max-width: 1440px;
-    margin-left: auto;
-    margin-right: auto;
-    box-sizing: border-box;
-}
-
-/* Page view — full width with responsive side padding */
-#page-view {
-    width: 100%;
-    max-width: 100%;
-    padding-left:  clamp(16px, 3vw, 48px);
-    padding-right: clamp(16px, 3vw, 48px);
-    padding-bottom: 60px;
-    /* Dynamic scroll-margin set via --mobile-total-offset by header-measure.js */
-    scroll-margin-top: var(--mobile-total-offset, 160px);
-    animation: fadeIn 0.5s ease;
-    box-sizing: border-box;
-    text-align: left;
-    color: var(--text-muted);
-    line-height: 1.8;
-    overflow-x: hidden;
-}
-
-#page-view h1 {
-    color: var(--accent);
-    font-family: var(--font-mono);
-    text-transform: uppercase;
-    margin-bottom: 30px;
-    font-size: 1.5rem;
-    letter-spacing: 3px;
-}
-
-#page-view p { margin-bottom: 20px; }
-
-#page-view .home-way__body,
-#page-view .home-way__body p,
-#page-view .home-way__body span,
-#page-view .home-usp,
-#page-view .home-usp p,
-#page-view .home-usp span { text-align: center; }
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-.headline {
-    font-size: clamp(1.1rem, 3.5vw, 1.8rem);
-    font-weight: 200;
-    color: var(--text-muted);
-    line-height: 1.6;
-    margin-bottom: 40px;
-}
-
-/* Section labels / titles shared across pages */
-.section-label {
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    opacity: 0.45;
-    margin-bottom: 0.6rem;
-}
-
-.section-title {
-    font-family: var(--font-mono);
-    font-size: clamp(1.4rem, 3vw, 2.1rem);
-    font-weight: 900;
-    margin-bottom: 0.8rem;
-    line-height: 1.1;
-}
-
-.section-lead {
-    font-size: 1rem;
-    line-height: 1.7;
-    opacity: 0.78;
-    max-width: 580px;
-    margin-bottom: 2rem;
-    font-family: var(--font-sans);
-}
-
-/* Default heading colours — use profile heading tokens, fall back to --accent */
-h1 { color: var(--color-h1, var(--accent)); }
-h2 { color: var(--color-h2, var(--accent)); }
-h3 { color: var(--color-h3, var(--accent)); }
-h4 { color: var(--color-h4, var(--accent)); }
-h5 { color: var(--color-h5, var(--accent)); }
-h6 { color: var(--color-h6, var(--accent)); }
-.product-content h2,
-.product-content h3 { color: var(--color-h3, var(--accent)); }
-
-
-/* =============================================================================
-   4. HEADER
-   ============================================================================= */
-
-header {
-    width: 100%;
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-    background: var(--bg-header, var(--bg));
-}
-
-/* --- 4a. Logo & wordmark --------------------------------------------------- */
-
-.billboard-logo-wrap {
-    position: relative;
-    display: block;
-    width: 8vw !important;
-    cursor: pointer;
-    transition: opacity 0.3s;
-    flex-shrink: 0;
-}
-.billboard-logo-wrap:hover { opacity: 0.8; }
-
-.billboard-logo {
-    width: 100%;
-    height: auto;
-    display: block;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-.billboard-logo[src] { opacity: 1; }
-
-.billboard-wordmark {
-    position: absolute;
-    top: 52%;
-    left: 45%;
-    transform: translateY(-50%);
-    font-family: var(--font-sans);
-    font-size: clamp(1.6rem, 3.2vw, 34rem) !important;
-    font-weight: 800;
-    letter-spacing: 0.16em;
-    white-space: nowrap;
-    pointer-events: none;
-    color: var(--accent);
-    text-shadow:
-        0 1px 0 rgba(255,255,255,0.9),
-        0 2px 0 rgba(0,0,0,0.10),
-        0 3px 6px rgba(0,0,0,0.18),
-        0 0 12px rgba(255, 242, 0, 0.25),
-        0 0 24px rgba(255, 242, 0, 0.18);
-    /* FIX: Contain text to prevent bleeding off-screen */
-    max-width: calc(100vw - 20px);
-    overflow-x: visible;
-    display: inline-block;
-}
-
-/* Animated dot in the ı character */
-.i-wrap {
-    position: relative;
-    display: inline-block;
-    width: 0.6ch;
-}
-
-.dot {
-    position: absolute;
-    left: 45%;
-    top: 0.25em;
-    width: 0.18em;
-    height: 0.18em;
-    border-radius: 50%;
-    background: var(--dot-color);
-    box-shadow: 0 0 0 1px var(--accent);
-    transform: translateX(-50%);
-    animation: dotCycle 7.6s ease-in-out infinite;
-}
-
-@keyframes dotCycle {
-    0%   { transform: translateX(-50%) translateY(0);     background: var(--accent); }
-    20%  { transform: translateX(-50%) translateY(0);     background: var(--accent); }
-    25%  {                                                 background: var(--dot-color); }
-    45%  { transform: translateX(-50%) translateY(-38px); background: var(--dot-color); }
-    65%  { transform: translateX(-50%) translateY(-38px); background: var(--dot-color); }
-    85%  { transform: translateX(-50%) translateY(0);     background: var(--dot-color); }
-    100% { transform: translateX(-50%) translateY(0);     background: var(--accent); }
-}
-
-@media (max-width: 768px) {
-    @keyframes dotCycle {
-        0%   { transform: translateX(-50%) translateY(0);     background: var(--accent); }
-        20%  { transform: translateX(-50%) translateY(0);     background: var(--accent); }
-        25%  {                                                 background: var(--dot-color); }
-        45%  { transform: translateX(-50%) translateY(-18px); background: var(--dot-color); }
-        65%  { transform: translateX(-50%) translateY(-18px); background: var(--dot-color); }
-        85%  { transform: translateX(-50%) translateY(0);     background: var(--dot-color); }
-        100% { transform: translateX(-50%) translateY(0);     background: var(--accent); }
-    }
-}
-
-/* --- 4b. Top settings bar (#topBar) --------------------------------------- */
-
-#topBar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 44px;
-    z-index: 10000;
-
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    padding: 0 24px;
-    gap: 16px;
-
-    background: var(--bg-header, var(--bg));
-    border-bottom: 1px solid var(--border);
-    box-shadow: 0 2px 0 0 var(--accent);
-    overflow: visible;
-
-    transform: translateY(-100%);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-#topBar.active { transform: translateY(0); }
-
-/* Tab that hangs below the bar */
-#topBar-tab {
-    position: absolute;
-    bottom: -28px;
-    right: 24px;
-
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    height: 28px;
-    padding: 0 12px;
-
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-top: none;
-    border-radius: 0 0 6px 6px;
-    cursor: pointer;
-
-    font-family: var(--font-mono);
-    font-size: 9px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-
-    box-shadow: 0 2px 0 0 var(--accent);
-    transition: color 0.2s, background 0.2s;
-}
-#topBar-tab:hover { color: var(--accent); }
-#topBar-tab svg {
-    width: 12px;
-    height: 12px;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-#topBar.active #topBar-tab svg { transform: rotate(45deg); }
-
-/* --- 4c. Profile selector ------------------------------------------------- */
-
-.profile-selector-wrap {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    cursor: default;
-}
-
-.profile-select {
-    appearance: none;
-    -webkit-appearance: none;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    color: var(--text);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    padding: 4px 24px 4px 8px;
-    cursor: pointer;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 6px center;
-    transition: border-color 0.2s, color 0.2s;
-}
-.profile-select:hover,
-.profile-select:focus {
-    border-color: var(--accent);
-    color: var(--accent);
-    outline: none;
-}
-.profile-select option {
-    background: #111;
-    color: #eee;
-}
-
-/* --- 4d. Theme toggle (legacy, hidden) ------------------------------------- */
-
-#themeToggle { display: none; }
-
-.toggle-track {
-    position: relative;
-    display: inline-block;
-    width: 32px;
-    height: 16px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: transparent;
-    flex-shrink: 0;
-    transition: background 0.3s, border-color 0.3s;
-}
-.toggle-thumb {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--text-muted);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s;
-}
-
-
-/* =============================================================================
-   5. NAVIGATION
-   ============================================================================= */
-
-/* --- 5a. Desktop nav ------------------------------------------------------- */
-
-nav.top-nav {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    padding: 10px 16px;
-    z-index: 1001;
-    gap: 18px;
-    background: linear-gradient(to left, rgba(5,5,5,0.55) 0%, transparent 100%);
-}
-
-.nav-link {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-family: var(--font-mono);
-    font-size: 1rem;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    transition: color 0.3s ease;
-}
-.nav-link:hover { color: var(--accent); }
-
-.nav-icon {
-    display: inline-flex;
-    align-items: center;
-    flex-shrink: 0;
-    /* Scales fluidly with the viewport, locked between 48px and 144px */
-    width: clamp(24px, 4vw, 64px);
-    height: clamp(24px, 4vw,64px);
-}
-
-.nav-icon svg {
-    /* Match the parent container's clamped dimensions */
-    width: 100%;
-    height: 100%;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-/* --- 5b. Mobile nav -------------------------------------------------------- */
-
-.mobile-nav { display: none; }
-
-@media (max-width: 768px) {
-    nav.top-nav  { display: none; }
-
-    main {
-        padding-top: var(--mobile-total-offset, 160px);
-    }
-
-    .billboard-wordmark {
-        font-size: clamp(0.85rem, 3vw, 1.2rem) !important;
-        letter-spacing: 0.08em;
-        max-width: calc(100vw - 30px);
-        left: 45%;
-        transform: translateY(-50%);
-    }
-
-    #main-header .billboard-logo-wrap {
-        width: 16vw !important;
-    }
-
-    #main-header {
-        display: flex;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 1001;
-        justify-content: center;
-        align-items: center;
-        padding-top: env(safe-area-inset-top);
-        background: var(--bg-header, var(--bg));
-    }
-
-    #main-header .top-nav {
-        display: none;
-    }
-
-    .mobile-nav {
-        display: flex;
-        position: fixed;
-        top: var(--mobile-logo-height, 80px);
-        left: 0;
-        right: 0;
-        z-index: 1000;
-        flex-direction: row;
-        justify-content: space-around;
-        align-items: flex-end;
-        padding-bottom: 0;
-        padding-top: 0;
-        background: var(--bg-header, var(--bg));
-        border-bottom: 1px solid var(--border);
-        box-shadow: 0 2px 0 0 var(--accent);
-    }
-
-    .mobile-nav-item {
-        flex: 1;
-        align-self: flex-end;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 2px;
-        padding: 0 0 0% 0;
-        margin: 0;
-        max-height: 45%;
-        background: none;
-        border: none;
-        cursor: pointer;
-        transition: background 0.2s;
-    }
-    .mobile-nav-item:active { background: rgba(245, 242, 155, 0.06); }
-
-.mobile-nav-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: clamp(22px,6.25vw, 48px);
-    height: clamp(22px, 6.25vw, 48px);
-    margin: 0;
-    padding: 0;
-}
-/*
-.mobile-nav-icon svg {
-    width: clamp(22px, 9vw, 56px);
-    height: clamp(22px, 9vw, 56px);
-    stroke: currentColor;
-    fill: none;
-}
-*/
-.mobile-nav-label {
-    font-family: var(--font-mono);
-    font-size: clamp(0.5rem, 1.5vw, 0.7rem);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin: 0;
-    padding: 0;
-}
-/*
-    .mobile-nav-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 32px;
-        height: 32px;
-        margin: 0;
-        padding: 0;
-    }
-    .mobile-nav-icon svg {
-        width: 40px;
-        height: 40px;
-        stroke: currentColor;
-        fill: none;
-    }
-
-    .mobile-nav-label {
-        font-family: var(--font-mono);
-        font-size: 0.55rem;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--text-muted);
-        margin: 0;
-        padding: 0;
-    }
-*/
-
-    .mobile-nav-cta { background: #BED4E1; }
-    .mobile-nav-cta .mobile-nav-label { color: var(--accent); font-weight: 700; }
-
-.mobile-nav-cart-slot {
-    flex: 1;
-    display: flex;
-	align-self: flex-end;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 2px;
-    padding: 0 0 4px 0;
-    margin: 0;
-    background: none;
-    border: none;
-    cursor: pointer;
-}
-
-.mobile-nav-cart-slot .webshop-cart-icon-wrap {
-    display: flex;
-    align-items: flex-end;
-}
-
-.mobile-nav-cart-slot .webshop-cart-icon {
-    width: clamp(30px, 6.25vw, 48px);
-    height: clamp(30px, 6.25vw, 48px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    margin: 0;
-    padding: 0;
-}
-
-.mobile-nav-cart-slot .webshop-cart-icon img {
-    width: 100%;
-    height: 100%;
-    background: rgba(255,255,255,0.08);
-    border-radius: 50%;
-}
-
-.mobile-nav-cart-slot .webshop-cart-icon [data-badge] {
-    position: absolute;
-    top: -6px;
-    right: -6px;
-    background: var(--accent);
-    color: var(--bg);
-    border-radius: 50%;
-    width: clamp(18px, 4vw, 24px);
-    height: clamp(18px, 4vw, 24px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.7rem;
-    font-weight: 700;
-}
-
-.mobile-nav-cart-slot .webshop-cart-hover-panel {
-    position: fixed;
-    bottom: 70px;
-    right: 8px;
-    width: min(320px, calc(100vw - 16px));
-}
-
-/*
-
-
-    .mobile-nav-cart-slot {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 2px;
-        padding: 0 0 8px 0;
-        margin: 0;
-        background: none;
-        border: none;
-        cursor: pointer;
-    }
-    .mobile-nav-cart-slot .webshop-cart-icon-wrap {
-        position: static !important;
-        top: auto !important;
-        right: auto !important;
-
-        display: contents;
-
-        max-height: 45%;
-        display: flex;
-        align-items: flex-end;
-    }
-    .mobile-nav-cart-slot .webshop-cart-icon {
-
-        width: 32px !important;
-        height: 32px !important;
-        background: none !important;
-        border-radius: 0 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        color: inherit !important;
-        position: relative !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-    .mobile-nav-cart-slot .webshop-cart-icon img {
-        width: 32px !important;
-        height: 32px !important;
-
-        width: 32px;
-        height: 32px;
-        background: rgba(255,255,255,0.08);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: inherit;
-        position: relative;
-
-    }
-    .mobile-nav-cart-slot .webshop-cart-icon [data-badge] {
-        position: absolute;
-        top: -6px;
-        right: -6px;
-        background: var(--accent);
-        color: var(--bg);
-        border-radius: 50%;
-        width: 20px;
-        height: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.7rem;
-        font-weight: 700;
-    }
-    .mobile-nav-cart-slot .webshop-cart-hover-panel {
-        position: fixed;
-        top: auto;
-        bottom: 70px;
-        right: 8px;
-        left: auto;
-        width: min(320px, calc(100vw - 16px));
-    }
-}
-*/
-/* === Mobile Responsive Breakpoints === */
-
-/* Ultra-small phones (320px - 360px: iPhone SE, older Android) */
-/*
-@media (max-width: 360px) {
-    .mobile-nav-item {
-        padding: 0 4px 8px;
-        gap: 6px;
-    }
-    .mobile-nav-icon,
-    .mobile-nav-icon svg { width: 36px; height: 36px; }
-    .mobile-nav-label { font-size: 0.52rem; }
-    .mobile-nav-cart-slot {
-        min-width: 48px;
-        padding: 0 4px 8px;
-    }
-	
-    .mobile-nav-cart-slot .webshop-cart-icon,
-    .mobile-nav-cart-slot .webshop-cart-icon img { width: 36px !important; height: 36px !important; }
-    
-    .billboard-wordmark {
-        font-size: clamp(0.7rem, 2.5vw, 0.85rem) !important;
-        letter-spacing: 0.06em;
-    }
-}
-
-*/
-
-/* Small phones (361px - 412px: iPhone 12 mini, Samsung Galaxy S10) */
-/*
-@media (min-width: 361px) and (max-width: 412px) {
-    .mobile-nav-item {
-        padding: 0 6px 8px;
-        gap: 6px;
-    }
-    .mobile-nav-icon,
-    .mobile-nav-icon svg { width: 38px; height: 38px; }
-    .mobile-nav-label { font-size: 0.54rem; }
-    .mobile-nav-cart-slot {
-        min-width: 50px;
-        padding: 0 6px 8px;
-    }
-    .mobile-nav-cart-slot .webshop-cart-icon,
-    .mobile-nav-cart-slot .webshop-cart-icon img { width: 38px !important; height: 38px !important; }
-}
-
-/* Medium phones (413px - 480px: iPhone 11-14, Android standard) */
-/*
-@media (min-width: 413px) and (max-width: 480px) {
-    .mobile-nav-item {
-        padding: 0 6px 8px;
-        gap: 6px;
-    }
-    .mobile-nav-icon,
-    .mobile-nav-icon svg { width: 40px; height: 40px; }
-    .mobile-nav-label { font-size: 0.56rem; }
-    .mobile-nav-cart-slot {
-        min-width: 52px;
-        padding: 0 6px 8px;
-    }
-}
-
-/* Landscape small phones / small tablets (481px - 600px) */
-/*
-@media (min-width: 481px) and (max-width: 600px) {
-    .mobile-nav-item {
-        padding: 0 8px 8px;
-        gap: 6px;
-    }
-    .mobile-nav-icon,
-    .mobile-nav-icon svg { width: 42px; height: 42px; }
-    .mobile-nav-label { font-size: 0.57rem; }
-    .mobile-nav-cart-slot {
-        min-width: 54px;
-        padding: 0 8px 8px;
-    }
-}
-
-/* Tablet small (601px - 768px: iPad mini, small tablets) */
-/*
-@media (min-width: 601px) and (max-width: 768px) {
-    .mobile-nav-item {
-        padding: 0 10px 8px;
-        gap: 6px;
-    }
-    .mobile-nav-icon,
-    .mobile-nav-icon svg { width: 44px; height: 44px; }
-    .mobile-nav-label { font-size: 0.59rem; }
-    .mobile-nav-cart-slot {
-        min-width: 56px;
-        padding: 0 10px 8px;
-    }
-}
-*/
-}  /* Close @media (max-width: 768px) */
-/* =============================================================================
-   6. BUTTONS
-   ============================================================================= */
-
-
-/* Support form submit button - reuse button__submit style */
-.sf-submit {
-    width: 100%;
-    background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #ea580c 45%));
-    color: var(--bg);
-    font-weight: 700;
-    padding: .875rem;
-    border-radius: .875rem;
-    border: none;
-    font-size: 1rem;
-    font-family: var(--font-sans);
-    cursor: pointer;
-    transition: opacity .15s;
-}
-.sf-submit:hover { opacity: .88; }
-.sf-submit:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* --- 6a. button__primary — filled accent ---------------------------------- */
-
-.button__primary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: .75rem 1.6rem;
-    border-radius: 6px;
-    font-family: var(--font-mono);
-    font-size: .82rem;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    font-weight: 700;
-    cursor: pointer;
-    text-decoration: none;
-    background: var(--accent);
-    color: var(--overlay-highlight);
-    border: 2px solid var(--accent);
-    transition: background .2s, color .2s, border-color .2s;
-}
-.button__primary:hover { filter: brightness(1.12); }
-
-/* --- 6b. button__ghost — transparent with border, text on dark bg --------- */
-
-.button__ghost {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: .75rem 1.6rem;
-    border-radius: 6px;
-    font-family: var(--font-mono);
-    font-size: .82rem;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    font-weight: 700;
-    cursor: pointer;
-    text-decoration: none;
-    background: transparent;
-    color: var(--overlay-highlight);
-    border: 2px solid rgba(255,255,255,.8);
-    transition: background .2s, color .2s, border-color .2s;
-}
-.button__ghost:hover {
-    border-color: var(--overlay-text);
-    background: rgba(255,255,255,.08);
-}
-
-/* --- 6c. button__outline — uses theme tokens, works on any background ----- */
-
-.button__outline {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: .75rem 1.6rem;
-    border-radius: 6px;
-    font-family: var(--font-mono);
-    font-size: .82rem;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    font-weight: 700;
-    cursor: pointer;
-    text-decoration: none;
-    background: transparent;
-    color: var(--text);
-    border: 1px solid var(--border);
-    transition: border-color .2s, color .2s;
-}
-.button__outline:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-}
-
-/* --- 6d. button__submit — full-width form submit --------------------------- */
-
-.button__submit {
-    width: 100%;
-    background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #ea580c 45%));
-    color: var(--bg);
-    font-weight: 700;
-    padding: .875rem;
-    border-radius: .875rem;
-    border: none;
-    font-size: 1rem;
-    font-family: var(--font-sans);
-    cursor: pointer;
-    transition: opacity .15s;
-}
-.button__submit:hover    { opacity: .88; }
-.button__submit:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* --- 6e. button__reset / link-style --------------------------------------- */
-
-.button__reset {
-    font-size: .82rem;
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text-muted);
-    border-radius: 9999px;
-    padding: .35rem .9rem;
-    cursor: pointer;
-    transition: color .15s;
-}
-.button__reset:hover { color: var(--text); }
-
-.link-btn {
-    background: none;
-    border: none;
-    color: var(--accent);
-    text-decoration: underline;
-    cursor: pointer;
-    font-size: inherit;
-}
-
-/* Waitlist */
-.submit-btn {
-    background: var(--accent);
-    color: #000;
-    border: none;
-    padding: 0 30px;
-    font-family: var(--font-mono);
-    font-weight: 900;
-    text-transform: uppercase;
-    cursor: pointer;
-}
-
-/* --- 6f. Hero CTA row ------------------------------------------------------ */
-
-.hero-cta-row {
-    display: flex;
-    gap: .85rem;
-    flex-wrap: wrap;
-}
-
-/* Lower-position CTA variant: dark text at rest → highlight on hover */
-.hero-cta-lower .button__primary {
-    color: #000000;
-}
-.hero-cta-lower .button__primary:hover {
-    color: var(--overlay-highlight);
-}
-
-/* Waitlist / newsletter card */
-.waitlist-card {
-    background: var(--bg-card);
-    backdrop-filter: blur(20px);
-    border: 1px solid var(--border);
-    padding: 40px;
-    margin: 0 auto;
-    width: 100%;
-    max-width: 500px;
-}
-.input-row {
-    display: flex;
-    border: 1px solid var(--border);
-    margin-top: 20px;
-}
-input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    padding: 18px;
-    color: var(--accent);
-    outline: none;
-    font-family: var(--font-mono);
-}
-#waitlist-form input:focus {
-    background: rgba(245, 242, 155, 0.05);
-    box-shadow: inset 0 0 10px rgba(245, 242, 155, 0.05);
-    transition: all 0.3s ease;
-}
-.input-row:focus-within {
-    border-color: var(--accent);
-    transition: border-color 0.3s ease;
-}
-.disclaimer-text {
-    margin-top: 20px;
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    color: var(--text-muted);
-}
-
-/* Nav newsletter button */
-.nav-newsletter {
-    padding: 10px 20px;
-    background: var(--accent);
-    color: #000;
-    font-weight: 900;
-}
-
-
-/* =============================================================================
-   7. CARDS
-   ============================================================================= */
-
-/* --- 7a. card__option — product option (kit / parts / about) -------------- */
-
-.card__option {
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 1.5rem;
-    text-align: center;
-    transition: transform 0.2s, box-shadow 0.2s;
-    cursor: pointer;
-    text-decoration: none;
-    color: inherit;
-    background: var(--bg);
-}
-.card__option:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 28px rgba(0,0,0,0.12);
-}
-.card__option.highlight {
-    border: 2px solid var(--accent);
-}
-.card__option__icon {
-    font-size: 1.8rem;
-    margin-bottom: 0.75rem;
-    display: block;
-}
-.card__option__title {
-    font-weight: 700;
-    font-family: var(--font-mono);
-    margin-bottom: 0.5rem;
-}
-.card__option__price {
-    font-size: 0.82rem;
-    opacity: 0.65;
-    margin: 0.5rem 0 0;
-    line-height: 1.5;
-}
-
-/* --- 7b. card__way — home "three ways to get one" ------------------------- */
-
-.card__way {
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    transition: transform 0.2s, box-shadow 0.2s;
-    cursor: pointer;
-    text-decoration: none;
-    color: inherit;
-    background: var(--bg);
-}
-.card__way:hover { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(0,0,0,0.2); }
-
-.card__way__img-wrap {
-    width: 100%;
-    aspect-ratio: 4/3;
-    overflow: hidden;
-    border-radius: 16px 16px 0 0;
-}
-.card__way__img-wrap img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.35s ease;
-}
-.card__way:hover .card__way__img-wrap img { transform: scale(1.05); }
-
-.card__way__body {
-    padding: 1.4rem 1.5rem 1.6rem;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-.card__way__tag {
-    font-family: var(--font-mono);
-    font-size: 0.68rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 0.5rem;
-}
-.card__way__title {
-    font-family: var(--font-mono);
-    font-size: 1.05rem;
-    font-weight: 700;
-    margin-bottom: 0.6rem;
-}
-.card__way__desc {
-    font-size: 0.88rem;
-    opacity: 0.72;
-    line-height: 1.6;
-    flex: 1;
-    margin-bottom: 1rem;
-    font-family: var(--font-sans);
-}
-.card__way__price {
-    font-family: var(--font-mono);
-    font-size: 1.15rem;
-    font-weight: 900;
-    color: var(--accent);
-}
-
-/* --- 7c. card__usp — home USP grid ---------------------------------------- */
-
-.card__usp {
-    padding: 1.8rem;
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.005) 100%);
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-.card__usp:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 28px rgba(0,0,0,0.12);
-}
-.card__usp__icon { font-size: 1.8rem; margin-bottom: 0.8rem; display: block; }
-.card__usp__title {
-    font-family: var(--font-mono);
-    font-size: 0.9rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-}
-.card__usp__text {
-    font-size: 0.82rem;
-    opacity: 0.68;
-    line-height: 1.55;
-    font-family: var(--font-sans);
-}
-
-/* --- 7d. card__part — hardware thumbnail (parts page) --------------------- */
-
-.card__part {
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-}
-.card__part img {
-    width: 100%;
-    aspect-ratio: 4/3;
-    object-fit: cover;
-}
-.card__part__label {
-    padding: .5rem .7rem;
-    font-size: .75rem;
-    font-weight: 600;
-}
-
-/* --- Hardware wall cards (built page) ------------------------------------- */
-
-.hw-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 0.75rem;
-    margin-top: 1.5rem;
-    margin-bottom: 2.5rem;
-}
-.hw-card {
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-    background: var(--bg-card);
-    transition: border-color 0.2s, transform 0.2s;
-}
-.hw-card:hover { border-color: var(--accent); transform: translateY(-2px); }
-.hw-card__img {
-    width: 100%;
-    aspect-ratio: 1;
-    object-fit: cover;
-    display: block;
-    background: rgba(255,255,255,0.03);
-}
-.hw-card__info {
-    padding: 10px 12px 12px;
-    border-top: 1px solid var(--border);
-}
-.hw-card__name {
-    font-family: var(--font-mono);
-    font-size: 0.82rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--text);
-    margin-bottom: 2px;
-}
-.hw-card__desc {
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    letter-spacing: 0.06em;
-    color: var(--text-muted);
-}
-
-
-/* =============================================================================
-   8. GRIDS & SECTION LAYOUTS
-   ============================================================================= */
-
-/* --- 8a. home-stats bar ---------------------------------------------------- */
-
-.home-stats {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 1px;
-    background: var(--border);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    overflow: hidden;
-    margin-bottom: 3.5rem;
-    width: 100%;
-}
-.home-stat {
-    background: var(--bg);
-    padding: 1.4rem 1.5rem;
-    text-align: center;
-}
-.home-stat__num {
-    font-family: var(--font-mono);
-    font-size: 2rem;
-    font-weight: 900;
-    color: var(--accent);
-    display: block;
-    line-height: 1;
-    margin-bottom: 0.3rem;
-}
-.home-stat__label {
-    font-size: 0.75rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    opacity: 0.55;
-}
-
-/* --- 8b. options-grid ------------------------------------------------------ */
-
-.options-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    margin: 2rem 0;
-}
-
-/* --- 8c. lifestyle photo grid --------------------------------------------- */
-
-.home-lifestyle {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
-    gap: 0.75rem;
-    margin: 3rem 0;
-    border-radius: 16px;
-    overflow: hidden;
-}
-.home-lifestyle img {
-    width: 100%;
-    height: 220px;
-    object-fit: cover;
-    transition: transform 0.4s ease;
-    cursor: pointer;
-}
-.home-lifestyle img:hover { transform: scale(1.04); }
-
-/* --- 8d. about/home two-column grid --------------------------------------- */
-
-.home-about-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2.5rem;
-    align-items: center;
-    margin-bottom: 1.5rem;
-}
-.home-ways {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 1.25rem;
-    margin-bottom: 3.5rem;
-}
-.home-usps {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 1.25rem;
-    margin-bottom: 3.5rem;
-}
-
-/* Clearfix for floated content (about, kit, parts pages) */
-.clearfix::after { content: ""; clear: both; display: table; }
-
-/* Float helpers — image beside text */
-.float-right {
-    float: right;
-    margin: 0 0 1.5rem 2rem;
-    width: 45%;
-    min-width: 260px;
-}
-.float-left {
-    margin: 0 2rem 1.5rem 0;
-    width: 45%;
-    min-width: 260px;
-}
-.float-left-wide {
-    float: left;
-    margin: 0 2rem 1.5rem 0;
-    width: 48%;
-    min-width: 260px;
-}
-.float-left-narrow {
-    float: left;
-    margin: 0 2rem 1.5rem 0;
-    width: 42%;
-    min-width: 240px;
-}
-.overflow-wrap { overflow: hidden; margin-bottom: 2rem; }
-.overflow-wrap--spaced { overflow: hidden; margin: 2.5rem 0 2rem; }
-
-
-/* =============================================================================
-   9. HERO VIDEO + OVERLAYS
-   ============================================================================= */
-
-.hero-video {
-    position: relative;
-    width: 100vw;
-    left: 50%;
-    transform: translateX(-50%);
-    margin-bottom: 3rem;
-    background-image: url('../assets/images/video-posters/dornori_star-a_picknick.webp');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    overflow: hidden;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-}
-.hero-video video {
-    width: 100%;
-    height: auto;
-    display: block;
-    position: relative;
-    z-index: 1;
-}
-
-/* Overlay layer above the video */
-.hero-video__overlay {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 2;
-}
-
-.overlay-left-upper {
-    position: absolute;
-    top: clamp(0.75rem, 2vw, 2rem);
-    left: clamp(0.75rem, 2vw, 2rem);
-    pointer-events: none;
-}
-.overlay-left-upper .overlay-tag {
-    font-family: var(--font-mono);
-    font-size: clamp(0.45rem, 1.4vw, 0.7rem);
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 0.5rem;
-}
-
-#page-view .overlay-left-upper h1 {
-    font-family: var(--font-mono);
-    font-size: clamp(0.85rem, 5vw, 3.5rem);
-    font-weight: 900;
-    margin-bottom: 0.6rem;
-    line-height: 1.15;
-    color: var(--overlay-highlight);
-    text-shadow: 0 2px 10px rgba(0,0,0,0.5);
-}
-
-.overlay-left-upper h2 {
-    font-family: var(--font-mono);
-    font-size: clamp(0.85rem, 3.5vw, 2.2rem);
-    font-weight: 900;
-    margin-bottom: 0.6rem;
-    line-height: 1.15;
-    color: var(--overlay-highlight);
-    text-shadow: 0 2px 10px rgba(0,0,0,0.5);
-}
-.overlay-left-upper p {
-    font-size: clamp(0.65rem, 1.8vw, 0.95rem);
-    line-height: 1.7;
-    opacity: 0.9;
-    font-family: var(--font-sans);
-    color: var(--overlay-text);
-    text-shadow: 0 1px 5px rgba(0,0,0,0.5);
-    max-width: min(380px, 55vw);
-}
-
-.overlay-right-upper { position: absolute; top: clamp(0.75rem, 2vw, 2rem); right: clamp(0.75rem, 2vw, 2rem); pointer-events: auto; }
-.overlay-left-lower  { position: absolute; bottom: clamp(0.75rem, 2vw, 2rem); left: clamp(0.75rem, 2vw, 2rem); pointer-events: auto; }
-.overlay-right-lower {
-    position: absolute;
-    bottom: 2rem;
-    right: 2rem;
-    pointer-events: none;
-    font-family: var(--font-sans);
-    font-size: clamp(0.6rem, 1.6vw, 0.85rem);
-    color: var(--overlay-text);
-    text-shadow: 0 1px 5px rgba(0,0,0,0.5);
-    text-align: right;
-}
-
-/* Content block that slides up under the video */
-.hero-video__content {
-    padding: 2rem;
-    background: var(--bg);
-    border-radius: 24px;
-    margin-top: -2rem;
-    position: relative;
-    z-index: 3;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-}
-.hero-video__content h3 {
-    font-family: var(--font-mono);
-    font-size: clamp(1.3rem, 3vw, 1.8rem);
-    font-weight: 900;
-    margin-bottom: 1rem;
-    color: var(--overlay-highlight);
-}
-.hero-video__content p {
-    font-size: clamp(0.8rem, 2vw, 1rem);
-    line-height: 1.7;
-    margin-bottom: 1rem;
-    font-family: var(--font-sans);
-    opacity: 0.85;
-}
-.hero-video__content ul  { margin: 1rem 0 1rem 1.5rem; padding: 0; }
-.hero-video__content li  { margin-bottom: 0.5rem; line-height: 1.6; }
-
-/* Slideshow variant beside text (about page) */
-.slideshow-container { overflow: hidden; margin-bottom: 2rem; }
-.slideshow-left {
-    float: left;
-    margin: 0 2rem 1.5rem 0;
-    width: 45%;
-    min-width: 260px;
-}
-
-
-
-
-/* =============================================================================
-   10. SLIDESHOWS
-   ============================================================================= */
-
-/* =============================================================================
-   11. PAGE SECTIONS
-   ============================================================================= */
-
-/* --- 11a. Home page -------------------------------------------------------- */
-
-/* Home page section styles */
-.home-section-label { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.45; margin-bottom: 0.6rem; }
-.home-section-title { font-family: var(--font-mono); font-size: clamp(1.4rem, 3vw, 2.1rem); font-weight: 900; margin-bottom: 0.8rem; line-height: 1.1; }
-.home-section-lead  { font-size: 1rem; line-height: 1.7; opacity: 0.78; max-width: 580px; margin-bottom: 2rem; font-family: var(--font-sans); }
-
-/* --- 11b. About page ------------------------------------------------------- */
-
-#about-view {
-    width: 100%;
-    max-width: 100%;
-    padding-left:  clamp(16px, 5vw, 80px);
-    padding-right: clamp(16px, 5vw, 80px);
-    box-sizing: border-box;
-    animation: fadeIn 0.5s ease;
-}
-
-/* --- 11c. Kit page --------------------------------------------------------- */
-
-/* Shop product embed tweaks (kit + parts) */
-/* Data-shop-products is a GRID ITEM, not a grid container itself */
-
-/* Hide auto-injected related strip only when neither data-addons nor data-related flag is set */
-[data-shop-products]:not([data-addons]):not([data-related]) .webshop-related { display: none !important; }
-[data-shop-products] .webshop-card-img         { object-fit: cover !important; }
-[data-shop-products] .webshop-card-img-wrap    { aspect-ratio: 3 / 4 !important; }
-
-/* Mobile aspect ratio for embedded products - match shop mobile */
-@media (max-width: 768px) {
-  [data-shop-products] .webshop-card-img-wrap { aspect-ratio: 1 / 1 !important; }
-}
-
-/* ── MOBILE FIX: data-shop-products as grid cells (built / kit / parts pages) ──
-   CSS grid items default to min-width:auto, which lets them expand beyond their
-   1fr column width when their content has intrinsic width > the column.
-   On the shop page the card IS the direct grid child so this is never an issue;
-   on content pages (built/kit/parts) the [data-shop-products] div is the grid
-   child and needs min-width:0 so the grid can actually shrink it to 1fr.
-   width:100% + overflow:hidden on the card ensure it fills and clips cleanly. */
-@media (max-width: 768px) {
-  [data-shop-products] {
-    min-width: 0;
-    overflow: hidden;
-    width: 100%;
+[
+  {
+    "id": "ufo-kit-spaceblue",
+    "price": 250,
+    "weight": 1.8,
+    "stock": 99,
+    "category": "lamp",
+    "featured": false,
+    "discount": 0,
+    "bestseller": false,
+    "rating": "0",
+    "reviewCount": "0",
+    "summaryBadge": "PRE-ORDER",
+    "image": "/assets/images/UFO-product/dornori-UFO-lamp-retracted-color-spaceblue.webp",
+    "colors": [
+      "Smoke",
+      "Clear",
+      "Amber"
+    ],
+    "colors_soldout": "Amber",
+    "showBuyNow": true,
+    "images": [
+      "/assets/images/UFO-product/dornori-UFO-lamp-retracted-color-spaceblue.webp",
+      "/assets/images/UFO-product/dornori-UFO-lamp-extruded-color-spaceblue.webp",
+      "/assets/images/vertical/2-kids-repairing-a-bicycle-light.webp",
+      "/assets/images/vertical/2-kids-repairing-a-bicycle-dark.webp",
+      "/assets/images/vertical/africa-reading-light.webp",
+      "/assets/images/vertical/africa-reading-dark.webp",
+      "/assets/images/vertical/cats-in-kitchen-dark.webp",
+      "/assets/images/vertical/kids-playing-in-backyard-light.webp",
+      "/assets/images/vertical/kids-playing-in-backyard-dark.webp",
+      "/assets/images/vertical/man-working-in-garden-light.webp",
+      "/assets/images/vertical/man-working-in-garden-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-campsite-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-campsite-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-on-the-beach-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-on-the-beach-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-under-lamp-in-park-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-under-lamp-in-park-dark.webp"
+    ],
+    "variants": [
+      "ufo-kit-redphantom",
+      "ufo-kit-midnightblack",
+      "ufo-kit-silvershadow"
+    ],
+    "addons": [
+      "batteries-3pack",
+      "18650-charger",
+      "spare-led",
+      "spare-motor"
+    ],
+    "related": [
+      "star-a-kit",
+      "electronics-bundle",
+      "printed-parts-ufo"
+    ],
+    "dimensions": {
+      "l": 10,
+      "w": 10,
+      "h": 70
+    },
+    "videos": [
+      "/assets/video/dornori_star-a_picknick.mp4",
+      "/assets/video/dornori-hero.mp4"
+    ],
+    "showQuantity": false
+  },
+  {
+    "id": "ufo-kit-redphantom",
+    "price": 200,
+    "weight": 1.8,
+    "stock": 99,
+    "category": "lamp",
+    "featured": false,
+    "discount": 0,
+    "bestseller": false,
+    "rating": "0",
+    "reviewCount": "0",
+    "summaryBadge": "PRE-ORDER",
+    "image": "/assets/images/UFO-product/dornori-UFO-lamp-retracted-color-redphantom.webp",
+    "images": [
+      "/assets/images/UFO-product/dornori-UFO-lamp-retracted-color-redphantom.webp",
+      "/assets/images/UFO-product/dornori-UFO-lamp-extruded-color-redphantom.webp",
+      "/assets/images/vertical/2-kids-repairing-a-bicycle-light.webp",
+      "/assets/images/vertical/2-kids-repairing-a-bicycle-dark.webp",
+      "/assets/images/vertical/africa-reading-light.webp",
+      "/assets/images/vertical/africa-reading-dark.webp",
+      "/assets/images/vertical/cats-in-kitchen-dark.webp",
+      "/assets/images/vertical/kids-playing-in-backyard-light.webp",
+      "/assets/images/vertical/kids-playing-in-backyard-dark.webp",
+      "/assets/images/vertical/man-working-in-garden-light.webp",
+      "/assets/images/vertical/man-working-in-garden-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-campsite-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-campsite-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-on-the-beach-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-on-the-beach-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-under-lamp-in-park-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-under-lamp-in-park-dark.webp"
+    ],
+    "variants": [
+      "ufo-kit-spaceblue",
+      "ufo-kit-midnightblack",
+      "ufo-kit-silvershadow"
+    ],
+    "addons": [
+      "batteries-3pack",
+      "18650-charger",
+      "spare-led",
+      "spare-motor"
+    ],
+    "related": [
+      "star-a-kit",
+      "electronics-bundle",
+      "printed-parts-ufo"
+    ],
+    "dimensions": {
+      "l": 10,
+      "w": 10,
+      "h": 70
+    },
+    "videos": [
+      "/assets/video/dornori_star-a_picknick.mp4",
+      "/assets/video/dornori-hero.mp4"
+    ],
+    "label": "UFO — RedPhantom",
+    "showQuantity": false
+  },
+  {
+    "id": "ufo-kit-midnightblack",
+    "price": 100,
+    "weight": 1.8,
+    "stock": 99,
+    "category": "lamp",
+    "featured": false,
+    "discount": 0,
+    "bestseller": false,
+    "rating": "0",
+    "reviewCount": "0",
+    "summaryBadge": "PRE-ORDER",
+    "image": "/assets/images/UFO-product/dornori-UFO-lamp-retracted-color-midnightblack.webp",
+    "images": [
+      "/assets/images/UFO-product/dornori-UFO-lamp-retracted-color-midnightblack.webp",
+      "/assets/images/UFO-product/dornori-UFO-lamp-extruded-color-midnightblack.webp",
+      "/assets/images/vertical/2-kids-repairing-a-bicycle-light.webp",
+      "/assets/images/vertical/2-kids-repairing-a-bicycle-dark.webp",
+      "/assets/images/vertical/africa-reading-light.webp",
+      "/assets/images/vertical/africa-reading-dark.webp",
+      "/assets/images/vertical/cats-in-kitchen-dark.webp",
+      "/assets/images/vertical/kids-playing-in-backyard-light.webp",
+      "/assets/images/vertical/kids-playing-in-backyard-dark.webp",
+      "/assets/images/vertical/man-working-in-garden-light.webp",
+      "/assets/images/vertical/man-working-in-garden-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-campsite-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-campsite-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-on-the-beach-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-on-the-beach-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-under-lamp-in-park-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-under-lamp-in-park-dark.webp"
+    ],
+    "variants": [
+      "ufo-kit-spaceblue",
+      "ufo-kit-redphantom",
+      "ufo-kit-silvershadow"
+    ],
+    "addons": [
+      "batteries-3pack",
+      "18650-charger",
+      "spare-led",
+      "spare-motor"
+    ],
+    "related": [
+      "star-a-kit",
+      "electronics-bundle",
+      "printed-parts-ufo"
+    ],
+    "dimensions": {
+      "l": 10,
+      "w": 10,
+      "h": 70
+    },
+    "videos": [
+      "/assets/video/dornori_star-a_picknick.mp4",
+      "/assets/video/dornori-hero.mp4"
+    ],
+    "label": "UFO — MidnightBlack",
+    "showQuantity": false
+  },
+  {
+    "id": "ufo-kit-silvershadow",
+    "price": 219,
+    "weight": 1.8,
+    "stock": 99,
+    "category": "lamp",
+    "featured": false,
+    "discount": 0,
+    "bestseller": false,
+    "rating": "0",
+    "reviewCount": "0",
+    "summaryBadge": "PRE-ORDER",
+    "image": "/assets/images/UFO-product/dornori-UFO-lamp-retracted-color-silvershadow.webp",
+    "images": [
+      "/assets/images/UFO-product/dornori-UFO-lamp-retracted-color-silvershadow.webp",
+      "/assets/images/UFO-product/dornori-UFO-lamp-extruded-color-silvershadow.webp",
+      "/assets/images/vertical/2-kids-repairing-a-bicycle-light.webp",
+      "/assets/images/vertical/2-kids-repairing-a-bicycle-dark.webp",
+      "/assets/images/vertical/africa-reading-light.webp",
+      "/assets/images/vertical/africa-reading-dark.webp",
+      "/assets/images/vertical/cats-in-kitchen-dark.webp",
+      "/assets/images/vertical/kids-playing-in-backyard-light.webp",
+      "/assets/images/vertical/kids-playing-in-backyard-dark.webp",
+      "/assets/images/vertical/man-working-in-garden-light.webp",
+      "/assets/images/vertical/man-working-in-garden-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-campsite-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-campsite-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-on-the-beach-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-on-the-beach-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-under-lamp-in-park-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-under-lamp-in-park-dark.webp"
+    ],
+    "variants": [
+      "ufo-kit-spaceblue",
+      "ufo-kit-redphantom",
+      "ufo-kit-midnightblack"
+    ],
+    "addons": [
+      "batteries-3pack",
+      "18650-charger",
+      "spare-led",
+      "spare-motor"
+    ],
+    "related": [
+      "star-a-kit",
+      "electronics-bundle",
+      "printed-parts-ufo"
+    ],
+    "dimensions": {
+      "l": 10,
+      "w": 10,
+      "h": 70
+    },
+    "videos": [
+      "/assets/video/dornori_star-a_picknick.mp4",
+      "/assets/video/dornori-hero.mp4"
+    ],
+    "label": "UFO — SilverShadow",
+    "showQuantity": false
+  },
+  {
+    "id": "mushroom-kit-forestrave",
+    "price": 219,
+    "weight": 1.8,
+    "stock": 99,
+    "category": "lamp",
+    "featured": false,
+    "discount": 0,
+    "bestseller": false,
+    "rating": "0",
+    "reviewCount": "0",
+    "summaryBadge": "PRE-ORDER",
+    "image": "/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-green-red.webp",
+    "images": [
+      "/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-green-red.webp",
+      "/assets/images/mushroom-product/dornori-mushroom-lamp-extruded-color-green-red.webp",
+      "/assets/images/vertical/2-kids-repairing-a-bicycle-light.webp",
+      "/assets/images/vertical/2-kids-repairing-a-bicycle-dark.webp",
+      "/assets/images/vertical/africa-reading-light.webp",
+      "/assets/images/vertical/africa-reading-dark.webp",
+      "/assets/images/vertical/cats-in-kitchen-dark.webp",
+      "/assets/images/vertical/kids-playing-in-backyard-light.webp",
+      "/assets/images/vertical/kids-playing-in-backyard-dark.webp",
+      "/assets/images/vertical/man-working-in-garden-light.webp",
+      "/assets/images/vertical/man-working-in-garden-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-campsite-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-campsite-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-on-the-beach-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-on-the-beach-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-under-lamp-in-park-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-under-lamp-in-park-dark.webp"
+    ],
+    "variants": [
+      "mushroom-kit-crimsonglow",
+      "mushroom-kit-arcticspore",
+      "mushroom-kit-frostbite"
+    ],
+    "addons": [
+      "batteries-3pack",
+      "18650-charger",
+      "spare-led",
+      "spare-motor"
+    ],
+    "related": [
+      "star-a-kit",
+      "electronics-bundle",
+      "printed-parts-mushroom"
+    ],
+    "dimensions": {
+      "l": 10,
+      "w": 10,
+      "h": 70
+    },
+    "videos": [
+      "/assets/video/dornori_star-a_picknick.mp4",
+      "/assets/video/dornori-hero.mp4"
+    ],
+    "label": "Mushroom — ForestRave",
+    "showQuantity": false
+  },
+  {
+    "id": "mushroom-kit-crimsonglow",
+    "price": 219,
+    "weight": 1.8,
+    "stock": 99,
+    "category": "lamp",
+    "featured": false,
+    "discount": 0,
+    "bestseller": false,
+    "rating": "0",
+    "reviewCount": "0",
+    "summaryBadge": "PRE-ORDER",
+    "image": "/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-red-red.webp",
+    "images": [
+      "/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-red-red.webp",
+      "/assets/images/mushroom-product/dornori-mushroom-lamp-extruded-color-red-red.webp",
+      "/assets/images/vertical/2-kids-repairing-a-bicycle-light.webp",
+      "/assets/images/vertical/2-kids-repairing-a-bicycle-dark.webp",
+      "/assets/images/vertical/africa-reading-light.webp",
+      "/assets/images/vertical/africa-reading-dark.webp",
+      "/assets/images/vertical/cats-in-kitchen-dark.webp",
+      "/assets/images/vertical/kids-playing-in-backyard-light.webp",
+      "/assets/images/vertical/kids-playing-in-backyard-dark.webp",
+      "/assets/images/vertical/man-working-in-garden-light.webp",
+      "/assets/images/vertical/man-working-in-garden-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-campsite-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-campsite-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-on-the-beach-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-on-the-beach-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-under-lamp-in-park-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-under-lamp-in-park-dark.webp"
+    ],
+    "variants": [
+      "mushroom-kit-forestrave",
+      "mushroom-kit-arcticspore",
+      "mushroom-kit-frostbite"
+    ],
+    "addons": [
+      "batteries-3pack",
+      "18650-charger",
+      "spare-led",
+      "spare-motor"
+    ],
+    "related": [
+      "star-a-kit",
+      "electronics-bundle",
+      "printed-parts-mushroom"
+    ],
+    "dimensions": {
+      "l": 10,
+      "w": 10,
+      "h": 70
+    },
+    "videos": [
+      "/assets/video/dornori_star-a_picknick.mp4",
+      "/assets/video/dornori-hero.mp4"
+    ],
+    "label": "Mushroom — CrimsonGlow",
+    "showQuantity": false
+  },
+  {
+    "id": "mushroom-kit-arcticspore",
+    "price": 219,
+    "weight": 1.8,
+    "stock": 99,
+    "category": "lamp",
+    "featured": false,
+    "discount": 0,
+    "bestseller": false,
+    "rating": "0",
+    "reviewCount": "0",
+    "summaryBadge": "PRE-ORDER",
+    "image": "/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-black-blue.webp",
+    "images": [
+      "/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-black-blue.webp",
+      "/assets/images/mushroom-product/dornori-mushroom-lamp-extruded-color-black-blue.webp",
+      "/assets/images/vertical/2-kids-repairing-a-bicycle-light.webp",
+      "/assets/images/vertical/2-kids-repairing-a-bicycle-dark.webp",
+      "/assets/images/vertical/africa-reading-light.webp",
+      "/assets/images/vertical/africa-reading-dark.webp",
+      "/assets/images/vertical/cats-in-kitchen-dark.webp",
+      "/assets/images/vertical/kids-playing-in-backyard-light.webp",
+      "/assets/images/vertical/kids-playing-in-backyard-dark.webp",
+      "/assets/images/vertical/man-working-in-garden-light.webp",
+      "/assets/images/vertical/man-working-in-garden-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-campsite-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-campsite-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-on-the-beach-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-on-the-beach-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-under-lamp-in-park-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-under-lamp-in-park-dark.webp"
+    ],
+    "variants": [
+      "mushroom-kit-forestrave",
+      "mushroom-kit-crimsonglow",
+      "mushroom-kit-frostbite"
+    ],
+    "addons": [
+      "batteries-3pack",
+      "18650-charger",
+      "spare-led",
+      "spare-motor"
+    ],
+    "related": [
+      "star-a-kit",
+      "electronics-bundle",
+      "printed-parts-mushroom"
+    ],
+    "dimensions": {
+      "l": 10,
+      "w": 10,
+      "h": 70
+    },
+    "videos": [
+      "/assets/video/dornori_star-a_picknick.mp4",
+      "/assets/video/dornori-hero.mp4"
+    ],
+    "label": "Mushroom — ArcticSpore",
+    "showQuantity": false
+  },
+  {
+    "id": "mushroom-kit-frostbite",
+    "price": 219,
+    "weight": 1.8,
+    "stock": 99,
+    "category": "lamp",
+    "featured": false,
+    "discount": 0,
+    "bestseller": false,
+    "rating": "0",
+    "reviewCount": "0",
+    "summaryBadge": "PRE-ORDER",
+    "image": "/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-white-blue.webp",
+    "images": [
+      "/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-white-blue.webp",
+      "/assets/images/mushroom-product/dornori-mushroom-lamp-extruded-color-white-blue.webp",
+      "/assets/images/vertical/2-kids-repairing-a-bicycle-light.webp",
+      "/assets/images/vertical/2-kids-repairing-a-bicycle-dark.webp",
+      "/assets/images/vertical/africa-reading-light.webp",
+      "/assets/images/vertical/africa-reading-dark.webp",
+      "/assets/images/vertical/cats-in-kitchen-dark.webp",
+      "/assets/images/vertical/kids-playing-in-backyard-light.webp",
+      "/assets/images/vertical/kids-playing-in-backyard-dark.webp",
+      "/assets/images/vertical/man-working-in-garden-light.webp",
+      "/assets/images/vertical/man-working-in-garden-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-campsite-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-campsite-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-on-the-beach-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-on-the-beach-dark.webp",
+      "/assets/images/vertical/teens-sitting-outside-under-lamp-in-park-light.webp",
+      "/assets/images/vertical/teens-sitting-outside-under-lamp-in-park-dark.webp"
+    ],
+    "variants": [
+      "mushroom-kit-forestrave",
+      "mushroom-kit-crimsonglow",
+      "mushroom-kit-arcticspore"
+    ],
+    "addons": [
+      "batteries-3pack",
+      "18650-charger",
+      "spare-led",
+      "spare-motor"
+    ],
+    "related": [
+      "star-a-kit",
+      "electronics-bundle",
+      "printed-parts-mushroom"
+    ],
+    "dimensions": {
+      "l": 10,
+      "w": 10,
+      "h": 70
+    },
+    "videos": [
+      "/assets/video/dornori_star-a_picknick.mp4",
+      "/assets/video/dornori-hero.mp4"
+    ],
+    "label": "Mushroom — FrostBite",
+    "showQuantity": false
+  },
+  {
+    "id": "star-a-kit",
+    "price": 149,
+    "weight": 2.1,
+    "stock": 99,
+    "category": "kit",
+    "featured": true,
+    "image": "/assets/images/prints/Kit-cutting_mat.webp",
+    "images": [
+      "/assets/images/prints/Kit-cutting_mat.webp",
+      "/assets/images/prints/Kit-white_backnd.webp",
+      "/assets/images/cutting-mat/cutting-mat-parts-UFO-0.webp",
+      "/assets/images/cutting-mat/cutting-mat-parts-UFO-1.webp",
+      "/assets/images/cutting-mat/cutting-mat-parts-UFO-2.webp",
+      "/assets/images/cutting-mat/cutting-mat-parts-UFO-3.webp",
+      "/assets/images/UFO-product/dornori-UFO-lamp-extruded-color-spaceblue.webp",
+      "/assets/images/mushroom-product/dornori-mushroom-lamp-extruded-color-green-red.webp"
+    ],
+    "url": "/en/product/?id=star-a-kit",
+    "variants": [
+      "ufo-kit-spaceblue",
+      "ufo-kit-redphantom",
+      "ufo-kit-midnightblack",
+      "ufo-kit-silvershadow",
+      "mushroom-kit-forestrave",
+      "mushroom-kit-crimsonglow",
+      "mushroom-kit-arcticspore",
+      "mushroom-kit-frostbite"
+    ],
+    "addons": [
+      "batteries-3pack",
+      "18650-charger",
+      "spare-led"
+    ],
+    "related": [
+      "ufo-kit-spaceblue",
+      "electronics-bundle",
+      "printed-parts-ufo"
+    ],
+    "dimensions": {
+      "l": 10,
+      "w": 10,
+      "h": 70
+    },
+    "label": "Star‑A Kit",
+    "showQuantity": false
+  },
+  {
+    "id": "complete-assembly-kit",
+    "price": 149,
+    "weight": 2.1,
+    "stock": 99,
+    "category": "kit",
+    "featured": false,
+    "image": "/assets/images/prints/Kit-cutting_mat.webp",
+    "images": [
+      "/assets/images/prints/Kit-cutting_mat.webp",
+      "/assets/images/prints/Kit-white_backnd.webp",
+      "/assets/images/cutting-mat/cutting-mat-parts-UFO-0.webp",
+      "/assets/images/cutting-mat/cutting-mat-parts-UFO-4.webp"
+    ],
+    "url": "/en/product/?id=complete-assembly-kit",
+    "variants": [
+      "ufo-kit-spaceblue",
+      "mushroom-kit-forestrave"
+    ],
+    "addons": [
+      "batteries-3pack",
+      "18650-charger",
+      "spare-led"
+    ],
+    "related": [
+      "ufo-kit-spaceblue",
+      "electronics-bundle",
+      "printed-parts-ufo"
+    ],
+    "dimensions": {
+      "l": 10,
+      "w": 10,
+      "h": 70
+    },
+    "label": "Complete Assembly Kit",
+    "showQuantity": false
+  },
+  {
+    "id": "electronics-bundle",
+    "price": 79,
+    "weight": 0.9,
+    "stock": 99,
+    "category": "kit",
+    "featured": false,
+    "image": "/assets/images/hardware/221-412.webp",
+    "images": [
+      "/assets/images/hardware/221-412.webp",
+      "/assets/images/hardware/wire-insertion.webp",
+      "/assets/images/hardware/WAGO-221-413.webp",
+      "/assets/images/hardware/dc-motor-closed.webp",
+      "/assets/images/hardware/Star-LED-3W.webp",
+      "/assets/images/hardware/mean-well-ldd-700l-dcdc-led-driver-cc-700ma-step-down.webp",
+      "/assets/images/hardware/on-off-on-lever.webp",
+      "/assets/images/hardware/Round-Push-Switch-2A-250V.webp"
+    ],
+    "url": "/en/product/?id=electronics-bundle",
+    "addons": [
+      "batteries-3pack",
+      "18650-charger",
+      "printed-parts-ufo",
+      "printed-parts-mushroom"
+    ],
+    "related": [
+      "star-a-kit",
+      "printed-parts-ufo",
+      "printed-parts-mushroom"
+    ],
+    "dimensions": {
+      "l": 20,
+      "w": 15,
+      "h": 10
+    },
+    "label": "Electronics Bundle",
+    "showQuantity": false
+  },
+  {
+    "id": "printed-parts-ufo",
+    "price": 69,
+    "weight": 0.7,
+    "stock": 99,
+    "category": "parts",
+    "featured": false,
+    "image": "/assets/images/UFO-product/dornori-UFO-lamp-retracted-color-spaceblue.webp",
+    "images": [
+      "/assets/images/UFO-product/dornori-UFO-lamp-retracted-color-spaceblue.webp",
+      "/assets/images/prints/exploded-view.webp",
+      "/assets/images/prints/stl-preview.webp",
+      "/assets/images/prints/parts-view-01.webp",
+      "/assets/images/cutting-mat/cutting-mat-parts-UFO-0.webp",
+      "/assets/images/cutting-mat/cutting-mat-parts-UFO-5.webp"
+    ],
+    "url": "/en/product/?id=printed-parts-ufo",
+    "addons": [
+      "electronics-bundle",
+      "batteries-3pack",
+      "18650-charger"
+    ],
+    "related": [
+      "printed-parts-mushroom",
+      "electronics-bundle",
+      "star-a-kit"
+    ],
+    "dimensions": {
+      "l": 30,
+      "w": 30,
+      "h": 20
+    },
+    "label": "UFO Printed Parts",
+    "showQuantity": false
+  },
+  {
+    "id": "printed-parts-mushroom",
+    "price": 69,
+    "weight": 0.7,
+    "stock": 99,
+    "category": "parts",
+    "featured": false,
+    "image": "/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-green-red.webp",
+    "images": [
+      "/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-green-red.webp",
+      "/assets/images/prints/exploded-view.webp",
+      "/assets/images/prints/stl-preview.webp",
+      "/assets/images/prints/parts-view-01.webp",
+      "/assets/images/cutting-mat/cutting-mat-parts-UFO-1.webp",
+      "/assets/images/cutting-mat/cutting-mat-parts-UFO-2.webp"
+    ],
+    "url": "/en/product/?id=printed-parts-mushroom",
+    "addons": [
+      "electronics-bundle",
+      "batteries-3pack",
+      "18650-charger"
+    ],
+    "related": [
+      "printed-parts-ufo",
+      "electronics-bundle",
+      "star-a-kit"
+    ],
+    "dimensions": {
+      "l": 30,
+      "w": 30,
+      "h": 20
+    },
+    "label": "Mushroom Printed Parts",
+    "showQuantity": false
+  },
+  {
+    "id": "batteries-3pack",
+    "price": 12,
+    "weight": 0.3,
+    "stock": 999,
+    "category": "accessory",
+    "featured": false,
+    "image": "/assets/images/hardware/3-18650-batteries.webp",
+    "images": [
+      "/assets/images/hardware/3-18650-batteries.webp"
+    ],
+    "url": "/en/product/?id=batteries-3pack",
+    "addons": [
+      "18650-charger"
+    ],
+    "related": [
+      "18650-charger",
+      "spare-led",
+      "spare-motor"
+    ],
+    "dimensions": {
+      "l": 7,
+      "w": 2,
+      "h": 7
+    },
+    "label": "3× 18650 Batteries",
+    "showQuantity": false
+  },
+  {
+    "id": "18650-charger",
+    "price": 14,
+    "weight": 0.2,
+    "stock": 999,
+    "category": "accessory",
+    "featured": false,
+    "image": "/assets/images/hardware/18650-charger.webp",
+    "images": [
+      "/assets/images/hardware/18650-charger.webp"
+    ],
+    "url": "/en/product/?id=18650-charger",
+    "addons": [
+      "batteries-3pack"
+    ],
+    "related": [
+      "batteries-3pack",
+      "spare-led"
+    ],
+    "dimensions": {
+      "l": 12,
+      "w": 8,
+      "h": 3
+    },
+    "label": "18650 Charger",
+    "showQuantity": false
+  },
+  {
+    "id": "spare-led",
+    "price": 9,
+    "weight": 0.05,
+    "stock": 999,
+    "category": "accessory",
+    "featured": false,
+    "image": "/assets/images/hardware/Star-LED-3W.webp",
+    "images": [
+      "/assets/images/hardware/Star-LED-3W.webp"
+    ],
+    "url": "/en/product/?id=spare-led",
+    "addons": [
+      "spare-motor",
+      "led-driver"
+    ],
+    "related": [
+      "spare-motor",
+      "batteries-3pack",
+      "wago-terminals"
+    ],
+    "dimensions": {
+      "l": 4,
+      "w": 4,
+      "h": 1
+    },
+    "label": "Spare LED",
+    "showQuantity": false
+  },
+  {
+    "id": "spare-motor",
+    "price": 14,
+    "weight": 0.15,
+    "stock": 999,
+    "category": "accessory",
+    "featured": false,
+    "image": "/assets/images/hardware/dc-motor-closed.webp",
+    "images": [
+      "/assets/images/hardware/dc-motor-closed.webp",
+      "/assets/images/hardware/dc-motor-open.webp"
+    ],
+    "url": "/en/product/?id=spare-motor",
+    "addons": [
+      "spare-led"
+    ],
+    "related": [
+      "spare-led",
+      "wago-terminals",
+      "spare-lever-switch"
+    ],
+    "dimensions": {
+      "l": 6,
+      "w": 4,
+      "h": 4
+    },
+    "label": "Spare Motor",
+    "showQuantity": false
+  },
+  {
+    "id": "spare-lever-switch",
+    "price": 8,
+    "weight": 0.05,
+    "stock": 999,
+    "category": "accessory",
+    "featured": false,
+    "image": "/assets/images/hardware/on-off-on-lever.webp",
+    "images": [
+      "/assets/images/hardware/on-off-on-lever.webp"
+    ],
+    "url": "/en/product/?id=spare-lever-switch",
+    "addons": [
+      "spare-push-switch",
+      "wago-terminals"
+    ],
+    "related": [
+      "spare-push-switch",
+      "spare-motor",
+      "wago-terminals"
+    ],
+    "dimensions": {
+      "l": 5,
+      "w": 3,
+      "h": 3
+    },
+    "label": "Lever Switch",
+    "showQuantity": false
+  },
+  {
+    "id": "spare-push-switch",
+    "price": 6,
+    "weight": 0.03,
+    "stock": 999,
+    "category": "accessory",
+    "featured": false,
+    "image": "/assets/images/hardware/Round-Push-Switch-2A-250V.webp",
+    "images": [
+      "/assets/images/hardware/Round-Push-Switch-2A-250V.webp"
+    ],
+    "url": "/en/product/?id=spare-push-switch",
+    "addons": [
+      "spare-lever-switch",
+      "wago-terminals"
+    ],
+    "related": [
+      "spare-lever-switch",
+      "spare-motor",
+      "wago-terminals"
+    ],
+    "dimensions": {
+      "l": 3,
+      "w": 3,
+      "h": 3
+    },
+    "label": "Power Switch",
+    "showQuantity": false
+  },
+  {
+    "id": "spare-battery-holder",
+    "price": 7,
+    "weight": 0.08,
+    "stock": 999,
+    "category": "accessory",
+    "featured": false,
+    "image": "/assets/images/hardware/3-18650-batteries.webp",
+    "images": [
+      "/assets/images/hardware/3-18650-batteries.webp"
+    ],
+    "url": "/en/product/?id=spare-battery-holder",
+    "addons": [
+      "batteries-3pack",
+      "18650-charger"
+    ],
+    "related": [
+      "batteries-3pack",
+      "18650-charger",
+      "wago-terminals"
+    ],
+    "dimensions": {
+      "l": 8,
+      "w": 6,
+      "h": 3
+    },
+    "label": "Battery Holder",
+    "showQuantity": false
+  },
+  {
+    "id": "wago-terminals",
+    "price": 8,
+    "weight": 0.1,
+    "stock": 999,
+    "category": "accessory",
+    "featured": false,
+    "image": "/assets/images/hardware/WAGO-221-413.webp",
+    "images": [
+      "/assets/images/hardware/WAGO-221-413.webp",
+      "/assets/images/hardware/WAGO-221-413-dimension.webp",
+      "/assets/images/hardware/221-412.webp",
+      "/assets/images/hardware/221-412-dimensions.webp",
+      "/assets/images/hardware/wire-insertion.webp"
+    ],
+    "url": "/en/product/?id=wago-terminals",
+    "addons": [
+      "spare-motor",
+      "spare-led"
+    ],
+    "related": [
+      "spare-motor",
+      "spare-led",
+      "electronics-bundle"
+    ],
+    "dimensions": {
+      "l": 5,
+      "w": 2,
+      "h": 2
+    },
+    "label": "Wago Terminals",
+    "showQuantity": false
+  },
+  {
+    "id": "led-driver",
+    "price": 11,
+    "weight": 0.05,
+    "stock": 999,
+    "category": "accessory",
+    "featured": false,
+    "image": "/assets/images/hardware/mean-well-ldd-700l-dcdc-led-driver-cc-700ma-step-down.webp",
+    "images": [
+      "/assets/images/hardware/mean-well-ldd-700l-dcdc-led-driver-cc-700ma-step-down.webp",
+      "/assets/images/hardware/mean-well-ldd-700l-dcdc-led-driver-cc-700ma-step-down-wired.webp"
+    ],
+    "url": "/en/product/?id=led-driver",
+    "addons": [
+      "spare-led",
+      "wago-terminals"
+    ],
+    "related": [
+      "spare-led",
+      "spare-motor",
+      "electronics-bundle"
+    ],
+    "dimensions": {
+      "l": 5,
+      "w": 2,
+      "h": 1
+    },
+    "label": "LED Driver",
+    "showQuantity": false
   }
-  [data-shop-products] .webshop-product-card {
-    width: 100%;
-    min-width: 0;
-  }
-}
-
-/* --- 11d. Parts page ------------------------------------------------------- */
-
-/* parts page reuses card__part (§7d) and float helpers (§8) */
-
-/* --- 11e. Built page ------------------------------------------------------- */
-
-/* The webshop-grids on built.html have inline style="gap:1rem" which overrides
-   the shop.css mobile gap:12px rule. Force the correct mobile gap here so the
-   two columns fit cleanly within the page-view content area on narrow phones.  */
-@media (max-width: 768px) {
-  #page-view .webshop-grid {
-    gap: 10px !important;
-  }
-}
-
-.built-header { margin-bottom: 1.5rem; }
-.built-header h2 {
-    font-family: var(--font-mono);
-    font-size: clamp(1.4rem, 3vw, 2.2rem);
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    line-height: 1.15;
-    color: var(--text);
-    margin-bottom: 0.5rem;
-}
-.built-header__sub {
-    font-family: var(--font-mono);
-    font-size: 0.9rem;
-    letter-spacing: 0.14em;
-    color: var(--text-muted);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 16px;
-    align-items: center;
-}
-.built-header__pill {
-    display: inline-block;
-    padding: 2px 10px;
-    border: 1px solid var(--accent);
-    border-radius: 3px;
-    color: var(--accent);
-    font-size: 0.82rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-}
-
-.accessories-row {
-    margin: 2rem 0 3rem;
-    padding: 1.5rem;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: var(--bg-card);
-}
-.accessories-row h3 {
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 0.5rem;
-}
-
-.lever-callout {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 1.2rem;
-    align-items: center;
-    padding: 1.4rem 1.6rem;
-    border: 1px solid var(--accent);
-    border-radius: 10px;
-    margin: 1.5rem 0;
-    background: var(--bg-card);
-}
-.lever-callout__symbol { font-size: 2rem; line-height: 1; }
-.lever-callout__text   { font-family: var(--font-sans); font-size: 0.95rem; line-height: 1.7; color: var(--text); }
-.lever-callout__text strong { color: var(--accent); letter-spacing: 0.06em; }
-
-.built-footer-links {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--border);
-    font-family: var(--font-mono);
-    font-size: 0.88rem;
-    letter-spacing: 0.1em;
-}
-.built-footer-links a,
-.built-footer-links [data-page] {
-    color: var(--accent);
-    cursor: pointer;
-    text-decoration: none;
-    opacity: 0.8;
-    transition: opacity 0.2s;
-}
-.built-footer-links a:hover,
-.built-footer-links [data-page]:hover { opacity: 1; }
-
-
-/* =============================================================================
-   12. SUPPORT FORM  (.sf-*)
-   ============================================================================= */
-
-.sf-wrap { font-family: var(--font-sans); color: var(--text); }
-
-.sf-header {
-    background: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 55%, #000 45%) 100%);
-    padding: 2rem;
-    border-radius: 1.25rem 1.25rem 0 0;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-.sf-header i { font-size: 2.25rem; }
-
-.sf-body {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-top: none;
-    border-radius: 0 0 1.25rem 1.25rem;
-    padding: 2rem;
-}
-
-.sf-progress-track {
-    height: .5rem;
-    background: color-mix(in srgb, var(--border) 50%, transparent 50%);
-    border-radius: 9999px;
-    overflow: hidden;
-    margin-bottom: 2rem;
-}
-.sf-progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #ea580c 40%));
-    transition: width .3s;
-}
-.sf-progress-row { display: flex; justify-content: space-between; margin-bottom: .5rem; font-size: .85rem; }
-.sf-progress-step { color: var(--accent); font-weight: 600; }
-.sf-progress-note { color: var(--text-muted); }
-
-.sf-cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); gap: .85rem; }
-
-.sf-btn {
-    width: 100%;
-    text-align: left;
-    padding: 1rem 1.25rem;
-    border: 1px solid var(--border);
-    border-radius: .875rem;
-    background: transparent;
-    color: var(--text);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: .75rem;
-    font-weight: 500;
-    font-size: .95rem;
-    transition: border-color .15s, background .15s;
-}
-.sf-btn:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent 92%); }
-.sf-btn i { color: var(--accent); flex-shrink: 0; }
-
-.sf-opt {
-    width: 100%;
-    text-align: left;
-    padding: .9rem 1.2rem;
-    border: 1px solid var(--border);
-    border-radius: .875rem;
-    background: transparent;
-    color: var(--text);
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: .95rem;
-    transition: border-color .15s, background .15s;
-    margin-bottom: .6rem;
-}
-.sf-opt:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent 92%); }
-.sf-opt i { color: var(--accent); flex-shrink: 0; }
-
-.sf-q-label  { font-size: .8rem; color: var(--accent); margin-bottom: .5rem; }
-.sf-q-text   { font-size: 1.1rem; font-weight: 600; color: var(--text); margin-bottom: 1.25rem; }
-
-.sf-input {
-    width: 100%;
-    padding: .8rem 1.1rem;
-    border: 1px solid var(--border);
-    border-radius: .875rem;
-    background: color-mix(in srgb, var(--bg) 70%, transparent 30%);
-    color: var(--text);
-    font-size: .95rem;
-    outline: none;
-    transition: border-color .15s, box-shadow .15s;
-    box-sizing: border-box;
-}
-.sf-input:focus        { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent 80%); }
-.sf-input.sf-input-error { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.18); }
-
-.sf-label       { display: block; font-size: .85rem; font-weight: 600; color: var(--text); margin-bottom: .25rem; }
-.sf-field-error { font-size: .78rem; color: #ef4444; margin-top: .3rem; min-height: 1rem; }
-
-.sf-submit { /* reuses .button__submit */ }
-
-.sf-reset { /* reuses .button__reset */ }
-
-.sf-hidden      { display: none !important; }
-.sf-grid2       { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
-.sf-field       { display: flex; flex-direction: column; gap: .25rem; margin-bottom: 1.25rem; }
-.sf-note        { font-size: .82rem; color: var(--text-muted); text-align: center; margin-top: 1.5rem; }
-.sf-loading     { text-align: center; padding: 2.5rem; color: var(--text-muted); }
-
-.sf-toast {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 9999;
-    background: var(--bg-header);
-    color: var(--text);
-    border: 1px solid var(--border);
-    padding: 10px 18px;
-    border-radius: 40px;
-    font-size: .88rem;
-    opacity: 0;
-    transition: opacity .2s;
-    pointer-events: none;
-}
-
-.sf-turnstile-wrap  { margin-bottom: 1.25rem; }
-.sf-turnstile-error { font-size: .78rem; color: #ef4444; margin-top: .3rem; }
-
-.sf-success-box            { text-align: center; padding: 2rem; }
-.sf-success-box i          { font-size: 4rem; color: #10b981; margin-bottom: 1rem; }
-.sf-success-box h3         { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text); }
-.sf-success-box p          { color: var(--text-muted); margin-bottom: 0.75rem; line-height: 1.6; }
-.sf-ref-number             { font-size: 1.2rem; font-weight: 700; color: var(--accent); margin: 1rem 0; letter-spacing: 1px; }
-.sf-summary-bullets        { padding-left: 1.2rem; margin: 0; }
-.sf-summary-bullets li     { margin-bottom: 0.5rem; line-height: 1.5; }
-.sf-summary-question       { font-weight: 600; color: var(--accent); }
-.sf-char-counter           { font-size: 0.7rem; text-align: right; margin-top: 0.25rem; color: var(--text-muted); }
-.sf-char-counter.warning   { color: #eab308; }
-.sf-char-counter.danger    { color: #ef4444; }
-
-@media (max-width: 520px) {
-    .sf-grid2    { grid-template-columns: 1fr; }
-    .sf-cat-grid { grid-template-columns: 1fr; }
-}
-
-
-/* =============================================================================
-   13. SOCIAL DOCK
-   ============================================================================= */
-
-.social-dock {
-    margin-top: 50px;
-    display: flex;
-    gap: 12px;
-    justify-content: center;
-    flex-wrap: wrap;
-    width: 100%;
-}
-.social-link {
-    width: 48px;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--border);
-    background: rgba(245, 242, 155, 0.03);
-    color: var(--accent);
-    transition: all 0.4s ease;
-    text-decoration: none;
-}
-.social-link svg {
-    width: 22px;
-    height: 22px;
-    display: block;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.2;
-}
-.social-link[data-type="ig"]:hover      { color: var(--social-ig);      border-color: var(--social-ig); }
-.social-link[data-type="x"]:hover       { color: var(--social-x);       border-color: var(--social-x); }
-.social-link[data-type="yt"]:hover      { color: var(--social-yt);      border-color: var(--social-yt); }
-.social-link[data-type="fb"]:hover      { color: var(--social-fb);      border-color: var(--social-fb); }
-.social-link[data-type="li"]:hover      { color: var(--social-li);      border-color: var(--social-li); }
-.social-link[data-type="tt"]:hover      { color: var(--social-tt);      border-color: var(--social-tt); }
-.social-link[data-type="gh"]:hover      { color: var(--social-gh);      border-color: var(--social-gh); }
-.social-link[data-type="discord"]:hover { color: var(--social-discord); border-color: var(--social-discord); }
-.social-link[data-type="tg"]:hover      { color: var(--social-tg);      border-color: var(--social-tg); }
-
-
-/* =============================================================================
-   14. FOOTER
-   ============================================================================= */
-
-.site-footer {
-    width: 100%;
-    padding: 40px 60px;
-    border-top: 1px solid var(--footer-border);
-    background: var(--bg-footer, #050505);
-    margin-top: auto;
-}
-.footer-container {
-    max-width: 1440px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-}
-.footer-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 48px;
-    padding-bottom: 32px;
-    border-bottom: 1px solid var(--footer-border);
-    margin-bottom: 28px;
-    width: 100%;
-}
-.footer-col { display: flex; flex-direction: column; gap: 10px; min-width: 120px; }
-.footer-col-heading {
-    font-family: var(--font-mono);
-    font-size: 0.6rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--footer-heading);
-    margin-bottom: 4px;
-}
-.footer-link {
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.06em;
-    color: var(--footer-text);
-    text-align: left;
-    transition: color 0.2s;
-}
-.footer-link:hover { color: var(--footer-heading); }
-
-.footer-payment {
-    width: 100%;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    padding: 20px 0;
-}
-.payment-accepted { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
-.payment-label {
-    font-family: var(--font-mono);
-    font-size: 0.6rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--footer-text);
-    white-space: nowrap;
-}
-.payment-icons {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-    align-items: center;
-    padding: 0 40px;
-}
-.payment-icon {
-    width: 60px;
-    height: 38px;
-    border-radius: 5px;
-    object-fit: contain;
-    opacity: 0.75;
-    transition: opacity 0.2s;
-    display: block;
-    background: #fff;
-}
-.payment-icon:hover { opacity: 1; }
-
-.footer-bottom {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-}
-.copyright-text {
-    color: var(--footer-text);
-    font-family: var(--font-mono);
-    font-size: 0.65rem;
-    letter-spacing: 2px;
-}
-.technical-credits { display: flex; gap: 30px; }
-.credit-item {
-    font-family: var(--font-mono);
-    font-size: 0.6rem;
-    color: var(--footer-text-dim);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.credit-item strong { color: #666; font-weight: 400; }
-.status-dot {
-    width: 4px;
-    height: 4px;
-    background: rgba(245, 242, 155, 0.15);
-    border-radius: 50%;
-}
-
-@media (max-width: 768px) {
-    .site-footer       { padding: 40px 24px; }
-    .footer-container  { flex-direction: column; gap: 20px; text-align: center; }
-    .footer-links      { gap: 32px; }
-    .footer-bottom     { flex-direction: column; gap: 16px; text-align: center; }
-    .footer-col-heading,
-    .footer-link       { text-align: center; }
-    .technical-credits { flex-direction: column; gap: 10px; }
-    .payment-icons     { padding: 0 16px; gap: 6px; }
-    .payment-icon      { width: 52px; height: 33px; }
-}
-
-
-/* =============================================================================
-   15. CART ICON SLOT
-   ============================================================================= */
-
-.cart-icon-slot {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    margin-left: auto;
-    margin-right: 0;
-    color: var(--text);
-    text-decoration: none;
-	width: clamp(30px, 6.25vw, 48px);
-    height: clamp(30px, 6.25vw, 48px);
-
-}
-.cart-icon-slot .webshop-cart-icon {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-}
-
-.cart-icon-header-slot {
-    margin-left: auto;
-    display: inline-flex;
-    align-items: center;
-}
-
-/* Header cart icon positioning (from integration.css) */
-#main-header .cart-icon-header-slot {
-    display: inline-flex;
-    align-items: center;
-    margin-left: auto;
-    position: relative;
-}
-#main-header .webshop-cart-icon-wrap {
-    position: relative !important;
-    top: auto !important;
-    right: auto !important;
-    display: inline-block;
-}
-#main-header .webshop-cart-icon {
-    width: 44px;
-    height: 44px;
-}
-#main-header .webshop-cart-hover-panel {
-    right: 0;
-    left: auto;
-    top: calc(100% + 8px);
-}
-
-
-/* =============================================================================
-   16. SHOP WIDGET INTEGRATION
-   ============================================================================= */
-
-/* Variable bridge — #topBar and content area */
-#topBar,
-#page-view {
-    --c-bg:        var(--bg);
-    --c-surface:   var(--bg-header, var(--bg));
-    --c-surface-2: var(--bg-card, rgba(255,255,255,0.06));
-    --c-border:    var(--border);
-    --c-text:      var(--text);
-    --c-text-2:    var(--text);
-    --c-text-3:    var(--text-muted);
-    --c-accent:    var(--accent);
-}
-
-/* Currency selector */
-.webshop-currency-selector {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: rgba(0,0,0,0.2);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 20px;
-    padding: 4px 8px;
-    margin-left: 8px;
-}
-.webshop-currency-selector__label {
-    display: flex;
-    align-items: center;
-    opacity: 0.7;
-}
-.webshop-currency-selector__select {
-    background: transparent;
-    border: none;
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    font-weight: 500;
-    color: var(--text);
-    cursor: pointer;
-    letter-spacing: 0.04em;
-    padding: 2px 4px;
-}
-.webshop-currency-selector__select:focus  { outline: none; }
-.webshop-currency-selector__select option { background: var(--bg); color: var(--text); }
-
-/* Currency selector inside #topBar — matches profile-select style */
-#topBar .webshop-currency-selector {
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 2px 6px;
-}
-#topBar .webshop-currency-selector__label svg  { stroke: var(--text-muted); }
-#topBar .webshop-currency-selector__select     { color: var(--text); font-size: 10px; letter-spacing: 0.1em; }
-#topBar .webshop-currency-selector__select:hover,
-#topBar .webshop-currency-selector__select:focus { color: var(--accent); outline: none; }
-#topBar .webshop-currency-selector__select option { background: #111; color: #eee; }
-
-
-/* =============================================================================
-   17. THEME OVERRIDES
-   ─────────────────────────────────────────────────────────────────────────────
-   All per-profile colours are now controlled by tokens in profiles.css.
-   These rules only re-map the shop's internal --c-* tokens to the profile
-   tokens so that shop.css components pick up the correct profile colours
-   in the header context (where background is --bg-header, not --bg).
-   ============================================================================= */
-
-/* Re-scope shop's internal cart/panel tokens to the header's background context */
-[data-theme] #main-header {
-    --c-cart-bg:          var(--cart-bg);
-    --c-cart-text:        var(--cart-text);
-    --c-cart-bg-hover:    var(--cart-bg-hover);
-    --c-cart-text-hover:  var(--cart-text-hover);
-    --c-cart-shadow-hover:var(--cart-shadow-hover);
-    --c-panel-bg:         var(--cart-panel-bg);
-    --c-panel-border:     var(--cart-panel-border);
-    --c-panel-text:       var(--cart-panel-text);
-}
-
-
-/* =============================================================================
-   18. UTILITY
-   ============================================================================= */
-
-.hidden { display: none !important; }
-
-
-/* =============================================================================
-   19. RESPONSIVE OVERRIDES
-   ============================================================================= */
-
-@media (max-width: 960px) {
-    .home-about-grid { grid-template-columns: 1fr; gap: 1.5rem; }
-}
-
-@media (max-width: 768px) {
-    nav.top-nav  { padding: 12px 16px; gap: 12px; }
-    #themeToggle { bottom: 8px; right: 10px; }
-
-    .home-stats      { grid-template-columns: repeat(3, 1fr); }
-    .home-lifestyle  { grid-template-columns: 1fr 1fr; }
-    .home-ways       { grid-template-columns: 1fr; }
-    .options-grid    { grid-template-columns: 1fr; gap: 0.75rem; }
-
-    .hero-video__content     { padding: 1.5rem; margin-top: -1rem; }
-    .button__primary,
-    .button__ghost           { padding: 0.4rem 1rem; font-size: 0.7rem; }
-
-    .slideshow-left          { float: none; width: 100%; margin: 0 0 1.5rem 0; }
-    .float-right,
-    .float-left,
-    .float-left-wide,
-    .float-left-narrow       { float: none; width: 100%; margin: 0 0 1.5rem 0; }
-}
-
-@media (max-width: 480px) {
-    .home-stats { grid-template-columns: repeat(2, 1fr); }
-    .payment-icons { padding: 0 16px; gap: 6px; }
-}
-
-
-/* =============================================================================
-   20. BACKWARD-COMPATIBLE ALIASES
-   These map old auto-generated / inconsistent class names onto the new
-   standardised ones above. Remove once HTML is updated to use new names.
-   ============================================================================= */
-
-/* Hero CTA buttons (home.html, about-us.html still use these) */
-.home-hero__cta            { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: .75rem 1.6rem; border-radius: 6px; font-family: var(--font-mono); font-size: .82rem; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; cursor: pointer; text-decoration: none; border: 2px solid transparent; transition: background .2s, color .2s, border-color .2s; }
-.home-hero__cta--primary   { background: var(--accent); color: var(--overlay-highlight); border-color: var(--accent); }
-.home-hero__cta--primary:hover { filter: brightness(1.12); }
-.home-hero__cta--ghost     { background: transparent; color: var(--overlay-highlight); border-color: rgba(255,255,255,.8); }
-.home-hero__cta--ghost:hover { border-color: var(--overlay-text); background: rgba(255,255,255,.08); }
-.home-hero__cta-row        { display: flex; gap: .85rem; flex-wrap: wrap; }
-.overlay-left-lower .home-hero__cta--primary       { color: #000000; }
-.overlay-left-lower .home-hero__cta--primary:hover { color: var(--overlay-highlight); }
-
-/* Card aliases */
-.home-way              { border: 1px solid var(--border); border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; text-decoration: none; color: inherit; background: var(--bg); }
-.home-way:hover        { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(0,0,0,0.2); }
-.home-way__img-wrap    { width: 100%; aspect-ratio: 4/3; overflow: hidden; border-radius: 16px 16px 0 0; }
-.home-way__img-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.35s ease; }
-.home-way:hover .home-way__img-wrap img { transform: scale(1.05); }
-.home-way__body        { padding: 1.4rem 1.5rem 1.6rem; flex: 1; display: flex; flex-direction: column; }
-.home-way__tag         { font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.5rem; }
-.home-way__title       { font-family: var(--font-mono); font-size: 1.05rem; font-weight: 700; margin-bottom: 0.6rem; }
-.home-way__desc        { font-size: 0.88rem; opacity: 0.72; line-height: 1.6; flex: 1; margin-bottom: 1rem; font-family: var(--font-sans); }
-.home-way__price       { font-family: var(--font-mono); font-size: 1.15rem; font-weight: 900; color: var(--accent); }
-
-.home-usp              { padding: 1.8rem; border: 1px solid var(--border); border-radius: 16px; background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.005) 100%); transition: transform 0.2s, box-shadow 0.2s; }
-.home-usp:hover        { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0,0,0,0.12); }
-.home-usp__icon        { font-size: 1.8rem; margin-bottom: 0.8rem; display: block; }
-.home-usp__title       { font-family: var(--font-mono); font-size: 0.9rem; font-weight: 700; margin-bottom: 0.5rem; }
-.home-usp__text        { font-size: 0.82rem; opacity: 0.68; line-height: 1.55; font-family: var(--font-sans); }
-
-.option-card           { border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; text-align: center; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; text-decoration: none; color: inherit; background: var(--bg); }
-.option-card:hover     { transform: translateY(-5px); box-shadow: 0 12px 28px rgba(0,0,0,0.12); }
-.option-card.highlight { border: 2px solid var(--accent); }
-.option-card__icon     { font-size: 1.8rem; margin-bottom: 0.75rem; display: block; }
-.option-card__title    { font-weight: 700; font-family: var(--font-mono); margin-bottom: 0.5rem; }
-.option-card__price    { font-size: 0.82rem; opacity: 0.65; margin: 0.5rem 0 0; line-height: 1.5; }
-
-
-/* =============================================================================
-   MOBILE IMPROVEMENTS
-   ============================================================================= */
-
-/* 1. Suppress card hover lift effects on touch devices — they fire on tap
-      and leave cards visually "stuck" in the lifted state on mobile.        */
-@media (hover: none) {
-  .card__way:hover,
-  .hw-card:hover,
-  .home-way:hover,
-  .home-usp:hover,
-  .option-card:hover {
-    transform: none;
-    box-shadow: none;
-  }
-}
-
-/* 2. Hero video overlays — hide lower corners on very small screens to
-      avoid overlapping text. Bottom overlays (price, CTA) stack below.      */
-@media (max-width: 420px) {
-  .overlay-right-upper,
-  .overlay-right-lower { display: none; }
-  .overlay-left-lower  { position: static; margin-top: 1rem; }
-}
+]
