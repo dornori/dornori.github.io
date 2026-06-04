@@ -26,14 +26,6 @@ const preloadConfig = {
     '/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-white-blue.webp',
   ],
   
-   HeroSlideImages: [
-    '/assets/images/heroes/dornori-lamp-parkbench-picnic-dark-hero.webp',
-	'/assets/images/heroes/dornori-lamp-parkbench-picnic-light-hero.webp',
-	'/assets/images/heroes/Star-A_usecase-02-hero.webp',
-	'/assets/images/heroes/Star-A_usecase-04-hero.webp',
-	'/assets/images/heroes/Star-A_usecase-06-hero.webp',
-	'/assets/images/heroes/star-a-urban-park-evening.webp',
-  ],
 };
 
 /**
