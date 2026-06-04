@@ -174,12 +174,12 @@ var Shop = (() => {
     const originalPrice = discount > 0 ? rawPrice : null;
     const weight = variantId ? variantWeight(product, variantId) : (product.weight || 0);
     const image  = imageOverride || (variantId ? variantImage(product, variantId) : selectedColor ? colorImageSrc(product, selectedColor) : product.image);
-    const variantLabel  = variantId ? variantLabel(product, variantId) : selectedColor;
+    const variantLabelStr = variantId ? variantLabel(product, variantId) : selectedColor;
     const productLabel = variantId ? _products[variantId]?.label : product.label;
     const maxQty = variantId ? variantStock(product, variantId) : (product.stock || 99);
     const resolvedName = pName(product) || product.name || product.id;
     if (existing) { existing.qty = Math.min(existing.qty + qty, maxQty || 99); }
-    else cart.push({ ...product, name: resolvedName, cartKey: key, qty, price, originalPrice, discount, weight, image, selectedColor: variantLabel, productLabel: productLabel, variantId });
+    else cart.push({ ...product, name: resolvedName, cartKey: key, qty, price, originalPrice, discount, weight, image, selectedColor: variantLabelStr, productLabel: productLabel, variantId });
     saveCart(cart); return cart;
   }
   function removeFromCart(cartKey) { saveCart(getCart().filter(i => i.cartKey !== cartKey)); }
