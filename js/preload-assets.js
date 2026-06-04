@@ -26,6 +26,12 @@ const preloadConfig = {
     '/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-white-blue.webp',
   ],
   
+   HeroSlideImages: [
+    '/assets/images/heroes/built/Star-A_usecase-04-hero.webp',
+	'/assets/images/heroes/parts/parts-table.webp',
+	'/assets/images/heroes/kit/dornori-delivery.webp',
+	'/assets/images/heroes/files/classroom-dornori-built-05.webp',
+  ],
 };
 
 /**
