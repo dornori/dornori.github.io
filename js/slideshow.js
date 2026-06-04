@@ -1,7 +1,15 @@
 /**
  * DORNORI SLIDESHOW ENGINE — UNIFIED
  *
- * Attributes (all optional except gallery-images):\n *   gallery-size      e.g. \"800x400\" or \"16/9\" (default \"16/9\")\n *   gallery-border    \"yes\" | \"no\" (default \"no\")\n *   gallery-shape     \"rounded\" | \"square\" (default \"square\")\n *   gallery-images    comma-separated image names (no extension)\n *   gallery-folder    URL prefix for images\n *   gallery-interval  milliseconds between auto-advances (default 4000)\n *   gallery-mode      \"auto\" | \"manual\" (default \"manual\")\n *   gallery-controls  \"dots\" | \"none\" (default \"dots\")
+ * Attributes (all optional except gallery-images):
+ *   gallery-size      e.g. "800x400" or "16/9" (default "16/9")
+ *   gallery-border    "yes" | "no" (default "no")
+ *   gallery-shape     "rounded" | "square" (default "square")
+ *   gallery-images    comma-separated image names (no extension)
+ *   gallery-folder    URL prefix for images
+ *   gallery-interval  milliseconds between auto-advances (default 4000)
+ *   gallery-mode      "auto" | "manual" (default "manual")
+ *   gallery-controls  "dots" | "none" (default "dots")
  *
  * Interactions:
  *   Desktop — click left half to go back, right half to go forward
