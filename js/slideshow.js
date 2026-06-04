@@ -1,21 +1,18 @@
 /**
  * DORNORI SLIDESHOW ENGINE — UNIFIED
  *
- * Attributes (all optional except gallery-images):
- *   gallery-size      e.g. "800x400" or "16/9" (default "16/9")
- *   gallery-border    "yes" | "no" (default "no")
- *   gallery-shape     "rounded" | "square" (default "square")
- *   gallery-images    comma-separated image names (no extension)
- *   gallery-folder    URL prefix for images
- *   gallery-interval  milliseconds between auto-advances (default 4000)
- *   gallery-mode      "auto" | "manual" (default "manual")
- *   gallery-controls  "dots" | "none" (default "dots")
+ * Attributes (all optional except gallery-images):\n *   gallery-size      e.g. \"800x400\" or \"16/9\" (default \"16/9\")\n *   gallery-border    \"yes\" | \"no\" (default \"no\")\n *   gallery-shape     \"rounded\" | \"square\" (default \"square\")\n *   gallery-images    comma-separated image names (no extension)\n *   gallery-folder    URL prefix for images\n *   gallery-interval  milliseconds between auto-advances (default 4000)\n *   gallery-mode      \"auto\" | \"manual\" (default \"manual\")\n *   gallery-controls  \"dots\" | \"none\" (default \"dots\")
  *
  * Interactions:
  *   Desktop — click left half to go back, right half to go forward
  *   Mobile  — swipe left/right
  *   Both    — dot indicators clickable, timer resets on any interaction
  *   Auto    — auto-advances if gallery-mode="auto"
+ *
+ * Image loading:
+ *   On first run the slideshow waits for each target image to finish
+ *   loading before showing it. If the timer fires before the image is
+ *   ready the transition is deferred until the load event fires.
  */
 export function mountSlideshow(root) {
     if (root.getAttribute('ss-mounted')) return;
@@ -80,15 +77,69 @@ export function mountSlideshow(root) {
 
     if (slideEls.length < 2) return;
 
+    // ── IMAGE LOAD TRACKING ──────────────────────────────────────────────────
+    // loaded[i] = true once the img for slide i has finished loading.
+    // For slide 0 we consider it loaded immediately (it's already visible
+    // and the browser starts fetching it right away; we never defer away
+    // from it). For all others we track the img load event.
+    const loaded = imgList.map(() => false);
+    loaded[0] = true; // first slide is shown immediately; treat as ready
+
+    const imgEls = slideEls.map(slide => slide.querySelector('img'));
+
+    imgEls.forEach((img, i) => {
+        if (i === 0) return; // already marked ready
+        if (img.complete && img.naturalWidth > 0) {
+            loaded[i] = true;
+        } else {
+            img.addEventListener('load',  () => { loaded[i] = true; flushPending(i); }, { once: true });
+            img.addEventListener('error', () => { loaded[i] = true; flushPending(i); }, { once: true });
+        }
+    });
+
+    // If a goTo was deferred because the image wasn't ready yet, store the
+    // intended index here and commit it once the image loads.
+    let pendingIndex = null;
+
+    function flushPending(loadedIndex) {
+        if (pendingIndex === loadedIndex) {
+            pendingIndex = null;
+            commitGoTo(loadedIndex);
+        }
+    }
+
     // ── STATE ─────────────────────────────────────────────────────────────────
     let cur   = 0;
     let timer = null;
 
-    function goTo(index) {
+    // commitGoTo does the actual DOM transition — only called when loaded.
+    function commitGoTo(index) {
         slideEls[cur].style.opacity = 0;
         cur = (index + slideEls.length) % slideEls.length;
         slideEls[cur].style.opacity = 1;
         updateDots();
+        // Preload the slide after the one we just showed
+        preload((cur + 1) % slideEls.length);
+    }
+
+    function goTo(index) {
+        const target = (index + slideEls.length) % slideEls.length;
+        if (loaded[target]) {
+            pendingIndex = null;
+            commitGoTo(target);
+        } else {
+            // Defer: remember where we want to go; the load listener will call
+            // flushPending once the image is ready. We replace any prior
+            // pending intent so rapid advances don't queue up stale transitions.
+            pendingIndex = target;
+        }
+    }
+
+    // Kick off loading an image without switching to it.
+    function preload(index) {
+        if (loaded[index]) return;
+        // The img src is already set in the HTML; the browser is already
+        // fetching it. This is a no-op that keeps the intent explicit.
     }
 
     function next() { goTo(cur + 1); }
@@ -107,7 +158,6 @@ export function mountSlideshow(root) {
     startTimer();
 
     // ── CLEANUP — stop timer when element is removed from DOM ────────────────
-    // Prevents interval leaks during SPA navigation
     const _obs = new MutationObserver(() => {
         if (!document.contains(root)) {
             clearInterval(timer);
@@ -115,7 +165,6 @@ export function mountSlideshow(root) {
         }
     });
     _obs.observe(document.body, { childList: true, subtree: true });
-    // Also expose destroy() for explicit teardown
     root._slideshowDestroy = () => { clearInterval(timer); _obs.disconnect(); };
 
     // ── DOT INDICATORS ───────────────────────────────────────────────────────
@@ -153,7 +202,6 @@ export function mountSlideshow(root) {
     }
 
     // ── CLICK NAVIGATION (desktop) ───────────────────────────────────────────
-    // Left half = previous, right half = next
     root.addEventListener('click', e => {
         if (dotsWrap.contains(e.target)) return;
         const rect = root.getBoundingClientRect();
@@ -165,7 +213,6 @@ export function mountSlideshow(root) {
         resetTimer();
     });
 
-    // Cursor hint: ← on left half, → on right half
     root.addEventListener('mousemove', e => {
         const rect = root.getBoundingClientRect();
         root.style.cursor = (e.clientX - rect.left) < rect.width / 2
@@ -190,7 +237,6 @@ export function mountSlideshow(root) {
         const dx = e.changedTouches[0].clientX - touchStartX;
         const dy = e.changedTouches[0].clientY - touchStartY;
 
-        // Only fire if more horizontal than vertical and at least 40px
         if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
             dx < 0 ? next() : prev();
             resetTimer();
