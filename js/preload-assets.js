@@ -11,6 +11,7 @@ const preloadConfig = {
     '/assets/images/video-posters/dornori_star-a_picknick.webp',
     '/assets/images/video-posters/dornori_star-a_ufo_web.webp',
     '/assets/images/video-posters/dornori_star-a_3d-printer.webp',
+    '/assets/images/video-posters/dornori-ufo-3-4.webp.webp',
   ],
 
   // UFO and Mushroom product images (add colorways/variants as needed)
@@ -23,6 +24,15 @@ const preloadConfig = {
     '/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-green-red.webp',
     '/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-red-red.webp',
     '/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-white-blue.webp',
+  ],
+  
+   HeroSlideImages: [
+    '/assets/images/heroes/dornori-lamp-parkbench-picnic-dark-hero.webp',
+	'/assets/images/heroes/dornori-lamp-parkbench-picnic-light-hero.webp',
+	'/assets/images/heroes/Star-A_usecase-02-hero.webp',
+	'/assets/images/heroes/Star-A_usecase-04-hero.webp',
+	'/assets/images/heroes/Star-A_usecase-06-hero.webp',
+	'/assets/images/heroes/star-a-urban-park-evening.webp',
   ],
 };
 
