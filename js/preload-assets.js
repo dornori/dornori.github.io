@@ -26,12 +26,10 @@ const preloadConfig = {
     '/assets/images/mushroom-product/dornori-mushroom-lamp-retracted-color-white-blue.webp',
   ],
   
-   HeroSlideImages: [
-    '/assets/images/heroes/built/Star-A_usecase-04-hero.webp',
-	'/assets/images/heroes/parts/parts-table.webp',
-	'/assets/images/heroes/kit/dornori-delivery.webp',
-	'/assets/images/heroes/files/classroom-dornori-built-05.webp',
-  ],
+  // NOTE: Slideshow hero images are NOT preloaded here because slideshow.js
+  // handles all image loading automatically (see slideshow.js lines 90-108).
+  // The slideshow waits for each image to load before showing it, preventing
+  // black slides. Preloading these separately would be redundant.
 };
 
 /**
