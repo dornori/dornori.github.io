@@ -164,8 +164,8 @@ main {
     padding-left:  clamp(16px, 3vw, 48px);
     padding-right: clamp(16px, 3vw, 48px);
     padding-bottom: 60px;
-    /* Dynamic scroll-margin set via --mobile-total-offset by header-measure.js */
-    scroll-margin-top: var(--mobile-total-offset, 160px);
+    /* scroll-margin-top ensures anchor jumps clear the sticky header stack   */
+    scroll-margin-top: 160px;
     animation: fadeIn 0.5s ease;
     box-sizing: border-box;
     text-align: left;
@@ -253,6 +253,14 @@ header {
     top: 0;
     z-index: 1000;
     background: var(--bg-header, var(--bg));
+}
+
+/* Mobile nav sits directly below header in DOM — sticky stacking keeps it
+   pinned immediately under the header without any JS measurement.           */
+.mobile-nav {
+    position: sticky;
+    top: 0;          /* will visually be below header due to DOM order      */
+    z-index: 999;
 }
 
 /* --- 4a. Logo & wordmark --------------------------------------------------- */
@@ -535,7 +543,7 @@ nav.top-nav {
     nav.top-nav  { display: none; }
 
     main {
-        padding-top: var(--mobile-total-offset, 160px);
+        padding-top: 0;
     }
 
     .billboard-wordmark {
@@ -552,15 +560,9 @@ nav.top-nav {
 
     #main-header {
         display: flex;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 1001;
         justify-content: center;
         align-items: center;
         padding-top: env(safe-area-inset-top);
-        background: var(--bg-header, var(--bg));
     }
 
     #main-header .top-nav {
@@ -569,11 +571,6 @@ nav.top-nav {
 
     .mobile-nav {
         display: flex;
-        position: fixed;
-        top: var(--mobile-logo-height, 80px);
-        left: 0;
-        right: 0;
-        z-index: 1000;
         flex-direction: row;
         justify-content: space-around;
         align-items: flex-end;
