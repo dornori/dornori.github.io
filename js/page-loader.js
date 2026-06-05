@@ -230,7 +230,7 @@ export function initPageLoader() {
         }
         pageView.classList.remove('hidden');
         document.getElementById('home-view')?.classList.add('hidden');
-        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
         updateSEO('');
         document.dispatchEvent(new CustomEvent('home:ready'));
     };
@@ -304,7 +304,7 @@ export function initPageLoader() {
 
             wireShopCards(pageContent);
             mountShopEmbeds(pageContent);
-            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+            requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
 
             const lang = window.LANG || fallbackLang();
             const qs   = productId ? `?id=${productId}` : '';
@@ -324,13 +324,13 @@ export function initPageLoader() {
                 <p style="font-family:var(--font-mono);font-size:.8rem;color:var(--muted);">${err.message}</p>
                 <button onclick="window.showHome()">${T.returnHome || 'Return Home'}</button>
             `;
-            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+            requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
         }
     };
 
     // ── SHOW HOME ────────────────────────────────────────────────────────────
     window.showHome = () => {
-        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
         const lang    = window.LANG || fallbackLang();
         const base    = SITE_CONFIG.appearance.base_path;
         window.history.pushState({ slug: '', lang }, '', `${base}${lang}/`);
