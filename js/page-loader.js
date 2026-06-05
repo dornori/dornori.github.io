@@ -309,7 +309,14 @@ export function initPageLoader() {
 
             wireShopCards(pageContent);
             mountShopEmbeds(pageContent);
-            window.scrollTo(0, 0);
+            
+            // Scroll to top after browser layout pass - ensures scroll happens after content is rendered
+            requestAnimationFrame(() => {
+                window.scrollTo(0, 0);
+                // Backup scroll methods for stubborn browsers
+                document.documentElement.scrollTop = 0;
+                document.body.scrollTop = 0;
+            });
 
             const lang = window.LANG || fallbackLang();
             const qs   = productId ? `?id=${productId}` : '';
@@ -329,7 +336,11 @@ export function initPageLoader() {
                 <p style="font-family:var(--font-mono);font-size:.8rem;color:var(--muted);">${err.message}</p>
                 <button onclick="window.showHome()">${T.returnHome || 'Return Home'}</button>
             `;
-            window.scrollTo(0, 0);
+            requestAnimationFrame(() => {
+                window.scrollTo(0, 0);
+                document.documentElement.scrollTop = 0;
+                document.body.scrollTop = 0;
+            });
         }
     };
 
@@ -398,7 +409,11 @@ export function initPageLoader() {
             window.viewPage(e.state.slug, e.state.productId || null, true);
         } else {
             // Restore home view without pushing new history
-            window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
+            requestAnimationFrame(() => {
+                window.scrollTo(0, 0);
+                document.documentElement.scrollTop = 0;
+                document.body.scrollTop = 0;
+            });
             window.loadHome();
             updateSEO('');
         }
