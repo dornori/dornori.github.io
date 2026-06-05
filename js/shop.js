@@ -636,8 +636,14 @@ var Shop = (() => {
     return `
       <${wTag} class="webshop-card-img-wrap${hasUrl?" webshop-card-img-link":""}"${hasUrl?` title="${pName(p)}"`:""}>
         <img class="webshop-card-img" src="${p.image}" alt="${pName(p)}" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
-        ${p.featured?`<span class="webshop-badge">${t("featured","Featured")}</span>`:""}
-        ${p.bestseller?`<span class="webshop-badge webshop-badge--bestseller">${t("badge_bestseller","Best Seller")}</span>`:""}
+        ${(()=>{
+          if(p.badge!==undefined&&p.badge!==false&&p.badge!==null)
+            return `<span class="webshop-badge webshop-badge--highlight">${typeof p.badge==="string"?p.badge:t("badge_bestseller","Best Seller")}</span>`;
+          return [
+            p.bestseller?`<span class="webshop-badge webshop-badge--bestseller">${t("badge_bestseller","Best Seller")}</span>`:"",
+            p.featured?`<span class="webshop-badge webshop-badge--featured">${t("featured","Featured")}</span>`:""
+          ].join("");
+        })()}
         ${discountPercent > 0?`<span class="webshop-badge webshop-badge--discount">${discountPercent}% ${t("off_badge","OFF")}</span>`:""}
         ${options.showBuyNow !== false && hasUrl ? `<button class="webshop-card-buynow-overlay" data-product-id="${p.id}" ${inStock?"":"disabled style=\"opacity:.4;\""}>${t("buy_now","Buy Now")}</button>` : ""}
       </${wEnd}>
@@ -993,7 +999,14 @@ var Shop = (() => {
               <span class="webshop-rating-stars">${p.rating} ★</span>
               <span class="webshop-rating-count">(${p.reviewCount || 0} ${t("reviews_suffix","reviews")})</span>
             </div>` : ''}
-            ${p.bestseller ? `<span class="webshop-badge-inline webshop-badge-inline--bestseller">${t("badge_bestseller","Best Seller")}</span>` : ''}
+            ${(()=>{
+              if(p.badge!==undefined&&p.badge!==false&&p.badge!==null)
+                return `<span class="webshop-badge-inline webshop-badge-inline--highlight">${typeof p.badge==="string"?p.badge:t("badge_bestseller","Best Seller")}</span>`;
+              return [
+                p.bestseller?`<span class="webshop-badge-inline webshop-badge-inline--bestseller">${t("badge_bestseller","Best Seller")}</span>`:"",
+                p.featured?`<span class="webshop-badge-inline webshop-badge-inline--featured">${t("featured","Featured")}</span>`:""
+              ].join("");
+            })()}
             <div class="webshop-product-price-group">
               ${discountPercent > 0 ? `
                 <p class="webshop-product-price-original">${fmt(displayPrice)}</p>
