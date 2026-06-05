@@ -146,6 +146,11 @@ function _doWireShopCards(container) {
 
 
 export function initPageLoader() {
+    // Disable browser's automatic scroll restoration - we handle it manually
+    if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'manual';
+    }
+    
     const pageView    = document.getElementById('page-view');
     const pageContent = pageView;
 
