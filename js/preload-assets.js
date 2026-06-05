@@ -11,7 +11,7 @@ const preloadConfig = {
     '/assets/images/video-posters/dornori_star-a_picknick.webp',
     '/assets/images/video-posters/dornori_star-a_ufo_web.webp',
     '/assets/images/video-posters/dornori_star-a_3d-printer.webp',
-    '/assets/images/video-posters/dornori-ufo-3-4.webp.webp',
+    '/assets/images/video-posters/dornori-ufo-3-4.webp',
   ],
 
   // UFO and Mushroom product images (add colorways/variants as needed)
