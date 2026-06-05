@@ -350,10 +350,11 @@ var Shop = (() => {
     async function build() {
       if (Currency.waitForReady) await Currency.waitForReady();
       const active = Currency.getActive();
-      container.className = "profile-selector-wrap";
-      container.innerHTML = (window.T?.ui?.currency || LANG?.ui?.currency || 'CURRENCY') + ' ' +
+      const isMobile = window.innerWidth <= 768;
+      // Render only the <select> — label/icon are handled by the wrapper in nav-loader
+      container.innerHTML =
         `<select class="profile-select" aria-label="Currency">
-          ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${c.code} ${c.symbol}</option>`).join("")}
+          ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${isMobile ? c.code : c.code + ' ' + c.symbol}</option>`).join("")}
         </select>`;
       container.querySelector("select").addEventListener("change", e => Currency.setActive(e.target.value));
     }

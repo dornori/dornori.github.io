@@ -198,10 +198,11 @@ export function initNavigation() {
         langSelect.setAttribute('aria-label', 'Choose language');
         langSelect.setAttribute('tabindex', '-1');
 
+        const isMobileLang = window.innerWidth <= 768;
         (window.__languages || []).forEach(l => {
             const opt       = document.createElement('option');
             opt.value       = l.code;
-            opt.textContent = `${l.flag} ${l.label}`;
+            opt.textContent = isMobileLang ? l.code.toUpperCase() : `${l.flag} ${l.label}`;
             if (l.code === (window.LANG || 'en')) opt.selected = true;
             langSelect.appendChild(opt);
         });
@@ -215,10 +216,13 @@ export function initNavigation() {
 
         // Currency slot
         if (!topBar.querySelector('#topBar-currency-slot')) {
+            const currencyWrap = document.createElement('div');
+            currencyWrap.className = 'profile-selector-wrap topbar-currency-wrap';
+            currencyWrap.innerHTML = `<img src="${iconPath('currency-icon-200x200.svg')}" class="topbar-label-icon" alt=""><span class="topbar-label-text">${T.ui?.currency || 'CURRENCY'} </span>`;
             const currencySlot = document.createElement('div');
-            currencySlot.id    = 'topBar-currency-slot';
-            currencySlot.innerHTML = `<img src="${iconPath('currency-icon-200x200.svg')}" class="topbar-label-icon topbar-currency-icon" alt="">`;
-            topBar.appendChild(currencySlot);
+            currencySlot.id = 'topBar-currency-slot';
+            currencyWrap.appendChild(currencySlot);
+            topBar.appendChild(currencyWrap);
         }
 
         // Settings gear tab
