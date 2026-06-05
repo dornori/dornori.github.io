@@ -61,21 +61,13 @@ window.renderNav = () => {
     if (topBar) {
         const profileWrapLabel = topBar.querySelector('.profile-selector-wrap:first-child');
         if (profileWrapLabel) {
-            for (const node of profileWrapLabel.childNodes) {
-                if (node.nodeType === Node.TEXT_NODE) {
-                    node.textContent = (T.ui?.profile || 'PROFILE') + ' ';
-                    break;
-                }
-            }
+            const s = profileWrapLabel.querySelector('.topbar-label-text');
+            if (s) s.textContent = (T.ui?.profile || 'PROFILE') + ' ';
         }
         const langWrapLabel = topBar.querySelector('.profile-selector-wrap:nth-child(2)');
         if (langWrapLabel) {
-            for (const node of langWrapLabel.childNodes) {
-                if (node.nodeType === Node.TEXT_NODE) {
-                    node.textContent = (T.ui?.language || 'LANGUAGE') + ' ';
-                    break;
-                }
-            }
+            const s = langWrapLabel.querySelector('.topbar-label-text');
+            if (s) s.textContent = (T.ui?.language || 'LANGUAGE') + ' ';
         }
     }
 
@@ -171,7 +163,7 @@ export function initNavigation() {
         // Profile selector
         const profileWrap       = document.createElement('label');
         profileWrap.className   = 'profile-selector-wrap';
-        profileWrap.textContent = (T.ui?.profile || 'PROFILE') + ' ';
+        profileWrap.innerHTML   = `<img src="${iconPath('profile-icon-200x200.svg')}" class="topbar-label-icon" alt=""><span class="topbar-label-text">${T.ui?.profile || 'PROFILE'} </span>`;
 
         const profileSelect     = document.createElement('select');
         profileSelect.id        = 'profileSelect';
@@ -198,7 +190,7 @@ export function initNavigation() {
         // Language selector
         const langWrap       = document.createElement('label');
         langWrap.className   = 'profile-selector-wrap';
-        langWrap.textContent = (T.ui?.language || 'LANGUAGE') + ' ';
+        langWrap.innerHTML   = `<img src="${iconPath('language-icon-200x200.svg')}" class="topbar-label-icon" alt=""><span class="topbar-label-text">${T.ui?.language || 'LANGUAGE'} </span>`;
 
         const langSelect     = document.createElement('select');
         langSelect.id        = 'langSelect';
@@ -225,6 +217,7 @@ export function initNavigation() {
         if (!topBar.querySelector('#topBar-currency-slot')) {
             const currencySlot = document.createElement('div');
             currencySlot.id    = 'topBar-currency-slot';
+            currencySlot.innerHTML = `<img src="${iconPath('currency-icon-200x200.svg')}" class="topbar-label-icon topbar-currency-icon" alt="">`;
             topBar.appendChild(currencySlot);
         }
 
