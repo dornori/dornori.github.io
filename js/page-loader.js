@@ -235,7 +235,11 @@ export function initPageLoader() {
         }
         pageView.classList.remove('hidden');
         document.getElementById('home-view')?.classList.add('hidden');
-        window.scrollTo(0, 0);
+        requestAnimationFrame(() => {
+            window.scrollTo(0, 0);
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+        });
         updateSEO('');
         document.dispatchEvent(new CustomEvent('home:ready'));
     };
@@ -346,7 +350,11 @@ export function initPageLoader() {
 
     // ── SHOW HOME ────────────────────────────────────────────────────────────
     window.showHome = () => {
-        window.scrollTo(0, 0);
+        requestAnimationFrame(() => {
+            window.scrollTo(0, 0);
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+        });
         const lang    = window.LANG || fallbackLang();
         const base    = SITE_CONFIG.appearance.base_path;
         window.history.pushState({ slug: '', lang }, '', `${base}${lang}/`);
