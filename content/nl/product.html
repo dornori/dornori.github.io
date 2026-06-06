@@ -17,8 +17,8 @@
     <div class="pdp-lightbox__inner">
       <button class="pdp-lightbox__close" id="lightbox-close" aria-label="Close">✕</button>
       <div class="pdp-lightbox__tabs">
-        <button class="pdp-lightbox__tab active" data-tab="images">IMAGES</button>
-        <button class="pdp-lightbox__tab" data-tab="video">VIDEOS</button>
+        <button class="pdp-lightbox__tab active" data-tab="images" data-i18n="images">Images</button>
+        <button class="pdp-lightbox__tab" data-tab="video" data-i18n="videos">Videos</button>
       </div>
       <div class="pdp-lightbox__body">
         <div id="tab-images">
@@ -131,7 +131,7 @@
             </div>
 
             <div class="amz-buttons">
-              <button class="amz-btn-cart" id="atc-btn">Add to Cart</button>
+              <button class="amz-btn-cart" id="atc-btn" data-i18n="add_to_cart">Add to Cart</button>
               <button class="amz-btn-buy" id="buy-now-btn" data-i18n="buy_now">Buy Now</button>
             </div>
 
@@ -184,7 +184,9 @@
     const PRODUCT = allProducts.find(p => p.id === prodId);
 
     if (!PRODUCT) {
-      document.getElementById("pdp-name").textContent = prodId ? "Product not found" : "No product specified";
+      const notFoundKey = prodId ? "product_not_found" : "no_product_specified";
+      const notFoundText = Shop.t(notFoundKey, prodId ? "Product not found" : "No product specified");
+      document.getElementById("pdp-name").textContent = notFoundText;
       return;
     }
 
@@ -197,7 +199,8 @@
     const resolvedVariants = (PRODUCT.variants || []).map(v => resolveById(typeof v === 'string' ? v : v.id)).filter(Boolean);
 
     /* ── update page title ── */
-    document.title = "WEBSHOP – " + Shop.pName(PRODUCT);
+    const webshopPrefix = Shop.t("webshop", "Webshop");
+    document.title = webshopPrefix + " – " + Shop.pName(PRODUCT);
 
     /* ── state ── */
     let selectedVariant = PRODUCT.id;
@@ -284,7 +287,11 @@
 
       // Breadcrumb
       const bc = document.getElementById("amz-breadcrumb");
-      if (bc) bc.innerHTML = `<a href="../shop/">Shop</a> › <span>${product.category || "Products"}</span>`;
+      if (bc) {
+        const shopText = Shop.t("shop", "Shop");
+        const productsText = product.category || Shop.t("products", "Products");
+        bc.innerHTML = `<a href="../shop/">${shopText}</a> › <span>${productsText}</span>`;
+      }
 
       // Rating stars + count — use PRODUCT-level values as fallback so they always show
       const rating = product.rating ?? PRODUCT.rating;
@@ -303,11 +310,11 @@
       // Availability / shipping info
       const stock = product.stock !== undefined ? product.stock : 99;
       const av = document.getElementById("amz-availability");
-      if (av) av.textContent = stock > 0 ? "In stock" : "Not available";
+      if (av) av.textContent = stock > 0 ? Shop.t("in_stock", "In stock") : Shop.t("not_available", "Not available");
       const sf = document.getElementById("amz-ships-from");
-      if (sf) sf.textContent = product.shipsFrom || "Store";
+      if (sf) sf.textContent = product.shipsFrom || Shop.t("store", "Store");
       const sb = document.getElementById("amz-sold-by");
-      if (sb) sb.textContent = product.soldBy || "Store";
+      if (sb) sb.textContent = product.soldBy || Shop.t("store", "Store");
       const ri = document.getElementById("amz-returns");
       if (ri) ri.textContent = product.returns || Shop.t("default_returns", "30-day return/replacement");
 
@@ -518,18 +525,20 @@
         thumbsEl.innerHTML = itemsToShow.map((item, i) => makeThumbHtml(item, i, i === activeIdx)).join("");
 
         if (remaining > 0) {
+          const moreText = Shop.t("more", "More");
           thumbsEl.innerHTML += `<div class="pdp-gallery__thumb-more" data-show-more
             style="width:64px;height:64px;flex-shrink:0;cursor:pointer;border-radius:4px;border:2px solid var(--c-border);background:var(--c-surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:bold;color:var(--c-text);font-size:14px;gap:2px;">
             <span style="font-size:18px;">+${remaining}</span>
-            <span style="font-size:9px;opacity:0.7;letter-spacing:0.03em;">MORE</span>
+            <span style="font-size:9px;opacity:0.7;letter-spacing:0.03em;">${moreText.toUpperCase()}</span>
           </div>`;
         }
 
         // Video count box — always show if there are videos
         if (videos.length > 0) {
+          const videoText = Shop.t("videos", "Videos");
           thumbsEl.innerHTML += `<div class="pdp-gallery__thumb-videos" data-open-videos>
             <span class="pdp-gallery__thumb-videos__icon">▶</span>
-            <span class="pdp-gallery__thumb-videos__label">${videos.length} VIDEO${videos.length > 1 ? "S" : ""}</span>
+            <span class="pdp-gallery__thumb-videos__label">${videos.length} ${videoText.toUpperCase()}${videos.length > 1 ? "" : ""}</span>
           </div>`;
         }
 

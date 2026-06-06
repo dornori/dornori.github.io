@@ -90,7 +90,7 @@
 </style>
 
 <div class="rv-page" id="rv-page">
-  <div class="rv-loading">Loading reviews…</div>
+  <div class="rv-loading" data-i18n="loading_reviews">Loading reviews…</div>
 </div>
 
 <script>
@@ -99,6 +99,10 @@
   var params=new URLSearchParams(window.location.search);
   var pid=window.__PRODUCT_ID__||params.get('id')||null;
   window.__PRODUCT_ID__=null;
+
+  function reviews_t(key, fallback) {
+    return (window.T && window.T[key]) || fallback || key;
+  }
 
   function stars(n){var f=Math.floor(n),h=(n-f)>=.5;return '★'.repeat(f)+(h?'½':'')+'☆'.repeat(5-f-(h?1:0));}
   function fmtDate(d){try{return new Date(d).toLocaleDateString(window.LANG==='nl'?'nl-NL':'en-GB',{year:'numeric',month:'long',day:'numeric'});}catch(e){return d;}}
@@ -274,7 +278,7 @@
      REVIEWS
   ───────────────────────────────────────── */
   function reviewCard(r){
-    var vf=r.verified?'<span class="rv-verified">✓ Verified Purchase</span>':'';
+    var vf=r.verified?'<span class="rv-verified">'+reviews_t('verified_purchase','✓ Verified Purchase')+'</span>':'';
     return '<div class="rv-card" data-rating="'+r.rating+'" data-helpful="'+(r.helpful||0)+'" data-date="'+(r.date||'')+'">'
       +'<div class="rv-card-top">'
       +'<div class="rv-author-row">'
@@ -287,7 +291,7 @@
       +'<div class="rv-card-body">'+r.body+'</div>'
       +'<div class="rv-card-footer">'
       +'<span class="rv-date">'+fmtDate(r.date)+'</span>'
-      +'<span class="rv-helpful">Helpful? <button class="rv-helpful-btn" data-base="'+(r.helpful||0)+'" onclick="rvHelpful(this)">👍 '+(r.helpful||0)+'</button></span>'
+      +'<span class="rv-helpful">'+reviews_t('helpful_question','Helpful?')+' <button class="rv-helpful-btn" data-base="'+(r.helpful||0)+'" onclick="rvHelpful(this)">👍 '+(r.helpful||0)+'</button></span>'
       +'</div>'
       +(r.reply?'<div class="rv-reply">'
         +'<div class="rv-reply-header">'
@@ -319,11 +323,11 @@
     }).join('');
 
     document.getElementById('rv-page').innerHTML=
-      '<div class="rv-breadcrumb"><a href="#" onclick="if(window.viewPage)window.viewPage(\'product\',\''+product.id+'\');return false;">← '+pName+'</a> › Customer Reviews</div>'
-      +'<h1 class="rv-title">Customer Reviews</h1>'
+      '<div class="rv-breadcrumb"><a href="#" onclick="if(window.viewPage)window.viewPage(\'product\',\''+product.id+'\');return false;">← '+pName+'</a> › '+reviews_t('customer_reviews','Customer Reviews')+'</div>'
+      +'<h1 class="rv-title">'+reviews_t('customer_reviews','Customer Reviews')+'</h1>'
       +'<p class="rv-subtitle">'+pName+'</p>'
       +'<div class="rv-summary">'
-      +'<div class="rv-summary-score"><div class="rv-big-score">'+rating+'</div><div class="rv-big-stars">'+stars(rating)+'</div><div class="rv-big-count">'+Number(total).toLocaleString()+' reviews</div></div>'
+      +'<div class="rv-summary-score"><div class="rv-big-score">'+rating+'</div><div class="rv-big-stars">'+stars(rating)+'</div><div class="rv-big-count">'+Number(total).toLocaleString()+' '+reviews_t('reviews_suffix','reviews')+'</div></div>'
       +'<div class="rv-breakdown">'+barsHTML+'</div>'
       +'</div>'
       +vcBuildHTML(_vids)
@@ -331,14 +335,14 @@
       +'<div class="rv-filter-bar">'
       +'<span class="rv-filter-label">Filter:</span>'
       +'<div class="rv-star-filter">'
-      +'<button class="rv-star-btn active" data-stars="0" onclick="rvFilterStars(0)">All</button>'
+      +'<button class="rv-star-btn active" data-stars="0" onclick="rvFilterStars(0)">'+reviews_t('all_reviews','All')+'</button>'
       +[5,4,3,2,1].map(function(n){return '<button class="rv-star-btn" data-stars="'+n+'" onclick="rvFilterStars('+n+')">'+n+' ★</button>';}).join('')
       +'</div>'
       +'<select class="rv-sort-select" onchange="rvSort(this.value)">'
-      +'<option value="recent">Most recent</option><option value="helpful">Most helpful</option>'
+      +'<option value="recent">'+reviews_t('most_recent','Most recent')+'</option><option value="helpful">'+reviews_t('most_helpful','Most helpful')+'</option>'
       +'<option value="high">Highest rated</option><option value="low">Lowest rated</option>'
       +'</select></div>'
-      +'<div class="rv-list" id="rv-list">'+(reviews.length?reviews.map(reviewCard).join(''):'<div class="rv-empty">No written reviews yet.</div>')+'</div>';
+      +'<div class="rv-list" id="rv-list">'+(reviews.length?reviews.map(reviewCard).join(''):'<div class="rv-empty">'+reviews_t('no_written_reviews','No written reviews yet.')+'</div>')+'</div>';
 
     if(_vids.length) setTimeout(vcInit,80);
   }
@@ -372,11 +376,11 @@
       var products=await pr.json();
       var allReviews=await rr.json();
       var product=pid?products.find(function(p){return p.id===pid;}):null;
-      if(!product){document.getElementById('rv-page').innerHTML='<div class="rv-empty">No product specified.</div>';return;}
+      if(!product){document.getElementById('rv-page').innerHTML='<div class="rv-empty">'+reviews_t('no_product_specified','No product specified.')+'</div>';return;}
       renderPage(product,allReviews[pid]||{});
     }catch(e){
       console.error(e);
-      document.getElementById('rv-page').innerHTML='<div class="rv-empty">Could not load reviews.</div>';
+      document.getElementById('rv-page').innerHTML='<div class="rv-empty">'+reviews_t('could_not_load_reviews','Could not load reviews.')+'</div>';
     }
   }
   load();
