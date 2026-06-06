@@ -302,7 +302,8 @@ export function initPageLoader() {
                 if (!orig.src) {
                     // Wrap inline scripts in IIFE to scope const/let declarations
                     // Prevents "Identifier already declared" errors on re-navigation
-                    s.textContent = `(function(){${orig.textContent}})();`;
+                    // Use setTimeout to defer execution until after DOM is fully parsed and ready
+                    s.textContent = `setTimeout(function(){(function(){${orig.textContent}})();}, 0);`;
                 }
                 orig.replaceWith(s);
             });
