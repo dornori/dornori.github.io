@@ -1,105 +1,130 @@
-<div class="container">
 <!DOCTYPE html>
-<html>
+<html class="at-top" lang="nl" data-theme="cutting-mat">
 <head>
-    <meta charset="UTF-8">
-    <title>Contactformulier met wachtrij</title>
     <style>
-        body { font-family: sans-serif; padding: 1rem; }
-        input, textarea, button { display: block; width: 100%; margin: 0.5rem 0; padding: 0.5rem; }
-        button { background: #0066cc; color: white; border: none; cursor: pointer; }
-        button:hover { background: #0055aa; }
-        .test-btn { background: #28a745; }
-        .test-btn:hover { background: #218838; }
-        #status { padding: 1rem; margin-top: 1rem; border-radius: 4px; }
-        .success { background: #d4edda; color: #155724; }
-        .error { background: #f8d7da; color: #721c24; }
-        .sending { background: #fff3cd; color: #856404; }
-        hr { margin: 2rem 0; }
-        .note { background: #e9ecef; padding: 1rem; border-radius: 4px; font-size: 0.9rem; }
+      html.at-top{scrollbar-width:none;}
+      html.at-top::-webkit-scrollbar{display:none;}
     </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dornori — Build Your Own Rising Star Lamp</title>
+    <meta name="description" content="Design and build your own Dornori Rising Star lamp. Available as a full DIY kit, pre-printed parts, or ready-assembled. Ships worldwide.">
+
+    <style>
+        :root,
+        [data-theme="cutting-mat"] {
+            --bg:         #1a3a2a;
+            --accent:     #a8d5b5;
+            --border:     rgba(255, 255, 255, 0.28);
+            --text:       #e8f2ec;
+            --text-muted: #9dc8ae;
+            --header-bg:  #112b1e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow-x: hidden;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        main#viewport {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        #home-view p {
+            margin-top: 20px;
+            font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            color: var(--text-muted);
+        }
+    </style>
+
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Dornori — Build Your Own Rising Star Lamp">
+    <meta property="og:description" content="Design and build your own Dornori Rising Star lamp. Available as a full DIY kit, pre-printed parts, or ready-assembled. Ships worldwide.">
+    <link rel="canonical" href="https://dornori.com/en/">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
 
-<h2>Contactformulier met wachtrij</h2>
+    <div id="topBar"></div>
 
-<div class="note">
-    <strong>Testing:</strong> Use the green "Test (Instant)" button to bypass rate limiting.<br>
-    <strong>Production:</strong> Use the blue button — rate limited to ~100 emails/day.
-</div>
+    <header id="main-header">
+        <div class="billboard-logo-wrap" onclick="window.showHome()">
+            <img id="banner-img" class="billboard-logo" alt="Dornori">
+            <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
+        </div>
+        <nav class="top-nav" aria-label="Main navigation">
+            <div id="cart-icon-slot" class="cart-icon-header-slot"></div>
+        </nav>
+    </header>
 
-<input type="text" id="name" placeholder="Your name">
-<input type="email" id="email" placeholder="Your email">
-<textarea id="message" rows="4" placeholder="Your message"></textarea>
+    <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
 
-<button id="testBtn" class="test-btn">🧪 Test (Instant - no rate limit)</button>
-<button id="submitBtn">📧 Send (Rate limited: ~100/day)</button>
+    <main id="viewport">
+        <div id="home-view">
+            <div style="text-align:center;padding:80px 20px;">
+                <div class="loading-spinner"></div>
+                <p>Loading…</p>
+            </div>
+        </div>
+        <div id="page-view" class="hidden">
+            <div id="page-content-inner" class="view-inner"></div>
+            <div style="margin-top:50px;">
+                <button class="nav-link" onclick="window.showHome()">Return Home</button>
+            </div>
+        </div>
+        <div class="social-dock" id="social-dock"></div>
+    </main>
 
-<div id="status"></div>
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div id="footer-links" class="footer-links"></div>
+            <div class="footer-bottom">
+                <p class="copyright-text">&copy; 2026 DORNORI. ALL RIGHTS RESERVED.</p>
+                <div class="technical-credits">
+                    <span class="credit-item"><span class="status-dot"></span>Performance &amp; Security by <strong>Cloudflare</strong></span>
+                </div>
+            </div>
+        </div>
+    </footer>
 
-<script>
-const workerUrl = "https://edge-form-handler-api.dornori-info.workers.dev";
-const statusDiv = document.getElementById("status");
-
-async function sendMessage(category, isTest = false) {
-    const name = document.getElementById("name").value;
-    const email = document.getElementById("email").value;
-    const message = document.getElementById("message").value;
-
-    if (!email || !message) {
-        statusDiv.className = "error";
-        statusDiv.textContent = "✗ Please fill in email and message";
-        return;
-    }
-
-    statusDiv.className = "sending";
-    statusDiv.textContent = "Sending...";
-
-    const payload = {
-        category: category,
-        name: name,
-        email: email,
-        message: message
-    };
-
-    if (isTest) {
-        payload.test = true;
-    }
-
-    try {
-        const response = await fetch(workerUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await response.text();
-
-        if (response.ok) {
-            statusDiv.className = "success";
-            if (isTest) {
-                statusDiv.textContent = "✓ TEST email sent instantly! Check your inbox.";
-            } else {
-                statusDiv.textContent = "✓ Message queued! Will be sent within 24 hours (rate limited).";
-            }
-            // Clear form
-            document.getElementById("name").value = "";
-            document.getElementById("email").value = "";
-            document.getElementById("message").value = "";
-        } else {
-            statusDiv.className = "error";
-            statusDiv.textContent = "✗ Error: " + result;
-        }
-    } catch (err) {
-        statusDiv.className = "error";
-        statusDiv.textContent = "✗ Network error: " + err.message;
-    }
-}
-
-document.getElementById("submitBtn").addEventListener("click", () => sendMessage("contact", false));
-document.getElementById("testBtn").addEventListener("click", () => sendMessage("test", true));
-</script>
-
+    <script>
+        window.addEventListener('scroll',function(){var h=document.documentElement;if(window.scrollY===0){h.classList.add('at-top')}else{h.classList.remove('at-top')}},{passive:true});
+        window.__PAGE_LANG__ = 'nl';
+        window.__PAGE_SLUG__ = 'contact';
+    </script>
+    <script src="../../js/page-init.js" defer></script>
+    <script src="../../js/site-boot.js" defer></script>
 </body>
 </html>
-</div><!-- /.container -->
