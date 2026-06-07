@@ -193,6 +193,8 @@
 
     function _renderBasicCurrencySelector(container) {
         if (!container || typeof Currency === 'undefined') return;
+        var selectEl = null;
+        
         function build() {
             Currency.waitForReady().then(function () {
                 var active = Currency.getActive();
@@ -203,11 +205,24 @@
                         return '<option value="' + c.code + '"' + (c.code === active ? ' selected' : '') + '>' +
                                c.code + ' ' + c.symbol + '</option>';
                     }).join('') + '</select>';
-                container.querySelector('select')
-                    .addEventListener('change', function (e) { Currency.setActive(e.target.value); });
+                selectEl = container.querySelector('select');
+                selectEl.addEventListener('change', function (e) { Currency.setActive(e.target.value); });
             });
         }
+        
+        function updateLabel() {
+            const labelText = (window.T?.ui?.currency || 'Currency').toUpperCase();
+            const select = container.querySelector('select');
+            if (select) {
+                container.innerHTML = labelText + ' ';
+                container.appendChild(select);
+                select.setAttribute('aria-label', window.T?.ui?.currency || 'Currency');
+            }
+        }
+        
         build();
+        // Re-render label on language change
+        document.addEventListener('shop:langChanged', updateLabel);
         // Do NOT re-build on currency:changed — the <select> already reflects the new value.
         // Rebuilding causes a flash and loses focus. The change event on the select handles it.
     }
