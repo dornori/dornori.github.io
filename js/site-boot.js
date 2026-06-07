@@ -126,7 +126,9 @@
         try {
             var cached    = localStorage.getItem('dornori-countries-cache');
             var timestamp = localStorage.getItem('dornori-cache-timestamp');
-            var CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
+            // ✅ FIX: Cache TTL value matches CACHE_TTL.COUNTRIES in constants.js (7 days)
+            // Note: site-boot.js is IIFE so cannot import modules; value must be kept in sync
+            var CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
             if (cached && timestamp && (Date.now() - parseInt(timestamp)) < CACHE_TTL) {
                 window.__countriesCache = JSON.parse(cached);
             }

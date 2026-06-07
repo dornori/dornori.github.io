@@ -151,8 +151,14 @@ export function initPageLoader() {
         window.history.scrollRestoration = 'manual';
     }
     
-    const pageView    = document.getElementById('page-view');
-    const pageContent = pageView;
+    let pageView    = document.getElementById('page-view');
+    // ✅ FIX: Check if pageView exists before using it throughout function
+    if (!pageView) {
+        console.error('Critical: #page-view element not found in DOM');
+        return;
+    }
+    
+    let pageContent = pageView;
 
     const fallbackLang = () => (SITE_CONFIG.languages && SITE_CONFIG.languages[0] ? SITE_CONFIG.languages[0].code : 'en');
 
@@ -220,10 +226,25 @@ export function initPageLoader() {
         const base = SITE_CONFIG.appearance.base_path;
         
         try {
-            const res  = await fetch(`${base}content/${lang}/home.html`);
+            // ✅ IMPROVED: Add timeout to prevent indefinite hanging
+            const res  = await fetch(`${base}content/${lang}/home.html`, { signal: AbortSignal.timeout(10000) }).catch(e => {
+                if (e.name === 'AbortError') throw new Error('Home content load timeout');
+                throw e;
+            });
             if (!res.ok) throw new Error();
             const html = await res.text();
-            pageView.innerHTML = html;
+            
+            // ✅ FIX: Clear old listeners by replacing page-view element
+            const oldPageView = pageView;
+            const newPageViewEl = document.createElement('div');
+            newPageViewEl.id = pageView.id;
+            newPageViewEl.className = pageView.className;
+            newPageViewEl.innerHTML = html;
+            oldPageView.parentNode.replaceChild(newPageViewEl, oldPageView);
+            
+            // Update module-level references
+            pageView = newPageViewEl;
+            pageContent = newPageViewEl;
             pageView.dataset.loadedLang = lang;
             rewriteContentPaths(pageView);
             pageView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
@@ -231,9 +252,11 @@ export function initPageLoader() {
             mountShopEmbeds(pageView);
         } catch (err) {
             if (ENV_CONFIG.DEBUG) console.error('Home load error:', err);
-            pageView.dataset.loadedLang = lang;
+            if (pageView) pageView.dataset.loadedLang = lang;
         }
-        pageView.classList.remove('hidden');
+        if (pageView && pageView.parentNode) {
+            pageView.classList.remove('hidden');
+        }
         document.getElementById('home-view')?.classList.add('hidden');
         requestAnimationFrame(() => {
             window.scrollTo(0, 0);
@@ -246,6 +269,7 @@ export function initPageLoader() {
 
     // ── SPINNER HELPERS ───────────────────────────────────────────────────────
     function showSpinner() {
+        if (!pageContent || !pageContent.parentNode) return;
         if (document.getElementById('page-loading-spinner')) return;
         const el = document.createElement('div');
         el.id = 'page-loading-spinner';
@@ -277,13 +301,28 @@ export function initPageLoader() {
         if (!skipSpinner) showSpinner();
 
         try {
-            const res = await fetch(contentPath(page));
+            // ✅ FIX: Add timeout to prevent indefinite hanging
+            const res = await fetch(contentPath(page), { signal: AbortSignal.timeout(10000) }).catch(e => {
+                if (e.name === 'AbortError') throw new Error(`Page content load timeout: ${slug}`);
+                throw e;
+            });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
             const html = await res.text();
             removeSpinner();
 
-            pageContent.innerHTML = html;
+            // ✅ FIX: Clear old listeners by replacing page-view element
+            // Creating a new element drops all attached listeners (currency:changed, clicks, etc)
+            // This prevents memory leaks from repeated addEventListener calls in wireShopCards
+            const oldPageView = pageContent;
+            const newPageView = document.createElement('div');
+            newPageView.id = pageContent.id;
+            newPageView.className = pageContent.className;
+            newPageView.innerHTML = html;
+            oldPageView.parentNode.replaceChild(newPageView, oldPageView);
+            
+            // Update module-level reference
+            pageContent = newPageView;
             if (productId) window.__PRODUCT_ID__ = productId;
             rewriteContentPaths(pageContent);
             pageContent.querySelectorAll('script').forEach(orig => {
@@ -309,7 +348,7 @@ export function initPageLoader() {
             });
 
             document.getElementById('home-view')?.classList.add('hidden');
-            pageView.classList.remove('hidden');
+            pageContent.classList.remove('hidden');
             pageContent.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
 
             wireShopCards(pageContent);
@@ -335,12 +374,14 @@ export function initPageLoader() {
             if (ENV_CONFIG.DEBUG) console.error('Page load error:', err);
             const T = window.T?.ui || {};
             removeSpinner();
-            pageContent.innerHTML = `
-                <h1>${T.errorTitle || 'Error'}</h1>
-                <p>${T.errorMsg || 'Sorry, this content could not be loaded.'}</p>
-                <p style="font-family:var(--font-mono);font-size:.8rem;color:var(--muted);">${err.message}</p>
-                <button onclick="window.showHome()">${T.returnHome || 'Return Home'}</button>
-            `;
+            if (pageContent && pageContent.parentNode) {
+                pageContent.innerHTML = `
+                    <h1>${T.errorTitle || 'Error'}</h1>
+                    <p>${T.errorMsg || 'Sorry, this content could not be loaded.'}</p>
+                    <p style="font-family:var(--font-mono);font-size:.8rem;color:var(--muted);">${err.message}</p>
+                    <button onclick="window.showHome()">${T.returnHome || 'Return Home'}</button>
+                `;
+            }
             requestAnimationFrame(() => {
                 window.scrollTo(0, 0);
                 document.documentElement.scrollTop = 0;
@@ -429,7 +470,7 @@ export function initPageLoader() {
     });
 
     window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !pageView.classList.contains('hidden')) window.showHome();
+        if (e.key === 'Escape' && pageView && pageView.parentNode && !pageView.classList.contains('hidden')) window.showHome();
     });
 
     // ── INTERCEPT PRODUCT LINKS ───────────────────────────────────────────────
