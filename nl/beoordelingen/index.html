@@ -1,385 +1,131 @@
-<div class="container">
-<!-- reviews.html -->
-<style>
-  .rv-page{padding:2rem 0 4rem;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--text,#1a1714)}
-  .rv-breadcrumb{font-size:.8rem;color:var(--text-muted,#6b6560);margin-bottom:.75rem}
-  .rv-breadcrumb a{color:var(--accent,#c8a96e);text-decoration:none}
-  .rv-breadcrumb a:hover{text-decoration:underline}
-  .rv-title{font-size:1.5rem;font-weight:700;margin:0 0 .2rem}
-  .rv-subtitle{font-size:.9rem;color:var(--text-muted,#6b6560);margin:0 0 1.75rem}
+<!DOCTYPE html>
+<html lang="en" data-theme="cutting-mat">
+<head>
+    <style>
+      html:not(.at-top){scrollbar-width:auto;}
+      html:not(.at-top)::-webkit-scrollbar{display:block;}
+      html:not(.at-top) body{scrollbar-width:auto;}
+    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dornori — Build Your Own Rising Star Lamp</title>
+    <meta name="description" content="Design and build your own Dornori Rising Star lamp. Available as a full DIY kit, pre-printed parts, or ready-assembled. Ships worldwide.">
 
-  /* ── rating summary ── */
-  .rv-summary{display:flex;gap:2rem;align-items:flex-start;background:var(--glass,rgba(255,255,255,.06));border:1px solid var(--border,rgba(255,255,255,.2));border-radius:12px;padding:1.5rem;margin-bottom:2rem;flex-wrap:wrap}
-  .rv-summary-score{text-align:center;min-width:90px}
-  .rv-big-score{font-size:3.5rem;font-weight:800;line-height:1;color:var(--accent,#c8a96e)}
-  .rv-big-stars{font-size:1.3rem;color:#ff9900;letter-spacing:2px;margin:.25rem 0}
-  .rv-big-count{font-size:.8rem;color:var(--text-muted,#6b6560)}
-  .rv-breakdown{flex:1;min-width:200px;display:flex;flex-direction:column;gap:6px}
-  .rv-bar-row{display:flex;align-items:center;gap:8px;font-size:.82rem}
-  .rv-bar-label{width:40px;color:var(--accent,#c8a96e);cursor:pointer;white-space:nowrap}
-  .rv-bar-label:hover{text-decoration:underline}
-  .rv-bar-track{flex:1;height:10px;background:var(--border,rgba(255,255,255,.15));border-radius:99px;overflow:hidden}
-  .rv-bar-fill{height:100%;background:#ff9900;border-radius:99px;transition:width .6s ease}
-  .rv-bar-num{width:30px;text-align:right;color:var(--text-muted,#6b6560)}
+    <style>
+        :root,
+        [data-theme="cutting-mat"] {
+            --bg:         #1a3a2a;
+            --accent:     #a8d5b5;
+            --border:     rgba(255, 255, 255, 0.28);
+            --text:       #e8f2ec;
+            --text-muted: #9dc8ae;
+            --header-bg:  #112b1e;
+        }
 
-  .rv-section-title{font-size:1.1rem;font-weight:700;margin:0 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border,rgba(255,255,255,.15))}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-  /* ── VIDEO CAROUSEL ── */
-  .vc{margin-bottom:2.5rem}
-  .vc-wrap{display:flex;flex-direction:column;align-items:center;gap:1rem}
-  .vc-stage{position:relative;width:100%;height:320px;display:flex;align-items:center;justify-content:center;overflow:visible}
-  .vc-card{position:absolute;width:190px;height:280px;border-radius:16px;overflow:hidden;cursor:pointer;background:#111;
-    transition:transform .45s cubic-bezier(.4,0,.2,1),opacity .45s ease;
-    box-shadow:0 8px 32px rgba(0,0,0,.45)}
-  .vc-card img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
-  .vc-thumb-bg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:3rem}
-  .vc-overlay{position:absolute;inset:0;background:rgba(0,0,0,.38);display:flex;align-items:center;justify-content:center;transition:background .3s}
-  .vc-card.center .vc-overlay{background:rgba(0,0,0,.08)}
-  .vc-card.center{cursor:default}
-  .vc-play{width:56px;height:56px;background:rgba(255,255,255,.93);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;padding-left:4px;box-shadow:0 2px 16px rgba(0,0,0,.5)}
-  .vc-card:not(.center) .vc-play{width:32px;height:32px;font-size:.85rem;padding-left:3px;opacity:.65}
-  .vc-card-meta{position:absolute;bottom:0;left:0;right:0;padding:.75rem;background:linear-gradient(transparent,rgba(0,0,0,.82))}
-  .vc-card-meta strong{display:block;color:#fff;font-size:.82rem;font-weight:600;line-height:1.3}
-  .vc-card-meta span{color:rgba(255,255,255,.6);font-size:.7rem}
-  .vc-pill{position:absolute;top:8px;left:8px;font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:4px;z-index:2}
-  .vc-pill.yt{background:#f00;color:#fff}.vc-pill.tt{background:#000;color:#fff}.vc-pill.mp4{background:rgba(0,0,0,.6);color:#fff}
-  .vc-live{position:absolute;inset:0}.vc-live iframe,.vc-live video{position:absolute;inset:0;width:100%;height:100%;border:none}
-  .vc-controls{display:flex;align-items:center;gap:1.5rem}
-  .vc-btn{width:38px;height:38px;border-radius:50%;border:1px solid var(--border,rgba(0,0,0,.15));background:var(--surface,#fff);color:var(--text,#111);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:background .15s}
-  .vc-btn:hover{background:var(--c-surface-2,#f5f5f5)}
-  .vc-dots{display:flex;gap:7px;align-items:center}
-  .vc-dot{width:7px;height:7px;border-radius:50%;border:none;padding:0;background:var(--border,rgba(0,0,0,.18));cursor:pointer;transition:background .2s,transform .2s}
-  .vc-dot.active{background:var(--accent,#c8a96e);transform:scale(1.4)}
+        html, body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow-x: hidden;
+        }
 
-  /* ── review cards ── */  /* ── review cards ── */
-  .rv-filter-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:1.25rem}
-  .rv-filter-label{font-size:.85rem;color:var(--text-muted,#6b6560)}
-  .rv-sort-select{padding:6px 10px;border:1px solid var(--border,rgba(255,255,255,.2));border-radius:6px;background:var(--glass,rgba(255,255,255,.06));color:var(--text,#1a1714);font-size:.85rem;cursor:pointer}
-  .rv-star-filter{display:flex;gap:6px;flex-wrap:wrap}
-  .rv-star-btn{padding:5px 10px;border:1px solid var(--border,rgba(255,255,255,.2));border-radius:6px;background:transparent;color:var(--text,#1a1714);font-size:.82rem;cursor:pointer;transition:all .15s}
-  .rv-star-btn.active,.rv-star-btn:hover{border-color:var(--accent,#c8a96e);background:color-mix(in srgb,var(--accent,#c8a96e) 12%,transparent)}
-  .rv-list{display:flex;flex-direction:column}
-  .rv-card{padding:1.25rem 0;border-bottom:1px solid var(--border,rgba(255,255,255,.1))}
-  .rv-card:last-child{border-bottom:none}
-  .rv-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:.5rem}
-  .rv-author-row{display:flex;align-items:center;gap:.6rem}
-  .rv-avatar{width:36px;height:36px;border-radius:50%;background:var(--accent,#c8a96e);color:var(--bg,#1a3a2a);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0}
-  .rv-author-info strong{display:block;font-size:.9rem}
-  .rv-author-info span{font-size:.78rem;color:var(--text-muted,#6b6560)}
-  .rv-card-stars{color:#ff9900;font-size:1rem;letter-spacing:1px}
-  .rv-verified{display:inline-flex;align-items:center;gap:4px;font-size:.75rem;color:#2e7d32;background:rgba(46,125,50,.1);padding:2px 8px;border-radius:99px}
-  .rv-card-title{font-weight:700;font-size:1rem;margin:.5rem 0 .35rem}
-  .rv-card-body{font-size:.9rem;line-height:1.65;opacity:.9}
-  .rv-card-footer{display:flex;align-items:center;gap:1rem;margin-top:.75rem;flex-wrap:wrap}
-  .rv-date{font-size:.78rem;color:var(--text-muted,#6b6560)}
-  .rv-helpful{font-size:.8rem;color:var(--text-muted,#6b6560);display:flex;align-items:center;gap:6px}
-  .rv-helpful-btn{padding:3px 10px;border:1px solid var(--border,rgba(255,255,255,.2));border-radius:99px;background:transparent;color:var(--text,#1a1714);font-size:.78rem;cursor:pointer;transition:all .15s}
-  .rv-helpful-btn:hover{border-color:var(--accent,#c8a96e)}
-  .rv-reply{margin-top:.9rem;margin-left:1.5rem;padding:.85rem 1rem;border-left:3px solid var(--accent,#c8a96e);background:var(--glass,rgba(200,169,110,.06));border-radius:0 8px 8px 0}
-  .rv-reply-header{display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem}
-  .rv-reply-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent,#c8a96e);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0}
-  .rv-reply-author{font-size:.82rem;font-weight:700;color:var(--accent,#c8a96e)}
-  .rv-reply-date{font-size:.75rem;color:var(--text-muted,#6b6560);margin-left:auto}
-  .rv-reply-body{font-size:.85rem;line-height:1.6;opacity:.9}
-  .rv-empty,.rv-loading{text-align:center;padding:3rem 1rem;color:var(--text-muted,#6b6560);font-size:.95rem}
-  @media(max-width:600px){
-    .rv-summary{flex-direction:column;gap:1.25rem}
-    .vc-tile{flex:0 0 calc(50% - 4px)}
-    .vc-strip-wrap{padding:0 28px}
-  }
-</style>
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
 
-<div class="rv-page" id="rv-page">
-  <div class="rv-loading">Loading reviews…</div>
-</div>
+        main#viewport {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
 
-<script>
-(function(){
-  var BASE=(window.SHOP_CONFIG&&window.SHOP_CONFIG.basePath)?window.SHOP_CONFIG.basePath:'../../';
-  var params=new URLSearchParams(window.location.search);
-  var pid=window.__PRODUCT_ID__||params.get('id')||null;
-  window.__PRODUCT_ID__=null;
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
 
-  function stars(n){var f=Math.floor(n),h=(n-f)>=.5;return '★'.repeat(f)+(h?'½':'')+'☆'.repeat(5-f-(h?1:0));}
-  function fmtDate(d){try{return new Date(d).toLocaleDateString(window.LANG==='nl'?'nl-NL':'en-GB',{year:'numeric',month:'long',day:'numeric'});}catch(e){return d;}}
-  function initials(n){return n.trim().split(/\s+/).map(function(w){return w[0];}).join('').slice(0,2).toUpperCase();}
-  function ytId(url){return(url.match(/embed\/([^?&]+)/)||[])[1]||'';}
-  function ytThumb(url){return 'https://img.youtube.com/vi/'+ytId(url)+'/mqdefault.jpg';}
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
 
-  /* ─────────────────────────────────────────
-     VIDEO CAROUSEL STATE
-  ───────────────────────────────────────── */
-  /* ── INFINITE CAROUSEL ── */
-  var _vids=[], _cur=0, _playing=false;
+        #home-view p {
+            margin-top: 20px;
+            font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            color: var(--text-muted);
+        }
+    </style>
 
-  var _slots=[
-    {x:-210,s:.62,op:.35,z:1,rot:-8},
-    {x:-145,s:.75,op:.58,z:2,rot:-4},
-    {x:0,   s:1,  op:1,  z:4,rot:0},
-    {x:145, s:.75,op:.58,z:2,rot:4},
-    {x:210, s:.62,op:.35,z:1,rot:8},
-  ];
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Dornori — Build Your Own Rising Star Lamp">
+    <meta property="og:description" content="Design and build your own Dornori Rising Star lamp. Available as a full DIY kit, pre-printed parts, or ready-assembled. Ships worldwide.">
+    <link rel="canonical" href="https://dornori.com/en/">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+</head>
+<body>
+    
 
-  function _ytId(u){return(u.match(/embed\/([^?&]+)/)||[])[1]||'';}
-  function _ytThumb(u){var id=_ytId(u);return id?'https://img.youtube.com/vi/'+id+'/mqdefault.jpg':'';}
 
-  function _thumbInner(v){
-    if(v.type==='youtube'){var t=_ytThumb(v.url);return t?'<img src="'+t+'" alt="'+v.title+'">'
-      :'<div class="vc-thumb-bg">▶</div>';}
-    if(v.type==='tiktok') return '<div class="vc-thumb-bg" style="background:#1a1a2e;color:#fe2c55;font-size:2.5rem;">🎵</div>';
-    return '<div class="vc-thumb-bg" style="background:#111;color:rgba(255,255,255,.3);font-size:2.5rem;">▶</div>';
-  }
+    <div id="topBar"></div>
 
-  function _pillHTML(type){
-    return {'youtube':'<span class="vc-pill yt">YT</span>','tiktok':'<span class="vc-pill tt">TT</span>','mp4':'<span class="vc-pill mp4">MP4</span>'}[type]||'';
-  }
+    <header id="main-header">
+        <div class="billboard-logo-wrap" onclick="window.showHome()">
+            <img id="banner-img" class="billboard-logo" alt="Dornori">
+            <span class="billboard-wordmark">Dornor<span class="i-wrap">ı<span class="dot"></span></span></span>
+        </div>
+        <nav class="top-nav" aria-label="Main navigation">
+            <div id="cart-icon-slot" class="cart-icon-header-slot"></div>
+        </nav>
+        <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation"></nav>
+    </header>
 
-  /* Build cards ONCE, then only update transforms */
-  function vcBuild(){
-    var stage=document.getElementById('vc-stage');if(!stage)return;
-    stage.innerHTML='';
-    var n=_vids.length;
-    for(var i=0;i<n;i++){
-      var v=_vids[i];
-      var d=document.createElement('div');
-      d.className='vc-card';
-      d.dataset.vi=i;
-      /* add all content */
-      d.innerHTML=_pillHTML(v.type)+_thumbInner(v)
-        +'<div class="vc-overlay"><div class="vc-play">▶</div></div>'
-        +'<div class="vc-card-meta"><strong>'+v.title+'</strong><span>'+v.author+'</span></div>';
-      stage.appendChild(d);
-    }
-    /* wire clicks after build */
-    vcWireClicks();
-  }
+    <main id="viewport">
+        <div id="home-view">
+            <div style="text-align:center;padding:80px 20px;">
+                <div class="loading-spinner"></div>
+                <p>Loading…</p>
+            </div>
+        </div>
+        <div id="page-view" class="hidden">
+            <div id="page-content-inner" class="view-inner"></div>
+            <div style="margin-top:50px;">
+                <button class="nav-link" onclick="window.showHome()">Return Home</button>
+            </div>
+        </div>
+        <div class="social-dock" id="social-dock"></div>
+    </main>
 
-  function vcWireClicks(){
-    var stage=document.getElementById('vc-stage');if(!stage)return;
-    var cards=[].slice.call(stage.querySelectorAll('.vc-card'));
-    cards.forEach(function(d){
-      d.onclick=function(){
-        var vi=+d.dataset.vi;
-        if(d.classList.contains('center')){vcPlayCenter();return;}
-        /* advance in the direction of this card's slot */
-        var slot=+d.dataset.slot;
-        var mid=Math.floor(Math.min(5,_vids.length)/2);
-        vcAdvance(slot<mid?-1:1);
-      };
-    });
-  }
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div id="footer-links" class="footer-links"></div>
+            <div class="footer-bottom">
+                <p class="copyright-text">&copy; 2026 DORNORI. ALL RIGHTS RESERVED.</p>
+                <div class="technical-credits">
+                    <span class="credit-item"><span class="status-dot"></span>Performance &amp; Security by <strong>Cloudflare</strong></span>
+                </div>
+            </div>
+        </div>
+    </footer>
 
-  /* Only update positions — cards stay in DOM, CSS transitions fire */
-  function vcLayout(){
-    var stage=document.getElementById('vc-stage');if(!stage)return;
-    var n=_vids.length;
-    var numSlots=Math.min(5,n);
-    var mid=Math.floor(numSlots/2);
-    var slotOffset=Math.floor((5-numSlots)/2); /* centre slots array for <5 videos */
-    var cards=[].slice.call(stage.querySelectorAll('.vc-card'));
-
-    /* assign each card to a slot based on distance from _cur */
-    cards.forEach(function(d){
-      var vi=+d.dataset.vi;
-      var dist=((vi-_cur)%n+n)%n; /* 0..n-1 forward distance */
-      if(dist>n/2) dist=dist-n;   /* wrap: -floor(n/2)..+floor(n/2) */
-      var slot=dist+mid;           /* map to slot index */
-      var visible=(slot>=0&&slot<numSlots);
-      if(!visible){
-        d.style.opacity='0';d.style.pointerEvents='none';d.style.zIndex='0';
-        d.dataset.slot='-1';
-        return;
-      }
-      var sl=_slots[slot+slotOffset];
-      d.dataset.slot=slot;
-      d.style.transform='translateX('+sl.x+'px) scale('+sl.s+') rotate('+sl.rot+'deg)';
-      d.style.opacity=sl.op;
-      d.style.zIndex=sl.z;
-      d.style.pointerEvents='auto';
-      var isc=(slot+slotOffset===2); /* actual center slot is always index 2 */
-      d.classList.toggle('center',isc);
-    });
-
-    document.querySelectorAll('.vc-dot').forEach(function(d){d.classList.toggle('active',+d.dataset.i===_cur);});
-  }
-
-  function vcPlayCenter(){
-    if(_playing)return;
-    var v=_vids[_cur];if(!v)return;
-    if(v.type==='tiktok'){window.open(v.url,'_blank','noopener');return;}
-    var center=document.querySelector('.vc-card.center');if(!center)return;
-    _playing=true;
-    var live=document.createElement('div');live.className='vc-live';
-    if(v.type==='youtube'){
-      var f=document.createElement('iframe');
-      f.src='https://www.youtube.com/embed/'+_ytId(v.url)+'?autoplay=1&rel=0&modestbranding=1';
-      f.setAttribute('allow','autoplay;encrypted-media;picture-in-picture;fullscreen');
-      f.allowFullscreen=true;
-      live.appendChild(f);
-    } else if(v.type==='mp4'){
-      var BASE=(window.SHOP_CONFIG&&window.SHOP_CONFIG.basePath)?window.SHOP_CONFIG.basePath:'../../';
-      var src=v.url.startsWith('/')?BASE+v.url.slice(1):v.url;
-      var vid=document.createElement('video');
-      vid.controls=true;vid.autoplay=true;vid.playsInline=true;
-      vid.innerHTML='<source src="'+src+'" type="video/mp4">';
-      live.appendChild(vid);setTimeout(function(){vid.play().catch(function(){});},50);
-    }
-    center.appendChild(live);
-  }
-
-  function vcStop(){
-    _playing=false;
-    var c=document.querySelector('.vc-card.center');if(!c)return;
-    var l=c.querySelector('.vc-live');if(!l)return;
-    var f=l.querySelector('iframe');if(f)f.src='';
-    var v=l.querySelector('video');if(v)v.pause();
-    l.remove();
-    c.classList.remove('playing');
-  }
-
-  window.vcAdvance=function(dir){vcStop();_cur=((_cur+dir)%_vids.length+_vids.length)%_vids.length;vcLayout();};
-  window.vcGoTo=function(i){vcStop();_cur=i;vcLayout();};
-
-  function vcBuildHTML(videos){
-    if(!videos.length) return '';
-    var dots=videos.length>1
-      ? '<div class="vc-dots">'+videos.map(function(_,i){
-          return '<button class="vc-dot'+(i===0?' active':'')+'" data-i="'+i+'" onclick="vcGoTo('+i+')"></button>';
-        }).join('')+'</div>' : '';
-    return '<h2 class="rv-section-title">Video Reviews</h2>'
-      +'<div class="vc"><div class="vc-wrap">'
-      +'<div class="vc-stage" id="vc-stage"></div>'
-      +(videos.length>1?'<div class="vc-controls">'
-        +'<button class="vc-btn" onclick="vcAdvance(-1)">&#8592;</button>'
-        +dots
-        +'<button class="vc-btn" onclick="vcAdvance(1)">&#8594;</button>'
-        +'</div>':'')
-      +'</div></div>';
-  }
-
-  function vcInit(){
-    vcBuild();
-    vcLayout();
-    var stage=document.getElementById('vc-stage');if(!stage)return;
-    var sx=0;
-    stage.addEventListener('touchstart',function(e){sx=e.touches[0].clientX;},{passive:true});
-    stage.addEventListener('touchend',function(e){var dx=e.changedTouches[0].clientX-sx;if(Math.abs(dx)>44)vcAdvance(dx<0?1:-1);});
-    var mx=0,md=false;
-    stage.addEventListener('mousedown',function(e){mx=e.clientX;md=true;});
-    stage.addEventListener('mouseup',function(e){if(md&&Math.abs(e.clientX-mx)>44)vcAdvance(e.clientX-mx<0?1:-1);md=false;});
-    stage.addEventListener('mouseleave',function(){md=false;});
-  }
-
-  /* ─────────────────────────────────────────
-     REVIEWS
-  ───────────────────────────────────────── */
-  function reviewCard(r){
-    var vf=r.verified?'<span class="rv-verified">✓ Verified Purchase</span>':'';
-    return '<div class="rv-card" data-rating="'+r.rating+'" data-helpful="'+(r.helpful||0)+'" data-date="'+(r.date||'')+'">'
-      +'<div class="rv-card-top">'
-      +'<div class="rv-author-row">'
-      +'<div class="rv-avatar">'+initials(r.author)+'</div>'
-      +'<div class="rv-author-info"><strong>'+r.author+'</strong><span>'+(r.location||'')+'</span></div>'
-      +'</div>'
-      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">'
-      +'<span class="rv-card-stars">'+stars(r.rating)+'</span>'+vf+'</div></div>'
-      +'<div class="rv-card-title">'+r.title+'</div>'
-      +'<div class="rv-card-body">'+r.body+'</div>'
-      +'<div class="rv-card-footer">'
-      +'<span class="rv-date">'+fmtDate(r.date)+'</span>'
-      +'<span class="rv-helpful">Helpful? <button class="rv-helpful-btn" data-base="'+(r.helpful||0)+'" onclick="rvHelpful(this)">👍 '+(r.helpful||0)+'</button></span>'
-      +'</div>'
-      +(r.reply?'<div class="rv-reply">'
-        +'<div class="rv-reply-header">'
-        +'<div class="rv-reply-avatar">D</div>'
-        +'<span class="rv-reply-author">'+r.reply.author+'</span>'
-        +'<span class="rv-reply-date">'+fmtDate(r.reply.date)+'</span>'
-        +'</div>'
-        +'<div class="rv-reply-body">'+r.reply.body+'</div>'
-        +'</div>':'')
-      +'</div>';
-  }
-
-  function renderPage(product,rd){
-    var pName=product.label||product.name||product.id;
-    var rating=product.rating||5;
-    var total=product.reviewCount||0;
-    var breakdown=rd.ratingBreakdown||{};
-    var reviews=rd.reviews||[];
-    _vids=rd.videos||[];
-    _cur=0;
-    _playing=false;
-
-    var totalV=Object.values(breakdown).reduce(function(a,b){return a+b;},0)||1;
-    var barsHTML=[5,4,3,2,1].map(function(n){
-      var c=breakdown[n]||0,p=Math.round(c/totalV*100);
-      return '<div class="rv-bar-row"><span class="rv-bar-label" onclick="rvFilterStars('+n+')">'+n+' ★</span>'
-        +'<div class="rv-bar-track"><div class="rv-bar-fill" style="width:'+p+'%"></div></div>'
-        +'<span class="rv-bar-num">'+c+'</span></div>';
-    }).join('');
-
-    document.getElementById('rv-page').innerHTML=
-      '<div class="rv-breadcrumb"><a href="#" onclick="if(window.viewPage)window.viewPage(\'product\',\''+product.id+'\');return false;">← '+pName+'</a> › Customer Reviews</div>'
-      +'<h1 class="rv-title">Customer Reviews</h1>'
-      +'<p class="rv-subtitle">'+pName+'</p>'
-      +'<div class="rv-summary">'
-      +'<div class="rv-summary-score"><div class="rv-big-score">'+rating+'</div><div class="rv-big-stars">'+stars(rating)+'</div><div class="rv-big-count">'+Number(total).toLocaleString()+' reviews</div></div>'
-      +'<div class="rv-breakdown">'+barsHTML+'</div>'
-      +'</div>'
-      +vcBuildHTML(_vids)
-      +'<h2 class="rv-section-title">Written Reviews</h2>'
-      +'<div class="rv-filter-bar">'
-      +'<span class="rv-filter-label">Filter:</span>'
-      +'<div class="rv-star-filter">'
-      +'<button class="rv-star-btn active" data-stars="0" onclick="rvFilterStars(0)">All</button>'
-      +[5,4,3,2,1].map(function(n){return '<button class="rv-star-btn" data-stars="'+n+'" onclick="rvFilterStars('+n+')">'+n+' ★</button>';}).join('')
-      +'</div>'
-      +'<select class="rv-sort-select" onchange="rvSort(this.value)">'
-      +'<option value="recent">Most recent</option><option value="helpful">Most helpful</option>'
-      +'<option value="high">Highest rated</option><option value="low">Lowest rated</option>'
-      +'</select></div>'
-      +'<div class="rv-list" id="rv-list">'+(reviews.length?reviews.map(reviewCard).join(''):'<div class="rv-empty">No written reviews yet.</div>')+'</div>';
-
-    if(_vids.length) setTimeout(vcInit,80);
-  }
-
-  window.rvFilterStars=function(n){
-    document.querySelectorAll('.rv-star-btn').forEach(function(b){b.classList.toggle('active',+b.dataset.stars===n);});
-    document.querySelectorAll('.rv-card').forEach(function(c){c.style.display=(n===0||+c.dataset.rating===n)?'':'none';});
-  };
-  window.rvSort=function(v){
-    var list=document.getElementById('rv-list');if(!list)return;
-    var cards=[].slice.call(list.querySelectorAll('.rv-card'));
-    cards.sort(function(a,b){
-      if(v==='helpful')return +b.dataset.helpful - +a.dataset.helpful;
-      if(v==='high')   return +b.dataset.rating  - +a.dataset.rating;
-      if(v==='low')    return +a.dataset.rating  - +b.dataset.rating;
-      return new Date(b.dataset.date)-new Date(a.dataset.date);
-    });
-    cards.forEach(function(c){list.appendChild(c);});
-  };
-  window.rvHelpful=function(btn){
-    if(btn.dataset.voted)return;
-    btn.dataset.voted='1';
-    btn.textContent='👍 '+(+btn.dataset.base+1);
-    btn.style.borderColor='var(--accent)';
-  };
-
-  async function load(){
-    try{
-      var pr=await fetch(BASE+'data/products.json');
-      var rr=await fetch(BASE+'data/reviews.json');
-      var products=await pr.json();
-      var allReviews=await rr.json();
-      var product=pid?products.find(function(p){return p.id===pid;}):null;
-      if(!product){document.getElementById('rv-page').innerHTML='<div class="rv-empty">No product specified.</div>';return;}
-      renderPage(product,allReviews[pid]||{});
-    }catch(e){
-      console.error(e);
-      document.getElementById('rv-page').innerHTML='<div class="rv-empty">Could not load reviews.</div>';
-    }
-  }
-  load();
-})();
-</script>
-</div><!-- /.container -->
+    <script>
+        window.__PAGE_LANG__ = 'en';
+        window.__PAGE_SLUG__ = 'reviews';
+    </script>
+    <script src="../../js/page-init.js" defer></script>
+    <script src="../../js/site-boot.js" defer></script>
+</body>
+</html>
