@@ -225,8 +225,6 @@ export function initPageLoader() {
         const lang = window.LANG || fallbackLang();
         const base = SITE_CONFIG.appearance.base_path;
         
-        let homeView = document.getElementById('home-view');
-        
         try {
             // ✅ IMPROVED: Add timeout to prevent indefinite hanging
             const res  = await fetch(`${base}content/${lang}/home.html`, { signal: AbortSignal.timeout(10000) }).catch(e => {
@@ -236,7 +234,8 @@ export function initPageLoader() {
             if (!res.ok) throw new Error();
             const html = await res.text();
             
-            // ✅ FIX: Load home content into home-view (not page-view)
+            // Load into home-view, not page-view
+            const homeView = document.getElementById('home-view');
             if (homeView) {
                 homeView.innerHTML = html;
                 homeView.dataset.loadedLang = lang;
@@ -247,17 +246,7 @@ export function initPageLoader() {
             }
         } catch (err) {
             if (ENV_CONFIG.DEBUG) console.error('Home load error:', err);
-            if (homeView) homeView.dataset.loadedLang = lang;
         }
-        
-        // ✅ FIX: Show home-view and hide page-view
-        if (homeView) {
-            homeView.classList.remove('hidden');
-        }
-        if (pageView) {
-            pageView.classList.add('hidden');
-        }
-        
         requestAnimationFrame(() => {
             window.scrollTo(0, 0);
             document.documentElement.scrollTop = 0;

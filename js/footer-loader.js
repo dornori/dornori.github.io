@@ -66,7 +66,7 @@ function renderCopyrightText() {
 
     container.innerHTML = '';
 
-    // Create copyright text wrapper with proper CSS class
+    // Create copyright text wrapper
     const wrapper = document.createElement('div');
     wrapper.className = 'copyright-text';
 
