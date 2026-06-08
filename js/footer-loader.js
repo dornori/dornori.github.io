@@ -66,9 +66,9 @@ function renderCopyrightText() {
 
     container.innerHTML = '';
 
-    // Create copyright text wrapper
+    // Create copyright text wrapper with proper CSS class
     const wrapper = document.createElement('div');
-    wrapper.className = 'copyright-wrapper';
+    wrapper.className = 'copyright-text';
 
     // Copyright line: © 2026 DORNORI
     const copyrightText = document.createElement('span');
