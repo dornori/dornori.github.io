@@ -139,6 +139,14 @@ const SITE_CONFIG = {
         }
     ],
 
+    credits: {
+        companyName: 'DORNORI',
+        creditLink: {
+            text: 'dornori.info',
+            url:  'https://dornori.info'
+        }
+    },
+
 };
 
 // Expose globally for plain (non-module) scripts, and export for ES module consumers.
