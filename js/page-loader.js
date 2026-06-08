@@ -401,6 +401,13 @@ export function initPageLoader() {
         const base    = SITE_CONFIG.appearance.base_path;
         window.history.pushState({ slug: '', lang }, '', `${base}${lang}/`);
         updateSEO('');
+        
+        // Show spinner and hide page-view before loading
+        if (pageView && !pageView.classList.contains('hidden')) {
+            pageView.classList.add('hidden');
+        }
+        document.getElementById('home-view')?.classList.remove('hidden');
+        
         window.loadHome();
     };
 
