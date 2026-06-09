@@ -634,20 +634,21 @@ var Shop = (() => {
     const wTag    = `a href="${prodUrl}"`;
     const wEnd    = 'a';
 
-    // Resolve label text: if UpLabel/DownLabel are true, check lang file, then common.json, then defaults
+    // Resolve label text: if UpLabel/DownLabel are true, read from lang file under UpLabelText/DownLabelText
+    // PRODUCT_LANG structure: { "product-id": { "UpLabelText": "...", "DownLabelText": "..." } }
     let upLabelText = "";
     let downLabelText = "";
     
     if (p.UpLabel === true) {
       const productLangData = PRODUCT_LANG[p.id] || {};
-      upLabelText = productLangData.UpLabelText || LANG.UpLabelText || "Featured";
+      upLabelText = productLangData.UpLabelText || t("UpLabelText", "Featured");
     } else if (p.UpLabel && typeof p.UpLabel === "string") {
       upLabelText = p.UpLabel;
     }
     
     if (p.DownLabel === true) {
       const productLangData = PRODUCT_LANG[p.id] || {};
-      downLabelText = productLangData.DownLabelText || LANG.DownLabelText || "Best Seller";
+      downLabelText = productLangData.DownLabelText || t("DownLabelText", "Best Seller");
     } else if (p.DownLabel && typeof p.DownLabel === "string") {
       downLabelText = p.DownLabel;
     }
@@ -672,9 +673,9 @@ var Shop = (() => {
             <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
           </div>`:""}
         </div>
-        <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"} data-product-url="${p.url || ""}">
+        ${CONFIG.features?.CartLive !== false ? `<button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"} data-product-url="${p.url || ""}">
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
-        </button>
+        </button>` : ""}
         ${(showRelated || showAddons) ? buildRelatedStrip(p, "card", options) : ""}
       </div>`;
   }
@@ -1026,7 +1027,7 @@ var Shop = (() => {
               let dlText = "";
               if (p.DownLabel === true) {
                 const prodLang = PRODUCT_LANG[p.id] || {};
-                dlText = prodLang.DownLabelText || LANG.DownLabelText || "Best Seller";
+                dlText = prodLang.DownLabelText || t("DownLabelText", "Best Seller");
               } else if (p.DownLabel && typeof p.DownLabel === "string") {
                 dlText = p.DownLabel;
               }
@@ -1036,7 +1037,7 @@ var Shop = (() => {
               let ulText = "";
               if (p.UpLabel === true) {
                 const prodLang = PRODUCT_LANG[p.id] || {};
-                ulText = prodLang.UpLabelText || LANG.UpLabelText || "Featured";
+                ulText = prodLang.UpLabelText || t("UpLabelText", "Featured");
               } else if (p.UpLabel && typeof p.UpLabel === "string") {
                 ulText = p.UpLabel;
               }
@@ -1066,7 +1067,7 @@ var Shop = (() => {
               <span class="webshop-weight-info">${t("weight","Weight")}: ${fmtWeight(hasVariants?variantWeight(p,selectedVariantId):(p.weight||0))}</span>
               ${p.dimensions?`<span class="webshop-dim-info">${p.dimensions.l}×${p.dimensions.w}×${p.dimensions.h} cm</span>`:""}
             </div>
-            <button id="pinfo-atc-${productId}" class="webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>${t("add_to_cart","Add to Cart")}</button>
+            ${CONFIG.features?.CartLive !== false ? `<button id="pinfo-atc-${productId}" class="webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>${t("add_to_cart","Add to Cart")}</button>` : ""}
             <a class="webshop-btn webshop-btn--outline webshop-btn--full" href="${(typeof window !== 'undefined' && window.__CART_URL__) || 'cart/'}" style="margin-top:10px;display:flex;align-items:center;justify-content:center;">${t("view_cart","View Cart")}</a>
             ${buildRelatedStrip(p,"info", { showAddons: !!(p.addons?.length), showRelated: !!(p.related?.length) })}
           </div>
