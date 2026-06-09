@@ -595,7 +595,6 @@ var Shop = (() => {
     const showVariants = options.showVariants === true;
     const showRelated = options.showRelated === true;
     const showAddons = options.showAddons === true;
-    const showCart = CONFIG.features?.CartLive !== false;
     
     const hasVariants  = p.variants?.length > 0 && showVariants;
     // Default display uses the product itself (not first variant)
@@ -674,7 +673,7 @@ var Shop = (() => {
             <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
           </div>`:""}
         </div>
-        ${showCart ? `<button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"} data-product-url="${p.url || ""}">
+        ${CONFIG.features?.CartLive !== false ? `<button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"} data-product-url="${p.url || ""}">
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>` : ""}
         ${(showRelated || showAddons) ? buildRelatedStrip(p, "card", options) : ""}
@@ -972,7 +971,6 @@ var Shop = (() => {
       const discountedPrice = discountPercent > 0 ? displayPrice * (1 - discountPercent / 100) : displayPrice;
       const inStock     = evid ? variantInStock(p, evid) : (p.stock > 0);
       const soldOut     = p.colors_soldout || [];
-      const showCart    = CONFIG.features?.CartLive !== false;
 
       let variantHtml = "";
       if (hasVariants) {
@@ -1069,7 +1067,7 @@ var Shop = (() => {
               <span class="webshop-weight-info">${t("weight","Weight")}: ${fmtWeight(hasVariants?variantWeight(p,selectedVariantId):(p.weight||0))}</span>
               ${p.dimensions?`<span class="webshop-dim-info">${p.dimensions.l}×${p.dimensions.w}×${p.dimensions.h} cm</span>`:""}
             </div>
-            ${showCart ? `<button id="pinfo-atc-${productId}" class="webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>${t("add_to_cart","Add to Cart")}</button>` : ""}
+            ${CONFIG.features?.CartLive !== false ? `<button id="pinfo-atc-${productId}" class="webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>${t("add_to_cart","Add to Cart")}</button>` : ""}
             <a class="webshop-btn webshop-btn--outline webshop-btn--full" href="${(typeof window !== 'undefined' && window.__CART_URL__) || 'cart/'}" style="margin-top:10px;display:flex;align-items:center;justify-content:center;">${t("view_cart","View Cart")}</a>
             ${buildRelatedStrip(p,"info", { showAddons: !!(p.addons?.length), showRelated: !!(p.related?.length) })}
           </div>
