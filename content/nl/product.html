@@ -386,8 +386,7 @@
     function renderVariants() {
       const wrap = document.getElementById("amz-variants-section");
       const el   = document.getElementById("amz-variants-grid");
-      // Skip rendering variants if product has external URL set
-      if (PRODUCT.url || !PRODUCT.variants?.length) { if (wrap) wrap.style.display = "none"; return; }
+      if (!PRODUCT.variants?.length) { if (wrap) wrap.style.display = "none"; return; }
       if (wrap) wrap.style.display = "";
 
       const selfEntry = { id: PRODUCT.id, label: PRODUCT.label || PRODUCT.name || Shop.pName(PRODUCT) || PRODUCT.id, price: PRODUCT.price, stock: PRODUCT.stock, image: PRODUCT.image };
@@ -873,27 +872,6 @@
     function updateAtcLabel() {
       const atcBtn = document.getElementById("atc-btn");
       if (!atcBtn) return;
-      
-      // If product has external URL, update button text
-      if (PRODUCT.url) {
-        const productLangData = Shop.getProductLang?.()[PRODUCT.id] || {};
-        if (productLangData.urlText) {
-          atcBtn.textContent = productLangData.urlText;
-        } else {
-          // Extract domain name from URL
-          try {
-            const urlObj = new URL(PRODUCT.url.startsWith("http") ? PRODUCT.url : "http://" + PRODUCT.url);
-            let domain = urlObj.hostname;
-            if (domain.startsWith("www.")) domain = domain.slice(4);
-            const domainName = domain.split(".")[0];
-            atcBtn.textContent = domainName;
-          } catch (e) {
-            atcBtn.textContent = "Visit";
-          }
-        }
-        return;
-      }
-      
       const v = selectedVariant !== PRODUCT.id ? resolvedVariants.find(v => v.id === selectedVariant) : null;
       const activeProduct = v || PRODUCT;
       const inStock = (activeProduct.stock ?? 99) > 0;
@@ -915,24 +893,19 @@
       });
       const buyBtn = document.getElementById("buy-now-btn");
       if (buyBtn) {
-        // Hide buy button if product has external URL
-        if (PRODUCT.url) {
-          buyBtn.style.display = "none";
-        } else {
-          buyBtn.addEventListener("click", () => {
-            // Check if product has a URL redirect
-            if (PRODUCT.url) {
-              window.location.href = PRODUCT.url;
-              return;
-            }
-            const v = resolvedVariants.find(v => v.id === selectedVariant);
-            Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
-            const lang     = window.LANG || localStorage.getItem("dornori-lang") || "en";
-            const basePath = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || "/";
-            const slug     = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || "cart";
-            window.location.href = `${basePath}${lang}/${slug}/`;
-          });
-        }
+        buyBtn.addEventListener("click", () => {
+          // Check if product has a URL redirect
+          if (PRODUCT.url) {
+            window.location.href = PRODUCT.url;
+            return;
+          }
+          const v = resolvedVariants.find(v => v.id === selectedVariant);
+          Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
+          const lang     = window.LANG || localStorage.getItem("dornori-lang") || "en";
+          const basePath = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || "/";
+          const slug     = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || "cart";
+          window.location.href = `${basePath}${lang}/${slug}/`;
+        });
       }
     }
 
