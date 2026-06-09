@@ -321,8 +321,23 @@
       // Badges
       const badgesEl = document.getElementById("amz-badges");
       if (badgesEl) {
-        const downLabel = product.DownLabel === true ? (Shop.getProductLang?.()[product.id]?.DownLabelText || Shop.t('DownLabelText', 'Sale')) : (product.DownLabel || '');
-        const upLabel = product.UpLabel === true ? (Shop.getProductLang?.()[product.id]?.UpLabelText || Shop.t('UpLabelText', 'New')) : (product.UpLabel || '');
+        let downLabel = '';
+        let upLabel = '';
+        
+        if (product.DownLabel === true) {
+          const prodLang = Shop.getProductLang?.()[product.id] || {};
+          downLabel = prodLang.DownLabelText || Shop.t('DownLabelText', 'Best Seller');
+        } else if (product.DownLabel && typeof product.DownLabel === 'string') {
+          downLabel = product.DownLabel;
+        }
+        
+        if (product.UpLabel === true) {
+          const prodLang = Shop.getProductLang?.()[product.id] || {};
+          upLabel = prodLang.UpLabelText || Shop.t('UpLabelText', 'Featured');
+        } else if (product.UpLabel && typeof product.UpLabel === 'string') {
+          upLabel = product.UpLabel;
+        }
+        
         badgesEl.innerHTML =
           (downLabel ? `<div class="amz-badge">${downLabel}</div>` : '') +
           (upLabel ? `<div class="amz-badge amz-badge--info">${upLabel}</div>` : '');

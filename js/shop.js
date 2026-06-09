@@ -635,8 +635,23 @@ var Shop = (() => {
     const wEnd    = 'a';
 
     // Resolve label text: if UpLabel/DownLabel are true, read from lang file under UpLabelText/DownLabelText
-    const upLabelText = p.UpLabel === true ? (PRODUCT_LANG[p.id]?.UpLabelText || t("UpLabelText", "New")) : (p.UpLabel || "");
-    const downLabelText = p.DownLabel === true ? (PRODUCT_LANG[p.id]?.DownLabelText || t("DownLabelText", "Sale")) : (p.DownLabel || "");
+    // PRODUCT_LANG structure: { "product-id": { "UpLabelText": "...", "DownLabelText": "..." } }
+    let upLabelText = "";
+    let downLabelText = "";
+    
+    if (p.UpLabel === true) {
+      const productLangData = PRODUCT_LANG[p.id] || {};
+      upLabelText = productLangData.UpLabelText || t("UpLabelText", "Featured");
+    } else if (p.UpLabel && typeof p.UpLabel === "string") {
+      upLabelText = p.UpLabel;
+    }
+    
+    if (p.DownLabel === true) {
+      const productLangData = PRODUCT_LANG[p.id] || {};
+      downLabelText = productLangData.DownLabelText || t("DownLabelText", "Best Seller");
+    } else if (p.DownLabel && typeof p.DownLabel === "string") {
+      downLabelText = p.DownLabel;
+    }
 
     return `
       <${wTag} class="webshop-card-img-wrap${hasUrl?" webshop-card-img-link":""}"${hasUrl?` title="${pName(p)}"`:""}>
@@ -1008,8 +1023,26 @@ var Shop = (() => {
               <span class="webshop-rating-stars">${p.rating} ★</span>
               <span class="webshop-rating-count">(${p.reviewCount || 0} ${t("reviews_suffix","reviews")})</span>
             </div>` : ''}
-            ${p.DownLabel === true ? `<span class="webshop-badge-inline webshop-badge-inline--downlabel">${PRODUCT_LANG[p.id]?.DownLabelText || t("DownLabelText","Sale")}</span>` : (p.DownLabel ? `<span class="webshop-badge-inline webshop-badge-inline--downlabel">${p.DownLabel}</span>` : "")}
-            ${p.UpLabel === true ? `<span class="webshop-badge-inline webshop-badge-inline--uplabel">${PRODUCT_LANG[p.id]?.UpLabelText || t("UpLabelText","New")}</span>` : (p.UpLabel ? `<span class="webshop-badge-inline webshop-badge-inline--uplabel">${p.UpLabel}</span>` : "")}
+            ${(() => {
+              let dlText = "";
+              if (p.DownLabel === true) {
+                const prodLang = PRODUCT_LANG[p.id] || {};
+                dlText = prodLang.DownLabelText || t("DownLabelText", "Best Seller");
+              } else if (p.DownLabel && typeof p.DownLabel === "string") {
+                dlText = p.DownLabel;
+              }
+              return dlText ? `<span class="webshop-badge-inline webshop-badge-inline--downlabel">${dlText}</span>` : "";
+            })()}
+            ${(() => {
+              let ulText = "";
+              if (p.UpLabel === true) {
+                const prodLang = PRODUCT_LANG[p.id] || {};
+                ulText = prodLang.UpLabelText || t("UpLabelText", "Featured");
+              } else if (p.UpLabel && typeof p.UpLabel === "string") {
+                ulText = p.UpLabel;
+              }
+              return ulText ? `<span class="webshop-badge-inline webshop-badge-inline--uplabel">${ulText}</span>` : "";
+            })()}
             <div class="webshop-product-price-group">
               ${discountPercent > 0 ? `
                 <p class="webshop-product-price-original">${fmt(displayPrice)}</p>
