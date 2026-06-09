@@ -652,24 +652,6 @@ var Shop = (() => {
       downLabelText = p.DownLabel;
     }
 
-    // Get button text for URL-based products
-    let buttonText = inStock ? t("add_to_cart","Add to Cart") : t("out_of_stock","Out of Stock");
-    if (p.url) {
-      const productLangData = PRODUCT_LANG[p.id] || {};
-      if (productLangData.urlText) {
-        buttonText = productLangData.urlText;
-      } else {
-        try {
-          const urlObj = new URL(p.url.startsWith("http") ? p.url : "http://" + p.url);
-          let domain = urlObj.hostname;
-          if (domain.startsWith("www.")) domain = domain.slice(4);
-          buttonText = domain.split(".")[0];
-        } catch (e) {
-          buttonText = "Visit";
-        }
-      }
-    }
-
     return `
       <${wTag} class="webshop-card-img-wrap${hasUrl?" webshop-card-img-link":""}"${hasUrl?` title="${pName(p)}"`:""}>
         <img class="webshop-card-img" src="${p.image}" alt="${pName(p)}" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
@@ -690,8 +672,8 @@ var Shop = (() => {
             <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
           </div>`:""}
         </div>
-        <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock || p.url ?"":"disabled"} data-product-url="${p.url || ""}">
-          ${buttonText}
+        <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"} data-product-url="${p.url || ""}">
+          ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>
         ${(showRelated || showAddons) ? buildRelatedStrip(p, "card", options) : ""}
       </div>`;
