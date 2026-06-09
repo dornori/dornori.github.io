@@ -104,9 +104,7 @@ window.renderNav = () => {
 
             if (item.icon) fetchSVG(iconPath(item.icon)).then(svg => { setSVGContent(iconEl, svg); });
         });
-        // Only append cart slot if CartLive is enabled
-        const cartLive = window.CONFIG && window.CONFIG.features && window.CONFIG.features.CartLive;
-        if (cartSlot && cartLive) desktopNav.appendChild(cartSlot);
+        if (cartSlot) desktopNav.appendChild(cartSlot);
     }
 
     /* ── Mobile nav ── */
@@ -138,22 +136,18 @@ window.renderNav = () => {
             if (item.icon) fetchSVG(iconPath(item.icon)).then(svg => { setSVGContent(iconEl, svg); });
         });
 
-        // Only create and append mobile cart slot if CartLive is enabled
-        const cartLive = window.CONFIG && window.CONFIG.features && window.CONFIG.features.CartLive;
-        if (cartLive) {
-            // Mobile cart slot — preserve existing so cart icon doesn't flash on language switch
-            let mobileCartSlot = document.getElementById('mobile-cart-icon-slot');
-            if (!mobileCartSlot) {
-                mobileCartSlot           = document.createElement('div');
-                mobileCartSlot.id        = 'mobile-cart-icon-slot';
-                mobileCartSlot.className = 'mobile-nav-item mobile-nav-cart-slot';
-                if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
-                    const cartUrl = window.__CART_URL__ || navHref('cart');
-                    Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl });
-                }
+        // Mobile cart slot — preserve existing so cart icon doesn't flash on language switch
+        let mobileCartSlot = document.getElementById('mobile-cart-icon-slot');
+        if (!mobileCartSlot) {
+            mobileCartSlot           = document.createElement('div');
+            mobileCartSlot.id        = 'mobile-cart-icon-slot';
+            mobileCartSlot.className = 'mobile-nav-item mobile-nav-cart-slot';
+            if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
+                const cartUrl = window.__CART_URL__ || navHref('cart');
+                Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl });
             }
-            mobileNav.appendChild(mobileCartSlot);
         }
+        mobileNav.appendChild(mobileCartSlot);
     }
 };
 

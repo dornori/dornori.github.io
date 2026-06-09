@@ -100,10 +100,6 @@
     }
 
     function _renderCartIcon(lang) {
-        // Check CartLive feature flag
-        var cartLive = (typeof CONFIG !== 'undefined' && CONFIG.features && CONFIG.features.CartLive);
-        if (!cartLive) return;
-        
         if (typeof Shop === 'undefined' || typeof Shop.renderCartIcon !== 'function') return;
         var skel = document.getElementById('cart-skeleton');
         if (skel) skel.remove();
@@ -112,10 +108,6 @@
     }
 
     function _renderMobileCartIcon(lang) {
-        // Check CartLive feature flag
-        var cartLive = (typeof CONFIG !== 'undefined' && CONFIG.features && CONFIG.features.CartLive);
-        if (!cartLive) return;
-        
         if (typeof Shop === 'undefined' || typeof Shop.renderCartIcon !== 'function') return;
         var slot = document.getElementById('mobile-cart-icon-slot');
         if (slot) {
