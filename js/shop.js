@@ -634,28 +634,20 @@ var Shop = (() => {
     const wTag    = `a href="${prodUrl}"`;
     const wEnd    = 'a';
 
-    // Resolve label text: if UpLabel/DownLabel are true, look in lang file first, then use defaults
+    // Resolve label text: if UpLabel/DownLabel are true, check lang file, then common.json, then defaults
     let upLabelText = "";
     let downLabelText = "";
     
     if (p.UpLabel === true) {
-      const productLangData = PRODUCT_LANG[p.id];
-      if (productLangData && productLangData.UpLabelText) {
-        upLabelText = productLangData.UpLabelText;
-      } else {
-        upLabelText = t("UpLabelText", "Featured");
-      }
+      const productLangData = PRODUCT_LANG[p.id] || {};
+      upLabelText = productLangData.UpLabelText || LANG.UpLabelText || "Featured";
     } else if (p.UpLabel && typeof p.UpLabel === "string") {
       upLabelText = p.UpLabel;
     }
     
     if (p.DownLabel === true) {
-      const productLangData = PRODUCT_LANG[p.id];
-      if (productLangData && productLangData.DownLabelText) {
-        downLabelText = productLangData.DownLabelText;
-      } else {
-        downLabelText = t("DownLabelText", "Best Seller");
-      }
+      const productLangData = PRODUCT_LANG[p.id] || {};
+      downLabelText = productLangData.DownLabelText || LANG.DownLabelText || "Best Seller";
     } else if (p.DownLabel && typeof p.DownLabel === "string") {
       downLabelText = p.DownLabel;
     }
@@ -1033,12 +1025,8 @@ var Shop = (() => {
             ${(() => {
               let dlText = "";
               if (p.DownLabel === true) {
-                const prodLang = PRODUCT_LANG[p.id];
-                if (prodLang && prodLang.DownLabelText) {
-                  dlText = prodLang.DownLabelText;
-                } else {
-                  dlText = t("DownLabelText", "Best Seller");
-                }
+                const prodLang = PRODUCT_LANG[p.id] || {};
+                dlText = prodLang.DownLabelText || LANG.DownLabelText || "Best Seller";
               } else if (p.DownLabel && typeof p.DownLabel === "string") {
                 dlText = p.DownLabel;
               }
@@ -1047,12 +1035,8 @@ var Shop = (() => {
             ${(() => {
               let ulText = "";
               if (p.UpLabel === true) {
-                const prodLang = PRODUCT_LANG[p.id];
-                if (prodLang && prodLang.UpLabelText) {
-                  ulText = prodLang.UpLabelText;
-                } else {
-                  ulText = t("UpLabelText", "Featured");
-                }
+                const prodLang = PRODUCT_LANG[p.id] || {};
+                ulText = prodLang.UpLabelText || LANG.UpLabelText || "Featured";
               } else if (p.UpLabel && typeof p.UpLabel === "string") {
                 ulText = p.UpLabel;
               }
