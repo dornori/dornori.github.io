@@ -88,7 +88,7 @@
             <div class="pdp-buybox-label" id="pdp-buybox-label"></div>
             <div class="amz-price-section">
               <div class="amz-price-row">
-                <span class="amz-price-label" data-i18n="label_price">Prijs:</span>
+                <span class="amz-price-label" data-i18n="label_price">Price:</span>
                 <span class="amz-price-main" id="pdp-price"></span>
               </div>
               <div class="amz-price-row" id="amz-list-price-row" style="display:none;">
@@ -144,7 +144,7 @@
           <div class="pdp-bundle-items-list" id="bundle-items"></div>
           <div class="pdp-bundle-actions">
             <div id="bundle-price-info" style="font-size:0.93em;color:var(--c-text-muted);"></div>
-            <button class="webshop-btn webshop-btn--primary pdp-bundle-add-all-btn" id="bundle-add-all" data-i18n="voeg_beide_toe_aan_winkelwagen">Bundle toevoegen aan winkelwagen</button>
+            <button class="webshop-btn webshop-btn--primary pdp-bundle-add-all-btn" id="bundle-add-all" data-i18n="add_both_to_cart">Add Bundle to Cart</button>
           </div>
         </div>
 
@@ -212,7 +212,7 @@
     buildLangSwitcher();
     renderMeta();
     renderVariants();
-    updatePrijs();
+    updatePrice();
     renderPerks();
     renderGallery();
     renderBundle();
@@ -224,7 +224,7 @@
     initQty();
     initAtc();
 
-    document.addEventListener("currency:changed", updatePrijs);
+    document.addEventListener("currency:changed", updatePrice);
     document.addEventListener("currency:changed", () => {
       // Refresh lightbox price if it's open
       const lb = document.getElementById("lightbox");
@@ -321,9 +321,11 @@
       // Badges
       const badgesEl = document.getElementById("amz-badges");
       if (badgesEl) {
+        const downLabel = product.DownLabel === true ? (Shop.getProductLang?.()[product.id]?.DownLabelText || Shop.t('DownLabelText', 'Sale')) : (product.DownLabel || '');
+        const upLabel = product.UpLabel === true ? (Shop.getProductLang?.()[product.id]?.UpLabelText || Shop.t('UpLabelText', 'New')) : (product.UpLabel || '');
         badgesEl.innerHTML =
-          (product.bestseller ? `<div class="amz-badge">${typeof product.bestseller === 'string' ? product.bestseller : Shop.t('badge_best_seller', '#1 Best Seller')}</div>` : '') +
-          (product.featured   ? `<div class="amz-badge amz-badge--info">${typeof product.featured === 'string' ? product.featured : Shop.t('featured', 'Featured')}</div>` : '');
+          (downLabel ? `<div class="amz-badge">${downLabel}</div>` : '') +
+          (upLabel ? `<div class="amz-badge amz-badge--info">${upLabel}</div>` : '');
       }
     }
 
@@ -332,13 +334,13 @@
     ════════════════════════════════════════════════════ */
     function fmt(n) { return (typeof Shop !== "undefined" && Shop.fmt) ? Shop.fmt(n) : "€" + n.toFixed(2); }
 
-    function updatePrijs() {
+    function updatePrice() {
       const variants = resolvedVariants;
       const v = selectedVariant !== PRODUCT.id ? variants.find(v => v.id === selectedVariant) : null;
       const activeProduct = v || PRODUCT;
-      const basePrijs = activeProduct.price;
+      const basePrice = activeProduct.price;
       const discountPercent = activeProduct.discount ?? 0;
-      const discountedPrijs = discountPercent > 0 ? basePrijs * (1 - discountPercent / 100) : basePrijs;
+      const discountedPrice = discountPercent > 0 ? basePrice * (1 - discountPercent / 100) : basePrice;
       
       // Update buybox label
       const labelEl = document.getElementById("pdp-buybox-label");
@@ -346,13 +348,13 @@
         labelEl.textContent = activeProduct.label || activeProduct.name || Shop.pName(activeProduct) || "";
       }
       
-      document.getElementById("pdp-price").textContent = fmt(discountedPrijs);
+      document.getElementById("pdp-price").textContent = fmt(discountedPrice);
 
       const listRow  = document.getElementById("amz-list-price-row");
       const savRow   = document.getElementById("amz-savings-row");
       if (discountPercent > 0 && listRow && savRow) {
-        const savings = basePrijs - discountedPrijs;
-        document.getElementById("amz-list-price").textContent   = fmt(basePrijs);
+        const savings = basePrice - discountedPrice;
+        document.getElementById("amz-list-price").textContent   = fmt(basePrice);
         document.getElementById("amz-savings").textContent      = fmt(savings);
         document.getElementById("amz-discount-pct").textContent = `-${discountPercent}%`;
         listRow.style.display = "flex";
@@ -403,7 +405,7 @@
             document.getElementById("gallery-main-img").src = v.image;
             document.getElementById("magnifier-img").src = v.image.replace("w=800", "w=1600");
           }
-          updatePrijs();
+          updatePrice();
           // Pass null when product itself is selected so renderMeta uses PRODUCT data
           renderMeta(selectedVariant !== PRODUCT.id ? v : null);
           updateAtcLabel();
@@ -739,10 +741,10 @@
               }
             });
           });
-          const lbBasePrijs = lbProduct.price;
+          const lbBasePrice = lbProduct.price;
           const lbDiscount = lbProduct.discount ?? 0;
-          const lbDiscountedPrijs = lbDiscount > 0 ? lbBasePrijs * (1 - lbDiscount / 100) : lbBasePrijs;
-          const lbSavings = lbBasePrijs - lbDiscountedPrijs;
+          const lbDiscountedPrice = lbDiscount > 0 ? lbBasePrice * (1 - lbDiscount / 100) : lbBasePrice;
+          const lbSavings = lbBasePrice - lbDiscountedPrice;
           const lbDisplayName = lbProduct.label || Shop.pName(lbProduct);
           const perksHtml = ["perk_free_shipping","perk_returns","perk_warranty"].map((k, i) =>
             `<span>${Shop.t(k) || ["Free shipping over €150","30-day returns","2-year warranty"][i]}</span>`
@@ -750,7 +752,7 @@
           document.getElementById("lb-details").innerHTML = `
             <p class="pdp-category">${Shop.pCategory(lbProduct)}</p>
             <h2 class="pdp-name">${lbDisplayName}</h2>
-            ${lbDiscount > 0 ? `<p class="pdp-price" style="color:var(--c-accent);">${fmt(lbDiscountedPrijs)}</p><p style="text-decoration:line-through;opacity:.6;font-size:.9em;">${fmt(lbBasePrijs)}</p><p style="font-size:.85em;color:var(--c-accent);">${Shop.t("save_percent","Save {0}%").replace("{0}",lbDiscount)} (${fmt(lbSavings)})</p>` : `<p class="pdp-price">${fmt(lbBasePrijs)}</p>`}
+            ${lbDiscount > 0 ? `<p class="pdp-price" style="color:var(--c-accent);">${fmt(lbDiscountedPrice)}</p><p style="text-decoration:line-through;opacity:.6;font-size:.9em;">${fmt(lbBasePrice)}</p><p style="font-size:.85em;color:var(--c-accent);">${Shop.t("save_percent","Save {0}%").replace("{0}",lbDiscount)} (${fmt(lbSavings)})</p>` : `<p class="pdp-price">${fmt(lbBasePrice)}</p>`}
             <p class="pdp-desc">${Shop.pDesc(lbProduct)}</p>
             <div class="pdp-perks">${perksHtml}</div>`;
         }
@@ -865,6 +867,11 @@
     function initAtc() {
       updateAtcLabel();
       document.getElementById("atc-btn").addEventListener("click", () => {
+        // Check if product has a URL redirect
+        if (PRODUCT.url) {
+          window.location.href = PRODUCT.url;
+          return;
+        }
         const v = resolvedVariants.find(v => v.id === selectedVariant);
         Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
         Shop.toast(`${v ? v.label : (PRODUCT.label || PRODUCT.id)} ${Shop.t("added", "added to cart")}`);
@@ -872,6 +879,11 @@
       const buyBtn = document.getElementById("buy-now-btn");
       if (buyBtn) {
         buyBtn.addEventListener("click", () => {
+          // Check if product has a URL redirect
+          if (PRODUCT.url) {
+            window.location.href = PRODUCT.url;
+            return;
+          }
           const v = resolvedVariants.find(v => v.id === selectedVariant);
           Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
           const lang     = window.LANG || localStorage.getItem("dornori-lang") || "en";
@@ -910,9 +922,9 @@
       }).join("");
 
       /* bundle pricing */
-      const mainPrijs    = resolvedVariants[0]?.price ?? PRODUCT.price;
+      const mainPrice    = resolvedVariants[0]?.price ?? PRODUCT.price;
       const addonsTotal  = bundleProducts.reduce((s, p) => s + p.price, 0);
-      const fullTotal    = mainPrijs + addonsTotal;
+      const fullTotal    = mainPrice + addonsTotal;
       const discount     = PRODUCT.bundleDiscount || 0;
       const discounted   = discount > 0 ? fullTotal * (1 - discount / 100) : null;
       if (discount > 0 && discounted) {

@@ -634,13 +634,17 @@ var Shop = (() => {
     const wTag    = `a href="${prodUrl}"`;
     const wEnd    = 'a';
 
+    // Resolve label text: if UpLabel/DownLabel are true, read from lang file under UpLabelText/DownLabelText
+    const upLabelText = p.UpLabel === true ? (PRODUCT_LANG[p.id]?.UpLabelText || t("UpLabelText", "New")) : (p.UpLabel || "");
+    const downLabelText = p.DownLabel === true ? (PRODUCT_LANG[p.id]?.DownLabelText || t("DownLabelText", "Sale")) : (p.DownLabel || "");
+
     return `
       <${wTag} class="webshop-card-img-wrap${hasUrl?" webshop-card-img-link":""}"${hasUrl?` title="${pName(p)}"`:""}>
         <img class="webshop-card-img" src="${p.image}" alt="${pName(p)}" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
-        ${p.bestseller?`<span class="webshop-badge webshop-badge--bestseller">${typeof p.bestseller==="string"?p.bestseller:t("badge_bestseller","Best Seller")}</span>`:""}
-        ${p.featured?`<span class="webshop-badge webshop-badge--featured">${typeof p.featured==="string"?p.featured:t("featured","Featured")}</span>`:""}
+        ${downLabelText?`<span class="webshop-badge webshop-badge--downlabel">${downLabelText}</span>`:""}
+        ${upLabelText?`<span class="webshop-badge webshop-badge--uplabel">${upLabelText}</span>`:""}
         ${discountPercent > 0?`<span class="webshop-badge webshop-badge--discount">${discountPercent}% ${t("off_badge","OFF")}</span>`:""}
-        ${options.showBuyNow !== false && hasUrl ? `<button class="webshop-card-buynow-overlay" data-product-id="${p.id}" ${inStock?"":"disabled style=\"opacity:.4;\""}>${t("buy_now","Buy Now")}</button>` : ""}
+        ${options.showBuyNow !== false && hasUrl && !p.url ? `<button class="webshop-card-buynow-overlay" data-product-id="${p.id}" ${inStock?"":"disabled style=\"opacity:.4;\""}>${t("buy_now","Buy Now")}</button>` : ""}
       </${wEnd}>
       <div class="webshop-card-body">
         <h3 class="webshop-card-title">${pName(p)}</h3>
@@ -654,7 +658,7 @@ var Shop = (() => {
             <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
           </div>`:""}
         </div>
-        <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
+        <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"} data-product-url="${p.url || ""}">
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>
         ${(showRelated || showAddons) ? buildRelatedStrip(p, "card", options) : ""}
@@ -803,6 +807,11 @@ var Shop = (() => {
     card.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid = effectiveVid(); const max = evid ? variantStock(p, evid) : (p.stock||99); qty = Math.min(qty+1, max||99); qv.textContent = qty; });
     card.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty = Math.max(1, qty-1); qv.textContent = qty; });
     addBtn?.addEventListener("click", () => {
+      // Check if product has a URL redirect
+      if (p.url) {
+        window.location.href = p.url;
+        return;
+      }
       const evid = effectiveVid();
       addToCart(p, qty, evid, selectedColor, img?.src || null);
       const itemName = evid ? variantLabel(p, evid) : (p.label || p.id);
@@ -810,6 +819,11 @@ var Shop = (() => {
     });
     const buyNowBtn = card.querySelector(".webshop-card-buynow-overlay");
     buyNowBtn?.addEventListener("click", () => {
+      // Check if product has a URL redirect
+      if (p.url) {
+        window.location.href = p.url;
+        return;
+      }
       const evid = effectiveVid();
       addToCart(p, 1, evid, selectedColor, img?.src || null);
       const itemName = evid ? variantLabel(p, evid) : (p.label || p.id);
@@ -994,8 +1008,8 @@ var Shop = (() => {
               <span class="webshop-rating-stars">${p.rating} ★</span>
               <span class="webshop-rating-count">(${p.reviewCount || 0} ${t("reviews_suffix","reviews")})</span>
             </div>` : ''}
-            ${p.bestseller?`<span class="webshop-badge-inline webshop-badge-inline--bestseller">${typeof p.bestseller==="string"?p.bestseller:t("badge_bestseller","Best Seller")}</span>`:""}
-            ${p.featured?`<span class="webshop-badge-inline webshop-badge-inline--featured">${typeof p.featured==="string"?p.featured:t("featured","Featured")}</span>`:""}
+            ${p.DownLabel === true ? `<span class="webshop-badge-inline webshop-badge-inline--downlabel">${PRODUCT_LANG[p.id]?.DownLabelText || t("DownLabelText","Sale")}</span>` : (p.DownLabel ? `<span class="webshop-badge-inline webshop-badge-inline--downlabel">${p.DownLabel}</span>` : "")}
+            ${p.UpLabel === true ? `<span class="webshop-badge-inline webshop-badge-inline--uplabel">${PRODUCT_LANG[p.id]?.UpLabelText || t("UpLabelText","New")}</span>` : (p.UpLabel ? `<span class="webshop-badge-inline webshop-badge-inline--uplabel">${p.UpLabel}</span>` : "")}
             <div class="webshop-product-price-group">
               ${discountPercent > 0 ? `
                 <p class="webshop-product-price-original">${fmt(displayPrice)}</p>

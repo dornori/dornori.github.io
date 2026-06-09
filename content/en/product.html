@@ -321,9 +321,11 @@
       // Badges
       const badgesEl = document.getElementById("amz-badges");
       if (badgesEl) {
+        const downLabel = product.DownLabel === true ? (Shop.getProductLang?.()[product.id]?.DownLabelText || Shop.t('DownLabelText', 'Sale')) : (product.DownLabel || '');
+        const upLabel = product.UpLabel === true ? (Shop.getProductLang?.()[product.id]?.UpLabelText || Shop.t('UpLabelText', 'New')) : (product.UpLabel || '');
         badgesEl.innerHTML =
-          (product.bestseller ? `<div class="amz-badge">${typeof product.bestseller === 'string' ? product.bestseller : Shop.t('badge_best_seller', '#1 Best Seller')}</div>` : '') +
-          (product.featured   ? `<div class="amz-badge amz-badge--info">${typeof product.featured === 'string' ? product.featured : Shop.t('featured', 'Featured')}</div>` : '');
+          (downLabel ? `<div class="amz-badge">${downLabel}</div>` : '') +
+          (upLabel ? `<div class="amz-badge amz-badge--info">${upLabel}</div>` : '');
       }
     }
 
@@ -865,6 +867,11 @@
     function initAtc() {
       updateAtcLabel();
       document.getElementById("atc-btn").addEventListener("click", () => {
+        // Check if product has a URL redirect
+        if (PRODUCT.url) {
+          window.location.href = PRODUCT.url;
+          return;
+        }
         const v = resolvedVariants.find(v => v.id === selectedVariant);
         Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
         Shop.toast(`${v ? v.label : (PRODUCT.label || PRODUCT.id)} ${Shop.t("added", "added to cart")}`);
@@ -872,6 +879,11 @@
       const buyBtn = document.getElementById("buy-now-btn");
       if (buyBtn) {
         buyBtn.addEventListener("click", () => {
+          // Check if product has a URL redirect
+          if (PRODUCT.url) {
+            window.location.href = PRODUCT.url;
+            return;
+          }
           const v = resolvedVariants.find(v => v.id === selectedVariant);
           Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
           const lang     = window.LANG || localStorage.getItem("dornori-lang") || "en";
