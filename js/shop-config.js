@@ -27,7 +27,7 @@ var CONFIG = {
   features: {
     showLanguageSwitcher: false,
     showCurrencySelector: true,
-    CartLive: false,  // Set to false to hide and disable cart
+    CartLive: true,  // Set to false to hide and disable cart
   },
 
   images: {
