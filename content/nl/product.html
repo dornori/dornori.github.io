@@ -130,9 +130,8 @@
               </div>
             </div>
 
-            <div class="amz-buttons">
-              <button class="amz-btn-cart" id="atc-btn" data-i18n="add_to_cart">Add to Cart</button>
-              <button class="amz-btn-buy" id="buy-now-btn" data-i18n="buy_now">Buy Now</button>
+            <div class="amz-buttons" id="amz-buttons">
+              <!-- Buttons injected by renderButtons() -->
             </div>
 
             <div class="pdp-perks" id="pdp-perks"></div>
@@ -222,7 +221,7 @@
     initMagnifier();
     initLightbox();
     initQty();
-    initAtc();
+    renderButtons();
 
     document.addEventListener("currency:changed", updatePrice);
     document.addEventListener("currency:changed", () => {
@@ -869,6 +868,48 @@
       });
     }
 
+    function getUrlButtonText(product) {
+      const productLangData = Shop.getProductLang?.()[product.id] || {};
+      if (productLangData.urlText) return productLangData.urlText;
+      if (product.url) {
+        try {
+          const urlObj = new URL(product.url.startsWith("http") ? product.url : "http://" + product.url);
+          let domain = urlObj.hostname;
+          if (domain.startsWith("www.")) domain = domain.slice(4);
+          return domain.split(".")[0];
+        } catch (e) {
+          return "";
+        }
+      }
+      return "";
+    }
+
+    function renderButtons() {
+      const container = document.getElementById("amz-buttons");
+      if (!container) return;
+
+      const hasExternalUrl = !!PRODUCT.url;
+      const urlButtonText = hasExternalUrl ? getUrlButtonText(PRODUCT) : "";
+
+      if (hasExternalUrl) {
+        // Single button that redirects to URL
+        container.innerHTML = `
+          <button class="amz-btn-cart" id="atc-btn" data-i18n="add_to_cart">
+            ${urlButtonText || "Visit"}
+          </button>
+        `;
+      } else {
+        // Two buttons: Add to Cart and Buy Now
+        container.innerHTML = `
+          <button class="amz-btn-cart" id="atc-btn" data-i18n="add_to_cart">Add to Cart</button>
+          <button class="amz-btn-buy" id="buy-now-btn" data-i18n="buy_now">Buy Now</button>
+        `;
+      }
+
+      // Wire up the buttons
+      initAtc();
+    }
+
     function updateAtcLabel() {
       const atcBtn = document.getElementById("atc-btn");
       if (!atcBtn) return;
@@ -880,7 +921,9 @@
     }
 
     function initAtc() {
-      updateAtcLabel();
+      if (!PRODUCT.url) {
+        updateAtcLabel();
+      }
       document.getElementById("atc-btn").addEventListener("click", () => {
         // Check if product has a URL redirect
         if (PRODUCT.url) {

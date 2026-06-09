@@ -98,6 +98,27 @@ var Shop = (() => {
     return (str || "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
   }
 
+  function extractDomainName(url) {
+    if (!url) return "";
+    try {
+      const urlObj = new URL(url.startsWith("http") ? url : "http://" + url);
+      let domain = urlObj.hostname;
+      // Remove www. prefix if present
+      if (domain.startsWith("www.")) domain = domain.slice(4);
+      // Extract domain without extension (first part before first dot)
+      return domain.split(".")[0];
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function getUrlButtonText(product) {
+    const productLangData = PRODUCT_LANG[product.id] || {};
+    if (productLangData.urlText) return productLangData.urlText;
+    if (product.url) return extractDomainName(product.url);
+    return "";
+  }
+
   function buildImagePath(productId, variantId = null, colorSlug = null) {
     const dir = CONFIG.images?.imageDir || "images/products/";
     const ext = CONFIG.images?.imageExt || "webp";
@@ -652,13 +673,17 @@ var Shop = (() => {
       downLabelText = p.DownLabel;
     }
 
+    // Determine button layout: if URL is set, show single button; otherwise show two buttons
+    const hasExternalUrl = !!p.url;
+    const urlButtonText = hasExternalUrl ? getUrlButtonText(p) : "";
+
     return `
       <${wTag} class="webshop-card-img-wrap${hasUrl?" webshop-card-img-link":""}"${hasUrl?` title="${pName(p)}"`:""}>
         <img class="webshop-card-img" src="${p.image}" alt="${pName(p)}" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
         ${downLabelText?`<span class="webshop-badge webshop-badge--downlabel">${downLabelText}</span>`:""}
         ${upLabelText?`<span class="webshop-badge webshop-badge--uplabel">${upLabelText}</span>`:""}
         ${discountPercent > 0?`<span class="webshop-badge webshop-badge--discount">${discountPercent}% ${t("off_badge","OFF")}</span>`:""}
-        ${options.showBuyNow !== false && hasUrl && !p.url ? `<button class="webshop-card-buynow-overlay" data-product-id="${p.id}" ${inStock?"":"disabled style=\"opacity:.4;\""}>${t("buy_now","Buy Now")}</button>` : ""}
+        ${options.showBuyNow !== false && hasUrl && !hasExternalUrl ? `<button class="webshop-card-buynow-overlay" data-product-id="${p.id}" ${inStock?"":"disabled style=\"opacity:.4;\""}>${t("buy_now","Buy Now")}</button>` : ""}
       </${wEnd}>
       <div class="webshop-card-body">
         <h3 class="webshop-card-title">${pName(p)}</h3>
@@ -672,9 +697,15 @@ var Shop = (() => {
             <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
           </div>`:""}
         </div>
-        <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"} data-product-url="${p.url || ""}">
+        ${hasExternalUrl?`
+        <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" data-product-url="${p.url}">
+          ${urlButtonText}
+        </button>
+        `:`
+        <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"} data-product-url="">
           ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
         </button>
+        `}
         ${(showRelated || showAddons) ? buildRelatedStrip(p, "card", options) : ""}
       </div>`;
   }
