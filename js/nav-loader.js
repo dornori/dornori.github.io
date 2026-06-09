@@ -69,6 +69,11 @@ window.renderNav = () => {
             const s = langWrapLabel.querySelector('.topbar-label-text');
             if (s) s.textContent = (T.ui?.language || 'LANGUAGE') + ' ';
         }
+        const currencyWrapLabel = topBar.querySelector('.topbar-currency-wrap');
+        if (currencyWrapLabel) {
+            const s = currencyWrapLabel.querySelector('.topbar-label-text');
+            if (s) s.textContent = (T.ui?.currency || 'CURRENCY') + ' ';
+        }
     }
 
     /* ── Desktop nav ── */
