@@ -98,27 +98,6 @@ var Shop = (() => {
     return (str || "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
   }
 
-  function extractDomainName(url) {
-    if (!url) return "";
-    try {
-      const urlObj = new URL(url.startsWith("http") ? url : "http://" + url);
-      let domain = urlObj.hostname;
-      // Remove www. prefix if present
-      if (domain.startsWith("www.")) domain = domain.slice(4);
-      // Extract domain without extension (first part before first dot)
-      return domain.split(".")[0];
-    } catch (e) {
-      return "";
-    }
-  }
-
-  function getUrlButtonText(product) {
-    const productLangData = PRODUCT_LANG[product.id] || {};
-    if (productLangData.urlText) return productLangData.urlText;
-    if (product.url) return extractDomainName(product.url);
-    return "";
-  }
-
   function buildImagePath(productId, variantId = null, colorSlug = null) {
     const dir = CONFIG.images?.imageDir || "images/products/";
     const ext = CONFIG.images?.imageExt || "webp";
@@ -673,9 +652,23 @@ var Shop = (() => {
       downLabelText = p.DownLabel;
     }
 
-    // Determine button layout: if URL is set, show single button; otherwise show two buttons
-    const hasExternalUrl = !!p.url;
-    const urlButtonText = hasExternalUrl ? getUrlButtonText(p) : "";
+    // Get button text for URL-based products
+    let buttonText = inStock ? t("add_to_cart","Add to Cart") : t("out_of_stock","Out of Stock");
+    if (p.url) {
+      const productLangData = PRODUCT_LANG[p.id] || {};
+      if (productLangData.urlText) {
+        buttonText = productLangData.urlText;
+      } else {
+        try {
+          const urlObj = new URL(p.url.startsWith("http") ? p.url : "http://" + p.url);
+          let domain = urlObj.hostname;
+          if (domain.startsWith("www.")) domain = domain.slice(4);
+          buttonText = domain.split(".")[0];
+        } catch (e) {
+          buttonText = "Visit";
+        }
+      }
+    }
 
     return `
       <${wTag} class="webshop-card-img-wrap${hasUrl?" webshop-card-img-link":""}"${hasUrl?` title="${pName(p)}"`:""}>
@@ -683,7 +676,7 @@ var Shop = (() => {
         ${downLabelText?`<span class="webshop-badge webshop-badge--downlabel">${downLabelText}</span>`:""}
         ${upLabelText?`<span class="webshop-badge webshop-badge--uplabel">${upLabelText}</span>`:""}
         ${discountPercent > 0?`<span class="webshop-badge webshop-badge--discount">${discountPercent}% ${t("off_badge","OFF")}</span>`:""}
-        ${options.showBuyNow !== false && hasUrl && !hasExternalUrl ? `<button class="webshop-card-buynow-overlay" data-product-id="${p.id}" ${inStock?"":"disabled style=\"opacity:.4;\""}>${t("buy_now","Buy Now")}</button>` : ""}
+        ${options.showBuyNow !== false && hasUrl && !p.url ? `<button class="webshop-card-buynow-overlay" data-product-id="${p.id}" ${inStock?"":"disabled style=\"opacity:.4;\""}>${t("buy_now","Buy Now")}</button>` : ""}
       </${wEnd}>
       <div class="webshop-card-body">
         <h3 class="webshop-card-title">${pName(p)}</h3>
@@ -697,15 +690,9 @@ var Shop = (() => {
             <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
           </div>`:""}
         </div>
-        ${hasExternalUrl?`
-        <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" data-product-url="${p.url}">
-          ${urlButtonText}
+        <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock || p.url ?"":"disabled"} data-product-url="${p.url || ""}">
+          ${buttonText}
         </button>
-        `:`
-        <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"} data-product-url="">
-          ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
-        </button>
-        `}
         ${(showRelated || showAddons) ? buildRelatedStrip(p, "card", options) : ""}
       </div>`;
   }

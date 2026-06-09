@@ -130,8 +130,9 @@
               </div>
             </div>
 
-            <div class="amz-buttons" id="amz-buttons">
-              <!-- Buttons injected by renderButtons() -->
+            <div class="amz-buttons">
+              <button class="amz-btn-cart" id="atc-btn" data-i18n="add_to_cart">Add to Cart</button>
+              <button class="amz-btn-buy" id="buy-now-btn" data-i18n="buy_now">Buy Now</button>
             </div>
 
             <div class="pdp-perks" id="pdp-perks"></div>
@@ -221,7 +222,7 @@
     initMagnifier();
     initLightbox();
     initQty();
-    renderButtons();
+    initAtc();
 
     document.addEventListener("currency:changed", updatePrice);
     document.addEventListener("currency:changed", () => {
@@ -385,7 +386,8 @@
     function renderVariants() {
       const wrap = document.getElementById("amz-variants-section");
       const el   = document.getElementById("amz-variants-grid");
-      if (!PRODUCT.variants?.length) { if (wrap) wrap.style.display = "none"; return; }
+      // Skip rendering variants if product has external URL set
+      if (PRODUCT.url || !PRODUCT.variants?.length) { if (wrap) wrap.style.display = "none"; return; }
       if (wrap) wrap.style.display = "";
 
       const selfEntry = { id: PRODUCT.id, label: PRODUCT.label || PRODUCT.name || Shop.pName(PRODUCT) || PRODUCT.id, price: PRODUCT.price, stock: PRODUCT.stock, image: PRODUCT.image };
@@ -868,51 +870,30 @@
       });
     }
 
-    function getUrlButtonText(product) {
-      const productLangData = Shop.getProductLang?.()[product.id] || {};
-      if (productLangData.urlText) return productLangData.urlText;
-      if (product.url) {
-        try {
-          const urlObj = new URL(product.url.startsWith("http") ? product.url : "http://" + product.url);
-          let domain = urlObj.hostname;
-          if (domain.startsWith("www.")) domain = domain.slice(4);
-          return domain.split(".")[0];
-        } catch (e) {
-          return "";
-        }
-      }
-      return "";
-    }
-
-    function renderButtons() {
-      const container = document.getElementById("amz-buttons");
-      if (!container) return;
-
-      const hasExternalUrl = !!PRODUCT.url;
-      const urlButtonText = hasExternalUrl ? getUrlButtonText(PRODUCT) : "";
-
-      if (hasExternalUrl) {
-        // Single button that redirects to URL
-        container.innerHTML = `
-          <button class="amz-btn-cart" id="atc-btn" data-i18n="add_to_cart">
-            ${urlButtonText || "Visit"}
-          </button>
-        `;
-      } else {
-        // Two buttons: Add to Cart and Buy Now
-        container.innerHTML = `
-          <button class="amz-btn-cart" id="atc-btn" data-i18n="add_to_cart">Add to Cart</button>
-          <button class="amz-btn-buy" id="buy-now-btn" data-i18n="buy_now">Buy Now</button>
-        `;
-      }
-
-      // Wire up the buttons
-      initAtc();
-    }
-
     function updateAtcLabel() {
       const atcBtn = document.getElementById("atc-btn");
       if (!atcBtn) return;
+      
+      // If product has external URL, update button text
+      if (PRODUCT.url) {
+        const productLangData = Shop.getProductLang?.()[PRODUCT.id] || {};
+        if (productLangData.urlText) {
+          atcBtn.textContent = productLangData.urlText;
+        } else {
+          // Extract domain name from URL
+          try {
+            const urlObj = new URL(PRODUCT.url.startsWith("http") ? PRODUCT.url : "http://" + PRODUCT.url);
+            let domain = urlObj.hostname;
+            if (domain.startsWith("www.")) domain = domain.slice(4);
+            const domainName = domain.split(".")[0];
+            atcBtn.textContent = domainName;
+          } catch (e) {
+            atcBtn.textContent = "Visit";
+          }
+        }
+        return;
+      }
+      
       const v = selectedVariant !== PRODUCT.id ? resolvedVariants.find(v => v.id === selectedVariant) : null;
       const activeProduct = v || PRODUCT;
       const inStock = (activeProduct.stock ?? 99) > 0;
@@ -921,9 +902,7 @@
     }
 
     function initAtc() {
-      if (!PRODUCT.url) {
-        updateAtcLabel();
-      }
+      updateAtcLabel();
       document.getElementById("atc-btn").addEventListener("click", () => {
         // Check if product has a URL redirect
         if (PRODUCT.url) {
@@ -936,19 +915,24 @@
       });
       const buyBtn = document.getElementById("buy-now-btn");
       if (buyBtn) {
-        buyBtn.addEventListener("click", () => {
-          // Check if product has a URL redirect
-          if (PRODUCT.url) {
-            window.location.href = PRODUCT.url;
-            return;
-          }
-          const v = resolvedVariants.find(v => v.id === selectedVariant);
-          Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
-          const lang     = window.LANG || localStorage.getItem("dornori-lang") || "en";
-          const basePath = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || "/";
-          const slug     = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || "cart";
-          window.location.href = `${basePath}${lang}/${slug}/`;
-        });
+        // Hide buy button if product has external URL
+        if (PRODUCT.url) {
+          buyBtn.style.display = "none";
+        } else {
+          buyBtn.addEventListener("click", () => {
+            // Check if product has a URL redirect
+            if (PRODUCT.url) {
+              window.location.href = PRODUCT.url;
+              return;
+            }
+            const v = resolvedVariants.find(v => v.id === selectedVariant);
+            Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
+            const lang     = window.LANG || localStorage.getItem("dornori-lang") || "en";
+            const basePath = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || "/";
+            const slug     = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || "cart";
+            window.location.href = `${basePath}${lang}/${slug}/`;
+          });
+        }
       }
     }
 
