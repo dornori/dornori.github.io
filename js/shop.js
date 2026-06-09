@@ -634,21 +634,21 @@ var Shop = (() => {
     const wTag    = `a href="${prodUrl}"`;
     const wEnd    = 'a';
 
-    // Resolve label text: if UpLabel/DownLabel are true, read from lang file under UpLabel/DownLabel
-    // PRODUCT_LANG structure: { "product-id": { "UpLabel": "...", "DownLabel": "..." } }
+    // Resolve label text: if UpLabel/DownLabel are true, read from lang file under UpLabelText/DownLabelText
+    // PRODUCT_LANG structure: { "product-id": { "UpLabelText": "...", "DownLabelText": "..." } }
     let upLabelText = "";
     let downLabelText = "";
     
     if (p.UpLabel === true) {
       const productLangData = PRODUCT_LANG[p.id] || {};
-      upLabelText = productLangData.UpLabel || t("UpLabelText", "Featured");
+      upLabelText = productLangData.UpLabelText || t("UpLabelText", "Featured");
     } else if (p.UpLabel && typeof p.UpLabel === "string") {
       upLabelText = p.UpLabel;
     }
     
     if (p.DownLabel === true) {
       const productLangData = PRODUCT_LANG[p.id] || {};
-      downLabelText = productLangData.DownLabel || t("DownLabelText", "Best Seller");
+      downLabelText = productLangData.DownLabelText || t("DownLabelText", "Best Seller");
     } else if (p.DownLabel && typeof p.DownLabel === "string") {
       downLabelText = p.DownLabel;
     }
@@ -1027,7 +1027,7 @@ var Shop = (() => {
               let dlText = "";
               if (p.DownLabel === true) {
                 const prodLang = PRODUCT_LANG[p.id] || {};
-                dlText = prodLang.DownLabel || t("DownLabelText", "Best Seller");
+                dlText = prodLang.DownLabelText || t("DownLabelText", "Best Seller");
               } else if (p.DownLabel && typeof p.DownLabel === "string") {
                 dlText = p.DownLabel;
               }
@@ -1037,7 +1037,7 @@ var Shop = (() => {
               let ulText = "";
               if (p.UpLabel === true) {
                 const prodLang = PRODUCT_LANG[p.id] || {};
-                ulText = prodLang.UpLabel || t("UpLabelText", "Featured");
+                ulText = prodLang.UpLabelText || t("UpLabelText", "Featured");
               } else if (p.UpLabel && typeof p.UpLabel === "string") {
                 ulText = p.UpLabel;
               }
