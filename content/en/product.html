@@ -321,26 +321,9 @@
       // Badges
       const badgesEl = document.getElementById("amz-badges");
       if (badgesEl) {
-        let downLabel = '';
-        let upLabel = '';
-        
-        if (product.DownLabel === true) {
-          const prodLang = Shop.getProductLang?.()[product.id] || {};
-          downLabel = prodLang.DownLabelText || Shop.t('DownLabelText', 'Best Seller');
-        } else if (product.DownLabel && typeof product.DownLabel === 'string') {
-          downLabel = product.DownLabel;
-        }
-        
-        if (product.UpLabel === true) {
-          const prodLang = Shop.getProductLang?.()[product.id] || {};
-          upLabel = prodLang.UpLabelText || Shop.t('UpLabelText', 'Featured');
-        } else if (product.UpLabel && typeof product.UpLabel === 'string') {
-          upLabel = product.UpLabel;
-        }
-        
         badgesEl.innerHTML =
-          (downLabel ? `<div class="amz-badge">${downLabel}</div>` : '') +
-          (upLabel ? `<div class="amz-badge amz-badge--info">${upLabel}</div>` : '');
+          (product.bestseller ? `<div class="amz-badge">${typeof product.bestseller === 'string' ? product.bestseller : Shop.t('badge_best_seller', '#1 Best Seller')}</div>` : '') +
+          (product.featured   ? `<div class="amz-badge amz-badge--info">${typeof product.featured === 'string' ? product.featured : Shop.t('featured', 'Featured')}</div>` : '');
       }
     }
 
@@ -882,11 +865,6 @@
     function initAtc() {
       updateAtcLabel();
       document.getElementById("atc-btn").addEventListener("click", () => {
-        // Check if product has a URL redirect
-        if (PRODUCT.url) {
-          window.location.href = PRODUCT.url;
-          return;
-        }
         const v = resolvedVariants.find(v => v.id === selectedVariant);
         Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
         Shop.toast(`${v ? v.label : (PRODUCT.label || PRODUCT.id)} ${Shop.t("added", "added to cart")}`);
@@ -894,11 +872,6 @@
       const buyBtn = document.getElementById("buy-now-btn");
       if (buyBtn) {
         buyBtn.addEventListener("click", () => {
-          // Check if product has a URL redirect
-          if (PRODUCT.url) {
-            window.location.href = PRODUCT.url;
-            return;
-          }
           const v = resolvedVariants.find(v => v.id === selectedVariant);
           Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
           const lang     = window.LANG || localStorage.getItem("dornori-lang") || "en";

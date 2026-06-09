@@ -47,67 +47,9 @@ window.renderFooter = () => {
         container.appendChild(col);
     });
 
-    // Render copyright text
-    renderCopyrightText();
-
     // Render payment icons
     renderPaymentIcons();
 };
-
-function renderCopyrightText() {
-    const container = document.getElementById('footer-copyright-text');
-    if (!container) return;
-
-    const T = window.T?.footer || {};
-    const credits = SITE_CONFIG.credits || {};
-    const linkConfig = credits.creditLink || {};
-    const companyName = credits.companyName || 'DORNORI';
-    const year = new Date().getFullYear();
-
-    container.innerHTML = '';
-
-    // Create copyright text wrapper
-    const wrapper = document.createElement('div');
-    wrapper.className = 'copyright-text';
-
-    // Copyright line: © 2026 DORNORI
-    const copyrightText = document.createElement('span');
-    copyrightText.className = 'copyright-symbol';
-    copyrightText.textContent = (T.copyright || '© {year} {company}')
-        .replace('{year}', year)
-        .replace('{company}', companyName);
-    wrapper.appendChild(copyrightText);
-
-    // Separator
-    wrapper.appendChild(document.createTextNode(' | '));
-
-    // "produced by" link
-    if (linkConfig.text && linkConfig.url) {
-        const producedBy = document.createElement('span');
-        producedBy.textContent = T.produced_by || 'produced by';
-        wrapper.appendChild(producedBy);
-
-        wrapper.appendChild(document.createTextNode(' '));
-
-        const link = document.createElement('a');
-        link.href = linkConfig.url;
-        link.textContent = linkConfig.text;
-        link.className = 'copyright-link';
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        wrapper.appendChild(link);
-    }
-
-    // Separator
-    wrapper.appendChild(document.createTextNode(' | '));
-
-    // "All rights reserved"
-    const rights = document.createElement('span');
-    rights.textContent = T.all_rights_reserved || 'All rights reserved';
-    wrapper.appendChild(rights);
-
-    container.appendChild(wrapper);
-}
 
 function renderPaymentIcons() {
     const container = document.getElementById('footer-payment');
