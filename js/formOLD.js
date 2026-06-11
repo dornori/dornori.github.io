@@ -1,7 +1,7 @@
 // Dornori Support System - With Redirect on Resolution
-import SITE_CONFIG from './config.js';
 import ENV_CONFIG from './env-config.js';
 
+const SITE_CONFIG = window.CONFIG || {};
 let currentData = null;
 let currentCategory = null;
 let currentQuestionIndex = 0;

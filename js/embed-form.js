@@ -9,8 +9,9 @@
  *   <div class="embed-form-root"></div>
  */
 
-import SITE_CONFIG from './config.js';
 import ENV_CONFIG from './env-config.js';
+
+const SITE_CONFIG = window.CONFIG || {};
 
 /* ─── HTML template ────────────────────────────────────────────────────────── */
 function buildFormHTML(uid) {

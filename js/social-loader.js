@@ -1,4 +1,4 @@
-import SITE_CONFIG from './config.js';
+const SITE_CONFIG = window.CONFIG || {};
 
 export function initSocials() {
     const render = () => {

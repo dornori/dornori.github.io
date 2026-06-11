@@ -1,5 +1,6 @@
-import SITE_CONFIG from './config.js';
 import { getSlug } from './i18n.js';
+
+const SITE_CONFIG = window.CONFIG || {};
 
 window.renderFooter = () => {
     const container = document.getElementById('footer-links');

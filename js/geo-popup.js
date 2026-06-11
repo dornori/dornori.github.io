@@ -17,8 +17,8 @@
  */
 
 import { loadLanguage, getLanguageByCountry, getCountryName } from './i18n.js';
-import SITE_CONFIG from './config.js';
 
+const SITE_CONFIG = window.CONFIG || {};
 (function () {
   'use strict';
 

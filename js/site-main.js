@@ -2,13 +2,14 @@
  * site-main.js — ES module entry point for all HTML shell pages.
  */
 
-import SITE_CONFIG          from './config.js';
 import ENV_CONFIG           from './env-config.js';
 import { initI18n } from './i18n.js';
 import { initNavigation }   from './nav-loader.js';
 import { initSocials }      from './social-loader.js';
 import { initPageLoader }   from './page-loader.js';
 import { initFooter }       from './footer-loader.js';
+
+const SITE_CONFIG = window.CONFIG || {};
 
 /**
  * FIX #5: Load and cache countries.json (single source of truth)

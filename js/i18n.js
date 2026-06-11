@@ -2,11 +2,11 @@
  * i18n.js — Data loaders, country/language helpers, and language switching
  */
 
-import SITE_CONFIG from './config.js';
 import ENV_CONFIG  from './env-config.js';
 
-const STORAGE_KEY = SITE_CONFIG.storageKeys.lang;
-const BASE        = () => SITE_CONFIG.appearance.base_path;
+const SITE_CONFIG = window.CONFIG || {};
+const STORAGE_KEY = SITE_CONFIG.storageKeys?.lang;
+const BASE        = () => SITE_CONFIG.appearance?.base_path;
 
 // Hardcoded fallback languages (matches your /lang/XX/ directory structure)
 const FALLBACK_LANGUAGES = [

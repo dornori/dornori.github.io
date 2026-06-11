@@ -1,9 +1,10 @@
 // page-loader.js
-import SITE_CONFIG from './config.js';
 import ENV_CONFIG from './env-config.js';
 import { mountSlideshow } from './slideshow.js';
 import { injectHreflangTags, getSlug, canonicalSlug } from './i18n.js';
 import { mountShopEmbeds } from './shop-loader.js';
+
+const SITE_CONFIG = window.CONFIG || {};
 
 // Rewrite absolute asset paths in injected content to use BASE_PATH
 function rewriteContentPaths(container) {

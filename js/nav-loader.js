@@ -8,9 +8,10 @@
  * Uses setSVGContent() for XSS-safe SVG injection (FIX #5).
  */
 
-import SITE_CONFIG from './config.js';
 import { getSlug, getProfileLabel } from './i18n.js';
 import { setSVGContent } from './utils/dom-safe.js';
+
+const SITE_CONFIG = window.CONFIG || {};
 
 const FALLBACK_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
