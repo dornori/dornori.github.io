@@ -230,5 +230,7 @@ const CONFIG = {
 // Backward-compatible: export as both CONFIG and SITE_CONFIG.
 
 window.CONFIG = CONFIG;
+
 const SITE_CONFIG = CONFIG;
-window.SITE_CONFIG = SITE_CONFIG;
+export default SITE_CONFIG;
+export { CONFIG, SITE_CONFIG };
