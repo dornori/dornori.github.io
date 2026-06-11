@@ -79,7 +79,8 @@
             <div class="not-found-code">404</div>
             <div class="not-found-title">Page not found</div>
             <p class="not-found-msg">The page you're looking for doesn't exist or may have moved.</p>
-            <a href="/en/" class="not-found-home">Go to homepage</a>
+            <p class="not-found-msg" style="font-size: 0.85rem; opacity: 0.7; margin-top: 1rem;">Redirecting to homepage in <span id="countdown">5</span> seconds...</p>
+            <a href="/en/" class="not-found-home">Go to homepage now →</a>
         </div>
         <div class="social-dock" id="social-dock"></div>
     </main>
@@ -99,6 +100,36 @@
     <script>
         window.__PAGE_LANG__ = 'en';
         window.__PAGE_SLUG__ = '404';
+        
+        // Auto-redirect to home after 5 seconds
+        (function() {
+            let countdown = 5;
+            const countdownEl = document.getElementById('countdown');
+            
+            if (countdownEl) {
+                const timer = setInterval(() => {
+                    countdown--;
+                    countdownEl.textContent = countdown;
+                    
+                    if (countdown <= 0) {
+                        clearInterval(timer);
+                        // Redirect to appropriate language version
+                        const lang = (navigator.language || 'en').split('-')[0];
+                        const supportedLangs = ['en', 'nl', 'cs', 'de', 'fr', 'es', 'it', 'pt'];
+                        const targetLang = supportedLangs.includes(lang) ? lang : 'en';
+                        window.location.href = '/' + targetLang + '/';
+                    }
+                }, 1000);
+            } else {
+                // Fallback: redirect immediately if no countdown element
+                setTimeout(() => {
+                    const lang = (navigator.language || 'en').split('-')[0];
+                    const supportedLangs = ['en', 'nl', 'cs', 'de', 'fr', 'es', 'it', 'pt'];
+                    const targetLang = supportedLangs.includes(lang) ? lang : 'en';
+                    window.location.href = '/' + targetLang + '/';
+                }, 5000);
+            }
+        })();
     </script>
     <script src="/js/page-init.js" defer></script>
     <script src="/js/site-boot.js" defer></script>
