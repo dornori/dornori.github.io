@@ -139,12 +139,21 @@ const SITE_CONFIG = {
         }
     ],
 
+    credits: {
+        companyName: 'DORNORI',
+        creditLink: {
+            text: 'dornori.info',
+            url:  'https://dornori.info'
+        }
+    },
+
 };
 
 // Expose globally for plain (non-module) scripts, and export for ES module consumers.
 // NOTE: SITE_CONFIG is a single object reference — mutations made via the import
 // (e.g. SITE_CONFIG.languages = [...]) are visible on window.SITE_CONFIG and vice versa
 // because JavaScript objects are passed by reference. Do not reassign either binding.
+
 window.SITE_CONFIG = SITE_CONFIG;
 export default SITE_CONFIG;
 export { SITE_CONFIG };

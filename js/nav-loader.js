@@ -64,7 +64,7 @@ window.renderNav = () => {
             const s = profileWrapLabel.querySelector('.topbar-label-text');
             if (s) s.textContent = (T.ui?.profile || 'PROFILE') + ' ';
         }
-        const langWrapLabel = topBar.querySelector('.profile-selector-wrap:nth-child(2)');
+        const langWrapLabel = topBar.querySelector('.profile-selector-wrap:has(#langSelect)');
         if (langWrapLabel) {
             const s = langWrapLabel.querySelector('.topbar-label-text');
             if (s) s.textContent = (T.ui?.language || 'LANGUAGE') + ' ';
@@ -104,7 +104,9 @@ window.renderNav = () => {
 
             if (item.icon) fetchSVG(iconPath(item.icon)).then(svg => { setSVGContent(iconEl, svg); });
         });
-        if (cartSlot) desktopNav.appendChild(cartSlot);
+        // Only append cart slot if CartLive is enabled
+        const cartLive = window.CONFIG && window.CONFIG.features && window.CONFIG.features.CartLive;
+        if (cartSlot && cartLive) desktopNav.appendChild(cartSlot);
     }
 
     /* ── Mobile nav ── */
@@ -136,18 +138,22 @@ window.renderNav = () => {
             if (item.icon) fetchSVG(iconPath(item.icon)).then(svg => { setSVGContent(iconEl, svg); });
         });
 
-        // Mobile cart slot — preserve existing so cart icon doesn't flash on language switch
-        let mobileCartSlot = document.getElementById('mobile-cart-icon-slot');
-        if (!mobileCartSlot) {
-            mobileCartSlot           = document.createElement('div');
-            mobileCartSlot.id        = 'mobile-cart-icon-slot';
-            mobileCartSlot.className = 'mobile-nav-item mobile-nav-cart-slot';
-            if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
-                const cartUrl = window.__CART_URL__ || navHref('cart');
-                Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl });
+        // Only create and append mobile cart slot if CartLive is enabled
+        const cartLive = window.CONFIG && window.CONFIG.features && window.CONFIG.features.CartLive;
+        if (cartLive) {
+            // Mobile cart slot — preserve existing so cart icon doesn't flash on language switch
+            let mobileCartSlot = document.getElementById('mobile-cart-icon-slot');
+            if (!mobileCartSlot) {
+                mobileCartSlot           = document.createElement('div');
+                mobileCartSlot.id        = 'mobile-cart-icon-slot';
+                mobileCartSlot.className = 'mobile-nav-item mobile-nav-cart-slot';
+                if (typeof Shop !== 'undefined' && typeof Shop.renderCartIcon === 'function') {
+                    const cartUrl = window.__CART_URL__ || navHref('cart');
+                    Shop.renderCartIcon({ target: '#mobile-cart-icon-slot', fixed: false, cartUrl });
+                }
             }
+            mobileNav.appendChild(mobileCartSlot);
         }
-        mobileNav.appendChild(mobileCartSlot);
     }
 };
 
@@ -193,34 +199,39 @@ export function initNavigation() {
         topBar.appendChild(profileWrap);
 
         // Language selector
-        const langWrap       = document.createElement('label');
-        langWrap.className   = 'profile-selector-wrap';
-        langWrap.innerHTML   = `<img src="${iconPath('language-icon-200x200.svg')}" class="topbar-label-icon" alt=""><span class="topbar-label-text">${T.ui?.language || 'LANGUAGE'} </span>`;
+        let langSelect = null;
+        const showLangSwitcher = !(window.CONFIG?.features?.showLanguageSwitcher === false);
+        if (showLangSwitcher) {
+            const langWrap       = document.createElement('label');
+            langWrap.className   = 'profile-selector-wrap';
+            langWrap.innerHTML   = `<img src="${iconPath('language-icon-200x200.svg')}" class="topbar-label-icon" alt=""><span class="topbar-label-text">${T.ui?.language || 'LANGUAGE'} </span>`;
 
-        const langSelect     = document.createElement('select');
-        langSelect.id        = 'langSelect';
-        langSelect.className = 'profile-select';
-        langSelect.setAttribute('aria-label', 'Choose language');
-        langSelect.setAttribute('tabindex', '-1');
+            langSelect           = document.createElement('select');
+            langSelect.id        = 'langSelect';
+            langSelect.className = 'profile-select';
+            langSelect.setAttribute('aria-label', 'Choose language');
+            langSelect.setAttribute('tabindex', '-1');
 
-        const isMobileLang = window.innerWidth <= 768;
-        (window.__languages || []).forEach(l => {
-            const opt       = document.createElement('option');
-            opt.value       = l.code;
-            opt.textContent = isMobileLang ? l.code.toUpperCase() : `${l.flag} ${l.label}`;
-            if (l.code === (window.LANG || 'en')) opt.selected = true;
-            langSelect.appendChild(opt);
-        });
+            const isMobileLang = window.innerWidth <= 768;
+            (window.__languages || []).forEach(l => {
+                const opt       = document.createElement('option');
+                opt.value       = l.code;
+                opt.textContent = isMobileLang ? l.code.toUpperCase() : `${l.flag} ${l.label}`;
+                if (l.code === (window.LANG || 'en')) opt.selected = true;
+                langSelect.appendChild(opt);
+            });
 
-        langSelect.addEventListener('change', () => {
-            if (typeof window.setLang === 'function') window.setLang(langSelect.value);
-        });
+            langSelect.addEventListener('change', () => {
+                if (typeof window.setLang === 'function') window.setLang(langSelect.value);
+            });
 
-        langWrap.appendChild(langSelect);
-        topBar.appendChild(langWrap);
+            langWrap.appendChild(langSelect);
+            topBar.appendChild(langWrap);
+        }
 
         // Currency slot
-        if (!topBar.querySelector('#topBar-currency-slot')) {
+        const showCurrency = !(window.CONFIG?.features?.showCurrencySelector === false);
+        if (showCurrency && !topBar.querySelector('#topBar-currency-slot')) {
             const currencyWrap = document.createElement('div');
             currencyWrap.className = 'profile-selector-wrap topbar-currency-wrap';
             currencyWrap.innerHTML = `<img src="${iconPath('currency-icon-200x200.svg')}" class="topbar-label-icon" alt=""><span class="topbar-label-text">${T.ui?.currency || 'CURRENCY'} </span>`;
@@ -259,7 +270,7 @@ export function initNavigation() {
             tab.setAttribute('aria-expanded', 'true');
             tab.setAttribute('aria-label', 'Close settings');
             profileSelect.setAttribute('tabindex', '0');
-            langSelect.setAttribute('tabindex', '0');
+            if (langSelect) langSelect.setAttribute('tabindex', '0');
             profileSelect.focus();
         };
         const closeBar = () => {
@@ -267,7 +278,7 @@ export function initNavigation() {
             tab.setAttribute('aria-expanded', 'false');
             tab.setAttribute('aria-label', 'Open settings');
             profileSelect.setAttribute('tabindex', '-1');
-            langSelect.setAttribute('tabindex', '-1');
+            if (langSelect) langSelect.setAttribute('tabindex', '-1');
         };
 
         tab.addEventListener('click', e => {

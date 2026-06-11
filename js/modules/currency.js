@@ -115,8 +115,17 @@ var Currency = (() => {
         setActive(saved);
       } else {
         setActive('EUR');
+      }
+      // Detect IP geo data if either currency selector OR language switcher is enabled
+      // This ensures geo-popup has data regardless of currency selector state
+      const needsGeo = window.CONFIG?.features?.showCurrencySelector !== false || 
+                       window.CONFIG?.features?.showLanguageSwitcher !== false;
+      if (needsGeo) {
         detectFromIP().then(code => {
-          if (code && _rates[code] && code !== _active) setActive(code);
+          // Only auto-switch currency if currency selector is enabled
+          if (window.CONFIG?.features?.showCurrencySelector !== false && code && _rates[code] && code !== _active) {
+            setActive(code);
+          }
         }).catch(() => {});
       }
       return _active;

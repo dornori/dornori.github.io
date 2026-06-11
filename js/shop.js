@@ -226,6 +226,22 @@ var Shop = (() => {
       || p.i18n?.[CONFIG.language]?.category || p.i18n?.en?.category || p.category || "";
   }
 
+  function getUrlText(p) {
+    return PRODUCT_LANG[p.id]?.urlText || PRODUCT_LANG_EN[p.id]?.urlText || "";
+  }
+
+  function getUpLabelText(p) {
+    if (p.UpLabel !== true) return p.UpLabel && typeof p.UpLabel === "string" ? p.UpLabel : "";
+    const prodLang = PRODUCT_LANG[p.id] || {};
+    return prodLang.UpLabelText || LANG.UpLabelText || "";
+  }
+
+  function getDownLabelText(p) {
+    if (p.DownLabel !== true) return p.DownLabel && typeof p.DownLabel === "string" ? p.DownLabel : "";
+    const prodLang = PRODUCT_LANG[p.id] || {};
+    return prodLang.DownLabelText || LANG.DownLabelText || "";
+  }
+
   function loadLang() {
     if (_langLoaded) return Promise.resolve(LANG);
     if (_langLoadPromise) return _langLoadPromise;
@@ -634,13 +650,39 @@ var Shop = (() => {
     const wTag    = `a href="${prodUrl}"`;
     const wEnd    = 'a';
 
+    // Resolve label text and button text
+    const upLabelText = getUpLabelText(p);
+    const downLabelText = getDownLabelText(p);
+    const urlText = getUrlText(p);
+    
+    // Determine button label for products with URL redirect
+    let btnLabel = t("add_to_cart","Add to Cart");
+    let btnDisabled = !inStock;
+    if (p.url) {
+      if (urlText) {
+        btnLabel = urlText;
+      } else {
+        // Extract domain name from URL
+        try {
+          const urlObj = new URL(p.url.startsWith("http") ? p.url : "http://" + p.url);
+          let domain = urlObj.hostname;
+          if (domain.startsWith("www.")) domain = domain.slice(4);
+          const domainName = domain.split(".")[0];
+          btnLabel = domainName.charAt(0).toUpperCase() + domainName.slice(1);
+        } catch (e) {
+          btnLabel = "Visit";
+        }
+      }
+      btnDisabled = false; // Always enable redirect buttons
+    }
+
     return `
       <${wTag} class="webshop-card-img-wrap${hasUrl?" webshop-card-img-link":""}"${hasUrl?` title="${pName(p)}"`:""}>
         <img class="webshop-card-img" src="${p.image}" alt="${pName(p)}" loading="lazy" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 72 72%22%3E%3Crect fill=%22%23e8e4de%22 width=%2272%22 height=%2272%22/%3E%3C/svg%3E'">
-        ${p.bestseller?`<span class="webshop-badge webshop-badge--bestseller">${typeof p.bestseller==="string"?p.bestseller:t("badge_bestseller","Best Seller")}</span>`:""}
-        ${p.featured?`<span class="webshop-badge webshop-badge--featured">${typeof p.featured==="string"?p.featured:t("featured","Featured")}</span>`:""}
+        ${upLabelText?`<span class="webshop-badge webshop-badge--uplabel">${upLabelText}</span>`:""}
+        ${downLabelText?`<span class="webshop-badge webshop-badge--downlabel">${downLabelText}</span>`:""}
         ${discountPercent > 0?`<span class="webshop-badge webshop-badge--discount">${discountPercent}% ${t("off_badge","OFF")}</span>`:""}
-        ${options.showBuyNow !== false && hasUrl ? `<button class="webshop-card-buynow-overlay" data-product-id="${p.id}" ${inStock?"":"disabled style=\"opacity:.4;\""}>${t("buy_now","Buy Now")}</button>` : ""}
+        ${p.showBuyNow && !p.url ? `<button class="webshop-card-buynow-overlay" data-product-id="${p.id}" ${inStock?"":"disabled style=\"opacity:.4;\""}>${t("buy_now","Buy Now")}</button>` : ""}
       </${wEnd}>
       <div class="webshop-card-body">
         <h3 class="webshop-card-title">${pName(p)}</h3>
@@ -654,8 +696,8 @@ var Shop = (() => {
             <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
           </div>`:""}
         </div>
-        <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${inStock?"":"disabled"}>
-          ${inStock?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock")}
+        <button class="webshop-card-atc webshop-btn webshop-btn--primary webshop-btn--full" ${btnDisabled?"disabled":""} data-product-url="${p.url || ""}">
+          ${btnLabel}
         </button>
         ${(showRelated || showAddons) ? buildRelatedStrip(p, "card", options) : ""}
       </div>`;
@@ -803,6 +845,11 @@ var Shop = (() => {
     card.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid = effectiveVid(); const max = evid ? variantStock(p, evid) : (p.stock||99); qty = Math.min(qty+1, max||99); qv.textContent = qty; });
     card.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty = Math.max(1, qty-1); qv.textContent = qty; });
     addBtn?.addEventListener("click", () => {
+      // Check if product has a URL redirect
+      if (p.url) {
+        window.location.href = p.url;
+        return;
+      }
       const evid = effectiveVid();
       addToCart(p, qty, evid, selectedColor, img?.src || null);
       const itemName = evid ? variantLabel(p, evid) : (p.label || p.id);
@@ -810,6 +857,11 @@ var Shop = (() => {
     });
     const buyNowBtn = card.querySelector(".webshop-card-buynow-overlay");
     buyNowBtn?.addEventListener("click", () => {
+      // Check if product has a URL redirect
+      if (p.url) {
+        window.location.href = p.url;
+        return;
+      }
       const evid = effectiveVid();
       addToCart(p, 1, evid, selectedColor, img?.src || null);
       const itemName = evid ? variantLabel(p, evid) : (p.label || p.id);
@@ -994,8 +1046,26 @@ var Shop = (() => {
               <span class="webshop-rating-stars">${p.rating} ★</span>
               <span class="webshop-rating-count">(${p.reviewCount || 0} ${t("reviews_suffix","reviews")})</span>
             </div>` : ''}
-            ${p.bestseller?`<span class="webshop-badge-inline webshop-badge-inline--bestseller">${typeof p.bestseller==="string"?p.bestseller:t("badge_bestseller","Best Seller")}</span>`:""}
-            ${p.featured?`<span class="webshop-badge-inline webshop-badge-inline--featured">${typeof p.featured==="string"?p.featured:t("featured","Featured")}</span>`:""}
+            ${(() => {
+              let ulText = "";
+              if (p.UpLabel === true) {
+                const prodLang = PRODUCT_LANG[p.id] || {};
+                ulText = prodLang.UpLabelText || LANG.UpLabelText || "";
+              } else if (p.UpLabel && typeof p.UpLabel === "string") {
+                ulText = p.UpLabel;
+              }
+              return ulText ? `<span class="webshop-badge-inline webshop-badge-inline--uplabel">${ulText}</span>` : "";
+            })()}
+            ${(() => {
+              let dlText = "";
+              if (p.DownLabel === true) {
+                const prodLang = PRODUCT_LANG[p.id] || {};
+                dlText = prodLang.DownLabelText || LANG.DownLabelText || "";
+              } else if (p.DownLabel && typeof p.DownLabel === "string") {
+                dlText = p.DownLabel;
+              }
+              return dlText ? `<span class="webshop-badge-inline webshop-badge-inline--downlabel">${dlText}</span>` : "";
+            })()}
             <div class="webshop-product-price-group">
               ${discountPercent > 0 ? `
                 <p class="webshop-product-price-original">${fmt(displayPrice)}</p>
@@ -1275,7 +1345,7 @@ var Shop = (() => {
 
   return {
     resolveLanguage, detectBrowserLanguage, switchLanguage, wireLanguageSwitcher, loadLang, t,
-    loadProducts, getProduct, pName, pDesc, pCategory,
+    loadProducts, getProduct, pName, pDesc, pCategory, getUrlText, getUpLabelText, getDownLabelText,
     getProductLang, getProductLangEn,
     getCart, saveCart, addToCart, removeFromCart, updateQty, clearCart, calculateTotals,
     fmt, fmtWeight, generateOrderRef,

@@ -321,9 +321,26 @@
       // Badges
       const badgesEl = document.getElementById("amz-badges");
       if (badgesEl) {
+        let downLabel = '';
+        let upLabel = '';
+        
+        if (product.DownLabel === true) {
+          const prodLang = Shop.getProductLang?.()[product.id] || {};
+          downLabel = prodLang.DownLabelText || Shop.t('DownLabelText', 'Best Seller');
+        } else if (product.DownLabel && typeof product.DownLabel === 'string') {
+          downLabel = product.DownLabel;
+        }
+        
+        if (product.UpLabel === true) {
+          const prodLang = Shop.getProductLang?.()[product.id] || {};
+          upLabel = prodLang.UpLabelText || Shop.t('UpLabelText', 'Featured');
+        } else if (product.UpLabel && typeof product.UpLabel === 'string') {
+          upLabel = product.UpLabel;
+        }
+        
         badgesEl.innerHTML =
-          (product.bestseller ? `<div class="amz-badge">${typeof product.bestseller === 'string' ? product.bestseller : Shop.t('badge_best_seller', '#1 Best Seller')}</div>` : '') +
-          (product.featured   ? `<div class="amz-badge amz-badge--info">${typeof product.featured === 'string' ? product.featured : Shop.t('featured', 'Featured')}</div>` : '');
+          (downLabel ? `<div class="amz-badge">${downLabel}</div>` : '') +
+          (upLabel ? `<div class="amz-badge amz-badge--info">${upLabel}</div>` : '');
       }
     }
 
@@ -369,6 +386,7 @@
     function renderVariants() {
       const wrap = document.getElementById("amz-variants-section");
       const el   = document.getElementById("amz-variants-grid");
+      // Show variants if product has them, regardless of whether main product has URL
       if (!PRODUCT.variants?.length) { if (wrap) wrap.style.display = "none"; return; }
       if (wrap) wrap.style.display = "";
 
@@ -407,6 +425,7 @@
           // Pass null when product itself is selected so renderMeta uses PRODUCT data
           renderMeta(selectedVariant !== PRODUCT.id ? v : null);
           updateAtcLabel();
+          updateBuyNowButton();
         });
       });
       PRODUCT._allVariants = allVariants;
@@ -855,30 +874,90 @@
     function updateAtcLabel() {
       const atcBtn = document.getElementById("atc-btn");
       if (!atcBtn) return;
+      
+      // Check if selected variant or product has external URL
       const v = selectedVariant !== PRODUCT.id ? resolvedVariants.find(v => v.id === selectedVariant) : null;
       const activeProduct = v || PRODUCT;
+      const redirectUrl = activeProduct.url;
+      
+      if (redirectUrl) {
+        const productLangData = Shop.getProductLang?.()[activeProduct.id] || {};
+        if (productLangData.urlText) {
+          atcBtn.textContent = productLangData.urlText;
+        } else {
+          // Extract domain name from URL
+          try {
+            const urlObj = new URL(redirectUrl.startsWith("http") ? redirectUrl : "http://" + redirectUrl);
+            let domain = urlObj.hostname;
+            if (domain.startsWith("www.")) domain = domain.slice(4);
+            const domainName = domain.split(".")[0];
+            atcBtn.textContent = domainName.charAt(0).toUpperCase() + domainName.slice(1);
+          } catch (e) {
+            atcBtn.textContent = "Visit";
+          }
+        }
+        atcBtn.disabled = false;
+        return;
+      }
+      
       const inStock = (activeProduct.stock ?? 99) > 0;
       atcBtn.disabled = !inStock;
       atcBtn.textContent = inStock ? Shop.t("add_to_cart", "Add to Cart") : Shop.t("out_of_stock", "Out of Stock");
     }
 
+    function updateBuyNowButton() {
+      const buyBtn = document.getElementById("buy-now-btn");
+      if (!buyBtn) return;
+      
+      // Check if selected variant or product has external URL
+      const v = selectedVariant !== PRODUCT.id ? resolvedVariants.find(v => v.id === selectedVariant) : null;
+      const activeProduct = v || PRODUCT;
+      const redirectUrl = activeProduct.url;
+      
+      if (redirectUrl) {
+        buyBtn.style.display = "none";
+      } else {
+        buyBtn.style.display = "";
+      }
+    }
+
     function initAtc() {
       updateAtcLabel();
+      updateBuyNowButton();
       document.getElementById("atc-btn").addEventListener("click", () => {
-        const v = resolvedVariants.find(v => v.id === selectedVariant);
+        // Check if selected variant or product has a URL redirect
+        const v = selectedVariant !== PRODUCT.id ? resolvedVariants.find(v => v.id === selectedVariant) : null;
+        const activeProduct = v || PRODUCT;
+        
+        if (activeProduct.url) {
+          window.location.href = activeProduct.url;
+          return;
+        }
         Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
         Shop.toast(`${v ? v.label : (PRODUCT.label || PRODUCT.id)} ${Shop.t("added", "added to cart")}`);
       });
       const buyBtn = document.getElementById("buy-now-btn");
       if (buyBtn) {
-        buyBtn.addEventListener("click", () => {
-          const v = resolvedVariants.find(v => v.id === selectedVariant);
-          Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
-          const lang     = window.LANG || localStorage.getItem("dornori-lang") || "en";
-          const basePath = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || "/";
-          const slug     = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || "cart";
-          window.location.href = `${basePath}${lang}/${slug}/`;
-        });
+        // Hide buy button only if main product has external URL
+        if (PRODUCT.url) {
+          buyBtn.style.display = "none";
+        } else {
+          buyBtn.addEventListener("click", () => {
+            // Check if selected variant or product has a URL redirect
+            const v = selectedVariant !== PRODUCT.id ? resolvedVariants.find(v => v.id === selectedVariant) : null;
+            const activeProduct = v || PRODUCT;
+            
+            if (activeProduct.url) {
+              window.location.href = activeProduct.url;
+              return;
+            }
+            Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
+            const lang     = window.LANG || localStorage.getItem("dornori-lang") || "en";
+            const basePath = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || "/";
+            const slug     = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || "cart";
+            window.location.href = `${basePath}${lang}/${slug}/`;
+          });
+        }
       }
     }
 

@@ -29,6 +29,10 @@ import SITE_CONFIG from './config.js';
   function shouldShow(suggestedLang) {
     if (!suggestedLang) return false;
     if (suggestedLang === window.LANG) return false;
+    // Only show popup if language switcher is explicitly enabled, independent of currency setting
+    if (window.CONFIG?.features?.showLanguageSwitcher !== true) return false;
+    // Only show popup if geo language popup is not explicitly disabled
+    if (window.CONFIG?.features?.showGeoLanguagePopup === false) return false;
     try { if (sessionStorage.getItem(STORAGE_KEY)) return false; } catch (e) {}
     if (document.getElementById('geo-lang-popup')) return false;
     return true;

@@ -25,8 +25,10 @@ var CONFIG = {
   },
 
   features: {
-    showLanguageSwitcher: false,
+    showLanguageSwitcher: true,
     showCurrencySelector: true,
+    showGeoLanguagePopup: true,  // Set to false to disable geo-location language suggestion popup
+    CartLive: true,  // Set to false to hide and disable cart
   },
 
   images: {

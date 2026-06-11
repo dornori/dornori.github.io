@@ -234,30 +234,19 @@ export function initPageLoader() {
             if (!res.ok) throw new Error();
             const html = await res.text();
             
-            // ✅ FIX: Clear old listeners by replacing page-view element
-            const oldPageView = pageView;
-            const newPageViewEl = document.createElement('div');
-            newPageViewEl.id = pageView.id;
-            newPageViewEl.className = pageView.className;
-            newPageViewEl.innerHTML = html;
-            oldPageView.parentNode.replaceChild(newPageViewEl, oldPageView);
-            
-            // Update module-level references
-            pageView = newPageViewEl;
-            pageContent = newPageViewEl;
-            pageView.dataset.loadedLang = lang;
-            rewriteContentPaths(pageView);
-            pageView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
-            wireShopCards(pageView);
-            mountShopEmbeds(pageView);
+            // Load into home-view, not page-view
+            const homeView = document.getElementById('home-view');
+            if (homeView) {
+                homeView.innerHTML = html;
+                homeView.dataset.loadedLang = lang;
+                rewriteContentPaths(homeView);
+                homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
+                wireShopCards(homeView);
+                mountShopEmbeds(homeView);
+            }
         } catch (err) {
             if (ENV_CONFIG.DEBUG) console.error('Home load error:', err);
-            if (pageView) pageView.dataset.loadedLang = lang;
         }
-        if (pageView && pageView.parentNode) {
-            pageView.classList.remove('hidden');
-        }
-        document.getElementById('home-view')?.classList.add('hidden');
         requestAnimationFrame(() => {
             window.scrollTo(0, 0);
             document.documentElement.scrollTop = 0;
@@ -401,6 +390,13 @@ export function initPageLoader() {
         const base    = SITE_CONFIG.appearance.base_path;
         window.history.pushState({ slug: '', lang }, '', `${base}${lang}/`);
         updateSEO('');
+        
+        // Show spinner and hide page-view before loading
+        if (pageView && !pageView.classList.contains('hidden')) {
+            pageView.classList.add('hidden');
+        }
+        document.getElementById('home-view')?.classList.remove('hidden');
+        
         window.loadHome();
     };
 
