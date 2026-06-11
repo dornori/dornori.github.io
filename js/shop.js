@@ -1183,6 +1183,21 @@ var Shop = (() => {
         if (atcBtn)  { atcBtn.disabled=!inStk; atcBtn.textContent=inStk?t("add_to_cart","Add to Cart"):t("out_of_stock","Out of Stock"); }
         if (mainImg) swapMainImg(mainImg, imgSrc, p.image);
         if (wtEl)    wtEl.textContent = `${t("weight","Weight")}: ${fmtWeight(wt)}`;
+        
+        // Re-attach ATC button handler with current variant state
+        if (atcBtn) {
+          atcBtn.replaceWith(atcBtn.cloneNode(true));
+          const newAtcBtn = container.querySelector(`#pinfo-atc-${productId}`);
+          newAtcBtn?.addEventListener("click", () => { 
+            const currentEvid = effectiveVid(); 
+            // Check if active variant or parent product has URL redirect
+            const urlTarget = currentEvid ? (_products[currentEvid]?.url || null) : (p.url || null);
+            if (urlTarget) { window.location.href = urlTarget; return; }
+            addToCart(p, qty, currentEvid, selectedColor, mainImg?.src || null); 
+            const itemName = currentEvid ? (getVariant(p, currentEvid)?.label || currentEvid) : (p.label || p.id); 
+            toast(`${itemName} ${t("added","added to cart")}`); 
+          });
+        }
       }
 
       container.querySelectorAll(".webshop-product-thumb").forEach(thumb => {
@@ -1223,7 +1238,13 @@ var Shop = (() => {
       const qv = container.querySelector(".webshop-qty-val");
       container.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid=effectiveVid(); const max=evid?variantStock(p,evid):(p.stock||99); qty=Math.min(qty+1,max||99); qv.textContent=qty; });
       container.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty=Math.max(1,qty-1); qv.textContent=qty; });
-      atcBtn?.addEventListener("click", () => { const evid=effectiveVid(); addToCart(p,qty,evid,selectedColor,mainImg?.src||null); const itemName=evid?(getVariant(p,evid)?.label||evid):(p.label||p.id); toast(`${itemName} ${t("added","added to cart")}`); });
+      atcBtn?.addEventListener("click", () => { 
+        const evid=effectiveVid(); 
+        // Check if active variant or parent product has URL redirect
+        const urlTarget = evid ? (_products[evid]?.url || null) : (p.url || null);
+        if (urlTarget) { window.location.href = urlTarget; return; }
+        addToCart(p,qty,evid,selectedColor,mainImg?.src||null); const itemName=evid?(getVariant(p,evid)?.label||evid):(p.label||p.id); toast(`${itemName} ${t("added","added to cart")}`); 
+      });
       wireRelatedStrip(container, p, { showAddons: !!(p.addons?.length), showRelated: !!(p.related?.length) });
     }
     build();

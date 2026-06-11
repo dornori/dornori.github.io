@@ -1,18 +1,24 @@
 /**
- * DORNORI SITE CONFIGURATION
+ * DORNORI UNIFIED CONFIGURATION
+ * Merged from config.js and shop-config.js (v5)
  */
 
-import ENV_CONFIG from './env-config.js';
-
-const SITE_CONFIG = {
+const CONFIG = {
+    // ── Appearance ────────────────────────────────────────────────────────────
     appearance: {
-        icyLemon:           '#F5F29B',
-        bgDark:             '#050505',
-        bannerStickyOffset: 0.35,
-        root_url:           ENV_CONFIG.ROOT_URL,
-        base_path:          window.__BASE_PATH__ || '/',
+        base_path:  window.__BASE_PATH__ || '/',
+        root_url:   (globalThis.__ENV_ROOT_URL__) || 'https://dornori.com',
     },
 
+    // ── Shop Info ─────────────────────────────────────────────────────────────
+    shopName: "Dornori",
+    tagline:  "Curated lighting for modern spaces",
+    baseCurrency: "EUR",
+    currencyCode: "EUR",
+    defaultLanguage: "en",
+    supportedLanguages: ["en", "nl", "de", "fr", "es", "it", "pt", "cs"],
+
+    // ── Paths ─────────────────────────────────────────────────────────────────
     paths: {
         countries_file:  'data/countries.json',
         profiles_file:   'data/profiles.json',
@@ -23,33 +29,105 @@ const SITE_CONFIG = {
         shop_dir:        'shop/',
         js_dir:          'js/',
         formJsonPath:    (lang) => `${window.__BASE_PATH__ || '/'}lang/${lang}/form.json`,
+        shippingJson:    (window.__BASE_PATH__ || '/') + 'data/shipping.json',
+        langDir:         (window.__BASE_PATH__ || '/') + 'lang/',
+        productsJson:    (window.__BASE_PATH__ || '/') + 'data/products.json',
     },
 
+    // ── Storage Keys ──────────────────────────────────────────────────────────
     storageKeys: {
-        lang:  'dornori-lang',
-        theme: 'dornori-theme',
-        cart:  'dornori-cart',
+        lang:          'dornori-lang',
+        theme:         'dornori-theme',
+        cart:          'dornori-cart',
+        parentLangKey: 'dornori-lang',
+        shopLangKey:   'dornori-lang',
+        currencyKey:   'webshop_currency',
+        cartKey:       'webshop_cart',
     },
 
+    // ── Features ──────────────────────────────────────────────────────────────
+    features: {
+        showLanguageSwitcher: true,
+        showCurrencySelector: true,
+        showGeoLanguagePopup: true,
+        CartLive: true,
+    },
+
+    // ── Images ────────────────────────────────────────────────────────────────
+    images: {
+        imageExt: "webp",
+        imageDir: "images/products/",
+    },
+
+    // ── Tax & Shipping ────────────────────────────────────────────────────────
+    taxRate:            0.21,
+    taxLabel:           "VAT (21%)",
+    taxExemptCountries: [],
+    businessVatExempt:  false,
+
+    shipping: {
+        freeThreshold: 150,
+        base:          8.50,
+        perKg:         1.20,
+        maxFreeWeight: 20,
+        estimatedDays: "3–5",
+    },
+
+    // ── API Endpoints ─────────────────────────────────────────────────────────
     endpoints: {
-        formHandler:   ENV_CONFIG.API_ENDPOINT,
-        queue:         ENV_CONFIG.API_ENDPOINT,
+        formHandler:   (globalThis.__ENV_API_ENDPOINT__) || 'https://edge-form-handler-api.dornori-info.workers.dev',
+        queue:         (globalThis.__ENV_API_ENDPOINT__) || 'https://edge-form-handler-api.dornori-info.workers.dev',
         supportEmail:  'support@dornori.com',
         privacyEmail:  'privacy@dornori.com',
         securityEmail: 'security@dornori.com',
         legalEmail:    'legal@dornori.com',
     },
 
-    messages: {
-        title:           'DORNORI',
-        redirectTitle:   'Processing...',
-        redirectMessage: '✓ Issue resolved! Redirecting...',
+    queue: {
+        endpoint: (window.__ENV_API_ENDPOINT__) || 'https://edge-form-handler-api.dornori-info.workers.dev',
     },
 
+    // ── Modules ───────────────────────────────────────────────────────────────
+    modules: [
+        (window.__BASE_PATH__ || '/') + "js/modules/currency.js",
+        (window.__BASE_PATH__ || '/') + "js/modules/shipping.js",
+        (window.__BASE_PATH__ || '/') + "js/modules/payment.js",
+    ],
+
+    // ── Payment ───────────────────────────────────────────────────────────────
+    payment: {
+        activeProcessor: "paypal",
+        paypal: {
+            clientId:   "",
+            currency:   "EUR",
+            intent:     "capture",
+            returnPath: "/success.html",
+            cancelPath: "/cart.html",
+        },
+        stripe: {
+            publishableKey: "pk_test_SAMPLE_STRIPE_PUBLISHABLE_KEY",
+            currency:       "eur",
+            intentEndpoint: "",
+            returnPath:     "/success.html",
+            cancelPath:     "/cart.html",
+            appearance: {
+                theme: "stripe",
+                variables: {
+                    colorPrimary:     "#c8a96e",
+                    colorBackground: "#ffffff",
+                    fontFamily:       "system-ui, sans-serif",
+                    borderRadius:     "8px",
+                },
+            },
+        },
+    },
+
+    // ── Turnstile ─────────────────────────────────────────────────────────────
     turnstile: {
-        sitekey: ENV_CONFIG.TURNSTILE_KEY,
+        sitekey: (window.__ENV_TURNSTILE_KEY__) || (globalThis.__ENV_TURNSTILE_KEY__) || '0x4AAAAAACxsga5y-bJ_qkzC',
     },
 
+    // ── Navigation ────────────────────────────────────────────────────────────
     navigation: [
         { slug: 'about',  icon: 'about-icon-200x200.svg',           type: 'standard', enabled: true  },
         { slug: 'built',  icon: 'assembled-lamp-icon-200x200.svg',  type: 'standard', enabled: true  },
@@ -59,11 +137,7 @@ const SITE_CONFIG = {
         { slug: 'shop',   icon: 'shop-icon-200x200.svg',            type: 'standard', enabled: true  },
     ],
 
-    defaults: {
-        redirectUrl:     '/en/success/',
-        redirectMessage: '✓ Issue resolved! Redirecting...',
-    },
-
+    // ── Pages ─────────────────────────────────────────────────────────────────
     pages: {
         built:               { file: 'built.html'             },
         kit:                 { file: 'kit.html'               },
@@ -87,11 +161,11 @@ const SITE_CONFIG = {
         success:             { file: 'success.html'           },
         'faq':               { file: 'faq.html'               },
         'reviews':           { file: 'reviews.html'           },
-        // Additional aliases kept for direct access
-        'about-us':               { file: 'about-us.html'              },
-        'form':                   { file: 'form.html'                  },
+        'about-us':          { file: 'about-us.html'          },
+        'form':              { file: 'form.html'              },
     },
 
+    // ── Socials ───────────────────────────────────────────────────────────────
     socials: [
         { id: 'ig',  user: 'dornori.info', base: 'https://instagram.com/' },
         { id: 'x',   user: 'dornori_info', base: 'https://x.com/'         },
@@ -100,6 +174,7 @@ const SITE_CONFIG = {
         { id: 'web', user: 'dornori.com',  base: 'https://'               },
     ],
 
+    // ── Payment Providers ─────────────────────────────────────────────────────
     paymentProviders: [
         { id: 'visa',       label: 'Visa',             file: 'visa',       enabled: true  },
         { id: 'mastercard', label: 'Mastercard',        file: 'mastercard', enabled: true  },
@@ -115,6 +190,7 @@ const SITE_CONFIG = {
         { id: 'unionpay',   label: 'UnionPay',          file: 'unionpay',   enabled: false },
     ],
 
+    // ── Footer ────────────────────────────────────────────────────────────────
     footer: [
         {
             label: 'Company',
@@ -139,6 +215,7 @@ const SITE_CONFIG = {
         }
     ],
 
+    // ── Credits ───────────────────────────────────────────────────────────────
     credits: {
         companyName: 'DORNORI',
         creditLink: {
@@ -146,14 +223,14 @@ const SITE_CONFIG = {
             url:  'https://dornori.info'
         }
     },
-
 };
 
-// Expose globally for plain (non-module) scripts, and export for ES module consumers.
-// NOTE: SITE_CONFIG is a single object reference — mutations made via the import
-// (e.g. SITE_CONFIG.languages = [...]) are visible on window.SITE_CONFIG and vice versa
-// because JavaScript objects are passed by reference. Do not reassign either binding.
+// ── Global Exposure ──────────────────────────────────────────────────────────
+// Expose globally for both ES modules and plain scripts.
+// Backward-compatible: export as both CONFIG and SITE_CONFIG.
 
-window.SITE_CONFIG = SITE_CONFIG;
+window.CONFIG = CONFIG;
+
+const SITE_CONFIG = CONFIG;
 export default SITE_CONFIG;
-export { SITE_CONFIG };
+export { CONFIG, SITE_CONFIG };

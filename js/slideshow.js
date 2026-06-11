@@ -255,4 +255,18 @@ export function mountSlideshow(root) {
         touchStartX = null;
         touchStartY = null;
     }, { passive: true });
+
+    // Pause slideshow when page is hidden, resume when visible
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            root.classList.add('paused');
+            if (autoTimer) clearTimeout(autoTimer);
+        } else {
+            root.classList.remove('paused');
+            if (mode === 'auto') {
+                autoTimer = setTimeout(next, interval);
+            }
+        }
+    });
 }
+

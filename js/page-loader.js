@@ -236,9 +236,12 @@ export function initPageLoader() {
             
             // Load into home-view, not page-view
             const homeView = document.getElementById('home-view');
+            const pageView = document.getElementById('page-view');
             if (homeView) {
                 homeView.innerHTML = html;
                 homeView.dataset.loadedLang = lang;
+                homeView.classList.remove('hidden');
+                if (pageView) pageView.classList.add('hidden');
                 rewriteContentPaths(homeView);
                 homeView.querySelectorAll('.slideshow-root').forEach(mountSlideshow);
                 wireShopCards(homeView);

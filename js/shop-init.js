@@ -233,4 +233,22 @@
         // Rebuilding causes a flash and loses focus. The change event on the select handles it.
     }
 
+    // ── Queue utility for analytics/payment events ─────────────────────────────
+    window.sendToQueue = async function(category, data, isTest = false) {
+        const payload = { category, ...data };
+        if (isTest) payload.test = true;
+        try {
+            const response = await fetch(CONFIG.queue.endpoint, {
+                method:  "POST",
+                headers: { "Content-Type": "application/json" },
+                body:    JSON.stringify(payload),
+            });
+            await response.text();
+            return response.ok;
+        } catch (e) {
+            console.warn('sendToQueue error:', e);
+            return false;
+        }
+    };
+
 })();

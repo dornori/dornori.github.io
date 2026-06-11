@@ -98,8 +98,8 @@
     ]);
 
     // ── Language ──────────────────────────────────────────────────────────────
-    // Use CONFIG.storageKeys.lang if already defined (shop-config.js loaded before this),
-    // otherwise fall back to the same literal used in config.js so keys stay in sync.
+    // Use CONFIG.storageKeys.lang if already defined (config.js loaded before this),
+    // otherwise fall back to the same literal so keys stay in sync.
     var LANG_KEY = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys && CONFIG.storageKeys.parentLangKey)
                   || 'dornori-lang';
     var lang = localStorage.getItem(LANG_KEY) || 'en';
@@ -324,11 +324,12 @@
     // shop-init.js only touches DOM after webshop:ready fires.
     // site-main.js and geo-popup.js handle their own DOM readiness.
     loadScriptsWithDeps([
-        { id: 'cfg',  src: 'js/shop-config.js' },
+        { id: 'cfg',  src: 'js/config.js' },
         { id: 'lang', src: 'js/lang-bridge.js', deps: ['cfg'] },
         { id: 'shop', src: 'js/shop-init.js',   deps: ['lang'] },
         { id: 'main', src: 'js/site-main.js',   module: true },
         { id: 'preload', src: 'js/preload-assets.js', module: true },
+        { id: 'hero', src: 'js/hero-video.js' },
         { id: 'geo',  src: 'js/geo-popup.js',   module: true },
     ]);
 

@@ -386,8 +386,8 @@
     function renderVariants() {
       const wrap = document.getElementById("amz-variants-section");
       const el   = document.getElementById("amz-variants-grid");
-      // Skip rendering variants if product has external URL set
-      if (PRODUCT.url || !PRODUCT.variants?.length) { if (wrap) wrap.style.display = "none"; return; }
+      // Show variants if product has them, regardless of whether main product has URL
+      if (!PRODUCT.variants?.length) { if (wrap) wrap.style.display = "none"; return; }
       if (wrap) wrap.style.display = "";
 
       const selfEntry = { id: PRODUCT.id, label: PRODUCT.label || PRODUCT.name || Shop.pName(PRODUCT) || PRODUCT.id, price: PRODUCT.price, stock: PRODUCT.stock, image: PRODUCT.image };
@@ -425,8 +425,8 @@
           // Pass null when product itself is selected so renderMeta uses PRODUCT data
           renderMeta(selectedVariant !== PRODUCT.id ? v : null);
           updateAtcLabel();
+          updateAtcButton();
           updateBuyNowButton();
-          updateBuyNowButtonHandler();
         });
       });
       PRODUCT._allVariants = allVariants;
@@ -876,28 +876,31 @@
       const atcBtn = document.getElementById("atc-btn");
       if (!atcBtn) return;
       
-      // If product has external URL, update button text
-      if (PRODUCT.url) {
-        const productLangData = Shop.getProductLang?.()[PRODUCT.id] || {};
+      // Check if selected variant or product has external URL
+      const v = selectedVariant !== PRODUCT.id ? resolvedVariants.find(v => v.id === selectedVariant) : null;
+      const activeProduct = v || PRODUCT;
+      const redirectUrl = activeProduct.url;
+      
+      if (redirectUrl) {
+        const productLangData = Shop.getProductLang?.()[activeProduct.id] || {};
         if (productLangData.urlText) {
           atcBtn.textContent = productLangData.urlText;
         } else {
           // Extract domain name from URL
           try {
-            const urlObj = new URL(PRODUCT.url.startsWith("http") ? PRODUCT.url : "http://" + PRODUCT.url);
+            const urlObj = new URL(redirectUrl.startsWith("http") ? redirectUrl : "http://" + redirectUrl);
             let domain = urlObj.hostname;
             if (domain.startsWith("www.")) domain = domain.slice(4);
             const domainName = domain.split(".")[0];
-            atcBtn.textContent = domainName;
+            atcBtn.textContent = domainName.charAt(0).toUpperCase() + domainName.slice(1);
           } catch (e) {
             atcBtn.textContent = "Visit";
           }
         }
+        atcBtn.disabled = false;
         return;
       }
       
-      const v = selectedVariant !== PRODUCT.id ? resolvedVariants.find(v => v.id === selectedVariant) : null;
-      const activeProduct = v || PRODUCT;
       const inStock = (activeProduct.stock ?? 99) > 0;
       atcBtn.disabled = !inStock;
       atcBtn.textContent = inStock ? Shop.t("add_to_cart", "Add to Cart") : Shop.t("out_of_stock", "Out of Stock");
@@ -919,17 +922,16 @@
       }
     }
 
-    function updateBuyNowButtonHandler() {
-      const buyBtn = document.getElementById("buy-now-btn");
-      if (!buyBtn) return;
+    function updateAtcButton() {
+      const atcBtn = document.getElementById("atc-btn");
+      if (!atcBtn) return;
       
-      // Remove old listener by cloning
-      const newBuyBtn = buyBtn.cloneNode(true);
-      buyBtn.replaceWith(newBuyBtn);
+      // Remove old listeners and replace with fresh clone
+      const newAtcBtn = atcBtn.cloneNode(true);
+      atcBtn.replaceWith(newAtcBtn);
       
       // Re-attach handler with current variant state
-      const freshBtn = document.getElementById("buy-now-btn");
-      freshBtn.addEventListener("click", () => {
+      document.getElementById("atc-btn").addEventListener("click", () => {
         // Check if selected variant or product has a URL redirect
         const v = selectedVariant !== PRODUCT.id ? resolvedVariants.find(v => v.id === selectedVariant) : null;
         const activeProduct = v || PRODUCT;
@@ -939,27 +941,38 @@
           return;
         }
         Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
-        const lang     = window.LANG || localStorage.getItem("dornori-lang") || "en";
-        const basePath = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || "/";
-        const slug     = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || "cart";
-        window.location.href = `${basePath}${lang}/${slug}/`;
+        Shop.toast(`${v ? v.label : (PRODUCT.label || PRODUCT.id)} ${Shop.t("added", "added to cart")}`);
       });
     }
 
     function initAtc() {
       updateAtcLabel();
       updateBuyNowButton();
-      updateBuyNowButtonHandler();
-      document.getElementById("atc-btn").addEventListener("click", () => {
-        // Check if product has a URL redirect
+      updateAtcButton();
+      
+      const buyBtn = document.getElementById("buy-now-btn");
+      if (buyBtn) {
+        // Hide buy button only if main product has external URL
         if (PRODUCT.url) {
-          window.location.href = PRODUCT.url;
-          return;
+          buyBtn.style.display = "none";
+        } else {
+          buyBtn.addEventListener("click", () => {
+            // Check if selected variant or product has a URL redirect
+            const v = selectedVariant !== PRODUCT.id ? resolvedVariants.find(v => v.id === selectedVariant) : null;
+            const activeProduct = v || PRODUCT;
+            
+            if (activeProduct.url) {
+              window.location.href = activeProduct.url;
+              return;
+            }
+            Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
+            const lang     = window.LANG || localStorage.getItem("dornori-lang") || "en";
+            const basePath = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || "/";
+            const slug     = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || "cart";
+            window.location.href = `${basePath}${lang}/${slug}/`;
+          });
         }
-        const v = resolvedVariants.find(v => v.id === selectedVariant);
-        Shop.addToCart(PRODUCT, qty, selectedVariant, null, v?.image || PRODUCT.image);
-        Shop.toast(`${v ? v.label : (PRODUCT.label || PRODUCT.id)} ${Shop.t("added", "added to cart")}`);
-      });
+      }
     }
 
     /* ════════════════════════════════════════════════════

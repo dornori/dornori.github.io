@@ -20,7 +20,7 @@ export async function loadShopModules() {
   // loadScript checks for existing <script[src]> so double-loading is already
   // prevented, but skip entirely if globals already exist to avoid re-execution.
   if (typeof window.CONFIG === 'undefined') {
-    await loadScript(BASE_PATH + 'js/shop-config.js');
+    await loadScript(BASE_PATH + 'js/config.js');
   }
   if (typeof window.Shipping === 'undefined') {
     await loadScript(BASE_PATH + 'js/modules/shipping.js');
