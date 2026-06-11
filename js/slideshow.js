@@ -260,10 +260,12 @@ export function mountSlideshow(root) {
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             root.classList.add('paused');
-            if (timer) clearInterval(timer);
+            if (autoTimer) clearTimeout(autoTimer);
         } else {
             root.classList.remove('paused');
-            startTimer();
+            if (mode === 'auto') {
+                autoTimer = setTimeout(next, interval);
+            }
         }
     });
 }
