@@ -129,11 +129,7 @@ const CONFIG = {
 
     // ── Navigation ────────────────────────────────────────────────────────────
     navigation: [
-        { slug: 'about',  icon: 'about-icon-200x200.svg',           type: 'standard', enabled: true,  children: [
-            { slug: 'terms',   label: 'Terms',   url: 'https://dornori.com/en/terms/',   enabled: true },
-            { slug: 'privacy', label: 'Privacy', url: 'https://dornori.com/en/privacy/', enabled: true },
-            { slug: 'cookies', label: 'Cookies', url: 'https://dornori.com/en/cookies/', enabled: true },
-        ] },
+        { slug: 'about',  icon: 'about-icon-200x200.svg',           type: 'standard', enabled: true  },
         { slug: 'built',  icon: 'assembled-lamp-icon-200x200.svg',  type: 'standard', enabled: true  },
         { slug: 'kit',    icon: 'building-kit-icon-200x200.svg',    type: 'standard', enabled: true  },
         { slug: 'parts',  icon: '3d-printer-icon-200x200.svg',      type: 'standard', enabled: true  },
@@ -211,6 +207,18 @@ const CONFIG = {
         },
         {
             label: 'Legal',
+            links: [
+                { slug: 'terms',    enabled: true  },
+                { slug: 'privacy',  enabled: true },
+                { slug: 'cookies',  enabled: true },
+                { slug: 'imprint',  enabled: true  },
+                { slug: 'returns',  enabled: false },
+                { slug: 'children', enabled: true },
+                { slug: 'security', enabled: true },
+            ]
+        },
+        {
+            label: 'Another',
             links: [
                 { slug: 'terms',    enabled: true  },
                 { slug: 'privacy',  enabled: true },
