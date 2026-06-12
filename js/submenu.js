@@ -72,10 +72,17 @@ window.renderSubmenu = () => {
         });
     }
 
-    // Mobile submenu
+    // Mobile submenu - attach dropdown to the nav link itself
     const mobileNav = document.getElementById('mobile-nav');
     if (mobileNav) {
         mobileNav.querySelectorAll('.mobile-nav-submenu')?.forEach(el => el.remove());
+        mobileNav.querySelectorAll('.mobile-nav-submenu-wrap')?.forEach(el => el.remove());
+        mobileNav.querySelectorAll('.mobile-nav-has-submenu')?.forEach(el => {
+            el.classList.remove('mobile-nav-has-submenu', 'open');
+            el.querySelectorAll('.mobile-nav-chevron-indicator')?.forEach(c => c.remove());
+            const label = el.querySelector('.mobile-nav-label');
+            if (label) label.style.display = '';
+        });
 
         SITE_CONFIG.navigation.forEach(item => {
             if (!item.enabled || !item.children || item.children.length === 0) return;
@@ -83,18 +90,17 @@ window.renderSubmenu = () => {
             const navLink = mobileNav.querySelector(`[data-slug="${item.slug}"]`);
             if (!navLink) return;
 
-            const submenuWrap = document.createElement('div');
-            submenuWrap.className = 'mobile-nav-submenu-wrap';
+            // Add class to indicate this item has a submenu
+            navLink.classList.add('mobile-nav-has-submenu');
 
-            const submenuLabel = document.createElement('div');
-            submenuLabel.className = 'mobile-nav-submenu-label';
+            // Hide label text and add chevron icon directly to the nav link
+            const labelEl = navLink.querySelector('.mobile-nav-label');
+            if (labelEl) labelEl.style.display = 'none';
 
             const chevron = document.createElement('span');
-            chevron.className = 'mobile-nav-chevron';
+            chevron.className = 'mobile-nav-chevron-indicator';
             chevron.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
-
-            submenuLabel.textContent = T.nav?.[item.slug]?.label || item.slug;
-            submenuLabel.appendChild(chevron);
+            navLink.appendChild(chevron);
 
             const submenu = document.createElement('div');
             submenu.className = 'mobile-nav-submenu';
@@ -120,13 +126,12 @@ window.renderSubmenu = () => {
                 submenu.appendChild(childLink);
             });
 
-            submenuWrap.appendChild(submenuLabel);
-            submenuWrap.appendChild(submenu);
-            navLink.parentNode.insertBefore(submenuWrap, navLink.nextSibling);
+            navLink.appendChild(submenu);
 
-            // Toggle on click
-            submenuLabel.addEventListener('click', () => {
-                submenuWrap.classList.toggle('open');
+            // Toggle submenu on click
+            navLink.addEventListener('click', e => {
+                e.preventDefault();
+                navLink.classList.toggle('open');
             });
         });
     }
