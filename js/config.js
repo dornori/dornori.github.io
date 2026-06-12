@@ -152,6 +152,7 @@ const CONFIG = {
         files:               { file: 'files.html'             },
         'mission-statement': { file: 'mission-statement.html' },
         about:               { file: 'about-us.html'          },
+        python:              { file: 'files/python.html'      },
         terms:               { file: 'terms.html'             },
         privacy:             { file: 'privacy.html'           },
         children:            { file: 'children.html'          },
