@@ -212,3 +212,41 @@ export async function initI18n() {
     window.__CART_URL__ = cartUrl(BASE(), lang, window.T);
     injectHreflangTags('', window.T);
 }
+
+/**
+ * Detect parent/child relationship from URL segments
+ * Returns { slug, parentSlug } if child, { slug, parentSlug: null } if parent
+ * E.g., /en/files/python/ → { slug: 'python', parentSlug: 'files' }
+ */
+export function parsePageFromUrl(urlSegments, langData) {
+    if (urlSegments.length === 0) return { slug: '', parentSlug: null };
+    
+    const CONFIG = window.CONFIG || {};
+    const slugs = langData?.url_slugs || {};
+    
+    if (urlSegments.length === 1) {
+        // Single segment: parent page
+        const slug = canonicalSlug(langData, urlSegments[0]) || urlSegments[0];
+        return { slug, parentSlug: null };
+    }
+    
+    if (urlSegments.length >= 2) {
+        // Two or more segments: potential parent/child
+        const firstSegment = urlSegments[0];
+        const secondSegment = urlSegments[1];
+        
+        const potentialParent = canonicalSlug(langData, firstSegment) || firstSegment;
+        const potentialChild = canonicalSlug(langData, secondSegment) || secondSegment;
+        
+        // Check if first segment is a parent in config
+        const parentConfig = CONFIG.navigation?.find(n => n.slug === potentialParent);
+        if (parentConfig?.children?.find(c => c.slug === potentialChild)) {
+            return { slug: potentialChild, parentSlug: potentialParent };
+        }
+        
+        // Otherwise treat second segment as the main slug
+        return { slug: potentialChild, parentSlug: null };
+    }
+    
+    return { slug: '', parentSlug: null };
+}

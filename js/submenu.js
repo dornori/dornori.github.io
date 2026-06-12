@@ -11,10 +11,14 @@ import { setSVGContent } from './utils/dom-safe.js';
 
 const SITE_CONFIG = window.CONFIG || {};
 
-function navHref(slug) {
+function navHref(slug, parentSlug) {
     const lang    = window.LANG || 'en';
     const base    = SITE_CONFIG.appearance.base_path;
     const urlSlug = getSlug(window.T, slug);
+    if (parentSlug) {
+        const parentUrlSlug = getSlug(window.T, parentSlug);
+        return `${base}${lang}/${parentUrlSlug}/${urlSlug}/`;
+    }
     return `${base}${lang}/${urlSlug}/`;
 }
 
@@ -42,14 +46,14 @@ window.renderSubmenu = () => {
                 if (!child.enabled) return;
 
                 const childLink = document.createElement('a');
-                childLink.href = child.url || navHref(child.slug);
+                childLink.href = child.url || navHref(child.slug, item.slug);
                 childLink.className = 'nav-submenu-item';
                 childLink.textContent = child.label || (T.nav?.[child.slug]?.label || child.slug);
 
                 if (!child.url) {
                     childLink.addEventListener('click', e => {
                         e.preventDefault();
-                        window.viewPage(child.slug);
+                        window.viewPage(child.slug, null, false, false, item.slug);
                     });
                 } else {
                     childLink.target = '_blank';
@@ -117,7 +121,7 @@ window.renderSubmenu = () => {
                 if (!child.enabled) return;
 
                 const childLink = document.createElement('a');
-                childLink.href = child.url || navHref(child.slug);
+                childLink.href = child.url || navHref(child.slug, item.slug);
                 childLink.className = 'mobile-submenu-child-item';
                 childLink.textContent = child.label || (T.nav?.[child.slug]?.label || child.slug);
 
@@ -126,7 +130,7 @@ window.renderSubmenu = () => {
                         e.preventDefault();
                         panel.classList.remove('open');
                         overlay.classList.remove('open');
-                        window.viewPage(child.slug);
+                        window.viewPage(child.slug, null, false, false, item.slug);
                     });
                 } else {
                     childLink.target = '_blank';

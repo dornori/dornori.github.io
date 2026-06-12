@@ -215,9 +215,13 @@ export function initPageLoader() {
     }
 
     // ── PAGE URL ─────────────────────────────────────────────────────────────
-    function pageUrl(slug, lang, extra) {
+    function pageUrl(slug, lang, extra, parentSlug) {
         const base    = SITE_CONFIG.appearance.base_path;
         const urlSlug = getSlug(window.T, slug);
+        if (parentSlug) {
+            const parentUrlSlug = getSlug(window.T, parentSlug);
+            return `${base}${lang}/${parentUrlSlug}/${urlSlug}/${extra || ''}`;
+        }
         return `${base}${lang}/${urlSlug}/${extra || ''}`;
     }
 
@@ -287,7 +291,7 @@ export function initPageLoader() {
     }
 
     // ── VIEW PAGE ────────────────────────────────────────────────────────────
-    window.viewPage = async (slug, productId, fromPopstate = false, skipSpinner = false) => {
+    window.viewPage = async (slug, productId, fromPopstate = false, skipSpinner = false, parentSlug = null) => {
         const page = SITE_CONFIG.pages[slug];
         if (!page) { if (ENV_CONFIG.DEBUG) console.error(`Page "${slug}" not found in config`); return; }
 
@@ -358,7 +362,7 @@ export function initPageLoader() {
             const lang = window.LANG || fallbackLang();
             const qs   = productId ? `?id=${productId}` : '';
             if (!fromPopstate) {
-                window.history.pushState({ slug, lang, productId }, '', pageUrl(slug, lang, qs));
+                window.history.pushState({ slug, lang, productId, parentSlug }, '', pageUrl(slug, lang, qs, parentSlug));
             }
             updateSEO(slug);
             document.dispatchEvent(new CustomEvent('page:ready'));
@@ -456,7 +460,7 @@ export function initPageLoader() {
     window.addEventListener('popstate', (e) => {
         if (e.state?.slug) {
             // Restore a page view without pushing new history
-            window.viewPage(e.state.slug, e.state.productId || null, true);
+            window.viewPage(e.state.slug, e.state.productId || null, true, false, e.state.parentSlug || null);
         } else {
             // Restore home view without pushing new history
             requestAnimationFrame(() => {
