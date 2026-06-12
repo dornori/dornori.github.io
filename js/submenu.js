@@ -2,7 +2,8 @@
  * submenu.js
  * ─────────────────────────────────────────────────────────────────────────────
  * Desktop: Hover dropdowns for items with children
- * Mobile: Slide-out panel on tap, parent at top (also selectable), then children below
+ * Mobile: Slide-out panel on left tap, parent at top (selectable), then children
+ *         Panel auto-closes after tapping leaf item (child)
  */
 
 import { getSlug } from './i18n.js';
@@ -99,7 +100,7 @@ window.renderSubmenu = () => {
             header.appendChild(title);
             panel.appendChild(header);
 
-            // Parent item (selectable)
+            // Parent item (selectable) - tapping this doesn't close panel
             const parentItem = document.createElement('a');
             parentItem.href = navHref(item.slug);
             parentItem.className = 'mobile-submenu-parent-item';
@@ -107,10 +108,11 @@ window.renderSubmenu = () => {
             parentItem.addEventListener('click', e => {
                 e.preventDefault();
                 window.viewPage(item.slug);
+                // Parent tap doesn't auto-close - user can still access children
             });
             panel.appendChild(parentItem);
 
-            // Children items
+            // Children items - tapping these WILL close panel (leaf items)
             item.children.forEach(child => {
                 if (!child.enabled) return;
 
@@ -122,11 +124,18 @@ window.renderSubmenu = () => {
                 if (!child.url) {
                     childLink.addEventListener('click', e => {
                         e.preventDefault();
+                        panel.classList.remove('open');
+                        overlay.classList.remove('open');
                         window.viewPage(child.slug);
                     });
                 } else {
                     childLink.target = '_blank';
                     childLink.rel = 'noopener noreferrer';
+                    childLink.addEventListener('click', () => {
+                        // External links also close panel
+                        panel.classList.remove('open');
+                        overlay.classList.remove('open');
+                    });
                 }
 
                 panel.appendChild(childLink);
