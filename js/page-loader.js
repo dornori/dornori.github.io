@@ -431,9 +431,16 @@ export function initPageLoader() {
         const parts      = relativePath.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
         const langCodes  = new Set(SITE_CONFIG.languages.map(l => l.code));
 
-        let lang = null, urlSegment = null;
+        let lang = null, urlSegment = null, parentUrlSegment = null;
         if (parts.length >= 2 && langCodes.has(parts[0])) {
-            lang = parts[0]; urlSegment = parts[1];
+            lang = parts[0];
+            // Handle potential parent/child: /en/files/python/
+            if (parts.length >= 3) {
+                parentUrlSegment = parts[1];
+                urlSegment = parts[2];
+            } else {
+                urlSegment = parts[1];
+            }
         } else if (parts.length === 1 && langCodes.has(parts[0])) {
             lang = parts[0];
         } else if (parts.length === 1) {
@@ -443,9 +450,20 @@ export function initPageLoader() {
         if (urlSegment) {
             // Reverse-lookup using current lang bundle (window.T was loaded by initI18n)
             const slug = canonicalSlug(window.T, urlSegment) || urlSegment;
+            let parentSlug = null;
+            
+            // If we have a potential parent, validate it and extract slug
+            if (parentUrlSegment) {
+                const potentialParentSlug = canonicalSlug(window.T, parentUrlSegment) || parentUrlSegment;
+                const parentConfig = SITE_CONFIG.navigation?.find(n => n.slug === potentialParentSlug);
+                if (parentConfig?.children?.find(c => c.slug === slug)) {
+                    parentSlug = potentialParentSlug;
+                }
+            }
+            
             if (SITE_CONFIG.pages[slug]) {
                 const pid = new URLSearchParams(window.location.search).get('id') || null;
-                window.viewPage(slug, pid);
+                window.viewPage(slug, pid, false, false, parentSlug);
                 return;
             }
         }
@@ -509,7 +527,14 @@ export function initPageLoader() {
         if (parts.length < 1) return;
 
         const lang = langCodes.has(parts[0]) ? parts[0] : null;
-        const urlSegment = lang ? parts[1] : parts[0];
+        let urlSegment = lang ? parts[1] : parts[0];
+        let parentUrlSegment = null;
+        
+        // Handle parent/child: /en/files/python/ → lang=en, parent=files, urlSegment=python
+        if (lang && parts.length >= 3) {
+            parentUrlSegment = parts[1];
+            urlSegment = parts[2];
+        }
 
         // Home URL: /en/ with no further segment
         if (lang && !urlSegment) {
@@ -530,6 +555,16 @@ export function initPageLoader() {
 
         e.preventDefault();
 
+        // Check if this is a child page with a parent
+        let parentSlug = null;
+        if (parentUrlSegment) {
+            const potentialParentSlug = canonicalSlug(window.T, parentUrlSegment) || parentUrlSegment;
+            const parentConfig = SITE_CONFIG.navigation?.find(n => n.slug === potentialParentSlug);
+            if (parentConfig?.children?.find(c => c.slug === slug)) {
+                parentSlug = potentialParentSlug;
+            }
+        }
+
         // Switch language silently if the link points to a different lang
         const switchLang = lang && lang !== (window.LANG || fallbackLang());
         if (switchLang) {
@@ -541,15 +576,15 @@ export function initPageLoader() {
                 m.loadLanguage(lang).then(T => {
                     window.T = T;
                     const pid = url.searchParams.get('id') || null;
-                    window.viewPage(slug, pid);
+                    window.viewPage(slug, pid, false, false, parentSlug);
                 });
             }).catch(() => {
                 const pid = url.searchParams.get('id') || null;
-                window.viewPage(slug, pid);
+                window.viewPage(slug, pid, false, false, parentSlug);
             });
         } else {
             const pid = url.searchParams.get('id') || null;
-            window.viewPage(slug, pid);
+            window.viewPage(slug, pid, false, false, parentSlug);
         }
     });
 
