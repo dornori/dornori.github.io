@@ -152,7 +152,7 @@ const CONFIG = {
         files:               { file: 'files.html'             },
         'mission-statement': { file: 'mission-statement.html' },
         about:               { file: 'about-us.html'          },
-        python:              { file: 'files/python.html'      },
+        python:              { file: 'python.html'   	      },
         terms:               { file: 'terms.html'             },
         privacy:             { file: 'privacy.html'           },
         children:            { file: 'children.html'          },
@@ -184,7 +184,7 @@ const CONFIG = {
 
     // ── Payment Providers ─────────────────────────────────────────────────────
     paymentProviders: [
-        { id: 'visa',       label: 'Visa',             file: 'visa',       enabled: true  },
+        { id: 'visa',       label: 'Visa',              file: 'visa',       enabled: true  },
         { id: 'mastercard', label: 'Mastercard',        file: 'mastercard', enabled: true  },
         { id: 'amex',       label: 'American Express',  file: 'amex',       enabled: true  },
         { id: 'paypal',     label: 'PayPal',            file: 'paypal',     enabled: true  },
