@@ -129,11 +129,18 @@ const CONFIG = {
 
     // ── Navigation ────────────────────────────────────────────────────────────
     navigation: [
-        { slug: 'about',  icon: 'about-icon-200x200.svg',           type: 'standard', enabled: true  },
+        { slug: 'about',  icon: 'about-icon-200x200.svg',           type: 'standard', enabled: true,  children: [
+            { slug: 'terms',   label: 'Terms',   url: 'https://dornori.com/en/terms/',   enabled: true },
+            { slug: 'privacy', label: 'Privacy', url: 'https://dornori.com/en/privacy/', enabled: true },
+            { slug: 'cookies', label: 'Cookies', url: 'https://dornori.com/en/cookies/', enabled: true },
+        ] },
         { slug: 'built',  icon: 'assembled-lamp-icon-200x200.svg',  type: 'standard', enabled: true  },
         { slug: 'kit',    icon: 'building-kit-icon-200x200.svg',    type: 'standard', enabled: true  },
         { slug: 'parts',  icon: '3d-printer-icon-200x200.svg',      type: 'standard', enabled: true  },
-        { slug: 'files',  icon: '3d-file-icon-200x200.svg',         type: 'standard', enabled: true  },
+        { slug: 'files',  icon: '3d-file-icon-200x200.svg',         type: 'standard', enabled: true,  children: [
+            { slug: 'python', label: 'Python', enabled: true },
+            { slug: 'gallery', label: 'Gallery', enabled: true },
+        ] },
         { slug: 'shop',   icon: 'shop-icon-200x200.svg',            type: 'standard', enabled: true  },
     ],
 
@@ -145,6 +152,7 @@ const CONFIG = {
         files:               { file: 'files.html'             },
         'mission-statement': { file: 'mission-statement.html' },
         about:               { file: 'about-us.html'          },
+        python:              { file: 'python.html'            },
         terms:               { file: 'terms.html'             },
         privacy:             { file: 'privacy.html'           },
         children:            { file: 'children.html'          },

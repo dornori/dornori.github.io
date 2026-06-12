@@ -10,6 +10,7 @@
 
 import { getSlug, getProfileLabel } from './i18n.js';
 import { setSVGContent } from './utils/dom-safe.js';
+import { initSubmenu } from './submenu.js';
 
 const SITE_CONFIG = window.CONFIG || {};
 
@@ -155,6 +156,11 @@ window.renderNav = () => {
             }
             mobileNav.appendChild(mobileCartSlot);
         }
+    }
+
+    // Re-render submenus after main nav update
+    if (typeof window.renderSubmenu === 'function') {
+        window.renderSubmenu();
     }
 };
 
@@ -308,5 +314,6 @@ export function initNavigation() {
     }
 
     window.renderNav();
+    initSubmenu();
     document.dispatchEvent(new CustomEvent('nav:ready'));
 }
