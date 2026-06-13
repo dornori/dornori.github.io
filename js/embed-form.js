@@ -108,7 +108,7 @@ function initFormInstance(root, uid) {
         clearEmailError();
 
         if (captchaSlot.innerHTML.trim() === '') {
-            btn.textContent = window.T?.ui?.btn_verifying || 'VERIFYING…';
+            btn.textContent = 'VERIFYING…';
 
             if (typeof window.turnstile === 'undefined') {
                 executeSubmission(btn, showSuccess);
@@ -120,7 +120,7 @@ function initFormInstance(root, uid) {
                 theme: 'dark',
                 callback: () => executeSubmission(btn, showSuccess),
                 'error-callback': () => {
-                    btn.textContent = window.T?.ui?.btn_retry || 'RETRY';
+                    btn.textContent = 'RETRY';
                     if (captchaSlot.innerHTML.trim()) {
                         window.turnstile.reset(captchaSlot);
                     }
@@ -148,7 +148,7 @@ async function executeSubmission(btn, onSuccess) {
         }
     } catch (err) {
         if (ENV_CONFIG.DEBUG) console.error('Queue error submitting newsletter:', err);
-        btn.textContent = window.T?.ui?.btn_join || 'JOIN';
+        btn.textContent = 'JOIN';
         onSuccess();
     }
 }

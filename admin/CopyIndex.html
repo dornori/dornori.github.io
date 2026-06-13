@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dornori - Multi-Language Index Generator</title>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #1a3a2a;
+    --accent: #a8d5b5;
+    --border: rgba(255, 255, 255, 0.28);
+    --text: #e8f2ec;
+    --text-muted: #9dc8ae;
+    --header-bg: #112b1e;
+    --danger: #d97070;
+    --warning: #d4a847;
+    --warning-bg: rgba(212, 168, 71, 0.15);
+    --danger-bg: rgba(217, 112, 112, 0.15);
+    --success: #6aad84;
+    --radius: 6px;
+    --radius-lg: 10px;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 20px;
+    min-height: 100vh;
+    overflow-y: auto;
+}
+
+.container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding-bottom: 60px;
+}
+
+.header {
+    margin-bottom: 30px;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+    padding: 10px 0;
+}
+
+h1 {
+    color: var(--accent);
+    font-size: 1.8rem;
+    margin-bottom: 8px;
+}
+
+.subtitle {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.card {
+    background: var(--header-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.card-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.two-column {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 800px) {
+    .two-column { grid-template-columns: 1fr; }
+}
+
+.setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.setting-row label {
+    font-weight: 600;
+    min-width: 120px;
+    color: var(--text-muted);
+}
+
+.setting-row input, .setting-row select {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    font-family: monospace;
+}
+
+button {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.8rem;
+}
+
+button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+button.primary {
+    background: var(--accent);
+    color: var(--header-bg);
+    border-color: var(--accent);
+}
+
+button.primary:hover {
+    background: #c8edd5;
+}
+
+button.danger {
+    border-color: rgba(217, 112, 112, 0.4);
+    color: var(--danger);
+}
+
+button.warning {
+    border-color: var(--warning);
+    color: var(--warning);
+}
+
+button.success {
+    border-color: var(--success);
+    color: var(--success);
+}
+
+button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+    position: sticky;
+    bottom: 10px;
+    background: var(--bg);
+    padding: 10px 0;
+    z-index: 10;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    background: var(--header-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 15px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--accent);
+}
+
+.stat-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 5px;
+}
+
+.progress-bar {
+    background: var(--bg);
+    height: 30px;
+    border-radius: 15px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.progress-fill {
+    background: var(--accent);
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--header-bg);
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+/* FIXED HEIGHT SCROLLABLE LOG */
+.log-container {
+    background: var(--header-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.log {
+    font-family: monospace;
+    font-size: 0.7rem;
+}
+
+.log-entry {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    font-family: monospace;
+    flex-shrink: 0;
+}
+
+.log-entry.info { color: var(--text-muted); }
+.log-entry.success { color: var(--accent); }
+.log-entry.error { color: var(--danger); }
+.log-entry.warning { color: var(--warning); }
+
+/* Auto-scroll control */
+.log-auto-scroll {
+    position: sticky;
+    bottom: 0;
+    background: var(--header-bg);
+    padding: 5px;
+    text-align: center;
+    border-top: 1px solid var(--border);
+    margin-top: 5px;
+}
+
+.log-auto-scroll button {
+    padding: 2px 8px;
+    font-size: 0.7rem;
+}
+
+.folder-tree {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.lang-item {
+    margin: 5px 0;
+    padding: 8px 10px;
+    background: var(--bg);
+    border-radius: var(--radius);
+    cursor: pointer;
+    border-left: 3px solid transparent;
+}
+
+.lang-item:hover {
+    background: rgba(168, 213, 181, 0.1);
+}
+
+.lang-item.has-errors {
+    background: var(--danger-bg);
+    border-left-color: var(--danger);
+}
+
+.lang-item.has-warnings {
+    background: var(--warning-bg);
+    border-left-color: var(--warning);
+}
+
+.lang-item.selected {
+    background: rgba(168, 213, 181, 0.2);
+    border-left-color: var(--accent);
+}
+
+.error-badge {
+    background: var(--danger);
+    color: var(--header-bg);
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.65rem;
+    font-weight: bold;
+    margin-left: 8px;
+}
+
+.warning-badge {
+    background: var(--warning);
+    color: var(--header-bg);
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.65rem;
+    font-weight: bold;
+    margin-left: 8px;
+}
+
+.status-bar {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--header-bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 0.7rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 100;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted);
+}
+
+.status-dot.ok { background: var(--accent); }
+.status-dot.error { background: var(--danger); }
+.status-dot.warning { background: var(--warning); }
+.status-dot.loading { background: var(--warning); animation: pulse 1s infinite; }
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+.upload-area {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.upload-area:hover {
+    border-color: var(--accent);
+    background: rgba(168, 213, 181, 0.05);
+}
+
+.error-summary {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger);
+    border-radius: var(--radius);
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.error-summary h4 {
+    color: var(--danger);
+    margin-bottom: 10px;
+}
+
+.error-item {
+    padding: 5px 0;
+    font-size: 0.75rem;
+    font-family: monospace;
+}
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.9);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal {
+    background: var(--header-bg);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-lg);
+    width: min(600px, 90vw);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    color: var(--danger);
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Simple hash display */
+.hash-preview {
+    font-family: monospace;
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🌍 Dornori Multi-Language Index Generator</h1>
+        <div class="subtitle">Validates all languages against base English slugs | Auto-fixes missing mappings | Content-based file validation</div>
+    </div>
+
+    <div class="two-column">
+        <div>
+            <div class="card">
+                <div class="card-title">⚙️ Configuration</div>
+                <div class="setting-row">
+                    <label>Site Root Folder:</label>
+                    <button id="selectRootBtn" class="primary">📂 Select Folder</button>
+                </div>
+                <div id="rootPath" style="margin-top: 10px; font-size: 0.7rem; color: var(--text-muted); word-break: break-all;"></div>
+                
+                <div class="setting-row">
+                    <label>Base Language:</label>
+                    <select id="baseLang"></select>
+                </div>
+                
+                <div class="setting-row">
+                    <label>Template File:</label>
+                    <div class="upload-area" id="uploadArea" style="padding: 10px; flex: 1;">
+                        📁 Click to upload index.html template
+                        <input type="file" id="templateFile" accept=".html" style="display: none;">
+                    </div>
+                </div>
+                <div id="templateStatus" style="font-size: 0.7rem; margin-top: 8px;"></div>
+            </div>
+        </div>
+
+        <div>
+            <div class="card">
+                <div class="card-title">📊 Language Status</div>
+                <div id="languagesList" class="folder-tree">
+                    <div style="color: var(--text-muted);">No folder selected</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Summary -->
+    <div id="errorSummary" style="display: none;"></div>
+
+    <!-- Stats -->
+    <div class="stats" id="stats" style="display: none;">
+        <div class="stat-card">
+            <div class="stat-value" id="langCount">0</div>
+            <div class="stat-label">Languages Found</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="slugCount">0</div>
+            <div class="stat-label">Base URL Slugs</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="missingCount">0</div>
+            <div class="stat-label">Missing Mappings</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="folderCount">0</div>
+            <div class="stat-label">Folders to Create</div>
+        </div>
+    </div>
+
+    <!-- Preview -->
+    <div class="card" id="previewCard" style="display: none;">
+        <div class="card-title">
+            📋 Generation Preview
+            <button id="fixMissingBtn" class="warning" style="display: none;">🔧 Auto-Fix Missing Mappings</button>
+        </div>
+        <div id="previewTree" class="folder-tree"></div>
+    </div>
+
+    <!-- Progress -->
+    <div class="card" id="progressCard" style="display: none;">
+        <div class="card-title">⚡ Generating...</div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill">0%</div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="button-group">
+        <button id="scanBtn" disabled>🔍 Scan & Validate Languages</button>
+        <button id="generateBtn" disabled class="primary">✨ Generate All Index Files</button>
+        <button id="clearLogBtn">🗑️ Clear Log</button>
+    </div>
+
+    <!-- Log with fixed height and auto-scroll control -->
+    <div class="card">
+        <div class="card-title">📋 Activity Log</div>
+        <div class="log-container" id="logContainer">
+            <div class="log" id="log"></div>
+            <div class="log-auto-scroll">
+                <button id="toggleAutoScrollBtn" style="font-size: 0.65rem;">⏸️ Pause Auto-Scroll</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Ready</span>
+</div>
+
+<!-- Modal for confirmation -->
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>⚠️ Confirm Auto-Fix</h3>
+            <button onclick="closeModal()" style="background: none; border: none; color: var(--text); font-size: 1.2rem;">✕</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-footer">
+            <button onclick="closeModal()">Cancel</button>
+            <button id="confirmFixBtn" class="warning">Proceed with Fix</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let dirHandle = null;
+let config = {
+    rootFolder: '',
+    baseLanguage: 'en',
+    templateContent: null,
+    templateName: '',
+    templateHash: null
+};
+
+let languages = [];
+let baseSlugs = {};
+let foldersToCreate = [];
+let missingMappings = [];
+
+// Auto-scroll control
+let autoScrollEnabled = true;
+let logContainer = null;
+let logDiv = null;
+
+const CONFIG_FILE = 'admin/generator-config.json';
+
+// ============================================================
+// HASH FUNCTION for content validation
+// ============================================================
+async function computeHash(content) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(content);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex;
+}
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function addLog(msg, type = 'info') {
+    const logDivElement = document.getElementById('log');
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type}`;
+    entry.textContent = `${new Date().toLocaleTimeString()} - ${msg}`;
+    logDivElement.appendChild(entry);
+    
+    // Auto-scroll only if enabled
+    if (autoScrollEnabled) {
+        const container = document.getElementById('logContainer');
+        container.scrollTop = container.scrollHeight;
+    }
+    
+    document.getElementById('statusText').textContent = msg;
+    const dot = document.getElementById('statusDot');
+    dot.className = `status-dot ${type === 'success' ? 'ok' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : type === 'loading' ? 'loading' : ''}`;
+}
+
+// Toggle auto-scroll
+document.getElementById('toggleAutoScrollBtn').onclick = () => {
+    autoScrollEnabled = !autoScrollEnabled;
+    const btn = document.getElementById('toggleAutoScrollBtn');
+    if (autoScrollEnabled) {
+        btn.textContent = '⏸️ Pause Auto-Scroll';
+        btn.style.opacity = '1';
+        // Scroll to bottom immediately when re-enabling
+        const container = document.getElementById('logContainer');
+        container.scrollTop = container.scrollHeight;
+    } else {
+        btn.textContent = '▶️ Resume Auto-Scroll';
+        btn.style.opacity = '0.7';
+    }
+    addLog(`Auto-scroll ${autoScrollEnabled ? 'enabled' : 'paused'}`, 'info');
+};
+
+async function readFile(path) {
+    if (!dirHandle) return null;
+    const parts = path.split('/').filter(Boolean);
+    let h = dirHandle;
+    for (const p of parts.slice(0, -1)) {
+        try { h = await h.getDirectoryHandle(p); } catch { return null; }
+    }
+    try {
+        const fh = await h.getFileHandle(parts.at(-1));
+        return await (await fh.getFile()).text();
+    } catch { return null; }
+}
+
+async function writeFile(path, content) {
+    if (!dirHandle) return false;
+    const parts = path.split('/').filter(Boolean);
+    let h = dirHandle;
+    for (const p of parts.slice(0, -1)) {
+        h = await h.getDirectoryHandle(p, { create: true });
+    }
+    const fh = await h.getFileHandle(parts.at(-1), { create: true });
+    const w = await fh.createWritable();
+    await w.write(content);
+    await w.close();
+    return true;
+}
+
+async function ensureDirectory(path) {
+    const parts = path.split('/').filter(Boolean);
+    let h = dirHandle;
+    for (const p of parts) {
+        h = await h.getDirectoryHandle(p, { create: true });
+    }
+    return h;
+}
+
+async function fileExistsAndMatches(path, expectedContent, expectedHash) {
+    try {
+        const existingContent = await readFile(path);
+        if (!existingContent) return false;
+        
+        // Compute hash of existing content
+        const existingHash = await computeHash(existingContent);
+        
+        // Compare hashes (not just filenames!)
+        return existingHash === expectedHash;
+    } catch {
+        return false;
+    }
+}
+
+function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('active');
+}
+
+// ============================================================
+// CONFIG MANAGEMENT
+// ============================================================
+async function saveConfig() {
+    if (!dirHandle) return;
+    const configToSave = {
+        rootFolder: config.rootFolder,
+        baseLanguage: config.baseLanguage,
+        templateName: config.templateName,
+        templateHash: config.templateHash
+    };
+    await writeFile(CONFIG_FILE, JSON.stringify(configToSave, null, 2));
+    addLog('Configuration saved', 'success');
+}
+
+async function loadConfig() {
+    if (!dirHandle) return;
+    const content = await readFile(CONFIG_FILE);
+    if (content) {
+        try {
+            const saved = JSON.parse(content);
+            config.baseLanguage = saved.baseLanguage || 'en';
+            config.templateName = saved.templateName || '';
+            config.templateHash = saved.templateHash || null;
+            addLog('Loaded saved configuration', 'success');
+        } catch (e) {}
+    }
+    document.getElementById('baseLang').value = config.baseLanguage;
+}
+
+// ============================================================
+// FOLDER SELECTION
+// ============================================================
+document.getElementById('selectRootBtn').onclick = async () => {
+    try {
+        dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        config.rootFolder = dirHandle.name;
+        document.getElementById('rootPath').innerHTML = `📁 ${dirHandle.name}`;
+        addLog(`Connected to: ${dirHandle.name}`, 'success');
+        
+        await loadConfig();
+        await scanAndValidateLanguages();
+        
+        document.getElementById('scanBtn').disabled = false;
+        
+        await saveConfig();
+    } catch (err) {
+        if (err.name !== 'AbortError') {
+            addLog(`Error: ${err.message}`, 'error');
+        }
+    }
+};
+
+// ============================================================
+// TEMPLATE UPLOAD
+// ============================================================
+const uploadArea = document.getElementById('uploadArea');
+const templateFile = document.getElementById('templateFile');
+
+uploadArea.onclick = () => templateFile.click();
+
+templateFile.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !file.name.endsWith('.html')) {
+        addLog('Please select an .html file', 'error');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+        config.templateContent = ev.target.result;
+        config.templateName = file.name;
+        config.templateHash = await computeHash(config.templateContent);
+        
+        document.getElementById('templateStatus').innerHTML = `✅ Template: ${file.name}<br><span class="hash-preview">Hash: ${config.templateHash.substring(0, 16)}...</span>`;
+        addLog(`Template loaded: ${file.name} (hash: ${config.templateHash.substring(0, 16)}...)`, 'success');
+        
+        if (dirHandle) await saveConfig();
+        document.getElementById('generateBtn').disabled = !(languages.length > 0 && config.templateContent);
+    };
+    reader.readAsText(file);
+};
+
+// ============================================================
+// SCAN & VALIDATE LANGUAGES
+// ============================================================
+async function scanAndValidateLanguages() {
+    if (!dirHandle) return;
+    
+    addLog('Scanning and validating languages...', 'loading');
+    languages = [];
+    missingMappings = [];
+    
+    try {
+        let langHandle;
+        try {
+            langHandle = await dirHandle.getDirectoryHandle('lang');
+        } catch {
+            addLog('No /lang/ folder found in root', 'error');
+            return;
+        }
+        
+        // Scan all language folders
+        for await (const entry of langHandle.values()) {
+            if (entry.kind === 'directory') {
+                const langCode = entry.name;
+                
+                try {
+                    const commonFile = await entry.getFileHandle('common.json');
+                    const content = await (await commonFile.getFile()).text();
+                    const commonJson = JSON.parse(content);
+                    const urlSlugs = commonJson.url_slugs || {};
+                    
+                    languages.push({
+                        code: langCode,
+                        handle: entry,
+                        commonJson: commonJson,
+                        urlSlugs: urlSlugs,
+                        missingSlugs: []
+                    });
+                    
+                    if (langCode === config.baseLanguage) {
+                        baseSlugs = { ...urlSlugs };
+                        addLog(`Base language: ${langCode} (${Object.keys(baseSlugs).length} slugs)`, 'success');
+                    }
+                    
+                    addLog(`Found language: ${langCode} (${Object.keys(urlSlugs).length} slugs)`, 'success');
+                } catch (err) {
+                    addLog(`⚠️ ${langCode}/common.json not found or invalid`, 'warning');
+                }
+            }
+        }
+        
+        const baseLangData = languages.find(l => l.code === config.baseLanguage);
+        if (!baseLangData) {
+            addLog(`❌ Base language "${config.baseLanguage}" not found in /lang/ folder!`, 'error');
+            return;
+        }
+        
+        // Validate each language against base slugs
+        for (const lang of languages) {
+            if (lang.code === config.baseLanguage) continue;
+            
+            const missing = [];
+            for (const slugId of Object.keys(baseSlugs)) {
+                if (!lang.urlSlugs[slugId]) {
+                    missing.push(slugId);
+                }
+            }
+            
+            lang.missingSlugs = missing;
+            if (missing.length > 0) {
+                missingMappings.push({
+                    lang: lang.code,
+                    missingSlugs: missing
+                });
+                addLog(`⚠️ ${lang.code}: Missing ${missing.length} slug mappings`, 'warning');
+            }
+        }
+        
+        // Update language list display with errors
+        displayLanguageList();
+        displayErrorSummary();
+        
+        // Update stats
+        document.getElementById('stats').style.display = 'grid';
+        document.getElementById('langCount').textContent = languages.length;
+        document.getElementById('slugCount').textContent = Object.keys(baseSlugs).length;
+        document.getElementById('missingCount').textContent = missingMappings.reduce((sum, m) => sum + m.missingSlugs.length, 0);
+        
+        await buildFolderList();
+        
+        if (languages.length > 0 && config.templateContent) {
+            document.getElementById('generateBtn').disabled = false;
+        }
+        
+        const fixBtn = document.getElementById('fixMissingBtn');
+        if (missingMappings.length > 0) {
+            fixBtn.style.display = 'inline-block';
+        } else {
+            fixBtn.style.display = 'none';
+        }
+        
+    } catch (err) {
+        addLog(`Scan error: ${err.message}`, 'error');
+    }
+}
+
+function displayLanguageList() {
+    const langListDiv = document.getElementById('languagesList');
+    
+    langListDiv.innerHTML = languages.map(lang => {
+        let statusClass = '';
+        let badge = '';
+        
+        if (lang.code === config.baseLanguage) {
+            statusClass = '';
+            badge = '<span class="success-badge" style="background: var(--success); padding: 2px 6px; border-radius: 10px; font-size: 0.65rem; margin-left: 8px;">BASE</span>';
+        } else if (lang.missingSlugs.length > 0) {
+            statusClass = 'has-errors';
+            badge = `<span class="error-badge">${lang.missingSlugs.length} missing</span>`;
+        }
+        
+        return `
+            <div class="lang-item ${statusClass}">
+                <strong>📁 ${lang.code}</strong> - ${Object.keys(lang.urlSlugs).length}/${Object.keys(baseSlugs).length} slugs
+                ${badge}
+            </div>
+        `;
+    }).join('');
+}
+
+function displayErrorSummary() {
+    const summaryDiv = document.getElementById('errorSummary');
+    
+    if (missingMappings.length === 0) {
+        summaryDiv.style.display = 'none';
+        return;
+    }
+    
+    let html = '<div class="error-summary"><h4>⚠️ MISSING URL SLUG MAPPINGS</h4>';
+    html += '<div style="max-height: 200px; overflow-y: auto;">';
+    
+    for (const missing of missingMappings) {
+        html += `<div class="error-item"><strong style="color: var(--danger);">${missing.lang}:</strong> missing `;
+        html += missing.missingSlugs.map(slug => `<code style="background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px;">${slug}</code>`).join(', ');
+        html += '</div>';
+    }
+    
+    html += '</div></div>';
+    summaryDiv.innerHTML = html;
+    summaryDiv.style.display = 'block';
+}
+
+async function buildFolderList() {
+    if (!dirHandle || languages.length === 0) return;
+    
+    foldersToCreate = [];
+    const baseLangData = languages.find(l => l.code === config.baseLanguage);
+    
+    if (!baseLangData) {
+        addLog(`Base language "${config.baseLanguage}" not found`, 'error');
+        return;
+    }
+    
+    for (const lang of languages) {
+        if (lang.code === config.baseLanguage) continue;
+        
+        for (const [englishId, englishValue] of Object.entries(baseSlugs)) {
+            let localizedFolder = lang.urlSlugs[englishId];
+            
+            if (!localizedFolder) {
+                continue;
+            }
+            
+            if (localizedFolder === englishId) {
+                continue;
+            }
+            
+            foldersToCreate.push({
+                lang: lang.code,
+                englishId: englishId,
+                slugValue: englishValue,
+                folderName: localizedFolder,
+                expectedHash: null // Will be computed during generation
+            });
+        }
+        
+        foldersToCreate.push({
+            lang: lang.code,
+            englishId: 'home',
+            slugValue: 'home',
+            folderName: '',
+            expectedHash: null
+        });
+    }
+    
+    document.getElementById('folderCount').textContent = foldersToCreate.length;
+    displayPreview();
+}
+
+function displayPreview() {
+    const previewDiv = document.getElementById('previewTree');
+    const grouped = {};
+    
+    for (const folder of foldersToCreate) {
+        if (!grouped[folder.lang]) grouped[folder.lang] = [];
+        grouped[folder.lang].push(folder);
+    }
+    
+    let html = '';
+    for (const [lang, folders] of Object.entries(grouped)) {
+        const langData = languages.find(l => l.code === lang);
+        const hasMissing = langData && langData.missingSlugs.length > 0;
+        
+        html += `<div style="margin: 10px 0;">`;
+        if (hasMissing) {
+            html += `<strong style="color: var(--danger);">⚠️ ${lang}/ (${langData.missingSlugs.length} missing slugs)</strong>`;
+        } else {
+            html += `<strong style="color: var(--accent);">📁 ${lang}/</strong>`;
+        }
+        html += `<div style="margin-left: 20px;">`;
+        
+        for (const f of folders) {
+            const displayPath = f.folderName ? `${f.folderName}/` : '(homepage)';
+            html += `<div style="font-family: monospace; font-size: 0.7rem; margin: 2px 0;">
+                        📄 ${displayPath}index.html → slug: "${f.slugValue}"
+                     </div>`;
+        }
+        html += `</div></div>`;
+    }
+    
+    previewDiv.innerHTML = html || '<div>No folders to create</div>';
+    document.getElementById('previewCard').style.display = 'block';
+}
+
+// ============================================================
+// AUTO-FIX MISSING MAPPINGS
+// ============================================================
+async function autoFixMissingMappings() {
+    if (missingMappings.length === 0) {
+        addLog('No missing mappings to fix', 'info');
+        return;
+    }
+    
+    const modalBody = document.getElementById('modalBody');
+    let html = '<p>This will add the following missing slug mappings to each language\'s common.json file:</p><ul>';
+    
+    for (const missing of missingMappings) {
+        html += `<li><strong>${missing.lang}:</strong> ${missing.missingSlugs.join(', ')}</li>`;
+    }
+    html += '</ul><p style="margin-top: 10px;">The new slugs will be added with the same value as the English slug (temporary). You should review and translate them later.</p>';
+    
+    modalBody.innerHTML = html;
+    document.getElementById('modalOverlay').classList.add('active');
+    
+    document.getElementById('confirmFixBtn').onclick = async () => {
+        closeModal();
+        await performAutoFix();
+    };
+}
+
+async function performAutoFix() {
+    addLog('Starting auto-fix for missing mappings...', 'loading');
+    let fixedCount = 0;
+    
+    for (const missing of missingMappings) {
+        const langData = languages.find(l => l.code === missing.lang);
+        if (!langData) continue;
+        
+        try {
+            for (const missingSlug of missing.missingSlugs) {
+                langData.urlSlugs[missingSlug] = missingSlug;
+                addLog(`➕ Added "${missingSlug}" → "${missingSlug}" to ${missing.lang}`, 'success');
+            }
+            
+            langData.commonJson.url_slugs = langData.urlSlugs;
+            const updatedContent = JSON.stringify(langData.commonJson, null, 2);
+            
+            const fileHandle = await langData.handle.getFileHandle('common.json', { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(updatedContent);
+            await writable.close();
+            
+            fixedCount += missing.missingSlugs.length;
+            
+        } catch (err) {
+            addLog(`Failed to fix ${missing.lang}: ${err.message}`, 'error');
+        }
+    }
+    
+    addLog(`✅ Auto-fix complete! Added ${fixedCount} missing mappings. Please review and translate them.`, 'success');
+    await scanAndValidateLanguages();
+}
+
+// ============================================================
+// GENERATE INDEX FILES with CONTENT HASH VALIDATION
+// ============================================================
+function replaceTemplateVariables(content, lang, slug) {
+    const LANG_PATTERN = /window\.__PAGE_LANG__\s*=\s*['"]([^'"]*)['"]/;
+    const SLUG_PATTERN = /window\.__PAGE_SLUG__\s*=\s*['"]([^'"]*)['"]/;
+    
+    let result = content.replace(LANG_PATTERN, `window.__PAGE_LANG__ = '${lang}';`);
+    result = result.replace(SLUG_PATTERN, `window.__PAGE_SLUG__ = '${slug}';`);
+    return result;
+}
+
+async function generateAll() {
+    if (!dirHandle || !config.templateContent || foldersToCreate.length === 0) {
+        addLog('Missing: folder, template, or no folders to create', 'error');
+        return;
+    }
+    
+    if (missingMappings.length > 0) {
+        addLog(`⚠️ WARNING: ${missingMappings.reduce((s,m)=>s+m.missingSlugs.length,0)} missing slug mappings. Some folders will not be created.`, 'warning');
+        addLog('Use "Auto-Fix Missing Mappings" first for complete generation.', 'warning');
+    }
+    
+    document.getElementById('progressCard').style.display = 'block';
+    const progressFill = document.getElementById('progressFill');
+    let success = 0;
+    let errors = 0;
+    let skipped = 0;
+    
+    for (let i = 0; i < foldersToCreate.length; i++) {
+        const item = foldersToCreate[i];
+        const percent = ((i + 1) / foldersToCreate.length) * 100;
+        progressFill.style.width = `${percent}%`;
+        progressFill.textContent = `${Math.round(percent)}%`;
+        
+        try {
+            let targetPath = item.lang;
+            if (item.folderName) {
+                targetPath += '/' + item.folderName;
+            }
+            
+            await ensureDirectory(targetPath);
+            
+            const generatedHtml = replaceTemplateVariables(
+                config.templateContent,
+                item.lang,
+                item.slugValue
+            );
+            
+            // Compute hash of the generated content
+            const newHash = await computeHash(generatedHtml);
+            const fullPath = `${targetPath}/index.html`;
+            
+            // Check if file exists AND content matches (by hash)
+            const existsAndMatches = await fileExistsAndMatches(fullPath, generatedHtml, newHash);
+            
+            if (existsAndMatches) {
+                skipped++;
+                addLog(`⏭️ Skipped (content unchanged): ${fullPath} (hash: ${newHash.substring(0, 12)}...)`, 'info');
+            } else {
+                // Check if file exists but content is different
+                let oldHash = null;
+                try {
+                    const oldContent = await readFile(fullPath);
+                    if (oldContent) oldHash = await computeHash(oldContent);
+                } catch (e) {}
+                
+                await writeFile(fullPath, generatedHtml);
+                success++;
+                
+                if (oldHash) {
+                    addLog(`🔄 Updated: ${fullPath} (hash changed: ${oldHash.substring(0, 12)}... → ${newHash.substring(0, 12)}...)`, 'success');
+                } else {
+                    addLog(`✅ Created: ${fullPath} (hash: ${newHash.substring(0, 12)}...)`, 'success');
+                }
+            }
+            
+        } catch (err) {
+            errors++;
+            addLog(`❌ Failed: ${item.lang}/${item.folderName} - ${err.message}`, 'error');
+        }
+    }
+    
+    addLog(`✨ Complete! ${success} created/updated, ${skipped} unchanged (content match), ${errors} errors.`, 'success');
+    setTimeout(() => document.getElementById('progressCard').style.display = 'none', 2000);
+}
+
+// ============================================================
+// EVENT HANDLERS
+// ============================================================
+document.getElementById('scanBtn').onclick = scanAndValidateLanguages;
+document.getElementById('generateBtn').onclick = generateAll;
+document.getElementById('clearLogBtn').onclick = () => {
+    document.getElementById('log').innerHTML = '';
+    addLog('Log cleared', 'info');
+};
+document.getElementById('fixMissingBtn').onclick = autoFixMissingMappings;
+
+document.getElementById('baseLang').onchange = () => {
+    config.baseLanguage = document.getElementById('baseLang').value;
+    saveConfig();
+    scanAndValidateLanguages();
+};
+
+if (!('showDirectoryPicker' in window)) {
+    addLog('⚠️ Requires Microsoft Edge or Chrome with File System Access API', 'error');
+    document.getElementById('selectRootBtn').disabled = true;
+}
+
+addLog('Ready! Select your site root folder to begin.', 'info');
+</script>
+</body>
+</html>
