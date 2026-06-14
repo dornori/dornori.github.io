@@ -158,8 +158,9 @@ button.warning {
 }
 
 button.success {
+    background: var(--success);
+    color: var(--header-bg);
     border-color: var(--success);
-    color: var(--success);
 }
 
 button:disabled {
@@ -227,7 +228,6 @@ button:disabled {
     font-weight: bold;
 }
 
-/* FIXED HEIGHT SCROLLABLE LOG */
 .log-container {
     background: var(--header-bg);
     border: 1px solid var(--border);
@@ -256,7 +256,6 @@ button:disabled {
 .log-entry.error { color: var(--danger); }
 .log-entry.warning { color: var(--warning); }
 
-/* Auto-scroll control */
 .log-auto-scroll {
     position: sticky;
     bottom: 0;
@@ -284,6 +283,7 @@ button:disabled {
     border-radius: var(--radius);
     cursor: pointer;
     border-left: 3px solid transparent;
+    transition: all 0.2s;
 }
 
 .lang-item:hover {
@@ -408,8 +408,8 @@ button:disabled {
     background: var(--header-bg);
     border: 1px solid var(--accent);
     border-radius: var(--radius-lg);
-    width: min(600px, 90vw);
-    max-height: 80vh;
+    width: min(800px, 90vw);
+    max-height: 85vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -424,7 +424,7 @@ button:disabled {
 }
 
 .modal-header h3 {
-    color: var(--danger);
+    color: var(--warning);
 }
 
 .modal-body {
@@ -441,12 +441,70 @@ button:disabled {
     gap: 10px;
 }
 
-/* Simple hash display */
 .hash-preview {
     font-family: monospace;
     font-size: 0.6rem;
     color: var(--text-muted);
     margin-top: 4px;
+}
+
+.success-badge {
+    background: var(--success);
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.65rem;
+    margin-left: 8px;
+    color: var(--header-bg);
+    font-weight: bold;
+}
+
+.slug-edit-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.slug-edit-table th,
+.slug-edit-table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.slug-edit-table th {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+
+.slug-edit-table input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    font-family: monospace;
+    font-size: 0.8rem;
+}
+
+.slug-edit-table input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.slug-id {
+    font-family: monospace;
+    color: var(--accent);
+    font-size: 0.8rem;
+}
+
+.edit-hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 10px;
+    padding: 8px;
+    background: var(--bg);
+    border-radius: var(--radius);
 }
 </style>
 </head>
@@ -454,7 +512,7 @@ button:disabled {
 <div class="container">
     <div class="header">
         <h1>🌍 Dornori Multi-Language Index Generator</h1>
-        <div class="subtitle">Validates all languages against base English slugs | Auto-fixes missing mappings | Content-based file validation</div>
+        <div class="subtitle">Validates all languages against base English slugs | Edit missing slugs manually | Auto-fixes missing mappings</div>
     </div>
 
     <div class="two-column">
@@ -493,10 +551,8 @@ button:disabled {
         </div>
     </div>
 
-    <!-- Error Summary -->
     <div id="errorSummary" style="display: none;"></div>
 
-    <!-- Stats -->
     <div class="stats" id="stats" style="display: none;">
         <div class="stat-card">
             <div class="stat-value" id="langCount">0</div>
@@ -512,11 +568,10 @@ button:disabled {
         </div>
         <div class="stat-card">
             <div class="stat-value" id="folderCount">0</div>
-            <div class="stat-label">Folders to Create</div>
+            <div class="stat-label">Pages to Generate</div>
         </div>
     </div>
 
-    <!-- Preview -->
     <div class="card" id="previewCard" style="display: none;">
         <div class="card-title">
             📋 Generation Preview
@@ -525,7 +580,6 @@ button:disabled {
         <div id="previewTree" class="folder-tree"></div>
     </div>
 
-    <!-- Progress -->
     <div class="card" id="progressCard" style="display: none;">
         <div class="card-title">⚡ Generating...</div>
         <div class="progress-bar">
@@ -533,14 +587,12 @@ button:disabled {
         </div>
     </div>
 
-    <!-- Actions -->
     <div class="button-group">
         <button id="scanBtn" disabled>🔍 Scan & Validate Languages</button>
         <button id="generateBtn" disabled class="primary">✨ Generate All Index Files</button>
         <button id="clearLogBtn">🗑️ Clear Log</button>
     </div>
 
-    <!-- Log with fixed height and auto-scroll control -->
     <div class="card">
         <div class="card-title">📋 Activity Log</div>
         <div class="log-container" id="logContainer">
@@ -557,25 +609,21 @@ button:disabled {
     <span id="statusText">Ready</span>
 </div>
 
-<!-- Modal for confirmation -->
 <div class="modal-overlay" id="modalOverlay">
     <div class="modal">
         <div class="modal-header">
-            <h3>⚠️ Confirm Auto-Fix</h3>
+            <h3 id="modalTitle">✏️ Edit Missing Slug Mappings</h3>
             <button onclick="closeModal()" style="background: none; border: none; color: var(--text); font-size: 1.2rem;">✕</button>
         </div>
         <div class="modal-body" id="modalBody"></div>
         <div class="modal-footer">
             <button onclick="closeModal()">Cancel</button>
-            <button id="confirmFixBtn" class="warning">Proceed with Fix</button>
+            <button id="saveSlugsBtn" class="success">💾 Save Changes</button>
         </div>
     </div>
 </div>
 
 <script>
-// ============================================================
-// STATE
-// ============================================================
 let dirHandle = null;
 let config = {
     rootFolder: '',
@@ -589,29 +637,19 @@ let languages = [];
 let baseSlugs = {};
 let foldersToCreate = [];
 let missingMappings = [];
-
-// Auto-scroll control
 let autoScrollEnabled = true;
-let logContainer = null;
-let logDiv = null;
-
+let currentEditingLang = null;
+let currentEditingSlugs = {};
 const CONFIG_FILE = 'admin/generator-config.json';
 
-// ============================================================
-// HASH FUNCTION for content validation
-// ============================================================
 async function computeHash(content) {
     const encoder = new TextEncoder();
     const data = encoder.encode(content);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    return hashHex;
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ============================================================
-// UTILITIES
-// ============================================================
 function addLog(msg, type = 'info') {
     const logDivElement = document.getElementById('log');
     const entry = document.createElement('div');
@@ -619,7 +657,6 @@ function addLog(msg, type = 'info') {
     entry.textContent = `${new Date().toLocaleTimeString()} - ${msg}`;
     logDivElement.appendChild(entry);
     
-    // Auto-scroll only if enabled
     if (autoScrollEnabled) {
         const container = document.getElementById('logContainer');
         container.scrollTop = container.scrollHeight;
@@ -630,14 +667,12 @@ function addLog(msg, type = 'info') {
     dot.className = `status-dot ${type === 'success' ? 'ok' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : type === 'loading' ? 'loading' : ''}`;
 }
 
-// Toggle auto-scroll
 document.getElementById('toggleAutoScrollBtn').onclick = () => {
     autoScrollEnabled = !autoScrollEnabled;
     const btn = document.getElementById('toggleAutoScrollBtn');
     if (autoScrollEnabled) {
         btn.textContent = '⏸️ Pause Auto-Scroll';
         btn.style.opacity = '1';
-        // Scroll to bottom immediately when re-enabling
         const container = document.getElementById('logContainer');
         container.scrollTop = container.scrollHeight;
     } else {
@@ -683,38 +718,712 @@ async function ensureDirectory(path) {
     return h;
 }
 
-async function fileExistsAndMatches(path, expectedContent, expectedHash) {
+async function ensureBaseLanguageIntegrity() {
+    if (!dirHandle) return false;
+    
     try {
-        const existingContent = await readFile(path);
-        if (!existingContent) return false;
+        let langFolder;
+        try {
+            langFolder = await dirHandle.getDirectoryHandle('lang');
+        } catch {
+            langFolder = await dirHandle.getDirectoryHandle('lang', { create: true });
+            addLog('✅ Created missing /lang folder', 'success');
+        }
         
-        // Compute hash of existing content
-        const existingHash = await computeHash(existingContent);
+        let baseFolder;
+        try {
+            baseFolder = await langFolder.getDirectoryHandle(config.baseLanguage);
+        } catch {
+            baseFolder = await langFolder.getDirectoryHandle(config.baseLanguage, { create: true });
+            addLog(`✅ Created missing /lang/${config.baseLanguage} folder`, 'success');
+        }
         
-        // Compare hashes (not just filenames!)
-        return existingHash === expectedHash;
-    } catch {
+        const commonJsonPath = `lang/${config.baseLanguage}/common.json`;
+        let existingContent = await readFile(commonJsonPath);
+        let commonJson = null;
+        let needsUpdate = false;
+        
+        const defaultSlugs = {
+            "home": "home",
+            "about": "about",
+            "services": "services",
+            "products": "products",
+            "blog": "blog",
+            "contact": "contact",
+            "faq": "faq",
+            "privacy": "privacy",
+            "terms": "terms",
+            "support": "support",
+            "python": "python",
+            "reviews": "reviews"
+        };
+        
+        if (existingContent) {
+            try {
+                commonJson = JSON.parse(existingContent);
+                if (!commonJson.url_slugs || typeof commonJson.url_slugs !== 'object') {
+                    addLog(`⚠️ Base common.json has invalid url_slugs structure, will recreate`, 'warning');
+                    needsUpdate = true;
+                    commonJson = null;
+                } else {
+                    for (const [key, value] of Object.entries(defaultSlugs)) {
+                        if (!commonJson.url_slugs[key]) {
+                            addLog(`⚠️ Base missing slug "${key}", will add`, 'warning');
+                            commonJson.url_slugs[key] = value;
+                            needsUpdate = true;
+                        }
+                    }
+                    if (!needsUpdate) {
+                        addLog(`✅ Base common.json exists and is valid`, 'success');
+                    }
+                }
+            } catch (e) {
+                addLog(`⚠️ Base common.json corrupted, will regenerate`, 'warning');
+                needsUpdate = true;
+                commonJson = null;
+            }
+        } else {
+            addLog(`⚠️ Base common.json missing, creating fresh file`, 'warning');
+            needsUpdate = true;
+        }
+        
+        if (!commonJson) {
+            commonJson = {
+                "language": config.baseLanguage,
+                "direction": "ltr",
+                "url_slugs": { ...defaultSlugs },
+                "meta": {
+                    "generator": "Dornori",
+                    "version": "1.0.0",
+                    "created": new Date().toISOString(),
+                    "lastValidated": new Date().toISOString()
+                }
+            };
+        } else if (needsUpdate) {
+            commonJson.meta = commonJson.meta || {};
+            commonJson.meta.lastValidated = new Date().toISOString();
+        }
+        
+        if (needsUpdate) {
+            const newContent = JSON.stringify(commonJson, null, 2);
+            await writeFile(commonJsonPath, newContent);
+            addLog(`✅ Updated base common.json with validated slugs`, 'success');
+        }
+        
+        baseSlugs = commonJson.url_slugs;
+        
+        const existingIdx = languages.findIndex(l => l.code === config.baseLanguage);
+        const baseLangEntry = {
+            code: config.baseLanguage,
+            handle: baseFolder,
+            commonJson: commonJson,
+            urlSlugs: baseSlugs,
+            missingSlugs: []
+        };
+        
+        if (existingIdx >= 0) {
+            languages[existingIdx] = baseLangEntry;
+        } else {
+            languages.push(baseLangEntry);
+        }
+        
+        const baseSelect = document.getElementById('baseLang');
+        if (!Array.from(baseSelect.options).some(opt => opt.value === config.baseLanguage)) {
+            const option = document.createElement('option');
+            option.value = config.baseLanguage;
+            option.textContent = config.baseLanguage;
+            baseSelect.appendChild(option);
+        }
+        baseSelect.value = config.baseLanguage;
+        
+        addLog(`✨ Base language "${config.baseLanguage}" verified with ${Object.keys(baseSlugs).length} slugs`, 'success');
+        return true;
+        
+    } catch (err) {
+        addLog(`❌ Base language integrity check failed: ${err.message}`, 'error');
         return false;
     }
 }
 
-function closeModal() {
-    document.getElementById('modalOverlay').classList.remove('active');
+async function scanOtherLanguages() {
+    try {
+        const langFolder = await dirHandle.getDirectoryHandle('lang');
+        for await (const entry of langFolder.values()) {
+            if (entry.kind === 'directory' && entry.name !== config.baseLanguage) {
+                const langCode = entry.name;
+                try {
+                    const fileHandle = await entry.getFileHandle('common.json');
+                    const content = await (await fileHandle.getFile()).text();
+                    const commonJson = JSON.parse(content);
+                    const urlSlugs = commonJson.url_slugs || {};
+                    
+                    const existingIndex = languages.findIndex(l => l.code === langCode);
+                    const langData = {
+                        code: langCode,
+                        handle: entry,
+                        commonJson: commonJson,
+                        urlSlugs: urlSlugs,
+                        missingSlugs: []
+                    };
+                    
+                    if (existingIndex >= 0) {
+                        languages[existingIndex] = langData;
+                    } else {
+                        languages.push(langData);
+                    }
+                    
+                    const baseSelect = document.getElementById('baseLang');
+                    if (!Array.from(baseSelect.options).some(opt => opt.value === langCode)) {
+                        const option = document.createElement('option');
+                        option.value = langCode;
+                        option.textContent = langCode;
+                        baseSelect.appendChild(option);
+                    }
+                    
+                    addLog(`  📁 ${langCode} - ${Object.keys(urlSlugs).length}/${Object.keys(baseSlugs).length} slugs`, 'success');
+                } catch (err) {
+                    addLog(`  ⚠️ ${langCode}/common.json invalid or missing`, 'warning');
+                }
+            }
+        }
+    } catch (err) {
+        if (err.name !== 'NotFoundError') {
+            addLog(`Scan other languages warning: ${err.message}`, 'warning');
+        }
+    }
 }
 
-// ============================================================
-// CONFIG MANAGEMENT
-// ============================================================
+async function validateMissingSlugs() {
+    missingMappings = [];
+    for (const lang of languages) {
+        if (lang.code === config.baseLanguage) continue;
+        const missing = [];
+        for (const slugId of Object.keys(baseSlugs)) {
+            if (!lang.urlSlugs[slugId]) {
+                missing.push(slugId);
+            }
+        }
+        lang.missingSlugs = missing;
+        if (missing.length > 0) {
+            missingMappings.push({ lang: lang.code, missingSlugs: missing });
+            addLog(`⚠️ ${lang.code}: Missing ${missing.length} slug mappings`, 'warning');
+        }
+    }
+}
+
+async function buildFolderList() {
+    if (!dirHandle || languages.length === 0) return;
+    
+    foldersToCreate = [];
+    
+    for (const lang of languages) {
+        for (const [slugId, slugValue] of Object.entries(baseSlugs)) {
+            let folderName = null;
+            
+            if (lang.code === config.baseLanguage) {
+                if (slugId !== 'home') {
+                    folderName = slugId;
+                }
+            } else {
+                const localizedSlug = lang.urlSlugs[slugId];
+                if (localizedSlug && slugId !== 'home') {
+                    folderName = localizedSlug;
+                }
+            }
+            
+            foldersToCreate.push({
+                lang: lang.code,
+                slugId: slugId,
+                slugValue: slugValue,
+                folderName: folderName || '',
+                isBase: lang.code === config.baseLanguage,
+                isHomepage: slugId === 'home'
+            });
+        }
+    }
+    
+    const uniqueKeys = new Set();
+    const uniqueFolders = [];
+    for (const folder of foldersToCreate) {
+        const key = `${folder.lang}|${folder.folderName}|${folder.slugId}`;
+        if (!uniqueKeys.has(key)) {
+            uniqueKeys.add(key);
+            uniqueFolders.push(folder);
+        }
+    }
+    foldersToCreate = uniqueFolders;
+    
+    document.getElementById('folderCount').textContent = foldersToCreate.length;
+    displayPreview();
+}
+
+function displayPreview() {
+    const previewDiv = document.getElementById('previewTree');
+    const grouped = {};
+    
+    for (const folder of foldersToCreate) {
+        if (!grouped[folder.lang]) grouped[folder.lang] = [];
+        grouped[folder.lang].push(folder);
+    }
+    
+    let html = '';
+    for (const [lang, folders] of Object.entries(grouped)) {
+        const isBaseLang = lang === config.baseLanguage;
+        const langIcon = isBaseLang ? '⭐' : '🌍';
+        html += `<div style="margin: 12px 0; border-left: 2px solid var(--accent); padding-left: 12px;">
+                    <strong style="color: ${isBaseLang ? 'var(--accent)' : 'var(--text)'};">${langIcon} ${lang}${isBaseLang ? ' (BASE LANGUAGE)' : ''}</strong>
+                    <div style="margin-left: 20px; margin-top: 8px;">`;
+        
+        const byFolder = {};
+        for (const f of folders) {
+            const folderKey = f.folderName || '(root)';
+            if (!byFolder[folderKey]) byFolder[folderKey] = [];
+            byFolder[folderKey].push(f);
+        }
+        
+        for (const [folderName, folderItems] of Object.entries(byFolder)) {
+            if (folderName === '(root)') {
+                html += `<div style="margin: 6px 0;"><span style="color: var(--accent);">📁 /</span> (language root)<br>`;
+                for (const item of folderItems) {
+                    html += `<div style="margin-left: 20px; font-family: monospace; font-size: 0.7rem;">
+                                📄 <strong>index.html</strong> → slug: "${item.slugValue}" (${item.slugId})
+                             </div>`;
+                }
+                html += `</div>`;
+            } else {
+                html += `<div style="margin: 6px 0;"><span style="color: var(--accent);">📁 /${folderName}/</span><br>`;
+                for (const item of folderItems) {
+                    html += `<div style="margin-left: 20px; font-family: monospace; font-size: 0.7rem;">
+                                📄 <strong>index.html</strong> → slug: "${item.slugValue}" (${item.slugId})
+                             </div>`;
+                }
+                html += `</div>`;
+            }
+        }
+        
+        html += `</div></div>`;
+    }
+    
+    if (foldersToCreate.length === 0) {
+        previewDiv.innerHTML = '<div style="color: var(--text-muted);">No pages to generate. Run scan first.</div>';
+    } else {
+        previewDiv.innerHTML = html;
+        const summary = document.createElement('div');
+        summary.style.marginTop = '15px';
+        summary.style.padding = '10px';
+        summary.style.background = 'var(--bg)';
+        summary.style.borderRadius = 'var(--radius)';
+        summary.style.fontSize = '0.75rem';
+        summary.innerHTML = `<strong>📊 Summary:</strong> ${foldersToCreate.length} total pages to generate across ${Object.keys(grouped).length} languages`;
+        previewDiv.appendChild(summary);
+    }
+    
+    document.getElementById('previewCard').style.display = 'block';
+}
+
+function displayLanguageList() {
+    const container = document.getElementById('languagesList');
+    if (languages.length === 0) {
+        container.innerHTML = '<div style="color: var(--text-muted);">No languages found</div>';
+        return;
+    }
+    container.innerHTML = languages.map(lang => {
+        const isBase = lang.code === config.baseLanguage;
+        const missingCount = lang.missingSlugs?.length || 0;
+        const hasErrors = !isBase && missingCount > 0;
+        return `
+            <div class="lang-item ${hasErrors ? 'has-errors' : ''}" onclick="editLanguageMappings('${lang.code}')">
+                <strong>📁 ${lang.code}</strong> - ${Object.keys(lang.urlSlugs).length}/${Object.keys(baseSlugs).length} slugs
+                ${isBase ? '<span class="success-badge">BASE</span>' : ''}
+                ${hasErrors ? `<span class="error-badge">${missingCount} missing</span>` : ''}
+                ${!isBase && missingCount > 0 ? '<span style="float: right; font-size: 0.65rem;">✏️ Click to edit</span>' : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+function displayErrorSummary() {
+    const summaryDiv = document.getElementById('errorSummary');
+    if (missingMappings.length === 0) {
+        summaryDiv.style.display = 'none';
+        return;
+    }
+    let html = '<div class="error-summary"><h4>⚠️ MISSING URL SLUG MAPPINGS</h4><div style="max-height: 200px; overflow-y: auto;">';
+    for (const missing of missingMappings) {
+        html += `<div class="error-item">
+                    <strong style="color: var(--danger);">${missing.lang}:</strong> missing 
+                    ${missing.missingSlugs.map(slug => `<code>${slug}</code>`).join(', ')}
+                    <button class="edit-lang-btn" onclick="editLanguageMappings('${missing.lang}')" style="margin-left: 10px; padding: 2px 8px; font-size: 0.65rem;">✏️ Edit</button>
+                 </div>`;
+    }
+    html += '</div></div>';
+    summaryDiv.innerHTML = html;
+    summaryDiv.style.display = 'block';
+}
+
+function updateStats() {
+    document.getElementById('stats').style.display = 'grid';
+    document.getElementById('langCount').textContent = languages.length;
+    document.getElementById('slugCount').textContent = Object.keys(baseSlugs).length;
+    document.getElementById('missingCount').textContent = missingMappings.reduce((sum, m) => sum + m.missingSlugs.length, 0);
+}
+
+async function scanAndValidateLanguages() {
+    if (!dirHandle) return;
+    addLog('🔍 Scanning languages with base integrity check...', 'loading');
+    languages = [];
+    missingMappings = [];
+    
+    const baseOk = await ensureBaseLanguageIntegrity();
+    if (!baseOk) {
+        addLog('❌ Base language validation failed, cannot continue', 'error');
+        return;
+    }
+    await scanOtherLanguages();
+    await validateMissingSlugs();
+    displayLanguageList();
+    displayErrorSummary();
+    updateStats();
+    await buildFolderList();
+    document.getElementById('scanBtn').disabled = false;
+    if (languages.length > 0 && config.templateContent) {
+        document.getElementById('generateBtn').disabled = false;
+    }
+    document.getElementById('fixMissingBtn').style.display = missingMappings.length > 0 ? 'inline-block' : 'none';
+    addLog('✅ Scan complete! Click on any language with errors to edit missing slugs.', 'success');
+}
+
+// NEW FUNCTION: Edit language mappings (missing slugs only)
+window.editLanguageMappings = function(langCode) {
+    const langData = languages.find(l => l.code === langCode);
+    if (!langData) return;
+    
+    currentEditingLang = langCode;
+    currentEditingSlugs = {};
+    
+    // Get missing slugs only
+    const missingSlugs = langData.missingSlugs || [];
+    
+    if (missingSlugs.length === 0) {
+        addLog(`✨ ${langCode} has no missing slugs!`, 'success');
+        return;
+    }
+    
+    // Prepare edit form
+    let html = `<p style="margin-bottom: 15px;"><strong>Language: ${langCode}</strong><br>
+                Edit the translated slugs for the missing entries below. English slug is shown as reference.</p>
+                <div class="edit-hint">💡 Tip: Leave empty to skip, or enter the translated slug for this language.</div>
+                <table class="slug-edit-table">
+                    <thead>
+                        <tr><th style="width: 30%">Slug ID (English)</th>
+                            <th style="width: 35%">English Value</th>
+                            <th style="width: 35%">Translated Slug (${langCode})</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+    
+    for (const slugId of missingSlugs) {
+        const englishValue = baseSlugs[slugId] || slugId;
+        const currentValue = langData.urlSlugs[slugId] || '';
+        html += `<tr>
+                    <td><code class="slug-id">${slugId}</code></td>
+                    <td><code style="color: var(--text-muted);">${englishValue}</code></td>
+                    <td><input type="text" id="slug_${slugId}" value="${currentValue || englishValue}" placeholder="Enter ${langCode} translation" style="width: 100%;"></td>
+                 </tr>`;
+        currentEditingSlugs[slugId] = currentValue || englishValue;
+    }
+    
+    html += `</tbody></table>
+             <div class="edit-hint" style="margin-top: 15px;">
+                ⚡ Changes will be saved directly to <code>lang/${langCode}/common.json</code>
+             </div>`;
+    
+    document.getElementById('modalTitle').innerHTML = `✏️ Edit Missing Slugs for ${langCode}`;
+    document.getElementById('modalBody').innerHTML = html;
+    document.getElementById('modalOverlay').classList.add('active');
+    
+    // Update current values as user types
+    for (const slugId of missingSlugs) {
+        const input = document.getElementById(`slug_${slugId}`);
+        if (input) {
+            input.onchange = (e) => {
+                currentEditingSlugs[slugId] = e.target.value;
+            };
+        }
+    }
+};
+
+// Save edited slugs
+async function saveEditedSlugs() {
+    if (!currentEditingLang) return;
+    
+    const langData = languages.find(l => l.code === currentEditingLang);
+    if (!langData) return;
+    
+    try {
+        // Update the slugs with user-provided values
+        for (const [slugId, newValue] of Object.entries(currentEditingSlugs)) {
+            if (newValue && newValue.trim()) {
+                langData.urlSlugs[slugId] = newValue.trim();
+                addLog(`✏️ Updated "${slugId}" → "${newValue.trim()}" for ${currentEditingLang}`, 'success');
+            }
+        }
+        
+        // Update the common.json object
+        langData.commonJson.url_slugs = langData.urlSlugs;
+        langData.commonJson.meta = langData.commonJson.meta || {};
+        langData.commonJson.meta.lastEdited = new Date().toISOString();
+        
+        // Save to file
+        const updatedContent = JSON.stringify(langData.commonJson, null, 2);
+        const filePath = `lang/${currentEditingLang}/common.json`;
+        await writeFile(filePath, updatedContent);
+        
+        addLog(`✅ Saved ${currentEditingLang}/common.json with ${Object.keys(currentEditingSlugs).length} updated slug(s)`, 'success');
+        
+        // Close modal and rescan
+        closeModal();
+        await scanAndValidateLanguages();
+        
+    } catch (err) {
+        addLog(`❌ Failed to save: ${err.message}`, 'error');
+    }
+}
+
+function displayPreview() {
+    const previewDiv = document.getElementById('previewTree');
+    const grouped = {};
+    
+    for (const folder of foldersToCreate) {
+        if (!grouped[folder.lang]) grouped[folder.lang] = [];
+        grouped[folder.lang].push(folder);
+    }
+    
+    let html = '';
+    for (const [lang, folders] of Object.entries(grouped)) {
+        const isBaseLang = lang === config.baseLanguage;
+        const langIcon = isBaseLang ? '⭐' : '🌍';
+        html += `<div style="margin: 12px 0; border-left: 2px solid var(--accent); padding-left: 12px;">
+                    <strong style="color: ${isBaseLang ? 'var(--accent)' : 'var(--text)'};">${langIcon} ${lang}${isBaseLang ? ' (BASE LANGUAGE)' : ''}</strong>
+                    <div style="margin-left: 20px; margin-top: 8px;">`;
+        
+        const byFolder = {};
+        for (const f of folders) {
+            const folderKey = f.folderName || '(root)';
+            if (!byFolder[folderKey]) byFolder[folderKey] = [];
+            byFolder[folderKey].push(f);
+        }
+        
+        for (const [folderName, folderItems] of Object.entries(byFolder)) {
+            if (folderName === '(root)') {
+                html += `<div style="margin: 6px 0;"><span style="color: var(--accent);">📁 /</span> (language root)<br>`;
+                for (const item of folderItems) {
+                    html += `<div style="margin-left: 20px; font-family: monospace; font-size: 0.7rem;">
+                                📄 <strong>index.html</strong> → slug: "${item.slugValue}" (${item.slugId})
+                             </div>`;
+                }
+                html += `</div>`;
+            } else {
+                html += `<div style="margin: 6px 0;"><span style="color: var(--accent);">📁 /${folderName}/</span><br>`;
+                for (const item of folderItems) {
+                    html += `<div style="margin-left: 20px; font-family: monospace; font-size: 0.7rem;">
+                                📄 <strong>index.html</strong> → slug: "${item.slugValue}" (${item.slugId})
+                             </div>`;
+                }
+                html += `</div>`;
+            }
+        }
+        
+        html += `</div></div>`;
+    }
+    
+    if (foldersToCreate.length === 0) {
+        previewDiv.innerHTML = '<div style="color: var(--text-muted);">No pages to generate. Run scan first.</div>';
+    } else {
+        previewDiv.innerHTML = html;
+        const summary = document.createElement('div');
+        summary.style.marginTop = '15px';
+        summary.style.padding = '10px';
+        summary.style.background = 'var(--bg)';
+        summary.style.borderRadius = 'var(--radius)';
+        summary.style.fontSize = '0.75rem';
+        summary.innerHTML = `<strong>📊 Summary:</strong> ${foldersToCreate.length} total pages to generate across ${Object.keys(grouped).length} languages`;
+        previewDiv.appendChild(summary);
+    }
+    
+    document.getElementById('previewCard').style.display = 'block';
+}
+
+function setupTemplateUpload() {
+    const uploadArea = document.getElementById('uploadArea');
+    const templateInput = document.getElementById('templateFile');
+    const templateStatus = document.getElementById('templateStatus');
+    uploadArea.onclick = () => templateInput.click();
+    templateInput.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file || !file.name.endsWith('.html')) {
+            addLog('Please select an .html file', 'error');
+            return;
+        }
+        addLog(`Loading template: ${file.name}...`, 'loading');
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+            config.templateContent = ev.target.result;
+            config.templateName = file.name;
+            config.templateHash = await computeHash(config.templateContent);
+            templateStatus.innerHTML = `✅ ${file.name}<br><span class="hash-preview">Hash: ${config.templateHash.substring(0, 16)}...</span>`;
+            addLog(`✅ Template loaded: ${file.name}`, 'success');
+            if (dirHandle) await saveConfig();
+            if (languages.length > 0) document.getElementById('generateBtn').disabled = false;
+        };
+        reader.readAsText(file);
+    };
+}
+
+function replaceTemplateVariables(content, lang, slug) {
+    const LANG_PATTERN = /(window\.__PAGE_LANG__\s*=\s*)['"]([^'"]*)['"](\s*;)/;
+    const SLUG_PATTERN = /(window\.__PAGE_SLUG__\s*=\s*)['"]([^'"]*)['"](\s*;)/;
+    let result = content.replace(LANG_PATTERN, `$1'${lang}'$3`);
+    result = result.replace(SLUG_PATTERN, `$1'${slug}'$3`);
+    return result;
+}
+
+async function generateAll() {
+    if (!dirHandle || !config.templateContent || foldersToCreate.length === 0) {
+        addLog('Missing: folder, template, or pages to create', 'error');
+        return;
+    }
+    
+    if (missingMappings.length > 0) {
+        addLog(`⚠️ WARNING: ${missingMappings.reduce((s, m) => s + m.missingSlugs.length, 0)} missing slug mappings. Edit or Auto-Fix first.`, 'warning');
+    }
+    
+    document.getElementById('progressCard').style.display = 'block';
+    const progressFill = document.getElementById('progressFill');
+    let created = 0, updated = 0, skipped = 0, errors = 0;
+    
+    for (let i = 0; i < foldersToCreate.length; i++) {
+        const item = foldersToCreate[i];
+        const percent = ((i + 1) / foldersToCreate.length) * 100;
+        progressFill.style.width = `${percent}%`;
+        progressFill.textContent = `${Math.round(percent)}%`;
+        
+        try {
+            let fullPath;
+            
+            if (item.isBase && item.isHomepage) {
+                fullPath = `index.html`;
+            } else if (item.isHomepage) {
+                fullPath = `${item.lang}/index.html`;
+                await ensureDirectory(item.lang);
+            } else if (item.folderName) {
+                fullPath = `${item.lang}/${item.folderName}/index.html`;
+                await ensureDirectory(`${item.lang}/${item.folderName}`);
+            } else {
+                fullPath = `${item.lang}/${item.slugId}/index.html`;
+                await ensureDirectory(`${item.lang}/${item.slugId}`);
+            }
+            
+            const generatedHtml = replaceTemplateVariables(config.templateContent, item.lang, item.slugValue);
+            const newHash = await computeHash(generatedHtml);
+            
+            const existingContent = await readFile(fullPath);
+            let needsWrite = true;
+            let oldHash = null;
+            
+            if (existingContent) {
+                oldHash = await computeHash(existingContent);
+                if (oldHash === newHash) {
+                    needsWrite = false;
+                    skipped++;
+                    addLog(`⏭️ Skipped (unchanged): ${fullPath}`, 'info');
+                }
+            }
+            
+            if (needsWrite) {
+                await writeFile(fullPath, generatedHtml);
+                if (existingContent) {
+                    updated++;
+                    addLog(`🔄 Updated: ${fullPath}`, 'success');
+                } else {
+                    created++;
+                    addLog(`✅ Created: ${fullPath}`, 'success');
+                }
+            }
+            
+        } catch (err) {
+            errors++;
+            addLog(`❌ Failed: ${item.lang}/${item.folderName || item.slugId || 'home'} - ${err.message}`, 'error');
+        }
+    }
+    
+    addLog(`✨ Generation Complete! Created: ${created}, Updated: ${updated}, Skipped: ${skipped}, Errors: ${errors}`, 'success');
+    setTimeout(() => document.getElementById('progressCard').style.display = 'none', 3000);
+}
+
+async function autoFixMissingMappings() {
+    if (missingMappings.length === 0) {
+        addLog('No missing mappings to fix', 'info');
+        return;
+    }
+    const modalBody = document.getElementById('modalBody');
+    let html = '<p>This will add missing slug mappings to each language\'s common.json:</p><ul>';
+    for (const missing of missingMappings) {
+        html += `<li><strong>${missing.lang}:</strong> ${missing.missingSlugs.join(', ')}</li>`;
+    }
+    html += '</ul><p>New slugs will be added using English slug as placeholder.</p>';
+    modalBody.innerHTML = html;
+    document.getElementById('modalTitle').innerHTML = '⚠️ Confirm Auto-Fix';
+    document.getElementById('modalOverlay').classList.add('active');
+    document.getElementById('saveSlugsBtn').onclick = async () => {
+        closeModal();
+        addLog('Starting auto-fix for missing mappings...', 'loading');
+        let fixedCount = 0;
+        for (const missing of missingMappings) {
+            const langData = languages.find(l => l.code === missing.lang);
+            if (!langData) continue;
+            try {
+                for (const missingSlug of missing.missingSlugs) {
+                    langData.urlSlugs[missingSlug] = missingSlug;
+                    addLog(`➕ Added "${missingSlug}" → "${missingSlug}" to ${missing.lang}`, 'success');
+                }
+                langData.commonJson.url_slugs = langData.urlSlugs;
+                const updatedContent = JSON.stringify(langData.commonJson, null, 2);
+                const filePath = `lang/${missing.lang}/common.json`;
+                await writeFile(filePath, updatedContent);
+                fixedCount += missing.missingSlugs.length;
+            } catch (err) {
+                addLog(`Failed to fix ${missing.lang}: ${err.message}`, 'error');
+            }
+        }
+        addLog(`✅ Auto-fix complete! Added ${fixedCount} missing mappings.`, 'success');
+        await scanAndValidateLanguages();
+    };
+}
+
+async function selectFolder() {
+    try {
+        addLog('Opening folder picker...', 'info');
+        dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        config.rootFolder = dirHandle.name;
+        document.getElementById('rootPath').innerHTML = `📁 ${dirHandle.name}`;
+        addLog(`✅ Connected to: ${dirHandle.name}`, 'success');
+        await loadConfig();
+        await scanAndValidateLanguages();
+        await saveConfig();
+    } catch (err) {
+        if (err.name !== 'AbortError') addLog(`Error: ${err.message}`, 'error');
+    }
+}
+
 async function saveConfig() {
     if (!dirHandle) return;
-    const configToSave = {
+    await writeFile(CONFIG_FILE, JSON.stringify({
         rootFolder: config.rootFolder,
         baseLanguage: config.baseLanguage,
         templateName: config.templateName,
         templateHash: config.templateHash
-    };
-    await writeFile(CONFIG_FILE, JSON.stringify(configToSave, null, 2));
-    addLog('Configuration saved', 'success');
+    }, null, 2));
 }
 
 async function loadConfig() {
@@ -732,461 +1441,32 @@ async function loadConfig() {
     document.getElementById('baseLang').value = config.baseLanguage;
 }
 
-// ============================================================
-// FOLDER SELECTION
-// ============================================================
-document.getElementById('selectRootBtn').onclick = async () => {
-    try {
-        dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-        config.rootFolder = dirHandle.name;
-        document.getElementById('rootPath').innerHTML = `📁 ${dirHandle.name}`;
-        addLog(`Connected to: ${dirHandle.name}`, 'success');
-        
-        await loadConfig();
-        await scanAndValidateLanguages();
-        
-        document.getElementById('scanBtn').disabled = false;
-        
-        await saveConfig();
-    } catch (err) {
-        if (err.name !== 'AbortError') {
-            addLog(`Error: ${err.message}`, 'error');
-        }
-    }
-};
-
-// ============================================================
-// TEMPLATE UPLOAD
-// ============================================================
-const uploadArea = document.getElementById('uploadArea');
-const templateFile = document.getElementById('templateFile');
-
-uploadArea.onclick = () => templateFile.click();
-
-templateFile.onchange = async (e) => {
-    const file = e.target.files[0];
-    if (!file || !file.name.endsWith('.html')) {
-        addLog('Please select an .html file', 'error');
-        return;
-    }
-    
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-        config.templateContent = ev.target.result;
-        config.templateName = file.name;
-        config.templateHash = await computeHash(config.templateContent);
-        
-        document.getElementById('templateStatus').innerHTML = `✅ Template: ${file.name}<br><span class="hash-preview">Hash: ${config.templateHash.substring(0, 16)}...</span>`;
-        addLog(`Template loaded: ${file.name} (hash: ${config.templateHash.substring(0, 16)}...)`, 'success');
-        
-        if (dirHandle) await saveConfig();
-        document.getElementById('generateBtn').disabled = !(languages.length > 0 && config.templateContent);
-    };
-    reader.readAsText(file);
-};
-
-// ============================================================
-// SCAN & VALIDATE LANGUAGES
-// ============================================================
-async function scanAndValidateLanguages() {
-    if (!dirHandle) return;
-    
-    addLog('Scanning and validating languages...', 'loading');
-    languages = [];
-    missingMappings = [];
-    
-    try {
-        let langHandle;
-        try {
-            langHandle = await dirHandle.getDirectoryHandle('lang');
-        } catch {
-            addLog('No /lang/ folder found in root', 'error');
-            return;
-        }
-        
-        // Scan all language folders
-        for await (const entry of langHandle.values()) {
-            if (entry.kind === 'directory') {
-                const langCode = entry.name;
-                
-                try {
-                    const commonFile = await entry.getFileHandle('common.json');
-                    const content = await (await commonFile.getFile()).text();
-                    const commonJson = JSON.parse(content);
-                    const urlSlugs = commonJson.url_slugs || {};
-                    
-                    languages.push({
-                        code: langCode,
-                        handle: entry,
-                        commonJson: commonJson,
-                        urlSlugs: urlSlugs,
-                        missingSlugs: []
-                    });
-                    
-                    if (langCode === config.baseLanguage) {
-                        baseSlugs = { ...urlSlugs };
-                        addLog(`Base language: ${langCode} (${Object.keys(baseSlugs).length} slugs)`, 'success');
-                    }
-                    
-                    addLog(`Found language: ${langCode} (${Object.keys(urlSlugs).length} slugs)`, 'success');
-                } catch (err) {
-                    addLog(`⚠️ ${langCode}/common.json not found or invalid`, 'warning');
-                }
-            }
-        }
-        
-        const baseLangData = languages.find(l => l.code === config.baseLanguage);
-        if (!baseLangData) {
-            addLog(`❌ Base language "${config.baseLanguage}" not found in /lang/ folder!`, 'error');
-            return;
-        }
-        
-        // Validate each language against base slugs
-        for (const lang of languages) {
-            if (lang.code === config.baseLanguage) continue;
-            
-            const missing = [];
-            for (const slugId of Object.keys(baseSlugs)) {
-                if (!lang.urlSlugs[slugId]) {
-                    missing.push(slugId);
-                }
-            }
-            
-            lang.missingSlugs = missing;
-            if (missing.length > 0) {
-                missingMappings.push({
-                    lang: lang.code,
-                    missingSlugs: missing
-                });
-                addLog(`⚠️ ${lang.code}: Missing ${missing.length} slug mappings`, 'warning');
-            }
-        }
-        
-        // Update language list display with errors
-        displayLanguageList();
-        displayErrorSummary();
-        
-        // Update stats
-        document.getElementById('stats').style.display = 'grid';
-        document.getElementById('langCount').textContent = languages.length;
-        document.getElementById('slugCount').textContent = Object.keys(baseSlugs).length;
-        document.getElementById('missingCount').textContent = missingMappings.reduce((sum, m) => sum + m.missingSlugs.length, 0);
-        
-        await buildFolderList();
-        
-        if (languages.length > 0 && config.templateContent) {
-            document.getElementById('generateBtn').disabled = false;
-        }
-        
-        const fixBtn = document.getElementById('fixMissingBtn');
-        if (missingMappings.length > 0) {
-            fixBtn.style.display = 'inline-block';
-        } else {
-            fixBtn.style.display = 'none';
-        }
-        
-    } catch (err) {
-        addLog(`Scan error: ${err.message}`, 'error');
-    }
+function closeModal() { 
+    document.getElementById('modalOverlay').classList.remove('active');
+    currentEditingLang = null;
+    currentEditingSlugs = {};
 }
 
-function displayLanguageList() {
-    const langListDiv = document.getElementById('languagesList');
-    
-    langListDiv.innerHTML = languages.map(lang => {
-        let statusClass = '';
-        let badge = '';
-        
-        if (lang.code === config.baseLanguage) {
-            statusClass = '';
-            badge = '<span class="success-badge" style="background: var(--success); padding: 2px 6px; border-radius: 10px; font-size: 0.65rem; margin-left: 8px;">BASE</span>';
-        } else if (lang.missingSlugs.length > 0) {
-            statusClass = 'has-errors';
-            badge = `<span class="error-badge">${lang.missingSlugs.length} missing</span>`;
-        }
-        
-        return `
-            <div class="lang-item ${statusClass}">
-                <strong>📁 ${lang.code}</strong> - ${Object.keys(lang.urlSlugs).length}/${Object.keys(baseSlugs).length} slugs
-                ${badge}
-            </div>
-        `;
-    }).join('');
-}
-
-function displayErrorSummary() {
-    const summaryDiv = document.getElementById('errorSummary');
-    
-    if (missingMappings.length === 0) {
-        summaryDiv.style.display = 'none';
-        return;
-    }
-    
-    let html = '<div class="error-summary"><h4>⚠️ MISSING URL SLUG MAPPINGS</h4>';
-    html += '<div style="max-height: 200px; overflow-y: auto;">';
-    
-    for (const missing of missingMappings) {
-        html += `<div class="error-item"><strong style="color: var(--danger);">${missing.lang}:</strong> missing `;
-        html += missing.missingSlugs.map(slug => `<code style="background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 3px;">${slug}</code>`).join(', ');
-        html += '</div>';
-    }
-    
-    html += '</div></div>';
-    summaryDiv.innerHTML = html;
-    summaryDiv.style.display = 'block';
-}
-
-async function buildFolderList() {
-    if (!dirHandle || languages.length === 0) return;
-    
-    foldersToCreate = [];
-    const baseLangData = languages.find(l => l.code === config.baseLanguage);
-    
-    if (!baseLangData) {
-        addLog(`Base language "${config.baseLanguage}" not found`, 'error');
-        return;
-    }
-    
-    for (const lang of languages) {
-        if (lang.code === config.baseLanguage) continue;
-        
-        for (const [englishId, englishValue] of Object.entries(baseSlugs)) {
-            let localizedFolder = lang.urlSlugs[englishId];
-            
-            if (!localizedFolder) {
-                continue;
-            }
-            
-            if (localizedFolder === englishId) {
-                continue;
-            }
-            
-            foldersToCreate.push({
-                lang: lang.code,
-                englishId: englishId,
-                slugValue: englishValue,
-                folderName: localizedFolder,
-                expectedHash: null // Will be computed during generation
-            });
-        }
-        
-        foldersToCreate.push({
-            lang: lang.code,
-            englishId: 'home',
-            slugValue: 'home',
-            folderName: '',
-            expectedHash: null
-        });
-    }
-    
-    document.getElementById('folderCount').textContent = foldersToCreate.length;
-    displayPreview();
-}
-
-function displayPreview() {
-    const previewDiv = document.getElementById('previewTree');
-    const grouped = {};
-    
-    for (const folder of foldersToCreate) {
-        if (!grouped[folder.lang]) grouped[folder.lang] = [];
-        grouped[folder.lang].push(folder);
-    }
-    
-    let html = '';
-    for (const [lang, folders] of Object.entries(grouped)) {
-        const langData = languages.find(l => l.code === lang);
-        const hasMissing = langData && langData.missingSlugs.length > 0;
-        
-        html += `<div style="margin: 10px 0;">`;
-        if (hasMissing) {
-            html += `<strong style="color: var(--danger);">⚠️ ${lang}/ (${langData.missingSlugs.length} missing slugs)</strong>`;
-        } else {
-            html += `<strong style="color: var(--accent);">📁 ${lang}/</strong>`;
-        }
-        html += `<div style="margin-left: 20px;">`;
-        
-        for (const f of folders) {
-            const displayPath = f.folderName ? `${f.folderName}/` : '(homepage)';
-            html += `<div style="font-family: monospace; font-size: 0.7rem; margin: 2px 0;">
-                        📄 ${displayPath}index.html → slug: "${f.slugValue}"
-                     </div>`;
-        }
-        html += `</div></div>`;
-    }
-    
-    previewDiv.innerHTML = html || '<div>No folders to create</div>';
-    document.getElementById('previewCard').style.display = 'block';
-}
-
-// ============================================================
-// AUTO-FIX MISSING MAPPINGS
-// ============================================================
-async function autoFixMissingMappings() {
-    if (missingMappings.length === 0) {
-        addLog('No missing mappings to fix', 'info');
-        return;
-    }
-    
-    const modalBody = document.getElementById('modalBody');
-    let html = '<p>This will add the following missing slug mappings to each language\'s common.json file:</p><ul>';
-    
-    for (const missing of missingMappings) {
-        html += `<li><strong>${missing.lang}:</strong> ${missing.missingSlugs.join(', ')}</li>`;
-    }
-    html += '</ul><p style="margin-top: 10px;">The new slugs will be added with the same value as the English slug (temporary). You should review and translate them later.</p>';
-    
-    modalBody.innerHTML = html;
-    document.getElementById('modalOverlay').classList.add('active');
-    
-    document.getElementById('confirmFixBtn').onclick = async () => {
-        closeModal();
-        await performAutoFix();
-    };
-}
-
-async function performAutoFix() {
-    addLog('Starting auto-fix for missing mappings...', 'loading');
-    let fixedCount = 0;
-    
-    for (const missing of missingMappings) {
-        const langData = languages.find(l => l.code === missing.lang);
-        if (!langData) continue;
-        
-        try {
-            for (const missingSlug of missing.missingSlugs) {
-                langData.urlSlugs[missingSlug] = missingSlug;
-                addLog(`➕ Added "${missingSlug}" → "${missingSlug}" to ${missing.lang}`, 'success');
-            }
-            
-            langData.commonJson.url_slugs = langData.urlSlugs;
-            const updatedContent = JSON.stringify(langData.commonJson, null, 2);
-            
-            const fileHandle = await langData.handle.getFileHandle('common.json', { create: true });
-            const writable = await fileHandle.createWritable();
-            await writable.write(updatedContent);
-            await writable.close();
-            
-            fixedCount += missing.missingSlugs.length;
-            
-        } catch (err) {
-            addLog(`Failed to fix ${missing.lang}: ${err.message}`, 'error');
-        }
-    }
-    
-    addLog(`✅ Auto-fix complete! Added ${fixedCount} missing mappings. Please review and translate them.`, 'success');
-    await scanAndValidateLanguages();
-}
-
-// ============================================================
-// GENERATE INDEX FILES with CONTENT HASH VALIDATION
-// ============================================================
-function replaceTemplateVariables(content, lang, slug) {
-    const LANG_PATTERN = /window\.__PAGE_LANG__\s*=\s*['"]([^'"]*)['"]/;
-    const SLUG_PATTERN = /window\.__PAGE_SLUG__\s*=\s*['"]([^'"]*)['"]/;
-    
-    let result = content.replace(LANG_PATTERN, `window.__PAGE_LANG__ = '${lang}';`);
-    result = result.replace(SLUG_PATTERN, `window.__PAGE_SLUG__ = '${slug}';`);
-    return result;
-}
-
-async function generateAll() {
-    if (!dirHandle || !config.templateContent || foldersToCreate.length === 0) {
-        addLog('Missing: folder, template, or no folders to create', 'error');
-        return;
-    }
-    
-    if (missingMappings.length > 0) {
-        addLog(`⚠️ WARNING: ${missingMappings.reduce((s,m)=>s+m.missingSlugs.length,0)} missing slug mappings. Some folders will not be created.`, 'warning');
-        addLog('Use "Auto-Fix Missing Mappings" first for complete generation.', 'warning');
-    }
-    
-    document.getElementById('progressCard').style.display = 'block';
-    const progressFill = document.getElementById('progressFill');
-    let success = 0;
-    let errors = 0;
-    let skipped = 0;
-    
-    for (let i = 0; i < foldersToCreate.length; i++) {
-        const item = foldersToCreate[i];
-        const percent = ((i + 1) / foldersToCreate.length) * 100;
-        progressFill.style.width = `${percent}%`;
-        progressFill.textContent = `${Math.round(percent)}%`;
-        
-        try {
-            let targetPath = item.lang;
-            if (item.folderName) {
-                targetPath += '/' + item.folderName;
-            }
-            
-            await ensureDirectory(targetPath);
-            
-            const generatedHtml = replaceTemplateVariables(
-                config.templateContent,
-                item.lang,
-                item.slugValue
-            );
-            
-            // Compute hash of the generated content
-            const newHash = await computeHash(generatedHtml);
-            const fullPath = `${targetPath}/index.html`;
-            
-            // Check if file exists AND content matches (by hash)
-            const existsAndMatches = await fileExistsAndMatches(fullPath, generatedHtml, newHash);
-            
-            if (existsAndMatches) {
-                skipped++;
-                addLog(`⏭️ Skipped (content unchanged): ${fullPath} (hash: ${newHash.substring(0, 12)}...)`, 'info');
-            } else {
-                // Check if file exists but content is different
-                let oldHash = null;
-                try {
-                    const oldContent = await readFile(fullPath);
-                    if (oldContent) oldHash = await computeHash(oldContent);
-                } catch (e) {}
-                
-                await writeFile(fullPath, generatedHtml);
-                success++;
-                
-                if (oldHash) {
-                    addLog(`🔄 Updated: ${fullPath} (hash changed: ${oldHash.substring(0, 12)}... → ${newHash.substring(0, 12)}...)`, 'success');
-                } else {
-                    addLog(`✅ Created: ${fullPath} (hash: ${newHash.substring(0, 12)}...)`, 'success');
-                }
-            }
-            
-        } catch (err) {
-            errors++;
-            addLog(`❌ Failed: ${item.lang}/${item.folderName} - ${err.message}`, 'error');
-        }
-    }
-    
-    addLog(`✨ Complete! ${success} created/updated, ${skipped} unchanged (content match), ${errors} errors.`, 'success');
-    setTimeout(() => document.getElementById('progressCard').style.display = 'none', 2000);
-}
-
-// ============================================================
-// EVENT HANDLERS
-// ============================================================
+// Event listeners
+document.getElementById('selectRootBtn').onclick = selectFolder;
 document.getElementById('scanBtn').onclick = scanAndValidateLanguages;
 document.getElementById('generateBtn').onclick = generateAll;
-document.getElementById('clearLogBtn').onclick = () => {
-    document.getElementById('log').innerHTML = '';
-    addLog('Log cleared', 'info');
-};
+document.getElementById('clearLogBtn').onclick = () => { document.getElementById('log').innerHTML = ''; addLog('Log cleared', 'info'); };
 document.getElementById('fixMissingBtn').onclick = autoFixMissingMappings;
-
-document.getElementById('baseLang').onchange = () => {
+document.getElementById('saveSlugsBtn').onclick = saveEditedSlugs;
+document.getElementById('baseLang').onchange = async () => {
     config.baseLanguage = document.getElementById('baseLang').value;
-    saveConfig();
-    scanAndValidateLanguages();
+    await saveConfig();
+    await scanAndValidateLanguages();
 };
 
+setupTemplateUpload();
 if (!('showDirectoryPicker' in window)) {
-    addLog('⚠️ Requires Microsoft Edge or Chrome with File System Access API', 'error');
+    addLog('⚠️ Requires Edge or Chrome with File System Access API', 'error');
     document.getElementById('selectRootBtn').disabled = true;
 }
-
-addLog('Ready! Select your site root folder to begin.', 'info');
+addLog('✨ Ready! Select your site root folder to begin.', 'success');
+addLog('💡 Click on any language with missing slugs to edit them manually.', 'info');
 </script>
 </body>
 </html>
