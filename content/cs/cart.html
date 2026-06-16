@@ -263,18 +263,27 @@
     });
     // Update continue-shopping link slug dynamically
     var csLink = document.getElementById('cart-continue-shopping');
-    if (csLink && window.T && window.T.url_slugs) {
-      // Get last visited shop page from localStorage, default to kit
+    if (csLink) {
+      var currentLang = window.LANG || localStorage.getItem('dornori-lang') || 'en';
       var lastShopPage = localStorage.getItem('webshop_last_page') || '';
-      var targetSlug = '';
       
       if (lastShopPage && !lastShopPage.includes('/cart/')) {
-        // Use the last visited page (any non-cart page)
-        csLink.href = lastShopPage;
+        // Extract the page slug from the stored URL and rebuild with current language
+        // Stored URL format: /lang/slug/ or /lang/slug/subpath/
+        var match = lastShopPage.match(/\/([a-z]{2}(?:-[a-z]{2,3})?)\/([^\/]+)\//);
+        if (match && match[2]) {
+          var storedSlug = match[2];
+          // Rebuild URL with current language
+          csLink.href = (window.__BASE_PATH__ || '/') + currentLang + '/' + storedSlug + '/';
+        } else {
+          // Fallback to shop page
+          var shopSlug = (window.T && window.T.url_slugs && window.T.url_slugs.shop) || 'shop';
+          csLink.href = (window.__BASE_PATH__ || '/') + currentLang + '/' + shopSlug + '/';
+        }
       } else {
         // Default to shop page
-        var shopSlug = (window.T.url_slugs && window.T.url_slugs.shop) || 'shop';
-        csLink.href = (window.__BASE_PATH__ || '/') + (_lang || window.LANG || 'en') + '/' + shopSlug + '/';
+        var shopSlug = (window.T && window.T.url_slugs && window.T.url_slugs.shop) || 'shop';
+        csLink.href = (window.__BASE_PATH__ || '/') + currentLang + '/' + shopSlug + '/';
       }
     }
   }
