@@ -16,7 +16,7 @@ const CONFIG = {
     baseCurrency: "EUR",
     currencyCode: "EUR",
     defaultLanguage: "en",
-    supportedLanguages: ["en", "nl", "de", "fr", "es", "it", "pt", "cs"],
+    supportedLanguages: ["en", "nl", "de", "fr", "es", "it", "pt", "cs", "sk"],
 
     // ── Paths ─────────────────────────────────────────────────────────────────
     paths: {
