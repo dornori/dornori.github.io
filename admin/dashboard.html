@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dornori Support Dashboard</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, monospace; margin: 0; padding: 20px; background: #0a0e1a; color: #00ff9d; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid #1a2a3a; padding-bottom: 20px; }
+        .login-form { background: #11161f; border: 1px solid #1a2a3a; padding: 20px; border-radius: 12px; max-width: 400px; margin: 50px auto; }
+        .login-form input { display: block; width: 100%; padding: 10px; margin: 10px 0; background: #0a0e1a; border: 1px solid #1a2a3a; color: #00ff9d; border-radius: 6px; }
+        .login-form button { background: #00ff9d; color: #0a0e1a; border: none; padding: 12px; width: 100%; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .login-form button:hover { opacity: 0.8; }
+        .ticket-list { display: grid; gap: 10px; }
+        .ticket-item { background: #11161f; border: 1px solid #1a2a3a; padding: 15px 20px; border-radius: 8px; cursor: pointer; transition: 0.2s; display: grid; grid-template-columns: 120px 1fr 150px 100px; gap: 10px; align-items: center; }
+        .ticket-item:hover { border-color: #00ff9d; }
+        .status-new { color: #00ff9d; }
+        .status-open { color: #ffb347; }
+        .status-in_progress { color: #3498db; }
+        .status-resolved { color: #2ecc71; }
+        .status-closed { color: #8892b0; }
+        .ticket-detail { background: #11161f; border: 1px solid #1a2a3a; padding: 30px; border-radius: 12px; margin-top: 20px; }
+        .ticket-detail h2 { margin-top: 0; }
+        .ticket-detail .meta { color: #8892b0; font-size: 0.9rem; }
+        .ticket-detail .message { background: #0a0e1a; padding: 15px; border-radius: 8px; margin: 15px 0; white-space: pre-wrap; }
+        .comment { background: #0a0e1a; padding: 12px; border-radius: 8px; margin: 8px 0; border-left: 3px solid #00ff9d; }
+        .comment-internal { border-left-color: #ffb347; }
+        select, textarea, input { background: #0a0e1a; border: 1px solid #1a2a3a; color: #00ff9d; padding: 10px; border-radius: 6px; width: 100%; margin: 5px 0; }
+        select option { background: #11161f; }
+        button { background: #00ff9d; color: #0a0e1a; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        button:hover { opacity: 0.8; }
+        .btn-danger { background: #ff4444; color: white; }
+        .btn-secondary { background: #1a2a3a; color: #00ff9d; }
+        .hidden { display: none; }
+        .flex { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .badge { padding: 2px 10px; border-radius: 20px; font-size: 0.8rem; background: #1a2a3a; }
+        .loading { text-align: center; padding: 40px; color: #8892b0; }
+        .error { color: #ff4444; }
+        .success { color: #00ff9d; }
+    </style>
+</head>
+<body>
+<div class="container" id="app">
+    <div class="header">
+        <h1>🎫 Dornori Support Dashboard</h1>
+        <div>
+            <span id="userDisplay"></span>
+            <button class="btn-secondary" id="logoutBtn" style="margin-left:10px;">Logout</button>
+        </div>
+    </div>
+
+    <!-- Login Form -->
+    <div id="loginForm" class="login-form">
+        <h2>Admin Login</h2>
+        <input type="email" id="loginEmail" placeholder="Email" value="admin@dornori.com">
+        <input type="password" id="loginPassword" placeholder="Password" value="password">
+        <button id="loginBtn">Login</button>
+        <div id="loginError" style="color:#ff4444;margin-top:10px;"></div>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div id="dashboard" class="hidden">
+        <!-- Filters -->
+        <div class="flex" style="margin-bottom:20px;">
+            <select id="filterStatus">
+                <option value="">All Status</option>
+                <option value="new">New</option>
+                <option value="open">Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+            </select>
+            <select id="filterCategory">
+                <option value="">All Categories</option>
+                <option value="support">Support</option>
+                <option value="payment">Payment</option>
+                <option value="newsletter">Newsletter</option>
+                <option value="other">Other</option>
+            </select>
+            <button id="refreshBtn">🔄 Refresh</button>
+        </div>
+
+        <!-- Ticket List -->
+        <div id="ticketList" class="ticket-list">
+            <div class="loading">Loading tickets...</div>
+        </div>
+
+        <!-- Ticket Detail -->
+        <div id="ticketDetail" class="ticket-detail hidden">
+            <div class="flex" style="justify-content:space-between;">
+                <h2 id="detailTitle">Ticket #</h2>
+                <button class="btn-danger" id="closeDetailBtn">✕ Close</button>
+            </div>
+            <div id="detailContent"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================
+// DORNORI TICKETING DASHBOARD
+// ============================================
+
+const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
+let token = localStorage.getItem('token') || null;
+let currentTicket = null;
+
+// ============================================
+// DOM References
+// ============================================
+const $ = id => document.getElementById(id);
+const loginForm = $('loginForm');
+const dashboard = $('dashboard');
+const ticketList = $('ticketList');
+const ticketDetail = $('ticketDetail');
+const detailTitle = $('detailTitle');
+const detailContent = $('detailContent');
+const userDisplay = $('userDisplay');
+
+// ============================================
+// Login
+// ============================================
+$('loginBtn').addEventListener('click', login);
+$('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+async function login() {
+    const email = $('loginEmail').value;
+    const password = $('loginPassword').value;
+    $('loginError').textContent = '';
+    
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (data.success) {
+            token = data.token;
+            localStorage.setItem('token', token);
+            userDisplay.textContent = data.user.name + ' (' + data.user.role + ')';
+            showDashboard();
+        } else {
+            $('loginError').textContent = data.error || 'Login failed';
+        }
+    } catch (err) {
+        $('loginError').textContent = 'Network error: ' + err.message;
+    }
+}
+
+// ============================================
+// Logout
+// ============================================
+$('logoutBtn').addEventListener('click', () => {
+    localStorage.removeItem('token');
+    token = null;
+    loginForm.classList.remove('hidden');
+    dashboard.classList.add('hidden');
+    userDisplay.textContent = '';
+});
+
+// ============================================
+// Show Dashboard
+// ============================================
+function showDashboard() {
+    loginForm.classList.add('hidden');
+    dashboard.classList.remove('hidden');
+    loadTickets();
+}
+
+// ============================================
+// Load Tickets
+// ============================================
+async function loadTickets() {
+    if (!token) return;
+    
+    const status = $('filterStatus').value;
+    const category = $('filterCategory').value;
+    let url = `${API_BASE}/api/admin/tickets?limit=100`;
+    if (status) url += `&status=${status}`;
+    if (category) url += `&category=${category}`;
+    
+    try {
+        const res = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            renderTickets(data.tickets);
+        } else {
+            ticketList.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+            if (data.error === 'Invalid token') {
+                localStorage.removeItem('token');
+                token = null;
+                loginForm.classList.remove('hidden');
+                dashboard.classList.add('hidden');
+            }
+        }
+    } catch (err) {
+        ticketList.innerHTML = `<div class="error">Network error: ${err.message}</div>`;
+    }
+}
+
+// ============================================
+// Render Tickets
+// ============================================
+function renderTickets(tickets) {
+    if (!tickets || tickets.length === 0) {
+        ticketList.innerHTML = '<div style="color:#8892b0;text-align:center;padding:40px;">No tickets found</div>';
+        return;
+    }
+    
+    let html = '';
+    for (const t of tickets) {
+        const statusClass = 'status-' + t.status.replace('_', '-');
+        const date = new Date(t.created_at).toLocaleString();
+        html += `
+            <div class="ticket-item" data-id="${t.id}" onclick="viewTicket(${t.id})">
+                <span><strong>${t.ticket_number}</strong></span>
+                <span>${t.subject || 'No subject'}</span>
+                <span>${t.sender_name || t.sender_email}</span>
+                <span>
+                    <span class="badge ${statusClass}">${t.status}</span>
+                    <span style="font-size:0.7rem;color:#8892b0;">${t.category}</span>
+                </span>
+            </div>
+        `;
+    }
+    ticketList.innerHTML = html;
+}
+
+// ============================================
+// View Ticket Detail
+// ============================================
+async function viewTicket(id) {
+    if (!token) return;
+    
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/ticket/${id}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            currentTicket = data.ticket;
+            renderTicketDetail(data.ticket);
+            ticketDetail.classList.remove('hidden');
+            ticketDetail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (err) {
+        alert('Network error: ' + err.message);
+    }
+}
+
+// ============================================
+// Render Ticket Detail
+// ============================================
+function renderTicketDetail(ticket) {
+    const statusClass = 'status-' + ticket.status.replace('_', '-');
+    const date = new Date(ticket.created_at).toLocaleString();
+    const slaResponse = ticket.sla_response_due ? new Date(ticket.sla_response_due).toLocaleString() : 'N/A';
+    const slaResolution = ticket.sla_resolution_due ? new Date(ticket.sla_resolution_due).toLocaleString() : 'N/A';
+    
+    let commentsHtml = '';
+    if (ticket.comments && ticket.comments.length > 0) {
+        for (const c of ticket.comments) {
+            const commentClass = c.comment_type === 'internal' ? 'comment-internal' : '';
+            const label = c.comment_type === 'internal' ? '🔒 Internal' : '💬 Public';
+            commentsHtml += `
+                <div class="comment ${commentClass}">
+                    <strong>${c.author_email || 'System'}</strong>
+                    <span style="color:#8892b0;font-size:0.8rem;">${new Date(c.created_at).toLocaleString()}</span>
+                    <span class="badge">${label}</span>
+                    <div style="margin-top:5px;">${c.content}</div>
+                </div>
+            `;
+        }
+    } else {
+        commentsHtml = '<div style="color:#8892b0;padding:10px;">No comments yet</div>';
+    }
+    
+    detailContent.innerHTML = `
+        <div class="meta">
+            <div class="flex">
+                <span><strong>Status:</strong> <span class="${statusClass}">${ticket.status}</span></span>
+                <span><strong>Category:</strong> ${ticket.category}</span>
+                <span><strong>Priority:</strong> ${ticket.priority || 'medium'}</span>
+                <span><strong>Created:</strong> ${date}</span>
+            </div>
+            <div class="flex" style="margin-top:5px;">
+                <span><strong>SLA Response:</strong> ${slaResponse}</span>
+                <span><strong>SLA Resolution:</strong> ${slaResolution}</span>
+            </div>
+        </div>
+        <hr style="border-color:#1a2a3a;">
+        <div>
+            <strong>From:</strong> ${ticket.sender_name || ticket.sender_email} (${ticket.sender_email})
+        </div>
+        <div class="message">${ticket.message || 'No message'}</div>
+        
+        <hr style="border-color:#1a2a3a;">
+        <h3>Comments</h3>
+        <div id="commentsContainer">${commentsHtml}</div>
+        
+        <hr style="border-color:#1a2a3a;">
+        <h3>Actions</h3>
+        <div class="flex" style="flex-wrap:wrap;">
+            <select id="statusSelect">
+                <option value="new" ${ticket.status === 'new' ? 'selected' : ''}>New</option>
+                <option value="open" ${ticket.status === 'open' ? 'selected' : ''}>Open</option>
+                <option value="in_progress" ${ticket.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                <option value="resolved" ${ticket.status === 'resolved' ? 'selected' : ''}>Resolved</option>
+                <option value="closed" ${ticket.status === 'closed' ? 'selected' : ''}>Closed</option>
+            </select>
+            <input type="text" id="statusReason" placeholder="Reason (optional)" style="flex:1;min-width:150px;">
+            <button id="updateStatusBtn">Update Status</button>
+        </div>
+        
+        <div style="margin-top:15px;">
+            <label>Add Comment</label>
+            <div class="flex">
+                <textarea id="commentContent" rows="2" style="flex:1;min-width:200px;" placeholder="Write a comment..."></textarea>
+                <select id="commentType">
+                    <option value="public">Public</option>
+                    <option value="internal">Internal</option>
+                </select>
+                <button id="addCommentBtn">Add Comment</button>
+            </div>
+        </div>
+        
+        <div style="margin-top:15px;">
+            <label>Send Reply to Customer</label>
+            <div class="flex">
+                <textarea id="replyContent" rows="2" style="flex:1;min-width:200px;" placeholder="Write a reply..."></textarea>
+                <button id="sendReplyBtn">📧 Send Reply</button>
+            </div>
+        </div>
+    `;
+    
+    // Event listeners
+    $('updateStatusBtn').addEventListener('click', updateStatus);
+    $('addCommentBtn').addEventListener('click', addComment);
+    $('sendReplyBtn').addEventListener('click', sendReply);
+}
+
+// ============================================
+// Update Status
+// ============================================
+async function updateStatus() {
+    if (!currentTicket) return;
+    const status = $('statusSelect').value;
+    const reason = $('statusReason').value;
+    
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/ticket/${currentTicket.id}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ status, reason })
+        });
+        const data = await res.json();
+        if (data.success) {
+            viewTicket(currentTicket.id);
+            loadTickets();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (err) {
+        alert('Network error: ' + err.message);
+    }
+}
+
+// ============================================
+// Add Comment
+// ============================================
+async function addComment() {
+    if (!currentTicket) return;
+    const content = $('commentContent').value.trim();
+    const type = $('commentType').value;
+    if (!content) { alert('Please enter a comment.'); return; }
+    
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/ticket/${currentTicket.id}/comment`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ content, type })
+        });
+        const data = await res.json();
+        if (data.success) {
+            $('commentContent').value = '';
+            viewTicket(currentTicket.id);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (err) {
+        alert('Network error: ' + err.message);
+    }
+}
+
+// ============================================
+// Send Reply (Email to Customer)
+// ============================================
+async function sendReply() {
+    if (!currentTicket) return;
+    const content = $('replyContent').value.trim();
+    if (!content) { alert('Please enter a reply.'); return; }
+    
+    // Add as comment first
+    try {
+        const res = await fetch(`${API_BASE}/api/admin/ticket/${currentTicket.id}/comment`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ content, type: 'public' })
+        });
+        const data = await res.json();
+        if (data.success) {
+            $('replyContent').value = '';
+            viewTicket(currentTicket.id);
+            alert('✅ Reply sent! The customer will receive an email.');
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (err) {
+        alert('Network error: ' + err.message);
+    }
+}
+
+// ============================================
+// Close Detail
+// ============================================
+$('closeDetailBtn').addEventListener('click', () => {
+    ticketDetail.classList.add('hidden');
+    currentTicket = null;
+});
+
+// ============================================
+// Refresh
+// ============================================
+$('refreshBtn').addEventListener('click', loadTickets);
+$('filterStatus').addEventListener('change', loadTickets);
+$('filterCategory').addEventListener('change', loadTickets);
+
+// ============================================
+// Check existing token
+// ============================================
+if (token) {
+    userDisplay.textContent = 'Admin';
+    showDashboard();
+} else {
+    loginForm.classList.remove('hidden');
+    dashboard.classList.add('hidden');
+}
+</script>
+</body>
+</html>
