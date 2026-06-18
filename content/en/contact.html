@@ -119,7 +119,10 @@
             <i class="fas fa-check-circle" style="font-size:3rem;color:#10b981;"></i>
             <h3 style="color:var(--text);margin:12px 0 6px;">Message Sent!</h3>
             <p style="color:var(--text-muted);">Thank you for contacting us. We'll respond within 24 hours.</p>
-            <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.5rem;">Reference: <span id="cf-ref-number" style="color:var(--accent);font-weight:600;"></span></p>
+            <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.5rem;">
+                Ticket Number: <span id="cf-ref-number" style="color:var(--accent);font-weight:600;font-family:monospace;"></span>
+            </p>
+            <p style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;">Please save this ticket number for reference.</p>
         </div>
     </div>
 </div>
@@ -182,7 +185,7 @@
 
 <script>
 // ============================================================
-// CONTACT FORM - WORKING
+// CONTACT FORM - WORKING WITH REAL TICKET NUMBER
 // ============================================================
 
 (function() {
@@ -422,9 +425,11 @@
             var result = await response.json();
 
             if (response.ok && result.success) {
+                // Hide form, show success with REAL ticket number from worker
                 document.getElementById('cf-s2').style.display = 'none';
                 document.getElementById('cf-success').style.display = 'block';
-                document.getElementById('cf-ref-number').textContent = result.ticketNumber || generateRef();
+                // ===== THIS IS THE FIX: Use result.ticketNumber from the worker =====
+                document.getElementById('cf-ref-number').textContent = result.ticketNumber || 'TKT-ERROR';
                 document.getElementById('cf-prog').style.width = '100%';
                 document.getElementById('cf-step-label').textContent = '✅ Done';
                 showToast('Message sent successfully!', 'success');
@@ -440,12 +445,6 @@
                 turnstileToken = null;
             }
         }
-    }
-
-    function generateRef() {
-        var ts = Date.now().toString().slice(-6);
-        var rand = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-        return 'CF-' + ts + '-' + rand;
     }
 
 })();
