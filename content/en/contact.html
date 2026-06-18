@@ -1,105 +1,788 @@
 <div class="container">
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Contact Form with Queue</title>
-    <style>
-        body { font-family: sans-serif; padding: 1rem; }
-        input, textarea, button { display: block; width: 100%; margin: 0.5rem 0; padding: 0.5rem; }
-        button { background: #0066cc; color: white; border: none; cursor: pointer; }
-        button:hover { background: #0055aa; }
-        .test-btn { background: #28a745; }
-        .test-btn:hover { background: #218838; }
-        #status { padding: 1rem; margin-top: 1rem; border-radius: 4px; }
-        .success { background: #d4edda; color: #155724; }
-        .error { background: #f8d7da; color: #721c24; }
-        .sending { background: #fff3cd; color: #856404; }
-        hr { margin: 2rem 0; }
-        .note { background: #e9ecef; padding: 1rem; border-radius: 4px; font-size: 0.9rem; }
-    </style>
-</head>
-<body>
+<div id="cf-toast" class="cf-toast" role="status" aria-live="polite"></div>
+<div class="cf-wrap">
+    <div class="cf-header">
+        <i class="fas fa-envelope"></i>
+        <div>
+            <div id="cf-title" style="font-size:1.4rem;font-weight:700;">Contact Us</div>
+            <div id="cf-subtitle" style="opacity:.8;font-size:.9rem;margin-top:.2rem;">We'll get back to you within 24 hours</div>
+        </div>
+    </div>
 
-<h2>Contact Form with Queue</h2>
+    <div class="cf-body" id="cf-body">
+        <!-- Progress indicator -->
+        <div class="cf-progress-row">
+            <span class="cf-progress-note"><i class="far fa-clock"></i> <span id="cf-avg-response">Avg. response: 4 hours</span></span>
+            <span id="cf-step-label" class="cf-progress-step">Step 1: Tell us about your inquiry</span>
+        </div>
+        <div class="cf-progress-track"><div id="cf-prog" class="cf-progress-fill" style="width:10%"></div></div>
 
-<div class="note">
-    <strong>Testing:</strong> Use the green "Test (Instant)" button to bypass rate limiting.<br>
-    <strong>Production:</strong> Use the blue button — rate limited to ~100 emails/day.
+        <!-- Step 1: Category Selection -->
+        <div id="cf-s1" class="cf-step">
+            <div style="font-size:1.1rem;font-weight:600;margin-bottom:1rem;">What is your inquiry about?</div>
+            <div id="cf-cats" class="cf-cat-grid">
+                <button class="cf-btn" data-category="general">
+                    <i class="fas fa-comment"></i> General Inquiry
+                </button>
+                <button class="cf-btn" data-category="business">
+                    <i class="fas fa-building"></i> Business / Partnership
+                </button>
+                <button class="cf-btn" data-category="legal">
+                    <i class="fas fa-gavel"></i> Legal / Compliance
+                </button>
+                <button class="cf-btn" data-category="privacy">
+                    <i class="fas fa-shield-alt"></i> Privacy / GDPR
+                </button>
+                <button class="cf-btn" data-category="press">
+                    <i class="fas fa-newspaper"></i> Press / Media
+                </button>
+                <button class="cf-btn" data-category="other">
+                    <i class="fas fa-ellipsis-h"></i> Other
+                </button>
+            </div>
+            <p class="cf-note"><i class="fas fa-info-circle"></i> Select the category that best fits your inquiry</p>
+        </div>
+
+        <!-- Step 2: Contact Form -->
+        <div id="cf-s2" class="cf-step cf-hidden">
+            <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;">
+                <i class="fas fa-user" style="font-size:1.2rem;color:var(--accent)"></i>
+                <span style="font-size:1.1rem;font-weight:600;">Your Details</span>
+            </div>
+            <p style="color:var(--text-muted);font-size:.9rem;margin-bottom:1.5rem;">Please provide your contact information so we can get back to you.</p>
+
+            <div class="cf-grid2">
+                <div class="cf-field">
+                    <label class="cf-label" for="cf-first-name">First Name <span style="color:#ef4444">*</span></label>
+                    <input id="cf-first-name" type="text" class="cf-input" autocomplete="given-name" maxlength="60" placeholder="John">
+                    <span class="cf-field-error" id="cf-first-name-err"></span>
+                </div>
+                <div class="cf-field">
+                    <label class="cf-label" for="cf-last-name">Last Name <span style="color:#ef4444">*</span></label>
+                    <input id="cf-last-name" type="text" class="cf-input" autocomplete="family-name" maxlength="60" placeholder="Doe">
+                    <span class="cf-field-error" id="cf-last-name-err"></span>
+                </div>
+            </div>
+
+            <div class="cf-grid2">
+                <div class="cf-field">
+                    <label class="cf-label" for="cf-email">Email Address <span style="color:#ef4444">*</span></label>
+                    <input id="cf-email" type="email" class="cf-input" autocomplete="email" maxlength="254" placeholder="john@example.com">
+                    <span class="cf-field-error" id="cf-email-err"></span>
+                </div>
+                <div class="cf-field">
+                    <label class="cf-label" for="cf-phone">Phone Number <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+                    <input id="cf-phone" type="tel" class="cf-input" autocomplete="tel" placeholder="+1 234 567 890">
+                    <span class="cf-field-error" id="cf-phone-err"></span>
+                </div>
+            </div>
+
+            <div class="cf-field">
+                <label class="cf-label" for="cf-company">Company / Organization <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+                <input id="cf-company" type="text" class="cf-input" autocomplete="organization" maxlength="100" placeholder="Your company name">
+            </div>
+
+            <div class="cf-field">
+                <label class="cf-label" for="cf-subject">Subject <span style="color:#ef4444">*</span></label>
+                <input id="cf-subject" type="text" class="cf-input" maxlength="150" placeholder="Brief summary of your inquiry">
+                <span class="cf-field-error" id="cf-subject-err"></span>
+            </div>
+
+            <div class="cf-field">
+                <label class="cf-label" for="cf-message">Message <span style="color:#ef4444">*</span></label>
+                <textarea id="cf-message" rows="6" class="cf-input" style="resize:vertical;font-family:monospace;font-size:0.85rem;line-height:1.5;" maxlength="5000" placeholder="Please provide as much detail as possible..."></textarea>
+                <div id="cf-char-counter" class="cf-char-counter">0 / 5000</div>
+                <span class="cf-field-error" id="cf-message-err"></span>
+            </div>
+
+            <!-- Priority -->
+            <div class="cf-field">
+                <label class="cf-label" for="cf-priority">Priority</label>
+                <select id="cf-priority" class="cf-input">
+                    <option value="normal">Normal</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                </select>
+            </div>
+
+            <!-- Turnstile -->
+            <div class="cf-turnstile-wrap">
+                <div id="cf-turnstile-container"></div>
+                <span class="cf-turnstile-error cf-hidden" id="cf-turnstile-err" role="alert"></span>
+            </div>
+
+            <button id="cf-submit" class="cf-submit">
+                <i class="fas fa-paper-plane"></i> Send Message
+            </button>
+
+            <div id="cf-success" class="cf-success cf-hidden">
+                <i class="fas fa-check-circle" style="font-size:3rem;color:#10b981;"></i>
+                <h3>Message Sent!</h3>
+                <p>Thank you for contacting us. We'll respond within 24 hours.</p>
+                <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.5rem;">Reference: <span id="cf-ref-number"></span></p>
+            </div>
+        </div>
+    </div>
 </div>
 
-<input type="text" id="name" placeholder="Your name">
-<input type="email" id="email" placeholder="Your email">
-<textarea id="message" rows="4" placeholder="Your message"></textarea>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-<button id="testBtn" class="test-btn">🧪 Test (Instant - no rate limit)</button>
-<button id="submitBtn">📧 Send (Rate limited: ~100/day)</button>
+<style>
+:root {
+    --bg: #0a0e1a;
+    --text: #e0e0e0;
+    --text-muted: #8892b0;
+    --accent: #00ff9d;
+    --border: #1a2a3a;
+    --header-bg: #11161f;
+    --input-bg: #1a2230;
+    --error: #ef4444;
+    --success: #10b981;
+    --font-sans: system-ui, -apple-system, sans-serif;
+}
 
-<div id="status"></div>
+.cf-wrap {
+    max-width: 700px;
+    margin: 0 auto;
+    background: var(--header-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 30px 32px;
+}
 
-<script>
-const workerUrl = "https://edge-form-handler-api.dornori-info.workers.dev";
-const statusDiv = document.getElementById("status");
+.cf-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+}
+.cf-header i {
+    font-size: 2rem;
+    color: var(--accent);
+}
+.cf-header #cf-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text);
+}
+.cf-header #cf-subtitle {
+    opacity: 0.8;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
 
-async function sendMessage(category, isTest = false) {
-    const name = document.getElementById("name").value;
-    const email = document.getElementById("email").value;
-    const message = document.getElementById("message").value;
+.cf-body {
+    position: relative;
+}
 
-    if (!email || !message) {
-        statusDiv.className = "error";
-        statusDiv.textContent = "✗ Please fill in email and message";
-        return;
+/* Progress */
+.cf-progress-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+.cf-progress-step {
+    color: var(--accent);
+    font-weight: 500;
+}
+.cf-progress-track {
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 4px;
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+.cf-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width 0.4s ease;
+}
+
+/* Steps */
+.cf-step {
+    animation: cfFadeIn 0.3s ease;
+}
+.cf-hidden {
+    display: none !important;
+}
+@keyframes cfFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Category Grid */
+.cf-cat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.cf-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+.cf-btn:hover {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, var(--input-bg));
+    transform: translateY(-2px);
+}
+.cf-btn i {
+    font-size: 1.2rem;
+    color: var(--accent);
+    width: 24px;
+    text-align: center;
+}
+
+.cf-note {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+.cf-note i {
+    margin-right: 6px;
+}
+
+/* Form Fields */
+.cf-grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+@media (max-width: 600px) {
+    .cf-grid2 {
+        grid-template-columns: 1fr;
     }
-
-    statusDiv.className = "sending";
-    statusDiv.textContent = "Sending...";
-
-    const payload = {
-        category: category,
-        name: name,
-        email: email,
-        message: message
-    };
-
-    if (isTest) {
-        payload.test = true;
+    .cf-cat-grid {
+        grid-template-columns: 1fr 1fr;
     }
-
-    try {
-        const response = await fetch(workerUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await response.text();
-
-        if (response.ok) {
-            statusDiv.className = "success";
-            if (isTest) {
-                statusDiv.textContent = "✓ TEST email sent instantly! Check your inbox.";
-            } else {
-                statusDiv.textContent = "✓ Message queued! Will be sent within 24 hours (rate limited).";
-            }
-            // Clear form
-            document.getElementById("name").value = "";
-            document.getElementById("email").value = "";
-            document.getElementById("message").value = "";
-        } else {
-            statusDiv.className = "error";
-            statusDiv.textContent = "✗ Error: " + result;
-        }
-    } catch (err) {
-        statusDiv.className = "error";
-        statusDiv.textContent = "✗ Network error: " + err.message;
+}
+@media (max-width: 400px) {
+    .cf-cat-grid {
+        grid-template-columns: 1fr;
     }
 }
 
-document.getElementById("submitBtn").addEventListener("click", () => sendMessage("contact", false));
-document.getElementById("testBtn").addEventListener("click", () => sendMessage("test", true));
-</script>
+.cf-field {
+    margin-bottom: 16px;
+}
+.cf-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+.cf-input {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 0.95rem;
+    transition: border-color 0.2s ease;
+    font-family: var(--font-sans);
+}
+.cf-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+.cf-input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+.cf-input-error {
+    border-color: var(--error) !important;
+}
+.cf-field-error {
+    font-size: 0.75rem;
+    color: var(--error);
+    margin-top: 4px;
+    display: block;
+}
 
-</body>
-</html>
-</div><!-- /.container -->
+.cf-char-counter {
+    font-size: 0.7rem;
+    text-align: right;
+    margin-top: 4px;
+    color: var(--text-muted);
+}
+.cf-char-counter.warning {
+    color: #eab308;
+}
+.cf-char-counter.danger {
+    color: var(--error);
+}
+
+/* Select */
+.cf-input select {
+    appearance: none;
+    cursor: pointer;
+}
+
+/* Turnstile */
+.cf-turnstile-wrap {
+    margin: 18px 0 12px;
+    min-height: 65px;
+}
+.cf-turnstile-error {
+    font-size: 0.75rem;
+    color: var(--error);
+    margin-top: 4px;
+    display: block;
+}
+
+/* Submit */
+.cf-submit {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #000000 30%));
+    color: var(--bg);
+    font-weight: 700;
+    font-size: 1rem;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-family: var(--font-sans);
+}
+.cf-submit:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+    box-shadow: 0 4px 16px rgba(0, 255, 157, 0.25);
+}
+.cf-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Toast */
+.cf-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 20px;
+    border-radius: 40px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    background: var(--header-bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 9999;
+    max-width: 90%;
+}
+.cf-toast.error {
+    background: var(--error);
+    color: #fff;
+    border: none;
+}
+.cf-toast.success {
+    background: var(--success);
+    color: #fff;
+    border: none;
+}
+
+/* Success */
+.cf-success {
+    text-align: center;
+    padding: 30px 20px;
+}
+.cf-success i {
+    margin-bottom: 12px;
+}
+.cf-success h3 {
+    font-size: 1.3rem;
+    color: var(--text);
+    margin-bottom: 6px;
+}
+.cf-success p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+.cf-success #cf-ref-number {
+    color: var(--accent);
+    font-weight: 600;
+    font-family: monospace;
+}
+</style>
+
+<script>
+// ==================== CONFIG ====================
+(function() {
+    'use strict';
+
+    // --- CONFIGURATION ---
+    // Set your Turnstile site key here or via window.CONFIG
+    var TURNSTILE_SITE_KEY = (window.CONFIG && window.CONFIG.turnstile && window.CONFIG.turnstile.sitekey)
+        ? window.CONFIG.turnstile.sitekey
+        : 'YOUR_TURNSTILE_SITE_KEY'; // Replace with your actual key
+
+    // Cloudflare Worker URL
+    var WORKER_URL = 'https://dornori-ticketing.dornori-info.workers.dev/api/message';
+
+    // --- DOM REFS ---
+    var dom = {};
+    var ids = [
+        'cf-toast', 'cf-title', 'cf-subtitle', 'cf-avg-response', 'cf-step-label', 'cf-prog',
+        'cf-s1', 'cf-s2', 'cf-cats', 'cf-first-name', 'cf-last-name', 'cf-email', 'cf-phone',
+        'cf-company', 'cf-subject', 'cf-message', 'cf-priority', 'cf-submit',
+        'cf-first-name-err', 'cf-last-name-err', 'cf-email-err', 'cf-phone-err',
+        'cf-subject-err', 'cf-message-err', 'cf-turnstile-container', 'cf-turnstile-err',
+        'cf-char-counter', 'cf-success', 'cf-ref-number'
+    ];
+    for (var i = 0; i < ids.length; i++) {
+        dom[ids[i]] = document.getElementById(ids[i]);
+    }
+
+    var turnstileWidgetId = null;
+    var turnstileToken = null;
+    var selectedCategory = 'general';
+    var isSubmitting = false;
+
+    // --- HELPERS ---
+    function showToast(msg, type, ms) {
+        ms = ms || 3000;
+        var t = dom['cf-toast'];
+        if (!t) return;
+        t.textContent = msg;
+        t.className = 'cf-toast';
+        if (type === 'error') t.classList.add('error');
+        if (type === 'success') t.classList.add('success');
+        t.style.opacity = '1';
+        setTimeout(function() { t.style.opacity = '0'; }, ms);
+    }
+
+    function setFieldError(inputId, errorId, message) {
+        var input = dom[inputId];
+        var errEl = dom[errorId];
+        if (message) {
+            if (input) input.classList.add('cf-input-error');
+            if (errEl) errEl.textContent = message;
+            return true;
+        } else {
+            if (input) input.classList.remove('cf-input-error');
+            if (errEl) errEl.textContent = '';
+            return false;
+        }
+    }
+
+    function stripHtml(str) {
+        if (typeof str !== 'string') return '';
+        return str.replace(/<[^>]*>/g, '').trim();
+    }
+
+    function isValidEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) && email.length <= 254;
+    }
+
+    function generateRef() {
+        var ts = Date.now().toString().slice(-6);
+        var rand = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+        return 'CF-' + ts + '-' + rand;
+    }
+
+    function updateProgress(pct, label) {
+        if (dom['cf-prog']) dom['cf-prog'].style.width = pct + '%';
+        if (dom['cf-step-label']) dom['cf-step-label'].textContent = label;
+    }
+
+    // --- TURNSTILE ---
+    function destroyTurnstile() {
+        if (turnstileWidgetId !== null) {
+            try {
+                if (typeof turnstile !== 'undefined' && turnstile.remove) {
+                    turnstile.remove(turnstileWidgetId);
+                }
+            } catch (e) {}
+            turnstileWidgetId = null;
+        }
+        turnstileToken = null;
+        var container = dom['cf-turnstile-container'];
+        if (container) {
+            while (container.firstChild) container.removeChild(container.firstChild);
+        }
+    }
+
+    function initTurnstile() {
+        var container = dom['cf-turnstile-container'];
+        if (!container) return;
+
+        if (!TURNSTILE_SITE_KEY || TURNSTILE_SITE_KEY === 'YOUR_TURNSTILE_SITE_KEY') {
+            container.style.display = 'none';
+            turnstileToken = 'no-turnstile-required';
+            return;
+        }
+
+        if (typeof turnstile === 'undefined') {
+            setTimeout(initTurnstile, 300);
+            return;
+        }
+
+        destroyTurnstile();
+        container.style.display = 'block';
+
+        try {
+            turnstileWidgetId = turnstile.render(container, {
+                sitekey: TURNSTILE_SITE_KEY,
+                theme: 'light',
+                'render': 'explicit',
+                callback: function(token) {
+                    turnstileToken = token;
+                    var err = dom['cf-turnstile-err'];
+                    if (err) {
+                        err.textContent = '';
+                        err.classList.add('cf-hidden');
+                    }
+                },
+                'expired-callback': function() {
+                    turnstileToken = null;
+                    var err = dom['cf-turnstile-err'];
+                    if (err) {
+                        err.textContent = 'Security verification expired. Please try again.';
+                        err.classList.remove('cf-hidden');
+                    }
+                },
+                'error-callback': function() {
+                    turnstileToken = null;
+                    var err = dom['cf-turnstile-err'];
+                    if (err) {
+                        err.textContent = 'Security verification failed. Please refresh the page.';
+                        err.classList.remove('cf-hidden');
+                    }
+                }
+            });
+        } catch (e) {
+            console.error('Turnstile render error:', e);
+        }
+    }
+
+    // --- CATEGORY SELECTION ---
+    function selectCategory(category) {
+        selectedCategory = category;
+        var buttons = dom['cf-cats'].querySelectorAll('.cf-btn');
+        buttons.forEach(function(btn) {
+            btn.style.borderColor = btn.dataset.category === category ? 'var(--accent)' : 'var(--border)';
+            btn.style.background = btn.dataset.category === category ? 'color-mix(in srgb, var(--accent) 15%, var(--input-bg))' : '';
+        });
+        dom['cf-s1'].classList.add('cf-hidden');
+        dom['cf-s2'].classList.remove('cf-hidden');
+        updateProgress(50, 'Step 2: Your details');
+        initTurnstile();
+        if (dom['cf-first-name']) dom['cf-first-name'].focus();
+    }
+
+    // --- VALIDATION ---
+    function validateForm() {
+        var hasError = false;
+
+        // Reset errors
+        var errorFields = ['cf-first-name-err', 'cf-last-name-err', 'cf-email-err', 'cf-phone-err', 'cf-subject-err', 'cf-message-err', 'cf-turnstile-err'];
+        for (var i = 0; i < errorFields.length; i++) {
+            var err = dom[errorFields[i]];
+            if (err) err.textContent = '';
+        }
+        var inputFields = ['cf-first-name', 'cf-last-name', 'cf-email', 'cf-phone', 'cf-subject', 'cf-message'];
+        for (var i = 0; i < inputFields.length; i++) {
+            var inp = dom[inputFields[i]];
+            if (inp) inp.classList.remove('cf-input-error');
+        }
+
+        var firstName = dom['cf-first-name']?.value?.trim() || '';
+        var lastName = dom['cf-last-name']?.value?.trim() || '';
+        var email = dom['cf-email']?.value?.trim() || '';
+        var phone = dom['cf-phone']?.value?.trim() || '';
+        var subject = dom['cf-subject']?.value?.trim() || '';
+        var message = dom['cf-message']?.value?.trim() || '';
+
+        if (!firstName) { setFieldError('cf-first-name', 'cf-first-name-err', 'First name is required.'); hasError = true; }
+        if (!lastName) { setFieldError('cf-last-name', 'cf-last-name-err', 'Last name is required.'); hasError = true; }
+        if (!email) { setFieldError('cf-email', 'cf-email-err', 'Email address is required.'); hasError = true; }
+        else if (!isValidEmail(email)) { setFieldError('cf-email', 'cf-email-err', 'Please enter a valid email address.'); hasError = true; }
+        if (phone && !/^[\+\d\s\-\(\)]{7,20}$/.test(phone)) { setFieldError('cf-phone', 'cf-phone-err', 'Please enter a valid phone number.'); hasError = true; }
+        if (!subject) { setFieldError('cf-subject', 'cf-subject-err', 'Subject is required.'); hasError = true; }
+        if (!message) { setFieldError('cf-message', 'cf-message-err', 'Message is required.'); hasError = true; }
+        else if (message.length < 10) { setFieldError('cf-message', 'cf-message-err', 'Message must be at least 10 characters.'); hasError = true; }
+
+        var turnstileEnabled = TURNSTILE_SITE_KEY && TURNSTILE_SITE_KEY !== 'YOUR_TURNSTILE_SITE_KEY';
+        if (turnstileEnabled && !turnstileToken) {
+            var err = dom['cf-turnstile-err'];
+            if (err) {
+                err.textContent = 'Please complete the security check.';
+                err.classList.remove('cf-hidden');
+            }
+            hasError = true;
+        }
+
+        if (hasError) {
+            var firstError = document.querySelector('.cf-input-error');
+            if (firstError) firstError.focus();
+            showToast('Please fix the errors above.', 'error');
+        }
+
+        return {
+            valid: !hasError,
+            data: {
+                category: selectedCategory,
+                firstName: firstName,
+                lastName: lastName,
+                email: email,
+                phone: phone,
+                company: dom['cf-company']?.value?.trim() || '',
+                subject: subject,
+                message: message,
+                priority: dom['cf-priority']?.value || 'normal'
+            }
+        };
+    }
+
+    // --- SUBMIT ---
+    async function submitForm() {
+        if (isSubmitting) return;
+        var validation = validateForm();
+        if (!validation.valid) return;
+
+        isSubmitting = true;
+        var btn = dom['cf-submit'];
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+        var payload = {
+            category: validation.data.category,
+            name: validation.data.firstName + ' ' + validation.data.lastName,
+            email: validation.data.email,
+            subject: validation.data.subject + ' (Priority: ' + validation.data.priority + ')',
+            message: 'Category: ' + validation.data.category + '\n' +
+                     'Phone: ' + validation.data.phone + '\n' +
+                     'Company: ' + validation.data.company + '\n\n' +
+                     validation.data.message,
+            metadata: {
+                source: 'contact-form',
+                priority: validation.data.priority,
+                phone: validation.data.phone,
+                company: validation.data.company,
+                firstName: validation.data.firstName,
+                lastName: validation.data.lastName
+            }
+        };
+
+        try {
+            var response = await fetch(WORKER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            var result = await response.json();
+
+            if (response.ok && result.success) {
+                // Show success
+                dom['cf-s2'].innerHTML = '';
+                var successHtml = \`
+                    <div class="cf-success">
+                        <i class="fas fa-check-circle" style="font-size:3rem;color:#10b981;"></i>
+                        <h3>Message Sent!</h3>
+                        <p>Thank you for contacting us. We'll respond within 24 hours.</p>
+                        <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.5rem;">
+                            Reference: <span style="color:var(--accent);font-weight:600;">\${result.ticketNumber || 'CF-' + Date.now()}</span>
+                        </p>
+                    </div>
+                \`;
+                dom['cf-s2'].innerHTML = successHtml;
+                showToast('Message sent successfully!', 'success', 4000);
+                updateProgress(100, '✅ Done');
+            } else {
+                throw new Error(result.error || 'Server error');
+            }
+        } catch (err) {
+            console.error('Submit error:', err);
+            showToast('Failed to send message: ' + err.message, 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
+            isSubmitting = false;
+            // Reset Turnstile
+            if (turnstileWidgetId !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
+                turnstile.reset(turnstileWidgetId);
+                turnstileToken = null;
+            }
+        }
+    }
+
+    // --- CHARACTER COUNTER ---
+    function initCharCounter() {
+        var textarea = dom['cf-message'];
+        var counter = dom['cf-char-counter'];
+        if (!textarea || !counter) return;
+        var max = 5000;
+        textarea.addEventListener('input', function() {
+            var len = textarea.value.length;
+            counter.textContent = len + ' / ' + max;
+            counter.classList.remove('warning', 'danger');
+            if (len > max - 50) counter.classList.add('danger');
+            else if (len > max - 200) counter.classList.add('warning');
+        });
+    }
+
+    // --- INIT ---
+    function init() {
+        // Category buttons
+        var buttons = dom['cf-cats'].querySelectorAll('.cf-btn');
+        buttons.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                selectCategory(btn.dataset.category);
+            });
+        });
+
+        // Submit
+        if (dom['cf-submit']) {
+            dom['cf-submit'].addEventListener('click', submitForm);
+        }
+
+        // Enter key on fields triggers submit
+        var inputs = dom['cf-s2'].querySelectorAll('input, textarea, select');
+        inputs.forEach(function(inp) {
+            inp.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    submitForm();
+                }
+            });
+        });
+
+        initCharCounter();
+        updateProgress(10, 'Step 1: Tell us about your inquiry');
+    }
+
+    // --- AUTO-INIT ---
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+})();
+</script>
+</div>
