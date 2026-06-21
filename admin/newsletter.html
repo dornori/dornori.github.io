@@ -1,0 +1,337 @@
+<!-- newsletter.html v1.0 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Newsletter – Dornori</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+        .n-page { max-width: 1000px; margin: 0 auto; }
+
+        .s-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .s-card-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+        .s-card-head h3 { font-size: 15px; font-weight: 700; color: var(--text); }
+        .s-card-head p { font-size: 12px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
+
+        .f-row { margin-bottom: 16px; }
+        .f-row label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted); margin-bottom: 6px; }
+        .f-row input[type="text"], .f-row textarea {
+            width: 100%; padding: 9px 12px; background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 7px; color: var(--text); font-size: 14px; font-family: inherit; transition: border-color .15s;
+        }
+        .f-row input:focus, .f-row textarea:focus { outline: none; border-color: var(--accent); }
+        .f-row textarea { min-height: 130px; resize: vertical; font-family: 'Menlo','Consolas',monospace; font-size: 13px; line-height: 1.55; }
+
+        .tag-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; align-items: center; }
+        .tag-bar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin-right: 4px; }
+        .tag-chip {
+            padding: 3px 9px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 20px;
+            font-size: 11px; font-family: monospace; color: var(--accent); cursor: pointer; font-weight: 600;
+            transition: background .12s, color .12s;
+        }
+        .tag-chip:hover { background: var(--accent); color: var(--text-inverse); border-color: var(--accent); }
+
+        .toggle-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+        .toggle-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-track { position: absolute; inset: 0; background: var(--border); border-radius: 22px; cursor: pointer; transition: background .2s; }
+        .toggle-track::after { content: ''; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: transform .2s; }
+        .toggle-switch input:checked + .toggle-track { background: var(--accent); }
+        .toggle-switch input:checked + .toggle-track::after { transform: translateX(18px); }
+        .toggle-label { font-size: 14px; color: var(--text); font-weight: 500; }
+
+        .btn { padding: 8px 18px; border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+        .btn:hover { opacity: .85; }
+        .btn-accent { background: var(--accent); color: var(--text-inverse); }
+        .btn-ghost { background: var(--bg-input); color: var(--text); border: 1px solid var(--border); }
+        .btn-danger { background: var(--error); color: #fff; }
+        .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+        .toast {
+            position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px;
+            font-size: 14px; font-weight: 600; z-index: 9999; opacity: 0; transform: translateY(8px);
+            transition: opacity .2s, transform .2s; pointer-events: none;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background: var(--bg-secondary); color: var(--success); border-left: 4px solid var(--success); box-shadow: 0 4px 20px var(--shadow); }
+        .toast.error   { background: var(--bg-secondary); color: var(--error);   border-left: 4px solid var(--error);   box-shadow: 0 4px 20px var(--shadow); }
+
+        .empty-state { text-align: center; padding: 32px; color: var(--text-muted); font-size: 14px; }
+
+        .n-toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+        .n-toolbar input[type="text"] {
+            flex: 1; min-width: 180px; padding: 9px 12px; background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 7px; color: var(--text); font-size: 14px;
+        }
+        .n-status-pill { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+        .n-status-active { background: #c6f6d5; color: #276749; }
+        .n-status-unsubscribed { background: #e2e8f0; color: #4a5568; }
+        [data-theme="dark"] .n-status-active { background: #1a4a1a; color: #5ae05a; }
+        [data-theme="dark"] .n-status-unsubscribed { background: #2a2a2a; color: #8892b0; }
+
+        @media (max-width: 640px) { .n-toolbar { flex-direction: column; align-items: stretch; } }
+    </style>
+</head>
+<body>
+<div class="container n-page">
+    <div class="header">
+        <h1>📧 Newsletter</h1>
+        <div class="header-right">
+            <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+            <a href="dashboard.html">← Dashboard</a>
+            <a href="reports.html">📊 Reports</a>
+            <a href="settings.html">⚙️ Settings</a>
+        </div>
+    </div>
+
+    <div id="content"><div class="loading">Loading…</div></div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
+
+// ── Theme ──
+function setTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('theme', t);
+    document.querySelectorAll('.theme-toggle').forEach(b => b.textContent = t === 'dark' ? '☀️' : '🌙');
+}
+function toggleTheme() { setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); }
+setTheme(localStorage.getItem('theme') || 'light');
+
+// ── Auth ──
+const token = localStorage.getItem('token');
+if (!token) window.location.href = '/admin';
+
+async function api(path, opts = {}) {
+    opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+    const res = await fetch(API_BASE + path, opts);
+    if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/admin'; throw new Error('Unauthorized'); }
+    return res.json();
+}
+
+let toastTimer;
+function toast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show ' + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+function S(settings, cat, key, def = '') {
+    const s = settings.find(s => s.category === cat && s.key === key);
+    return s ? s.value : def;
+}
+
+const DYN_TAGS = [
+    { tag: '{{sender_email}}',     label: 'Subscriber email' },
+    { tag: '{{unsubscribe_link}}', label: 'Unsubscribe link' },
+];
+function tagBar(targetId) {
+    return `<div class="tag-bar">
+        <span class="tag-bar-label">Insert tag:</span>
+        ${DYN_TAGS.map(t => `<button type="button" class="tag-chip" onclick="insertTag('${targetId}','${t.tag}')">${t.tag}</button>`).join('')}
+    </div>`;
+}
+function insertTag(targetId, tag) {
+    const el = document.getElementById(targetId);
+    if (!el) return;
+    const s = el.selectionStart, e = el.selectionEnd;
+    el.value = el.value.slice(0, s) + tag + el.value.slice(e);
+    el.selectionStart = el.selectionEnd = s + tag.length;
+    el.focus();
+}
+
+// ── State ──
+let settings = [], subscribers = [], filterText = '';
+
+async function load() {
+    try {
+        const [sd, nd] = await Promise.all([api('/api/admin/settings'), api('/api/admin/subscribers')]);
+        settings = sd.settings || [];
+        subscribers = nd.subscribers || [];
+        render();
+    } catch (e) {
+        document.getElementById('content').innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
+    }
+}
+
+async function saveSettings(updates) {
+    const d = await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ settings: updates }) });
+    return d.success;
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    try {
+        let cleaned = dateStr.replace(' ', 'T');
+        if (!cleaned.includes('Z') && !cleaned.includes('+')) cleaned += 'Z';
+        const d = new Date(cleaned);
+        if (isNaN(d.getTime())) return dateStr;
+        return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch { return dateStr; }
+}
+
+// ── Render ──
+function render() {
+    const domain = S(settings, 'general', 'domain', '');
+    document.getElementById('content').innerHTML = buildAutoReply() + buildDomainHint(domain) + buildStats() + buildTable();
+}
+
+function buildDomainHint(domain) {
+    if (domain) return '';
+    return `<div class="s-card" style="border-color:var(--error);">
+        <div class="s-card-head"><div><h3>⚠️ Domain not set</h3><p>Unsubscribe links can't be built yet. Set your domain in <a href="settings.html" style="color:var(--accent);">Settings → General</a> first (e.g. dornori.com).</p></div></div>
+    </div>`;
+}
+
+function buildAutoReply() {
+    const enabled = S(settings, 'auto_reply', 'newsletter_enabled', '1') === '1';
+    const subject = S(settings, 'auto_reply', 'newsletter_subject', 'Welcome to the Dornori Newsletter');
+    const body    = S(settings, 'auto_reply', 'newsletter_body', '');
+
+    return `<div class="s-card">
+        <div class="s-card-head">
+            <div>
+                <h3>Subscribe Confirmation — Auto-Reply</h3>
+                <p>Sent automatically whenever someone subscribes. Subject is plain text, body accepts HTML.</p>
+            </div>
+        </div>
+
+        <div class="toggle-row">
+            <label class="toggle-switch">
+                <input type="checkbox" id="nl_enabled" ${enabled?'checked':''} />
+                <span class="toggle-track"></span>
+            </label>
+            <span class="toggle-label">Send confirmation email on subscribe</span>
+        </div>
+
+        <div class="f-row">
+            <label>Subject line</label>
+            ${tagBar('nl_subject')}
+            <input type="text" id="nl_subject" value="${esc(subject)}" placeholder="Welcome to the Dornori Newsletter" />
+        </div>
+
+        <div class="f-row" style="margin-top:4px;">
+            <label>Email body <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;">(HTML accepted)</span></label>
+            ${tagBar('nl_body')}
+            <textarea id="nl_body" placeholder="<p>Thanks for subscribing!</p>">${esc(body)}</textarea>
+        </div>
+
+        <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+            <button class="btn btn-accent" onclick="saveAutoReply()">Save auto-reply</button>
+            <span id="nl_status" style="font-size:12px;color:var(--text-muted);"></span>
+        </div>
+    </div>`;
+}
+
+async function saveAutoReply() {
+    const enabled = document.getElementById('nl_enabled').checked ? '1' : '0';
+    const subject = document.getElementById('nl_subject').value;
+    const body    = document.getElementById('nl_body').value;
+    const ok = await saveSettings([
+        { category:'auto_reply', key:'newsletter_enabled', value: enabled },
+        { category:'auto_reply', key:'newsletter_subject', value: subject },
+        { category:'auto_reply', key:'newsletter_body',    value: body },
+    ]);
+    if (ok) {
+        toast('✅ Auto-reply saved');
+        const s = document.getElementById('nl_status');
+        s.textContent = 'Saved ✓'; setTimeout(() => s.textContent = '', 2500);
+        ['newsletter_enabled','newsletter_subject','newsletter_body'].forEach((k,i) => {
+            const val = [enabled, subject, body][i];
+            const existing = settings.find(s => s.category==='auto_reply' && s.key===k);
+            if (existing) existing.value = val; else settings.push({ category:'auto_reply', key:k, value: val });
+        });
+    } else {
+        toast('❌ Save failed', 'error');
+    }
+}
+
+function buildStats() {
+    const total = subscribers.length;
+    const active = subscribers.filter(s => s.status === 'active').length;
+    const unsub  = subscribers.filter(s => s.status === 'unsubscribed').length;
+    return `<div class="stats">
+        <div class="stat-card"><div class="number">${total}</div><div class="label">Total Subscribers</div></div>
+        <div class="stat-card"><div class="number">${active}</div><div class="label">Active</div></div>
+        <div class="stat-card"><div class="number">${unsub}</div><div class="label">Unsubscribed</div></div>
+    </div>`;
+}
+
+function buildTable() {
+    const list = subscribers.filter(s => !filterText || s.email.toLowerCase().includes(filterText) || (s.name||'').toLowerCase().includes(filterText));
+
+    const rows = list.map(s => `<tr>
+        <td>${esc(s.email)}</td>
+        <td>${esc(s.name || '—')}</td>
+        <td>${formatDate(s.subscribed_at)}</td>
+        <td><span class="n-status-pill n-status-${s.status}">${esc(s.status)}</span></td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteSubscriber(${s.id}, '${esc(s.email)}')">Delete</button></td>
+    </tr>`).join('');
+
+    return `<div class="s-card">
+        <div class="s-card-head">
+            <div><h3>Subscribers</h3><p>Everyone currently on the newsletter list.</p></div>
+        </div>
+        <div class="n-toolbar">
+            <input type="text" id="nl_search" placeholder="Search by email or name…" oninput="onSearch(this.value)" />
+            <button class="btn btn-ghost" onclick="exportCsv()">⬇ Export CSV</button>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Email</th><th>Name</th><th>Subscribed</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody>${rows || '<tr><td colspan="5"><div class="empty-state">No subscribers found</div></td></tr>'}</tbody>
+            </table>
+        </div>
+    </div>`;
+}
+
+function onSearch(v) {
+    filterText = v.trim().toLowerCase();
+    document.querySelector('.s-card:last-child').outerHTML = buildTable();
+}
+
+async function deleteSubscriber(id, email) {
+    if (!confirm(`Delete subscriber "${email}"?\n\nThis removes them from the list permanently.`)) return;
+    const d = await api('/api/admin/subscribers/' + id, { method: 'DELETE' });
+    if (d.success) {
+        toast('✅ Subscriber deleted');
+        subscribers = subscribers.filter(s => s.id !== id);
+        document.querySelector('.stats').outerHTML = buildStats();
+        document.querySelector('.s-card:last-child').outerHTML = buildTable();
+    } else {
+        toast('❌ Delete failed', 'error');
+    }
+}
+
+function exportCsv() {
+    const list = subscribers.filter(s => !filterText || s.email.toLowerCase().includes(filterText) || (s.name||'').toLowerCase().includes(filterText));
+    if (!list.length) { toast('Nothing to export', 'error'); return; }
+    const escCsv = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
+    const header = ['Email','Name','Status','Subscribed At','Unsubscribed At'];
+    const lines = [header.join(',')];
+    list.forEach(s => lines.push([s.email, s.name, s.status, s.subscribed_at, s.unsubscribed_at || ''].map(escCsv).join(',')));
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'dornori-newsletter-subscribers-' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+load();
+</script>
+</body>
+</html>

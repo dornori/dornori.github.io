@@ -1,3 +1,4 @@
+<!-- dashboard.html v1.1 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -23,6 +24,7 @@
             <div class="header-right">
                 <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
                 <a href="reports.html">📊 Reports</a>
+                <a href="newsletter.html">📧 Newsletter</a>
                 <a href="settings.html">⚙️ Settings</a>
                 <button onclick="logout()">Logout</button>
             </div>
@@ -33,10 +35,6 @@
         <div class="filters">
             <select id="filterCategory" onchange="loadTickets()">
                 <option value="">All Categories</option>
-                <option value="support">Support</option>
-                <option value="newsletter">Newsletter</option>
-                <option value="payment">Payment</option>
-                <option value="other">Other</option>
             </select>
             <select id="filterStatus" onchange="loadTickets()">
                 <option value="">All Status</option>
@@ -183,6 +181,7 @@
                 document.getElementById("login").style.display = "none";
                 document.getElementById("dashboard").style.display = "block";
                 await loadEmailSenders();
+                await loadCategories();
                 loadStats();
                 loadTickets();
             } else {
@@ -202,6 +201,37 @@
         localStorage.removeItem("token");
         document.getElementById("login").style.display = "block";
         document.getElementById("dashboard").style.display = "none";
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD CATEGORIES (for the filter dropdown)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadCategories() {
+        try {
+            var res = await fetch(API_BASE + "/api/admin/settings", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            var data = await res.json();
+            if (!data.success) return;
+            var settings = data.settings || [];
+            var cats = new Set(["other"]);
+            settings.forEach(function(s) {
+                if (s.category === "category" && s.key.endsWith("_description") && s.value !== "__deleted__") {
+                    cats.add(s.key.replace("_description", ""));
+                }
+            });
+            var sel = document.getElementById("filterCategory");
+            var current = sel.value;
+            var opts = '<option value="">All Categories</option>';
+            Array.from(cats).sort().forEach(function(c) {
+                var label = c.charAt(0).toUpperCase() + c.slice(1);
+                opts += '<option value="' + c + '">' + label + '</option>';
+            });
+            sel.innerHTML = opts;
+            sel.value = current;
+        } catch (e) {
+            console.error("Failed to load categories:", e);
+        }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -512,6 +542,7 @@
         document.getElementById("login").style.display = "none";
         document.getElementById("dashboard").style.display = "block";
         loadEmailSenders();
+        loadCategories();
         loadStats();
         loadTickets();
     }

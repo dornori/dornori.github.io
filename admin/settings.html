@@ -1,3 +1,4 @@
+<!-- settings.html v1.2 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -199,7 +200,6 @@
         .cat-body { display: none; padding: 20px 16px; border-top: 1px solid var(--border); }
         .cat-item.open .cat-body { display: block; }
         .cat-actions { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
-        .built-in-note { font-size: 11px; color: var(--text-muted); margin-left: auto; font-style: italic; }
 
         /* Auto-reply item */
         .ar-item {
@@ -323,6 +323,7 @@
             <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
             <a href="dashboard.html">← Dashboard</a>
             <a href="reports.html">📊 Reports</a>
+            <a href="newsletter.html">📧 Newsletter</a>
         </div>
     </div>
 
@@ -374,7 +375,7 @@ function S(cat, key, def = '') {
 }
 
 function getCategories() {
-    const cats = new Set(['support', 'newsletter', 'payment', 'other']);
+    const cats = new Set(['other']);
     settings.forEach(s => {
         if (s.category === 'category' && s.key.endsWith('_description') && s.value !== '__deleted__') {
             cats.add(s.key.replace('_description', ''));
@@ -450,6 +451,7 @@ function buildPanel(id) {
 // ─────────────────────────────────────────────────────────────
 function buildGeneral() {
     const tz = S('general', 'timezone', 'UTC');
+    const domain = S('general', 'domain', '');
     const tzs = ['UTC','Europe/Vienna','Europe/London','Europe/Paris','Europe/Berlin','America/New_York','America/Los_Angeles','America/Chicago','Asia/Dubai','Asia/Singapore','Asia/Tokyo','Australia/Sydney','Pacific/Auckland'];
     return `<div class="s-card">
         <div class="s-card-head"><div><h3>General Settings</h3><p>System-wide configuration</p></div></div>
@@ -457,11 +459,18 @@ function buildGeneral() {
             <label>Timezone</label>
             <select id="gen_tz">${tzs.map(t => `<option${t===tz?' selected':''}>${t}</option>`).join('')}</select>
         </div>
+        <div class="f-row" style="max-width:420px;">
+            <label>Domain <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;">(used to build unsubscribe links — no protocol, no trailing slash)</span></label>
+            <input type="text" id="gen_domain" value="${esc(domain)}" placeholder="dornori.com" />
+        </div>
         <button class="btn btn-accent" onclick="saveGeneral()">Save changes</button>
     </div>`;
 }
 async function saveGeneral() {
-    const ok = await saveSettings([{ category:'general', key:'timezone', value: document.getElementById('gen_tz').value }]);
+    const ok = await saveSettings([
+        { category:'general', key:'timezone', value: document.getElementById('gen_tz').value },
+        { category:'general', key:'domain',   value: document.getElementById('gen_domain').value.trim() }
+    ]);
     ok ? toast('✅ Saved') : toast('❌ Failed', 'error');
     if (ok) await load();
 }
@@ -503,20 +512,16 @@ async function saveSla() {
 // ─────────────────────────────────────────────────────────────
 // CATEGORIES
 // ─────────────────────────────────────────────────────────────
-const BUILTINS = ['support','newsletter','payment','other'];
-
 function buildCategories() {
     const cats = getCategories();
     const items = cats.map(cat => {
         const desc  = S('category', cat+'_description', cap(cat)+' inquiries');
         const color = S('category', cat+'_color', '#00ff9d');
-        const isBuiltin = BUILTINS.includes(cat);
         return `<div class="cat-item" id="catitem-${cat}">
             <div class="cat-item-head" onclick="toggleCat('${cat}')">
                 <span class="cat-dot" style="background:${esc(color)}"></span>
                 <span class="cat-name">${esc(cat)}</span>
                 <span class="cat-desc-preview">${esc(desc)}</span>
-                ${isBuiltin ? '<span style="font-size:10px;font-weight:700;color:var(--text-muted);background:var(--bg-hover);padding:2px 7px;border-radius:10px;flex-shrink:0;">built-in</span>' : ''}
                 <span class="cat-chevron">▶</span>
             </div>
             <div class="cat-body">
@@ -532,7 +537,7 @@ function buildCategories() {
                 </div>
                 <div class="cat-actions">
                     <button class="btn btn-accent btn-sm" onclick="saveCat('${cat}')">Save</button>
-                    ${!isBuiltin ? `<button class="btn btn-danger btn-sm" onclick="deleteCat('${cat}')">Delete category</button>` : ''}
+                    <button class="btn btn-danger btn-sm" onclick="deleteCat('${cat}')">Delete category</button>
                 </div>
             </div>
         </div>`;
@@ -707,10 +712,14 @@ function buildAutoReply() {
     const cats = getCategories();
 
     const items = cats.map(cat => {
-        const enabled = S('auto_reply', cat+'_enabled', '0') === '1';
-        const subject = S('auto_reply', cat+'_subject', `[Ticket {{ticket_id}}] Your ${cat} inquiry`);
-        const body    = S('auto_reply', cat+'_body', '');
-        const color   = S('category', cat+'_color', '#8892b0');
+        const enabled  = S('auto_reply', cat+'_enabled', '0') === '1';
+        const subject  = S('auto_reply', cat+'_subject', `[Ticket {{ticket_id}}] Your ${cat} inquiry`);
+        const body     = S('auto_reply', cat+'_body', '');
+        const color    = S('category', cat+'_color', '#8892b0');
+        const fromAddr = S('category', cat+'_assigned_email', '');
+
+        const fromOpts = `<option value="">Default (support@dornori.com)</option>` +
+            emailAddresses.map(a => `<option value="${esc(a.email)}"${a.email===fromAddr?' selected':''}>${esc(a.email)}</option>`).join('');
 
         return `<div class="ar-item" id="aritem-${cat}">
             <div class="ar-item-head" onclick="toggleAr('${cat}')">
@@ -730,7 +739,12 @@ function buildAutoReply() {
                 </div>
 
                 <div class="f-row">
-                    <label>Subject line</label>
+                    <label>Send from address</label>
+                    <select id="ar_from_${cat}">${fromOpts}</select>
+                </div>
+
+                <div class="f-row">
+                    <label>Subject line <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;">(plain text — email headers can't render HTML)</span></label>
                     ${tagBar('ar_subj_' + cat)}
                     <input type="text" id="ar_subj_${cat}" value="${esc(subject)}" placeholder="[Ticket {{ticket_id}}] Your inquiry" />
                 </div>
@@ -779,10 +793,12 @@ async function saveAr(cat) {
     const enabled = document.getElementById('ar_en_'+cat).checked ? '1' : '0';
     const subject = document.getElementById('ar_subj_'+cat).value;
     const body    = document.getElementById('ar_body_'+cat).value;
+    const from    = document.getElementById('ar_from_'+cat).value;
     const ok = await saveSettings([
         { category:'auto_reply', key: cat+'_enabled', value: enabled },
         { category:'auto_reply', key: cat+'_subject', value: subject },
         { category:'auto_reply', key: cat+'_body',    value: body },
+        { category:'category',   key: cat+'_assigned_email', value: from },
     ]);
     if (ok) {
         toast('✅ Auto-reply saved');
@@ -798,6 +814,8 @@ async function saveAr(cat) {
             const s = settings.find(s => s.category==='auto_reply' && s.key===cat+'_'+k);
             if (s) s.value = { enabled, subject, body }[k];
         });
+        const fromSetting = settings.find(s => s.category==='category' && s.key===cat+'_assigned_email');
+        if (fromSetting) fromSetting.value = from; else settings.push({ category:'category', key:cat+'_assigned_email', value: from });
     } else {
         toast('❌ Save failed', 'error');
     }
@@ -809,6 +827,7 @@ async function deleteAr(cat) {
         { category:'auto_reply', key: cat+'_enabled', value: '0' },
         { category:'auto_reply', key: cat+'_subject', value: '' },
         { category:'auto_reply', key: cat+'_body',    value: '' },
+        { category:'category',   key: cat+'_assigned_email', value: '' },
     ]);
     ok ? (toast('✅ Auto-reply cleared'), load()) : toast('❌ Failed', 'error');
 }
