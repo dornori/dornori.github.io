@@ -1,13 +1,322 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Settings – Dornori</title>
     <link rel="stylesheet" href="style.css" />
+    <style>
+        /* ── Settings-specific overrides ── */
+        .s-page { max-width: 860px; margin: 0 auto; }
+
+        /* Tab strip */
+        .tab-strip {
+            display: flex;
+            gap: 0;
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 28px;
+            overflow-x: auto;
+        }
+        .tab-strip button {
+            padding: 12px 22px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: color .15s, border-color .15s;
+        }
+        .tab-strip button:hover { color: var(--text); }
+        .tab-strip button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+        /* Section panels */
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* Section card */
+        .s-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .s-card-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+        .s-card-head h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .s-card-head p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 3px;
+            line-height: 1.4;
+        }
+
+        /* Form fields */
+        .f-row { margin-bottom: 16px; }
+        .f-row label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+        .f-row input[type="text"],
+        .f-row input[type="email"],
+        .f-row input[type="number"],
+        .f-row input[type="color"],
+        .f-row select,
+        .f-row textarea {
+            width: 100%;
+            padding: 9px 12px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color .15s;
+        }
+        .f-row input:focus,
+        .f-row select:focus,
+        .f-row textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .f-row textarea {
+            min-height: 130px;
+            resize: vertical;
+            font-family: 'Menlo', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+        .f-row input[type="color"] {
+            height: 38px;
+            padding: 3px 6px;
+            cursor: pointer;
+        }
+        .f-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .f-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+        /* Dynamic tag bar */
+        .tag-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 6px;
+            align-items: center;
+        }
+        .tag-bar-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            color: var(--text-muted);
+            margin-right: 4px;
+        }
+        .tag-chip {
+            padding: 3px 9px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 11px;
+            font-family: monospace;
+            color: var(--accent);
+            cursor: pointer;
+            font-weight: 600;
+            transition: background .12s, color .12s;
+        }
+        .tag-chip:hover { background: var(--accent); color: var(--text-inverse); border-color: var(--accent); }
+
+        /* Toggle switch */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .toggle-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-track {
+            position: absolute;
+            inset: 0;
+            background: var(--border);
+            border-radius: 22px;
+            cursor: pointer;
+            transition: background .2s;
+        }
+        .toggle-track::after {
+            content: '';
+            position: absolute;
+            left: 3px;
+            top: 3px;
+            width: 16px;
+            height: 16px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform .2s;
+        }
+        .toggle-switch input:checked + .toggle-track { background: var(--accent); }
+        .toggle-switch input:checked + .toggle-track::after { transform: translateX(18px); }
+        .toggle-label { font-size: 14px; color: var(--text); font-weight: 500; }
+
+        /* Category row */
+        .cat-item {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+        .cat-item-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--bg-input);
+            cursor: pointer;
+            user-select: none;
+        }
+        .cat-item-head:hover { background: var(--bg-hover); }
+        .cat-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+        .cat-name { font-weight: 700; font-size: 14px; flex: 1; }
+        .cat-desc-preview { font-size: 12px; color: var(--text-muted); flex: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .cat-chevron { color: var(--text-muted); font-size: 12px; transition: transform .2s; flex-shrink: 0; }
+        .cat-item.open .cat-chevron { transform: rotate(90deg); }
+        .cat-body { display: none; padding: 20px 16px; border-top: 1px solid var(--border); }
+        .cat-item.open .cat-body { display: block; }
+        .cat-actions { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+        .built-in-note { font-size: 11px; color: var(--text-muted); margin-left: auto; font-style: italic; }
+
+        /* Auto-reply item */
+        .ar-item {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 14px;
+            overflow: hidden;
+        }
+        .ar-item-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            background: var(--bg-input);
+            cursor: pointer;
+            user-select: none;
+        }
+        .ar-item-head:hover { background: var(--bg-hover); }
+        .ar-enabled-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .ar-enabled-dot.on { background: var(--success); }
+        .ar-enabled-dot.off { background: var(--border); }
+        .ar-cat-name { font-weight: 700; font-size: 14px; min-width: 120px; }
+        .ar-subject-preview { font-size: 12px; color: var(--text-muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ar-chevron { color: var(--text-muted); font-size: 12px; transition: transform .2s; flex-shrink: 0; }
+        .ar-item.open .ar-chevron { transform: rotate(90deg); }
+        .ar-body { display: none; padding: 22px 18px; border-top: 1px solid var(--border); }
+        .ar-item.open .ar-body { display: block; }
+
+        /* Outgoing email item — always expanded, no accordion */
+        .oe-item {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 14px;
+            overflow: hidden;
+        }
+        .oe-item-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            background: var(--bg-input);
+            border-bottom: 1px solid var(--border);
+        }
+        .oe-email-label { font-weight: 700; font-size: 14px; flex: 1; }
+        .oe-cat-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 9px;
+            border-radius: 20px;
+            background: var(--bg-hover);
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: .4px;
+        }
+        .oe-body { padding: 20px 18px; }
+        .oe-footer-status {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+        .oe-footer-status.has-footer { color: var(--success); font-style: normal; }
+
+        /* Add-new row */
+        .add-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+            padding: 16px;
+            background: var(--bg-input);
+            border: 1px dashed var(--border);
+            border-radius: 8px;
+            margin-top: 8px;
+        }
+        .add-row .f-row { margin-bottom: 0; flex: 1; }
+        .add-row .f-row:last-child { flex: 0 0 auto; }
+
+        /* Buttons */
+        .btn { padding: 8px 18px; border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+        .btn:hover { opacity: .85; }
+        .btn-accent { background: var(--accent); color: var(--text-inverse); }
+        .btn-ghost { background: var(--bg-input); color: var(--text); border: 1px solid var(--border); }
+        .btn-danger { background: var(--error); color: #fff; }
+        .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 9999;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity .2s, transform .2s;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background: var(--bg-secondary); color: var(--success); border-left: 4px solid var(--success); box-shadow: 0 4px 20px var(--shadow); }
+        .toast.error   { background: var(--bg-secondary); color: var(--error);   border-left: 4px solid var(--error);   box-shadow: 0 4px 20px var(--shadow); }
+
+        /* Empty state */
+        .empty-state { text-align: center; padding: 32px; color: var(--text-muted); font-size: 14px; }
+
+        /* Divider */
+        .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+        @media (max-width: 640px) {
+            .f-grid-2, .f-grid-3 { grid-template-columns: 1fr; }
+            .add-row { flex-direction: column; }
+        }
+    </style>
 </head>
 <body>
-<div class="container">
+<div class="container s-page">
     <div class="header">
         <h1>⚙️ Settings</h1>
         <div class="header-right">
@@ -17,350 +326,53 @@
         </div>
     </div>
 
-    <div class="tabs-container" id="tabsContainer"></div>
-    <div id="settingsContent"><div class="loading">Loading…</div></div>
-
-    <div id="saveMessage" class="saved">✅ Saved!</div>
-    <div id="errorMessage" class="error">❌ Failed</div>
+    <div class="tab-strip" id="tabStrip"></div>
+    <div id="tabContent"><div class="loading">Loading…</div></div>
 </div>
 
-<!-- ── Category Modal ─────────────────────────────────────────── -->
-<div id="catModal" class="modal-overlay">
-    <div class="modal-content" style="max-width:480px;">
-        <button class="modal-close" onclick="closeCatModal()">✕</button>
-        <h3 id="catModalTitle" style="color:var(--accent);margin-bottom:20px;">Add Category</h3>
-        <input type="hidden" id="catModalId" />
-        <div class="setting-row"><label>Name (slug, no spaces)</label><input type="text" id="catModalName" placeholder="e.g. billing" /></div>
-        <div class="setting-row"><label>Description</label><input type="text" id="catModalDesc" placeholder="Billing inquiries" /></div>
-        <div class="setting-row"><label>Color</label><input type="color" id="catModalColor" value="#00ff9d" /></div>
-        <div class="actions" style="margin-top:16px;"><button class="btn-primary" onclick="saveCatModal()">💾 Save</button></div>
-    </div>
-</div>
-
-<!-- ── Auto-Reply Modal ───────────────────────────────────────── -->
-<div id="arModal" class="modal-overlay">
-    <div class="modal-content" style="max-width:600px;">
-        <button class="modal-close" onclick="closeArModal()">✕</button>
-        <h3 id="arModalTitle" style="color:var(--accent);margin-bottom:20px;">Auto-Reply</h3>
-        <input type="hidden" id="arModalId" />
-        <div class="setting-row">
-            <label>Category</label>
-            <select id="arModalCategory"></select>
-        </div>
-        <div class="setting-row">
-            <label>Enabled</label>
-            <div class="toggle-wrap"><input type="checkbox" id="arModalEnabled" /><label for="arModalEnabled">Send auto-reply for this category</label></div>
-        </div>
-        <div class="setting-row">
-            <label>Subject <span class="hint">— use dynamic values below</span></label>
-            <input type="text" id="arModalSubject" placeholder="[Ticket {{ticket_id}}] Your inquiry" />
-        </div>
-        <div class="setting-row">
-            <label>Body (HTML accepted)</label>
-            <div class="dynamic-tags">
-                <span class="tag-label">Insert:</span>
-                <button type="button" class="dyn-tag" onclick="insertDynTag('arModalBody','{{ticket_id}}')">{{ticket_id}}</button>
-                <button type="button" class="dyn-tag" onclick="insertDynTag('arModalBody','{{sender_name}}')">{{sender_name}}</button>
-                <button type="button" class="dyn-tag" onclick="insertDynTag('arModalBody','{{sender_email}}')">{{sender_email}}</button>
-                <button type="button" class="dyn-tag" onclick="insertDynTag('arModalBody','{{category}}')">{{category}}</button>
-                <button type="button" class="dyn-tag" onclick="insertDynTag('arModalBody','{{subject}}')">{{subject}}</button>
-                <button type="button" class="dyn-tag" onclick="insertDynTag('arModalSubject','{{ticket_id}}')">→ subject</button>
-            </div>
-            <textarea id="arModalBody" rows="6" placeholder="<p>Thank you for your inquiry…</p>"></textarea>
-        </div>
-        <div class="actions" style="margin-top:16px;"><button class="btn-primary" onclick="saveArModal()">💾 Save</button></div>
-    </div>
-</div>
-
-<!-- ── Outgoing Email Modal ───────────────────────────────────── -->
-<div id="oeModal" class="modal-overlay">
-    <div class="modal-content" style="max-width:600px;">
-        <button class="modal-close" onclick="closeOeModal()">✕</button>
-        <h3 id="oeModalTitle" style="color:var(--accent);margin-bottom:20px;">Edit Email Footer</h3>
-        <input type="hidden" id="oeModalEmail" />
-        <div class="setting-row">
-            <label>Footer HTML for <strong id="oeModalEmailLabel"></strong></label>
-            <div class="dynamic-tags">
-                <span class="tag-label">Insert:</span>
-                <button type="button" class="dyn-tag" onclick="insertDynTag('oeModalBody','{{ticket_id}}')">{{ticket_id}}</button>
-                <button type="button" class="dyn-tag" onclick="insertDynTag('oeModalBody','{{unsubscribe_url}}')">{{unsubscribe_url}}</button>
-                <button type="button" class="dyn-tag" onclick="insertDynTag('oeModalBody','{{sender_name}}')">{{sender_name}}</button>
-            </div>
-            <textarea id="oeModalBody" rows="8" placeholder="<p>Best regards,<br/>The Dornori Team</p>"></textarea>
-        </div>
-        <div class="actions" style="margin-top:16px;"><button class="btn-primary" onclick="saveOeModal()">💾 Save</button></div>
-    </div>
-</div>
+<div id="toast" class="toast"></div>
 
 <script>
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// CONFIG
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// THEME
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function setTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-    document.querySelectorAll('.theme-toggle').forEach(t => t.textContent = theme === 'dark' ? '☀️' : '🌙');
+// ── Theme ──
+function setTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('theme', t);
+    document.querySelectorAll('.theme-toggle').forEach(b => b.textContent = t === 'dark' ? '☀️' : '🌙');
 }
-function toggleTheme() {
-    setTheme((document.documentElement.getAttribute('data-theme') || 'light') === 'light' ? 'dark' : 'light');
-}
+function toggleTheme() { setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); }
 setTheme(localStorage.getItem('theme') || 'light');
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// AUTH
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ── Auth ──
 const token = localStorage.getItem('token');
 if (!token) window.location.href = '/admin';
 
-async function apiFetch(url, opts = {}) {
-    opts.headers = { ...(opts.headers || {}), 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
-    const res = await fetch(API_BASE + url, opts);
+async function api(path, opts = {}) {
+    opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+    const res = await fetch(API_BASE + path, opts);
     if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/admin'; throw new Error('Unauthorized'); }
-    return res;
+    return res.json();
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// STATE
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-let settings = [];
-let emailAddresses = [];
-let categories = [];   // derived from settings category.*_description
-let activeTab = 'general';
+// ── Toast ──
+let toastTimer;
+function toast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show ' + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+}
 
-function getSetting(cat, key, def = '') {
+// ── State ──
+let settings = [], emailAddresses = [], currentTab = 'general';
+
+function S(cat, key, def = '') {
     const s = settings.find(s => s.category === cat && s.key === key);
     return s ? s.value : def;
 }
 
-function getCategories() {
-    // Build from settings: every key matching category.*_description
-    const cats = new Set(['support', 'newsletter', 'payment', 'other']);
-    settings.forEach(s => {
-        if (s.category === 'category' && s.key.endsWith('_description')) {
-            cats.add(s.key.replace('_description', ''));
-        }
-    });
-    return Array.from(cats);
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// NOTIFY
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function notify(msg, isError = false) {
-    const el = document.getElementById(isError ? 'errorMessage' : 'saveMessage');
-    const other = document.getElementById(isError ? 'saveMessage' : 'errorMessage');
-    other.classList.remove('show');
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(el._t);
-    el._t = setTimeout(() => el.classList.remove('show'), 4000);
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// LOAD
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-async function loadAll() {
-    document.getElementById('settingsContent').innerHTML = '<div class="loading">Loading…</div>';
-    try {
-        const [sr, er] = await Promise.all([
-            apiFetch('/api/admin/settings'),
-            apiFetch('/api/admin/email-addresses')
-        ]);
-        const sd = await sr.json(), ed = await er.json();
-        settings = sd.settings || [];
-        emailAddresses = ed.addresses || [];
-        categories = getCategories();
-        render();
-        switchTab(activeTab);
-    } catch(e) {
-        document.getElementById('settingsContent').innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
-    }
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// SAVE SETTINGS HELPER
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-async function saveSettings(updates) {
-    if (!updates.length) { notify('Nothing to save', true); return false; }
-    const res = await apiFetch('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ settings: updates }) });
-    const d = await res.json();
-    return d.success;
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// RENDER TABS
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function render() {
-    const tabs = [
-        { id: 'general',        label: '⚙️ General' },
-        { id: 'sla',            label: '⏱️ SLA' },
-        { id: 'categories',     label: '📂 Categories' },
-        { id: 'email_routing',  label: '📤 Email Routing' },
-        { id: 'auto_reply',     label: '🤖 Auto-Reply' },
-        { id: 'outgoing_email', label: '✉️ Outgoing Email' },
-    ];
-    document.getElementById('tabsContainer').innerHTML = tabs.map((t, i) =>
-        `<button class="tab-button" data-tab="${t.id}">${t.label}</button>`
-    ).join('');
-    document.querySelectorAll('.tab-button').forEach(b =>
-        b.addEventListener('click', () => switchTab(b.dataset.tab))
-    );
-    document.getElementById('settingsContent').innerHTML = tabs.map(t => renderSection(t.id)).join('');
-}
-
-function switchTab(id) {
-    activeTab = id;
-    document.querySelectorAll('.tab-button').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
-    document.querySelectorAll('.settings-section').forEach(s => s.classList.toggle('active', s.id === 'tab-' + id));
-}
-
-function renderSection(id) {
-    switch(id) {
-        case 'general':        return renderGeneral();
-        case 'sla':            return renderSla();
-        case 'categories':     return renderCategories();
-        case 'email_routing':  return renderEmailRouting();
-        case 'auto_reply':     return renderAutoReply();
-        case 'outgoing_email': return renderOutgoingEmail();
-    }
-    return '';
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// GENERAL
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function renderGeneral() {
-    const tz = getSetting('general', 'timezone', 'UTC');
-    const tzList = ['UTC','Europe/Vienna','Europe/London','Europe/Paris','Europe/Berlin','America/New_York','America/Los_Angeles','America/Chicago','Asia/Dubai','Asia/Singapore','Asia/Tokyo','Australia/Sydney','Pacific/Auckland'];
-    return `<div class="settings-section" id="tab-general">
-        <h2>⚙️ General</h2>
-        <div class="setting-row">
-            <label>Timezone</label>
-            <select id="gen_timezone">${tzList.map(t => `<option value="${t}"${t===tz?' selected':''}>${t}</option>`).join('')}</select>
-        </div>
-        <div class="actions"><button class="btn-primary" onclick="saveGeneral()">💾 Save</button></div>
-    </div>`;
-}
-
-async function saveGeneral() {
-    const ok = await saveSettings([{ category:'general', key:'timezone', value: document.getElementById('gen_timezone').value }]);
-    ok ? notify('✅ General saved') : notify('❌ Save failed', true);
-    if (ok) await loadAll();
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// SLA
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function renderSla() {
-    return `<div class="settings-section" id="tab-sla">
-        <h2>⏱️ SLA Rules</h2>
-        ${categories.map(cat => `
-        <div class="card">
-            <h4>${cap(cat)}</h4>
-            <div class="setting-row"><label>Response (hours)</label><input type="number" id="sla_${cat}_response" value="${getSetting('sla', cat+'_response','24')}" /></div>
-            <div class="setting-row"><label>Resolution (hours)</label><input type="number" id="sla_${cat}_resolution" value="${getSetting('sla', cat+'_resolution','72')}" /></div>
-        </div>`).join('')}
-        <div class="actions"><button class="btn-primary" onclick="saveSla()">💾 Save</button></div>
-    </div>`;
-}
-
-async function saveSla() {
-    const updates = [];
-    categories.forEach(cat => {
-        updates.push({ category:'sla', key: cat+'_response',   value: document.getElementById('sla_'+cat+'_response').value });
-        updates.push({ category:'sla', key: cat+'_resolution', value: document.getElementById('sla_'+cat+'_resolution').value });
-    });
-    const ok = await saveSettings(updates);
-    ok ? notify('✅ SLA saved') : notify('❌ Save failed', true);
-    if (ok) await loadAll();
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// CATEGORIES
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function renderCategories() {
-    const rows = categories.map(cat => {
-        const desc  = getSetting('category', cat+'_description', cap(cat) + ' inquiries');
-        const color = getSetting('category', cat+'_color', '#00ff9d');
-        return `<tr>
-            <td><span class="color-dot" style="background:${esc(color)}"></span>${esc(cat)}</td>
-            <td>${esc(desc)}</td>
-            <td><span class="color-swatch" style="background:${esc(color)}">${esc(color)}</span></td>
-            <td>
-                <button class="btn-edit-sm" onclick="openCatModal('${esc(cat)}','${esc(desc)}','${esc(color)}')">✏️ Edit</button>
-                ${['support','newsletter','payment','other'].includes(cat) ? '<span class="hint">built-in</span>' : `<button class="btn-danger-sm" onclick="deleteCategory('${esc(cat)}')">🗑️</button>`}
-            </td>
-        </tr>`;
-    }).join('');
-    return `<div class="settings-section" id="tab-categories">
-        <h2>📂 Categories</h2>
-        <p class="intro-text">Categories are shared across Email Routing and Auto-Reply. Built-in categories cannot be deleted.</p>
-        <div class="table-wrap">
-            <table>
-                <thead><tr><th>Slug</th><th>Description</th><th>Color</th><th>Actions</th></tr></thead>
-                <tbody>${rows}</tbody>
-            </table>
-        </div>
-        <div class="actions" style="margin-top:16px;">
-            <button class="btn-primary" onclick="openCatModal()">➕ Add Category</button>
-        </div>
-    </div>`;
-}
-
-function openCatModal(name='', desc='', color='#00ff9d') {
-    document.getElementById('catModalTitle').textContent = name ? 'Edit Category' : 'Add Category';
-    document.getElementById('catModalId').value   = name;
-    document.getElementById('catModalName').value  = name;
-    document.getElementById('catModalName').disabled = !!name; // can't rename slug
-    document.getElementById('catModalDesc').value  = desc;
-    document.getElementById('catModalColor').value = color || '#00ff9d';
-    document.getElementById('catModal').classList.add('active');
-}
-function closeCatModal() { document.getElementById('catModal').classList.remove('active'); }
-
-async function saveCatModal() {
-    const originalName = document.getElementById('catModalId').value;
-    const name  = originalName || document.getElementById('catModalName').value.trim().toLowerCase().replace(/\s+/g,'-');
-    const desc  = document.getElementById('catModalDesc').value.trim();
-    const color = document.getElementById('catModalColor').value;
-    if (!name) { alert('Name required'); return; }
-
-    const updates = [
-        { category:'category', key: name+'_description', value: desc || cap(name)+' inquiries' },
-        { category:'category', key: name+'_color',       value: color },
-    ];
-    // Ensure SLA defaults exist if new
-    if (!originalName) {
-        updates.push({ category:'sla',        key: name+'_response',   value: '24' });
-        updates.push({ category:'sla',        key: name+'_resolution', value: '72' });
-        updates.push({ category:'auto_reply', key: name+'_enabled',    value: '0' });
-        updates.push({ category:'auto_reply', key: name+'_subject',    value: `[Ticket {{ticket_id}}] Your ${name} inquiry` });
-        updates.push({ category:'auto_reply', key: name+'_body',       value: `<p>Thank you for your ${name} inquiry. We will respond shortly.</p>` });
-    }
-
-    const ok = await saveSettings(updates);
-    if (ok) { closeCatModal(); notify('✅ Category saved'); await loadAll(); }
-    else { notify('❌ Save failed', true); }
-}
-
-async function deleteCategory(name) {
-    if (!confirm(`Delete category "${name}"? This will NOT delete related settings automatically.`)) return;
-    // Remove by setting blank description – worker doesn't have a delete-setting endpoint,
-    // so we mark it with a special tombstone and exclude it from getCategories.
-    // Alternative: just remove from the UI by filtering; DB row stays harmless.
-    // We'll use a __deleted__ prefix convention.
-    const ok = await saveSettings([{ category:'category', key: name+'_description', value: '__deleted__' }]);
-    if (ok) { notify('✅ Category removed'); await loadAll(); }
-    else { notify('❌ Delete failed', true); }
-}
-
-// Update getCategories to honour tombstone
-const _origGetCategories = getCategories;
 function getCategories() {
     const cats = new Set(['support', 'newsletter', 'payment', 'other']);
     settings.forEach(s => {
@@ -371,240 +383,515 @@ function getCategories() {
     return Array.from(cats);
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// EMAIL ROUTING
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function renderEmailRouting() {
-    const catOptions = categories.map(c => `<option value="${c}">${cap(c)}</option>`).join('');
-    const rows = emailAddresses.map(addr => {
-        const opts = categories.map(c => `<option value="${c}"${c===addr.action?' selected':''}>${cap(c)}</option>`).join('');
-        return `<tr>
-            <td style="font-weight:500;">${esc(addr.email)}</td>
-            <td><select class="er-cat-select" data-id="${addr.id}" onchange="updateEmailCategory(${addr.id}, this.value)">${opts}</select></td>
-            <td>
-                <button class="btn-edit-sm" onclick="editEmailPrompt(${addr.id})">✏️</button>
-                <button class="btn-danger-sm" onclick="deleteEmail(${addr.id})" style="margin-left:4px;">🗑️</button>
-            </td>
-        </tr>`;
+// ── Load ──
+async function load() {
+    try {
+        const [sd, ed] = await Promise.all([api('/api/admin/settings'), api('/api/admin/email-addresses')]);
+        settings = sd.settings || [];
+        emailAddresses = ed.addresses || [];
+        renderAll();
+        switchTab(currentTab);
+    } catch(e) {
+        document.getElementById('tabContent').innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
+    }
+}
+
+// ── Save helper ──
+async function saveSettings(updates) {
+    const d = await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ settings: updates }) });
+    return d.success;
+}
+
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+
+// ─────────────────────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────────────────────
+const TABS = [
+    { id: 'general',       icon: '⚙️',  label: 'General' },
+    { id: 'sla',           icon: '⏱️',  label: 'SLA' },
+    { id: 'categories',    icon: '📂',  label: 'Categories' },
+    { id: 'email_routing', icon: '📤',  label: 'Email Routing' },
+    { id: 'auto_reply',    icon: '🤖',  label: 'Auto-Reply' },
+    { id: 'outgoing',      icon: '✉️',  label: 'Outgoing Email' },
+];
+
+function renderAll() {
+    document.getElementById('tabStrip').innerHTML = TABS.map(t =>
+        `<button data-tab="${t.id}" onclick="switchTab('${t.id}')">${t.icon} ${t.label}</button>`
+    ).join('');
+
+    document.getElementById('tabContent').innerHTML = TABS.map(t =>
+        `<div class="tab-panel" id="panel-${t.id}">${buildPanel(t.id)}</div>`
+    ).join('');
+}
+
+function switchTab(id) {
+    currentTab = id;
+    document.querySelectorAll('.tab-strip button').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + id));
+}
+
+function buildPanel(id) {
+    switch(id) {
+        case 'general':       return buildGeneral();
+        case 'sla':           return buildSla();
+        case 'categories':    return buildCategories();
+        case 'email_routing': return buildEmailRouting();
+        case 'auto_reply':    return buildAutoReply();
+        case 'outgoing':      return buildOutgoing();
+    }
+    return '';
+}
+
+// ─────────────────────────────────────────────────────────────
+// GENERAL
+// ─────────────────────────────────────────────────────────────
+function buildGeneral() {
+    const tz = S('general', 'timezone', 'UTC');
+    const tzs = ['UTC','Europe/Vienna','Europe/London','Europe/Paris','Europe/Berlin','America/New_York','America/Los_Angeles','America/Chicago','Asia/Dubai','Asia/Singapore','Asia/Tokyo','Australia/Sydney','Pacific/Auckland'];
+    return `<div class="s-card">
+        <div class="s-card-head"><div><h3>General Settings</h3><p>System-wide configuration</p></div></div>
+        <div class="f-row" style="max-width:320px;">
+            <label>Timezone</label>
+            <select id="gen_tz">${tzs.map(t => `<option${t===tz?' selected':''}>${t}</option>`).join('')}</select>
+        </div>
+        <button class="btn btn-accent" onclick="saveGeneral()">Save changes</button>
+    </div>`;
+}
+async function saveGeneral() {
+    const ok = await saveSettings([{ category:'general', key:'timezone', value: document.getElementById('gen_tz').value }]);
+    ok ? toast('✅ Saved') : toast('❌ Failed', 'error');
+    if (ok) await load();
+}
+
+// ─────────────────────────────────────────────────────────────
+// SLA
+// ─────────────────────────────────────────────────────────────
+function buildSla() {
+    const cats = getCategories();
+    return `<div class="s-card">
+        <div class="s-card-head"><div><h3>SLA Rules</h3><p>Response and resolution time targets per category, in hours</p></div></div>
+        <div style="display:grid;gap:12px;">
+            <div style="display:grid;grid-template-columns:160px 1fr 1fr;gap:12px;padding:0 0 8px;border-bottom:2px solid var(--border);">
+                <span style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);">Category</span>
+                <span style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);">Response (h)</span>
+                <span style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);">Resolution (h)</span>
+            </div>
+            ${cats.map(cat => `
+            <div style="display:grid;grid-template-columns:160px 1fr 1fr;gap:12px;align-items:center;">
+                <span style="font-weight:600;font-size:14px;">${esc(cap(cat))}</span>
+                <input type="number" id="sla_${cat}_resp" value="${esc(S('sla',cat+'_response','24'))}" style="padding:7px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);width:100%;" />
+                <input type="number" id="sla_${cat}_reso" value="${esc(S('sla',cat+'_resolution','72'))}" style="padding:7px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);width:100%;" />
+            </div>`).join('')}
+        </div>
+        <button class="btn btn-accent" style="margin-top:20px;" onclick="saveSla()">Save SLA rules</button>
+    </div>`;
+}
+async function saveSla() {
+    const cats = getCategories();
+    const updates = cats.flatMap(c => [
+        { category:'sla', key: c+'_response',   value: document.getElementById('sla_'+c+'_resp').value },
+        { category:'sla', key: c+'_resolution', value: document.getElementById('sla_'+c+'_reso').value }
+    ]);
+    const ok = await saveSettings(updates);
+    ok ? toast('✅ SLA saved') : toast('❌ Failed', 'error');
+    if (ok) await load();
+}
+
+// ─────────────────────────────────────────────────────────────
+// CATEGORIES
+// ─────────────────────────────────────────────────────────────
+const BUILTINS = ['support','newsletter','payment','other'];
+
+function buildCategories() {
+    const cats = getCategories();
+    const items = cats.map(cat => {
+        const desc  = S('category', cat+'_description', cap(cat)+' inquiries');
+        const color = S('category', cat+'_color', '#00ff9d');
+        const isBuiltin = BUILTINS.includes(cat);
+        return `<div class="cat-item" id="catitem-${cat}">
+            <div class="cat-item-head" onclick="toggleCat('${cat}')">
+                <span class="cat-dot" style="background:${esc(color)}"></span>
+                <span class="cat-name">${esc(cat)}</span>
+                <span class="cat-desc-preview">${esc(desc)}</span>
+                ${isBuiltin ? '<span style="font-size:10px;font-weight:700;color:var(--text-muted);background:var(--bg-hover);padding:2px 7px;border-radius:10px;flex-shrink:0;">built-in</span>' : ''}
+                <span class="cat-chevron">▶</span>
+            </div>
+            <div class="cat-body">
+                <div class="f-grid-2">
+                    <div class="f-row">
+                        <label>Description</label>
+                        <input type="text" id="cat_desc_${cat}" value="${esc(desc)}" />
+                    </div>
+                    <div class="f-row">
+                        <label>Colour</label>
+                        <input type="color" id="cat_color_${cat}" value="${color}" />
+                    </div>
+                </div>
+                <div class="cat-actions">
+                    <button class="btn btn-accent btn-sm" onclick="saveCat('${cat}')">Save</button>
+                    ${!isBuiltin ? `<button class="btn btn-danger btn-sm" onclick="deleteCat('${cat}')">Delete category</button>` : ''}
+                </div>
+            </div>
+        </div>`;
     }).join('');
 
-    return `<div class="settings-section" id="tab-email_routing">
-        <h2>📤 Email Routing</h2>
-        <p class="intro-text">Map incoming email addresses to categories. Categories come from the Categories tab.</p>
-        <div class="table-wrap">
-            <table>
-                <thead><tr><th>Email Address</th><th>Routes to Category</th><th>Actions</th></tr></thead>
-                <tbody id="erTableBody">${rows || '<tr><td colspan="3" style="color:var(--text-muted);text-align:center;padding:20px;">No addresses yet</td></tr>'}</tbody>
-            </table>
+    return `<div class="s-card">
+        <div class="s-card-head">
+            <div><h3>Categories</h3><p>Categories are shared across Email Routing and Auto-Reply. Click a row to expand and edit.</p></div>
         </div>
-        <div class="row" style="margin-top:16px;align-items:flex-end;gap:10px;">
-            <div style="flex:2;">
-                <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Email Address</label>
-                <input type="email" id="newEmailInput" placeholder="incoming@yourdomain.com" style="width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);" />
+        ${items || '<div class="empty-state">No categories yet</div>'}
+
+        <hr class="divider" />
+
+        <h4 style="font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;">Add new category</h4>
+        <div class="f-grid-3" style="align-items:flex-end;">
+            <div class="f-row" style="margin:0;">
+                <label>Slug (no spaces)</label>
+                <input type="text" id="newCatName" placeholder="e.g. billing" />
             </div>
-            <div style="flex:1;">
-                <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">Category</label>
-                <select id="newEmailCategory" style="width:100%;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);">${catOptions}</select>
+            <div class="f-row" style="margin:0;">
+                <label>Description</label>
+                <input type="text" id="newCatDesc" placeholder="Billing inquiries" />
             </div>
-            <button class="btn-add" onclick="addEmail()" style="flex-shrink:0;">➕ Add</button>
+            <div class="f-row" style="margin:0;">
+                <label>Colour</label>
+                <input type="color" id="newCatColor" value="#4f9eff" />
+            </div>
+        </div>
+        <button class="btn btn-accent" style="margin-top:14px;" onclick="addCat()">Add category</button>
+    </div>`;
+}
+
+function toggleCat(cat) {
+    const el = document.getElementById('catitem-' + cat);
+    el.classList.toggle('open');
+}
+
+async function saveCat(cat) {
+    const desc  = document.getElementById('cat_desc_'+cat).value;
+    const color = document.getElementById('cat_color_'+cat).value;
+    const ok = await saveSettings([
+        { category:'category', key: cat+'_description', value: desc },
+        { category:'category', key: cat+'_color',       value: color }
+    ]);
+    ok ? toast('✅ Category saved') : toast('❌ Failed', 'error');
+    if (ok) await load();
+}
+
+async function deleteCat(cat) {
+    if (!confirm(`Delete category "${cat}"?\n\nEmail routing and auto-reply rules for this category will remain in the database but become inactive.`)) return;
+    const ok = await saveSettings([{ category:'category', key: cat+'_description', value: '__deleted__' }]);
+    ok ? toast('✅ Category deleted') : toast('❌ Failed', 'error');
+    if (ok) await load();
+}
+
+async function addCat() {
+    const name  = document.getElementById('newCatName').value.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+    const desc  = document.getElementById('newCatDesc').value.trim();
+    const color = document.getElementById('newCatColor').value;
+    if (!name) { toast('Enter a slug name', 'error'); return; }
+    if (getCategories().includes(name)) { toast('Category already exists', 'error'); return; }
+    const ok = await saveSettings([
+        { category:'category',   key: name+'_description', value: desc || cap(name)+' inquiries' },
+        { category:'category',   key: name+'_color',       value: color },
+        { category:'sla',        key: name+'_response',    value: '24' },
+        { category:'sla',        key: name+'_resolution',  value: '72' },
+        { category:'auto_reply', key: name+'_enabled',     value: '0' },
+        { category:'auto_reply', key: name+'_subject',     value: `[Ticket {{ticket_id}}] Your ${name} inquiry` },
+        { category:'auto_reply', key: name+'_body',        value: `<p>Thank you for your ${name} inquiry. We will respond shortly.</p>` },
+    ]);
+    if (ok) {
+        document.getElementById('newCatName').value = '';
+        document.getElementById('newCatDesc').value = '';
+        toast('✅ Category added');
+        await load();
+    } else {
+        toast('❌ Failed', 'error');
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// EMAIL ROUTING
+// ─────────────────────────────────────────────────────────────
+function buildEmailRouting() {
+    const cats = getCategories();
+    const catOpts = cats.map(c => `<option value="${c}">${cap(c)}</option>`).join('');
+
+    const rows = emailAddresses.map(addr => {
+        const opts = cats.map(c => `<option value="${c}"${c===addr.action?' selected':''}>${cap(c)}</option>`).join('');
+        return `<div style="display:grid;grid-template-columns:1fr 200px auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+            <span style="font-weight:600;font-size:14px;">${esc(addr.email)}</span>
+            <select onchange="updateEmailCat(${addr.id}, this.value)" style="padding:7px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);">${opts}</select>
+            <div style="display:flex;gap:6px;">
+                <button class="btn btn-ghost btn-sm" onclick="editEmailAddr(${addr.id})">Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteEmailAddr(${addr.id})">Delete</button>
+            </div>
+        </div>`;
+    }).join('');
+
+    return `<div class="s-card">
+        <div class="s-card-head"><div><h3>Email Routing</h3><p>Map incoming email addresses to ticket categories. Categories are pulled from the Categories tab.</p></div></div>
+
+        ${emailAddresses.length ? rows : '<div class="empty-state">No email addresses yet — add one below</div>'}
+
+        <hr class="divider" />
+        <h4 style="font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;">Add address</h4>
+        <div style="display:grid;grid-template-columns:1fr 200px auto;gap:12px;align-items:flex-end;">
+            <div class="f-row" style="margin:0;"><label>Email address</label><input type="email" id="newErEmail" placeholder="support@example.com" /></div>
+            <div class="f-row" style="margin:0;"><label>Category</label><select id="newErCat" style="padding:9px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);width:100%;">${catOpts}</select></div>
+            <button class="btn btn-accent" style="white-space:nowrap;" onclick="addEmailAddr()">Add address</button>
         </div>
     </div>`;
 }
 
-async function updateEmailCategory(id, category) {
+async function updateEmailCat(id, cat) {
     const addr = emailAddresses.find(a => a.id === id);
     if (!addr) return;
-    const res = await apiFetch('/api/admin/email-addresses/' + id, {
-        method: 'PUT', body: JSON.stringify({ email: addr.email, label: category, action: category, is_active: 1 })
+    const d = await api('/api/admin/email-addresses/' + id, {
+        method: 'PUT', body: JSON.stringify({ email: addr.email, label: cat, action: cat, is_active: 1 })
     });
-    const d = await res.json();
-    if (d.success) { addr.action = category; notify('✅ Updated'); }
-    else { notify('❌ Failed', true); }
+    d.success ? toast('✅ Routing updated') : toast('❌ Failed', 'error');
+    if (d.success) { addr.action = cat; }
 }
 
-async function addEmail() {
-    const email = document.getElementById('newEmailInput').value.trim();
-    const category = document.getElementById('newEmailCategory').value;
-    if (!email) { alert('Enter an email address'); return; }
-    const res = await apiFetch('/api/admin/email-addresses', {
-        method: 'POST', body: JSON.stringify({ email, label: category, action: category })
+async function addEmailAddr() {
+    const email = document.getElementById('newErEmail').value.trim();
+    const cat   = document.getElementById('newErCat').value;
+    if (!email) { toast('Enter an email address', 'error'); return; }
+    const d = await api('/api/admin/email-addresses', {
+        method: 'POST', body: JSON.stringify({ email, label: cat, action: cat })
     });
-    const d = await res.json();
-    if (d.success) { document.getElementById('newEmailInput').value = ''; notify('✅ Added'); await loadAll(); }
-    else { alert('Failed: ' + (d.error||'')); }
+    if (d.success) { document.getElementById('newErEmail').value = ''; toast('✅ Address added'); await load(); }
+    else { toast('❌ ' + (d.error || 'Failed'), 'error'); }
 }
 
-async function editEmailPrompt(id) {
+async function editEmailAddr(id) {
     const addr = emailAddresses.find(a => a.id === id);
     if (!addr) return;
-    const newEmail = prompt('Email address:', addr.email);
-    if (newEmail === null) return;
-    const res = await apiFetch('/api/admin/email-addresses/' + id, {
+    const newEmail = prompt('Edit email address:', addr.email);
+    if (!newEmail || newEmail === addr.email) return;
+    const d = await api('/api/admin/email-addresses/' + id, {
         method: 'PUT', body: JSON.stringify({ email: newEmail, label: addr.action, action: addr.action, is_active: 1 })
     });
-    const d = await res.json();
-    if (d.success) { notify('✅ Updated'); await loadAll(); }
-    else { notify('❌ Failed', true); }
+    d.success ? (toast('✅ Updated'), load()) : toast('❌ Failed', 'error');
 }
 
-async function deleteEmail(id) {
+async function deleteEmailAddr(id) {
     if (!confirm('Delete this email address?')) return;
-    const res = await apiFetch('/api/admin/email-addresses/' + id, { method: 'DELETE' });
-    const d = await res.json();
-    if (d.success) { notify('✅ Deleted'); await loadAll(); }
-    else { notify('❌ Failed', true); }
+    const d = await api('/api/admin/email-addresses/' + id, { method: 'DELETE' });
+    d.success ? (toast('✅ Deleted'), load()) : toast('❌ Failed', 'error');
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ─────────────────────────────────────────────────────────────
 // AUTO-REPLY
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function renderAutoReply() {
-    const rows = categories.map(cat => {
-        const enabled = getSetting('auto_reply', cat+'_enabled', '0') === '1';
-        const subject = getSetting('auto_reply', cat+'_subject', `[Ticket {{ticket_id}}] Your ${cat} inquiry`);
-        const body    = getSetting('auto_reply', cat+'_body',    '');
-        return `<tr>
-            <td><span class="color-dot" style="background:${getSetting('category',cat+'_color','#00ff9d')}"></span>${esc(cat)}</td>
-            <td><span class="status-pill ${enabled?'pill-on':'pill-off'}">${enabled?'On':'Off'}</span></td>
-            <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--text-muted);">${esc(subject)}</td>
-            <td>
-                <button class="btn-edit-sm" onclick="openArModal('${esc(cat)}','${enabled}','${esc(subject)}',${JSON.stringify(esc(body))})">✏️ Edit</button>
-                ${enabled ? `<button class="btn-danger-sm" onclick="disableAr('${esc(cat)}')" style="margin-left:4px;">⏸ Disable</button>` : ''}
-            </td>
-        </tr>`;
-    }).join('');
-    return `<div class="settings-section" id="tab-auto_reply">
-        <h2>🤖 Auto-Reply</h2>
-        <p class="intro-text">Configure automatic replies sent when a ticket is created for each category. HTML is supported in the body. Use dynamic tags like <code>{{ticket_id}}</code>.</p>
-        <div class="table-wrap">
-            <table>
-                <thead><tr><th>Category</th><th>Status</th><th>Subject</th><th>Actions</th></tr></thead>
-                <tbody>${rows}</tbody>
-            </table>
-        </div>
+// ─────────────────────────────────────────────────────────────
+const DYN_TAGS = [
+    { tag: '{{ticket_id}}',    label: 'Ticket ID' },
+    { tag: '{{sender_name}}',  label: 'Sender name' },
+    { tag: '{{sender_email}}', label: 'Sender email' },
+    { tag: '{{category}}',     label: 'Category' },
+    { tag: '{{subject}}',      label: 'Subject' },
+];
+
+function tagBar(targetId) {
+    return `<div class="tag-bar">
+        <span class="tag-bar-label">Insert tag:</span>
+        ${DYN_TAGS.map(t => `<button type="button" class="tag-chip" onclick="insertTag('${targetId}','${t.tag}')">${t.tag}</button>`).join('')}
     </div>`;
 }
 
-function openArModal(cat, enabled, subject, body) {
-    const catSelect = document.getElementById('arModalCategory');
-    catSelect.innerHTML = categories.map(c => `<option value="${c}"${c===cat?' selected':''}>${cap(c)}</option>`).join('');
-    document.getElementById('arModalEnabled').checked = enabled === 'true' || enabled === true;
-    document.getElementById('arModalSubject').value = subject || '';
-    document.getElementById('arModalBody').value = body || '';
-    document.getElementById('arModalTitle').textContent = cat ? `Auto-Reply: ${cap(cat)}` : 'Auto-Reply';
-    document.getElementById('arModal').classList.add('active');
-}
-function closeArModal() { document.getElementById('arModal').classList.remove('active'); }
+function buildAutoReply() {
+    const cats = getCategories();
 
-async function saveArModal() {
-    const cat     = document.getElementById('arModalCategory').value;
-    const enabled = document.getElementById('arModalEnabled').checked ? '1' : '0';
-    const subject = document.getElementById('arModalSubject').value;
-    const body    = document.getElementById('arModalBody').value;
-    const updates = [
-        { category:'auto_reply', key: cat+'_enabled', value: enabled },
-        { category:'auto_reply', key: cat+'_subject', value: subject },
-        { category:'auto_reply', key: cat+'_body',    value: body },
-    ];
-    const ok = await saveSettings(updates);
-    if (ok) { closeArModal(); notify('✅ Auto-reply saved'); await loadAll(); }
-    else { notify('❌ Save failed', true); }
-}
+    const items = cats.map(cat => {
+        const enabled = S('auto_reply', cat+'_enabled', '0') === '1';
+        const subject = S('auto_reply', cat+'_subject', `[Ticket {{ticket_id}}] Your ${cat} inquiry`);
+        const body    = S('auto_reply', cat+'_body', '');
+        const color   = S('category', cat+'_color', '#8892b0');
 
-async function disableAr(cat) {
-    if (!confirm(`Disable auto-reply for "${cat}"?`)) return;
-    const ok = await saveSettings([{ category:'auto_reply', key: cat+'_enabled', value:'0' }]);
-    if (ok) { notify('✅ Disabled'); await loadAll(); }
-    else { notify('❌ Failed', true); }
-}
+        return `<div class="ar-item" id="aritem-${cat}">
+            <div class="ar-item-head" onclick="toggleAr('${cat}')">
+                <span class="ar-enabled-dot ${enabled?'on':'off'}"></span>
+                <span class="cat-dot" style="background:${esc(color)};width:10px;height:10px;border-radius:50%;flex-shrink:0;"></span>
+                <span class="ar-cat-name">${esc(cap(cat))}</span>
+                <span class="ar-subject-preview">${esc(subject)}</span>
+                <span class="ar-chevron">▶</span>
+            </div>
+            <div class="ar-body">
+                <div class="toggle-row" style="margin-bottom:20px;">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="ar_en_${cat}" ${enabled?'checked':''} />
+                        <span class="toggle-track"></span>
+                    </label>
+                    <span class="toggle-label">Send auto-reply when a <strong>${cat}</strong> ticket is created</span>
+                </div>
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// OUTGOING EMAIL
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function renderOutgoingEmail() {
-    const rows = emailAddresses.map(addr => {
-        const footerKey = 'footer_' + addr.email.replace(/[^a-z0-9]/gi, '_');
-        const hasFooter = !!getSetting('email', footerKey, '');
-        return `<tr>
-            <td style="font-weight:500;">${esc(addr.email)}</td>
-            <td style="font-size:12px;color:var(--text-muted);">${esc(addr.label || addr.action)}</td>
-            <td><span class="status-pill ${hasFooter?'pill-on':'pill-off'}">${hasFooter?'Custom':'None'}</span></td>
-            <td>
-                <button class="btn-edit-sm" onclick="openOeModal('${esc(addr.email)}')">✏️ Edit Footer</button>
-            </td>
-        </tr>`;
+                <div class="f-row">
+                    <label>Subject line</label>
+                    ${tagBar('ar_subj_' + cat)}
+                    <input type="text" id="ar_subj_${cat}" value="${esc(subject)}" placeholder="[Ticket {{ticket_id}}] Your inquiry" />
+                </div>
+
+                <div class="f-row" style="margin-top:4px;">
+                    <label>Email body <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;">(HTML accepted)</span></label>
+                    ${tagBar('ar_body_' + cat)}
+                    <textarea id="ar_body_${cat}" placeholder="<p>Thank you for contacting us…</p>">${esc(body)}</textarea>
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:16px;align-items:center;">
+                    <button class="btn btn-accent btn-sm" onclick="saveAr('${cat}')">Save auto-reply</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteAr('${cat}')">Remove</button>
+                    <span id="ar_status_${cat}" style="font-size:12px;color:var(--text-muted);margin-left:4px;"></span>
+                </div>
+            </div>
+        </div>`;
     }).join('');
 
-    return `<div class="settings-section" id="tab-outgoing_email">
-        <h2>✉️ Outgoing Email</h2>
-        <p class="intro-text">Set an HTML footer for each outgoing email address. The footer is appended to every email sent from that address. HTML is fully supported. Addresses are managed in the Email Routing tab.</p>
-        <div class="table-wrap">
-            <table>
-                <thead><tr><th>From Address</th><th>Label / Category</th><th>Footer</th><th>Actions</th></tr></thead>
-                <tbody>${rows || '<tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:20px;">No email addresses configured. Add them in Email Routing first.</td></tr>'}</tbody>
-            </table>
+    return `<div class="s-card">
+        <div class="s-card-head">
+            <div>
+                <h3>Auto-Reply</h3>
+                <p>Configure the automatic reply sent when a ticket is created. Subject and body are sent as HTML. Click a category row to expand.</p>
+            </div>
         </div>
+        ${items || '<div class="empty-state">No categories configured — add them in the Categories tab first</div>'}
     </div>`;
 }
 
-function openOeModal(email) {
-    const footerKey = 'footer_' + email.replace(/[^a-z0-9]/gi, '_');
-    document.getElementById('oeModalEmail').value       = email;
-    document.getElementById('oeModalEmailLabel').textContent = email;
-    document.getElementById('oeModalBody').value        = getSetting('email', footerKey, '');
-    document.getElementById('oeModalTitle').textContent = 'Footer for ' + email;
-    document.getElementById('oeModal').classList.add('active');
-}
-function closeOeModal() { document.getElementById('oeModal').classList.remove('active'); }
-
-async function saveOeModal() {
-    const email     = document.getElementById('oeModalEmail').value;
-    const body      = document.getElementById('oeModalBody').value;
-    const footerKey = 'footer_' + email.replace(/[^a-z0-9]/gi, '_');
-    const ok = await saveSettings([{ category:'email', key: footerKey, value: body }]);
-    if (ok) { closeOeModal(); notify('✅ Footer saved'); await loadAll(); }
-    else { notify('❌ Save failed', true); }
+function toggleAr(cat) {
+    const el = document.getElementById('aritem-' + cat);
+    el.classList.toggle('open');
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// DYNAMIC TAG INSERT
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function insertDynTag(targetId, tag) {
+function insertTag(targetId, tag) {
     const el = document.getElementById(targetId);
     if (!el) return;
-    const start = el.selectionStart, end = el.selectionEnd;
-    el.value = el.value.substring(0, start) + tag + el.value.substring(end);
-    el.selectionStart = el.selectionEnd = start + tag.length;
+    const s = el.selectionStart, e = el.selectionEnd;
+    el.value = el.value.slice(0, s) + tag + el.value.slice(e);
+    el.selectionStart = el.selectionEnd = s + tag.length;
     el.focus();
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// MODAL CLOSE ON BACKDROP
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-['catModal','arModal','oeModal'].forEach(id => {
-    document.getElementById(id).addEventListener('click', function(e) {
-        if (e.target === this) this.classList.remove('active');
-    });
-});
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') ['catModal','arModal','oeModal'].forEach(id =>
-        document.getElementById(id).classList.remove('active')
-    );
-});
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// UTILS
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
-function esc(s) {
-    if (!s) return '';
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+async function saveAr(cat) {
+    const enabled = document.getElementById('ar_en_'+cat).checked ? '1' : '0';
+    const subject = document.getElementById('ar_subj_'+cat).value;
+    const body    = document.getElementById('ar_body_'+cat).value;
+    const ok = await saveSettings([
+        { category:'auto_reply', key: cat+'_enabled', value: enabled },
+        { category:'auto_reply', key: cat+'_subject', value: subject },
+        { category:'auto_reply', key: cat+'_body',    value: body },
+    ]);
+    if (ok) {
+        toast('✅ Auto-reply saved');
+        const s = document.getElementById('ar_status_'+cat);
+        if (s) { s.textContent = 'Saved ✓'; setTimeout(() => s.textContent = '', 2500); }
+        // Update the enabled dot without full reload
+        const dot = document.querySelector('#aritem-'+cat+' .ar-enabled-dot');
+        if (dot) { dot.className = 'ar-enabled-dot ' + (enabled==='1'?'on':'off'); }
+        const preview = document.querySelector('#aritem-'+cat+' .ar-subject-preview');
+        if (preview) preview.textContent = subject;
+        // sync state
+        ['enabled','subject','body'].forEach(k => {
+            const s = settings.find(s => s.category==='auto_reply' && s.key===cat+'_'+k);
+            if (s) s.value = { enabled, subject, body }[k];
+        });
+    } else {
+        toast('❌ Save failed', 'error');
+    }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function deleteAr(cat) {
+    if (!confirm(`Remove auto-reply for "${cat}"?\nThe category itself is not deleted.`)) return;
+    const ok = await saveSettings([
+        { category:'auto_reply', key: cat+'_enabled', value: '0' },
+        { category:'auto_reply', key: cat+'_subject', value: '' },
+        { category:'auto_reply', key: cat+'_body',    value: '' },
+    ]);
+    ok ? (toast('✅ Auto-reply cleared'), load()) : toast('❌ Failed', 'error');
+}
+
+// ─────────────────────────────────────────────────────────────
+// OUTGOING EMAIL
+// ─────────────────────────────────────────────────────────────
+function buildOutgoing() {
+    if (!emailAddresses.length) {
+        return `<div class="s-card">
+            <div class="s-card-head"><div><h3>Outgoing Email</h3><p>Set an HTML email footer per sending address. Footers are appended to every outgoing message from that address.</p></div></div>
+            <div class="empty-state">No email addresses configured — add them in the Email Routing tab first.</div>
+        </div>`;
+    }
+
+    const items = emailAddresses.map(addr => {
+        const safeKey   = addr.email.replace(/[^a-z0-9]/gi, '_');
+        const footerKey = 'footer_' + safeKey;
+        const footer    = S('email', footerKey, '');
+        const hasFooter = footer.length > 0;
+
+        return `<div class="oe-item">
+            <div class="oe-item-head">
+                <span style="width:8px;height:8px;border-radius:50%;background:${hasFooter?'var(--success)':'var(--border)'};flex-shrink:0;"></span>
+                <span class="oe-email-label">${esc(addr.email)}</span>
+                <span class="oe-cat-badge">${esc(addr.action || addr.label || '—')}</span>
+                <span class="oe-footer-status ${hasFooter?'has-footer':''}">${hasFooter ? 'Custom footer set' : 'No footer'}</span>
+            </div>
+            <div class="oe-body">
+                <div class="f-row">
+                    <label>Footer HTML <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;">(appended to every outgoing email from this address)</span></label>
+                    ${tagBar('oe_footer_'+safeKey)}
+                    <textarea id="oe_footer_${safeKey}" rows="7" placeholder="<p>Best regards,<br/>The Dornori Team</p>\n\n<p style='font-size:11px;color:#888;'>You're receiving this because you contacted us at ${esc(addr.email)}</p>">${esc(footer)}</textarea>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:4px;align-items:center;">
+                    <button class="btn btn-accent btn-sm" onclick="saveFooter('${esc(addr.email)}','${safeKey}')">Save footer</button>
+                    ${hasFooter ? `<button class="btn btn-ghost btn-sm" onclick="clearFooter('${esc(addr.email)}','${safeKey}')">Clear footer</button>` : ''}
+                    <span id="oe_status_${safeKey}" style="font-size:12px;color:var(--text-muted);margin-left:4px;"></span>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    return `<div class="s-card">
+        <div class="s-card-head">
+            <div>
+                <h3>Outgoing Email</h3>
+                <p>Set a per-address HTML footer. The footer is appended to every email sent from that address. Addresses are managed in Email Routing.</p>
+            </div>
+        </div>
+        ${items}
+    </div>`;
+}
+
+async function saveFooter(email, safeKey) {
+    const body = document.getElementById('oe_footer_' + safeKey).value;
+    const ok = await saveSettings([{ category:'email', key:'footer_'+safeKey, value: body }]);
+    if (ok) {
+        toast('✅ Footer saved for ' + email);
+        const s = document.getElementById('oe_status_' + safeKey);
+        if (s) { s.textContent = 'Saved ✓'; setTimeout(() => s.textContent = '', 2500); }
+        // Sync local state
+        const existing = settings.find(s => s.category==='email' && s.key==='footer_'+safeKey);
+        if (existing) existing.value = body; else settings.push({ category:'email', key:'footer_'+safeKey, value: body });
+        // Update indicator
+        const statusEl = document.querySelector('#oe_footer_' + safeKey)?.closest('.oe-item')?.querySelector('.oe-footer-status');
+        if (statusEl) { statusEl.textContent = body ? 'Custom footer set' : 'No footer'; statusEl.className = 'oe-footer-status ' + (body ? 'has-footer' : ''); }
+    } else {
+        toast('❌ Save failed', 'error');
+    }
+}
+
+async function clearFooter(email, safeKey) {
+    if (!confirm('Clear footer for ' + email + '?')) return;
+    document.getElementById('oe_footer_' + safeKey).value = '';
+    await saveFooter(email, safeKey);
+    await load();
+}
+
+// ─────────────────────────────────────────────────────────────
 // INIT
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-loadAll();
+// ─────────────────────────────────────────────────────────────
+load();
 </script>
 </body>
 </html>
