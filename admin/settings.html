@@ -17,80 +17,65 @@
         </div>
     </div>
 
-    <!-- Tabs -->
     <div class="tabs-container" id="tabsContainer"></div>
+    <div id="settingsContent"><div class="loading">Loading...</div></div>
 
-    <!-- Settings content -->
-    <div id="settingsContent"><div class="loading">Loading configuration...</div></div>
-
-    <!-- Messages -->
-    <div id="saveMessage" class="saved">✅ Settings saved successfully!</div>
-    <div id="errorMessage" class="error">❌ Failed to save settings</div>
+    <div id="saveMessage" class="saved">✅ Saved!</div>
+    <div id="errorMessage" class="error">❌ Failed</div>
 </div>
 
 <script>
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  CONFIG
+    // CONFIG
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  THEME TOGGLE
+    // THEME
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function setTheme(theme) {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);
-        const toggles = document.querySelectorAll('.theme-toggle');
-        toggles.forEach(t => t.textContent = theme === 'dark' ? '☀️' : '🌙');
+        document.querySelectorAll('.theme-toggle').forEach(t => t.textContent = theme === 'dark' ? '☀️' : '🌙');
     }
-
     function toggleTheme() {
         const current = document.documentElement.getAttribute('data-theme') || 'light';
         setTheme(current === 'light' ? 'dark' : 'light');
     }
-
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    setTheme(savedTheme);
+    setTheme(localStorage.getItem('theme') || 'light');
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  AUTH CHECK
+    // AUTH
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    var token = localStorage.getItem("token");
-    if (!token) { window.location.href = "/admin"; }
+    const token = localStorage.getItem('token');
+    if (!token) { window.location.href = '/admin'; }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  HELPERS
+    // HELPERS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function escapeHtml(str) {
-        if (!str) return "";
-        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    }
-
-    async function apiFetch(url, opts) {
-        opts = opts || {};
+    async function apiFetch(url, opts = {}) {
         opts.headers = opts.headers || {};
-        opts.headers["Authorization"] = "Bearer " + token;
-        opts.headers["Content-Type"] = "application/json";
-        var res = await fetch(API_BASE + url, opts);
+        opts.headers['Authorization'] = 'Bearer ' + token;
+        opts.headers['Content-Type'] = 'application/json';
+        const res = await fetch(API_BASE + url, opts);
         if (res.status === 401) {
-            localStorage.removeItem("token");
-            window.location.href = "/admin";
-            throw new Error("Unauthorized");
+            localStorage.removeItem('token');
+            window.location.href = '/admin';
+            throw new Error('Unauthorized');
         }
         return res;
     }
 
-    function showSaveMessage(msg, isError) {
+    function showSaveMessage(msg, isError = false) {
         const saveMsg = document.getElementById('saveMessage');
         const errMsg = document.getElementById('errorMessage');
         saveMsg.classList.remove('show');
         errMsg.classList.remove('show');
         if (isError) {
-            errMsg.textContent = msg || '❌ Failed to save settings';
+            errMsg.textContent = msg;
             errMsg.classList.add('show');
         } else {
-            saveMsg.textContent = msg || '✅ Settings saved successfully!';
+            saveMsg.textContent = msg;
             saveMsg.classList.add('show');
         }
         setTimeout(() => {
@@ -100,20 +85,15 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  CATEGORY DEFINITIONS
+    // LOAD DATA
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    const DEFAULT_CATEGORIES = ['support', 'newsletter', 'payment', 'other'];
-    let allCategories = [];
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD ALL DATA
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    let emailAddresses = [];
     let settings = [];
+    let emailAddresses = [];
+    let allCategories = ['support', 'newsletter', 'payment', 'other'];
 
     async function loadAllData() {
         const content = document.getElementById('settingsContent');
-        content.innerHTML = '<div class="loading">Loading configuration...</div>';
+        content.innerHTML = '<div class="loading">Loading...</div>';
 
         try {
             const [settingsRes, emailsRes] = await Promise.all([
@@ -132,333 +112,258 @@
             settings = settingsData.settings || [];
             emailAddresses = emailsData.addresses || [];
 
-            // Build category list from settings (including custom ones)
-            const catSet = new Set(DEFAULT_CATEGORIES);
+            // Build category list
+            const catSet = new Set(['support', 'newsletter', 'payment', 'other']);
             settings.forEach(s => {
                 if (s.category === 'category' && s.key.endsWith('_description')) {
-                    const catName = s.key.replace('_description', '');
-                    catSet.add(catName);
+                    catSet.add(s.key.replace('_description', ''));
                 }
             });
             allCategories = Array.from(catSet);
 
-            renderConfiguration();
+            render();
         } catch (e) {
-            document.getElementById('settingsContent').innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
+            content.innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
+            console.error('Load error:', e);
         }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  GET SETTING HELPER
+    // GET SETTING HELPER
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function getSetting(category, key, def) {
-        const found = settings.find(s => s.category === category && s.key === key);
+    function getSetting(cat, key, def) {
+        const found = settings.find(s => s.category === cat && s.key === key);
         return found ? found.value : def;
     }
 
-    function getCategoryDescription(cat) {
-        return getSetting('category', cat + '_description', cat.charAt(0).toUpperCase() + cat.slice(1) + ' inquiries');
-    }
-
-    function getCategoryColor(cat) {
-        return getSetting('category', cat + '_color', '#00ff9d');
-    }
-
-    function getCategoryAssignedEmail(cat) {
-        return getSetting('category', cat + '_assigned_email', '');
-    }
-
-    function getAutoReplyEnabled(cat) {
-        return getSetting('auto_reply', cat + '_enabled', '0') === '1';
-    }
-
-    function getAutoReplyDelay(cat) {
-        return getSetting('auto_reply', cat + '_delay', '5');
-    }
-
-    function getAutoReplySubject(cat) {
-        return getSetting('auto_reply', cat + '_subject', `[Ticket {{ticket_id}}] Your ${cat} inquiry`);
-    }
-
-    function getAutoReplyBody(cat) {
-        return getSetting('auto_reply', cat + '_body', `Dear customer,\n\nThank you for your ${cat} inquiry. We have created ticket {{ticket_id}} and will respond within {{response_time}} hours.\n\nBest regards,\nDornori Support`);
-    }
-
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  RENDER TABS & SECTIONS
+    // RENDER
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function renderConfiguration() {
+    function render() {
         const content = document.getElementById('settingsContent');
         const tabsContainer = document.getElementById('tabsContainer');
 
-        // ── Define tabs ──
         const tabs = [
             { id: 'general', label: '⚙️ General' },
-            { id: 'sla', label: '⏱️ SLA Rules' },
-            { id: 'color', label: '🎨 Color Profile' },
+            { id: 'sla', label: '⏱️ SLA' },
             { id: 'email_routing', label: '📤 Email Routing' },
             { id: 'auto_reply', label: '🤖 Auto-Reply' },
-            { id: 'category_mgmt', label: '📂 Category Management' }
+            { id: 'categories', label: '📂 Categories' }
         ];
 
-        // ── Build tabs ──
+        // ── Tabs ──
         let tabsHtml = '';
-        tabs.forEach((tab, index) => {
-            const active = index === 0 ? 'active' : '';
-            tabsHtml += `<button class="tab-button ${active}" data-tab="${tab.id}">${tab.label}</button>`;
+        tabs.forEach((tab, i) => {
+            tabsHtml += `<button class="tab-button ${i === 0 ? 'active' : ''}" data-tab="${tab.id}">${tab.label}</button>`;
         });
         tabsContainer.innerHTML = tabsHtml;
 
-        // ── Tab click handler ──
         tabsContainer.querySelectorAll('.tab-button').forEach(btn => {
             btn.addEventListener('click', function() {
-                const tabId = this.getAttribute('data-tab');
-                switchTab(tabId);
+                switchTab(this.getAttribute('data-tab'));
             });
         });
 
-        // ── Build sections ──
-        let sectionsHtml = '';
-
-        // 1. GENERAL
-        const timezones = ["UTC", "Europe/Vienna", "Europe/London", "Europe/Paris", "Europe/Berlin",
-            "America/New_York", "America/Los_Angeles", "America/Chicago", "Asia/Dubai", "Asia/Singapore",
-            "Asia/Tokyo", "Australia/Sydney", "Pacific/Auckland"];
-        let generalHtml = `<div class="settings-section active" id="tab-general">
-            <h2>⚙️ General Settings</h2>
-            <p class="intro-text">Configure basic system settings.</p>`;
-        const tzVal = getSetting('general', 'timezone', 'UTC');
-        const tzOptions = timezones.map(t => `<option value="${t}" ${t === tzVal ? 'selected' : ''}>${t}</option>`).join('');
-        generalHtml += `<div class="setting-row">
-            <label for="timezoneInput">Timezone</label>
-            <select id="timezoneInput" data-category="general" data-key="timezone">${tzOptions}</select>
-            <span class="description">System timezone for all date displays.</span>
-        </div>`;
-        generalHtml += `<div class="actions" style="margin-top:20px;">
-            <button class="btn-primary" onclick="saveGeneralSettings()">💾 Save General Settings</button>
-        </div>`;
-        generalHtml += `</div>`;
-        sectionsHtml += generalHtml;
-
-        // 2. SLA RULES
-        let slaHtml = `<div class="settings-section" id="tab-sla">
-            <h2>⏱️ SLA Rules</h2>
-            <p class="intro-text">Set response and resolution times (in hours) for each ticket category.</p>`;
-        allCategories.forEach(cat => {
-            const respVal = getSetting('sla', cat + '_response', '24');
-            const resVal = getSetting('sla', cat + '_resolution', '72');
-            slaHtml += `<div class="card">
-                <h4>${cat.charAt(0).toUpperCase() + cat.slice(1)}</h4>
-                <div class="setting-row">
-                    <label for="sla_${cat}_response">Response Time (hours)</label>
-                    <input type="number" id="sla_${cat}_response" value="${respVal}" data-category="sla" data-key="${cat}_response" />
-                </div>
-                <div class="setting-row">
-                    <label for="sla_${cat}_resolution">Resolution Time (hours)</label>
-                    <input type="number" id="sla_${cat}_resolution" value="${resVal}" data-category="sla" data-key="${cat}_resolution" />
-                </div>
-            </div>`;
-        });
-        slaHtml += `<div class="actions" style="margin-top:20px;">
-            <button class="btn-primary" onclick="saveSlaSettings()">💾 Save SLA Settings</button>
-        </div>`;
-        slaHtml += `</div>`;
-        sectionsHtml += slaHtml;
-
-        // 3. COLOR PROFILE
-        const modeVal = getSetting('theme', 'mode', 'dark');
-        const accentVal = getSetting('theme', 'accent', '#00ff9d');
-        let colorHtml = `<div class="settings-section" id="tab-color">
-            <h2>🎨 Color Profile</h2>
-            <p class="intro-text">Customise the look and feel of the dashboard.</p>
+        // ── General ──
+        const timezone = getSetting('general', 'timezone', 'UTC');
+        let sectionsHtml = `<div class="settings-section active" id="tab-general">
+            <h2>⚙️ General</h2>
             <div class="setting-row">
-                <label>Theme Mode</label>
-                <select id="themeMode" data-category="theme" data-key="mode">
-                    <option value="dark" ${modeVal === 'dark' ? 'selected' : ''}>Dark</option>
-                    <option value="light" ${modeVal === 'light' ? 'selected' : ''}>Light</option>
+                <label>Timezone</label>
+                <select id="timezoneInput" data-category="general" data-key="timezone">
+                    ${['UTC','Europe/Vienna','Europe/London','Europe/Paris','Europe/Berlin','America/New_York','America/Los_Angeles','America/Chicago','Asia/Dubai','Asia/Singapore','Asia/Tokyo','Australia/Sydney','Pacific/Auckland'].map(t => `<option value="${t}" ${t === timezone ? 'selected' : ''}>${t}</option>`).join('')}
                 </select>
             </div>
-            <div class="setting-row">
-                <label>Accent Color</label>
-                <input type="color" id="themeAccent" data-category="theme" data-key="accent" value="${accentVal}" />
-            </div>
-            <div class="card">
-                <h4>Preview</h4>
-                <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                    <button class="btn-primary" style="background:var(--accent);color:var(--text-inverse);">Primary</button>
-                    <button class="btn-secondary">Secondary</button>
-                    <span style="background:var(--accent);color:var(--text-inverse);padding:4px 12px;border-radius:4px;">Badge</span>
-                </div>
-            </div>
-            <div class="actions" style="margin-top:20px;">
-                <button class="btn-primary" onclick="saveColorSettings()">💾 Save Color Settings</button>
-            </div>
+            <div class="actions"><button class="btn-primary" onclick="saveTab('general')">💾 Save</button></div>
         </div>`;
-        sectionsHtml += colorHtml;
 
-        // 4. EMAIL ROUTING
-        let emailRoutingHtml = `<div class="settings-section" id="tab-email_routing">
-            <h2>📤 Email Routing</h2>
-            <p class="intro-text">Map email addresses to ticket categories. Changes are saved automatically when you change the category dropdown.</p>
+        // ── SLA ──
+        let slaHtml = `<div class="settings-section" id="tab-sla"><h2>⏱️ SLA Rules</h2>`;
+        allCategories.forEach(cat => {
+            const resp = getSetting('sla', cat + '_response', '24');
+            const res = getSetting('sla', cat + '_resolution', '72');
+            slaHtml += `<div class="card"><h4>${cat.charAt(0).toUpperCase() + cat.slice(1)}</h4>
+                <div class="setting-row"><label>Response (hours)</label><input type="number" id="sla_${cat}_response" value="${resp}" data-category="sla" data-key="${cat}_response" /></div>
+                <div class="setting-row"><label>Resolution (hours)</label><input type="number" id="sla_${cat}_resolution" value="${res}" data-category="sla" data-key="${cat}_resolution" /></div>
+            </div>`;
+        });
+        slaHtml += `<div class="actions"><button class="btn-primary" onclick="saveTab('sla')">💾 Save</button></div></div>`;
+        sectionsHtml += slaHtml;
+
+        // ── Email Routing ──
+        let emailHtml = `<div class="settings-section" id="tab-email_routing"><h2>📤 Email Routing</h2>
             <div id="emailRoutingList">`;
         if (emailAddresses.length === 0) {
-            emailRoutingHtml += '<div class="loading" style="padding:10px;">No email addresses configured.</div>';
+            emailHtml += '<div class="loading">No addresses.</div>';
         } else {
             emailAddresses.forEach(addr => {
-                const action = addr.action || 'support';
-                const selectedCat = allCategories.includes(action) ? action : 'custom';
-                emailRoutingHtml += `<div class="email-row" data-id="${addr.id}">
-                    <span class="email">${escapeHtml(addr.email)}</span>
-                    <select class="category-select" data-id="${addr.id}" onchange="saveEmailCategory(${addr.id}, this.value)">
-                        ${allCategories.map(c => `<option value="${c}" ${c === selectedCat ? 'selected' : ''}>${c.charAt(0).toUpperCase() + c.slice(1)}</option>`).join('')}
-                        <option value="custom" ${!allCategories.includes(selectedCat) ? 'selected' : ''}>Custom</option>
+                emailHtml += `<div class="email-row" data-id="${addr.id}">
+                    <span class="email">${addr.email}</span>
+                    <select class="category-select" data-id="${addr.id}" onchange="updateEmailCategory(${addr.id}, this.value)">
+                        ${allCategories.map(c => `<option value="${c}" ${c === addr.action ? 'selected' : ''}>${c}</option>`).join('')}
+                        <option value="custom" ${!allCategories.includes(addr.action) ? 'selected' : ''}>Custom</option>
                     </select>
-                    <div class="actions">
-                        <button class="btn-edit-sm" onclick="editEmailAddress(${addr.id})">✏️</button>
-                        <button class="btn-danger-sm" onclick="deleteEmailAddress(${addr.id})">🗑️</button>
-                    </div>
+                    <div class="actions"><button class="btn-edit-sm" onclick="editEmail(${addr.id})">✏️</button><button class="btn-danger-sm" onclick="deleteEmail(${addr.id})">🗑️</button></div>
                 </div>`;
             });
         }
-        emailRoutingHtml += `</div>
+        emailHtml += `</div>
             <div class="row" style="margin-top:16px;">
-                <input type="email" id="newEmailInput" placeholder="new@domain.com" style="flex:2; min-width:200px;" />
-                <select id="newEmailCategory" style="flex:1; min-width:120px;">
-                    ${allCategories.map(c => `<option value="${c}">${c.charAt(0).toUpperCase() + c.slice(1)}</option>`).join('')}
-                    <option value="custom">Custom</option>
-                </select>
-                <button class="btn-add" onclick="addEmailAddress()">➕ Add</button>
+                <input type="email" id="newEmailInput" placeholder="new@domain.com" style="flex:2;" />
+                <select id="newEmailCategory">${allCategories.map(c => `<option value="${c}">${c}</option>`).join('')}<option value="custom">Custom</option></select>
+                <button class="btn-add" onclick="addEmail()">➕ Add</button>
             </div>
+            <div class="actions" style="margin-top:20px;"><button class="btn-primary" onclick="saveTab('email_routing')">💾 Save Email Routing</button></div>
         </div>`;
-        sectionsHtml += emailRoutingHtml;
+        sectionsHtml += emailHtml;
 
-        // 5. AUTO-REPLY TEMPLATES
-        let autoReplyHtml = `<div class="settings-section" id="tab-auto_reply">
-            <h2>🤖 Auto-Reply Templates</h2>
-            <p class="intro-text">Configure automatic replies per category. Placeholders: <code>{ticket_id}</code>, <code>{category}</code>, <code>{customer_email}</code>, <code>{response_time}</code>.</p>`;
+        // ── Auto-Reply ──
+        let autoHtml = `<div class="settings-section" id="tab-auto_reply"><h2>🤖 Auto-Reply</h2>`;
         allCategories.forEach(cat => {
-            const enabled = getAutoReplyEnabled(cat);
-            const delay = getAutoReplyDelay(cat);
-            const subject = getAutoReplySubject(cat);
-            const body = getAutoReplyBody(cat);
-            autoReplyHtml += `<div class="category-card" data-category="${cat}">
+            const enabled = getSetting('auto_reply', cat + '_enabled', '0') === '1';
+            const delay = getSetting('auto_reply', cat + '_delay', '5');
+            const subject = getSetting('auto_reply', cat + '_subject', `[Ticket {{ticket_id}}] Your ${cat} inquiry`);
+            const body = getSetting('auto_reply', cat + '_body', `Thank you for your ${cat} inquiry. We will respond shortly.`);
+            autoHtml += `<div class="category-card">
                 <div class="header">
-                    <h3><span class="color-dot" style="background:${getCategoryColor(cat)};"></span> ${cat.charAt(0).toUpperCase() + cat.slice(1)}</h3>
+                    <h3>${cat.charAt(0).toUpperCase() + cat.slice(1)}</h3>
                     <div class="toggle-wrap">
                         <input type="checkbox" id="auto_${cat}_enabled" ${enabled ? 'checked' : ''} data-category="auto_reply" data-key="${cat}_enabled" />
-                        <label for="auto_${cat}_enabled">Enable auto-reply</label>
+                        <label for="auto_${cat}_enabled">Enable</label>
                     </div>
                 </div>
                 <div class="body">
-                    <div class="field">
-                        <label>Delay (minutes)</label>
-                        <input type="number" id="auto_${cat}_delay" value="${delay}" min="0" step="1" data-category="auto_reply" data-key="${cat}_delay" />
-                    </div>
-                    <div class="field">
-                        <label>Subject line</label>
-                        <input type="text" id="auto_${cat}_subject" value="${escapeHtml(subject)}" data-category="auto_reply" data-key="${cat}_subject" />
-                    </div>
+                    <div class="field"><label>Delay (min)</label><input type="number" id="auto_${cat}_delay" value="${delay}" data-category="auto_reply" data-key="${cat}_delay" /></div>
+                    <div class="field"><label>Subject</label><input type="text" id="auto_${cat}_subject" value="${subject}" data-category="auto_reply" data-key="${cat}_subject" /></div>
                 </div>
                 <div class="auto-reply-fields">
-                    <div class="field" style="grid-column: 1 / -1;">
-                        <label>Message body</label>
-                        <textarea id="auto_${cat}_body" rows="4" data-category="auto_reply" data-key="${cat}_body">${escapeHtml(body)}</textarea>
-                        <span class="description">Placeholders: {ticket_id}, {category}, {customer_email}, {response_time}</span>
-                    </div>
+                    <div class="field" style="grid-column:1/-1;"><label>Body</label><textarea id="auto_${cat}_body" rows="3" data-category="auto_reply" data-key="${cat}_body">${body}</textarea></div>
                 </div>
             </div>`;
         });
-        autoReplyHtml += `<div class="actions" style="margin-top:20px;">
-            <button class="btn-primary" onclick="saveAutoReplyTemplates()">💾 Save Auto-Reply Settings</button>
-        </div></div>`;
-        sectionsHtml += autoReplyHtml;
+        autoHtml += `<div class="actions"><button class="btn-primary" onclick="saveTab('auto_reply')">💾 Save</button></div></div>`;
+        sectionsHtml += autoHtml;
 
-        // 6. CATEGORY MANAGEMENT
-        let categoryMgmtHtml = `<div class="settings-section" id="tab-category_mgmt">
-            <h2>📂 Category Management</h2>
-            <p class="intro-text">Configure display names, colours, and assigned email addresses for each category.</p>
-            <div class="table-wrap">
-                <table>
-                    <thead><tr><th>Category</th><th>Description</th><th>Assigned Email(s)</th><th>Color</th><th>Actions</th></tr></thead>
-                    <tbody>`;
+        // ── Categories ──
+        let catHtml = `<div class="settings-section" id="tab-categories"><h2>📂 Categories</h2>
+            <div class="table-wrap"><table><thead><tr><th>Category</th><th>Description</th><th>Assigned Email</th><th>Color</th></tr></thead><tbody>`;
         allCategories.forEach(cat => {
-            const desc = getCategoryDescription(cat);
-            const color = getCategoryColor(cat);
-            const assigned = getCategoryAssignedEmail(cat);
-            categoryMgmtHtml += `<tr data-category="${cat}">
-                <td><span class="color-dot" style="background:${color};display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:8px;"></span>${cat.charAt(0).toUpperCase() + cat.slice(1)}</td>
-                <td><input type="text" class="cat-desc" data-category="${cat}" value="${escapeHtml(desc)}" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:4px 8px;color:var(--text);" /></td>
-                <td>
-                    <select class="cat-assigned" data-category="${cat}" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:4px 8px;color:var(--text);">
-                        <option value="">None</option>
-                        ${emailAddresses.map(addr => `<option value="${escapeHtml(addr.email)}" ${addr.email === assigned ? 'selected' : ''}>${escapeHtml(addr.email)}</option>`).join('')}
-                    </select>
-                </td>
-                <td><input type="color" class="cat-color" data-category="${cat}" value="${color}" style="width:60px;height:32px;padding:0;border:none;background:transparent;cursor:pointer;" /></td>
-                <td>
-                    <button class="btn-danger-sm" onclick="deleteCategory('${cat}')">🗑️</button>
-                </td>
+            const desc = getSetting('category', cat + '_description', cat + ' inquiries');
+            const color = getSetting('category', cat + '_color', '#00ff9d');
+            const assigned = getSetting('category', cat + '_assigned_email', '');
+            catHtml += `<tr>
+                <td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};margin-right:8px;"></span>${cat}</td>
+                <td><input type="text" class="cat-desc" data-category="${cat}" value="${desc}" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:4px 8px;color:var(--text);" /></td>
+                <td><select class="cat-assigned" data-category="${cat}" style="width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:4px 8px;color:var(--text);">
+                    <option value="">None</option>
+                    ${emailAddresses.map(a => `<option value="${a.email}" ${a.email === assigned ? 'selected' : ''}>${a.email}</option>`).join('')}
+                </select></td>
+                <td><input type="color" class="cat-color" data-category="${cat}" value="${color}" style="width:50px;height:30px;padding:0;border:none;background:transparent;cursor:pointer;" /></td>
             </tr>`;
         });
-        categoryMgmtHtml += `</tbody></table></div>
+        catHtml += `</tbody></table></div>
             <div style="margin-top:20px;">
-                <button class="btn-primary" onclick="openAddCategoryModal()">➕ Add New Category</button>
-                <button class="btn-primary" onclick="saveCategorySettings()" style="margin-left:10px;">💾 Save Category Settings</button>
+                <button class="btn-primary" onclick="addCategory()">➕ Add Category</button>
+                <button class="btn-primary" onclick="saveTab('categories')" style="margin-left:10px;">💾 Save</button>
             </div>
         </div>`;
-        sectionsHtml += categoryMgmtHtml;
+        sectionsHtml += catHtml;
 
-        // ── Inject sections ──
         content.innerHTML = sectionsHtml;
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  SWITCH TAB
+    // TAB SWITCH
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function switchTab(tabId) {
-        const buttons = document.querySelectorAll('.tab-button');
-        const sections = document.querySelectorAll('.settings-section');
-        buttons.forEach(btn => btn.classList.remove('active'));
-        sections.forEach(sec => sec.classList.remove('active'));
-        const targetBtn = document.querySelector(`.tab-button[data-tab="${tabId}"]`);
-        if (targetBtn) targetBtn.classList.add('active');
-        const targetSection = document.getElementById('tab-' + tabId);
-        if (targetSection) targetSection.classList.add('active');
+        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.settings-section').forEach(s => s.classList.remove('active'));
+        const btn = document.querySelector(`.tab-button[data-tab="${tabId}"]`);
+        if (btn) btn.classList.add('active');
+        const sec = document.getElementById('tab-' + tabId);
+        if (sec) sec.classList.add('active');
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  EMAIL ROUTING ACTIONS
+    // SAVE TAB
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function saveEmailCategory(id, category) {
+    async function saveTab(tabId) {
+        const updates = [];
+        const section = document.getElementById('tab-' + tabId);
+        if (!section) return;
+
+        // Collect all inputs with data-category and data-key
+        section.querySelectorAll('[data-category][data-key]').forEach(el => {
+            let value = el.value;
+            if (el.type === 'checkbox') value = el.checked ? '1' : '0';
+            updates.push({ category: el.dataset.category, key: el.dataset.key, value });
+        });
+
+        // For categories tab, also include description, assigned, color
+        if (tabId === 'categories') {
+            section.querySelectorAll('.cat-desc').forEach(el => {
+                updates.push({ category: 'category', key: el.dataset.category + '_description', value: el.value });
+            });
+            section.querySelectorAll('.cat-assigned').forEach(el => {
+                updates.push({ category: 'category', key: el.dataset.category + '_assigned_email', value: el.value });
+            });
+            section.querySelectorAll('.cat-color').forEach(el => {
+                updates.push({ category: 'category', key: el.dataset.category + '_color', value: el.value });
+            });
+        }
+
+        if (updates.length === 0) {
+            showSaveMessage('No settings to save', true);
+            return;
+        }
+
+        console.log('📤 Saving:', updates);
+
         try {
-            const addr = emailAddresses.find(a => a.id === id);
-            if (!addr) return;
-            const res = await apiFetch('/api/admin/email-addresses/' + id, {
+            const res = await apiFetch('/api/admin/settings', {
                 method: 'PUT',
-                body: JSON.stringify({
-                    email: addr.email,
-                    label: category,
-                    action: category,
-                    is_active: 1
-                })
+                body: JSON.stringify({ settings: updates })
             });
             const data = await res.json();
+            console.log('📥 Response:', data);
+
             if (data.success) {
-                showSaveMessage('✅ Email category updated!', false);
-                // Update local data
-                addr.action = category;
+                showSaveMessage(`✅ ${tabId} saved! (${updates.length} items)`);
+                // Reload to refresh data
+                await loadAllData();
             } else {
-                showSaveMessage('❌ Failed to update email category', true);
+                showSaveMessage('❌ ' + (data.error || 'Unknown error'), true);
             }
         } catch (e) {
-            showSaveMessage('❌ Error: ' + e.message, true);
+            showSaveMessage('❌ ' + e.message, true);
         }
     }
 
-    async function addEmailAddress() {
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // EMAIL ROUTING ACTIONS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function updateEmailCategory(id, category) {
+        const addr = emailAddresses.find(a => a.id === id);
+        if (!addr) return;
+        try {
+            const res = await apiFetch('/api/admin/email-addresses/' + id, {
+                method: 'PUT',
+                body: JSON.stringify({ email: addr.email, label: category, action: category, is_active: 1 })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showSaveMessage('✅ Email category updated');
+                addr.action = category;
+            } else {
+                showSaveMessage('❌ Failed to update', true);
+            }
+        } catch (e) { showSaveMessage('❌ ' + e.message, true); }
+    }
+
+    async function addEmail() {
         const email = document.getElementById('newEmailInput').value.trim();
         const category = document.getElementById('newEmailCategory').value;
-        if (!email) { alert('Please enter an email address.'); return; }
+        if (!email) { alert('Enter email'); return; }
         try {
             const res = await apiFetch('/api/admin/email-addresses', {
                 method: 'POST',
@@ -468,248 +373,49 @@
             if (data.success) {
                 document.getElementById('newEmailInput').value = '';
                 loadAllData();
-                showSaveMessage('✅ Email address added!', false);
+                showSaveMessage('✅ Email added');
             } else {
-                alert('Failed to add: ' + (data.error || 'Unknown'));
+                alert('Failed: ' + (data.error || ''));
             }
         } catch (e) { alert('Error: ' + e.message); }
     }
 
-    async function editEmailAddress(id) {
+    async function editEmail(id) {
         const addr = emailAddresses.find(a => a.id === id);
         if (!addr) return;
-        const newEmail = prompt('Edit email address:', addr.email);
+        const newEmail = prompt('Edit email:', addr.email);
         if (newEmail === null) return;
-        const newAction = prompt('Enter category (or custom):', addr.action);
+        const newAction = prompt('Category:', addr.action);
         if (newAction === null) return;
         try {
             const res = await apiFetch('/api/admin/email-addresses/' + id, {
                 method: 'PUT',
-                body: JSON.stringify({
-                    email: newEmail,
-                    label: newAction,
-                    action: newAction,
-                    is_active: 1
-                })
+                body: JSON.stringify({ email: newEmail, label: newAction, action: newAction, is_active: 1 })
             });
             const data = await res.json();
-            if (data.success) {
-                loadAllData();
-                showSaveMessage('✅ Email address updated!', false);
-            } else {
-                alert('Failed to update: ' + (data.error || 'Unknown'));
-            }
+            if (data.success) { loadAllData(); showSaveMessage('✅ Updated'); }
+            else { alert('Failed'); }
         } catch (e) { alert('Error: ' + e.message); }
     }
 
-    async function deleteEmailAddress(id) {
-        if (!confirm('Delete this email address?')) return;
+    async function deleteEmail(id) {
+        if (!confirm('Delete?')) return;
         try {
             const res = await apiFetch('/api/admin/email-addresses/' + id, { method: 'DELETE' });
             const data = await res.json();
-            if (data.success) {
-                loadAllData();
-                showSaveMessage('✅ Email address deleted!', false);
-            } else {
-                alert('Failed to delete: ' + (data.error || 'Unknown'));
-            }
+            if (data.success) { loadAllData(); showSaveMessage('✅ Deleted'); }
+            else { alert('Failed'); }
         } catch (e) { alert('Error: ' + e.message); }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  SAVE GENERAL SETTINGS
+    // CATEGORY ACTIONS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function saveGeneralSettings() {
-        const timezone = document.getElementById('timezoneInput').value;
-        const updates = [
-            { category: 'general', key: 'timezone', value: timezone }
-        ];
-        try {
-            const res = await apiFetch('/api/admin/settings', {
-                method: 'PUT',
-                body: JSON.stringify({ settings: updates })
-            });
-            const data = await res.json();
-            if (data.success) {
-                showSaveMessage('✅ General settings saved!', false);
-            } else {
-                showSaveMessage('❌ Failed to save general settings', true);
-            }
-        } catch (e) {
-            showSaveMessage('❌ Error: ' + e.message, true);
-        }
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  SAVE SLA SETTINGS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function saveSlaSettings() {
-        const updates = [];
-        allCategories.forEach(cat => {
-            const resp = document.getElementById(`sla_${cat}_response`);
-            const res = document.getElementById(`sla_${cat}_resolution`);
-            if (resp) updates.push({ category: 'sla', key: cat + '_response', value: resp.value });
-            if (res) updates.push({ category: 'sla', key: cat + '_resolution', value: res.value });
-        });
-        try {
-            const res = await apiFetch('/api/admin/settings', {
-                method: 'PUT',
-                body: JSON.stringify({ settings: updates })
-            });
-            const data = await res.json();
-            if (data.success) {
-                showSaveMessage('✅ SLA settings saved!', false);
-            } else {
-                showSaveMessage('❌ Failed to save SLA settings', true);
-            }
-        } catch (e) {
-            showSaveMessage('❌ Error: ' + e.message, true);
-        }
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  SAVE COLOR SETTINGS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function saveColorSettings() {
-        const mode = document.getElementById('themeMode').value;
-        const accent = document.getElementById('themeAccent').value;
-        const updates = [
-            { category: 'theme', key: 'mode', value: mode },
-            { category: 'theme', key: 'accent', value: accent }
-        ];
-        try {
-            const res = await apiFetch('/api/admin/settings', {
-                method: 'PUT',
-                body: JSON.stringify({ settings: updates })
-            });
-            const data = await res.json();
-            if (data.success) {
-                showSaveMessage('✅ Color settings saved!', false);
-                setTheme(mode);
-                document.documentElement.style.setProperty('--accent', accent);
-                document.documentElement.style.setProperty('--accent-hover', accent + 'dd');
-            } else {
-                showSaveMessage('❌ Failed to save color settings', true);
-            }
-        } catch (e) {
-            showSaveMessage('❌ Error: ' + e.message, true);
-        }
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  SAVE AUTO-REPLY TEMPLATES
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function saveAutoReplyTemplates() {
-        const updates = [];
-        allCategories.forEach(cat => {
-            const enabled = document.getElementById(`auto_${cat}_enabled`);
-            const delay = document.getElementById(`auto_${cat}_delay`);
-            const subject = document.getElementById(`auto_${cat}_subject`);
-            const body = document.getElementById(`auto_${cat}_body`);
-            if (enabled) updates.push({ category: 'auto_reply', key: cat + '_enabled', value: enabled.checked ? '1' : '0' });
-            if (delay) updates.push({ category: 'auto_reply', key: cat + '_delay', value: delay.value });
-            if (subject) updates.push({ category: 'auto_reply', key: cat + '_subject', value: subject.value });
-            if (body) updates.push({ category: 'auto_reply', key: cat + '_body', value: body.value });
-        });
-        try {
-            const res = await apiFetch('/api/admin/settings', {
-                method: 'PUT',
-                body: JSON.stringify({ settings: updates })
-            });
-            const data = await res.json();
-            if (data.success) {
-                showSaveMessage('✅ Auto-reply settings saved!', false);
-            } else {
-                showSaveMessage('❌ Failed to save auto-reply settings', true);
-            }
-        } catch (e) {
-            showSaveMessage('❌ Error: ' + e.message, true);
-        }
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  SAVE CATEGORY SETTINGS (description, assigned email, color)
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function saveCategorySettings() {
-        const updates = [];
-        document.querySelectorAll('#tab-category_mgmt .cat-desc').forEach(el => {
-            const cat = el.getAttribute('data-category');
-            updates.push({ category: 'category', key: cat + '_description', value: el.value });
-        });
-        document.querySelectorAll('#tab-category_mgmt .cat-assigned').forEach(el => {
-            const cat = el.getAttribute('data-category');
-            updates.push({ category: 'category', key: cat + '_assigned_email', value: el.value });
-        });
-        document.querySelectorAll('#tab-category_mgmt .cat-color').forEach(el => {
-            const cat = el.getAttribute('data-category');
-            updates.push({ category: 'category', key: cat + '_color', value: el.value });
-        });
-        try {
-            const res = await apiFetch('/api/admin/settings', {
-                method: 'PUT',
-                body: JSON.stringify({ settings: updates })
-            });
-            const data = await res.json();
-            if (data.success) {
-                showSaveMessage('✅ Category settings saved!', false);
-                // Update color dots in auto-reply tab too
-                document.querySelectorAll('#tab-auto_reply .color-dot').forEach(dot => {
-                    const card = dot.closest('.category-card');
-                    if (card) {
-                        const cat = card.getAttribute('data-category');
-                        const colorInput = document.querySelector(`#tab-category_mgmt .cat-color[data-category="${cat}"]`);
-                        if (colorInput) dot.style.background = colorInput.value;
-                    }
-                });
-            } else {
-                showSaveMessage('❌ Failed to save category settings', true);
-            }
-        } catch (e) {
-            showSaveMessage('❌ Error: ' + e.message, true);
-        }
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  DELETE CATEGORY (resets settings)
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function deleteCategory(category) {
-        if (!confirm(`Reset category "${category}"? This will remove its custom settings.`)) return;
-        const updates = [
-            { category: 'category', key: category + '_description', value: category.charAt(0).toUpperCase() + category.slice(1) + ' inquiries' },
-            { category: 'category', key: category + '_color', value: '#00ff9d' },
-            { category: 'category', key: category + '_assigned_email', value: '' }
-        ];
-        // Also reset SLA and auto-reply for this category
-        updates.push({ category: 'sla', key: category + '_response', value: '24' });
-        updates.push({ category: 'sla', key: category + '_resolution', value: '72' });
-        updates.push({ category: 'auto_reply', key: category + '_enabled', value: '0' });
-        updates.push({ category: 'auto_reply', key: category + '_delay', value: '5' });
-        updates.push({ category: 'auto_reply', key: category + '_subject', value: `[Ticket {{ticket_id}}] Your ${category} inquiry` });
-        updates.push({ category: 'auto_reply', key: category + '_body', value: `Dear customer,\n\nThank you for your ${category} inquiry. We will respond shortly.\n\nBest regards,\nDornori Support` });
-        try {
-            const res = await apiFetch('/api/admin/settings', {
-                method: 'PUT',
-                body: JSON.stringify({ settings: updates })
-            });
-            const data = await res.json();
-            if (data.success) {
-                loadAllData();
-                showSaveMessage('✅ Category reset!', false);
-            } else {
-                alert('Failed to reset category.');
-            }
-        } catch (e) { alert('Error: ' + e.message); }
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  ADD NEW CATEGORY (modal via prompts)
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function openAddCategoryModal() {
-        const name = prompt('Enter new category name (e.g., "billing"):');
+    function addCategory() {
+        const name = prompt('New category name:');
         if (!name) return;
-        const desc = prompt('Enter description:', name.charAt(0).toUpperCase() + name.slice(1) + ' inquiries');
-        const color = prompt('Enter color (hex, e.g., #ff0000):', '#00ff9d');
-        // Save as settings for this new category
+        const desc = prompt('Description:', name + ' inquiries');
+        const color = prompt('Color (hex):', '#00ff9d');
         const updates = [
             { category: 'category', key: name + '_description', value: desc || name + ' inquiries' },
             { category: 'category', key: name + '_color', value: color || '#00ff9d' },
@@ -719,71 +425,53 @@
             { category: 'auto_reply', key: name + '_enabled', value: '0' },
             { category: 'auto_reply', key: name + '_delay', value: '5' },
             { category: 'auto_reply', key: name + '_subject', value: `[Ticket {{ticket_id}}] Your ${name} inquiry` },
-            { category: 'auto_reply', key: name + '_body', value: `Dear customer,\n\nThank you for your ${name} inquiry. We will respond shortly.\n\nBest regards,\nDornori Support` }
+            { category: 'auto_reply', key: name + '_body', value: `Thank you for your ${name} inquiry.` }
         ];
-
         apiFetch('/api/admin/settings', {
             method: 'PUT',
             body: JSON.stringify({ settings: updates })
-        }).then(res => res.json()).then(data => {
-            if (data.success) {
-                loadAllData();
-                showSaveMessage(`✅ Category "${name}" added!`, false);
-            } else {
-                alert('Failed to add category.');
-            }
+        }).then(r => r.json()).then(data => {
+            if (data.success) { loadAllData(); showSaveMessage(`✅ "${name}" added`); }
+            else { alert('Failed'); }
         }).catch(e => alert('Error: ' + e.message));
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  SAVE ALL SETTINGS (global)
+    // INIT
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function saveAllSettings() {
+    loadAllData();
+
+    // ── Add a "Save All" button ──
+    window.addEventListener('load', function() {
+        const container = document.querySelector('.container');
+        const btn = document.createElement('div');
+        btn.style.margin = '20px 0';
+        btn.innerHTML = `<button class="btn-primary" onclick="saveAll()" style="width:100%;padding:14px;font-size:16px;">💾 Save All Settings</button>`;
+        const content = document.getElementById('settingsContent');
+        if (content && content.parentNode) {
+            content.parentNode.insertBefore(btn, content.nextSibling);
+        }
+    });
+
+    // ── Save All ──
+    async function saveAll() {
         const updates = [];
-
-        // General
-        const timezone = document.getElementById('timezoneInput');
-        if (timezone) updates.push({ category: 'general', key: 'timezone', value: timezone.value });
-
-        // SLA
-        allCategories.forEach(cat => {
-            const resp = document.getElementById(`sla_${cat}_response`);
-            const res = document.getElementById(`sla_${cat}_resolution`);
-            if (resp) updates.push({ category: 'sla', key: cat + '_response', value: resp.value });
-            if (res) updates.push({ category: 'sla', key: cat + '_resolution', value: res.value });
+        document.querySelectorAll('[data-category][data-key]').forEach(el => {
+            let value = el.value;
+            if (el.type === 'checkbox') value = el.checked ? '1' : '0';
+            updates.push({ category: el.dataset.category, key: el.dataset.key, value });
+        });
+        document.querySelectorAll('.cat-desc').forEach(el => {
+            updates.push({ category: 'category', key: el.dataset.category + '_description', value: el.value });
+        });
+        document.querySelectorAll('.cat-assigned').forEach(el => {
+            updates.push({ category: 'category', key: el.dataset.category + '_assigned_email', value: el.value });
+        });
+        document.querySelectorAll('.cat-color').forEach(el => {
+            updates.push({ category: 'category', key: el.dataset.category + '_color', value: el.value });
         });
 
-        // Color
-        const mode = document.getElementById('themeMode');
-        const accent = document.getElementById('themeAccent');
-        if (mode) updates.push({ category: 'theme', key: 'mode', value: mode.value });
-        if (accent) updates.push({ category: 'theme', key: 'accent', value: accent.value });
-
-        // Auto-reply
-        allCategories.forEach(cat => {
-            const enabled = document.getElementById(`auto_${cat}_enabled`);
-            const delay = document.getElementById(`auto_${cat}_delay`);
-            const subject = document.getElementById(`auto_${cat}_subject`);
-            const body = document.getElementById(`auto_${cat}_body`);
-            if (enabled) updates.push({ category: 'auto_reply', key: cat + '_enabled', value: enabled.checked ? '1' : '0' });
-            if (delay) updates.push({ category: 'auto_reply', key: cat + '_delay', value: delay.value });
-            if (subject) updates.push({ category: 'auto_reply', key: cat + '_subject', value: subject.value });
-            if (body) updates.push({ category: 'auto_reply', key: cat + '_body', value: body.value });
-        });
-
-        // Category management
-        document.querySelectorAll('#tab-category_mgmt .cat-desc').forEach(el => {
-            const cat = el.getAttribute('data-category');
-            updates.push({ category: 'category', key: cat + '_description', value: el.value });
-        });
-        document.querySelectorAll('#tab-category_mgmt .cat-assigned').forEach(el => {
-            const cat = el.getAttribute('data-category');
-            updates.push({ category: 'category', key: cat + '_assigned_email', value: el.value });
-        });
-        document.querySelectorAll('#tab-category_mgmt .cat-color').forEach(el => {
-            const cat = el.getAttribute('data-category');
-            updates.push({ category: 'category', key: cat + '_color', value: el.value });
-        });
+        if (updates.length === 0) { showSaveMessage('No settings to save', true); return; }
 
         try {
             const res = await apiFetch('/api/admin/settings', {
@@ -792,39 +480,15 @@
             });
             const data = await res.json();
             if (data.success) {
-                showSaveMessage('✅ All settings saved!', false);
-                // Refresh to reflect changes
-                loadAllData();
-                // Apply theme changes
-                if (mode) setTheme(mode.value);
-                if (accent) {
-                    document.documentElement.style.setProperty('--accent', accent.value);
-                    document.documentElement.style.setProperty('--accent-hover', accent.value + 'dd');
-                }
+                showSaveMessage(`✅ All settings saved! (${updates.length} items)`);
+                await loadAllData();
             } else {
-                showSaveMessage('❌ Failed to save all settings', true);
+                showSaveMessage('❌ ' + (data.error || 'Unknown error'), true);
             }
         } catch (e) {
-            showSaveMessage('❌ Error: ' + e.message, true);
+            showSaveMessage('❌ ' + e.message, true);
         }
     }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  INIT
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    loadAllData();
-
-    // ── Add "Save All" button after the content ──
-    window.addEventListener('load', function() {
-        const container = document.querySelector('.container');
-        const saveAllBtn = document.createElement('div');
-        saveAllBtn.style.margin = '20px 0';
-        saveAllBtn.innerHTML = `<button class="btn-primary" onclick="saveAllSettings()" style="width:100%;padding:14px;font-size:16px;">💾 Save All Settings (all tabs)</button>`;
-        const content = document.getElementById('settingsContent');
-        if (content && content.parentNode) {
-            content.parentNode.insertBefore(saveAllBtn, content.nextSibling);
-        }
-    });
 </script>
 </body>
 </html>
