@@ -186,7 +186,16 @@ function formatDate(dateStr) {
 // ── Render ──
 function render() {
     const domain = S(settings, 'general', 'domain', '');
-    document.getElementById('content').innerHTML = buildAutoReply() + buildDomainHint(domain) + buildStats() + buildTable();
+    document.getElementById('content').innerHTML =
+        buildAutoReply() + buildDomainHint(domain) + buildStats() + buildSearchToolbar() +
+        '<div id="activeCard"></div><div id="unsubCard"></div>';
+    renderTables();
+}
+
+function buildSearchToolbar() {
+    return `<div class="n-toolbar">
+        <input type="text" id="nl_search" placeholder="Search by email or name…" oninput="onSearch(this.value)" value="${esc(filterText)}" />
+    </div>`;
 }
 
 function buildDomainHint(domain) {
@@ -270,32 +279,41 @@ function buildStats() {
     </div>`;
 }
 
-function buildTable() {
-    const list = subscribers.filter(s => !filterText || s.email.toLowerCase().includes(filterText) || (s.name||'').toLowerCase().includes(filterText));
+function filteredSubs(status) {
+    return subscribers.filter(s => s.status === status && (!filterText || s.email.toLowerCase().includes(filterText) || (s.name||'').toLowerCase().includes(filterText)));
+}
 
+function buildSubTable(title, desc, dateLabel, list, exportStatus) {
     const rows = list.map(s => `<tr>
         <td>${esc(s.email)}</td>
         <td>${esc(s.name || '—')}</td>
-        <td>${formatDate(s.subscribed_at)}</td>
-        <td><span class="n-status-pill n-status-${s.status}">${esc(s.status)}</span></td>
+        <td>${formatDate(exportStatus === 'active' ? s.subscribed_at : s.unsubscribed_at)}</td>
         <td><button class="btn btn-danger btn-sm" onclick="deleteSubscriber(${s.id}, '${esc(s.email)}')">Delete</button></td>
     </tr>`).join('');
 
     return `<div class="s-card">
         <div class="s-card-head">
-            <div><h3>Subscribers</h3><p>Everyone currently on the newsletter list.</p></div>
-        </div>
-        <div class="n-toolbar">
-            <input type="text" id="nl_search" placeholder="Search by email or name…" oninput="onSearch(this.value)" />
-            <button class="btn btn-ghost" onclick="exportCsv()">⬇ Export CSV</button>
+            <div><h3>${title} (${list.length})</h3><p>${desc}</p></div>
+            <button class="btn btn-ghost btn-sm" onclick="exportCsv('${exportStatus}')">⬇ Export CSV</button>
         </div>
         <div class="table-wrap">
             <table>
-                <thead><tr><th>Email</th><th>Name</th><th>Subscribed</th><th>Status</th><th>Actions</th></tr></thead>
-                <tbody>${rows || '<tr><td colspan="5"><div class="empty-state">No subscribers found</div></td></tr>'}</tbody>
+                <thead><tr><th>Email</th><th>Name</th><th>${dateLabel}</th><th>Actions</th></tr></thead>
+                <tbody>${rows || `<tr><td colspan="4"><div class="empty-state">No ${title.toLowerCase()} found</div></td></tr>`}</tbody>
             </table>
         </div>
     </div>`;
+}
+
+function renderTables() {
+    document.getElementById('activeCard').innerHTML = buildSubTable(
+        'Active Subscribers', 'Currently subscribed to the newsletter.', 'Subscribed',
+        filteredSubs('active'), 'active'
+    );
+    document.getElementById('unsubCard').innerHTML = buildSubTable(
+        'Unsubscribed', 'People who opted out.', 'Unsubscribed',
+        filteredSubs('unsubscribed'), 'unsubscribed'
+    );
 }
 
 function onSearch(v) {
