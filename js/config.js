@@ -167,6 +167,8 @@ const CONFIG = {
         'reviews':           { file: 'reviews.html'           },
         'about-us':          { file: 'about-us.html'          },
         'form':              { file: 'form.html'              },
+        'newsletter':        { file: 'subscribe.html'         },
+        'unsubscribe':       { file: 'unsubscribe.html'       },
     },
 
     // ── Socials ───────────────────────────────────────────────────────────────
@@ -199,7 +201,7 @@ const CONFIG = {
         {
             label: 'Company',
             links: [
-                { slug: 'gallery',  enabled: true  },
+                { slug: 'newsletter',  enabled: true  },
                 { slug: 'about',    enabled: true  },
                 { slug: 'contact',  enabled: true  },
                 { slug: 'support',  enabled: true  },
