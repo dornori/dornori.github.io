@@ -218,18 +218,6 @@ const CONFIG = {
                 { slug: 'children', enabled: true },
                 { slug: 'security', enabled: true },
             ]
-        },
-        {
-            label: 'Another',
-            links: [
-                { slug: 'terms',    enabled: true  },
-                { slug: 'privacy',  enabled: true },
-                { slug: 'cookies',  enabled: true },
-                { slug: 'imprint',  enabled: true  },
-                { slug: 'returns',  enabled: false },
-                { slug: 'children', enabled: true },
-                { slug: 'security', enabled: true },
-            ]
         }
     ],
 
