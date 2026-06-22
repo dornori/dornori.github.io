@@ -2,7 +2,6 @@
     <style>
         /* ===== variables – consistent with Dornori design ===== */
         :root {
-            --card: #ffffff;
             --border: #cbd5e0;
             --text: #1a202c;
             --text-muted: #4a5568;
@@ -12,26 +11,23 @@
             --font-sans: system-ui, -apple-system, sans-serif;
         }
 
-        /* ===== unsubscribe card – blends with home page ===== */
-        .unsubscribe-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 36px 32px;
+        /* ===== wrapper – transparent, no card ===== */
+        .unsubscribe-wrapper {
+            background: transparent;
+            padding: 20px 0;
             max-width: 500px;
             width: 100%;
-            margin: 2rem auto;          /* centre within container */
-            box-shadow: 0 4px 24px rgba(0, 0, 0, .08);
+            margin: 0 auto;
             text-align: center;
         }
 
-        .unsubscribe-card h1 {
+        .unsubscribe-wrapper h1 {
             font-size: 22px;
             color: var(--accent);
             margin-bottom: 6px;
         }
 
-        .unsubscribe-card .sub {
+        .unsubscribe-wrapper .sub {
             font-size: 14px;
             color: var(--text-muted);
             margin-bottom: 22px;
@@ -126,20 +122,40 @@
             background: #fff5f5;
             color: #c53030;
         }
+
+        /* hide token section by default, shown via JS if token present */
+        #tokenSection {
+            display: none;
+        }
+
+        /* hide email section by default, shown via JS if no token */
+        #emailSection {
+            display: none;
+        }
     </style>
 
-    <div class="unsubscribe-card">
+    <div class="unsubscribe-wrapper">
         <h1>📧 Dornori Newsletter</h1>
-        <p class="sub">Enter your email address and we’ll remove you from the mailing list immediately.</p>
 
-        <form id="emailForm" novalidate>
-            <div class="field">
-                <label for="email">Email address</label>
-                <input type="email" id="email" name="email" placeholder="you@example.com" required />
-            </div>
-            <button type="submit" class="btn-unsubscribe" id="emailBtn">Unsubscribe</button>
-        </form>
+        <!-- Token‑based section (hidden by default) -->
+        <div id="tokenSection">
+            <p class="sub">Click below to confirm you’d like to stop receiving newsletter emails.</p>
+            <button type="button" class="btn-unsubscribe" id="tokenBtn">Unsubscribe</button>
+        </div>
 
+        <!-- Email‑based section (hidden by default) -->
+        <div id="emailSection">
+            <p class="sub">Enter your email address and we’ll remove you from the mailing list immediately.</p>
+            <form id="emailForm" novalidate>
+                <div class="field">
+                    <label for="email">Email address</label>
+                    <input type="email" id="email" name="email" placeholder="you@example.com" required />
+                </div>
+                <button type="submit" class="btn-unsubscribe" id="emailBtn">Unsubscribe</button>
+            </form>
+        </div>
+
+        <!-- Shared message area -->
         <div id="msg" class="msg"></div>
     </div>
 
@@ -148,49 +164,98 @@
             'use strict';
 
             var API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
+            var params = new URLSearchParams(window.location.search);
+            var token = params.get('token');
+
             var msg = document.getElementById('msg');
-            var form = document.getElementById('emailForm');
+            var tokenSection = document.getElementById('tokenSection');
+            var tokenBtn = document.getElementById('tokenBtn');
+            var emailSection = document.getElementById('emailSection');
+            var emailForm = document.getElementById('emailForm');
             var emailInput = document.getElementById('email');
-            var submitBtn = document.getElementById('emailBtn');
+            var emailBtn = document.getElementById('emailBtn');
 
             function showMsg(text, ok) {
                 msg.textContent = text;
                 msg.className = 'msg show ' + (ok ? 'success' : 'error');
             }
 
-            form.addEventListener('submit', async function(e) {
-                e.preventDefault();
+            // ===== TOKEN FLOW =====
+            if (token) {
+                tokenSection.style.display = 'block';
 
-                var email = emailInput.value.trim();
-                if (!email) return;
-
-                if (!confirm('Are you sure you want to unsubscribe from the Dornori newsletter?\n\nYou will no longer receive updates.')) {
-                    return;
-                }
-
-                submitBtn.disabled = true;
-                submitBtn.textContent = 'Unsubscribing…';
-
-                try {
-                    var res = await fetch(API_BASE + '/api/unsubscribe-email', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email: email })
-                    });
-                    var data = await res.json();
-                    if (res.ok && data.success) {
-                        showMsg('✅ You have been unsubscribed.', true);
-                        form.reset();
-                    } else {
-                        showMsg('❌ ' + (data.message || data.error || 'Could not unsubscribe.'), false);
+                tokenBtn.addEventListener('click', async function() {
+                    // confirmation popup for token
+                    if (!confirm('Are you sure you want to unsubscribe from the Dornori newsletter?\n\nYou will no longer receive updates.')) {
+                        return;
                     }
-                } catch (err) {
-                    showMsg('❌ Network error: ' + err.message, false);
-                } finally {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Unsubscribe';
-                }
-            });
+
+                    var btn = this;
+                    btn.disabled = true;
+                    btn.textContent = 'Unsubscribing…';
+
+                    try {
+                        var res = await fetch(API_BASE + '/api/unsubscribe/' + encodeURIComponent(token));
+                        var text = await res.text();
+                        if (res.ok) {
+                            showMsg('✅ You have been unsubscribed.', true);
+                            btn.style.display = 'none';
+                            // hide the sub text too?
+                            var sub = tokenSection.querySelector('.sub');
+                            if (sub) sub.textContent = 'You have been removed from our mailing list.';
+                        } else {
+                            var clean = text.replace(/^[^\w]*/, '');
+                            showMsg('❌ ' + clean, false);
+                        }
+                    } catch (err) {
+                        showMsg('❌ Network error: ' + err.message, false);
+                    } finally {
+                        btn.disabled = false;
+                        btn.textContent = 'Unsubscribe';
+                    }
+                });
+            } else {
+                // ===== EMAIL FLOW =====
+                emailSection.style.display = 'block';
+
+                emailForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+
+                    var email = emailInput.value.trim();
+                    if (!email) return;
+
+                    // confirmation popup for email
+                    if (!confirm('Are you sure you want to unsubscribe from the Dornori newsletter?\n\nYou will no longer receive updates.')) {
+                        return;
+                    }
+
+                    emailBtn.disabled = true;
+                    emailBtn.textContent = 'Unsubscribing…';
+
+                    try {
+                        var res = await fetch(API_BASE + '/api/unsubscribe-email', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: email })
+                        });
+                        var data = await res.json();
+                        if (res.ok && data.success) {
+                            showMsg('✅ You have been unsubscribed.', true);
+                            emailForm.reset();
+                            emailBtn.style.display = 'none';
+                            var sub = emailSection.querySelector('.sub');
+                            if (sub) sub.textContent = 'You have been removed from our mailing list.';
+                        } else {
+                            showMsg('❌ ' + (data.message || data.error || 'Could not unsubscribe.'), false);
+                        }
+                    } catch (err) {
+                        showMsg('❌ Network error: ' + err.message, false);
+                    } finally {
+                        emailBtn.disabled = false;
+                        emailBtn.textContent = 'Unsubscribe';
+                    }
+                });
+            }
         })();
     </script>
 </div>
