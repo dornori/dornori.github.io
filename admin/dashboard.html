@@ -1,4 +1,4 @@
-<!-- dashboard.html v1.1 -->
+<!-- dashboard.html v1.2 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -510,8 +510,16 @@
 
     async function sendReply(id) {
         var from = document.getElementById("detailReplyFrom").value;
-        var body = document.getElementById("detailReplyBody").value;
-        if (!body) return alert("Please enter a reply");
+        var rawBody = document.getElementById("detailReplyBody").value;
+        if (!rawBody) return alert("Please enter a reply");
+        // Convert plain-text newlines to HTML so the email renders with proper
+        // paragraph breaks instead of a single blob of text.
+        var body = '<p>' + rawBody
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/\r\n|\r|\n/g, '</p><p>')
+            + '</p>';
+        // Collapse empty paragraphs that come from consecutive blank lines
+        body = body.replace(/<p>\s*<\/p>/g, '');
         try {
             var res = await fetch(API_BASE + "/api/admin/ticket/" + id + "/reply", {
                 method: "POST",
