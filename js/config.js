@@ -134,7 +134,7 @@ const CONFIG = {
         { slug: 'kit',    icon: 'building-kit-icon-200x200.svg',    type: 'standard', enabled: true  },
         { slug: 'parts',  icon: '3d-printer-icon-200x200.svg',      type: 'standard', enabled: true  },
         { slug: 'files',  icon: '3d-file-icon-200x200.svg',         type: 'standard', enabled: true,  children: [
-            { slug: 'files', label: 'Files', enabled: true },
+            { slug: '', label: 'Files', enabled: true },
             { slug: 'python', label: 'Python', enabled: true },
         ] },
         { slug: 'shop',   icon: 'shop-icon-200x200.svg',            type: 'standard', enabled: true  },
