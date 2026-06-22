@@ -1,18 +1,16 @@
 <div class="container">
     <style>
-        /* ===== variables – identical to unsubscribe ===== */
+        /* ===== variables ===== */
         :root {
             --card: #ffffff;
             --border: #cbd5e0;
             --text: #1a202c;
             --text-muted: #4a5568;
             --accent: #0a8f5c;
-            --error: #ef4444;
             --success: #10b981;
             --font-sans: system-ui, -apple-system, sans-serif;
         }
 
-        /* ===== subscribe card – matches unsubscribe card ===== */
         .subscribe-card {
             background: var(--card);
             border: 1px solid var(--border);
@@ -38,7 +36,6 @@
             line-height: 1.5;
         }
 
-        /* ===== form fields ===== */
         .field {
             text-align: left;
             margin-bottom: 14px;
@@ -70,7 +67,6 @@
             border-color: var(--accent);
         }
 
-        /* ===== subscribe button – uses accent green gradient ===== */
         .btn-subscribe {
             width: 100%;
             padding: 0.875rem;
@@ -92,10 +88,6 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
-        .btn-subscribe:active {
-            transform: translateY(0);
-        }
-
         .btn-subscribe:disabled {
             opacity: 0.5;
             cursor: not-allowed;
@@ -104,7 +96,6 @@
             box-shadow: none;
         }
 
-        /* ===== message box – same as unsubscribe ===== */
         .msg {
             margin-top: 16px;
             font-size: 13px;
@@ -126,25 +117,60 @@
             background: #fff5f5;
             color: #c53030;
         }
+
+        /* ===== Success state – sits inside the card ===== */
+        .subscribe-card .success-state {
+            display: none;
+            padding: 12px 0 4px 0;
+        }
+
+        .subscribe-card .success-state .check-icon {
+            font-size: 48px;
+            color: var(--success);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .subscribe-card .success-state h2 {
+            font-size: 24px;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        .subscribe-card .success-state p {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin-bottom: 0;
+        }
     </style>
 
     <div class="subscribe-card">
         <h1>📧 Dornori Newsletter</h1>
-        <p class="sub">Get news on new colourways, restocks and Star‑A updates. No spam, unsubscribe anytime.</p>
 
-        <form id="subscribeForm" novalidate>
-            <div class="field">
-                <label for="name">Name <span style="text-transform:none;">(optional)</span></label>
-                <input type="text" id="name" name="name" placeholder="Your name" />
-            </div>
-            <div class="field">
-                <label for="email">Email address</label>
-                <input type="email" id="email" name="email" placeholder="you@example.com" required />
-            </div>
-            <button type="submit" class="btn-subscribe" id="submitBtn">Subscribe</button>
-        </form>
+        <!-- Form (visible initially) -->
+        <div id="subscribeFormWrapper">
+            <p class="sub">Get news on new colourways, restocks and Star‑A updates. No spam, unsubscribe anytime.</p>
+            <form id="subscribeForm" novalidate>
+                <div class="field">
+                    <label for="name">Name <span style="text-transform:none;">(optional)</span></label>
+                    <input type="text" id="name" name="name" placeholder="Your name" />
+                </div>
+                <div class="field">
+                    <label for="email">Email address</label>
+                    <input type="email" id="email" name="email" placeholder="you@example.com" required />
+                </div>
+                <button type="submit" class="btn-subscribe" id="submitBtn">Subscribe</button>
+            </form>
+            <div id="msg" class="msg"></div>
+        </div>
 
-        <div id="msg" class="msg"></div>
+        <!-- Success state – visible after subscription -->
+        <div id="successState" class="success-state">
+            <span class="check-icon">✅</span>
+            <h2>You're on the list!</h2>
+            <p>Thanks for subscribing to the Dornori newsletter.<br>Check your inbox for a confirmation email.</p>
+        </div>
     </div>
 
     <script>
@@ -157,10 +183,17 @@
             var nameInput = document.getElementById('name');
             var submitBtn = document.getElementById('submitBtn');
             var msg = document.getElementById('msg');
+            var formWrapper = document.getElementById('subscribeFormWrapper');
+            var successState = document.getElementById('successState');
 
             function showMsg(text, ok) {
                 msg.textContent = text;
                 msg.className = 'msg show ' + (ok ? 'success' : 'error');
+            }
+
+            function showSuccess() {
+                formWrapper.style.display = 'none';
+                successState.style.display = 'block';
             }
 
             form.addEventListener('submit', async function(e) {
@@ -170,11 +203,6 @@
                 var name = nameInput.value.trim();
 
                 if (!email) return;
-
-                // confirmation popup – consistent with unsubscribe
-                if (!confirm('Subscribe to the Dornori newsletter?\n\nYou\'ll receive updates about new colours, restocks, and Star‑A news.')) {
-                    return;
-                }
 
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Subscribing…';
@@ -187,17 +215,14 @@
                     });
                     var data = await res.json();
                     if (res.ok && data.success) {
-                        showMsg('✅ Subscribed! Check your inbox for a confirmation email.', true);
-                        form.reset();
-                        submitBtn.style.display = 'none';
-                        var sub = document.querySelector('.subscribe-card .sub');
-                        if (sub) sub.textContent = 'You\'re on the list! We\'ll keep you posted.';
+                        showSuccess();
                     } else {
                         showMsg('❌ ' + (data.error || 'Something went wrong. Please try again.'), false);
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Subscribe';
                     }
                 } catch (err) {
                     showMsg('❌ Network error: ' + err.message, false);
-                } finally {
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Subscribe';
                 }
