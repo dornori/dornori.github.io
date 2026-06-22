@@ -1,8 +1,7 @@
 <div class="container">
     <style>
-        /* ===== variables – identical to support page ===== */
+        /* ===== variables – consistent with Dornori design ===== */
         :root {
-            --card: #ffffff;
             --border: #cbd5e0;
             --text: #1a202c;
             --text-muted: #4a5568;
@@ -12,26 +11,23 @@
             --font-sans: system-ui, -apple-system, sans-serif;
         }
 
-        /* ===== unsubscribe card – matches support page ===== */
-        .unsubscribe-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 36px 32px;
-            max-width: 420px;
+        /* ===== wrapper – transparent, no card ===== */
+        .unsubscribe-wrapper {
+            background: transparent;
+            padding: 20px 0;
+            max-width: 500px;
             width: 100%;
-            margin: 20px auto;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, .08);
+            margin: 0 auto;
             text-align: center;
         }
 
-        .unsubscribe-card h1 {
+        .unsubscribe-wrapper h1 {
             font-size: 22px;
             color: var(--accent);
             margin-bottom: 6px;
         }
 
-        .unsubscribe-card .sub {
+        .unsubscribe-wrapper .sub {
             font-size: 14px;
             color: var(--text-muted);
             margin-bottom: 22px;
@@ -70,7 +66,7 @@
             border-color: var(--accent);
         }
 
-        /* ===== unsubscribe button – uses error red gradient ===== */
+        /* ===== button – matches support .sf-submit ===== */
         .btn-unsubscribe {
             width: 100%;
             padding: 0.875rem;
@@ -127,25 +123,27 @@
             color: #c53030;
         }
 
-        /* hide sections by default, shown via JS */
+        /* hide token section by default, shown via JS if token present */
         #tokenSection {
             display: none;
         }
+
+        /* hide email section by default, shown via JS if no token */
         #emailSection {
             display: none;
         }
     </style>
 
-    <div class="unsubscribe-card">
+    <div class="unsubscribe-wrapper">
         <h1>📧 Dornori Newsletter</h1>
 
-        <!-- Token‑based section -->
+        <!-- Token‑based section (hidden by default) -->
         <div id="tokenSection">
             <p class="sub">Click below to confirm you’d like to stop receiving newsletter emails.</p>
             <button type="button" class="btn-unsubscribe" id="tokenBtn">Unsubscribe</button>
         </div>
 
-        <!-- Email‑based section -->
+        <!-- Email‑based section (hidden by default) -->
         <div id="emailSection">
             <p class="sub">Enter your email address and we’ll remove you from the mailing list immediately.</p>
             <form id="emailForm" novalidate>
@@ -187,6 +185,7 @@
                 tokenSection.style.display = 'block';
 
                 tokenBtn.addEventListener('click', async function() {
+                    // confirmation popup for token
                     if (!confirm('Are you sure you want to unsubscribe from the Dornori newsletter?\n\nYou will no longer receive updates.')) {
                         return;
                     }
@@ -201,6 +200,7 @@
                         if (res.ok) {
                             showMsg('✅ You have been unsubscribed.', true);
                             btn.style.display = 'none';
+                            // hide the sub text too?
                             var sub = tokenSection.querySelector('.sub');
                             if (sub) sub.textContent = 'You have been removed from our mailing list.';
                         } else {
@@ -224,6 +224,7 @@
                     var email = emailInput.value.trim();
                     if (!email) return;
 
+                    // confirmation popup for email
                     if (!confirm('Are you sure you want to unsubscribe from the Dornori newsletter?\n\nYou will no longer receive updates.')) {
                         return;
                     }
