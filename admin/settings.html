@@ -424,15 +424,28 @@ function renderAll() {
         `<button data-tab="${t.id}" onclick="switchTab('${t.id}')">${t.icon} ${t.label}</button>`
     ).join('');
 
-    document.getElementById('tabContent').innerHTML = TABS.map(t =>
-        `<div class="tab-panel" id="panel-${t.id}">${buildPanel(t.id)}</div>`
-    ).join('');
+    const html = TABS.map(t => {
+        const content = buildPanel(t.id);
+        const isPromise = content && typeof content.then === 'function';
+        return `<div class="tab-panel" id="panel-${t.id}" data-tab-id="${t.id}">${isPromise ? '<div class="loading">Loading…</div>' : content}</div>`;
+    }).join('');
+    document.getElementById('tabContent').innerHTML = html;
 }
 
 function switchTab(id) {
     currentTab = id;
     document.querySelectorAll('.tab-strip button').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + id));
+    
+    if (id === 'auto_reply') {
+        buildAutoReply().then(html => {
+            const panel = document.getElementById('panel-' + id);
+            if (panel) panel.innerHTML = html;
+        }).catch(e => {
+            const panel = document.getElementById('panel-' + id);
+            if (panel) panel.innerHTML = '<div class="error">Failed to load auto-replies</div>';
+        });
+    }
 }
 
 function buildPanel(id) {
@@ -775,20 +788,31 @@ function tagBar(targetId) {
     </div>`;
 }
 
-function buildAutoReply() {
+async function buildAutoReply() {
     const cats = getCategories();
     const langs = getLanguages();
-    let activeLang = sessionStorage.getItem('ar_active_lang') || (langs.length > 0 ? langs[0] : 'en');
+    let activeLang = sessionStorage.getItem('ar_active_lang') || (langs.length > 0 ? langs[0].code : 'en');
+
+    let autoReplies = [];
+    try {
+        const res = await api('/api/admin/auto-reply');
+        if (res.success && Array.isArray(res.data)) {
+            autoReplies = res.data;
+        }
+    } catch (e) {
+        console.error('Failed to load auto-replies:', e);
+    }
 
     const items = cats.map(cat => {
-        const enabled  = S('auto_reply', cat+'_'+activeLang+'_enabled', '0') === '1';
-        const subject  = S('auto_reply', cat+'_'+activeLang+'_subject', `[Ticket {{ticket_id}}] Your ${cat} inquiry`);
-        const body     = S('auto_reply', cat+'_'+activeLang+'_body', '');
+        const ar = autoReplies.find(a => a.category === cat && a.language === activeLang) || {};
+        const enabled  = ar.enabled ? 1 : 0;
+        const subject  = ar.subject || `[Ticket {{ticket_id}}] Your ${cat} inquiry`;
+        const body     = ar.body || '';
+        const from     = ar.from || '';
         const color    = S('category', cat+'_color', '#8892b0');
-        const fromAddr = S('category', cat+'_assigned_email', '');
 
         const fromOpts = `<option value="">Default (support@dornori.com)</option>` +
-            emailAddresses.map(a => `<option value="${esc(a.email)}"${a.email===fromAddr?' selected':''}>${esc(a.email)}</option>`).join('');
+            emailAddresses.map(a => `<option value="${esc(a.email)}"${a.email===from?' selected':''}>${esc(a.email)}</option>`).join('');
 
         return `<div class="ar-item" id="aritem-${cat}">
             <div class="ar-item-head" onclick="toggleAr('${cat}')">
@@ -833,7 +857,7 @@ function buildAutoReply() {
         </div>`;
     }).join('');
 
-    const langOpts = langs.map(l => `<option value="${esc(l)}"${l===activeLang?' selected':''}>${esc(cap(l))}</option>`).join('');
+    const langOpts = langs.map(l => `<option value="${esc(l.code)}"${l.code===activeLang?' selected':''}>${esc(l.name)}</option>`).join('');
 
     return `<div class="s-card">
         <div class="s-card-head">
@@ -865,49 +889,42 @@ function insertTag(targetId, tag) {
 }
 
 function getLanguages() {
-    const langs = new Set();
-    const langSettings = settings.filter(s => s.category === 'language' && s.key.endsWith('_name'));
-    for (const s of langSettings) {
-        const slug = s.key.replace(/_name$/, '');
-        if (s.value !== '__deleted__') langs.add(slug);
+    const langList = S('languages', 'list', '[]');
+    try {
+        const parsed = JSON.parse(langList);
+        return parsed;
+    } catch (e) {
+        return [{code: 'en', name: 'English'}];
     }
-    if (langs.size === 0) langs.add('en');
-    return Array.from(langs).sort();
 }
 
-function setArLanguage(lang) {
+async function setArLanguage(lang) {
     sessionStorage.setItem('ar_active_lang', lang);
-    const tab = document.querySelector('[data-tab-id="auto_reply"]');
-    if (tab) tab.click();
+    const tabContent = document.querySelector('[data-tab-id="auto_reply"]');
+    if (tabContent) {
+        tabContent.innerHTML = await buildAutoReply();
+    }
 }
 
 async function saveAr(cat, lang) {
-    const enabled = document.getElementById('ar_en_'+cat).checked ? '1' : '0';
+    const enabled = document.getElementById('ar_en_'+cat).checked ? 1 : 0;
     const subject = document.getElementById('ar_subj_'+cat).value;
     const body    = document.getElementById('ar_body_'+cat).value;
     const from    = document.getElementById('ar_from_'+cat).value;
-    const ok = await saveSettings([
-        { category:'auto_reply', key: cat+'_'+lang+'_enabled', value: enabled },
-        { category:'auto_reply', key: cat+'_'+lang+'_subject', value: subject },
-        { category:'auto_reply', key: cat+'_'+lang+'_body',    value: body },
-        { category:'category',   key: cat+'_assigned_email', value: from },
-    ]);
-    if (ok) {
+    
+    const d = await api('/api/admin/auto-reply', {
+        method: 'PUT',
+        body: JSON.stringify({ category: cat, language: lang, enabled, subject, body, from })
+    });
+    
+    if (d.success) {
         toast('✅ Auto-reply saved');
         const s = document.getElementById('ar_status_'+cat);
         if (s) { s.textContent = 'Saved ✓'; setTimeout(() => s.textContent = '', 2500); }
-        // Update the enabled dot without full reload
         const dot = document.querySelector('#aritem-'+cat+' .ar-enabled-dot');
-        if (dot) { dot.className = 'ar-enabled-dot ' + (enabled==='1'?'on':'off'); }
+        if (dot) { dot.className = 'ar-enabled-dot ' + (enabled?'on':'off'); }
         const preview = document.querySelector('#aritem-'+cat+' .ar-subject-preview');
         if (preview) preview.textContent = subject;
-        // sync state
-        ['enabled','subject','body'].forEach(k => {
-            const s = settings.find(s => s.category==='auto_reply' && s.key===cat+'_'+lang+'_'+k);
-            if (s) s.value = { enabled, subject, body }[k];
-        });
-        const fromSetting = settings.find(s => s.category==='category' && s.key===cat+'_assigned_email');
-        if (fromSetting) fromSetting.value = from; else settings.push({ category:'category', key:cat+'_assigned_email', value: from });
     } else {
         toast('❌ Save failed', 'error');
     }
@@ -915,12 +932,11 @@ async function saveAr(cat, lang) {
 
 async function deleteAr(cat, lang) {
     if (!confirm(`Remove auto-reply for "${cat}" in ${lang}?\nThe category itself is not deleted.`)) return;
-    const ok = await saveSettings([
-        { category:'auto_reply', key: cat+'_'+lang+'_enabled', value: '0' },
-        { category:'auto_reply', key: cat+'_'+lang+'_subject', value: '' },
-        { category:'auto_reply', key: cat+'_'+lang+'_body',    value: '' },
-    ]);
-    ok ? (toast('✅ Auto-reply cleared'), load()) : toast('❌ Failed', 'error');
+    const d = await api('/api/admin/auto-reply', {
+        method: 'DELETE',
+        body: JSON.stringify({ category: cat, language: lang })
+    });
+    d.success ? (toast('✅ Auto-reply cleared'), load()) : toast('❌ Failed', 'error');
 }
 
 // ─────────────────────────────────────────────────────────────

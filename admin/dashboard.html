@@ -40,7 +40,7 @@
         </div>
 
         <div class="filters">
-            <select id="filterLanguage" onchange="setLanguageFilter(); loadTickets()">
+            <select id="filterLanguage" onchange="loadTickets()">
                 <option value="">All Languages</option>
             </select>
             <select id="filterCategory" onchange="loadTickets()">
@@ -96,7 +96,6 @@
     var userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     var emailSenders = [];
     var currentTab = 'active';
-    var selectedLanguage = localStorage.getItem('selectedLanguage') || '';
 
     // Active tab maps to statuses: new, open, in_progress, pending
     // Resolved tab: resolved
@@ -107,11 +106,6 @@
         if (tab === 'resolved') return ['resolved'];
         if (tab === 'closed') return ['closed'];
         return [];
-    }
-
-    function setLanguageFilter() {
-        selectedLanguage = document.getElementById('filterLanguage').value;
-        localStorage.setItem('selectedLanguage', selectedLanguage);
     }
 
     function switchTab(tab) {
@@ -239,6 +233,7 @@
                 document.getElementById("dashboard").style.display = "block";
                 await loadEmailSenders();
                 await loadCategories();
+                await loadLanguages();
                 loadStats();
                 loadTickets();
             } else {
@@ -361,6 +356,7 @@
         var list = document.getElementById("ticketList");
         list.innerHTML = '<div class="loading">Loading...</div>';
         var category = document.getElementById("filterCategory").value;
+        var language = document.getElementById("filterLanguage").value;
         var sort = document.getElementById("filterSort").value;
         var statuses = getStatusesForTab(currentTab);
 
@@ -370,8 +366,7 @@
             for (var si = 0; si < statuses.length; si++) {
                 var urlStr = API_BASE + "/api/admin/tickets?status=" + encodeURIComponent(statuses[si]);
                 if (category) urlStr += "&category=" + encodeURIComponent(category);
-                if (selectedLanguage) urlStr += "&language=" + encodeURIComponent(selectedLanguage);
-                if (sort) urlStr += "&sort=" + encodeURIComponent(sort);
+                if (language) urlStr += "&language=" + encodeURIComponent(language);
                 var res = await fetch(urlStr, { headers: { "Authorization": "Bearer " + token } });
                 if (res.status === 401) { logout(); return; }
                 var data = await res.json();
