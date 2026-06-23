@@ -669,19 +669,33 @@
 
             clearTimeout(timeoutId);
 
-            if (response.ok) {
-                if (redirectUrl && redirectUrl.trim()) {
-                    window.location.href = redirectUrl;
-                } else {
-                    showSuccessMessage(formData.successMessage || 'Your support request has been submitted. Our team will respond within 4 hours.', referenceNumber);
-                }
+            // Parse JSON response
+            var result;
+            try {
+                result = await response.json();
+            } catch (e) {
+                throw new Error('Invalid server response');
+            }
+
+            // Check both HTTP status and success flag
+            if (!response.ok) {
+                throw new Error(result.error || 'Server returned ' + response.status);
+            }
+            if (!result.success) {
+                throw new Error(result.error || 'Server rejected the request');
+            }
+
+            // Success: handle redirect or show success message
+            if (redirectUrl && redirectUrl.trim()) {
+                window.location.href = redirectUrl;
             } else {
-                throw new Error('Server returned ' + response.status);
+                var successMessage = formData.successMessage || 'Your support request has been submitted. Our team will respond within 4 hours.';
+                showSuccessMessage(successMessage, referenceNumber);
             }
         } catch (err) {
             clearTimeout(timeoutId);
             console.error(err);
-            var errorMsg = (formData.submissionErrorText || 'Submission failed') + '. ' + (formData.retryText || 'Please try again.');
+            var errorMsg = err.message || (formData.submissionErrorText || 'Submission failed') + '. ' + (formData.retryText || 'Please try again.');
             if (err.name === 'AbortError') {
                 errorMsg = formData.timeoutErrorText || 'Request timed out. Please try again.';
             }
@@ -702,6 +716,7 @@
             return;
         }
 
+        // Reset submitting state (button stays disabled because page changes or shows success)
         isSubmitting = false;
         abortController = null;
     }
