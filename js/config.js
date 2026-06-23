@@ -75,8 +75,8 @@ const CONFIG = {
 
     // ── API Endpoints ─────────────────────────────────────────────────────────
     endpoints: {
-        formHandler:   (globalThis.__ENV_API_ENDPOINT__) || 'https://edge-form-handler-api.dornori-info.workers.dev',
-        queue:         (globalThis.__ENV_API_ENDPOINT__) || 'https://edge-form-handler-api.dornori-info.workers.dev',
+        formHandler:   (globalThis.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
+        queue:         (globalThis.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
         supportEmail:  'support@dornori.com',
         privacyEmail:  'privacy@dornori.com',
         securityEmail: 'security@dornori.com',
