@@ -1,4 +1,4 @@
-<!-- settings.html v1.2 -->
+<!-- settings.html v1.3 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -777,11 +777,13 @@ function tagBar(targetId) {
 
 function buildAutoReply() {
     const cats = getCategories();
+    const langs = getLanguages();
+    let activeLang = sessionStorage.getItem('ar_active_lang') || (langs.length > 0 ? langs[0] : 'en');
 
     const items = cats.map(cat => {
-        const enabled  = S('auto_reply', cat+'_enabled', '0') === '1';
-        const subject  = S('auto_reply', cat+'_subject', `[Ticket {{ticket_id}}] Your ${cat} inquiry`);
-        const body     = S('auto_reply', cat+'_body', '');
+        const enabled  = S('auto_reply', cat+'_'+activeLang+'_enabled', '0') === '1';
+        const subject  = S('auto_reply', cat+'_'+activeLang+'_subject', `[Ticket {{ticket_id}}] Your ${cat} inquiry`);
+        const body     = S('auto_reply', cat+'_'+activeLang+'_body', '');
         const color    = S('category', cat+'_color', '#8892b0');
         const fromAddr = S('category', cat+'_assigned_email', '');
 
@@ -823,13 +825,15 @@ function buildAutoReply() {
                 </div>
 
                 <div style="display:flex;gap:8px;margin-top:16px;align-items:center;">
-                    <button class="btn btn-accent btn-sm" onclick="saveAr('${cat}')">Save auto-reply</button>
-                    <button class="btn btn-danger btn-sm" onclick="deleteAr('${cat}')">Remove</button>
+                    <button class="btn btn-accent btn-sm" onclick="saveAr('${cat}','${activeLang}')">Save auto-reply</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteAr('${cat}','${activeLang}')">Remove</button>
                     <span id="ar_status_${cat}" style="font-size:12px;color:var(--text-muted);margin-left:4px;"></span>
                 </div>
             </div>
         </div>`;
     }).join('');
+
+    const langOpts = langs.map(l => `<option value="${esc(l)}"${l===activeLang?' selected':''}>${esc(cap(l))}</option>`).join('');
 
     return `<div class="s-card">
         <div class="s-card-head">
@@ -837,6 +841,10 @@ function buildAutoReply() {
                 <h3>Auto-Reply</h3>
                 <p>Configure the automatic reply sent when a ticket is created. Subject and body are sent as HTML. Click a category row to expand.</p>
             </div>
+        </div>
+        <div class="f-row">
+            <label>Language</label>
+            <select id="ar_lang_select" onchange="setArLanguage(this.value)">${langOpts}</select>
         </div>
         ${items || '<div class="empty-state">No categories configured — add them in the Categories tab first</div>'}
     </div>`;
@@ -856,15 +864,32 @@ function insertTag(targetId, tag) {
     el.focus();
 }
 
-async function saveAr(cat) {
+function getLanguages() {
+    const langs = new Set();
+    const langSettings = settings.filter(s => s.category === 'language' && s.key.endsWith('_name'));
+    for (const s of langSettings) {
+        const slug = s.key.replace(/_name$/, '');
+        if (s.value !== '__deleted__') langs.add(slug);
+    }
+    if (langs.size === 0) langs.add('en');
+    return Array.from(langs).sort();
+}
+
+function setArLanguage(lang) {
+    sessionStorage.setItem('ar_active_lang', lang);
+    const tab = document.querySelector('[data-tab-id="auto_reply"]');
+    if (tab) tab.click();
+}
+
+async function saveAr(cat, lang) {
     const enabled = document.getElementById('ar_en_'+cat).checked ? '1' : '0';
     const subject = document.getElementById('ar_subj_'+cat).value;
     const body    = document.getElementById('ar_body_'+cat).value;
     const from    = document.getElementById('ar_from_'+cat).value;
     const ok = await saveSettings([
-        { category:'auto_reply', key: cat+'_enabled', value: enabled },
-        { category:'auto_reply', key: cat+'_subject', value: subject },
-        { category:'auto_reply', key: cat+'_body',    value: body },
+        { category:'auto_reply', key: cat+'_'+lang+'_enabled', value: enabled },
+        { category:'auto_reply', key: cat+'_'+lang+'_subject', value: subject },
+        { category:'auto_reply', key: cat+'_'+lang+'_body',    value: body },
         { category:'category',   key: cat+'_assigned_email', value: from },
     ]);
     if (ok) {
@@ -878,7 +903,7 @@ async function saveAr(cat) {
         if (preview) preview.textContent = subject;
         // sync state
         ['enabled','subject','body'].forEach(k => {
-            const s = settings.find(s => s.category==='auto_reply' && s.key===cat+'_'+k);
+            const s = settings.find(s => s.category==='auto_reply' && s.key===cat+'_'+lang+'_'+k);
             if (s) s.value = { enabled, subject, body }[k];
         });
         const fromSetting = settings.find(s => s.category==='category' && s.key===cat+'_assigned_email');
@@ -888,13 +913,12 @@ async function saveAr(cat) {
     }
 }
 
-async function deleteAr(cat) {
-    if (!confirm(`Remove auto-reply for "${cat}"?\nThe category itself is not deleted.`)) return;
+async function deleteAr(cat, lang) {
+    if (!confirm(`Remove auto-reply for "${cat}" in ${lang}?\nThe category itself is not deleted.`)) return;
     const ok = await saveSettings([
-        { category:'auto_reply', key: cat+'_enabled', value: '0' },
-        { category:'auto_reply', key: cat+'_subject', value: '' },
-        { category:'auto_reply', key: cat+'_body',    value: '' },
-        { category:'category',   key: cat+'_assigned_email', value: '' },
+        { category:'auto_reply', key: cat+'_'+lang+'_enabled', value: '0' },
+        { category:'auto_reply', key: cat+'_'+lang+'_subject', value: '' },
+        { category:'auto_reply', key: cat+'_'+lang+'_body',    value: '' },
     ]);
     ok ? (toast('✅ Auto-reply cleared'), load()) : toast('❌ Failed', 'error');
 }
