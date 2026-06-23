@@ -164,22 +164,15 @@
 // ==================== CONFIG ====================
 (function() {
     'use strict';
-    
-    var TURNSTILE_SITE_KEY = (window.CONFIG && window.CONFIG.turnstile && window.CONFIG.turnstile.sitekey) 
-        ? window.CONFIG.turnstile.sitekey : null;
-    
-    var workerUrl = (window.CONFIG && window.CONFIG.queue && window.CONFIG.queue.endpoint) 
-        ? window.CONFIG.queue.endpoint : "https://dornori-ticketing.dornori-info.workers.dev";
-    
+
+    // --- Same as contact.html ---
+    var WORKER_URL = 'https://dornori-ticketing.dornori-info.workers.dev/api/message';
+    var TURNSTILE_KEY = (window.CONFIG && window.CONFIG.turnstile && window.CONFIG.turnstile.sitekey) || null;
+
     var lang = document.documentElement.lang || 'en';
-    var formJsonPath = (window.CONFIG && window.CONFIG.paths && window.CONFIG.paths.formJsonPath)
-        ? (typeof window.CONFIG.paths.formJsonPath === 'function' ? window.CONFIG.paths.formJsonPath(lang) : window.CONFIG.paths.formJsonPath)
-        : (window.__BASE_PATH__ || '/') + 'lang/' + lang + '/form.json';
-    
-    var redirectUrl = (window.CONFIG && window.CONFIG.redirect && window.CONFIG.redirect.onSuccess)
-        ? window.CONFIG.redirect.onSuccess
-        : null;
-    
+    var formJsonPath = '/lang/' + lang + '/form.json';
+    var redirectUrl = null;  // Set to a URL if you want redirect after success
+
     // DOM cache
     var dom = {};
     var turnstileWidgetId = null;
@@ -194,7 +187,7 @@
     var MAX_JSON_RETRIES = 3;
     var JSON_RETRY_DELAY = 1000;
     var eventListeners = [];
-    
+
     // Cache DOM elements
     function cacheDom() {
         var ids = ['sf-toast', 'sf-title', 'sf-subtitle', 'avg-resolution', 'sf-step-label', 'sf-prog', 'sf-loading', 'loading-text', 'sf-s1', 'sf-s2', 'sf-s3', 'select-issue', 'sf-cats', 'most-issues', 'need-help', 'response-time', 'sf-name', 'sf-email', 'sf-order', 'sf-desc', 'sf-submit', 'sf-name-err', 'sf-email-err', 'sf-order-err', 'sf-turnstile-container', 'sf-turnstile-err', 'sf-summary-container', 'sf-summary-table', 'label-name', 'label-email', 'label-order', 'label-comments', 'label-summary-table', 'order-help-text', 'comments-help-text', 'sf-char-counter'];
@@ -202,28 +195,28 @@
             dom[ids[i]] = document.getElementById(ids[i]);
         }
     }
-    
+
     // Safe text setter
     function setText(id, text) {
         var el = dom[id] || document.getElementById(id);
         if (el) el.textContent = text;
     }
-    
+
     function generateReferenceNumber() {
         var timestamp = Date.now().toString();
         var randomDigits = Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
         return 'DOR-TICKET-' + timestamp.slice(-6) + randomDigits.slice(0, 4);
     }
-    
+
     function stripHtml(str) {
         if (typeof str !== 'string') return '';
         return str.replace(/<[^>]*>/g, '').trim();
     }
-    
+
     function isValidEmail(email) {
         return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) && email.length <= 254;
     }
-    
+
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/[&<>]/g, function(m) {
@@ -233,10 +226,9 @@
             return m;
         });
     }
-    
+
     function formatSummaryTable(answersArray) {
         if (!answersArray || answersArray.length === 0) return '';
-        
         var html = '<table class="summary-table">';
         for (var i = 0; i < answersArray.length; i++) {
             var item = answersArray[i];
@@ -248,7 +240,7 @@
         html += '</table>';
         return html;
     }
-    
+
     function showToast(msg, ms, isError) {
         ms = ms || 3000;
         var t = dom['sf-toast'];
@@ -268,12 +260,12 @@
         t.style.fontWeight = isError ? '600' : 'normal';
         setTimeout(function() { t.style.opacity = '0'; }, ms);
     }
-    
+
     function showSuccessMessage(message, referenceNumber) {
         var body = document.getElementById('sf-body');
         var successTitle = formData.successTitle || 'Thank You!';
         var saveReferenceText = formData.saveReferenceText || 'Please save this reference number for future inquiries.';
-        
+
         var successHtml = '<div class="sf-success-box" style="text-align:center;padding:2rem;" tabindex="-1">' +
             '<i class="fas fa-check-circle" style="font-size:4rem;color:#10b981;margin-bottom:1rem;"></i>' +
             '<h3 style="font-size:1.5rem;margin-bottom:1rem;color:var(--text);">' + escapeHtml(successTitle) + '</h3>' +
@@ -282,15 +274,11 @@
             '<p style="font-size: 0.85rem; margin-top: 1rem;color:var(--text-muted);">' + escapeHtml(saveReferenceText) + '</p>' +
             '</div>';
         body.innerHTML = successHtml;
-        
+
         var successBox = body.querySelector('.sf-success-box');
         if (successBox) successBox.focus();
-        
-        setTimeout(function() {
-            
-        }, 50);
     }
-    
+
     async function loadFormDataWithRetry() {
         try {
             var res = await fetch(formJsonPath, { cache: 'no-store' });
@@ -310,7 +298,7 @@
             }
         }
     }
-    
+
     function populateUI() {
         setText('sf-title', formData.title || 'Support');
         setText('sf-subtitle', formData.subtitle || 'We\'re here to help');
@@ -321,13 +309,13 @@
         setText('response-time', formData.responseTime || 'Our support team responds within 4 hours.');
         setText('loading-text', formData.loading || 'Loading...');
         if (dom['sf-submit']) dom['sf-submit'].textContent = formData.submitButton || 'Submit';
-        
+
         if (dom['label-name']) dom['label-name'].innerHTML = (formData.fullName || 'Full name') + ' <span style="color:#ef4444">*</span>';
         if (dom['label-email']) dom['label-email'].innerHTML = (formData.email || 'Email address') + ' <span style="color:#ef4444">*</span>';
         if (dom['label-order']) dom['label-order'].innerHTML = (formData.orderNumber || 'Order number') + ' <span style="color:#ef4444">*</span>';
         if (dom['order-help-text']) dom['order-help-text'].textContent = formData.orderHelpText || 'You can find this in your order confirmation email';
         if (dom['label-summary-table']) dom['label-summary-table'].textContent = formData.summaryLabel || 'Issue Summary';
-        
+
         var maxChars = formData.maxCommentsChars || 2000;
         if (dom['label-comments']) dom['label-comments'].innerHTML = (formData.additionalComments || 'Additional comments') + ' <span style="color:var(--text-muted);font-weight:normal;">(optional)</span>';
         if (dom['sf-desc']) {
@@ -335,9 +323,9 @@
             dom['sf-desc'].maxLength = maxChars;
         }
         if (dom['comments-help-text']) dom['comments-help-text'].textContent = formData.commentsHelpText || 'Please provide additional details about your issue.';
-        
+
         initCharCounter(maxChars);
-        
+
         var container = dom['sf-cats'];
         if (container) {
             container.innerHTML = '';
@@ -351,12 +339,12 @@
                 container.appendChild(btn);
             }
         }
-        
+
         if (dom['sf-loading']) dom['sf-loading'].style.display = 'none';
         if (dom['sf-s1']) dom['sf-s1'].classList.remove('sf-hidden');
         updateProgress(5, formData.step1Label || 'Step 1: Choose category');
     }
-    
+
     function initCharCounter(maxChars) {
         if (!dom['sf-desc'] || !dom['sf-char-counter']) return;
         var updateCounter = function() {
@@ -371,12 +359,12 @@
         eventListeners.push({element: dom['sf-desc'], type: 'input', handler: updateCounter});
         updateCounter();
     }
-    
+
     function updateProgress(percent, label) {
         if (dom['sf-prog']) dom['sf-prog'].style.width = percent + '%';
         if (dom['sf-step-label']) dom['sf-step-label'].textContent = label;
     }
-    
+
     function startCategory(cat) {
         currentCategory = cat;
         answers = [];
@@ -387,7 +375,7 @@
             showContactForm();
         }
     }
-    
+
     function findQuestion(questionId) {
         if (!currentCategory || !currentCategory.questions) return null;
         for (var i = 0; i < currentCategory.questions.length; i++) {
@@ -395,30 +383,30 @@
         }
         return null;
     }
-    
+
     function showQuestionById(questionId) {
         var question = findQuestion(questionId);
         if (!question) { showContactForm(); return; }
-        
+
         var troubleshootingLabel = formData.troubleshootingLabel || 'Troubleshooting';
         var html = '<div class="sf-q-label" style="font-size:.8rem;color:var(--accent);margin-bottom:.5rem;"><i class="fas fa-question-circle"></i> ' + troubleshootingLabel + '</div>';
         html += '<div class="sf-q-text" style="font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:1.25rem;">' + escapeHtml(question.text) + '</div>';
-        
+
         for (var i = 0; i < question.options.length; i++) {
             var opt = question.options[i];
             html += '<button class="sf-opt" style="width:100%;text-align:left;padding:.9rem 1.2rem;border:1px solid var(--border);border-radius:.875rem;background:transparent;color:var(--text);cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:.95rem;margin-bottom:.6rem;" onclick="window.selectAnswerExternal(\'' + questionId + '\', ' + i + ')"><span>' + escapeHtml(opt.text) + '</span><i class="fas fa-arrow-right" style="color:var(--accent);flex-shrink:0;"></i></button>';
         }
-        
+
         var startOverLabel = formData.startOverLabel || 'Start over';
         html += '<div style="margin-top:1rem"><button class="sf-reset" style="font-size:.82rem;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:9999px;padding:.35rem .9rem;cursor:pointer;" onclick="window.sfResetExternal()"><i class="fas fa-undo-alt"></i> ' + startOverLabel + '</button></div>';
-        
+
         if (dom['sf-s2']) dom['sf-s2'].innerHTML = html;
         if (dom['sf-s1']) dom['sf-s1'].classList.add('sf-hidden');
         if (dom['sf-s2']) dom['sf-s2'].classList.remove('sf-hidden');
         if (dom['sf-s3']) dom['sf-s3'].classList.add('sf-hidden');
         updateProgress(45, formData.step2Label || 'Step 2: Troubleshooting');
     }
-    
+
     window.selectAnswerExternal = function(questionId, optionIndex) {
         var question = findQuestion(questionId);
         if (!question) return;
@@ -444,7 +432,8 @@
         if (nextQuestion) { currentQuestionId = nextId; showQuestionById(nextId); }
         else { showContactForm(); }
     };
-    
+
+    // --- Turnstile logic (identical to contact.html) ---
     function destroyTurnstile() {
         if (turnstileWidgetId !== null) {
             try {
@@ -463,41 +452,32 @@
             }
         }
     }
-    
+
     function initTurnstile() {
         var container = dom['sf-turnstile-container'];
         if (!container) return;
-        
-        if (!TURNSTILE_SITE_KEY || TURNSTILE_SITE_KEY === '1x00000000000000000000AA') {
+
+        if (!TURNSTILE_KEY || TURNSTILE_KEY === '1x00000000000000000000AA') {
             container.style.display = 'none';
             turnstileToken = 'no-turnstile-required';
             return;
         }
-        
+
         if (typeof turnstile === 'undefined') {
             setTimeout(initTurnstile, 200);
             return;
         }
-        
-        if (turnstileWidgetId !== null && container.querySelector('iframe')) {
-            try {
-                turnstile.reset(turnstileWidgetId);
-                return;
-            } catch(e) {
-                destroyTurnstile();
-            }
-        } else {
-            destroyTurnstile();
-        }
-        
+
+        destroyTurnstile();
+
         container.style.display = 'block';
-        
+
         try {
             turnstileWidgetId = turnstile.render(container, {
-                sitekey: TURNSTILE_SITE_KEY,
+                sitekey: TURNSTILE_KEY,
                 theme: 'light',
                 'render': 'explicit',
-                callback: function(token) { 
+                callback: function(token) {
                     turnstileToken = token;
                     var err = dom['sf-turnstile-err'];
                     if (err) {
@@ -506,7 +486,7 @@
                     }
                     if (container) container.classList.remove('sf-input-error');
                 },
-                'expired-callback': function() { 
+                'expired-callback': function() {
                     turnstileToken = null;
                     var err = dom['sf-turnstile-err'];
                     if (err) {
@@ -515,7 +495,7 @@
                     }
                     if (container) container.classList.add('sf-input-error');
                 },
-                'error-callback': function(errorCode) { 
+                'error-callback': function(errorCode) {
                     turnstileToken = null;
                     var err = dom['sf-turnstile-err'];
                     var errorMsg = formData.turnstileFailedError || 'Security verification failed. Please disable private browsing mode or refresh the page.';
@@ -530,24 +510,24 @@
             console.error('Turnstile render error:', e);
         }
     }
-    
+
     function showContactForm() {
         var summaryHtml = formatSummaryTable(answers);
         if (answers.length > 0 && dom['sf-summary-container'] && dom['sf-summary-table']) {
             dom['sf-summary-table'].innerHTML = summaryHtml;
             dom['sf-summary-container'].style.display = 'block';
-        } else if (dom['sf-summary-container']) { 
-            dom['sf-summary-container'].style.display = 'none'; 
+        } else if (dom['sf-summary-container']) {
+            dom['sf-summary-container'].style.display = 'none';
         }
-        
+
         if (dom['sf-s1']) dom['sf-s1'].classList.add('sf-hidden');
         if (dom['sf-s2']) dom['sf-s2'].classList.add('sf-hidden');
         if (dom['sf-s3']) dom['sf-s3'].classList.remove('sf-hidden');
         updateProgress(85, formData.step3Label || 'Step 3: Contact support');
-        
+
         initTurnstile();
     }
-    
+
     function setFieldError(inputId, errorId, message) {
         var input = dom[inputId];
         var errEl = dom[errorId];
@@ -561,25 +541,25 @@
             return false;
         }
     }
-    
+
     function validateForm() {
         var hasError = false;
         var nameInput = dom['sf-name']?.value || '';
         var emailInput = dom['sf-email']?.value || '';
         var orderInput = dom['sf-order']?.value || '';
-        
+
         setFieldError('sf-name', 'sf-name-err', '');
         setFieldError('sf-email', 'sf-email-err', '');
         setFieldError('sf-order', 'sf-order-err', '');
-        
+
         if (dom['sf-turnstile-err']) dom['sf-turnstile-err'].classList.add('sf-hidden');
         if (dom['sf-turnstile-container']) dom['sf-turnstile-container'].classList.remove('sf-input-error');
-        
+
         if (!nameInput.trim()) {
             setFieldError('sf-name', 'sf-name-err', formData.fullNameRequired || 'Full name is required.');
             hasError = true;
         }
-        
+
         if (!emailInput.trim()) {
             setFieldError('sf-email', 'sf-email-err', formData.emailRequired || 'Email address is required.');
             hasError = true;
@@ -587,7 +567,7 @@
             setFieldError('sf-email', 'sf-email-err', formData.emailInvalid || 'Please enter a valid email address.');
             hasError = true;
         }
-        
+
         if (!orderInput.trim()) {
             setFieldError('sf-order', 'sf-order-err', formData.orderNumberRequired || 'Order number is required.');
             hasError = true;
@@ -595,8 +575,8 @@
             setFieldError('sf-order', 'sf-order-err', formData.orderDigitsOnly || 'Order number must contain digits only.');
             hasError = true;
         }
-        
-        var turnstileEnabled = TURNSTILE_SITE_KEY && TURNSTILE_SITE_KEY !== '1x00000000000000000000AA';
+
+        var turnstileEnabled = TURNSTILE_KEY && TURNSTILE_KEY !== '1x00000000000000000000AA';
         if (turnstileEnabled) {
             if (!turnstileToken) {
                 if (dom['sf-turnstile-err']) {
@@ -607,49 +587,49 @@
                 hasError = true;
             }
         }
-        
+
         if (hasError) {
             var firstError = document.querySelector('.sf-input-error');
             if (firstError) firstError.focus();
             showToast(formData.errorFixAbove || 'Please fix the errors above before submitting.', 3000, true);
         }
-        
-        return { 
-            valid: !hasError, 
-            sanitised: { 
-                name: stripHtml(nameInput), 
-                email: stripHtml(emailInput), 
-                order: stripHtml(orderInput), 
+
+        return {
+            valid: !hasError,
+            sanitised: {
+                name: stripHtml(nameInput),
+                email: stripHtml(emailInput),
+                order: stripHtml(orderInput),
                 comments: stripHtml(dom['sf-desc']?.value || '')
-            } 
+            }
         };
     }
-    
+
     async function sendSupportRequest() {
         if (isSubmitting) {
             showToast(formData.alreadySubmittingText || 'Submission already in progress...', 2000, false);
             return;
         }
-        
+
         var validation = validateForm();
         if (!validation.valid) return;
-        
+
         isSubmitting = true;
         var sanitised = validation.sanitised;
         var referenceNumber = generateReferenceNumber();
         var submitBtn = dom['sf-submit'];
         var originalText = submitBtn?.textContent || 'Submit';
-        
-        if (submitBtn) { 
-            submitBtn.disabled = true; 
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
             submitBtn.textContent = formData.sendingText || 'Sending...';
         }
-        
+
         var troubleshootingSummaries = [];
         for (var i = 0; i < answers.length; i++) {
             troubleshootingSummaries.push(answers[i].summary || answers[i].answer);
         }
-        
+
         var additionalComments = [];
         if (sanitised.comments) {
             var lines = sanitised.comments.split(/\r?\n/);
@@ -658,7 +638,7 @@
                 if (line.length > 0) additionalComments.push(line);
             }
         }
-        
+
         var payload = {
             referenceNumber: referenceNumber,
             category: "support-request",
@@ -672,23 +652,23 @@
             timestamp: new Date().toISOString(),
             userAgent: navigator.userAgent
         };
-        
+
         if (abortController) abortController.abort();
         abortController = new AbortController();
         var timeoutId = setTimeout(function() {
             if (abortController) abortController.abort();
         }, 30000);
-        
+
         try {
-            var response = await fetch(workerUrl, {
+            var response = await fetch(WORKER_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
                 signal: abortController.signal
             });
-            
+
             clearTimeout(timeoutId);
-            
+
             if (response.ok) {
                 if (redirectUrl && redirectUrl.trim()) {
                     window.location.href = redirectUrl;
@@ -706,42 +686,42 @@
                 errorMsg = formData.timeoutErrorText || 'Request timed out. Please try again.';
             }
             showToast(errorMsg, 5000, true);
-            
+
             if (turnstileWidgetId !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
-                try { 
+                try {
                     turnstile.reset(turnstileWidgetId);
                     turnstileToken = null;
                 } catch(e) {}
             }
-            
-            if (submitBtn) { 
-                submitBtn.disabled = false; 
+
+            if (submitBtn) {
+                submitBtn.disabled = false;
                 submitBtn.textContent = originalText;
             }
             isSubmitting = false;
             return;
         }
-        
+
         isSubmitting = false;
         abortController = null;
     }
-    
+
     function resetForm() {
         currentCategory = null;
         currentQuestionId = null;
         answers = [];
-        
+
         if (dom['sf-s1']) dom['sf-s1'].classList.remove('sf-hidden');
         if (dom['sf-s2']) dom['sf-s2'].classList.add('sf-hidden');
         if (dom['sf-s3']) dom['sf-s3'].classList.add('sf-hidden');
         if (dom['sf-summary-container']) dom['sf-summary-container'].style.display = 'none';
         updateProgress(5, formData.step1Label || 'Step 1: Choose category');
-        
+
         if (dom['sf-name']) dom['sf-name'].value = '';
         if (dom['sf-email']) dom['sf-email'].value = '';
         if (dom['sf-order']) dom['sf-order'].value = '';
         if (dom['sf-desc']) dom['sf-desc'].value = '';
-        
+
         var errorIds = ['sf-name-err', 'sf-email-err', 'sf-order-err'];
         for (var i = 0; i < errorIds.length; i++) {
             var errEl = dom[errorIds[i]];
@@ -752,21 +732,21 @@
             var input = dom[inputIds[i]];
             if (input) input.classList.remove('sf-input-error');
         }
-        
+
         destroyTurnstile();
-        
+
         if (dom['sf-turnstile-err']) dom['sf-turnstile-err'].classList.add('sf-hidden');
-        
+
         if (dom['sf-cats']) {
             var firstCat = dom['sf-cats'].querySelector('button');
             if (firstCat) firstCat.focus();
         }
-        
+
         showToast(formData.resetText || 'Session reset', 1500);
     }
-    
+
     window.sfResetExternal = resetForm;
-    
+
     function cleanup() {
         for (var i = 0; i < eventListeners.length; i++) {
             var listener = eventListeners[i];
@@ -781,36 +761,36 @@
         }
         destroyTurnstile();
     }
-    
+
     function setupEventListeners() {
-        var submitHandler = function(e) { 
-            if (e.target.closest('#sf-submit')) { 
-                e.preventDefault(); 
-                sendSupportRequest(); 
-            } 
+        var submitHandler = function(e) {
+            if (e.target.closest('#sf-submit')) {
+                e.preventDefault();
+                sendSupportRequest();
+            }
         };
-        
+
         var orderInputHandler = function(e) {
             if (e.target.id === 'sf-order') {
                 e.target.value = e.target.value.replace(/[^0-9]/g, '');
             }
         };
-        
+
         document.addEventListener('click', submitHandler);
         document.addEventListener('input', orderInputHandler);
-        
+
         eventListeners.push({element: document, type: 'click', handler: submitHandler});
         eventListeners.push({element: document, type: 'input', handler: orderInputHandler});
     }
-    
+
     function init() {
         cacheDom();
         setupEventListeners();
         loadFormDataWithRetry();
-        
         window.addEventListener('beforeunload', cleanup);
     }
-    
+
     init();
 })();
-</script></div><!-- /.container -->
+</script>
+</div><!-- /.container -->
