@@ -413,6 +413,7 @@ const TABS = [
     { id: 'general',       icon: '⚙️',  label: 'General' },
     { id: 'sla',           icon: '⏱️',  label: 'SLA' },
     { id: 'categories',    icon: '📂',  label: 'Categories' },
+    { id: 'languages',     icon: '🌐',  label: 'Languages' },
     { id: 'email_routing', icon: '📤',  label: 'Email Routing' },
     { id: 'auto_reply',    icon: '🤖',  label: 'Auto-Reply' },
     { id: 'outgoing',      icon: '✉️',  label: 'Outgoing Email' },
@@ -439,6 +440,7 @@ function buildPanel(id) {
         case 'general':       return buildGeneral();
         case 'sla':           return buildSla();
         case 'categories':    return buildCategories();
+        case 'languages':     return buildLanguages();
         case 'email_routing': return buildEmailRouting();
         case 'auto_reply':    return buildAutoReply();
         case 'outgoing':      return buildOutgoing();
@@ -616,6 +618,71 @@ async function addCat() {
     } else {
         toast('❌ Failed', 'error');
     }
+}
+
+// ─────────────────────────────────────────────────────────────
+// LANGUAGES
+// ─────────────────────────────────────────────────────────────
+function getLanguages() {
+    const langs = S('languages', 'list', '[]');
+    try { return JSON.parse(langs); } catch { return []; }
+}
+
+function buildLanguages() {
+    const langs = getLanguages();
+    const items = langs.map((lang, idx) => `
+        <div style="display:grid;grid-template-columns:120px 1fr auto;gap:12px;align-items:center;padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;">
+            <span style="font-weight:600;font-size:13px;font-family:monospace;">${esc(lang.code)}</span>
+            <span style="font-size:14px;">${esc(lang.name)}</span>
+            <button class="btn btn-danger btn-sm" onclick="deleteLang(${idx})">Remove</button>
+        </div>
+    `).join('');
+
+    return `<div class="s-card">
+        <div class="s-card-head"><div><h3>Languages</h3><p>Manage languages for ticket filtering in the dashboard</p></div></div>
+        ${items || '<div class="empty-state">No languages yet</div>'}
+        
+        <hr class="divider" />
+        <h4 style="font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;">Add language</h4>
+        <div class="f-grid-2" style="align-items:flex-end;">
+            <div class="f-row" style="margin:0;">
+                <label>Language Code</label>
+                <input type="text" id="newLangCode" placeholder="e.g. en, de, fr" style="text-transform:lowercase;" />
+            </div>
+            <div class="f-row" style="margin:0;">
+                <label>Language Name</label>
+                <input type="text" id="newLangName" placeholder="e.g. English" />
+            </div>
+        </div>
+        <button class="btn btn-accent" style="margin-top:14px;" onclick="addLang()">Add language</button>
+    </div>`;
+}
+
+async function addLang() {
+    const code = document.getElementById('newLangCode').value.trim().toLowerCase();
+    const name = document.getElementById('newLangName').value.trim();
+    if (!code || !name) { toast('Fill all fields', 'error'); return; }
+    const langs = getLanguages();
+    if (langs.some(l => l.code === code)) { toast('Language code already exists', 'error'); return; }
+    langs.push({ code, name });
+    const ok = await saveSettings([{ category:'languages', key:'list', value: JSON.stringify(langs) }]);
+    if (ok) {
+        document.getElementById('newLangCode').value = '';
+        document.getElementById('newLangName').value = '';
+        toast('✅ Language added');
+        await load();
+    } else {
+        toast('❌ Failed', 'error');
+    }
+}
+
+async function deleteLang(idx) {
+    if (!confirm('Remove this language?')) return;
+    const langs = getLanguages();
+    langs.splice(idx, 1);
+    const ok = await saveSettings([{ category:'languages', key:'list', value: JSON.stringify(langs) }]);
+    ok ? toast('✅ Language removed') : toast('❌ Failed', 'error');
+    if (ok) await load();
 }
 
 // ─────────────────────────────────────────────────────────────

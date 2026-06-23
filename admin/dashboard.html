@@ -40,6 +40,9 @@
         </div>
 
         <div class="filters">
+            <select id="filterLanguage" onchange="setLanguageFilter(); loadTickets()">
+                <option value="">All Languages</option>
+            </select>
             <select id="filterCategory" onchange="loadTickets()">
                 <option value="">All Categories</option>
             </select>
@@ -93,6 +96,7 @@
     var userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     var emailSenders = [];
     var currentTab = 'active';
+    var selectedLanguage = localStorage.getItem('selectedLanguage') || '';
 
     // Active tab maps to statuses: new, open, in_progress, pending
     // Resolved tab: resolved
@@ -103,6 +107,11 @@
         if (tab === 'resolved') return ['resolved'];
         if (tab === 'closed') return ['closed'];
         return [];
+    }
+
+    function setLanguageFilter() {
+        selectedLanguage = document.getElementById('filterLanguage').value;
+        localStorage.setItem('selectedLanguage', selectedLanguage);
     }
 
     function switchTab(tab) {
@@ -281,7 +290,35 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD EMAIL SENDERS
+    //  LOAD LANGUAGES
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadLanguages() {
+        try {
+            var res = await fetch(API_BASE + "/api/admin/settings", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            var data = await res.json();
+            if (!data.success) return;
+            var settings = data.settings || [];
+            var langList = [];
+            settings.forEach(function(s) {
+                if (s.category === "languages" && s.key === "list") {
+                    try { langList = JSON.parse(s.value || '[]'); } catch(e) {}
+                }
+            });
+            var sel = document.getElementById("filterLanguage");
+            if (sel) {
+                var current = sel.value;
+                var opts = '<option value="">All Languages</option>';
+                langList.forEach(function(l) {
+                    opts += '<option value="' + escapeHtml(l.code) + '">' + escapeHtml(l.name) + '</option>';
+                });
+                sel.innerHTML = opts;
+                sel.value = current;
+            }
+        } catch (e) { console.error("Failed to load languages:", e); }
+    }
+
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadEmailSenders() {
         try {
@@ -333,6 +370,7 @@
             for (var si = 0; si < statuses.length; si++) {
                 var urlStr = API_BASE + "/api/admin/tickets?status=" + encodeURIComponent(statuses[si]);
                 if (category) urlStr += "&category=" + encodeURIComponent(category);
+                if (selectedLanguage) urlStr += "&language=" + encodeURIComponent(selectedLanguage);
                 if (sort) urlStr += "&sort=" + encodeURIComponent(sort);
                 var res = await fetch(urlStr, { headers: { "Authorization": "Bearer " + token } });
                 if (res.status === 401) { logout(); return; }
@@ -594,6 +632,7 @@
         document.getElementById("dashboard").style.display = "block";
         loadEmailSenders();
         loadCategories();
+        loadLanguages();
         loadStats();
         loadTickets();
     }
