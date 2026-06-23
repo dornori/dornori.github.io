@@ -61,6 +61,7 @@
             color: var(--text);
             background: #fff;
             transition: border-color 0.15s;
+            box-sizing: border-box;
         }
 
         .field input:focus {
@@ -128,23 +129,23 @@
     </style>
 
     <div class="unsubscribe-card">
-        <h1>📧 Dornori Newsletter</h1>
+        <h1 id="nl-heading"></h1>
 
         <!-- Token‑based section -->
         <div id="tokenSection">
-            <p class="sub">Click below to confirm you’d like to stop receiving newsletter emails.</p>
-            <button type="button" class="btn-unsubscribe" id="tokenBtn">Unsubscribe</button>
+            <p class="sub" id="tokenSub"></p>
+            <button type="button" class="btn-unsubscribe" id="tokenBtn"></button>
         </div>
 
         <!-- Email‑based section -->
         <div id="emailSection">
-            <p class="sub">Enter your email address and we’ll remove you from the mailing list immediately.</p>
+            <p class="sub" id="emailSub"></p>
             <form id="emailForm" novalidate>
                 <div class="field">
-                    <label for="email">Email address</label>
-                    <input type="email" id="email" name="email" placeholder="you@example.com" required />
+                    <label for="email" id="label-email"></label>
+                    <input type="email" id="email" name="email" required />
                 </div>
-                <button type="submit" class="btn-unsubscribe" id="emailBtn">Unsubscribe</button>
+                <button type="submit" class="btn-unsubscribe" id="emailBtn"></button>
             </form>
         </div>
 
@@ -159,49 +160,89 @@
             var params = new URLSearchParams(window.location.search);
             var token = params.get('token');
 
-            var msg = document.getElementById('msg');
+            var lang = document.documentElement.lang || 'en';
+            var jsonPath = (window.__BASE_PATH__ || '/') + 'lang/' + lang + '/newsletter.json';
+
+            var t = {};
+
+            // DOM refs
+            var heading = document.getElementById('nl-heading');
             var tokenSection = document.getElementById('tokenSection');
+            var tokenSub = document.getElementById('tokenSub');
             var tokenBtn = document.getElementById('tokenBtn');
             var emailSection = document.getElementById('emailSection');
-            var emailForm = document.getElementById('emailForm');
+            var emailSub = document.getElementById('emailSub');
+            var emailLabel = document.getElementById('label-email');
             var emailInput = document.getElementById('email');
             var emailBtn = document.getElementById('emailBtn');
+            var emailForm = document.getElementById('emailForm');
+            var msg = document.getElementById('msg');
 
             function showMsg(text, ok) {
                 msg.textContent = text;
                 msg.className = 'msg show ' + (ok ? 'success' : 'error');
             }
 
+            function populateUI(s) {
+                heading.textContent = s.heading || '';
+                tokenSub.textContent = s.tokenSub || '';
+                emailSub.textContent = s.emailSub || '';
+                emailLabel.textContent = s.emailLabel || '';
+                emailInput.placeholder = s.emailPlaceholder || '';
+                var btnText = s.submitButton || '';
+                tokenBtn.textContent = btnText;
+                emailBtn.textContent = btnText;
+            }
+
+            // Load language file
+            fetch(jsonPath, { cache: 'no-store' })
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function(data) {
+                    t = data;
+                    populateUI(data.unsubscribe || {});
+                })
+                .catch(function(err) {
+                    console.error('Failed to load newsletter.json:', err);
+                    // Optionally show a fallback message
+                    heading.textContent = '⚠️ Error loading content';
+                });
+
             // ===== TOKEN FLOW =====
             if (token) {
                 tokenSection.style.display = 'block';
 
                 tokenBtn.addEventListener('click', async function() {
-                    if (!confirm('Are you sure you want to unsubscribe from the Dornori newsletter?\n\nYou will no longer receive updates.')) {
+                    var confirmMsg = (t.unsubscribe && t.unsubscribe.confirmMessage) || '';
+                    if (!confirm(confirmMsg)) {
                         return;
                     }
 
                     var btn = this;
                     btn.disabled = true;
-                    btn.textContent = 'Unsubscribing…';
+                    btn.textContent = (t.unsubscribe && t.unsubscribe.unsubscribingText) || '';
 
                     try {
                         var res = await fetch(API_BASE + '/api/unsubscribe/' + encodeURIComponent(token));
                         var text = await res.text();
                         if (res.ok) {
-                            showMsg('✅ You have been unsubscribed.', true);
+                            var successMsg = (t.unsubscribe && t.unsubscribe.successMessage) || '';
+                            showMsg(successMsg, true);
                             btn.style.display = 'none';
                             var sub = tokenSection.querySelector('.sub');
-                            if (sub) sub.textContent = 'You have been removed from our mailing list.';
+                            if (sub) {
+                                sub.textContent = (t.unsubscribe && t.unsubscribe.tokenSuccessSub) || '';
+                            }
                         } else {
                             var clean = text.replace(/^[^\w]*/, '');
-                            showMsg('❌ ' + clean, false);
+                            var errMsg = (t.unsubscribe && t.unsubscribe.errorFallback) || '';
+                            showMsg('❌ ' + (clean || errMsg), false);
                         }
                     } catch (err) {
-                        showMsg('❌ Network error: ' + err.message, false);
+                        var netMsg = (t.unsubscribe && t.unsubscribe.networkError) || '';
+                        showMsg('❌ ' + netMsg + ': ' + err.message, false);
                     } finally {
                         btn.disabled = false;
-                        btn.textContent = 'Unsubscribe';
+                        btn.textContent = (t.unsubscribe && t.unsubscribe.submitButton) || '';
                     }
                 });
             } else {
@@ -214,12 +255,13 @@
                     var email = emailInput.value.trim();
                     if (!email) return;
 
-                    if (!confirm('Are you sure you want to unsubscribe from the Dornori newsletter?\n\nYou will no longer receive updates.')) {
+                    var confirmMsg = (t.unsubscribe && t.unsubscribe.confirmMessage) || '';
+                    if (!confirm(confirmMsg)) {
                         return;
                     }
 
                     emailBtn.disabled = true;
-                    emailBtn.textContent = 'Unsubscribing…';
+                    emailBtn.textContent = (t.unsubscribe && t.unsubscribe.unsubscribingText) || '';
 
                     try {
                         var res = await fetch(API_BASE + '/api/unsubscribe-email', {
@@ -229,19 +271,24 @@
                         });
                         var data = await res.json();
                         if (res.ok && data.success) {
-                            showMsg('✅ You have been unsubscribed.', true);
+                            var successMsg = (t.unsubscribe && t.unsubscribe.successMessage) || '';
+                            showMsg(successMsg, true);
                             emailForm.reset();
                             emailBtn.style.display = 'none';
                             var sub = emailSection.querySelector('.sub');
-                            if (sub) sub.textContent = 'You have been removed from our mailing list.';
+                            if (sub) {
+                                sub.textContent = (t.unsubscribe && t.unsubscribe.emailSuccessSub) || '';
+                            }
                         } else {
-                            showMsg('❌ ' + (data.message || data.error || 'Could not unsubscribe.'), false);
+                            var errMsg = (t.unsubscribe && t.unsubscribe.errorFallback) || '';
+                            showMsg('❌ ' + (data.message || data.error || errMsg), false);
                         }
                     } catch (err) {
-                        showMsg('❌ Network error: ' + err.message, false);
+                        var netMsg = (t.unsubscribe && t.unsubscribe.networkError) || '';
+                        showMsg('❌ ' + netMsg + ': ' + err.message, false);
                     } finally {
                         emailBtn.disabled = false;
-                        emailBtn.textContent = 'Unsubscribe';
+                        emailBtn.textContent = (t.unsubscribe && t.unsubscribe.submitButton) || '';
                     }
                 });
             }
