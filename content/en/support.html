@@ -168,7 +168,8 @@
     var TURNSTILE_SITE_KEY = (window.CONFIG && window.CONFIG.turnstile && window.CONFIG.turnstile.sitekey) 
         ? window.CONFIG.turnstile.sitekey : null;
     
-    var workerUrl = 'https://dornori-ticketing.dornori-info.workers.dev/api/message';
+    var workerUrl = (window.CONFIG && window.CONFIG.queue && window.CONFIG.queue.endpoint) 
+        ? window.CONFIG.queue.endpoint : "https://edge-form-handler-api.dornori-info.workers.dev";
     
     var lang = document.documentElement.lang || 'en';
     var formJsonPath = (window.CONFIG && window.CONFIG.paths && window.CONFIG.paths.formJsonPath)
@@ -658,28 +659,18 @@
             }
         }
         
-        var troubleshootingText = troubleshootingSummaries.length > 0
-            ? 'Troubleshooting steps:\n' + troubleshootingSummaries.map(function(s, i) { return (i + 1) + '. ' + s; }).join('\n') + '\n\n'
-            : '';
-        var commentsText = additionalComments.join('\n');
-
         var payload = {
-            category: 'support-request',
+            referenceNumber: referenceNumber,
+            category: "support-request",
+            originalCategory: currentCategory?.title || 'General',
             name: sanitised.name,
             email: sanitised.email,
-            subject: 'Support: ' + (currentCategory ? currentCategory.title : 'General') + ' – Order #' + sanitised.order,
-            message: 'Category: ' + (currentCategory ? currentCategory.title : 'General') + '\n' +
-                     'Order Number: ' + sanitised.order + '\n\n' +
-                     troubleshootingText +
-                     commentsText,
-            metadata: {
-                source: 'support-form',
-                referenceNumber: referenceNumber,
-                orderNumber: sanitised.order,
-                troubleshooting: troubleshootingSummaries,
-                timestamp: new Date().toISOString(),
-                userAgent: navigator.userAgent
-            }
+            orderNumber: sanitised.order || 'NA',
+            language: lang,
+            troubleshooting: troubleshootingSummaries,
+            additionalComments: additionalComments,
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent
         };
         
         if (abortController) abortController.abort();
@@ -698,16 +689,14 @@
             
             clearTimeout(timeoutId);
             
-            var result = await response.json();
-            if (result.success) {
-                var ticketNumber = result.ticketNumber || referenceNumber;
+            if (response.ok) {
                 if (redirectUrl && redirectUrl.trim()) {
                     window.location.href = redirectUrl;
                 } else {
-                    showSuccessMessage(formData.successMessage || 'Your support request has been submitted. Our team will respond within 4 hours.', ticketNumber);
+                    showSuccessMessage(formData.successMessage || 'Your support request has been submitted. Our team will respond within 4 hours.', referenceNumber);
                 }
             } else {
-                throw new Error(result.error || 'Server returned ' + response.status);
+                throw new Error('Server returned ' + response.status);
             }
         } catch (err) {
             clearTimeout(timeoutId);
