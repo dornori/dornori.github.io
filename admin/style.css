@@ -175,7 +175,7 @@ body {
 }
 .ticket-header-row {
     display: grid;
-    grid-template-columns: 140px 100px 110px 1fr 180px 120px;
+    grid-template-columns: 140px 110px 1fr 180px 140px 32px;
     padding: 10px 16px;
     background: var(--bg-input);
     border-bottom: 2px solid var(--accent);
@@ -187,7 +187,7 @@ body {
 }
 .ticket-item {
     display: grid;
-    grid-template-columns: 140px 100px 110px 1fr 180px 120px;
+    grid-template-columns: 140px 110px 1fr 180px 140px 32px;
     padding: 12px 16px;
     border-bottom: 1px solid var(--border);
     cursor: pointer;
@@ -216,15 +216,35 @@ body {
 [data-theme="dark"] .status-resolved { background: #1a3a3a; color: #4ae0e0; }
 [data-theme="dark"] .status-closed { background: #2a2a2a; color: #8892b0; }
 
-.sla-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
-.sla-breached { background: #fed7d7; color: #c53030; }
-.sla-at_risk { background: #fefcbf; color: #975a16; }
-.sla-on_track { background: #c6f6d5; color: #276749; }
-.sla-done { background: #e2e8f0; color: #4a5568; }
-[data-theme="dark"] .sla-breached { background: #4a1a1a; color: #ff4444; }
-[data-theme="dark"] .sla-at_risk { background: #4a3a1a; color: #ffb347; }
-[data-theme="dark"] .sla-on_track { background: #1a4a1a; color: #5ae05a; }
-[data-theme="dark"] .sla-done { background: #2a2a2a; color: #8892b0; }
+/* SLA badge – color system */
+.sla-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; white-space: nowrap; }
+/* Green: on track (>50% time remaining) */
+.sla-on-track  { background: #c6f6d5; color: #276749; }
+/* Yellow: at risk (25–50% remaining) */
+.sla-at-risk   { background: #fefcbf; color: #975a16; }
+/* Orange: critical (<25% remaining) */
+.sla-critical  { background: #fed7aa; color: #92400e; }
+/* Red: breached */
+.sla-breached  { background: #fed7d7; color: #c53030; }
+/* Gray: paused (resolved/closed) */
+.sla-paused    { background: #e2e8f0; color: #4a5568; }
+
+/* Legacy aliases kept for safety */
+.sla-on_track  { background: #c6f6d5; color: #276749; }
+.sla-at_risk   { background: #fefcbf; color: #975a16; }
+.sla-done      { background: #e2e8f0; color: #4a5568; }
+
+[data-theme="dark"] .sla-on-track  { background: #1a4a1a; color: #5ae05a; }
+[data-theme="dark"] .sla-at-risk   { background: #4a3a1a; color: #ffb347; }
+[data-theme="dark"] .sla-critical  { background: #4a2e1a; color: #fb923c; }
+[data-theme="dark"] .sla-breached  { background: #4a1a1a; color: #ff4444; }
+[data-theme="dark"] .sla-paused    { background: #2a2a2a; color: #8892b0; }
+[data-theme="dark"] .sla-on_track  { background: #1a4a1a; color: #5ae05a; }
+[data-theme="dark"] .sla-at_risk   { background: #4a3a1a; color: #ffb347; }
+[data-theme="dark"] .sla-done      { background: #2a2a2a; color: #8892b0; }
+
+/* Inline SLA badge in modal */
+.sla-badge-inline { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 13px; font-weight: 600; }
 
 .ticket-item .subject { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .ticket-item .email { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -573,11 +593,67 @@ tr:hover td { background: var(--bg-hover); }
 .category-card .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; border: none; padding: 0; }
 .category-card .header h3 { color: var(--accent); font-size: 1.1rem; }
 
+/* ── SLA dot+label in ticket rows ── */
+.sla-cell { display: flex; align-items: center; gap: 7px; }
+.sla-dot  { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.sla-label { font-size: 12px; color: var(--text); white-space: nowrap; }
+
+/* ── Ticket tabs ── */
+.ticket-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 16px;
+    border-bottom: 2px solid var(--border);
+}
+.ticket-tab {
+    padding: 10px 22px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: color .2s;
+}
+.ticket-tab:hover { color: var(--accent); }
+.ticket-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── Category dot ── */
+.cat-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+.cat-dot-wrap { display: flex; align-items: center; justify-content: center; }
+
+/* ── Modal subject row ── */
+.modal-subject-row {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+.modal-subject-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.4;
+    word-break: break-word;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
-    .ticket-header-row, .ticket-item { grid-template-columns: 80px 1fr; }
-    .ticket-item .email, .ticket-item .category,
-    .ticket-header-row .email, .ticket-header-row .category { display: none; }
+    .ticket-header-row, .ticket-item { grid-template-columns: 100px 1fr 28px; }
+    .ticket-item > span:nth-child(2),
+    .ticket-item > span:nth-child(4),
+    .ticket-item > span:nth-child(5),
+    .ticket-header-row > span:nth-child(2),
+    .ticket-header-row > span:nth-child(4),
+    .ticket-header-row > span:nth-child(5) { display: none; }
     .modal-content { padding: 20px; }
     .ticket-meta-grid { grid-template-columns: 1fr; }
     .report-row { grid-template-columns: 1fr; }

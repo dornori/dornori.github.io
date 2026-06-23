@@ -1,4 +1,4 @@
-<!-- dashboard.html v1.2 -->
+<!-- dashboard.html v1.3 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -32,24 +32,21 @@
 
         <div class="stats" id="stats"></div>
 
+        <!-- Tab navigation -->
+        <div class="ticket-tabs">
+            <button class="ticket-tab active" data-tab="active" onclick="switchTab('active')">Active</button>
+            <button class="ticket-tab" data-tab="resolved" onclick="switchTab('resolved')">Resolved</button>
+            <button class="ticket-tab" data-tab="closed" onclick="switchTab('closed')">Closed</button>
+        </div>
+
         <div class="filters">
             <select id="filterCategory" onchange="loadTickets()">
                 <option value="">All Categories</option>
-            </select>
-            <select id="filterStatus" onchange="loadTickets()">
-                <option value="">All Status</option>
-                <option value="new">New</option>
-                <option value="open">Open</option>
-                <option value="in_progress">In Progress</option>
-                <option value="pending">Pending</option>
-                <option value="resolved">Resolved</option>
-                <option value="closed">Closed</option>
             </select>
             <select id="filterSort" onchange="loadTickets()">
                 <option value="sla">Sort: SLA Status</option>
                 <option value="last_updated">Sort: Last Updated</option>
                 <option value="created">Sort: Created Date</option>
-                <option value="ticket_number">Sort: Ticket #</option>
             </select>
             <button class="btn-refresh" onclick="loadTickets()">⟳ Refresh</button>
         </div>
@@ -67,9 +64,9 @@
 
 <script>
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  CONFIG – adjust to your worker URL
+    //  CONFIG
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev'; // <-- change to your worker URL
+    const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  THEME TOGGLE
@@ -86,7 +83,6 @@
         setTheme(current === 'light' ? 'dark' : 'light');
     }
 
-    // Load saved theme or default to 'light'
     const savedTheme = localStorage.getItem('theme') || 'light';
     setTheme(savedTheme);
 
@@ -96,8 +92,26 @@
     var token = null;
     var userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     var emailSenders = [];
+    var currentTab = 'active';
 
-    console.log("Dashboard script loaded");
+    // Active tab maps to statuses: new, open, in_progress, pending
+    // Resolved tab: resolved
+    // Closed tab: closed
+
+    function getStatusesForTab(tab) {
+        if (tab === 'active') return ['new', 'open', 'in_progress', 'pending'];
+        if (tab === 'resolved') return ['resolved'];
+        if (tab === 'closed') return ['closed'];
+        return [];
+    }
+
+    function switchTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll('.ticket-tab').forEach(function(btn) {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+        loadTickets();
+    }
 
     function formatDate(dateStr) {
         if (!dateStr) return "Invalid Date";
@@ -107,52 +121,86 @@
             var d = new Date(cleaned);
             if (isNaN(d.getTime())) { return dateStr; }
             return d.toLocaleString(undefined, {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
+                year: "numeric", month: "short", day: "numeric",
+                hour: "2-digit", minute: "2-digit",
                 timeZone: userTimezone || "UTC"
             });
         } catch (e) { return dateStr; }
     }
 
-    function getSlaLabel(ticket) {
-        if (ticket.status === "resolved" || ticket.status === "closed") {
-            return ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1);
-        }
-        var now = new Date();
-        var due = new Date(ticket.sla_response_due);
-        var diffMs = due - now;
-        var diffMin = Math.floor(diffMs / 60000);
-        var hours = Math.floor(Math.abs(diffMin) / 60);
-        var mins = Math.abs(diffMin) % 60;
-        var label = "";
-        if (diffMin > 0) {
-            if (hours > 0) { label = hours + "h" + (mins > 0 ? " " + mins + "m" : ""); }
-            else { label = mins + "m"; }
-            return "Due in " + label;
-        } else if (diffMin < 0) {
-            if (hours > 0) { label = hours + "h" + (mins > 0 ? " " + mins + "m" : ""); }
-            else { label = mins + "m"; }
-            return "Overdue by " + label;
-        }
-        return "Due now";
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  SLA HELPERS – color system
+    //  Green  = on track (>50% time remaining)
+    //  Yellow = at risk (25–50% remaining)
+    //  Orange = critical (<25% remaining)
+    //  Red    = breached
+    //  Gray   = paused (resolved / closed)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function parseIso(str) {
+        if (!str) return null;
+        var s = str.replace(' ', 'T');
+        if (!s.endsWith('Z') && !/[+-][0-9]{2}:[0-9]{2}$/.test(s)) s += 'Z';
+        var d = new Date(s);
+        return isNaN(d.getTime()) ? null : d;
     }
 
-    function getSlaClass(ticket) {
-        if (ticket.status === "resolved" || ticket.status === "closed") return "sla-on_track";
+    function formatDuration(ms) {
+        var totalMin = Math.floor(ms / 60000);
+        var hours = Math.floor(totalMin / 60);
+        var mins = totalMin % 60;
+        if (hours >= 24) {
+            var days = Math.floor(hours / 24);
+            var remH = hours % 24;
+            return days + "d" + (remH > 0 ? " " + remH + "h" : "");
+        }
+        if (hours > 0) return hours + "h" + (mins > 0 ? " " + mins + "m" : "");
+        return mins + "m";
+    }
+
+    function getSlaInfo(ticket) {
+        if (ticket.status === "resolved" || ticket.status === "closed") {
+            return { label: ticket.status === "resolved" ? "Resolved" : "Closed", cls: "sla-paused" };
+        }
         var now = new Date();
-        var due = new Date(ticket.sla_response_due);
-        if (now > due) return "sla-breached";
-        if (now > new Date(new Date(due).getTime() - 3600000)) return "sla-at_risk";
-        return "sla-on_track";
+        var created = parseIso(ticket.created_at);
+        var due = parseIso(ticket.sla_resolution_due) || parseIso(ticket.sla_response_due);
+        if (!due) return { label: "No SLA", cls: "sla-paused" };
+        var totalMs = created ? (due - created) : 0;
+        var remainMs = due - now;
+        if (remainMs < 0) return { label: "Overdue " + formatDuration(Math.abs(remainMs)), cls: "sla-breached" };
+        var label = "Due in " + formatDuration(remainMs);
+        var pct = totalMs > 0 ? remainMs / totalMs : 1;
+        var cls = pct > 0.5 ? "sla-on-track" : pct > 0.25 ? "sla-at-risk" : "sla-critical";
+        return { label: label, cls: cls };
+    }
+
+    function getSlaDetailLabel(ticket) { return getSlaInfo(ticket).label; }
+    function getSlaDetailClass(ticket) { return getSlaInfo(ticket).cls; }
+    function getSlaColor(cls) {
+        var map = {
+            'sla-on-track': '#22c55e',
+            'sla-at-risk':  '#eab308',
+            'sla-critical': '#f97316',
+            'sla-breached': '#ef4444',
+            'sla-paused':   '#8892b0'
+        };
+        return map[cls] || '#8892b0';
     }
 
     function escapeHtml(str) {
         if (!str) return "";
         return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    // Category color palette (cyclic)
+    var CAT_COLORS = ["#5aa9ff","#ffb347","#a78bfa","#34d399","#f87171","#fbbf24","#60a5fa","#4ade80","#fb923c","#c084fc"];
+    var catColorMap = {};
+    var catColorIdx = 0;
+    function getCatColor(cat) {
+        if (!cat) return "#8892b0";
+        if (!catColorMap[cat]) { catColorMap[cat] = CAT_COLORS[catColorIdx % CAT_COLORS.length]; catColorIdx++; }
+        return catColorMap[cat];
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -204,7 +252,7 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD CATEGORIES (for the filter dropdown)
+    //  LOAD CATEGORIES
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadCategories() {
         try {
@@ -229,13 +277,11 @@
             });
             sel.innerHTML = opts;
             sel.value = current;
-        } catch (e) {
-            console.error("Failed to load categories:", e);
-        }
+        } catch (e) { console.error("Failed to load categories:", e); }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD EMAIL SENDERS (for reply from dropdown)
+    //  LOAD EMAIL SENDERS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadEmailSenders() {
         try {
@@ -243,12 +289,8 @@
                 headers: { "Authorization": "Bearer " + token }
             });
             var data = await res.json();
-            if (data.success) {
-                emailSenders = data.addresses || [];
-            }
-        } catch (e) {
-            console.error("Failed to load senders:", e);
-        }
+            if (data.success) { emailSenders = data.addresses || []; }
+        } catch (e) { console.error("Failed to load senders:", e); }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -279,29 +321,41 @@
     //  LOAD TICKETS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadTickets() {
-        console.log("loadTickets called");
         var list = document.getElementById("ticketList");
         list.innerHTML = '<div class="loading">Loading...</div>';
         var category = document.getElementById("filterCategory").value;
-        var status = document.getElementById("filterStatus").value;
         var sort = document.getElementById("filterSort").value;
-        var url = API_BASE + "/api/admin/tickets";
-        var params = [];
-        if (category) params.push("category=" + encodeURIComponent(category));
-        if (status) params.push("status=" + encodeURIComponent(status));
-        if (sort) params.push("sort=" + encodeURIComponent(sort));
-        if (params.length) url += "?" + params.join("&");
+        var statuses = getStatusesForTab(currentTab);
+
+        // Fetch each status and merge
         try {
-            var res = await fetch(url, {
-                headers: { "Authorization": "Bearer " + token }
-            });
-            if (res.status === 401) { logout(); return; }
-            var data = await res.json();
-            if (data.success) {
-                renderTickets(data.tickets);
-            } else {
-                list.innerHTML = '<div class="loading">Error loading tickets</div>';
+            var allTickets = [];
+            for (var si = 0; si < statuses.length; si++) {
+                var urlStr = API_BASE + "/api/admin/tickets?status=" + encodeURIComponent(statuses[si]);
+                if (category) urlStr += "&category=" + encodeURIComponent(category);
+                if (sort) urlStr += "&sort=" + encodeURIComponent(sort);
+                var res = await fetch(urlStr, { headers: { "Authorization": "Bearer " + token } });
+                if (res.status === 401) { logout(); return; }
+                var data = await res.json();
+                if (data.success) allTickets = allTickets.concat(data.tickets || []);
             }
+
+            // Sort merged results
+            if (sort === 'sla') {
+                allTickets.sort(function(a, b) {
+                    var aMs = a.sla_resolution_due ? new Date(a.sla_resolution_due).getTime() : Infinity;
+                    var bMs = b.sla_resolution_due ? new Date(b.sla_resolution_due).getTime() : Infinity;
+                    return aMs - bMs;
+                });
+            } else {
+                allTickets.sort(function(a, b) {
+                    var aDate = a.last_action || a.created_at || '';
+                    var bDate = b.last_action || b.created_at || '';
+                    return bDate.localeCompare(aDate);
+                });
+            }
+
+            renderTickets(allTickets);
         } catch (e) {
             list.innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
         }
@@ -314,28 +368,28 @@
             return;
         }
         var html = '<div class="ticket-header-row">' +
-            '<span>SLA Status</span>' +
-            '<span>Ticket #</span>' +
+            '<span>SLA</span>' +
             '<span>Status</span>' +
             '<span>Subject</span>' +
-            '<span>Requester Email</span>' +
+            '<span>Requester</span>' +
             '<span>Last Updated</span>' +
+            '<span>Cat</span>' +
             '</div>';
         for (var i = 0; i < tickets.length; i++) {
             var t = tickets[i];
             var statusClass = "status-" + t.status;
-            var slaClass = getSlaClass(t);
-            var slaLabel = getSlaLabel(t);
+            var slaInfo = getSlaInfo(t);
             var actionDate = t.last_action || t.created_at;
             var subjectText = t.subject || "No subject";
-            var truncatedSubject = subjectText.length > 50 ? subjectText.substring(0, 50) + "…" : subjectText;
+            var truncatedSubject = subjectText.length > 55 ? subjectText.substring(0, 55) + "…" : subjectText;
+            var catColor = getCatColor(t.category);
             html += '<div class="ticket-item" onclick="openTicketModal(' + t.id + ')">' +
-                '<span class="sla-' + slaClass + '">' + slaLabel + '</span>' +
-                '<span class="ticket-num">' + t.ticket_number + '</span>' +
-                '<span class="status ' + statusClass + '">' + t.status + '</span>' +
+                '<span class="sla-cell"><span class="sla-dot" style="background:' + getSlaColor(slaInfo.cls) + ';"></span><span class="sla-label">' + slaInfo.label + '</span></span>' +
+                '<span class="status ' + statusClass + '">' + t.status.replace('_', ' ') + '</span>' +
                 '<span class="subject" title="' + escapeHtml(subjectText) + '">' + escapeHtml(truncatedSubject) + '</span>' +
                 '<span class="email">' + (t.sender_email || "") + '</span>' +
                 '<span style="font-size:12px;color:var(--text-muted);">' + formatDate(actionDate) + '</span>' +
+                '<span class="cat-dot-wrap"><span class="cat-dot" style="background:' + catColor + ';" title="' + escapeHtml(t.category || 'other') + '"></span></span>' +
                 '</div>';
         }
         list.innerHTML = html;
@@ -399,7 +453,6 @@
         }
         statusDropdown += '</select>';
 
-        // Build sender dropdown from emailSenders
         var senderDropdown = '<select id="detailReplyFrom">';
         var hasDefault = false;
         if (emailSenders && emailSenders.length > 0) {
@@ -416,29 +469,15 @@
         }
         senderDropdown += '</select>';
 
-        var actionDate = ticket.last_action || ticket.created_at;
-        var slaStatusClass = "sla-" + (ticket.sla_status || "on_track");
+        var slaLabel = getSlaDetailLabel(ticket);
+        var slaClass = getSlaDetailClass(ticket);
+        var catColor = getCatColor(ticket.category);
+        var isClosed = ticket.status === 'closed';
 
-        content.innerHTML = `
-            <div class="detail-section">
-                <h3>📋 Ticket Details</h3>
-                <div class="ticket-meta-grid">
-                    <div class="meta-item"><span class="meta-label">Ticket Number</span><span class="meta-value" style="font-family: monospace; color: var(--accent);">#${ticket.ticket_number}</span></div>
-                    <div class="meta-item"><span class="meta-label">Status</span><span class="meta-value">${ticket.status.toUpperCase()}</span></div>
-                    <div class="meta-item"><span class="meta-label">SLA Status</span><span class="meta-value ${slaStatusClass}">${(ticket.sla_status || "on_track").toUpperCase().replace("_", " ")}</span></div>
-                    <div class="meta-item"><span class="meta-label">Category</span><span class="meta-value">${ticket.category || "Other"}</span></div>
-                    <div class="meta-item"><span class="meta-label">From</span><span class="meta-value">${ticket.sender_email || "Unknown"}</span></div>
-                    <div class="meta-item"><span class="meta-label">Created</span><span class="meta-value">${formatDate(ticket.created_at)}</span></div>
-                </div>
-            </div>
-            <div class="detail-section">
-                <h3>💬 Message</h3>
-                <div class="ticket-body">${ticket.message || "No message"}</div>
-            </div>
-            <div class="detail-section comments-section">
-                <h3>💭 Comments (${ticket.comments ? ticket.comments.length : 0})</h3>
-                ${commentsHtml || '<div style="color:var(--text-muted);font-size:13px;">No comments yet</div>'}
-            </div>
+        // Closed ticket: show read-only info, hide reply/comment actions
+        var actionsHtml = '';
+        if (!isClosed) {
+            actionsHtml = `
             <div class="detail-section action-section">
                 <h4>✏️ Update Status</h4>
                 ${statusDropdown}
@@ -455,7 +494,38 @@
                 ${senderDropdown}
                 <textarea id="detailReplyBody" placeholder="Write your reply to the customer..."></textarea>
                 <div class="actions"><button class="btn-primary" onclick="sendReply(${ticket.id})">Send Reply</button></div>
+            </div>`;
+        } else {
+            actionsHtml = `
+            <div class="detail-section action-section">
+                <h4>✏️ Reopen Ticket</h4>
+                ${statusDropdown}
+                <div class="actions"><button class="btn-primary" onclick="updateStatus(${ticket.id})">Update Status</button></div>
+            </div>`;
+        }
+
+        content.innerHTML = `
+            <div class="detail-section">
+                <h3>📋 Ticket Details</h3>
+                <div class="modal-subject-row"><span class="modal-subject-text">${escapeHtml(ticket.subject || 'No subject')}</span></div>
+                <div class="ticket-meta-grid">
+                    <div class="meta-item"><span class="meta-label">Ticket Number</span><span class="meta-value" style="font-family:monospace;color:var(--accent);">#${ticket.ticket_number}</span></div>
+                    <div class="meta-item"><span class="meta-label">Status</span><span class="meta-value">${ticket.status.toUpperCase()}</span></div>
+                    <div class="meta-item"><span class="meta-label">SLA</span><span class="meta-value ${slaClass} sla-badge-inline">${slaLabel}</span></div>
+                    <div class="meta-item"><span class="meta-label">Category</span><span class="meta-value"><span class="cat-dot" style="background:${catColor};margin-right:6px;"></span>${ticket.category || "Other"}</span></div>
+                    <div class="meta-item"><span class="meta-label">From</span><span class="meta-value">${ticket.sender_email || "Unknown"}</span></div>
+                    <div class="meta-item"><span class="meta-label">Created</span><span class="meta-value">${formatDate(ticket.created_at)}</span></div>
+                </div>
             </div>
+            <div class="detail-section">
+                <h3>💬 Message</h3>
+                <div class="ticket-body">${ticket.message || "No message"}</div>
+            </div>
+            <div class="detail-section comments-section">
+                <h3>💭 Comments (${ticket.comments ? ticket.comments.length : 0})</h3>
+                ${commentsHtml || '<div style="color:var(--text-muted);font-size:13px;">No comments yet</div>'}
+            </div>
+            ${actionsHtml}
         `;
     }
 
@@ -472,16 +542,9 @@
             });
             if (res.status === 401) { logout(); closeModal(); return; }
             var data = await res.json();
-            if (data.success) {
-                openTicketModal(id);
-                loadStats();
-                loadTickets();
-            } else {
-                alert("Update failed");
-            }
-        } catch (e) {
-            alert("Error: " + e.message);
-        }
+            if (data.success) { openTicketModal(id); loadStats(); loadTickets(); }
+            else { alert("Update failed"); }
+        } catch (e) { alert("Error: " + e.message); }
     }
 
     async function addComment(id) {
@@ -495,30 +558,18 @@
             });
             if (res.status === 401) { logout(); closeModal(); return; }
             var data = await res.json();
-            if (data.success) {
-                document.getElementById("detailComment").value = "";
-                openTicketModal(id);
-                loadStats();
-                loadTickets();
-            } else {
-                alert("Failed to add comment");
-            }
-        } catch (e) {
-            alert("Error: " + e.message);
-        }
+            if (data.success) { document.getElementById("detailComment").value = ""; openTicketModal(id); loadStats(); loadTickets(); }
+            else { alert("Failed to add comment"); }
+        } catch (e) { alert("Error: " + e.message); }
     }
 
     async function sendReply(id) {
         var from = document.getElementById("detailReplyFrom").value;
         var rawBody = document.getElementById("detailReplyBody").value;
         if (!rawBody) return alert("Please enter a reply");
-        // Convert plain-text newlines to HTML so the email renders with proper
-        // paragraph breaks instead of a single blob of text.
         var body = '<p>' + rawBody
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-            .replace(/\r\n|\r|\n/g, '</p><p>')
-            + '</p>';
-        // Collapse empty paragraphs that come from consecutive blank lines
+            .replace(/\r\n|\r|\n/g, '</p><p>') + '</p>';
         body = body.replace(/<p>\s*<\/p>/g, '');
         try {
             var res = await fetch(API_BASE + "/api/admin/ticket/" + id + "/reply", {
@@ -528,22 +579,13 @@
             });
             if (res.status === 401) { logout(); closeModal(); return; }
             var data = await res.json();
-            if (data.success) {
-                document.getElementById("detailReplyBody").value = "";
-                alert("Reply sent!");
-                openTicketModal(id);
-                loadStats();
-                loadTickets();
-            } else {
-                alert("Failed to send reply");
-            }
-        } catch (e) {
-            alert("Error: " + e.message);
-        }
+            if (data.success) { document.getElementById("detailReplyBody").value = ""; alert("Reply sent!"); openTicketModal(id); loadStats(); loadTickets(); }
+            else { alert("Failed to send reply"); }
+        } catch (e) { alert("Error: " + e.message); }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  INIT – auto login if token exists
+    //  INIT
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (localStorage.getItem("token")) {
         token = localStorage.getItem("token");
