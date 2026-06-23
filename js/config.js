@@ -84,7 +84,7 @@ const CONFIG = {
     },
 
     queue: {
-        endpoint: (window.__ENV_API_ENDPOINT__) || 'https://edge-form-handler-api.dornori-info.workers.dev',
+        endpoint: (window.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
     },
 
     // ── Modules ───────────────────────────────────────────────────────────────
