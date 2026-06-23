@@ -1,105 +1,379 @@
 <div class="container">
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Contactformulier met wachtrij</title>
-    <style>
-        body { font-family: sans-serif; padding: 1rem; }
-        input, textarea, button { display: block; width: 100%; margin: 0.5rem 0; padding: 0.5rem; }
-        button { background: #0066cc; color: white; border: none; cursor: pointer; }
-        button:hover { background: #0055aa; }
-        .test-btn { background: #28a745; }
-        .test-btn:hover { background: #218838; }
-        #status { padding: 1rem; margin-top: 1rem; border-radius: 4px; }
-        .success { background: #d4edda; color: #155724; }
-        .error { background: #f8d7da; color: #721c24; }
-        .sending { background: #fff3cd; color: #856404; }
-        hr { margin: 2rem 0; }
-        .note { background: #e9ecef; padding: 1rem; border-radius: 4px; font-size: 0.9rem; }
-    </style>
-</head>
-<body>
+<div id="cf-toast" class="cf-toast" role="status" aria-live="polite"></div>
+<div class="cf-wrap">
+    <div class="cf-header">
+        <i class="fas fa-envelope"></i>
+        <div>
+            <div id="cf-title" style="font-size:1.4rem;font-weight:700;"></div>
+            <div id="cf-subtitle" style="opacity:.8;font-size:.9rem;margin-top:.2rem;"></div>
+        </div>
+    </div>
 
-<h2>Contactformulier met wachtrij</h2>
+    <div class="cf-body" id="cf-body">
+        <div class="cf-progress-row">
+            <span class="cf-progress-note"><i class="far fa-clock"></i> <span id="cf-avg-response"></span></span>
+            <span id="cf-step-label" class="cf-progress-step"></span>
+        </div>
+        <div class="cf-progress-track"><div id="cf-prog" class="cf-progress-fill" style="width:10%"></div></div>
 
-<div class="note">
-    <strong>Testing:</strong> Use the green "Test (Instant)" button to bypass rate limiting.<br>
-    <strong>Production:</strong> Use the blue button — rate limited to ~100 emails/day.
+        <div id="cf-s1">
+            <div style="font-size:1.1rem;font-weight:600;margin-bottom:1rem;" id="cf-select-prompt"></div>
+            <div id="cf-cats" class="cf-cat-grid"></div>
+            <p class="cf-note" id="cf-select-note"><i class="fas fa-info-circle"></i> <span id="cf-select-note-text"></span></p>
+        </div>
+
+        <div id="cf-s2" style="display:none;">
+            <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;">
+                <i class="fas fa-user" style="font-size:1.2rem;color:var(--accent)"></i>
+                <span style="font-size:1.1rem;font-weight:600;" id="cf-details-heading"></span>
+            </div>
+            <p style="color:var(--text-muted);font-size:.9rem;margin-bottom:1.5rem;" id="cf-details-sub"></p>
+
+            <div class="cf-grid2">
+                <div class="cf-field">
+                    <label class="cf-label" for="cf-first-name" id="label-first-name"></label>
+                    <input id="cf-first-name" type="text" class="cf-input" autocomplete="given-name">
+                    <span class="cf-field-error" id="cf-first-name-err"></span>
+                </div>
+                <div class="cf-field">
+                    <label class="cf-label" for="cf-last-name" id="label-last-name"></label>
+                    <input id="cf-last-name" type="text" class="cf-input" autocomplete="family-name">
+                    <span class="cf-field-error" id="cf-last-name-err"></span>
+                </div>
+            </div>
+
+            <div class="cf-grid2">
+                <div class="cf-field">
+                    <label class="cf-label" for="cf-email" id="label-email"></label>
+                    <input id="cf-email" type="email" class="cf-input" autocomplete="email">
+                    <span class="cf-field-error" id="cf-email-err"></span>
+                </div>
+                <div class="cf-field">
+                    <label class="cf-label" for="cf-phone" id="label-phone"></label>
+                    <input id="cf-phone" type="tel" class="cf-input" autocomplete="tel">
+                    <span class="cf-field-error" id="cf-phone-err"></span>
+                </div>
+            </div>
+
+            <div class="cf-field">
+                <label class="cf-label" for="cf-company" id="label-company"></label>
+                <input id="cf-company" type="text" class="cf-input" autocomplete="organization">
+            </div>
+
+            <div class="cf-field">
+                <label class="cf-label" for="cf-subject" id="label-subject"></label>
+                <input id="cf-subject" type="text" class="cf-input">
+                <span class="cf-field-error" id="cf-subject-err"></span>
+            </div>
+
+            <div class="cf-field">
+                <label class="cf-label" for="cf-message" id="label-message"></label>
+                <textarea id="cf-message" rows="6" class="cf-input"></textarea>
+                <div id="cf-char-counter" class="cf-char-counter">0 / 5000</div>
+                <span class="cf-field-error" id="cf-message-err"></span>
+            </div>
+
+            <div class="cf-turnstile-wrap">
+                <div id="cf-turnstile-container"></div>
+                <span class="cf-turnstile-error cf-hidden" id="cf-turnstile-err" role="alert"></span>
+            </div>
+
+            <button id="cf-submit" class="cf-submit"></button>
+            <button id="cf-back" style="margin-top:10px;background:transparent;border:1px solid var(--border);color:var(--text-muted);padding:8px 16px;border-radius:8px;cursor:pointer;width:100%;font-family:var(--font-sans);font-size:.9rem;"></button>
+        </div>
+
+        <div id="cf-success" style="display:none;text-align:center;padding:30px 20px;">
+            <i class="fas fa-check-circle" style="font-size:3rem;color:#10b981;"></i>
+            <h3 id="cf-success-title" style="color:var(--text);margin:12px 0 6px;"></h3>
+            <p id="cf-success-message" style="color:var(--text-muted);"></p>
+            <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.5rem;">
+                <span id="cf-ticket-label"></span> <span id="cf-ref-number" style="color:var(--accent);font-weight:600;font-family:monospace;"></span>
+            </p>
+        </div>
+    </div>
 </div>
 
-<input type="text" id="name" placeholder="Your name">
-<input type="email" id="email" placeholder="Your email">
-<textarea id="message" rows="4" placeholder="Your message"></textarea>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-<button id="testBtn" class="test-btn">🧪 Test (Instant - no rate limit)</button>
-<button id="submitBtn">📧 Send (Rate limited: ~100/day)</button>
-
-<div id="status"></div>
+<style>
+.cf-wrap{max-width:700px;margin:0 auto;background:var(--header-bg);border:1px solid var(--border);border-radius:16px;padding:30px 32px}
+.cf-header{display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+.cf-header i{font-size:2rem;color:var(--accent)}
+.cf-progress-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:.85rem;color:var(--text-muted)}
+.cf-progress-step{color:var(--accent);font-weight:500}
+.cf-progress-track{width:100%;height:4px;background:var(--border);border-radius:4px;margin-bottom:24px;overflow:hidden}
+.cf-progress-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .4s ease}
+.cf-cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.cf-btn{display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--input-bg,#1a2230);border:2px solid var(--border);border-radius:12px;color:var(--text);font-size:.95rem;cursor:pointer;transition:all .2s ease;text-align:left;font-family:var(--font-sans);width:100%}
+.cf-btn:hover{border-color:var(--accent);transform:translateY(-2px)}
+.cf-btn i{font-size:1.2rem;color:var(--accent);width:24px;text-align:center}
+.cf-note{font-size:.8rem;color:var(--text-muted);margin-top:4px}
+.cf-grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:600px){.cf-grid2{grid-template-columns:1fr}.cf-cat-grid{grid-template-columns:1fr 1fr}}
+.cf-field{margin-bottom:16px}
+.cf-label{display:block;font-size:.85rem;font-weight:500;color:var(--text);margin-bottom:4px}
+.cf-input{width:100%;padding:10px 14px;background:var(--input-bg,#1a2230);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:.95rem;font-family:var(--font-sans);box-sizing:border-box}
+.cf-input:focus{outline:none;border-color:var(--accent)}
+.cf-input::placeholder{color:var(--text-muted);opacity:.6}
+.cf-input-error{border-color:#ef4444!important}
+.cf-field-error{font-size:.75rem;color:#ef4444;margin-top:4px;display:block}
+.cf-char-counter{font-size:.7rem;text-align:right;margin-top:4px;color:var(--text-muted)}
+.cf-turnstile-wrap{margin:18px 0 12px;min-height:65px}
+.cf-turnstile-error{font-size:.75rem;color:#ef4444;margin-top:4px;display:block}
+.cf-submit{width:100%;padding:14px;background:var(--accent);color:var(--bg);font-weight:700;font-size:1rem;border:none;border-radius:12px;cursor:pointer;transition:all .2s ease;display:flex;align-items:center;justify-content:center;gap:10px;font-family:var(--font-sans)}
+.cf-submit:hover{transform:translateY(-2px);filter:brightness(1.05)}
+.cf-submit:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.cf-toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:40px;font-size:.88rem;font-weight:500;background:var(--header-bg);color:var(--text);border:1px solid var(--border);opacity:0;transition:opacity .3s ease;z-index:9999;max-width:90%}
+.cf-hidden{display:none!important}
+</style>
 
 <script>
-const workerUrl = "https://edge-form-handler-api.dornori-info.workers.dev";
-const statusDiv = document.getElementById("status");
+(function() {
+    'use strict';
 
-async function sendMessage(category, isTest = false) {
-    const name = document.getElementById("name").value;
-    const email = document.getElementById("email").value;
-    const message = document.getElementById("message").value;
+    var WORKER_URL = 'https://dornori-ticketing.dornori-info.workers.dev/api/message';
+    var TURNSTILE_KEY = (window.CONFIG && window.CONFIG.turnstile && window.CONFIG.turnstile.sitekey) || null;
 
-    if (!email || !message) {
-        statusDiv.className = "error";
-        statusDiv.textContent = "✗ Please fill in email and message";
-        return;
+    var lang = document.documentElement.lang || 'en';
+    var jsonPath = (window.__BASE_PATH__ || '/') + 'lang/' + lang + '/contact.json';
+
+    var t = {};
+    var selectedCategory = null;
+    var turnstileWidget = null;
+    var turnstileToken = null;
+    var isSubmitting = false;
+
+    function $(id) { return document.getElementById(id); }
+
+    function setText(id, text) { var el = $(id); if (el) el.textContent = text; }
+
+    function showToast(msg, isError) {
+        var el = $('cf-toast');
+        if (!el) return;
+        el.textContent = msg;
+        el.style.background = isError ? '#ef4444' : 'var(--header-bg)';
+        el.style.color = isError ? '#fff' : 'var(--text)';
+        el.style.border = isError ? 'none' : '1px solid var(--border)';
+        el.style.opacity = '1';
+        setTimeout(function() { el.style.opacity = '0'; }, 3000);
     }
 
-    statusDiv.className = "sending";
-    statusDiv.textContent = "Sending...";
+    function isValidEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e) && e.length <= 254; }
 
-    const payload = {
-        category: category,
-        name: name,
-        email: email,
-        message: message
-    };
-
-    if (isTest) {
-        payload.test = true;
-    }
-
-    try {
-        const response = await fetch(workerUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await response.text();
-
-        if (response.ok) {
-            statusDiv.className = "success";
-            if (isTest) {
-                statusDiv.textContent = "✓ TEST email sent instantly! Check your inbox.";
-            } else {
-                statusDiv.textContent = "✓ Message queued! Will be sent within 24 hours (rate limited).";
-            }
-            // Clear form
-            document.getElementById("name").value = "";
-            document.getElementById("email").value = "";
-            document.getElementById("message").value = "";
-        } else {
-            statusDiv.className = "error";
-            statusDiv.textContent = "✗ Error: " + result;
+    function destroyTurnstile() {
+        if (turnstileWidget !== null) {
+            try { if (typeof turnstile !== 'undefined' && turnstile.remove) turnstile.remove(turnstileWidget); } catch(e) {}
+            turnstileWidget = null;
         }
-    } catch (err) {
-        statusDiv.className = "error";
-        statusDiv.textContent = "✗ Network error: " + err.message;
+        turnstileToken = null;
+        var c = $('cf-turnstile-container');
+        if (c) while (c.firstChild) c.removeChild(c.firstChild);
     }
-}
 
-document.getElementById("submitBtn").addEventListener("click", () => sendMessage("contact", false));
-document.getElementById("testBtn").addEventListener("click", () => sendMessage("test", true));
+    function initTurnstile() {
+        var c = $('cf-turnstile-container');
+        if (!c) return;
+        if (!TURNSTILE_KEY || TURNSTILE_KEY === '1x00000000000000000000AA') {
+            c.style.display = 'none';
+            turnstileToken = 'no-turnstile-required';
+            return;
+        }
+        if (typeof turnstile === 'undefined') { setTimeout(initTurnstile, 300); return; }
+        destroyTurnstile();
+        c.style.display = 'block';
+        try {
+            turnstileWidget = turnstile.render(c, {
+                sitekey: TURNSTILE_KEY,
+                theme: 'light',
+                callback: function(token) {
+                    turnstileToken = token;
+                    var err = $('cf-turnstile-err');
+                    if (err) { err.textContent = ''; err.classList.add('cf-hidden'); }
+                },
+                'expired-callback': function() {
+                    turnstileToken = null;
+                    var err = $('cf-turnstile-err');
+                    if (err) { err.textContent = t.turnstileExpired || 'Verification expired.'; err.classList.remove('cf-hidden'); }
+                },
+                'error-callback': function() {
+                    turnstileToken = null;
+                    var err = $('cf-turnstile-err');
+                    if (err) { err.textContent = t.turnstileFailed || 'Verification failed.'; err.classList.remove('cf-hidden'); }
+                }
+            });
+        } catch(e) { console.error('Turnstile error:', e); }
+    }
+
+    function selectCategory(cat) {
+        selectedCategory = cat;
+        $('cf-s1').style.display = 'none';
+        $('cf-s2').style.display = 'block';
+        setText('cf-step-label', t.step2Label || 'Step 2: Your details');
+        $('cf-prog').style.width = '50%';
+        initTurnstile();
+        $('cf-first-name').focus();
+    }
+
+    function goBack() {
+        $('cf-s2').style.display = 'none';
+        $('cf-s1').style.display = 'block';
+        setText('cf-step-label', t.stepSelectLabel || 'Select a category');
+        $('cf-prog').style.width = '10%';
+        destroyTurnstile();
+    }
+
+    function getVal(id) { var el = $(id); return el ? el.value.trim() : ''; }
+
+    function submitForm() {
+        if (isSubmitting) return;
+        if (!selectedCategory) { showToast(t.selectCategoryFirst || 'Please select a category first.', true); return; }
+
+        var firstName = getVal('cf-first-name');
+        var lastName = getVal('cf-last-name');
+        var email = getVal('cf-email');
+        var phone = getVal('cf-phone');
+        var subject = getVal('cf-subject');
+        var message = getVal('cf-message');
+        var company = getVal('cf-company');
+
+        document.querySelectorAll('.cf-field-error').forEach(function(el) { el.textContent = ''; });
+        document.querySelectorAll('.cf-input').forEach(function(el) { el.classList.remove('cf-input-error'); });
+
+        var hasError = false;
+        function fieldErr(inputId, errId, msg) {
+            $(errId).textContent = msg; $(inputId).classList.add('cf-input-error'); hasError = true;
+        }
+
+        if (!firstName) fieldErr('cf-first-name', 'cf-first-name-err', t.required || 'Required');
+        if (!lastName) fieldErr('cf-last-name', 'cf-last-name-err', t.required || 'Required');
+        if (!email) fieldErr('cf-email', 'cf-email-err', t.required || 'Required');
+        else if (!isValidEmail(email)) fieldErr('cf-email', 'cf-email-err', t.invalidEmail || 'Invalid email');
+        if (phone && !/^[\+\d\s\-\(\)]{7,20}$/.test(phone)) fieldErr('cf-phone', 'cf-phone-err', t.invalidPhone || 'Invalid phone');
+        if (!subject) fieldErr('cf-subject', 'cf-subject-err', t.required || 'Required');
+        if (!message) fieldErr('cf-message', 'cf-message-err', t.required || 'Required');
+        else if (message.length < 10) fieldErr('cf-message', 'cf-message-err', t.minMessage || 'Min 10 characters');
+
+        var turnstileEnabled = TURNSTILE_KEY && TURNSTILE_KEY !== '1x00000000000000000000AA';
+        if (turnstileEnabled && !turnstileToken) {
+            var terr = $('cf-turnstile-err');
+            if (terr) { terr.textContent = t.turnstileError || 'Please complete the security check.'; terr.classList.remove('cf-hidden'); }
+            hasError = true;
+        }
+
+        if (hasError) { showToast(t.fixErrors || 'Please fix the errors above.', true); return; }
+
+        isSubmitting = true;
+        var btn = $('cf-submit');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (t.sendingText || 'Sending...');
+
+        var payload = {
+            category: selectedCategory,
+            name: firstName + ' ' + lastName,
+            email: email,
+            subject: subject,
+            message: 'Category: ' + selectedCategory + '\nPhone: ' + phone + '\nCompany: ' + company + '\n\n' + message,
+            metadata: { source: 'contact-form', phone: phone, company: company, firstName: firstName, lastName: lastName }
+        };
+
+        fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        .then(function(res) { return res.json(); })
+        .then(function(result) {
+            if (result.success) {
+                $('cf-s2').style.display = 'none';
+                $('cf-success').style.display = 'block';
+                setText('cf-ref-number', result.ticketNumber || 'TKT-ERROR');
+                $('cf-prog').style.width = '100%';
+                setText('cf-step-label', t.stepDoneLabel || '✅ Done');
+                showToast(t.successTitle || 'Message sent!', false);
+            } else {
+                throw new Error(result.error || 'Server error');
+            }
+        })
+        .catch(function(err) {
+            showToast((t.sendFailed || 'Failed') + ': ' + err.message, true);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> ' + (t.submitButton || 'Send Message');
+            if (turnstileWidget !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
+                turnstile.reset(turnstileWidget);
+                turnstileToken = null;
+            }
+        })
+        .finally(function() { isSubmitting = false; });
+    }
+
+    function populateUI() {
+        setText('cf-title', t.title || 'Contact Us');
+        setText('cf-subtitle', t.subtitle || '');
+        setText('cf-avg-response', t.avgResponse || '');
+        setText('cf-step-label', t.stepSelectLabel || 'Select a category');
+        setText('cf-select-prompt', t.selectPrompt || '');
+        setText('cf-select-note-text', t.selectNote || '');
+        setText('cf-details-heading', t.detailsHeading || 'Your Details');
+        setText('cf-details-sub', t.detailsSub || '');
+        setText('cf-success-title', t.successTitle || 'Message Sent!');
+        setText('cf-success-message', t.successMessage || '');
+        setText('cf-ticket-label', t.ticketLabel || 'Ticket Number:');
+
+        var lbl = function(id, key, optional) {
+            var el = $(id);
+            if (!el) return;
+            el.innerHTML = (t[key] || key) + (optional ? ' <span style="color:var(--text-muted);font-weight:400;">' + (t[optional] || optional) + '</span>' : ' <span style="color:#ef4444">*</span>');
+        };
+        lbl('label-first-name', 'firstName');
+        lbl('label-last-name', 'lastName');
+        lbl('label-email', 'email');
+        lbl('label-phone', 'phone', 'phoneOptional');
+        lbl('label-company', 'company', 'companyOptional');
+        lbl('label-subject', 'subject');
+        lbl('label-message', 'message');
+
+        var fields = [
+            ['cf-first-name', 'firstNamePlaceholder'],
+            ['cf-last-name', 'lastNamePlaceholder'],
+            ['cf-email', 'emailPlaceholder'],
+            ['cf-phone', 'phonePlaceholder'],
+            ['cf-company', 'companyPlaceholder'],
+            ['cf-subject', 'subjectPlaceholder'],
+            ['cf-message', 'messagePlaceholder']
+        ];
+        fields.forEach(function(f) { var el = $(f[0]); if (el) el.placeholder = t[f[1]] || ''; });
+
+        var submitBtn = $('cf-submit');
+        if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> ' + (t.submitButton || 'Send Message');
+        var backBtn = $('cf-back');
+        if (backBtn) backBtn.textContent = t.backButton || '← Back to categories';
+
+        var cats = $('cf-cats');
+        if (cats) {
+            cats.innerHTML = '';
+            (t.categories || []).forEach(function(cat) {
+                var btn = document.createElement('button');
+                btn.className = 'cf-btn';
+                btn.dataset.cat = cat.id;
+                btn.innerHTML = '<i class="' + cat.icon + '"></i> ' + cat.label;
+                btn.onclick = function() { selectCategory(cat.id); };
+                cats.appendChild(btn);
+            });
+        }
+
+        var msg = $('cf-message');
+        var counter = $('cf-char-counter');
+        if (msg && counter) {
+            msg.addEventListener('input', function() { counter.textContent = msg.value.length + ' / 5000'; });
+        }
+
+        var backBtn2 = $('cf-back');
+        if (backBtn2) backBtn2.onclick = goBack;
+        var submitBtn2 = $('cf-submit');
+        if (submitBtn2) submitBtn2.onclick = submitForm;
+    }
+
+    fetch(jsonPath, { cache: 'no-store' })
+        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function(data) { t = data; populateUI(); })
+        .catch(function(err) { console.error('Failed to load contact.json:', err); });
+})();
 </script>
-
-</body>
-</html>
-</div><!-- /.container -->
+</div>
+<!-- /.container -->
