@@ -1,4 +1,4 @@
-<!-- newsletter.html v2.0 -->
+<!-- newsletter.html v2.5 - Fixed domain, token-based unsubscribe, proper variables -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,7 +7,7 @@
     <title>Newsletter – Dornori</title>
     <link rel="stylesheet" href="style.css" />
     <style>
-        .n-page { max-width: 1040px; margin: 0 auto; }
+        .n-page { max-width: 1200px; margin: 0 auto; }
 
         .s-card {
             background: var(--bg-secondary);
@@ -22,19 +22,19 @@
 
         .f-row { margin-bottom: 16px; }
         .f-row label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted); margin-bottom: 6px; }
-        .f-row input[type="text"] {
+        .f-row input[type="text"],
+        .f-row select {
             width: 100%; padding: 9px 12px; background: var(--bg-input); border: 1px solid var(--border);
             border-radius: 7px; color: var(--text); font-size: 14px; font-family: inherit; transition: border-color .15s;
         }
-        .f-row input:focus { outline: none; border-color: var(--accent); }
+        .f-row input:focus, .f-row select:focus { outline: none; border-color: var(--accent); }
 
-        /* ── Rich editor ── */
         .editor-wrap { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
         .editor-toolbar {
             display: flex; flex-wrap: wrap; gap: 2px; padding: 6px 8px;
             background: var(--bg-input); border-bottom: 1px solid var(--border);
         }
-        .editor-toolbar button {
+        .editor-toolbar button, .editor-toolbar select {
             padding: 4px 8px; background: none; border: 1px solid transparent; border-radius: 5px;
             color: var(--text); font-size: 13px; cursor: pointer; font-family: inherit; line-height: 1;
             transition: background .12s, border-color .12s;
@@ -57,6 +57,28 @@
         #nl_editor a { color: var(--accent); }
         #nl_editor blockquote { border-left: 3px solid var(--accent); margin: .5em 0; padding-left: 12px; color: var(--text-muted); }
 
+        #nl_source {
+            display: none; width: 100%; min-height: 280px; padding: 14px 16px;
+            background: var(--bg-input); color: var(--text); font-size: 12.5px;
+            font-family: 'Menlo','Consolas',monospace; line-height: 1.55;
+            border: none; outline: none; resize: vertical; box-sizing: border-box;
+        }
+        .editor-wrap.source-mode #nl_editor { display: none; }
+        .editor-wrap.source-mode #nl_source { display: block; }
+        .editor-wrap.source-mode .editor-toolbar button:not(#sourceToggleBtn),
+        .editor-wrap.source-mode .editor-toolbar select,
+        .editor-wrap.source-mode .editor-toolbar .sep { opacity: .3; pointer-events: none; }
+
+        .source-hint {
+            display: none; font-size: 12px; color: var(--text-muted); padding: 6px 16px 10px 16px;
+            background: var(--bg-input); border-top: 1px solid var(--border);
+        }
+        .editor-wrap.source-mode .source-hint { display: block; }
+        .source-hint code {
+            background: var(--bg-secondary); padding: 1px 6px; border-radius: 4px;
+            font-size: 11px; border: 1px solid var(--border);
+        }
+
         .tag-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; align-items: center; }
         .tag-bar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin-right: 4px; }
         .tag-chip {
@@ -66,7 +88,6 @@
         }
         .tag-chip:hover { background: var(--accent); color: var(--text-inverse); border-color: var(--accent); }
 
-        /* ── Preview modal ── */
         .modal-bg {
             display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55);
             z-index: 1000; align-items: center; justify-content: center; padding: 20px;
@@ -92,34 +113,21 @@
         .preview-subject { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
         .preview-subject strong { color: var(--text); }
 
-        /* ── Confirm modal (send) ── */
         .confirm-msg { font-size: 14px; color: var(--text); line-height: 1.6; }
         .confirm-msg strong { color: var(--accent); }
         .progress-bar-wrap { height: 6px; background: var(--bg-input); border-radius: 3px; margin-top: 14px; overflow: hidden; display: none; }
         .progress-bar { height: 100%; background: var(--accent); border-radius: 3px; width: 0; transition: width .3s; }
 
-        /* ── Toggle ── */
-        .toggle-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-        .toggle-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .toggle-track { position: absolute; inset: 0; background: var(--border); border-radius: 22px; cursor: pointer; transition: background .2s; }
-        .toggle-track::after { content: ''; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: transform .2s; }
-        .toggle-switch input:checked + .toggle-track { background: var(--accent); }
-        .toggle-switch input:checked + .toggle-track::after { transform: translateX(18px); }
-        .toggle-label { font-size: 14px; color: var(--text); font-weight: 500; }
-
-        /* ── Buttons ── */
         .btn { padding: 8px 18px; border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
         .btn:hover { opacity: .85; }
         .btn:disabled { opacity: .5; cursor: not-allowed; }
         .btn-accent  { background: var(--accent);  color: var(--text-inverse); }
         .btn-ghost   { background: var(--bg-input); color: var(--text); border: 1px solid var(--border); }
-        .btn-danger  { background: var(--error);   color: #fff; }
         .btn-warning { background: #f59e0b;         color: #fff; }
+        .btn-danger  { background: var(--error);    color: #fff; }
         .btn-sm  { padding: 5px 12px; font-size: 12px; }
         .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
 
-        /* ── Toast ── */
         .toast {
             position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px;
             font-size: 14px; font-weight: 600; z-index: 9999; opacity: 0; transform: translateY(8px);
@@ -129,47 +137,29 @@
         .toast.success { background: var(--bg-secondary); color: var(--success); border-left: 4px solid var(--success); box-shadow: 0 4px 20px var(--shadow); }
         .toast.error   { background: var(--bg-secondary); color: var(--error);   border-left: 4px solid var(--error);   box-shadow: 0 4px 20px var(--shadow); }
 
-        /* ── Misc ── */
-        .empty-state { text-align: center; padding: 32px; color: var(--text-muted); font-size: 14px; }
         .n-toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
         .n-toolbar input[type="text"] {
             flex: 1; min-width: 180px; padding: 9px 12px; background: var(--bg-input); border: 1px solid var(--border);
             border-radius: 7px; color: var(--text); font-size: 14px;
         }
-        .sent-pill {
-            display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 700;
-            background: #c6f6d5; color: #276749;
-        }
-        [data-theme="dark"] .sent-pill { background: #1a4a1a; color: #5ae05a; }
 
-        #nl_source {
-            display: none; width: 100%; min-height: 280px; padding: 14px 16px;
-            background: var(--bg-input); color: var(--text); font-size: 12.5px;
-            font-family: 'Menlo','Consolas',monospace; line-height: 1.55;
-            border: none; outline: none; resize: vertical; box-sizing: border-box;
-        }
-        .editor-wrap.source-mode #nl_editor  { display: none; }
-        .editor-wrap.source-mode #nl_source   { display: block; }
-        .editor-wrap.source-mode .editor-toolbar button:not(#sourceToggleBtn),
-        .editor-wrap.source-mode .editor-toolbar select,
-        .editor-wrap.source-mode .editor-toolbar .sep { opacity: .3; pointer-events: none; }
+        table { width: 100%; border-collapse: collapse; }
+        table th, table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        table th { background: var(--bg-input); font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); }
+        table td { font-size: 13px; color: var(--text); }
+        table tbody tr:hover { background: var(--bg-input); }
+        .table-wrap { overflow-x: auto; }
 
-        /* ── Source mode hint ── */
-        .source-hint {
-            display: none; font-size: 12px; color: var(--text-muted); padding: 6px 16px 10px 16px;
-            background: var(--bg-input); border-top: 1px solid var(--border);
-        }
-        .editor-wrap.source-mode .source-hint { display: block; }
-        .source-hint code {
-            background: var(--bg-secondary); padding: 1px 6px; border-radius: 4px;
-            font-size: 11px; border: 1px solid var(--border);
-        }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .stat-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 15px; text-align: center; box-shadow: 0 2px 8px var(--shadow); }
+        .stat-card .number { font-size: 28px; font-weight: bold; color: var(--accent); }
+        .stat-card .label { font-size: 13px; color: var(--text-muted); margin-top: 5px; }
 
-        @media (max-width: 640px) { .n-toolbar { flex-direction: column; align-items: stretch; } }
+        .sent-pill { display: inline-block; padding: 4px 10px; background: var(--success); color: white; font-size: 11px; border-radius: 20px; font-weight: 600; }
     </style>
 </head>
 <body>
-<div class="container n-page">
+<div class="container">
     <div class="header">
         <h1>📧 Newsletter</h1>
         <div class="header-right">
@@ -179,10 +169,12 @@
             <a href="settings.html">⚙️ Settings</a>
         </div>
     </div>
-    <div id="content"><div class="loading">Loading…</div></div>
+
+    <div class="n-page">
+        <div id="content"><div class="loading">Loading…</div></div>
+    </div>
 </div>
 
-<!-- Preview modal -->
 <div class="modal-bg" id="previewModal">
     <div class="modal">
         <div class="modal-head">
@@ -195,12 +187,10 @@
         </div>
         <div class="modal-foot">
             <button class="btn btn-ghost" onclick="closePreview()">Close</button>
-            <button class="btn btn-warning" onclick="closePreview(); confirmSend()">Send to all subscribers</button>
         </div>
     </div>
 </div>
 
-<!-- Send confirmation modal -->
 <div class="modal-bg" id="sendModal">
     <div class="modal" style="max-width:480px;">
         <div class="modal-head">
@@ -225,7 +215,6 @@
 <script>
 const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
 
-// ── Theme ──
 function setTheme(t) {
     document.documentElement.setAttribute('data-theme', t);
     localStorage.setItem('theme', t);
@@ -234,7 +223,6 @@ function setTheme(t) {
 function toggleTheme() { setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); }
 setTheme(localStorage.getItem('theme') || 'light');
 
-// ── Auth ──
 const token = localStorage.getItem('token');
 if (!token) window.location.href = '/admin';
 
@@ -255,7 +243,6 @@ function toast(msg, type = 'success') {
 }
 
 function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
-function S(arr, cat, key, def = '') { const r = arr.find(x => x.category===cat && x.key===key); return r ? r.value : def; }
 
 function formatDate(d) {
     if (!d) return '—';
@@ -266,8 +253,7 @@ function formatDate(d) {
     } catch { return d; }
 }
 
-// ── State ──
-let settings = [], subscribers = [], newsletters = [], filterText = '';
+let settings = {}, subscribers = [], newsletters = [], filterText = '', currentLang = 'en', sourceMode = false, pendingSend = null;
 
 async function load() {
     try {
@@ -276,150 +262,142 @@ async function load() {
             api('/api/admin/subscribers'),
             api('/api/admin/newsletters')
         ]);
-        settings    = sd.settings    || [];
-        subscribers = nd.subscribers || [];
-        newsletters = ld.newsletters || [];
+        settings    = sd.data || {};
+        subscribers = nd.data || [];
+        newsletters = ld.data || [];
+        currentLang = sessionStorage.getItem('nl_lang') || 'en';
         render();
     } catch(e) {
         document.getElementById('content').innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
     }
 }
 
-async function saveSettings(updates) {
-    const d = await api('/api/admin/settings', { method:'PUT', body: JSON.stringify({ settings: updates }) });
-    return d.success;
+function getLangs() {
+    try {
+        const list = settings.languages?.list || '[]';
+        const parsed = JSON.parse(list);
+        return [{ code: 'all', name: '📢 All Languages' }, ...parsed];
+    } catch {
+        return [{ code: 'all', name: '📢 All Languages' }, { code: 'en', name: 'English' }];
+    }
 }
 
-// ── Render ──
+function getLangName(code) {
+    const langs = getLangs();
+    return langs.find(l => l.code === code)?.name || code;
+}
+
 function render() {
-    const domain = S(settings, 'general', 'domain', '');
-    document.getElementById('content').innerHTML =
-        buildDomainHint(domain) +
-        buildCompose() +
-        buildHistory() +
-        buildAutoReply() +
-        buildStats() +
-        buildSearchToolbar() +
-        '<div id="activeCard"></div><div id="unsubCard"></div>';
-    renderTables();
-}
-
-function buildDomainHint(domain) {
-    if (domain) return '';
-    return `<div class="s-card" style="border-color:var(--error);">
-        <div class="s-card-head"><div><h3>⚠️ Domain not set</h3>
-        <p>Unsubscribe links can't be built. Set your domain in <a href="settings.html" style="color:var(--accent)">Settings → General</a>.</p></div></div>
-    </div>`;
-}
-
-// ── Compose ──
-const DYN_TAGS = [
-    { tag:'{{sender_email}}',     label:'Subscriber email' },
-    { tag:'{{unsubscribe_link}}', label:'Unsubscribe link' },
-];
-function tagBar(mode) {
-    // mode: 'editor' inserts into contenteditable, 'input' uses insertTag(id)
-    return `<div class="tag-bar">
-        <span class="tag-bar-label">Insert tag:</span>
-        ${DYN_TAGS.map(t => `<button type="button" class="tag-chip" onclick="${mode==='editor'?`insertEditorTag('${t.tag}')`:`insertTag('${mode}','${t.tag}')`}">${t.tag}</button>`).join('')}
-    </div>`;
-}
-function insertTag(id, tag) {
-    const el = document.getElementById(id); if (!el) return;
-    const s = el.selectionStart, e = el.selectionEnd;
-    el.value = el.value.slice(0,s) + tag + el.value.slice(e);
-    el.selectionStart = el.selectionEnd = s + tag.length;
-    el.focus();
-}
-function insertEditorTag(tag) {
-    document.getElementById('nl_editor').focus();
-    document.execCommand('insertText', false, tag);
-}
-
-function buildCompose() {
-    return `<div class="s-card">
-        <div class="s-card-head">
-            <div><h3>✍️ Compose Newsletter</h3><p>Write and send to all active subscribers. Saved automatically to history on send.</p></div>
-        </div>
-
-        <div class="f-row">
-            <label>Subject</label>
-            <input type="text" id="compose_subject" placeholder="e.g. New arrivals — Star-A Mushroom in Sage" />
-        </div>
-
-        <div class="f-row" style="margin-bottom:8px;">
-            <label>Body</label>
-            ${tagBar('editor')}
-            <div class="editor-wrap">
-                <div class="editor-toolbar" id="editorToolbar">
-                    <select onchange="editorBlock(this)">
-                        <option value="p">Paragraph</option>
-                        <option value="h1">Heading 1</option>
-                        <option value="h2">Heading 2</option>
-                        <option value="h3">Heading 3</option>
-                    </select>
-                    <div class="sep"></div>
-                    <button title="Bold"           onclick="cmd('bold')"           ><b>B</b></button>
-                    <button title="Italic"         onclick="cmd('italic')"         ><i>I</i></button>
-                    <button title="Underline"      onclick="cmd('underline')"      ><u>U</u></button>
-                    <button title="Strikethrough"  onclick="cmd('strikeThrough')"  ><s>S</s></button>
-                    <div class="sep"></div>
-                    <button title="Bullet list"    onclick="cmd('insertUnorderedList')">• List</button>
-                    <button title="Numbered list"  onclick="cmd('insertOrderedList')">1. List</button>
-                    <button title="Blockquote"     onclick="cmd('formatBlock','"'+'blockquote'+'"')">❝</button>
-                    <div class="sep"></div>
-                    <button title="Link"           onclick="insertLink()">🔗 Link</button>
-                    <button title="Image URL"      onclick="insertImage()">🖼 Image</button>
-                    <div class="sep"></div>
-                    <button title="Align left"     onclick="cmd('justifyLeft')"   >⬛️↙</button>
-                    <button title="Align center"   onclick="cmd('justifyCenter')" >⬛️↓</button>
-                    <button title="Align right"    onclick="cmd('justifyRight')"  >⬛️↘</button>
-                    <div class="sep"></div>
-                    <button title="Undo"           onclick="cmd('undo')">↩</button>
-                    <button title="Redo"           onclick="cmd('redo')">↪</button>
-                    <div class="sep"></div>
-                    <button title="Remove formatting" onclick="cmd('removeFormat')">✕ fmt</button>
-                    <div class="sep"></div>
-                    <button id="sourceToggleBtn" title="Toggle HTML source" onclick="toggleSource()" style="font-family:monospace;font-weight:700;">&lt;/&gt; Source</button>
-                </div>
-                <div id="nl_editor" contenteditable="true" spellcheck="true"></div>
-                <textarea id="nl_source" spellcheck="false" placeholder="Paste your full HTML here…"></textarea>
-                <div class="source-hint">
-                    ⚡ <strong>Source mode</strong> — paste raw HTML directly. It will be sent as-is. 
-                    Tags like <code>{{sender_email}}</code> and <code>{{unsubscribe_link}}</code> are still replaced.
+    const langs = getLangs();
+    const langOpts = langs.map(l => `<option value="${esc(l.code)}"${l.code === currentLang ? ' selected' : ''}>${esc(l.name)}</option>`).join('');
+    
+    document.getElementById('content').innerHTML = `
+        <div class="s-card">
+            <div class="s-card-head">
+                <div><h3>✍️ Compose Newsletter</h3><p>Write and send to subscribers in the selected language. "All Languages" sends to active subscribers in all languages.</p></div>
+            </div>
+            <div class="f-row">
+                <label>Language</label>
+                <select onchange="setLang(this.value)">${langOpts}</select>
+            </div>
+            <div class="f-row">
+                <label>Subject</label>
+                <input type="text" id="compose_subject" placeholder="e.g. New arrivals — Star-A Mushroom in Sage" />
+            </div>
+            <div class="f-row" style="margin-bottom:8px;">
+                <label>Body</label>
+                ${buildTagBar()}
+                <div class="editor-wrap">
+                    <div class="editor-toolbar" id="editorToolbar">
+                        <select onchange="editorBlock(this)">
+                            <option value="p">Paragraph</option>
+                            <option value="h1">Heading 1</option>
+                            <option value="h2">Heading 2</option>
+                            <option value="h3">Heading 3</option>
+                        </select>
+                        <div class="sep"></div>
+                        <button title="Bold" onclick="cmd('bold')"><b>B</b></button>
+                        <button title="Italic" onclick="cmd('italic')"><i>I</i></button>
+                        <button title="Underline" onclick="cmd('underline')"><u>U</u></button>
+                        <button title="Strikethrough" onclick="cmd('strikeThrough')"><s>S</s></button>
+                        <div class="sep"></div>
+                        <button title="Bullet list" onclick="cmd('insertUnorderedList')">• List</button>
+                        <button title="Numbered list" onclick="cmd('insertOrderedList')">1. List</button>
+                        <button title="Blockquote" onclick="cmd('formatBlock','blockquote')">❝</button>
+                        <div class="sep"></div>
+                        <button title="Link" onclick="insertLink()">🔗 Link</button>
+                        <button title="Image URL" onclick="insertImage()">🖼 Image</button>
+                        <div class="sep"></div>
+                        <button title="Align left" onclick="cmd('justifyLeft')">⬛️↙</button>
+                        <button title="Align center" onclick="cmd('justifyCenter')">⬛️↓</button>
+                        <button title="Align right" onclick="cmd('justifyRight')">⬛️↘</button>
+                        <div class="sep"></div>
+                        <button title="Undo" onclick="cmd('undo')">↩</button>
+                        <button title="Redo" onclick="cmd('redo')">↪</button>
+                        <div class="sep"></div>
+                        <button title="Remove formatting" onclick="cmd('removeFormat')">✕ fmt</button>
+                        <div class="sep"></div>
+                        <button id="sourceToggleBtn" title="Toggle HTML source" onclick="toggleSource()" style="font-family:monospace;font-weight:700;">&lt;/&gt; Source</button>
+                    </div>
+                    <div id="nl_editor" contenteditable="true" spellcheck="true"></div>
+                    <textarea id="nl_source" spellcheck="false" placeholder="Paste your full HTML here…"></textarea>
+                    <div class="source-hint">
+                        ⚡ <strong>Source mode</strong> — paste raw HTML directly. Tags like <code>{{subscriber_email}}</code> and <code>{{unsubscribe_link}}</code> are still replaced.
+                    </div>
                 </div>
             </div>
+            <div class="btn-row">
+                <button class="btn btn-ghost" onclick="previewEmail()">👁 Preview</button>
+                <button class="btn btn-ghost" onclick="saveDraft()">💾 Save draft</button>
+                <button class="btn btn-warning" onclick="showConfirmSend()">🚀 Send to subscribers</button>
+            </div>
         </div>
+        ${buildHistory()}
+        ${buildAutoReply()}
+        ${buildStats()}
+        ${buildSubs()}
+    `;
+}
 
-        <div class="btn-row">
-            <button class="btn btn-ghost" onclick="previewEmail()">👁 Preview</button>
-            <button class="btn btn-ghost" onclick="saveDraft()">💾 Save draft</button>
-            <button class="btn btn-warning" onclick="confirmSend()">🚀 Send to all subscribers</button>
-        </div>
+function buildTagBar() {
+    return `<div class="tag-bar">
+        <span class="tag-bar-label">Insert tag:</span>
+        <button type="button" class="tag-chip" onclick="insertTag('nl_editor','{{subscriber_email}}')">{{subscriber_email}}</button>
+        <button type="button" class="tag-chip" onclick="insertTag('nl_editor','{{subscriber_name}}')">{{subscriber_name}}</button>
+        <button type="button" class="tag-chip" onclick="insertTag('nl_editor','{{unsubscribe_link}}')">{{unsubscribe_link}}</button>
     </div>`;
+}
+
+function insertTag(id, tag) {
+    const el = document.getElementById(id);
+    if (!el || !el.contentEditable) return;
+    el.focus();
+    document.execCommand('insertText', false, tag);
 }
 
 function cmd(command, val) {
     document.getElementById('nl_editor').focus();
     document.execCommand(command, false, val || null);
 }
+
 function editorBlock(sel) {
     document.getElementById('nl_editor').focus();
     document.execCommand('formatBlock', false, sel.value);
     sel.value = 'p';
 }
+
 function insertLink() {
     const url = prompt('Enter URL:'); if (!url) return;
     const text = prompt('Link text (leave blank to use URL):') || url;
     document.getElementById('nl_editor').focus();
     document.execCommand('insertHTML', false, `<a href="${url}">${text}</a>`);
 }
+
 function insertImage() {
     const url = prompt('Enter image URL:'); if (!url) return;
     document.getElementById('nl_editor').focus();
     document.execCommand('insertImage', false, url);
 }
-let sourceMode = false;
 
 function toggleSource() {
     const wrap   = document.querySelector('.editor-wrap');
@@ -427,13 +405,11 @@ function toggleSource() {
     const source = document.getElementById('nl_source');
     const btn    = document.getElementById('sourceToggleBtn');
     if (!sourceMode) {
-        // switching TO source: copy rendered HTML into textarea
         source.value = editor.innerHTML;
         wrap.classList.add('source-mode');
         btn.classList.add('active');
         sourceMode = true;
     } else {
-        // switching TO visual: set innerHTML from textarea
         editor.innerHTML = source.value;
         wrap.classList.remove('source-mode');
         btn.classList.remove('active');
@@ -445,6 +421,7 @@ function getEditorHtml() {
     if (sourceMode) return document.getElementById('nl_source').value.trim();
     return document.getElementById('nl_editor').innerHTML.trim();
 }
+
 function getSubject() { return document.getElementById('compose_subject').value.trim(); }
 
 function loadDraft(subject, body) {
@@ -456,36 +433,254 @@ function loadDraft(subject, body) {
     }
 }
 
-// ── Preview ──
+function setLang(lang) {
+    currentLang = lang;
+    sessionStorage.setItem('nl_lang', lang);
+    sourceMode = false;
+    filterText = '';
+    render();
+}
+
+function buildHistory() {
+    if (!newsletters.length) return '<div class="s-card"><div class="s-card-head"><div><h3>📋 Sent &amp; Drafts</h3><p>No newsletters yet.</p></div></div></div>';
+    
+    let filtered = newsletters;
+    if (currentLang !== 'all') {
+        filtered = newsletters.filter(n => n.language === currentLang);
+    }
+    
+    if (!filtered.length) return `<div class="s-card"><div class="s-card-head"><div><h3>📋 Sent &amp; Drafts — ${esc(getLangName(currentLang))}</h3><p>No newsletters yet in this language.</p></div></div></div>`;
+    
+    const rows = filtered.map(n => {
+        const isDraft = n.status === 'draft';
+        return `<tr>
+            <td>${esc(n.subject)}</td>
+            <td>${isDraft ? '<em style="color:var(--text-muted)">Draft</em>' : '<span class="sent-pill">Sent</span>'}</td>
+            <td>${isDraft ? formatDate(n.created_at) : formatDate(n.sent_at)}</td>
+            <td>${isDraft ? '—' : (n.recipient_count || '—')}</td>
+            <td style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button class="btn btn-ghost btn-sm" onclick="loadNewsletter(${n.id})">✏️ ${isDraft ? 'Edit' : 'Duplicate'}</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteNewsletter(${n.id}, '${esc(n.subject)}')">Delete</button>
+            </td>
+        </tr>`;
+    }).join('');
+    
+    return `<div class="s-card" id="historyCard">
+        <div class="s-card-head"><div><h3>📋 Sent &amp; Drafts — ${esc(getLangName(currentLang))}</h3><p>History for this language. Click Edit/Duplicate to load into the editor.</p></div></div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Subject</th><th>Status</th><th>Date</th><th>Recipients</th><th>Actions</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+    </div>`;
+}
+
+function rebuildHistory() {
+    const existing = document.getElementById('historyCard');
+    if (existing) existing.outerHTML = buildHistory();
+}
+
+async function loadNewsletter(id) {
+    const n = newsletters.find(x => x.id === id);
+    if (!n) return;
+    loadDraft(n.subject, n.body);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    toast('Loaded into editor');
+}
+
+async function deleteNewsletter(id, subject) {
+    if (!confirm(`Delete "${subject}"?\nThis cannot be undone.`)) return;
+    const d = await api('/api/admin/newsletters/' + id, { method: 'DELETE' });
+    if (d.success) {
+        toast('✅ Deleted');
+        newsletters = newsletters.filter(n => n.id !== id);
+        rebuildHistory();
+    } else {
+        toast('❌ Delete failed', 'error');
+    }
+}
+
+function buildAutoReply() {
+    const lang = currentLang === 'all' ? 'en' : currentLang;
+    const langKey = lang === 'en' ? '' : '_' + lang;
+    
+    // Try language-specific keys first
+    let enabled = settings.auto_reply?.[`newsletter${langKey}_enabled`] === '1';
+    let subject = settings.auto_reply?.[`newsletter${langKey}_subject`];
+    let body = settings.auto_reply?.[`newsletter${langKey}_body`];
+    
+    // If no language-specific keys, try legacy keys (for backwards compatibility)
+    if (subject === undefined) {
+        enabled = settings.auto_reply?.newsletter_enabled === '1';
+        subject = settings.auto_reply?.newsletter_subject || 'Welcome to the Dornori Newsletter';
+        body = settings.auto_reply?.newsletter_body || '';
+    }
+    
+    const unsubPath = settings.newsletter?.[`unsubscribe_link_path_${lang}`] || settings.newsletter?.unsubscribe_link_path || 'unsubscribe.html';
+    const langName = getLangName(lang);
+    
+    return `<div class="s-card">
+        <div class="s-card-head">
+            <div><h3>⚙️ Subscribe Confirmation Auto-Reply (${esc(langName)})</h3>
+            <p>Sent automatically on signup. Available tags: {{subscriber_email}}, {{subscriber_name}}, {{unsubscribe_link}}</p></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+            <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;">
+                <input type="checkbox" id="nl_enabled" ${enabled?'checked':''} style="width:18px;height:18px;" />
+                <span style="font-size:14px;color:var(--text);font-weight:500;">Send confirmation email on subscribe</span>
+            </label>
+        </div>
+        <div class="f-row">
+            <label>Subject</label>
+            <input type="text" id="nl_ar_subject" value="${esc(subject)}" />
+        </div>
+        <div class="f-row">
+            <label>Body (HTML)</label>
+            ${buildTagBar()}
+            <textarea id="nl_ar_body" style="width:100%;min-height:120px;padding:9px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;font-family:Menlo,Consolas,monospace;line-height:1.55;resize:vertical;">${esc(body)}</textarea>
+        </div>
+        <div class="f-row">
+            <label>Unsubscribe Link Path</label>
+            <input type="text" id="nl_unsub_path" value="${esc(unsubPath)}" placeholder="unsubscribe.html" />
+            <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Filename only (e.g., unsubscribe.html). The domain and ?token= will be added automatically.</p>
+        </div>
+        <button class="btn btn-accent" onclick="saveAutoReply()">Save auto-reply</button>
+    </div>`;
+}
+
+function buildStats() {
+    let active, unsub;
+    if (currentLang === 'all') {
+        active = subscribers.filter(s => s.status === 'active').length;
+        unsub = subscribers.filter(s => s.status === 'unsubscribed').length;
+    } else {
+        active = subscribers.filter(s => s.status === 'active' && s.language === currentLang).length;
+        unsub = subscribers.filter(s => s.status === 'unsubscribed' && s.language === currentLang).length;
+    }
+    const total = active + unsub;
+    
+    return `<div class="stats">
+        <div class="stat-card"><div class="number">${total}</div><div class="label">Total</div></div>
+        <div class="stat-card"><div class="number">${active}</div><div class="label">Active</div></div>
+        <div class="stat-card"><div class="number">${unsub}</div><div class="label">Unsubscribed</div></div>
+    </div>`;
+}
+
+function buildSubs() {
+    let active, unsub;
+    if (currentLang === 'all') {
+        active = subscribers.filter(s => s.status === 'active' && (!filterText || s.email.includes(filterText) || (s.name||'').includes(filterText)));
+        unsub = subscribers.filter(s => s.status === 'unsubscribed' && (!filterText || s.email.includes(filterText) || (s.name||'').includes(filterText)));
+    } else {
+        active = subscribers.filter(s => s.status === 'active' && s.language === currentLang && (!filterText || s.email.includes(filterText) || (s.name||'').includes(filterText)));
+        unsub = subscribers.filter(s => s.status === 'unsubscribed' && s.language === currentLang && (!filterText || s.email.includes(filterText) || (s.name||'').includes(filterText)));
+    }
+    
+    const activeRows = active.map(s => `<tr>
+        <td>${esc(s.email)}</td>
+        <td>${esc(s.name || '—')}</td>
+        <td>${esc(s.language || '—')}</td>
+        <td>${formatDate(s.subscribed_at)}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="delSub(${s.id},'${esc(s.email)}')">Delete</button></td>
+    </tr>`).join('');
+    
+    const unsubRows = unsub.map(s => `<tr>
+        <td>${esc(s.email)}</td>
+        <td>${esc(s.name || '—')}</td>
+        <td>${esc(s.language || '—')}</td>
+        <td>${formatDate(s.unsubscribed_at)}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="delSub(${s.id},'${esc(s.email)}')">Delete</button></td>
+    </tr>`).join('');
+    
+    return `<div class="s-card">
+        <div class="s-card-head">
+            <div><h3>👥 Active Subscribers — ${esc(getLangName(currentLang))}</h3></div>
+            <button class="btn btn-ghost btn-sm" onclick="expCsv('active')">⬇ Export CSV</button>
+        </div>
+        <div class="n-toolbar">
+            <input type="text" id="nl_search" placeholder="Search by email or name…" oninput="onSearch(this.value)" value="${esc(filterText)}" />
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Email</th><th>Name</th><th>Language</th><th>Subscribed</th><th>Actions</th></tr></thead>
+                <tbody>${activeRows || '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted);">No entries</td></tr>'}</tbody>
+            </table>
+        </div>
+    </div>
+    <div class="s-card">
+        <div class="s-card-head">
+            <div><h3>🚫 Unsubscribed — ${esc(getLangName(currentLang))}</h3></div>
+            <button class="btn btn-ghost btn-sm" onclick="expCsv('unsubscribed')">⬇ Export CSV</button>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Email</th><th>Name</th><th>Language</th><th>Unsubscribed</th><th>Actions</th></tr></thead>
+                <tbody>${unsubRows || '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted);">No entries</td></tr>'}</tbody>
+            </table>
+        </div>
+    </div>`;
+}
+
+function onSearch(v) {
+    filterText = v.trim().toLowerCase();
+    render();
+}
+
+async function saveAutoReply() {
+    const unsubPath = document.getElementById('nl_unsub_path').value.trim() || 'unsubscribe.html';
+    const lang = currentLang === 'all' ? 'en' : currentLang;
+    const langKey = lang === 'en' ? '' : '_' + lang;
+    
+    const ok = await saveSettings([
+        { category: 'auto_reply', key: `newsletter${langKey}_enabled`, value: document.getElementById('nl_enabled').checked ? '1' : '0' },
+        { category: 'auto_reply', key: `newsletter${langKey}_subject`, value: document.getElementById('nl_ar_subject').value },
+        { category: 'auto_reply', key: `newsletter${langKey}_body`, value: document.getElementById('nl_ar_body').value },
+        { category: 'newsletter', key: `unsubscribe_link_path_${lang}`, value: unsubPath }
+    ]);
+    ok ? toast('✅ Auto-reply saved') : toast('❌ Failed', 'error');
+    if (ok) await load();
+}
+
+async function saveSettings(updates) {
+    const d = await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ settings: updates }) });
+    return d.success;
+}
+
 function previewEmail() {
     const subj = getSubject();
     const body = getEditorHtml();
     if (!subj && !body) { toast('Nothing to preview yet', 'error'); return; }
-    // In source mode the body is a full HTML document — use it as-is.
-    // In visual mode wrap the innerHTML fragment in a lightweight shell.
     const html = sourceMode
         ? body
-        : `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<style>body{font-family:system-ui,sans-serif;max-width:600px;margin:24px auto;padding:0 16px;color:#1a202c;line-height:1.6;}
-a{color:#0a8f5c;}blockquote{border-left:3px solid #0a8f5c;margin:.5em 0;padding-left:12px;color:#4a5568;}
-img{max-width:100%;}h1,h2,h3{margin:.5em 0;}</style></head><body>${body}</body></html>`;
+        : `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:system-ui,sans-serif;max-width:600px;margin:24px auto;padding:0 16px;color:#1a202c;line-height:1.6;}a{color:#0a8f5c;}blockquote{border-left:3px solid #0a8f5c;margin:.5em 0;padding-left:12px;color:#4a5568;}img{max-width:100%;}h1,h2,h3{margin:.5em 0;}</style></head><body>${body}</body></html>`;
     document.getElementById('previewSubjectLine').innerHTML = `<strong>Subject:</strong> ${esc(subj) || '<em>(no subject)</em>'}`;
     const frame = document.getElementById('previewFrame');
     frame.srcdoc = html;
     document.getElementById('previewModal').classList.add('show');
 }
-function closePreview() { document.getElementById('previewModal').classList.remove('show'); }
 
-// ── Send confirmation ──
-function confirmSend() {
+function closePreview() { 
+    document.getElementById('previewModal').classList.remove('show'); 
+}
+
+function showConfirmSend() {
     const subj = getSubject();
     const body = getEditorHtml();
     if (!subj) { toast('Subject is required', 'error'); return; }
     if (!body)  { toast('Body is required', 'error');   return; }
-    const active = subscribers.filter(s => s.status === 'active').length;
+    
+    let active;
+    if (currentLang === 'all') {
+        active = subscribers.filter(s => s.status === 'active').length;
+    } else {
+        active = subscribers.filter(s => s.status === 'active' && s.language === currentLang).length;
+    }
     if (!active) { toast('No active subscribers to send to', 'error'); return; }
+    
+    pendingSend = { subj, body };
     document.getElementById('sendConfirmMsg').innerHTML =
-        `You are about to send <strong>"${esc(subj)}"</strong> to <strong>${active} active subscriber${active===1?'':'s'}</strong>.<br><br>This cannot be undone.`;
+        `You are about to send <strong>"${esc(subj)}"</strong> to <strong>${active} active subscriber${active===1?'':'s'}</strong> in <strong>${esc(getLangName(currentLang))}</strong>.<br><br>This cannot be undone.`;
     document.getElementById('progressWrap').style.display = 'none';
     document.getElementById('progressBar').style.width = '0';
     document.getElementById('sendModalFoot').innerHTML = `
@@ -493,18 +688,22 @@ function confirmSend() {
         <button class="btn btn-warning" id="confirmSendBtn" onclick="executeSend()">Yes, send now</button>`;
     document.getElementById('sendModal').classList.add('show');
 }
-function closeSendModal() { document.getElementById('sendModal').classList.remove('show'); }
+
+function closeSendModal() { 
+    document.getElementById('sendModal').classList.remove('show'); 
+    pendingSend = null;
+}
 
 async function executeSend() {
-    const subj = getSubject();
-    const body = getEditorHtml();
+    if (!pendingSend) return;
+    const { subj, body } = pendingSend;
     document.getElementById('sendModalFoot').innerHTML = '<span style="font-size:13px;color:var(--text-muted);">Sending…</span>';
     document.getElementById('progressWrap').style.display = 'block';
     document.getElementById('progressBar').style.width = '30%';
     try {
-        const d = await api('/api/admin/newsletters/send', {
+        const d = await api('/api/admin/newsletters', {
             method: 'POST',
-            body: JSON.stringify({ subject: subj, body: body })
+            body: JSON.stringify({ subject: subj, body: body, language: currentLang })
         });
         document.getElementById('progressBar').style.width = '100%';
         if (d.success) {
@@ -532,7 +731,7 @@ async function saveDraft() {
     if (!subj && !body) { toast('Nothing to save', 'error'); return; }
     const d = await api('/api/admin/newsletters', {
         method: 'POST',
-        body: JSON.stringify({ subject: subj, body: body, status: 'draft' })
+        body: JSON.stringify({ subject: subj, body: body, language: currentLang, status: 'draft' })
     });
     if (d.success) {
         toast('💾 Draft saved');
@@ -543,174 +742,26 @@ async function saveDraft() {
     }
 }
 
-// ── History ──
-function buildHistory() {
-    if (!newsletters.length) return `<div class="s-card"><div class="s-card-head"><div><h3>📋 Sent &amp; Drafts</h3><p>No newsletters yet.</p></div></div></div>`;
-    const rows = newsletters.map(n => {
-        const isDraft = n.status === 'draft';
-        return `<tr>
-            <td>${esc(n.subject)}</td>
-            <td>${isDraft ? '<em style="color:var(--text-muted)">Draft</em>' : `<span class="sent-pill">Sent</span>`}</td>
-            <td>${isDraft ? formatDate(n.created_at) : formatDate(n.sent_at)}</td>
-            <td>${isDraft ? '—' : (n.recipient_count || '—')}</td>
-            <td style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button class="btn btn-ghost btn-sm" onclick="loadNewsletter(${n.id})">✏️ ${isDraft ? 'Edit' : 'Duplicate'}</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteNewsletter(${n.id}, '${esc(n.subject)}')">Delete</button>
-            </td>
-        </tr>`;
-    }).join('');
-    return `<div class="s-card" id="historyCard">
-        <div class="s-card-head"><div><h3>📋 Sent &amp; Drafts</h3><p>History of all newsletters. Click Edit/Duplicate to load into the editor.</p></div></div>
-        <div class="table-wrap">
-            <table>
-                <thead><tr><th>Subject</th><th>Status</th><th>Date</th><th>Recipients</th><th>Actions</th></tr></thead>
-                <tbody>${rows}</tbody>
-            </table>
-        </div>
-    </div>`;
-}
-function rebuildHistory() {
-    const existing = document.getElementById('historyCard');
-    if (existing) existing.outerHTML = buildHistory();
+async function delSub(id, email) {
+    if (!confirm(`Delete "${email}"?`)) return;
+    const d = await api('/api/admin/subscribers/' + id, { method: 'DELETE' });
+    d.success ? (toast('✅ Deleted'), load()) : toast('❌ Failed', 'error');
 }
 
-async function loadNewsletter(id) {
-    const n = newsletters.find(x => x.id === id);
-    if (!n) return;
-    loadDraft(n.subject, n.body);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    toast('Loaded into editor');
-}
-async function deleteNewsletter(id, subject) {
-    if (!confirm(`Delete "${subject}"?\nThis cannot be undone.`)) return;
-    const d = await api('/api/admin/newsletters/' + id, { method: 'DELETE' });
-    if (d.success) {
-        toast('✅ Deleted');
-        newsletters = newsletters.filter(n => n.id !== id);
-        rebuildHistory();
+function expCsv(status) {
+    let list;
+    if (currentLang === 'all') {
+        list = subscribers.filter(s => s.status === status && (!filterText || s.email.includes(filterText)));
     } else {
-        toast('❌ Delete failed', 'error');
+        list = subscribers.filter(s => s.status === status && s.language === currentLang && (!filterText || s.email.includes(filterText)));
     }
-}
-
-// ── Auto-reply ──
-function buildAutoReply() {
-    const enabled = S(settings, 'auto_reply', 'newsletter_enabled', '1') === '1';
-    const subject = S(settings, 'auto_reply', 'newsletter_subject', 'Welcome to the Dornori Newsletter');
-    const body    = S(settings, 'auto_reply', 'newsletter_body',    '');
-    return `<div class="s-card">
-        <div class="s-card-head">
-            <div><h3>⚙️ Subscribe Confirmation Auto-Reply</h3>
-            <p>Sent automatically on signup. Accepts HTML. Use tag chips to insert dynamic values.</p></div>
-        </div>
-        <div class="toggle-row">
-            <label class="toggle-switch">
-                <input type="checkbox" id="nl_enabled" ${enabled?'checked':''} />
-                <span class="toggle-track"></span>
-            </label>
-            <span class="toggle-label">Send confirmation email on subscribe</span>
-        </div>
-        <div class="f-row">
-            <label>Subject</label>
-            <div class="tag-bar" style="margin-bottom:6px;">
-                <span class="tag-bar-label">Insert tag:</span>
-                ${DYN_TAGS.map(t => `<button type="button" class="tag-chip" onclick="insertTag('nl_subject','${t.tag}')">${t.tag}</button>`).join('')}
-            </div>
-            <input type="text" id="nl_subject" value="${esc(subject)}" />
-        </div>
-        <div class="f-row">
-            <label>Body <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;">(HTML)</span></label>
-            <div class="tag-bar" style="margin-bottom:6px;">
-                <span class="tag-bar-label">Insert tag:</span>
-                ${DYN_TAGS.map(t => `<button type="button" class="tag-chip" onclick="insertTag('nl_ar_body','${t.tag}')">${t.tag}</button>`).join('')}
-            </div>
-            <textarea id="nl_ar_body" style="width:100%;min-height:120px;padding:9px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;font-family:Menlo,Consolas,monospace;line-height:1.55;resize:vertical;">${esc(body)}</textarea>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;">
-            <button class="btn btn-accent" onclick="saveAutoReply()">Save auto-reply</button>
-            <span id="nl_ar_status" style="font-size:12px;color:var(--text-muted);"></span>
-        </div>
-    </div>`;
-}
-async function saveAutoReply() {
-    const ok = await saveSettings([
-        { category:'auto_reply', key:'newsletter_enabled', value: document.getElementById('nl_enabled').checked ? '1' : '0' },
-        { category:'auto_reply', key:'newsletter_subject', value: document.getElementById('nl_subject').value },
-        { category:'auto_reply', key:'newsletter_body',    value: document.getElementById('nl_ar_body').value },
-    ]);
-    if (ok) { toast('✅ Auto-reply saved'); document.getElementById('nl_ar_status').textContent = 'Saved ✓'; setTimeout(() => document.getElementById('nl_ar_status').textContent = '', 2500); }
-    else toast('❌ Save failed', 'error');
-}
-
-// ── Subscriber tables ──
-function buildStats() {
-    const total  = subscribers.length;
-    const active = subscribers.filter(s => s.status === 'active').length;
-    const unsub  = subscribers.filter(s => s.status === 'unsubscribed').length;
-    return `<div class="stats">
-        <div class="stat-card"><div class="number">${total}</div><div class="label">Total</div></div>
-        <div class="stat-card"><div class="number">${active}</div><div class="label">Active</div></div>
-        <div class="stat-card"><div class="number">${unsub}</div><div class="label">Unsubscribed</div></div>
-    </div>`;
-}
-function buildSearchToolbar() {
-    return `<div class="n-toolbar">
-        <input type="text" id="nl_search" placeholder="Search by email or name…" oninput="onSearch(this.value)" value="${esc(filterText)}" />
-    </div>`;
-}
-function filteredSubs(status) {
-    return subscribers.filter(s => s.status === status && (!filterText || s.email.toLowerCase().includes(filterText) || (s.name||'').toLowerCase().includes(filterText)));
-}
-function buildSubTable(title, desc, dateLabel, list, exportStatus) {
-    const rows = list.map(s => `<tr>
-        <td>${esc(s.email)}</td>
-        <td>${esc(s.name || '—')}</td>
-        <td>${formatDate(exportStatus === 'active' ? s.subscribed_at : s.unsubscribed_at)}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="deleteSubscriber(${s.id}, '${esc(s.email)}')">Delete</button></td>
-    </tr>`).join('');
-    return `<div class="s-card">
-        <div class="s-card-head">
-            <div><h3>${title} (${list.length})</h3><p>${desc}</p></div>
-            <button class="btn btn-ghost btn-sm" onclick="exportCsv('${exportStatus}')">⬇ Export CSV</button>
-        </div>
-        <div class="table-wrap">
-            <table>
-                <thead><tr><th>Email</th><th>Name</th><th>${dateLabel}</th><th>Actions</th></tr></thead>
-                <tbody>${rows || `<tr><td colspan="4"><div class="empty-state">No entries found</div></td></tr>`}</tbody>
-            </table>
-        </div>
-    </div>`;
-}
-function renderTables() {
-    document.getElementById('activeCard').innerHTML = buildSubTable('Active Subscribers', 'Currently subscribed.', 'Subscribed', filteredSubs('active'), 'active');
-    document.getElementById('unsubCard').innerHTML  = buildSubTable('Unsubscribed', 'People who opted out.', 'Unsubscribed', filteredSubs('unsubscribed'), 'unsubscribed');
-}
-function onSearch(v) {
-    filterText = v.trim().toLowerCase();
-    renderTables();
-    document.querySelector('.stats').outerHTML = buildStats();
-}
-async function deleteSubscriber(id, email) {
-    if (!confirm(`Delete subscriber "${email}"?\n\nThis removes them permanently.`)) return;
-    const d = await api('/api/admin/subscribers/' + id, { method:'DELETE' });
-    if (d.success) {
-        toast('✅ Subscriber deleted');
-        subscribers = subscribers.filter(s => s.id !== id);
-        document.querySelector('.stats').outerHTML = buildStats();
-        renderTables();
-    } else {
-        toast('❌ Delete failed', 'error');
-    }
-}
-function exportCsv(status) {
-    const list = filteredSubs(status);
     if (!list.length) { toast('Nothing to export', 'error'); return; }
-    const q = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
-    const lines = [['Email','Name','Status','Subscribed At','Unsubscribed At'].join(',')];
-    list.forEach(s => lines.push([s.email, s.name, s.status, s.subscribed_at, s.unsubscribed_at || ''].map(q).join(',')));
+    const q = v => `"${String(v??'').replace(/"/g,'""')}"`;
+    const lines = [['Email','Name','Language','Status','Subscribed At','Unsubscribed At'].join(',')];
+    list.forEach(s => lines.push([s.email, s.name, s.language, s.status, s.subscribed_at, s.unsubscribed_at||''].map(q).join(',')));
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type:'text/csv' }));
-    a.download = `dornori-${status}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = `dornori-${status}-${currentLang}-${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
 }

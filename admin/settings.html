@@ -1,4 +1,4 @@
-<!-- settings.html v1.3 -->
+<!-- settings.html v1.4 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="style.css" />
     <style>
         /* ── Settings-specific overrides ── */
-        .s-page { max-width: 860px; margin: 0 auto; }
+        .s-page { max-width: 1200px; margin: 0 auto; }
 
         /* Tab strip */
         .tab-strip {
@@ -389,7 +389,7 @@ async function load() {
     try {
         const [sd, ed] = await Promise.all([api('/api/admin/settings'), api('/api/admin/email-addresses')]);
         settings = sd.settings || [];
-        emailAddresses = ed.addresses || [];
+        emailAddresses = ed.data || ed.addresses || [];
         renderAll();
         switchTab(currentTab);
     } catch(e) {
@@ -445,6 +445,14 @@ function switchTab(id) {
             const panel = document.getElementById('panel-' + id);
             if (panel) panel.innerHTML = '<div class="error">Failed to load auto-replies</div>';
         });
+    } else if (id === 'email_routing') {
+        const html = buildEmailRouting();
+        const panel = document.getElementById('panel-' + id);
+        if (panel) panel.innerHTML = html;
+    } else if (id === 'outgoing') {
+        const html = buildOutgoing();
+        const panel = document.getElementById('panel-' + id);
+        if (panel) panel.innerHTML = html;
     }
 }
 
@@ -811,7 +819,7 @@ async function buildAutoReply() {
         const from     = ar.from || '';
         const color    = S('category', cat+'_color', '#8892b0');
 
-        const fromOpts = `<option value="">Default (support@dornori.com)</option>` +
+        const fromOpts = `<option value="">Default</option>` +
             emailAddresses.map(a => `<option value="${esc(a.email)}"${a.email===from?' selected':''}>${esc(a.email)}</option>`).join('');
 
         return `<div class="ar-item" id="aritem-${cat}">
