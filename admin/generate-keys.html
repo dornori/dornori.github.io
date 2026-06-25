@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Generate VAPID Keys</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 1rem; background: #f8f9fa; }
+        .card { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        button { background: #2563eb; color: white; border: none; padding: 0.75rem 2rem; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+        button:hover { background: #1d4ed8; }
+        .key-box { background: #f1f5f9; padding: 1rem; border-radius: 8px; margin: 1rem 0; word-break: break-all; font-family: monospace; font-size: 0.9rem; border: 1px solid #e2e8f0; }
+        .copy-btn { background: #e2e8f0; border: none; padding: 0.25rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+        .copy-btn:hover { background: #cbd5e1; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>🔑 Generate VAPID Keys</h1>
+    <p>Click the button to create a new VAPID key pair. These keys are generated in your browser and never leave your device.</p>
+    <button id="generateBtn">Generate VAPID Keys</button>
+    <div id="result" class="hidden">
+        <h3>Public Key</h3>
+        <div class="key-box" id="publicKeyDisplay"></div>
+        <button class="copy-btn" data-target="publicKeyDisplay">Copy</button>
+
+        <h3>Private Key</h3>
+        <div class="key-box" id="privateKeyDisplay"></div>
+        <button class="copy-btn" data-target="privateKeyDisplay">Copy</button>
+
+        <p style="margin-top: 1.5rem; color: #64748b;">
+            ⚠️ Store the private key as a <strong>Secret</strong> in your Cloudflare Worker environment.<br />
+            Set <code>VAPID_PUBLIC_KEY</code> and <code>VAPID_PRIVATE_KEY</code> there.
+        </p>
+    </div>
+</div>
+
+<script>
+    document.getElementById('generateBtn').addEventListener('click', async function() {
+        // 1. Generate key pair
+        const keyPair = await crypto.subtle.generateKey(
+            { name: 'ECDSA', namedCurve: 'P-256' },
+            true,
+            ['sign', 'verify']
+        );
+
+        // 2. Export as JWK
+        const pubJWK = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+        const privJWK = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
+
+        // 3. Base64url helpers
+        function base64UrlToUint8(base64url) {
+            const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+            const raw = atob(base64);
+            const arr = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+            return arr;
+        }
+
+        function uint8ToBase64Url(buf) {
+            return btoa(String.fromCharCode(...buf))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+        }
+
+        // 4. Build uncompressed public key (0x04 + x + y)
+        const x = base64UrlToUint8(pubJWK.x);
+        const y = base64UrlToUint8(pubJWK.y);
+        const uncompressed = new Uint8Array(1 + x.length + y.length);
+        uncompressed[0] = 0x04;
+        uncompressed.set(x, 1);
+        uncompressed.set(y, 1 + x.length);
+        const publicKeyB64 = uint8ToBase64Url(uncompressed);
+
+        // 5. Private key is the 'd' field (already base64url)
+        const privateKeyB64 = privJWK.d;
+
+        // 6. Display
+        document.getElementById('publicKeyDisplay').textContent = publicKeyB64;
+        document.getElementById('privateKeyDisplay').textContent = privateKeyB64;
+        document.getElementById('result').classList.remove('hidden');
+        this.textContent = '🔁 Regenerate VAPID Keys';
+    });
+
+    // Copy buttons
+    document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const targetId = this.dataset.target;
+            const text = document.getElementById(targetId).textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const orig = this.textContent;
+                this.textContent = '✅ Copied!';
+                setTimeout(() => { this.textContent = orig; }, 1500);
+            }).catch(() => {
+                // Fallback
+                const range = document.createRange();
+                range.selectNode(document.getElementById(targetId));
+                window.getSelection().removeAllRanges();
+                window.getSelection().addRange(range);
+                document.execCommand('copy');
+                const orig = this.textContent;
+                this.textContent = '✅ Copied!';
+                setTimeout(() => { this.textContent = orig; }, 1500);
+            });
+        });
+    });
+</script>
+</body>
+</html>
