@@ -1,5 +1,5 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  Dornori Ticketing Worker — v3.6 (fixed TypeScript errors)
+//  Dornori Ticketing Worker — v3.6 (with debug endpoint)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 // ─── AUTH ─────────────────────────────────────────────────────
@@ -754,12 +754,9 @@ function base64UrlToUint8Array(base64Url) {
 }
 
 function uint8ToBase64Url(buf) {
-    // Convert Uint8Array to binary string safely
     let binary = '';
-    const chunkSize = 8192; // Process in chunks to avoid stack overflow
-    for (let i = 0; i < buf.length; i += chunkSize) {
-        const chunk = buf.slice(i, i + chunkSize);
-        binary += String.fromCharCode.apply(null, chunk);
+    for (let i = 0; i < buf.length; i++) {
+        binary += String.fromCharCode(buf[i]);
     }
     return btoa(binary)
         .replace(/\+/g, '-')
@@ -806,22 +803,23 @@ async function encryptPushPayload(payload, subscription) {
     const p256dh = base64UrlToUint8Array(subscription.keys.p256dh);
     const auth = base64UrlToUint8Array(subscription.keys.auth);
 
-    // Generate ECDH key pair
+    // @ts-ignore - Cloudflare Workers returns CryptoKeyPair
     const keyPair = await crypto.subtle.generateKey(
         { name: 'ECDH', namedCurve: 'P-256' },
         true,
         ['deriveBits']
     );
     
-    // Export public key
+    // @ts-ignore - keyPair.publicKey exists in Cloudflare Workers
     const publicKeyBuf = await crypto.subtle.exportKey('raw', keyPair.publicKey);
     const publicKey = new Uint8Array(publicKeyBuf);
+    
+    // @ts-ignore - keyPair.privateKey exists in Cloudflare Workers
     const privateKey = keyPair.privateKey;
 
-    // Import subscription public key
     const subPublicKey = await crypto.subtle.importKey('raw', p256dh, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
 
-    // Derive shared secret - FIXED: use a simple object instead of type casting
+    // @ts-ignore - { name: 'ECDH', public: subPublicKey } is valid in Cloudflare Workers
     const sharedSecretBuf = await crypto.subtle.deriveBits(
         { name: 'ECDH', public: subPublicKey },
         privateKey,
@@ -829,7 +827,6 @@ async function encryptPushPayload(payload, subscription) {
     );
     const secret = new Uint8Array(sharedSecretBuf);
 
-    // Derive encryption key and nonce using HKDF
     const info = encoder.encode('Content-Encoding: auth\0');
     const ikm = new Uint8Array(auth.length + secret.length);
     ikm.set(auth);
@@ -846,13 +843,11 @@ async function encryptPushPayload(payload, subscription) {
     const encKey = new Uint8Array(encKeyBuf);
     const nonce = new Uint8Array(nonceBuf);
 
-    // Encrypt the payload
     const cipherKey = await crypto.subtle.importKey('raw', encKey.slice(0, 16), { name: 'AES-GCM' }, false, ['encrypt']);
     const iv = nonce.slice(0, 12);
     const encryptedBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cipherKey, plaintext);
     const encrypted = new Uint8Array(encryptedBuf);
 
-    // Combine public key and encrypted payload
     const result = new Uint8Array(publicKey.byteLength + encrypted.byteLength);
     result.set(publicKey, 0);
     result.set(encrypted, publicKey.byteLength);
@@ -861,10 +856,18 @@ async function encryptPushPayload(payload, subscription) {
 
 // ─── SEND PUSH NOTIFICATION ──────────────────────────────────
 async function sendPushNotification(env, ticket) {
+    console.log('🔍 sendPushNotification START');
+    
     if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) {
         console.log('❌ Push skipped: VAPID keys missing');
+        console.log(`   VAPID_PUBLIC_KEY exists: ${!!env.VAPID_PUBLIC_KEY}`);
+        console.log(`   VAPID_PRIVATE_KEY exists: ${!!env.VAPID_PRIVATE_KEY}`);
         return { success: false, error: 'VAPID keys missing' };
     }
+
+    console.log('✅ VAPID keys present');
+    console.log(`   PUBLIC key length: ${env.VAPID_PUBLIC_KEY.length}`);
+    console.log(`   PRIVATE key length: ${env.VAPID_PRIVATE_KEY.length}`);
 
     const payload = {
         title: 'New Ticket ' + ticket.ticket_number,
@@ -885,9 +888,16 @@ async function sendPushNotification(env, ticket) {
 
     for (const sub of subscriptions) {
         try {
+            console.log(`🔍 Processing subscription: ${sub.endpoint.substring(0, 50)}...`);
+            
             const encrypted = await encryptPushPayload(payloadString, sub);
+            console.log(`✅ Encrypted payload length: ${encrypted.length}`);
+            
             const audience = new URL(sub.endpoint).origin;
+            console.log(`🎯 Audience: ${audience}`);
+            
             const vapidJWT = await generateVapidJWT(env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY, audience);
+            console.log(`✅ VAPID JWT generated`);
 
             const res = await fetch(sub.endpoint, {
                 method: 'POST',
@@ -899,6 +909,8 @@ async function sendPushNotification(env, ticket) {
                 body: encrypted
             });
 
+            console.log(`📡 Response status: ${res.status}`);
+            
             if (res.status === 410) {
                 await deletePushSubscription(env, sub.endpoint);
                 console.log('🗑️ Removed expired subscription');
@@ -906,12 +918,13 @@ async function sendPushNotification(env, ticket) {
                 sent++;
                 console.log('✅ Push sent successfully');
             } else {
-                console.log(`❌ Push failed with status: ${res.status}`);
                 const text = await res.text();
+                console.log(`❌ Push failed with status: ${res.status}`);
                 console.log(`   Response: ${text}`);
             }
         } catch (err) {
             console.error('❌ Push error:', err.message);
+            console.error('   Stack:', err.stack);
         }
     }
     console.log(`📊 Sent ${sent}/${subscriptions.length} pushes`);
@@ -1035,6 +1048,77 @@ export default {
                 if (!endpoint) return json({ error: 'Endpoint required' }, 400);
                 await deletePushSubscription(env, endpoint);
                 return json({ success: true });
+            }
+
+            // ── Clear all subscriptions (debug) ──
+            if (path === '/api/debug/clear-subscriptions' && method === 'POST') {
+                const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
+                if (!verifyToken(token)) return json({ error: 'Unauthorized' }, 401);
+                
+                await env.DB.prepare('DELETE FROM push_subscriptions').run();
+                return json({ success: true, message: 'All subscriptions cleared' });
+            }
+
+            // ── Debug: Test push with full response ──
+            if (path === '/api/debug/push-error' && method === 'POST') {
+                const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
+                if (!verifyToken(token)) return json({ error: 'Unauthorized' }, 401);
+                
+                const subscriptions = await getPushSubscriptions(env);
+                
+                if (subscriptions.length === 0) {
+                    return json({ error: 'No subscriptions found' }, 404);
+                }
+                
+                const results = [];
+                
+                for (const sub of subscriptions) {
+                    try {
+                        const payload = {
+                            title: 'Debug Test',
+                            body: 'Testing push',
+                            url: '/admin/dashboard.html'
+                        };
+                        
+                        const encrypted = await encryptPushPayload(JSON.stringify(payload), sub);
+                        const audience = new URL(sub.endpoint).origin;
+                        const vapidJWT = await generateVapidJWT(env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY, audience);
+                        
+                        const res = await fetch(sub.endpoint, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Encoding': 'aesgcm',
+                                'TTL': '86400',
+                                'Authorization': 'WebPush ' + vapidJWT
+                            },
+                            body: encrypted
+                        });
+                        
+                        const responseText = await res.text();
+                        
+                        results.push({
+                            status: res.status,
+                            statusText: res.statusText,
+                            response: responseText,
+                            endpoint: sub.endpoint.substring(0, 50) + '...',
+                            success: res.status >= 200 && res.status < 300
+                        });
+                        
+                    } catch (err) {
+                        results.push({
+                            error: err.message,
+                            stack: err.stack
+                        });
+                    }
+                }
+                
+                return json({
+                    success: true,
+                    results: results,
+                    vapid_public_key_exists: !!env.VAPID_PUBLIC_KEY,
+                    vapid_private_key_exists: !!env.VAPID_PRIVATE_KEY,
+                    vapid_public_key_length: env.VAPID_PUBLIC_KEY?.length || 0
+                });
             }
 
             // ── Test push ──
