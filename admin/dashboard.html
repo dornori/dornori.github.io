@@ -177,7 +177,21 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  PUSH NOTIFICATIONS
+    //  PUSH NOTIFICATIONS - HELPER FUNCTIONS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        const rawData = atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  PUSH NOTIFICATIONS - MAIN FUNCTIONS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function registerServiceWorker() {
         if (!('serviceWorker' in navigator)) {
@@ -185,7 +199,7 @@
             return false;
         }
         try {
-            const reg = await navigator.serviceWorker.register('./sw.js');
+            const reg = await navigator.serviceWorker.register('/admin/sw.js', { scope: '/admin/' });
             console.log('✅ Service Worker registered');
             return reg;
         } catch (err) {
@@ -270,9 +284,12 @@
 
             document.getElementById('pushStatus').textContent = 'Subscribing...';
 
+            // ✅ FIX: Convert base64 to Uint8Array
+            const applicationServerKey = urlBase64ToUint8Array(pubKeyData.publicKey);
+
             const subscription = await reg.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: pubKeyData.publicKey
+                applicationServerKey: applicationServerKey
             });
 
             const response = await fetch(API_BASE + '/api/push/subscribe', {
@@ -293,11 +310,13 @@
                 document.getElementById('pushStatus').textContent = 'Connected';
                 setTimeout(() => { document.getElementById('pushStatus').textContent = ''; }, 3000);
             } else {
-                throw new Error('Subscription failed: ' + response.statusText);
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Subscription failed');
             }
         } catch (err) {
             console.error('❌ Push enable error:', err);
             document.getElementById('pushStatus').textContent = 'Failed: ' + err.message;
+            alert('Push subscription failed: ' + err.message);
         }
     }
 
@@ -348,11 +367,11 @@
             const data = await response.json();
 
             if (data.success && data.sent > 0) {
-                document.getElementById('pushStatus').textContent = 'Test sent!';
+                document.getElementById('pushStatus').textContent = '✅ Test sent!';
             } else if (data.success && data.sent === 0) {
-                document.getElementById('pushStatus').textContent = 'No active subscriptions';
+                document.getElementById('pushStatus').textContent = '⚠️ No active subscriptions';
             } else {
-                document.getElementById('pushStatus').textContent = 'Test failed';
+                document.getElementById('pushStatus').textContent = '❌ Test failed';
             }
 
             setTimeout(() => { document.getElementById('pushStatus').textContent = ''; }, 3000);
@@ -451,6 +470,7 @@
                     }
                 }
                 var select = document.getElementById('filterCategory');
+                // Keep the "All Categories" option
                 for (var cat of categories) {
                     var opt = document.createElement('option');
                     opt.value = cat;
@@ -476,6 +496,7 @@
                 }
                 if (langList && Array.isArray(langList)) {
                     var select = document.getElementById('filterLanguage');
+                    // Keep the "All Languages" option
                     for (var lang of langList) {
                         var opt = document.createElement('option');
                         opt.value = lang.code;
