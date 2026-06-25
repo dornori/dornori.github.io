@@ -10,31 +10,54 @@ self.addEventListener('push', function(event) {
         data = { 
             title: 'New Ticket', 
             body: 'A new ticket was created',
-            url: '/admin/dashboard.html'
+            url: '/admin/dashboard.html',
+            ticket: null
         };
     }
     
     const title = data.title || 'New Ticket';
     const body = data.body || 'A new ticket was created';
     const url = data.url || '/admin/dashboard.html';
+    const ticket = data.ticket || null;
     
+    // Show notification
     event.waitUntil(
         self.registration.showNotification(title, {
             body: body,
             icon: '/favicon.ico',
             badge: '/favicon.ico',
-            data: { url: url },
+            data: { url: url, ticket: ticket },
             vibrate: [200, 100, 200],
             requireInteraction: true
         })
     );
+    
+    // ✅ FIX: Send message to all open dashboard pages
+    if (ticket) {
+        event.waitUntil(
+            clients.matchAll({ type: 'window', includeUncontrolled: true })
+                .then(function(clientList) {
+                    for (var i = 0; i < clientList.length; i++) {
+                        var client = clientList[i];
+                        if (client.url && client.url.includes('/admin/dashboard.html')) {
+                            client.postMessage({
+                                action: 'newTicket',
+                                ticket: ticket
+                            });
+                            console.log('📤 Sent newTicket message to dashboard');
+                        }
+                    }
+                })
+        );
+    }
 });
 
 self.addEventListener('notificationclick', function(event) {
     console.log('Notification clicked:', event.notification);
     event.notification.close();
+    const url = event.notification.data?.url || '/admin/dashboard.html';
     event.waitUntil(
-        clients.openWindow(event.notification.data.url || '/admin/dashboard.html')
+        clients.openWindow(url)
     );
 });
 
@@ -46,14 +69,4 @@ self.addEventListener('install', function(event) {
 self.addEventListener('activate', function(event) {
     console.log('Service worker activated');
     event.waitUntil(clients.claim());
-});
-
-// Listen for messages from the page
-self.addEventListener('message', function(event) {
-    if (event.data.type === 'test-notification') {
-        self.registration.showNotification('Test from Service Worker', {
-            body: 'If you see this, the service worker is working!',
-            icon: '/favicon.ico'
-        });
-    }
 });
