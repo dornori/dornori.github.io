@@ -1,4 +1,7 @@
-// Dornori Ticketing Worker — v2.4 (fixed newsletter language-specific auto-reply templates)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  Dornori Ticketing Worker — v3.5 (push crypto TS fixes)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 // ─── AUTH ─────────────────────────────────────────────────────
 async function sha256(m) {
     const b = new TextEncoder().encode(m);
@@ -10,6 +13,18 @@ function verifyToken(token) {
     try { const [email, ts] = atob(token).split(':'); if (Date.now() - parseInt(ts) > 86400000) return null; return email; } catch { return null; }
 }
 const USERS = { 'admin@dornori.com': { name: 'Admin', role: 'admin', password_hash: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8' } };
+
+// ─── SANITIZATION ─────────────────────────────────────────────
+function sanitizeSubject(text) {
+    if (!text) return '';
+    let cleaned = text.replace(/\p{Emoji}/gu, '').replace(/[\x00-\x1F\x7F]/g, ' ');
+    return cleaned.replace(/\s+/g, ' ').trim();
+}
+function sanitizeName(text) {
+    if (!text) return '';
+    let cleaned = text.replace(/\p{Emoji}/gu, '').replace(/[^\p{L}\p{N}\s\.\-']/gu, '');
+    return cleaned.trim();
+}
 
 // ─── CATEGORY HELPERS ───────────────────────────────────────────
 function normalizeCategory(c) {
@@ -64,12 +79,10 @@ async function getKnownLanguages(env) {
 }
 
 // ─── AUTO-REPLY HELPERS ──────────────────────────────────────
-// Get auto‑reply: For newsletter, language‑specific keys first → legacy keys → English fallback
 async function getAutoReply(env, category, language) {
     const cat = normalizeCategory(category);
     const lang = (language || 'en').toLowerCase().trim();
     
-    // For newsletter, check language‑specific keys FIRST (new per-language templates)
     if (cat === 'newsletter') {
         const langKeys = {
             enabled: `newsletter${lang === 'en' ? '' : '_' + lang}_enabled`,
@@ -84,8 +97,6 @@ async function getAutoReply(env, category, language) {
             const from    = await getSetting(env, 'auto_reply', langKeys.from) || null;
             return { enabled: enabled === '1', subject, body, from };
         }
-        
-        // If language is not 'en', try English as fallback
         if (lang !== 'en') {
             const enKeys = {
                 enabled: 'newsletter_enabled',
@@ -101,8 +112,6 @@ async function getAutoReply(env, category, language) {
                 return { enabled: enabled === '1', subject, body, from };
             }
         }
-        
-        // Last resort: check legacy newsletter keys
         const legacyEnabled = await getSetting(env, 'auto_reply', 'newsletter_enabled');
         if (legacyEnabled !== null) {
             const subject = await getSetting(env, 'auto_reply', 'newsletter_subject') || 'Welcome to the Dornori Newsletter';
@@ -110,13 +119,9 @@ async function getAutoReply(env, category, language) {
             const from    = await getSetting(env, 'auto_reply', 'newsletter_from') || null;
             return { enabled: legacyEnabled === '1', subject, body, from };
         }
-        
-        // Ultimate fallback for newsletter
         return { enabled: true, subject: 'Welcome to the Dornori Newsletter', body: '<p>Thanks for subscribing!</p>', from: null };
     }
     
-    // For non-newsletter categories, use existing logic
-    // Try language‑specific keys
     const langKeys = {
         enabled: `${cat}_${lang}_enabled`,
         subject: `${cat}_${lang}_subject`,
@@ -130,7 +135,6 @@ async function getAutoReply(env, category, language) {
         const from    = await getSetting(env, 'auto_reply', langKeys.from) || null;
         return { enabled: enabled === '1', subject, body, from };
     }
-    // If language is not 'en', try English as fallback
     if (lang !== 'en') {
         const enKeys = {
             enabled: `${cat}_en_enabled`,
@@ -146,7 +150,6 @@ async function getAutoReply(env, category, language) {
             return { enabled: enabled === '1', subject, body, from };
         }
     }
-    // Finally, fallback to legacy keys (no language)
     const legacyKeys = {
         enabled: `${cat}_enabled`,
         subject: `${cat}_subject`,
@@ -166,14 +169,12 @@ async function saveAutoReply(env, category, language, enabled, subject, body, fr
     const lang = (language || 'en').toLowerCase().trim();
     
     if (cat === 'newsletter') {
-        // For newsletter, use simpler key structure
         const langKey = lang === 'en' ? '' : '_' + lang;
         await updateSetting(env, 'auto_reply', `newsletter${langKey}_enabled`, enabled ? '1' : '0');
         await updateSetting(env, 'auto_reply', `newsletter${langKey}_subject`, subject || '');
         await updateSetting(env, 'auto_reply', `newsletter${langKey}_body`, body || '');
         if (from) await updateSetting(env, 'auto_reply', `newsletter${langKey}_from`, from);
     } else {
-        // For tickets, use category_lang format
         await updateSetting(env, 'auto_reply', `${cat}_${lang}_enabled`, enabled ? '1' : '0');
         await updateSetting(env, 'auto_reply', `${cat}_${lang}_subject`, subject || '');
         await updateSetting(env, 'auto_reply', `${cat}_${lang}_body`, body || '');
@@ -202,8 +203,6 @@ async function getAllAutoReplies(env) {
         if (parts.length < 2) continue;
         
         let cat, lang, suffix;
-        
-        // Newsletter special case
         if (s.key.startsWith('newsletter')) {
             if (s.key === 'newsletter_enabled' || s.key === 'newsletter_subject' || s.key === 'newsletter_body' || s.key === 'newsletter_from') {
                 cat = 'newsletter';
@@ -217,7 +216,6 @@ async function getAllAutoReplies(env) {
                 suffix = match[2];
             }
         } else {
-            // Non-newsletter categories
             cat = parts[0];
             lang = parts[1];
             suffix = parts.slice(2).join('_');
@@ -388,12 +386,10 @@ async function sendNewsletter(env, subject, body, language) {
 
     for (const sub of list) {
         const unsubLink = await buildUnsubscribeLink(env, sub.token, sub.language);
-        
         let personalBody = body
             .replaceAll('{{subscriber_email}}',  sub.email)
             .replaceAll('{{subscriber_name}}',   sub.name || '')
             .replaceAll('{{unsubscribe_link}}',  unsubLink);
-        
         const res = await sendEmail(env, sub.email, subject, personalBody, 'newsletter@dornori.com');
         if (res.success) sent++;
     }
@@ -421,16 +417,30 @@ async function createTicket(data, env) {
     let language = (data.language || 'en').toLowerCase().trim();
     if (!language || language === 'unknown') language = 'en';
     const sla = await getSLA(env, category);
+    const subject = sanitizeSubject(data.subject || '');
+    const senderName = sanitizeName(data.senderName || '');
     const result = await env.DB.prepare(`
         INSERT INTO tickets (ticket_number, category, language, status, priority, sender_name, sender_email, sender_phone, 
         order_number, subject, message, created_at, last_action, sla_response_due, sla_resolution_due, metadata)
         VALUES (?, ?, ?, 'new', 'medium', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
-        ticketNumber, category, language, data.senderName || '', data.senderEmail || '',
-        data.senderPhone || '', data.orderNumber || '', data.subject || '', data.message || '',
+        ticketNumber, category, language, senderName, data.senderEmail || '',
+        data.senderPhone || '', data.orderNumber || '', subject, data.message || '',
         now, now, sla.responseDue, sla.resolutionDue, JSON.stringify(data.metadata || {})
     ).run();
-    return { id: result.meta?.last_row_id || result.lastInsertRowid, ticket_number: ticketNumber, category, language };
+    const id = result.meta?.last_row_id || result.lastInsertRowid;
+    return {
+        id,
+        ticket_number: ticketNumber,
+        category,
+        language,
+        status: 'new',
+        sender_name: senderName,
+        sender_email: data.senderEmail || '',
+        subject,
+        created_at: now,
+        message: data.message || ''
+    };
 }
 async function getSLA(env, category) {
     const cat = normalizeCategory(category);
@@ -474,17 +484,65 @@ async function addComment(ticketId, data, env) {
     await env.DB.prepare('UPDATE tickets SET last_action = ?, updated_at = ? WHERE id = ?').bind(now, now, ticketId).run();
     return { id: result.meta?.last_row_id || result.lastInsertRowid };
 }
+
+// ─── TICKET LIST ──────────────────────────────────────────────
 async function getTickets(filters, env) {
-    let query = 'SELECT * FROM tickets WHERE 1=1';
+    let query = 'SELECT * FROM ticket_summary WHERE 1=1';
     const params = [];
-    if (filters.status) { query += ' AND status = ?'; params.push(filters.status); }
+
+    if (filters.statuses && Array.isArray(filters.statuses) && filters.statuses.length > 0) {
+        const placeholders = filters.statuses.map(() => '?').join(',');
+        query += ` AND status IN (${placeholders})`;
+        params.push(...filters.statuses);
+    } else if (filters.status) {
+        query += ' AND status = ?';
+        params.push(filters.status);
+    }
+
     if (filters.category) { query += ' AND category = ?'; params.push(filters.category); }
     if (filters.language) { query += ' AND language = ?'; params.push(filters.language); }
-    query += ' ORDER BY COALESCE(last_action, created_at) DESC LIMIT ?';
-    params.push(filters.limit || 100);
+
+    const sortMap = {
+        'sla': 'sla_status DESC, last_action DESC',
+        'last_updated': 'last_action DESC',
+        'created': 'created_at DESC'
+    };
+    const sort = filters.sort || 'last_updated';
+    query += ` ORDER BY ${sortMap[sort] || 'last_action DESC'}`;
+
+    if (filters.limit) {
+        query += ' LIMIT ?';
+        params.push(filters.limit);
+        if (filters.offset) {
+            query += ' OFFSET ?';
+            params.push(filters.offset);
+        }
+    }
+
     const r = await env.DB.prepare(query).bind(...params).all();
     return r.results || [];
 }
+
+async function getTotalTicketCount(filters, env) {
+    let query = 'SELECT COUNT(*) as total FROM ticket_summary WHERE 1=1';
+    const params = [];
+
+    if (filters.statuses && Array.isArray(filters.statuses) && filters.statuses.length > 0) {
+        const placeholders = filters.statuses.map(() => '?').join(',');
+        query += ` AND status IN (${placeholders})`;
+        params.push(...filters.statuses);
+    } else if (filters.status) {
+        query += ' AND status = ?';
+        params.push(filters.status);
+    }
+
+    if (filters.category) { query += ' AND category = ?'; params.push(filters.category); }
+    if (filters.language) { query += ' AND language = ?'; params.push(filters.language); }
+
+    const r = await env.DB.prepare(query).bind(...params).first();
+    return r ? r.total : 0;
+}
+
 async function getTicketByNumber(ticketNumber, env) {
     return await env.DB.prepare('SELECT * FROM tickets WHERE ticket_number = ?').bind(ticketNumber).first();
 }
@@ -497,7 +555,7 @@ async function getStats(env) {
     return stats;
 }
 
-// ─── REPORTS ──────────────────────────────────────────────────
+// ─── REPORTS ─────────────────────────────────────────────────
 async function getReports(env) {
     const result = {
         status: { new: 0, open: 0, in_progress: 0, pending: 0, resolved: 0, closed: 0 },
@@ -532,21 +590,22 @@ async function getReports(env) {
         result.top_senders = senderRes.results || [];
     } catch(e) {}
     try {
-        const allTickets = await env.DB.prepare('SELECT status, sla_response_due, sla_resolution_due FROM tickets').all();
-        const now = new Date();
-        let onTrack = 0, atRisk = 0, breached = 0;
-        for (const t of allTickets.results || []) {
-            if (t.status !== 'resolved' && t.status !== 'closed') {
-                if (t.sla_response_due && t.sla_resolution_due) {
-                    const rd = new Date(t.sla_response_due), rld = new Date(t.sla_resolution_due);
-                    if (now > rld) breached++;
-                    else if (now > rd) atRisk++;
-                    else onTrack++;
-                } else { onTrack++; }
-            } else { onTrack++; }
-        }
-        result.sla = { on_track: onTrack, at_risk: atRisk, breached: breached };
-    } catch(e) {}
+        const slaQuery = `
+            SELECT 
+                COUNT(CASE WHEN status IN ('resolved','closed') OR datetime(sla_resolution_due) > datetime('now') THEN 1 END) as on_track,
+                COUNT(CASE WHEN status NOT IN ('resolved','closed') AND datetime(sla_response_due) < datetime('now') AND datetime(sla_resolution_due) > datetime('now') THEN 1 END) as at_risk,
+                COUNT(CASE WHEN status NOT IN ('resolved','closed') AND datetime(sla_resolution_due) < datetime('now') THEN 1 END) as breached
+            FROM tickets
+        `;
+        const slaResult = await env.DB.prepare(slaQuery).first();
+        result.sla = {
+            on_track: slaResult.on_track || 0,
+            at_risk: slaResult.at_risk || 0,
+            breached: slaResult.breached || 0
+        };
+    } catch(e) {
+        result.sla = { on_track: 0, at_risk: 0, breached: 0 };
+    }
     return result;
 }
 
@@ -554,9 +613,7 @@ async function getReports(env) {
 function formatEmailBody(text) {
     if (!text) return '';
     const blockTagRegex = /<(?:p|div|h[1-6]|ul|ol|blockquote)[\s>]/i;
-    if (blockTagRegex.test(text)) {
-        return text;
-    }
+    if (blockTagRegex.test(text)) return text;
     let html = text
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -654,6 +711,202 @@ async function sendNewsletterConfirmation(env, email, token, language) {
     return await sendEmail(env, email, subject, formattedBody, from);
 }
 
+// ─── PUSH NOTIFICATIONS ──────────────────────────────────────
+async function ensurePushTable(env) {
+    await env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            endpoint TEXT UNIQUE NOT NULL,
+            keys TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `).run();
+}
+
+async function savePushSubscription(env, subscription) {
+    await env.DB.prepare(`
+        INSERT INTO push_subscriptions (endpoint, keys, updated_at)
+        VALUES (?, ?, datetime('now'))
+        ON CONFLICT(endpoint) DO UPDATE SET keys = ?, updated_at = datetime('now')
+    `).bind(subscription.endpoint, JSON.stringify(subscription.keys), JSON.stringify(subscription.keys)).run();
+}
+
+async function getPushSubscriptions(env) {
+    const r = await env.DB.prepare('SELECT endpoint, keys FROM push_subscriptions').all();
+    return (r.results || []).map(row => ({
+        endpoint: row.endpoint,
+        keys: JSON.parse(row.keys)
+    }));
+}
+
+async function deletePushSubscription(env, endpoint) {
+    await env.DB.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').bind(endpoint).run();
+}
+
+// ─── VAPID HELPERS ────────────────────────────────────────────
+function base64UrlToUint8Array(base64Url) {
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    const arr = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    return arr;
+}
+
+function uint8ToBase64Url(buf) {
+    return btoa(String.fromCharCode(...buf))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+}
+
+async function generateVapidJWT(publicKeyBase64, privateKeyBase64, audience) {
+    const pubBuf = base64UrlToUint8Array(publicKeyBase64);
+    const privBuf = base64UrlToUint8Array(privateKeyBase64);
+    
+    const x = pubBuf.slice(1, 33);
+    const y = pubBuf.slice(33, 65);
+    const d = privBuf;
+
+    const header = { alg: 'ES256', typ: 'JWT' };
+    const now = Math.floor(Date.now() / 1000);
+    const payload = {
+        aud: audience,
+        exp: now + 86400,
+        sub: 'mailto:admin@dornori.com'
+    };
+    
+    const encodedHeader = uint8ToBase64Url(new TextEncoder().encode(JSON.stringify(header)));
+    const encodedPayload = uint8ToBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
+    const data = new TextEncoder().encode(encodedHeader + '.' + encodedPayload);
+
+    const jwk = {
+        kty: 'EC',
+        crv: 'P-256',
+        x: uint8ToBase64Url(x),
+        y: uint8ToBase64Url(y),
+        d: uint8ToBase64Url(d)
+    };
+    
+    const key = await crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+    const signature = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, data);
+    return encodedHeader + '.' + encodedPayload + '.' + uint8ToBase64Url(signature);
+}
+
+async function encryptPushPayload(payload, subscription) {
+    const encoder = new TextEncoder();
+    const plaintext = encoder.encode(typeof payload === 'string' ? payload : JSON.stringify(payload));
+    const p256dh = base64UrlToUint8Array(subscription.keys.p256dh);
+    const auth = base64UrlToUint8Array(subscription.keys.auth);
+
+    // Fix: cast generateKey result to CryptoKeyPair
+    const keyPair = /** @type {CryptoKeyPair} */ (await crypto.subtle.generateKey(
+        { name: 'ECDH', namedCurve: 'P-256' },
+        true,
+        ['deriveBits']
+    ));
+    
+    // Fix: exportKey returns ArrayBuffer for 'raw' format — cast explicitly
+    const publicKeyBuf = /** @type {ArrayBuffer} */ (await crypto.subtle.exportKey('raw', keyPair.publicKey));
+    const publicKey = new Uint8Array(publicKeyBuf);
+    const privateKey = keyPair.privateKey;
+
+    const subPublicKey = await crypto.subtle.importKey('raw', p256dh, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+
+    // Fix: cast deriveBits algorithm to avoid TS '$public' complaint
+    const sharedSecretBuf = await crypto.subtle.deriveBits(
+        /** @type {EcdhKeyDeriveParams} */ ({ name: 'ECDH', public: subPublicKey }),
+        privateKey,
+        256
+    );
+    const secret = new Uint8Array(sharedSecretBuf);
+
+    const info = encoder.encode('Content-Encoding: auth\0');
+    const ikm = new Uint8Array(auth.length + secret.length);
+    ikm.set(auth);
+    ikm.set(secret, auth.length);
+
+    const hmacKey = await crypto.subtle.importKey('raw', ikm, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const prkBuf = await crypto.subtle.sign('HMAC', hmacKey, info);
+    const prk = new Uint8Array(prkBuf);
+
+    const hmacKey2 = await crypto.subtle.importKey('raw', prk, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const encKeyBuf = await crypto.subtle.sign('HMAC', hmacKey2, encoder.encode('Content-Encoding: aesgcm\0'));
+    const nonceBuf = await crypto.subtle.sign('HMAC', hmacKey2, encoder.encode('Content-Encoding: nonce\0'));
+    
+    const encKey = new Uint8Array(encKeyBuf);
+    const nonce = new Uint8Array(nonceBuf);
+
+    const cipherKey = await crypto.subtle.importKey('raw', encKey.slice(0, 16), { name: 'AES-GCM' }, false, ['encrypt']);
+    const iv = nonce.slice(0, 12);
+    const encryptedBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cipherKey, plaintext);
+    const encrypted = new Uint8Array(encryptedBuf);
+
+    const result = new Uint8Array(publicKey.byteLength + encrypted.byteLength);
+    result.set(publicKey, 0);
+    result.set(encrypted, publicKey.byteLength);
+    return result;
+}
+
+// ─── SEND PUSH NOTIFICATION ──────────────────────────────────
+async function sendPushNotification(env, ticket) {
+    if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) {
+        console.log('❌ Push skipped: VAPID keys missing');
+        return { success: false, error: 'VAPID keys missing' };
+    }
+
+    const payload = {
+        title: 'New Ticket ' + ticket.ticket_number,
+        body: ticket.subject + ' from ' + (ticket.sender_name || ticket.sender_email || 'unknown'),
+        url: '/admin/dashboard.html?ticket=' + ticket.id
+    };
+
+    const subscriptions = await getPushSubscriptions(env);
+    console.log(`📨 Found ${subscriptions.length} subscriptions`);
+    
+    if (subscriptions.length === 0) {
+        console.log('⚠️ No push subscriptions found');
+        return { success: true, sent: 0 };
+    }
+
+    const payloadString = JSON.stringify(payload);
+    let sent = 0;
+
+    for (const sub of subscriptions) {
+        try {
+            const encrypted = await encryptPushPayload(payloadString, sub);
+            const audience = new URL(sub.endpoint).origin;
+            const vapidJWT = await generateVapidJWT(env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY, audience);
+
+            const res = await fetch(sub.endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Encoding': 'aesgcm',
+                    'TTL': '86400',
+                    'Authorization': 'WebPush ' + vapidJWT
+                },
+                body: encrypted
+            });
+
+            if (res.status === 410) {
+                await deletePushSubscription(env, sub.endpoint);
+                console.log('🗑️ Removed expired subscription');
+            } else if (res.status >= 200 && res.status < 300) {
+                sent++;
+                console.log('✅ Push sent successfully');
+            } else {
+                console.log(`❌ Push failed with status: ${res.status}`);
+                const text = await res.text();
+                console.log(`   Response: ${text}`);
+            }
+        } catch (err) {
+            console.error('❌ Push error:', err.message);
+        }
+    }
+    console.log(`📊 Sent ${sent}/${subscriptions.length} pushes`);
+    return { success: true, sent };
+}
+
 // ─── PARSE EMAIL ─────────────────────────────────────────────
 function decodeQuotedPrintable(str) {
     str = str.replace(/=\r\n/g, '').replace(/=\n/g, '');
@@ -724,7 +977,7 @@ async function parseEmail(rawStream) {
 
 // ─── MAIN HANDLER ─────────────────────────────────────────────
 export default {
-    async fetch(request, env) {
+    async fetch(request, env, ctx) {
         const corsHeaders = {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -742,11 +995,69 @@ export default {
         const path = url.pathname;
         const method = request.method;
 
-        // Ensure legacy defaults exist
         try { await ensureAutoReplyDefaults(env); } catch(e) {}
         try { await ensureNewsletterAutoReplyDefault(env); } catch(e) {}
+        try { await ensurePushTable(env); } catch(e) {}
 
         try {
+            // ── Push public key ──
+            if (path === '/api/push/public-key' && method === 'GET') {
+                if (!env.VAPID_PUBLIC_KEY) return json({ error: 'VAPID public key not configured' }, 500);
+                return json({ publicKey: env.VAPID_PUBLIC_KEY });
+            }
+
+            // ── Subscribe to push ──
+            if (path === '/api/push/subscribe' && method === 'POST') {
+                const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
+                if (!verifyToken(token)) return json({ error: 'Unauthorized' }, 401);
+                const { subscription } = await request.json();
+                if (!subscription || !subscription.endpoint) return json({ error: 'Invalid subscription' }, 400);
+                await savePushSubscription(env, subscription);
+                return json({ success: true });
+            }
+
+            // ── Unsubscribe from push ──
+            if (path === '/api/push/subscribe' && method === 'DELETE') {
+                const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
+                if (!verifyToken(token)) return json({ error: 'Unauthorized' }, 401);
+                const { endpoint } = await request.json();
+                if (!endpoint) return json({ error: 'Endpoint required' }, 400);
+                await deletePushSubscription(env, endpoint);
+                return json({ success: true });
+            }
+
+            // ── Test push ──
+            if (path === '/api/test-push' && method === 'POST') {
+                const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
+                if (!verifyToken(token)) return json({ error: 'Unauthorized' }, 401);
+                
+                console.log('📨 Test push requested');
+                
+                const testTicket = {
+                    id: 99999,
+                    ticket_number: 'TKT-TEST-001',
+                    subject: '🔔 Test Push Notification',
+                    sender_name: 'Test User',
+                    sender_email: 'test@example.com',
+                    category: 'test',
+                    status: 'new',
+                    created_at: new Date().toISOString(),
+                    language: 'en'
+                };
+                
+                const result = await sendPushNotification(env, testTicket);
+                const subscriptions = await getPushSubscriptions(env);
+                
+                return json({ 
+                    success: result.success, 
+                    sent: result.sent || 0,
+                    total_subscriptions: subscriptions.length,
+                    message: result.success && result.sent > 0 ? 'Test push sent successfully' : 
+                             result.success && result.sent === 0 ? 'No subscribers found' : 
+                             'Test push failed'
+                });
+            }
+
             // ── Reports ──
             if (path === '/api/admin/reports' && method === 'GET') {
                 const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
@@ -798,7 +1109,7 @@ export default {
                 if (!email || !label) return json({ error: 'Email and label required' }, 400);
                 const cat = normalizeCategory(action || label);
                 const knownCats = await getKnownCategories(env);
-                if (!knownCats.includes(cat)) return json({ error: `Category "${cat}" does not exist. Create it in Categories tab first.` }, 400);
+                if (!knownCats.includes(cat)) return json({ error: `Category "${cat}" does not exist.` }, 400);
                 await addEmailAddress(env, email, label, cat);
                 return json({ success: true });
             }
@@ -809,7 +1120,7 @@ export default {
                 const { email, label, action, is_active } = await request.json();
                 const cat = normalizeCategory(action || label);
                 const knownCats = await getKnownCategories(env);
-                if (!knownCats.includes(cat)) return json({ error: `Category "${cat}" does not exist. Create it in Categories tab first.` }, 400);
+                if (!knownCats.includes(cat)) return json({ error: `Category "${cat}" does not exist.` }, 400);
                 await updateEmailAddress(env, id, email, label, cat, is_active);
                 return json({ success: true });
             }
@@ -851,17 +1162,11 @@ export default {
                 const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
                 if (!verifyToken(token)) return json({ error: 'Unauthorized' }, 401);
                 const { subject, body, language, status } = await request.json();
-                if (!subject) return json({ error: 'Subject required' }, 400);
-                if (!body)    return json({ error: 'Body required' }, 400);
-                if (!language) return json({ error: 'Language required' }, 400);
-                
-                // If status is 'draft', just save it without sending
+                if (!subject || !body || !language) return json({ error: 'Subject, body and language required' }, 400);
                 if (status === 'draft') {
                     const newsletter = await createNewsletter(env, subject, body, language, 'draft');
                     return json({ success: true, newsletter, sent: 0 });
                 }
-                
-                // Otherwise, send the newsletter
                 const result = await sendNewsletter(env, subject, body, language);
                 return json({ success: true, newsletter: result.newsletter, sent: result.sent });
             }
@@ -887,7 +1192,7 @@ export default {
                 return json({ success: true });
             }
 
-            // ── Subscribe public ──
+            // ── Subscribe ──
             if (path === '/api/subscribe' && method === 'POST') {
                 const { email, name, language } = await request.json();
                 if (!email) return json({ error: 'Email required' }, 400);
@@ -900,6 +1205,7 @@ export default {
                     metadata: { subscriberId: subscriber.id }
                 }, env);
                 await sendNewsletterConfirmation(env, email, token, lang);
+                ctx.waitUntil(sendPushNotification(env, ticket));
                 return json({ success: true, subscriberId: subscriber.id, ticketNumber: ticket.ticket_number });
             }
 
@@ -919,55 +1225,37 @@ export default {
                 return json(result, result.success ? 200 : 400);
             }
 
-            // ── PUBLIC FORM SUBMISSION (handles both old and new formats) ──
+            // ── Public message ──
             if (path === '/api/message' && method === 'POST') {
                 const data = await request.json();
-
-                // Detect new support form by presence of originalCategory or troubleshooting array
                 const isSupportForm = data.originalCategory || data.troubleshooting;
 
                 let category, senderName, senderEmail, orderNumber, subject, message, language, metadata;
 
                 if (isSupportForm) {
-                    // --- NEW SUPPORT FORM ---
                     const originalCat = data.originalCategory || 'General';
                     let catSlug = normalizeCategory(originalCat);
                     const knownCats = await getKnownCategories(env);
-                    if (!knownCats.includes(catSlug)) {
-                        catSlug = 'support';  // fallback
-                    }
+                    if (!knownCats.includes(catSlug)) catSlug = 'support';
                     category = catSlug;
-
                     senderName = data.name || '';
                     senderEmail = data.email || '';
                     orderNumber = data.orderNumber || '';
                     subject = originalCat + ' support request';
                     language = data.language || 'en';
-
-                    // Build message from troubleshooting and additional comments
                     let msgParts = [];
-                    if (data.troubleshooting && data.troubleshooting.length > 0) {
-                        msgParts.push('Troubleshooting steps:');
-                        msgParts.push(data.troubleshooting.join('\n'));
+                    if (data.troubleshooting?.length) {
+                        msgParts.push('Troubleshooting steps:', data.troubleshooting.join('\n'));
                     }
-                    if (data.additionalComments && data.additionalComments.length > 0) {
-                        msgParts.push('Additional comments:');
-                        msgParts.push(data.additionalComments.join('\n'));
+                    if (data.additionalComments?.length) {
+                        msgParts.push('Additional comments:', data.additionalComments.join('\n'));
                     }
                     message = msgParts.join('\n\n') || 'No details provided.';
-
-                    metadata = {
-                        source: 'support-form',
-                        referenceNumber: data.referenceNumber || '',
-                        originalCategory: originalCat,
-                        userAgent: data.userAgent || ''
-                    };
+                    metadata = { source: 'support-form', referenceNumber: data.referenceNumber || '', originalCategory: originalCat };
                 } else {
-                    // --- OLD WEBSITE FORM (or any other) ---
                     let rawCategory = data.category || data.originalCategory || 'support';
                     if (['contact', 'support-request'].includes(rawCategory)) rawCategory = 'support';
                     category = normalizeCategory(rawCategory);
-
                     senderName = data.name || data.fullName || '';
                     senderEmail = data.email || '';
                     orderNumber = data.orderNumber || '';
@@ -977,28 +1265,10 @@ export default {
                     metadata = { source: 'website', raw: data };
                 }
 
-                // Create ticket
-                const ticket = await createTicket({
-                    category,
-                    senderName,
-                    senderEmail,
-                    orderNumber,
-                    subject,
-                    message,
-                    language,
-                    metadata
-                }, env);
-
-                // Send auto-reply if email present
-                if (senderEmail) {
-                    await sendTicketConfirmation(ticket, env, senderEmail);
-                }
-
-                return json({
-                    success: true,
-                    ticketNumber: ticket.ticket_number,
-                    ticketId: ticket.id
-                });
+                const ticket = await createTicket({ category, senderName, senderEmail, orderNumber, subject, message, language, metadata }, env);
+                if (senderEmail) await sendTicketConfirmation(ticket, env, senderEmail);
+                ctx.waitUntil(sendPushNotification(env, ticket));
+                return json({ success: true, ticketNumber: ticket.ticket_number, ticketId: ticket.id });
             }
 
             // ── Admin login ──
@@ -1014,13 +1284,29 @@ export default {
             if (path === '/api/admin/tickets' && method === 'GET') {
                 const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
                 if (!verifyToken(token)) return json({ error: 'Unauthorized' }, 401);
-                const tickets = await getTickets({
-                    status:   url.searchParams.get('status')   || null,
-                    category: url.searchParams.get('category') || null,
-                    language: url.searchParams.get('language') || null,
-                    limit:    parseInt(url.searchParams.get('limit') || '100')
-                }, env);
-                return json({ success: true, tickets: tickets });
+
+                const limit = parseInt(url.searchParams.get('limit') || '50');
+                const offset = parseInt(url.searchParams.get('offset') || '0');
+                const statuses = url.searchParams.get('statuses') || null;
+                const category = url.searchParams.get('category') || null;
+                const language = url.searchParams.get('language') || null;
+                const sort = url.searchParams.get('sort') || 'last_updated';
+
+                const filters = { category, language, sort, limit, offset };
+                if (statuses) {
+                    filters.statuses = statuses.split(',').map(s => s.trim());
+                } else {
+                    filters.status = url.searchParams.get('status') || null;
+                }
+
+                const tickets = await getTickets(filters, env);
+                const total = await getTotalTicketCount(filters, env);
+
+                return json({
+                    success: true,
+                    tickets: tickets,
+                    pagination: { limit, offset, total }
+                });
             }
 
             // ── Single ticket ──
@@ -1072,6 +1358,7 @@ export default {
 
             return json({ error: 'Not found' }, 404);
         } catch (err) {
+            console.error('Error:', err);
             return json({ error: err.message || 'Internal server error' }, 500);
         }
     },
@@ -1099,12 +1386,16 @@ export default {
             }
             const category = await getCategoryForIncomingAddress(env, message.to);
             const ticket = await createTicket({
-                category, senderName: from.split('@')[0] || 'Unknown', senderEmail: from,
-                subject: subject || 'No subject', message: body || '(No content)',
+                category,
+                senderName: from.split('@')[0] || 'Unknown',
+                senderEmail: from,
+                subject: subject || 'No subject',
+                message: body || '(No content)',
                 language: 'en',
                 metadata: { source: 'email', to: message.to }
             }, env);
             if (from) await sendTicketConfirmation(ticket, env, from);
+            await sendPushNotification(env, ticket);
             console.log('✅ New ticket created:', ticket.ticket_number, 'category:', category);
         } catch (err) {
             console.log('❌ Email error:', err.message);
