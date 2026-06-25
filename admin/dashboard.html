@@ -30,6 +30,25 @@
             font-size: 14px;
             padding: 10px;
         }
+        /* Push button style */
+        .header-right button#pushButton {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 5px 12px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .header-right button#pushButton.enabled {
+            background: #22c55e;
+            color: #fff;
+            border-color: #22c55e;
+        }
+        #pushStatus {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-left: 6px;
+        }
     </style>
 </head>
 <body>
@@ -51,6 +70,8 @@
                 <a href="reports.html">📊 Reports</a>
                 <a href="newsletter.html">📧 Newsletter</a>
                 <a href="settings.html">⚙️ Settings</a>
+                <button id="pushButton" onclick="togglePush()">🔔 Enable Live Updates</button>
+                <span id="pushStatus"></span>
                 <button onclick="logout()">Logout</button>
             </div>
         </div>
@@ -127,7 +148,11 @@
     var currentOffset = 0;
     var currentLimit = 50;
     var currentTotal = 0;
-    var loadedTickets = []; // all tickets currently displayed
+    var loadedTickets = [];
+
+    // Push state
+    let pushSubscription = null;
+    let isPushEnabled = false;
 
     function getStatusesForTab(tab) {
         if (tab === 'active') return ['new', 'open', 'in_progress', 'pending'];
@@ -166,7 +191,7 @@
         } catch (e) { return dateStr; }
     }
 
-    // ── SLA Helpers (mapping from precomputed sla_status) ──
+    // ── SLA Helpers ──
     function getSlaDisplay(slaStatus) {
         const map = {
             'on_track': { label: 'On track', cls: 'sla-on-track' },
@@ -207,6 +232,7 @@
                 await loadLanguages();
                 loadStats();
                 resetAndLoad();
+                checkPushStatus();
             } else {
                 errorEl.textContent = data.message || "Invalid credentials";
             }
@@ -224,6 +250,171 @@
         localStorage.removeItem("token");
         document.getElementById("login").style.display = "block";
         document.getElementById("dashboard").style.display = "none";
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  PUSH NOTIFICATIONS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function checkPushStatus() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            document.getElementById('pushButton').style.display = 'none';
+            return;
+        }
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.getSubscription();
+            if (subscription) {
+                pushSubscription = subscription;
+                isPushEnabled = true;
+                document.getElementById('pushButton').textContent = '🔕 Disable Live Updates';
+                document.getElementById('pushButton').classList.add('enabled');
+                document.getElementById('pushStatus').textContent = 'Enabled';
+            }
+        } catch (e) {}
+    }
+
+    async function togglePush() {
+        if (isPushEnabled) {
+            // Unsubscribe
+            if (pushSubscription) {
+                await pushSubscription.unsubscribe();
+                await fetch(API_BASE + '/api/push/subscribe', {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ endpoint: pushSubscription.endpoint })
+                });
+                isPushEnabled = false;
+                pushSubscription = null;
+                document.getElementById('pushButton').textContent = '🔔 Enable Live Updates';
+                document.getElementById('pushButton').classList.remove('enabled');
+                document.getElementById('pushStatus').textContent = 'Disabled';
+            }
+            return;
+        }
+
+        // Subscribe
+        try {
+            const registration = await navigator.serviceWorker.register('/admin/sw.js', { scope: '/admin/' });
+            const keyRes = await fetch(API_BASE + '/api/push/public-key');
+            const keyData = await keyRes.json();
+            if (!keyData.publicKey) throw new Error('No public key');
+
+            const applicationServerKey = urlBase64ToUint8Array(keyData.publicKey);
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: applicationServerKey
+            });
+
+            const saveRes = await fetch(API_BASE + '/api/push/subscribe', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subscription })
+            });
+            if (!saveRes.ok) throw new Error('Failed to save subscription');
+
+            pushSubscription = subscription;
+            isPushEnabled = true;
+            document.getElementById('pushButton').textContent = '🔕 Disable Live Updates';
+            document.getElementById('pushButton').classList.add('enabled');
+            document.getElementById('pushStatus').textContent = 'Enabled';
+        } catch (err) {
+            alert('Push subscription failed: ' + err.message);
+        }
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        const rawData = atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    // Listen for messages from the service worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', function(event) {
+            const data = event.data;
+            if (data && data.action === 'newTicket') {
+                handleNewTicket(data.ticket);
+            }
+        });
+    }
+
+    function handleNewTicket(ticket) {
+        // Check if ticket matches current view
+        const currentStatuses = getStatusesForTab(currentTab);
+        if (!currentStatuses.includes(ticket.status)) {
+            updateStatsLocally(ticket.status, 1);
+            showSnackbar('New ticket in ' + ticket.status + ' tab');
+            return;
+        }
+        const categoryFilter = document.getElementById('filterCategory').value;
+        const langFilter = document.getElementById('filterLanguage').value;
+        if (categoryFilter && categoryFilter !== ticket.category) return;
+        if (langFilter && langFilter !== ticket.language) return;
+
+        // Insert row at the top
+        const list = document.getElementById('ticketList');
+        const headerRow = list.querySelector('.ticket-header-row');
+        if (!headerRow) return;
+
+        const statusClass = 'status-' + ticket.status;
+        const catColor = getCatColor(ticket.category);
+        const catLabel = (ticket.category || 'other').charAt(0).toUpperCase() + (ticket.category || 'other').slice(1);
+        const subjectText = ticket.subject || 'No subject';
+        const truncatedSubject = subjectText.length > 55 ? subjectText.substring(0, 55) + '…' : subjectText;
+
+        const row = document.createElement('div');
+        row.className = 'ticket-item';
+        row.setAttribute('onclick', 'openTicketModal(' + ticket.id + ')');
+        row.innerHTML = `
+            <span class="cat-cell"><span class="cat-dot" style="background:${catColor};"></span><span class="cat-name">${escapeHtml(catLabel)}</span></span>
+            <span class="sla-cell"><span class="sla-dot" style="background:#22c55e;"></span><span class="sla-label">On track</span></span>
+            <span class="status ${statusClass}">${ticket.status.replace('_', ' ')}</span>
+            <span class="subject" title="${escapeHtml(subjectText)}">${escapeHtml(truncatedSubject)}</span>
+            <span class="email">${escapeHtml(ticket.sender_email || '')}</span>
+            <span style="font-size:12px;color:var(--text-muted);">${formatDate(ticket.created_at)}</span>
+        `;
+        headerRow.parentNode.insertBefore(row, headerRow.nextSibling);
+
+        updateStatsLocally(ticket.status, 1);
+        currentTotal++;
+        updateLoadMoreButton();
+    }
+
+    function updateStatsLocally(status, delta) {
+        const statsContainer = document.getElementById('stats');
+        const statCards = statsContainer.querySelectorAll('.stat-card');
+        const labelMap = { 'new': 'New', 'open': 'Open', 'in_progress': 'In Progress', 'pending': 'Pending', 'resolved': 'Resolved', 'closed': 'Closed' };
+        const label = labelMap[status];
+        if (!label) return;
+        for (const card of statCards) {
+            const labelEl = card.querySelector('.label');
+            if (labelEl && labelEl.textContent === label) {
+                const numberEl = card.querySelector('.number');
+                if (numberEl) {
+                    const current = parseInt(numberEl.textContent, 10) || 0;
+                    numberEl.textContent = Math.max(0, current + delta);
+                }
+                break;
+            }
+        }
+    }
+
+    function showSnackbar(message) {
+        alert(message); // Replace with a nicer toast if desired
+    }
+
+    function updateLoadMoreButton() {
+        const loadWrap = document.getElementById('loadMoreWrap');
+        if (loadedTickets.length < currentTotal) {
+            loadWrap.innerHTML = '<button onclick="loadTickets(true)">Load More</button>';
+        } else {
+            loadWrap.innerHTML = loadedTickets.length > 0 ? '<span style="color:var(--text-muted);font-size:13px;">All tickets loaded</span>' : '';
+        }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -337,7 +528,6 @@
         var sort = document.getElementById("filterSort").value;
         var statuses = getStatusesForTab(currentTab);
 
-        // Build URL
         var url = API_BASE + "/api/admin/tickets?limit=" + currentLimit + "&offset=" + currentOffset;
         if (statuses.length > 0) {
             url += "&statuses=" + statuses.join(',');
@@ -363,13 +553,7 @@
                 currentOffset = loadedTickets.length;
 
                 renderTickets(loadedTickets);
-
-                // Update load more button
-                if (loadedTickets.length < currentTotal) {
-                    loadWrap.innerHTML = '<button onclick="loadTickets(true)">Load More</button>';
-                } else {
-                    loadWrap.innerHTML = loadedTickets.length > 0 ? '<span style="color:var(--text-muted);font-size:13px;">All tickets loaded</span>' : '';
-                }
+                updateLoadMoreButton();
             } else {
                 list.innerHTML = '<div class="loading">Error loading tickets</div>';
             }
@@ -580,7 +764,7 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  ACTIONS (status, comment, reply)
+    //  ACTIONS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function updateStatus(id) {
         var status = document.getElementById("detailStatus").value;
@@ -646,6 +830,7 @@
         loadLanguages();
         loadStats();
         resetAndLoad();
+        checkPushStatus();
     }
 </script>
 </body>
