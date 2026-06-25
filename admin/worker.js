@@ -1,5 +1,5 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  Dornori Ticketing Worker — v3.5 (push crypto TS fixes)
+//  Dornori Ticketing Worker — v3.6 (fixed TypeScript errors)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 // ─── AUTH ─────────────────────────────────────────────────────
@@ -754,7 +754,14 @@ function base64UrlToUint8Array(base64Url) {
 }
 
 function uint8ToBase64Url(buf) {
-    return btoa(String.fromCharCode(...buf))
+    // Convert Uint8Array to binary string safely
+    let binary = '';
+    const chunkSize = 8192; // Process in chunks to avoid stack overflow
+    for (let i = 0; i < buf.length; i += chunkSize) {
+        const chunk = buf.slice(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk);
+    }
+    return btoa(binary)
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
         .replace(/=+$/, '');
@@ -799,28 +806,30 @@ async function encryptPushPayload(payload, subscription) {
     const p256dh = base64UrlToUint8Array(subscription.keys.p256dh);
     const auth = base64UrlToUint8Array(subscription.keys.auth);
 
-    // Fix: cast generateKey result to CryptoKeyPair
-    const keyPair = /** @type {CryptoKeyPair} */ (await crypto.subtle.generateKey(
+    // Generate ECDH key pair
+    const keyPair = await crypto.subtle.generateKey(
         { name: 'ECDH', namedCurve: 'P-256' },
         true,
         ['deriveBits']
-    ));
+    );
     
-    // Fix: exportKey returns ArrayBuffer for 'raw' format — cast explicitly
-    const publicKeyBuf = /** @type {ArrayBuffer} */ (await crypto.subtle.exportKey('raw', keyPair.publicKey));
+    // Export public key
+    const publicKeyBuf = await crypto.subtle.exportKey('raw', keyPair.publicKey);
     const publicKey = new Uint8Array(publicKeyBuf);
     const privateKey = keyPair.privateKey;
 
+    // Import subscription public key
     const subPublicKey = await crypto.subtle.importKey('raw', p256dh, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
 
-    // Fix: cast deriveBits algorithm to avoid TS '$public' complaint
+    // Derive shared secret - FIXED: use a simple object instead of type casting
     const sharedSecretBuf = await crypto.subtle.deriveBits(
-        /** @type {EcdhKeyDeriveParams} */ ({ name: 'ECDH', public: subPublicKey }),
+        { name: 'ECDH', public: subPublicKey },
         privateKey,
         256
     );
     const secret = new Uint8Array(sharedSecretBuf);
 
+    // Derive encryption key and nonce using HKDF
     const info = encoder.encode('Content-Encoding: auth\0');
     const ikm = new Uint8Array(auth.length + secret.length);
     ikm.set(auth);
@@ -837,11 +846,13 @@ async function encryptPushPayload(payload, subscription) {
     const encKey = new Uint8Array(encKeyBuf);
     const nonce = new Uint8Array(nonceBuf);
 
+    // Encrypt the payload
     const cipherKey = await crypto.subtle.importKey('raw', encKey.slice(0, 16), { name: 'AES-GCM' }, false, ['encrypt']);
     const iv = nonce.slice(0, 12);
     const encryptedBuf = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cipherKey, plaintext);
     const encrypted = new Uint8Array(encryptedBuf);
 
+    // Combine public key and encrypted payload
     const result = new Uint8Array(publicKey.byteLength + encrypted.byteLength);
     result.set(publicKey, 0);
     result.set(encrypted, publicKey.byteLength);
@@ -1100,7 +1111,8 @@ export default {
                 const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
                 if (!verifyToken(token)) return json({ error: 'Unauthorized' }, 401);
                 const activeOnly = url.searchParams.get('active_only') === 'true';
-                return json({ success: true, data: await getEmailAddresses(env, activeOnly) });
+                const addresses = await getEmailAddresses(env, activeOnly);
+                return json({ success: true, addresses: addresses });
             }
             if (path === '/api/admin/email-addresses' && method === 'POST') {
                 const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
