@@ -6,49 +6,15 @@
     <title>Dornori Ticketing</title>
     <link rel="stylesheet" href="style.css" />
     <style>
-        /* Additional pagination styles */
-        .load-more-wrap {
-            text-align: center;
-            padding: 20px;
-        }
-        .load-more-wrap button {
-            padding: 10px 30px;
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text);
-            font-weight: 600;
-            cursor: pointer;
-            transition: background .15s;
-        }
-        .load-more-wrap button:hover {
-            background: var(--accent);
-            color: var(--text-inverse);
-        }
-        .load-more-wrap .loading-more {
-            color: var(--text-muted);
-            font-size: 14px;
-            padding: 10px;
-        }
-        /* Push button style */
-        .header-right button#pushButton {
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 5px 12px;
-            cursor: pointer;
-            font-size: 13px;
-        }
-        .header-right button#pushButton.enabled {
-            background: #22c55e;
-            color: #fff;
-            border-color: #22c55e;
-        }
-        #pushStatus {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-left: 6px;
-        }
+        .load-more-wrap { text-align: center; padding: 20px; }
+        .load-more-wrap button { padding: 10px 30px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-weight: 600; cursor: pointer; transition: background .15s; }
+        .load-more-wrap button:hover { background: var(--accent); color: var(--text-inverse); }
+        .load-more-wrap .loading-more { color: var(--text-muted); font-size: 14px; padding: 10px; }
+        .header-right button#pushButton { background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; }
+        .header-right button#pushButton.enabled { background: #22c55e; color: #fff; border-color: #22c55e; }
+        .header-right button#testPushBtn { background: #3b82f6; color: #fff; border: 1px solid #3b82f6; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; display: none; }
+        .header-right button#testPushBtn:hover { background: #2563eb; }
+        #pushStatus { font-size: 12px; color: var(--text-muted); margin-left: 6px; }
     </style>
 </head>
 <body>
@@ -71,6 +37,7 @@
                 <a href="newsletter.html">📧 Newsletter</a>
                 <a href="settings.html">⚙️ Settings</a>
                 <button id="pushButton" onclick="togglePush()">🔔 Enable Live Updates</button>
+                <button id="testPushBtn" onclick="testPush()">📨 Test Push</button>
                 <span id="pushStatus"></span>
                 <button onclick="logout()">Logout</button>
             </div>
@@ -78,7 +45,6 @@
 
         <div class="stats" id="stats"></div>
 
-        <!-- Tab navigation -->
         <div class="ticket-tabs">
             <button class="ticket-tab active" data-tab="active" onclick="switchTab('active')">Active</button>
             <button class="ticket-tab" data-tab="resolved" onclick="switchTab('resolved')">Resolved</button>
@@ -143,14 +109,10 @@
     var userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     var emailSenders = [];
     var currentTab = 'active';
-
-    // Pagination state
     var currentOffset = 0;
     var currentLimit = 50;
     var currentTotal = 0;
     var loadedTickets = [];
-
-    // Push state
     let pushSubscription = null;
     let isPushEnabled = false;
 
@@ -191,7 +153,6 @@
         } catch (e) { return dateStr; }
     }
 
-    // ── SLA Helpers ──
     function getSlaDisplay(slaStatus) {
         const map = {
             'on_track': { label: 'On track', cls: 'sla-on-track' },
@@ -255,6 +216,13 @@
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PUSH NOTIFICATIONS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function updatePushUI(enabled) {
+        const testBtn = document.getElementById('testPushBtn');
+        if (testBtn) {
+            testBtn.style.display = enabled ? 'inline-block' : 'none';
+        }
+    }
+
     async function checkPushStatus() {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
             document.getElementById('pushButton').style.display = 'none';
@@ -269,13 +237,13 @@
                 document.getElementById('pushButton').textContent = '🔕 Disable Live Updates';
                 document.getElementById('pushButton').classList.add('enabled');
                 document.getElementById('pushStatus').textContent = 'Enabled';
+                updatePushUI(true);
             }
         } catch (e) {}
     }
 
     async function togglePush() {
         if (isPushEnabled) {
-            // Unsubscribe
             if (pushSubscription) {
                 await pushSubscription.unsubscribe();
                 await fetch(API_BASE + '/api/push/subscribe', {
@@ -288,13 +256,15 @@
                 document.getElementById('pushButton').textContent = '🔔 Enable Live Updates';
                 document.getElementById('pushButton').classList.remove('enabled');
                 document.getElementById('pushStatus').textContent = 'Disabled';
+                updatePushUI(false);
             }
             return;
         }
 
-        // Subscribe
         try {
             const registration = await navigator.serviceWorker.register('/admin/sw.js', { scope: '/admin/' });
+            await navigator.serviceWorker.ready;
+            
             const keyRes = await fetch(API_BASE + '/api/push/public-key');
             const keyData = await keyRes.json();
             if (!keyData.publicKey) throw new Error('No public key');
@@ -317,8 +287,55 @@
             document.getElementById('pushButton').textContent = '🔕 Disable Live Updates';
             document.getElementById('pushButton').classList.add('enabled');
             document.getElementById('pushStatus').textContent = 'Enabled';
+            updatePushUI(true);
+            
+            // Auto-send test push after subscribing
+            setTimeout(() => {
+                if (confirm('✅ Subscribed! Send a test notification?')) {
+                    testPush();
+                }
+            }, 500);
+            
         } catch (err) {
             alert('Push subscription failed: ' + err.message);
+        }
+    }
+
+    async function testPush() {
+        if (!token) {
+            alert('Please login first');
+            return;
+        }
+        
+        try {
+            const btn = document.getElementById('testPushBtn');
+            btn.textContent = '⏳ Sending...';
+            btn.disabled = true;
+            
+            const res = await fetch(API_BASE + '/api/test-push', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await res.json();
+            console.log('Test push response:', data);
+            
+            if (data.success && data.sent > 0) {
+                alert('✅ Test push sent! Check if you received a notification.');
+            } else if (data.success && data.sent === 0) {
+                alert('⚠️ No subscribers found. Click "Enable Live Updates" first.');
+            } else {
+                alert('❌ Test push failed: ' + (data.message || 'Unknown error'));
+            }
+        } catch (err) {
+            alert('❌ Error: ' + err.message);
+        } finally {
+            const btn = document.getElementById('testPushBtn');
+            btn.textContent = '📨 Test Push';
+            btn.disabled = false;
         }
     }
 
@@ -344,7 +361,6 @@
     }
 
     function handleNewTicket(ticket) {
-        // Check if ticket matches current view
         const currentStatuses = getStatusesForTab(currentTab);
         if (!currentStatuses.includes(ticket.status)) {
             updateStatsLocally(ticket.status, 1);
@@ -356,7 +372,6 @@
         if (categoryFilter && categoryFilter !== ticket.category) return;
         if (langFilter && langFilter !== ticket.language) return;
 
-        // Insert row at the top
         const list = document.getElementById('ticketList');
         const headerRow = list.querySelector('.ticket-header-row');
         if (!headerRow) return;
@@ -405,7 +420,7 @@
     }
 
     function showSnackbar(message) {
-        alert(message); // Replace with a nicer toast if desired
+        alert(message);
     }
 
     function updateLoadMoreButton() {
@@ -508,7 +523,7 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD TICKETS (with pagination)
+    //  LOAD TICKETS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadTickets(loadMore = false) {
         var list = document.getElementById("ticketList");
