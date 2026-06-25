@@ -1,3 +1,4 @@
+<!-- dashboard.html v1.4 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,32 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dornori Ticketing</title>
     <link rel="stylesheet" href="style.css" />
-    <style>
-        /* Additional pagination styles */
-        .load-more-wrap {
-            text-align: center;
-            padding: 20px;
-        }
-        .load-more-wrap button {
-            padding: 10px 30px;
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text);
-            font-weight: 600;
-            cursor: pointer;
-            transition: background .15s;
-        }
-        .load-more-wrap button:hover {
-            background: var(--accent);
-            color: var(--text-inverse);
-        }
-        .load-more-wrap .loading-more {
-            color: var(--text-muted);
-            font-size: 14px;
-            padding: 10px;
-        }
-    </style>
 </head>
 <body>
 <div class="container">
@@ -65,22 +40,21 @@
         </div>
 
         <div class="filters">
-            <select id="filterLanguage" onchange="resetAndLoad()">
+            <select id="filterLanguage" onchange="loadTickets()">
                 <option value="">All Languages</option>
             </select>
-            <select id="filterCategory" onchange="resetAndLoad()">
+            <select id="filterCategory" onchange="loadTickets()">
                 <option value="">All Categories</option>
             </select>
-            <select id="filterSort" onchange="resetAndLoad()">
+            <select id="filterSort" onchange="loadTickets()">
+                <option value="sla">Sort: SLA Status</option>
                 <option value="last_updated">Sort: Last Updated</option>
                 <option value="created">Sort: Created Date</option>
-                <option value="sla">Sort: SLA Status</option>
             </select>
-            <button class="btn-refresh" onclick="resetAndLoad()">⟳ Refresh</button>
+            <button class="btn-refresh" onclick="loadTickets()">⟳ Refresh</button>
         </div>
 
         <div id="ticketList" class="ticket-list"><div class="loading">Loading tickets...</div></div>
-        <div id="loadMoreWrap" class="load-more-wrap"></div>
     </div>
 
     <div id="ticketModal" class="modal-overlay">
@@ -123,11 +97,9 @@
     var emailSenders = [];
     var currentTab = 'active';
 
-    // Pagination state
-    var currentOffset = 0;
-    var currentLimit = 50;
-    var currentTotal = 0;
-    var loadedTickets = []; // all tickets currently displayed
+    // Active tab maps to statuses: new, open, in_progress, pending
+    // Resolved tab: resolved
+    // Closed tab: closed
 
     function getStatusesForTab(tab) {
         if (tab === 'active') return ['new', 'open', 'in_progress', 'pending'];
@@ -141,13 +113,6 @@
         document.querySelectorAll('.ticket-tab').forEach(function(btn) {
             btn.classList.toggle('active', btn.dataset.tab === tab);
         });
-        resetAndLoad();
-    }
-
-    function resetAndLoad() {
-        currentOffset = 0;
-        loadedTickets = [];
-        document.getElementById('loadMoreWrap').innerHTML = '';
         loadTickets();
     }
 
@@ -166,15 +131,79 @@
         } catch (e) { return dateStr; }
     }
 
-    // ── SLA Helpers (mapping from precomputed sla_status) ──
-    function getSlaDisplay(slaStatus) {
-        const map = {
-            'on_track': { label: 'On track', cls: 'sla-on-track' },
-            'at_risk':  { label: 'At risk',  cls: 'sla-at-risk' },
-            'breached': { label: 'Breached', cls: 'sla-breached' },
-            'paused':   { label: 'Paused',   cls: 'sla-paused' }
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  SLA HELPERS – color system
+    //  Green  = on track (>50% time remaining)
+    //  Yellow = at risk (25–50% remaining)
+    //  Orange = critical (<25% remaining)
+    //  Red    = breached
+    //  Gray   = paused (resolved / closed)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function parseIso(str) {
+        if (!str) return null;
+        var s = str.replace(' ', 'T');
+        if (!s.endsWith('Z') && !/[+-][0-9]{2}:[0-9]{2}$/.test(s)) s += 'Z';
+        var d = new Date(s);
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    function formatDuration(ms) {
+        var totalMin = Math.floor(ms / 60000);
+        var hours = Math.floor(totalMin / 60);
+        var mins = totalMin % 60;
+        if (hours >= 24) {
+            var days = Math.floor(hours / 24);
+            var remH = hours % 24;
+            return days + "d" + (remH > 0 ? " " + remH + "h" : "");
+        }
+        if (hours > 0) return hours + "h" + (mins > 0 ? " " + mins + "m" : "");
+        return mins + "m";
+    }
+
+    function getSlaInfo(ticket) {
+        if (ticket.status === "resolved" || ticket.status === "closed") {
+            return { label: ticket.status === "resolved" ? "Resolved" : "Closed", cls: "sla-paused" };
+        }
+        var now = new Date();
+        var created = parseIso(ticket.created_at);
+        var due = parseIso(ticket.sla_resolution_due) || parseIso(ticket.sla_response_due);
+        if (!due) return { label: "No SLA", cls: "sla-paused" };
+        var totalMs = created ? (due - created) : 0;
+        var remainMs = due - now;
+        if (remainMs < 0) return { label: "Overdue " + formatDuration(Math.abs(remainMs)), cls: "sla-breached" };
+        var label = "Due in " + formatDuration(remainMs);
+        var pct = totalMs > 0 ? remainMs / totalMs : 1;
+        var cls = pct > 0.5 ? "sla-on-track" : pct > 0.25 ? "sla-at-risk" : "sla-critical";
+        return { label: label, cls: cls };
+    }
+
+    function getSlaDetailLabel(ticket) { return getSlaInfo(ticket).label; }
+    function getSlaDetailClass(ticket) { return getSlaInfo(ticket).cls; }
+    function getSlaColor(cls) {
+        var map = {
+            'sla-on-track': '#22c55e',
+            'sla-at-risk':  '#eab308',
+            'sla-critical': '#f97316',
+            'sla-breached': '#ef4444',
+            'sla-paused':   '#8892b0'
         };
-        return map[slaStatus] || { label: 'Unknown', cls: 'sla-paused' };
+        return map[cls] || '#8892b0';
+    }
+
+    function escapeHtml(str) {
+        if (!str) return "";
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    // Category color palette (cyclic)
+    var CAT_COLORS = ["#5aa9ff","#ffb347","#a78bfa","#34d399","#f87171","#fbbf24","#60a5fa","#4ade80","#fb923c","#c084fc"];
+    var catColorMap = {};
+    var catColorIdx = 0;
+    function getCatColor(cat) {
+        if (!cat) return "#8892b0";
+        if (!catColorMap[cat]) { catColorMap[cat] = CAT_COLORS[catColorIdx % CAT_COLORS.length]; catColorIdx++; }
+        return catColorMap[cat];
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -206,7 +235,7 @@
                 await loadCategories();
                 await loadLanguages();
                 loadStats();
-                resetAndLoad();
+                loadTickets();
             } else {
                 errorEl.textContent = data.message || "Invalid credentials";
             }
@@ -227,7 +256,7 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD CATEGORIES & LANGUAGES
+    //  LOAD CATEGORIES
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadCategories() {
         try {
@@ -255,6 +284,9 @@
         } catch (e) { console.error("Failed to load categories:", e); }
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD LANGUAGES
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadLanguages() {
         try {
             var res = await fetch(API_BASE + "/api/admin/settings", {
@@ -282,6 +314,7 @@
         } catch (e) { console.error("Failed to load languages:", e); }
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadEmailSenders() {
         try {
             var res = await fetch(API_BASE + "/api/admin/email-addresses?active_only=true", {
@@ -317,62 +350,45 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD TICKETS (with pagination)
+    //  LOAD TICKETS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function loadTickets(loadMore = false) {
+    async function loadTickets() {
         var list = document.getElementById("ticketList");
-        var loadWrap = document.getElementById("loadMoreWrap");
-
-        if (!loadMore) {
-            list.innerHTML = '<div class="loading">Loading...</div>';
-            loadWrap.innerHTML = '';
-            currentOffset = 0;
-            loadedTickets = [];
-        } else {
-            loadWrap.innerHTML = '<div class="loading-more">Loading more...</div>';
-        }
-
+        list.innerHTML = '<div class="loading">Loading...</div>';
         var category = document.getElementById("filterCategory").value;
         var language = document.getElementById("filterLanguage").value;
         var sort = document.getElementById("filterSort").value;
         var statuses = getStatusesForTab(currentTab);
 
-        // Build URL
-        var url = API_BASE + "/api/admin/tickets?limit=" + currentLimit + "&offset=" + currentOffset;
-        if (statuses.length > 0) {
-            url += "&statuses=" + statuses.join(',');
-        }
-        if (category) url += "&category=" + encodeURIComponent(category);
-        if (language) url += "&language=" + encodeURIComponent(language);
-        if (sort) url += "&sort=" + encodeURIComponent(sort);
-
+        // Fetch each status and merge
         try {
-            var res = await fetch(url, { headers: { "Authorization": "Bearer " + token } });
-            if (res.status === 401) { logout(); return; }
-            var data = await res.json();
-            if (data.success) {
-                var tickets = data.tickets || [];
-                var pagination = data.pagination || { total: 0 };
-                currentTotal = pagination.total;
-
-                if (loadMore) {
-                    loadedTickets = loadedTickets.concat(tickets);
-                } else {
-                    loadedTickets = tickets;
-                }
-                currentOffset = loadedTickets.length;
-
-                renderTickets(loadedTickets);
-
-                // Update load more button
-                if (loadedTickets.length < currentTotal) {
-                    loadWrap.innerHTML = '<button onclick="loadTickets(true)">Load More</button>';
-                } else {
-                    loadWrap.innerHTML = loadedTickets.length > 0 ? '<span style="color:var(--text-muted);font-size:13px;">All tickets loaded</span>' : '';
-                }
-            } else {
-                list.innerHTML = '<div class="loading">Error loading tickets</div>';
+            var allTickets = [];
+            for (var si = 0; si < statuses.length; si++) {
+                var urlStr = API_BASE + "/api/admin/tickets?status=" + encodeURIComponent(statuses[si]);
+                if (category) urlStr += "&category=" + encodeURIComponent(category);
+                if (language) urlStr += "&language=" + encodeURIComponent(language);
+                var res = await fetch(urlStr, { headers: { "Authorization": "Bearer " + token } });
+                if (res.status === 401) { logout(); return; }
+                var data = await res.json();
+                if (data.success) allTickets = allTickets.concat(data.tickets || []);
             }
+
+            // Sort merged results
+            if (sort === 'sla') {
+                allTickets.sort(function(a, b) {
+                    var aMs = a.sla_resolution_due ? new Date(a.sla_resolution_due).getTime() : Infinity;
+                    var bMs = b.sla_resolution_due ? new Date(b.sla_resolution_due).getTime() : Infinity;
+                    return aMs - bMs;
+                });
+            } else {
+                allTickets.sort(function(a, b) {
+                    var aDate = a.last_action || a.created_at || '';
+                    var bDate = b.last_action || b.created_at || '';
+                    return bDate.localeCompare(aDate);
+                });
+            }
+
+            renderTickets(allTickets);
         } catch (e) {
             list.innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
         }
@@ -395,13 +411,13 @@
         for (var i = 0; i < tickets.length; i++) {
             var t = tickets[i];
             var statusClass = "status-" + t.status;
-            var slaInfo = getSlaDisplay(t.sla_status || 'on_track');
+            var slaInfo = getSlaInfo(t);
             var actionDate = t.last_action || t.created_at;
             var subjectText = t.subject || "No subject";
             var truncatedSubject = subjectText.length > 55 ? subjectText.substring(0, 55) + "…" : subjectText;
             var catColor = getCatColor(t.category);
             var catLabel = (t.category || 'other').charAt(0).toUpperCase() + (t.category || 'other').slice(1);
-            html += '<div class="ticket-item" onclick="openTicketModal(' + t.ticket_id + ')">' +
+            html += '<div class="ticket-item" onclick="openTicketModal(' + t.id + ')">' +
                 '<span class="cat-cell"><span class="cat-dot" style="background:' + catColor + ';"></span><span class="cat-name">' + escapeHtml(catLabel) + '</span></span>' +
                 '<span class="sla-cell"><span class="sla-dot" style="background:' + getSlaColor(slaInfo.cls) + ';"></span><span class="sla-label">' + slaInfo.label + '</span></span>' +
                 '<span class="status ' + statusClass + '">' + t.status.replace('_', ' ') + '</span>' +
@@ -411,32 +427,6 @@
                 '</div>';
         }
         list.innerHTML = html;
-    }
-
-    // ── Color helpers ──
-    var CAT_COLORS = ["#5aa9ff","#ffb347","#a78bfa","#34d399","#f87171","#fbbf24","#60a5fa","#4ade80","#fb923c","#c084fc"];
-    var catColorMap = {};
-    var catColorIdx = 0;
-    function getCatColor(cat) {
-        if (!cat) return "#8892b0";
-        if (!catColorMap[cat]) { catColorMap[cat] = CAT_COLORS[catColorIdx % CAT_COLORS.length]; catColorIdx++; }
-        return catColorMap[cat];
-    }
-    function getSlaColor(cls) {
-        var map = {
-            'sla-on-track': '#22c55e',
-            'sla-at-risk':  '#eab308',
-            'sla-critical': '#f97316',
-            'sla-breached': '#ef4444',
-            'sla-paused':   '#8892b0'
-        };
-        return map[cls] || '#8892b0';
-    }
-
-    function escapeHtml(str) {
-        if (!str) return "";
-        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -515,11 +505,12 @@
         }
         senderDropdown += '</select>';
 
-        var slaLabel = getSlaDisplay(ticket.sla_status || 'on_track').label;
-        var slaClass = getSlaDisplay(ticket.sla_status || 'on_track').cls;
+        var slaLabel = getSlaDetailLabel(ticket);
+        var slaClass = getSlaDetailClass(ticket);
         var catColor = getCatColor(ticket.category);
         var isClosed = ticket.status === 'closed';
 
+        // Closed ticket: show read-only info, hide reply/comment actions
         var actionsHtml = '';
         if (!isClosed) {
             actionsHtml = `
@@ -580,7 +571,7 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  ACTIONS (status, comment, reply)
+    //  ACTIONS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function updateStatus(id) {
         var status = document.getElementById("detailStatus").value;
@@ -592,7 +583,7 @@
             });
             if (res.status === 401) { logout(); closeModal(); return; }
             var data = await res.json();
-            if (data.success) { openTicketModal(id); loadStats(); resetAndLoad(); }
+            if (data.success) { openTicketModal(id); loadStats(); loadTickets(); }
             else { alert("Update failed"); }
         } catch (e) { alert("Error: " + e.message); }
     }
@@ -608,7 +599,7 @@
             });
             if (res.status === 401) { logout(); closeModal(); return; }
             var data = await res.json();
-            if (data.success) { document.getElementById("detailComment").value = ""; openTicketModal(id); loadStats(); resetAndLoad(); }
+            if (data.success) { document.getElementById("detailComment").value = ""; openTicketModal(id); loadStats(); loadTickets(); }
             else { alert("Failed to add comment"); }
         } catch (e) { alert("Error: " + e.message); }
     }
@@ -629,7 +620,7 @@
             });
             if (res.status === 401) { logout(); closeModal(); return; }
             var data = await res.json();
-            if (data.success) { document.getElementById("detailReplyBody").value = ""; alert("Reply sent!"); openTicketModal(id); loadStats(); resetAndLoad(); }
+            if (data.success) { document.getElementById("detailReplyBody").value = ""; alert("Reply sent!"); openTicketModal(id); loadStats(); loadTickets(); }
             else { alert("Failed to send reply"); }
         } catch (e) { alert("Error: " + e.message); }
     }
@@ -645,7 +636,7 @@
         loadCategories();
         loadLanguages();
         loadStats();
-        resetAndLoad();
+        loadTickets();
     }
 </script>
 </body>
