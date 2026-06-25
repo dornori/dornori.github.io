@@ -9,36 +9,49 @@ self.addEventListener('push', function(event) {
     }
     
     const ticket = data.ticket || null;
-    
-    // Show notification
+
+    // ✅ FIX: combine notification + message into single waitUntil promise
     event.waitUntil(
         self.registration.showNotification(data.title || 'New Ticket', {
             body: data.body || 'A new ticket was created',
             icon: '/favicon.ico',
-            data: { url: data.url || '/admin/dashboard.html' }
+            data: { url: data.url || '/admin/dashboard.html', ticket: ticket }
+        }).then(function() {
+            if (!ticket) return;
+            return clients.matchAll({ type: 'window', includeUncontrolled: true })
+                .then(function(clientList) {
+                    for (var client of clientList) {
+                        if (client.url.includes('/admin/dashboard.html')) {
+                            client.postMessage({ action: 'newTicket', ticket: ticket });
+                            console.log('✅ Message sent to dashboard');
+                        }
+                    }
+                });
         })
     );
-    
-    // ✅ SEND MESSAGE TO DASHBOARD
-    if (ticket) {
-        event.waitUntil(
-            clients.matchAll({ type: 'window', includeUncontrolled: true })
+});
+
+// ✅ Handle notification click
+self.addEventListener('notificationclick', function(event) {
+    event.notification.close();
+    const url = (event.notification.data && event.notification.data.url) || '/admin/dashboard.html';
+    const ticket = event.notification.data && event.notification.data.ticket;
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true })
             .then(function(clientList) {
                 for (var client of clientList) {
                     if (client.url.includes('/admin/dashboard.html')) {
-                        client.postMessage({
-                            action: 'newTicket',
-                            ticket: ticket
-                        });
-                        console.log('✅ Message sent to dashboard');
+                        if (ticket) client.postMessage({ action: 'newTicket', ticket: ticket });
+                        return client.focus();
                     }
                 }
+                return clients.openWindow(url);
             })
-        );
-    }
+    );
 });
 
-// ✅ LISTEN FOR MESSAGES FROM DASHBOARD
+// ✅ Listen for messages from dashboard
 self.addEventListener('message', function(event) {
     console.log('📨 SW received message:', event.data);
     if (event.data.action === 'ping') {
