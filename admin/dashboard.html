@@ -375,14 +375,18 @@
             const data = event.data;
             if (data && data.action === 'newTicket') {
                 handleNewTicket(data.ticket);
+            } else if (data && data.action === 'pendingTickets') {
+                if (data.tickets && data.tickets.length > 0) {
+                    for (const item of data.tickets) {
+                        if (item.ticket) handleNewTicket(item.ticket);
+                    }
+                }
             }
         });
-        // ✅ FIX: if SW is registered but not yet controlling this page, claim it
+        
         navigator.serviceWorker.ready.then(function(registration) {
-            if (!navigator.serviceWorker.controller) {
-                // SW installed but not controlling — reload once to get it in control
-                console.log('SW not controlling page yet, reloading to activate...');
-                window.location.reload();
+            if (navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({ action: 'getPendingTickets' });
             }
         });
     }
