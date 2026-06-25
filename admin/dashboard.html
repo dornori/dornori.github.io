@@ -375,6 +375,21 @@
             const data = event.data;
             if (data && data.action === 'newTicket') {
                 handleNewTicket(data.ticket);
+            } else if (data && data.action === 'storedTickets') {
+                // Process tickets that arrived while page was closed
+                if (data.tickets && Array.isArray(data.tickets)) {
+                    for (const ticket of data.tickets) {
+                        if (ticket) handleNewTicket(ticket);
+                    }
+                }
+            }
+        });
+        
+        // On page load, ask SW for any stored tickets
+        navigator.serviceWorker.ready.then(function(registration) {
+            if (navigator.serviceWorker.controller) {
+                console.log('📨 Requesting stored tickets from SW');
+                navigator.serviceWorker.controller.postMessage({ action: 'getStoredTickets' });
             }
         });
     }
