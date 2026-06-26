@@ -1,74 +1,488 @@
-// Changes to dashboard.html v1.1:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dornori Ticketing</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+        .load-more-wrap { text-align: center; padding: 20px; }
+        .load-more-wrap button { padding: 10px 30px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-weight: 600; cursor: pointer; transition: background .15s; }
+        .load-more-wrap button:hover { background: var(--accent); color: var(--text-inverse); }
+        .load-more-wrap .loading-more { color: var(--text-muted); font-size: 14px; padding: 10px; }
+        .header-right button#pushButton { background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; }
+        .header-right button#pushButton.enabled { background: #22c55e; color: #fff; border-color: #22c55e; }
+        .header-right button#testPushBtn { background: #3b82f6; color: #fff; border: 1px solid #3b82f6; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; display: none; }
+        .header-right button#testPushBtn:hover { background: #2563eb; }
+        #pushStatus { font-size: 12px; color: var(--text-muted); margin-left: 6px; }
+        .notification-permission-banner {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+            font-size: 14px;
+        }
+        .notification-permission-banner button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 5px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        .test-result-popup {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            z-index: 9999;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            max-width: 400px;
+            animation: slideIn 0.3s ease;
+        }
+        .test-result-popup.success { background: #22c55e; color: white; }
+        .test-result-popup.error { background: #ef4444; color: white; }
+        .test-result-popup.info { background: #3b82f6; color: white; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div id="login">
+        <h1>🔐 Dornori Ticketing</h1>
+        <input type="email" id="loginEmail" placeholder="Email" value="admin@dornori.com" />
+        <input type="password" id="loginPassword" placeholder="Password" value="password" />
+        <button onclick="login()">Login</button>
+        <div id="loginError" class="error"></div>
+        <div id="loginLoading" class="loading">⏳ Logging in...</div>
+    </div>
 
-// REMOVE (around line 28):
-/*
-                <button id="testEncryptionBtn" onclick="testEncryption()">🔐 Test Encryption</button>
-*/
+    <div id="dashboard">
+        <div class="header">
+            <h1>🎫 Dornori Ticketing</h1>
+            <div class="header-right">
+                <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+                <a href="reports.html">📊 Reports</a>
+                <a href="newsletter.html">📧 Newsletter</a>
+                <a href="settings.html">⚙️ Settings</a>
+                <button id="pushButton" onclick="togglePush()">🔔 Enable Live Updates</button>
+                <button id="testPushBtn" onclick="testPush()">📨 Test Push</button>
+                <span id="pushStatus"></span>
+                <button onclick="logout()">Logout</button>
+            </div>
+        </div>
 
-// REPLACE this section (around line 1085 - testEncryption function):
-/*
-    async function testEncryption() {
+        <div id="notificationBanner" class="notification-permission-banner">
+            ⚠️ Notifications are blocked. 
+            <button onclick="requestNotificationPermission()">Enable Notifications</button>
+        </div>
+
+        <div class="stats" id="stats"></div>
+
+        <div class="ticket-tabs">
+            <button class="ticket-tab active" data-tab="active" onclick="switchTab('active')">Active</button>
+            <button class="ticket-tab" data-tab="resolved" onclick="switchTab('resolved')">Resolved</button>
+            <button class="ticket-tab" data-tab="closed" onclick="switchTab('closed')">Closed</button>
+        </div>
+
+        <div class="filters">
+            <select id="filterLanguage" onchange="resetAndLoad()">
+                <option value="">All Languages</option>
+            </select>
+            <select id="filterCategory" onchange="resetAndLoad()">
+                <option value="">All Categories</option>
+            </select>
+            <select id="filterSort" onchange="resetAndLoad()">
+                <option value="last_updated">Sort: Last Updated</option>
+                <option value="created">Sort: Created Date</option>
+                <option value="sla">Sort: SLA Status</option>
+            </select>
+            <button class="btn-refresh" onclick="resetAndLoad()">⟳ Refresh</button>
+        </div>
+
+        <div id="ticketList" class="ticket-list"><div class="loading">Loading tickets...</div></div>
+        <div id="loadMoreWrap" class="load-more-wrap"></div>
+    </div>
+
+    <div id="ticketModal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">✕</button>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  CONFIG
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  THEME TOGGLE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function setTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
+        const toggles = document.querySelectorAll('.theme-toggle');
+        toggles.forEach(t => t.textContent = theme === 'dark' ? '☀️' : '🌙');
+    }
+
+    function toggleTheme() {
+        const current = document.documentElement.getAttribute('data-theme') || 'light';
+        setTheme(current === 'light' ? 'dark' : 'light');
+    }
+
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  GLOBALS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    var token = null;
+    var userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    var emailSenders = [];
+    var currentTab = 'active';
+    var currentOffset = 0;
+    var currentLimit = 50;
+    var currentTotal = 0;
+    var loadedTickets = [];
+    let pushSubscription = null;
+    let isPushEnabled = false;
+
+    function getStatusesForTab(tab) {
+        if (tab === 'active') return ['new', 'open', 'in_progress', 'pending'];
+        if (tab === 'resolved') return ['resolved'];
+        if (tab === 'closed') return ['closed'];
+        return [];
+    }
+
+    function switchTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll('.ticket-tab').forEach(function(btn) {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+        resetAndLoad();
+    }
+
+    function resetAndLoad() {
+        currentOffset = 0;
+        loadedTickets = [];
+        document.getElementById('loadMoreWrap').innerHTML = '';
+        loadTickets();
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return "Invalid Date";
+        try {
+            var cleaned = dateStr.replace(" ", "T");
+            if (!cleaned.includes("Z") && !cleaned.includes("+")) { cleaned += "Z"; }
+            var d = new Date(cleaned);
+            if (isNaN(d.getTime())) { return dateStr; }
+            return d.toLocaleString(undefined, {
+                year: "numeric", month: "short", day: "numeric",
+                hour: "2-digit", minute: "2-digit",
+                timeZone: userTimezone || "UTC"
+            });
+        } catch (e) { return dateStr; }
+    }
+
+    function getSlaDisplay(slaStatus) {
+        const map = {
+            'on_track': { label: 'On track', cls: 'sla-on-track' },
+            'at_risk':  { label: 'At risk',  cls: 'sla-at-risk' },
+            'breached': { label: 'Breached', cls: 'sla-breached' },
+            'paused':   { label: 'Paused',   cls: 'sla-paused' }
+        };
+        return map[slaStatus] || { label: 'Unknown', cls: 'sla-paused' };
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOGIN / LOGOUT
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function login() {
+        var email = document.getElementById("loginEmail").value;
+        var password = document.getElementById("loginPassword").value;
+        var errorEl = document.getElementById("loginError");
+        var loadingEl = document.getElementById("loginLoading");
+        var btn = document.querySelector("#login button");
+        errorEl.textContent = "";
+        loadingEl.classList.add("active");
+        btn.disabled = true;
+        btn.textContent = "Logging in...";
+        try {
+            var res = await fetch(API_BASE + "/api/admin/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: email, password: password })
+            });
+            var data = await res.json();
+            if (data.success) {
+                token = data.token;
+                localStorage.setItem("token", token);
+                document.getElementById("login").style.display = "none";
+                document.getElementById("dashboard").style.display = "block";
+                await loadEmailSenders();
+                await loadCategories();
+                await loadLanguages();
+                loadStats();
+                resetAndLoad();
+                checkPushStatus();
+            } else {
+                errorEl.textContent = data.message || "Invalid credentials";
+            }
+        } catch (e) {
+            errorEl.textContent = "Network error – please try again.";
+        } finally {
+            loadingEl.classList.remove("active");
+            btn.disabled = false;
+            btn.textContent = "Login";
+        }
+    }
+
+    function logout() {
+        token = null;
+        localStorage.removeItem("token");
+        document.getElementById("login").style.display = "block";
+        document.getElementById("dashboard").style.display = "none";
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  PUSH NOTIFICATIONS - HELPER
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        const rawData = atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    function showTestResult(message, type = 'info') {
+        const div = document.createElement('div');
+        div.className = `test-result-popup ${type}`;
+        div.textContent = message;
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 8000);
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  PUSH NOTIFICATIONS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function updatePushUI(enabled) {
+        const testBtn = document.getElementById('testPushBtn');
+        if (testBtn) {
+            testBtn.style.display = enabled ? 'inline-block' : 'none';
+        }
+    }
+
+    function checkNotificationBanner() {
+        const banner = document.getElementById('notificationBanner');
+        if (Notification.permission === 'denied') {
+            banner.style.display = 'block';
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+
+    async function requestNotificationPermission() {
+        const result = await Notification.requestPermission();
+        if (result === 'granted') {
+            document.getElementById('notificationBanner').style.display = 'none';
+            showTestResult('✅ Notifications enabled! Click "Enable Live Updates" to start.', 'success');
+        } else {
+            showTestResult('❌ Permission denied. Please enable in browser settings.', 'error');
+        }
+    }
+
+    async function checkPushStatus() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            document.getElementById('pushButton').style.display = 'none';
+            return;
+        }
+        
+        checkNotificationBanner();
+        
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.getSubscription();
+            if (subscription) {
+                pushSubscription = subscription;
+                isPushEnabled = true;
+                document.getElementById('pushButton').textContent = '🔕 Disable Live Updates';
+                document.getElementById('pushButton').classList.add('enabled');
+                document.getElementById('pushStatus').textContent = 'Enabled';
+                updatePushUI(true);
+            }
+        } catch (e) {
+            console.log('Check push status error:', e);
+        }
+    }
+
+    async function togglePush() {
+        if (Notification.permission === 'denied') {
+            document.getElementById('notificationBanner').style.display = 'block';
+            showTestResult('⚠️ Notifications are blocked. Please enable them in your browser settings.', 'error');
+            return;
+        }
+        
+        if (Notification.permission === 'default') {
+            const result = await Notification.requestPermission();
+            if (result !== 'granted') {
+                showTestResult('❌ Notification permission required for live updates', 'error');
+                return;
+            }
+            document.getElementById('notificationBanner').style.display = 'none';
+        }
+
+        if (isPushEnabled) {
+            if (pushSubscription) {
+                await pushSubscription.unsubscribe();
+                await fetch(API_BASE + '/api/push/subscribe', {
+                    method: 'DELETE',
+                    headers: { 
+                        'Authorization': 'Bearer ' + token, 
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify({ endpoint: pushSubscription.endpoint })
+                });
+                isPushEnabled = false;
+                pushSubscription = null;
+                document.getElementById('pushButton').textContent = '🔔 Enable Live Updates';
+                document.getElementById('pushButton').classList.remove('enabled');
+                document.getElementById('pushStatus').textContent = 'Disabled';
+                updatePushUI(false);
+                showTestResult('🔕 Live updates disabled', 'info');
+            }
+            return;
+        }
+
+        try {
+            const registration = await navigator.serviceWorker.register('/admin/sw.js', { 
+                scope: '/admin/' 
+            });
+            await navigator.serviceWorker.ready;
+            
+            if (!navigator.serviceWorker.controller) {
+                console.log('⚠️ SW not controlling page, refreshing...');
+                await new Promise(resolve => {
+                    navigator.serviceWorker.addEventListener('controllerchange', resolve);
+                    setTimeout(resolve, 2000);
+                });
+                if (!navigator.serviceWorker.controller) {
+                    showTestResult('Service Worker registration issue. Please refresh the page.', 'error');
+                    window.location.reload();
+                    return;
+                }
+            }
+            
+            const keyRes = await fetch(API_BASE + '/api/push/public-key');
+            const keyData = await keyRes.json();
+            if (!keyData.publicKey) throw new Error('No public key');
+
+            const applicationServerKey = urlBase64ToUint8Array(keyData.publicKey);
+            
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: applicationServerKey
+            });
+
+            const saveRes = await fetch(API_BASE + '/api/push/subscribe', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': 'Bearer ' + token, 
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({ subscription })
+            });
+            if (!saveRes.ok) {
+                const errorData = await saveRes.json();
+                throw new Error(errorData.error || 'Failed to save subscription');
+            }
+
+            pushSubscription = subscription;
+            isPushEnabled = true;
+            document.getElementById('pushButton').textContent = '🔕 Disable Live Updates';
+            document.getElementById('pushButton').classList.add('enabled');
+            document.getElementById('pushStatus').textContent = 'Enabled';
+            updatePushUI(true);
+            
+            showTestResult('✅ Subscribed to push notifications!', 'success');
+            
+            setTimeout(() => {
+                if (confirm('✅ Subscribed! Send a test notification?')) {
+                    testPush();
+                }
+            }, 500);
+            
+        } catch (err) {
+            console.error('Push subscription error:', err);
+            showTestResult('❌ Push subscription failed: ' + err.message, 'error');
+        }
+    }
+
+    async function testPush() {
         if (!token) {
             showTestResult('❌ Please login first', 'error');
             return;
         }
-
-        const btn = document.getElementById('testEncryptionBtn');
-        btn.textContent = '⏳ Testing...';
-        btn.disabled = true;
-
+        
         try {
-            showTestResult('🔐 Sending encrypted test (number 9)...', 'info');
+            const btn = document.getElementById('testPushBtn');
+            btn.textContent = '⏳ Sending...';
+            btn.disabled = true;
             
-            const res = await fetch(API_BASE + '/api/test-encryption', {
-                headers: { 'Authorization': 'Bearer ' + token }
+            showTestResult('📨 Sending test push notification...', 'info');
+            
+            const res = await fetch(API_BASE + '/api/test-push', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': 'Bearer ' + token,
+                    'Content-Type': 'application/json'
+                }
             });
             
             const data = await res.json();
-            console.log('📊 Test encryption result:', data);
+            console.log('Test push response:', data);
             
-            if (data.success) {
-                showTestResult(`✅ Encryption test passed! Sent: ${JSON.stringify(data.payload_sent)}`, 'success');
-                showTestResult('📨 Check for a notification with "🔢 Test: 9"', 'info');
+            if (data.success && data.sent > 0) {
+                showTestResult(`✅ Test push sent! (${data.sent} notifications)`, 'success');
+                showTestResult('📨 Check if you received a notification.', 'info');
+            } else if (data.success && data.sent === 0) {
+                showTestResult('⚠️ No subscribers found. Click "Enable Live Updates" first.', 'error');
             } else {
-                showTestResult(`❌ Encryption test failed: ${data.error || data.response || 'Unknown error'}`, 'error');
+                showTestResult('❌ Test push failed: ' + (data.message || 'Unknown error'), 'error');
             }
         } catch (err) {
-            showTestResult(`❌ Error: ${err.message}`, 'error');
+            showTestResult('❌ Error: ' + err.message, 'error');
         } finally {
-            btn.textContent = '🔐 Test Encryption';
+            const btn = document.getElementById('testPushBtn');
+            btn.textContent = '📨 Test Push';
             btn.disabled = false;
         }
     }
-*/
-// DELETE ENTIRE FUNCTION ^^^
 
-// REPLACE this section (around line 1100 - service worker message handler):
-/*
-    // Listen for messages from the service worker
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  SERVICE WORKER MESSAGE LISTENER
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', async function(event) {
             const data = event.data;
             console.log('📨 Dashboard received SW message:', data);
-            
-            // Handle test pushes
-            if (data && data.action === 'testPush') {
-                console.log('🎯 TEST PUSH RECEIVED!');
-                console.log('📦 Data:', data.data);
-                console.log('📝 Raw:', data.raw);
-                
-                const testDiv = document.createElement('div');
-                testDiv.className = 'test-result-popup success';
-                testDiv.innerHTML = `✅ Test received: ${JSON.stringify(data.data)}`;
-                document.body.appendChild(testDiv);
-                setTimeout(() => testDiv.remove(), 5000);
-                
-                showTestResult(`🔢 Received test data: ${JSON.stringify(data.data)}`, 'success');
-                return;
-            }
-            
-            // Handle new tickets
+
             if (data && data.action === 'newTicket' && data.ticketId) {
+                console.log('🎫 New ticket ID received:', data.ticketId);
                 try {
                     const res = await fetch(API_BASE + '/api/admin/ticket/' + data.ticketId, {
                         headers: { 'Authorization': 'Bearer ' + token }
@@ -76,66 +490,512 @@
                     const response = await res.json();
                     if (response.success && response.data) {
                         handleNewTicket(response.data);
-                        showTestResult(`🎫 New ticket #${response.data.ticket_number} added!`, 'success');
+                        showTestResult(`🎫 New ticket ${response.data.ticket_number} added!`, 'success');
                     }
-                } catch (e) {
-                    console.error('Failed to fetch new ticket:', e);
+                } catch (err) {
+                    console.error('Failed to fetch ticket:', err);
                 }
             }
         });
-    }
-*/
 
-// WITH:
-/*
-    // Listen for messages from the service worker
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.addEventListener('message', async function(event) {
-            const data = event.data;
-            console.log('📨 Dashboard received SW message:', data);
-            
-            // Handle new tickets from real push notifications
-            if (data && data.action === 'newTicket' && data.ticketId) {
-                console.log('🎯 NEW TICKET RECEIVED:', data.ticketId);
-                
-                try {
-                    const res = await fetch(API_BASE + '/api/admin/ticket/' + data.ticketId, {
-                        headers: { 'Authorization': 'Bearer ' + token }
-                    });
-                    const response = await res.json();
-                    if (response.success && response.data) {
-                        const ticket = response.data;
-                        handleNewTicket(ticket);
-                        showTestResult(`🎫 New ticket #${ticket.ticket_number} received!`, 'success');
-                        console.log('✅ New ticket added to dashboard:', ticket.ticket_number);
-                    }
-                } catch (e) {
-                    console.error('Failed to fetch new ticket:', e);
-                }
+        navigator.serviceWorker.ready.then(function(reg) {
+            console.log('✅ SW ready, controller:', navigator.serviceWorker.controller ? 'active' : 'none');
+            if (!navigator.serviceWorker.controller) {
+                console.log('🔄 SW not controlling page, reloading...');
+                setTimeout(() => window.location.reload(), 1000);
             }
         });
     }
-*/
 
-// REMOVE from updatePushUI function (around line 1025):
-/*
-        if (encBtn) {
-            encBtn.style.display = enabled ? 'inline-block' : 'none';
+    function handleNewTicket(ticket) {
+        if (!ticket) {
+            console.warn('⚠️ handleNewTicket called with null ticket');
+            return;
         }
-*/
-
-// REMOVE from header init (around line 1300):
-/*
-        // Show encryption test button if push is available
-        if ('serviceWorker' in navigator && 'PushManager' in window) {
-            document.getElementById('testEncryptionBtn').style.display = 'inline-block';
+        const ticketId = ticket.ticket_id || ticket.id;
+        const currentStatuses = getStatusesForTab(currentTab);
+        if (!currentStatuses.includes(ticket.status)) {
+            updateStatsLocally(ticket.status, 1);
+            return;
         }
-*/
+        const categoryFilter = document.getElementById('filterCategory').value;
+        const langFilter = document.getElementById('filterLanguage').value;
+        if (categoryFilter && categoryFilter !== ticket.category) return;
+        if (langFilter && langFilter !== ticket.language) return;
 
-// AND remove from login() function (around line 900):
-/*
-                // Show encryption test button if push is available
-                if ('serviceWorker' in navigator && 'PushManager' in window) {
-                    document.getElementById('testEncryptionBtn').style.display = 'inline-block';
+        const list = document.getElementById('ticketList');
+        const headerRow = list.querySelector('.ticket-header-row');
+        if (!headerRow) return;
+
+        const statusClass = 'status-' + ticket.status;
+        const catColor = getCatColor(ticket.category);
+        const catLabel = (ticket.category || 'other').charAt(0).toUpperCase() + (ticket.category || 'other').slice(1);
+        const subjectText = ticket.subject || 'No subject';
+        const truncatedSubject = subjectText.length > 55 ? subjectText.substring(0, 55) + '…' : subjectText;
+
+        const row = document.createElement('div');
+        row.className = 'ticket-item';
+        row.setAttribute('onclick', 'openTicketModal(' + ticketId + ')');
+        row.innerHTML = `
+            <span class="cat-cell"><span class="cat-dot" style="background:${catColor};"></span><span class="cat-name">${escapeHtml(catLabel)}</span></span>
+            <span class="sla-cell"><span class="sla-dot" style="background:#22c55e;"></span><span class="sla-label">On track</span></span>
+            <span class="status ${statusClass}">${ticket.status.replace('_', ' ')}</span>
+            <span class="subject" title="${escapeHtml(subjectText)}">${escapeHtml(truncatedSubject)}</span>
+            <span class="email">${escapeHtml(ticket.sender_email || '')}</span>
+            <span style="font-size:12px;color:var(--text-muted);">${formatDate(ticket.created_at)}</span>
+        `;
+        headerRow.parentNode.insertBefore(row, headerRow.nextSibling);
+
+        updateStatsLocally(ticket.status, 1);
+        currentTotal++;
+        updateLoadMoreButton();
+    }
+
+    function updateStatsLocally(status, delta) {
+        const statsContainer = document.getElementById('stats');
+        const statCards = statsContainer.querySelectorAll('.stat-card');
+        const labelMap = { 'new': 'New', 'open': 'Open', 'in_progress': 'In Progress', 'pending': 'Pending', 'resolved': 'Resolved', 'closed': 'Closed' };
+        const label = labelMap[status];
+        if (!label) return;
+        for (const card of statCards) {
+            const labelEl = card.querySelector('.label');
+            if (labelEl && labelEl.textContent === label) {
+                const numberEl = card.querySelector('.number');
+                if (numberEl) {
+                    const current = parseInt(numberEl.textContent, 10) || 0;
+                    numberEl.textContent = Math.max(0, current + delta);
                 }
-*/
+                break;
+            }
+        }
+    }
+
+    function updateLoadMoreButton() {
+        const loadWrap = document.getElementById('loadMoreWrap');
+        if (loadedTickets.length < currentTotal) {
+            loadWrap.innerHTML = '<button onclick="loadTickets(true)">Load More</button>';
+        } else {
+            loadWrap.innerHTML = loadedTickets.length > 0 ? '<span style="color:var(--text-muted);font-size:13px;">All tickets loaded</span>' : '';
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD CATEGORIES & LANGUAGES
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadCategories() {
+        try {
+            var res = await fetch(API_BASE + "/api/admin/settings", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            var data = await res.json();
+            if (!data.success) return;
+            var settings = data.settings || [];
+            var cats = new Set(["other"]);
+            settings.forEach(function(s) {
+                if (s.category === "category" && s.key.endsWith("_description") && s.value !== "__deleted__") {
+                    cats.add(s.key.replace("_description", ""));
+                }
+            });
+            var sel = document.getElementById("filterCategory");
+            var current = sel.value;
+            var opts = '<option value="">All Categories</option>';
+            Array.from(cats).sort().forEach(function(c) {
+                var label = c.charAt(0).toUpperCase() + c.slice(1);
+                opts += '<option value="' + c + '">' + label + '</option>';
+            });
+            sel.innerHTML = opts;
+            sel.value = current;
+        } catch (e) { console.error("Failed to load categories:", e); }
+    }
+
+    async function loadLanguages() {
+        try {
+            var res = await fetch(API_BASE + "/api/admin/settings", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            var data = await res.json();
+            if (!data.success) return;
+            var settings = data.settings || [];
+            var langList = [];
+            settings.forEach(function(s) {
+                if (s.category === "languages" && s.key === "list") {
+                    try { langList = JSON.parse(s.value || '[]'); } catch(e) {}
+                }
+            });
+            var sel = document.getElementById("filterLanguage");
+            if (sel) {
+                var current = sel.value;
+                var opts = '<option value="">All Languages</option>';
+                langList.forEach(function(l) {
+                    opts += '<option value="' + escapeHtml(l.code) + '">' + escapeHtml(l.name) + '</option>';
+                });
+                sel.innerHTML = opts;
+                sel.value = current;
+            }
+        } catch (e) { console.error("Failed to load languages:", e); }
+    }
+
+    async function loadEmailSenders() {
+        try {
+            var res = await fetch(API_BASE + "/api/admin/email-addresses?active_only=true", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            var data = await res.json();
+            if (data.success) { emailSenders = data.addresses || []; }
+        } catch (e) { console.error("Failed to load senders:", e); }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD STATS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadStats() {
+        try {
+            var res = await fetch(API_BASE + "/api/admin/stats", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (res.status === 401) { logout(); return; }
+            var data = await res.json();
+            if (data.success) {
+                var stats = data.stats;
+                var html = "";
+                var labels = { new: "New", open: "Open", in_progress: "In Progress", pending: "Pending", resolved: "Resolved", closed: "Closed" };
+                for (var key in labels) {
+                    if (stats.hasOwnProperty(key)) {
+                        html += '<div class="stat-card"><div class="number">' + stats[key] + '</div><div class="label">' + labels[key] + '</div></div>';
+                    }
+                }
+                document.getElementById("stats").innerHTML = html;
+            }
+        } catch (e) { console.error("Failed to load stats", e); }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD TICKETS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadTickets(loadMore = false) {
+        var list = document.getElementById("ticketList");
+        var loadWrap = document.getElementById("loadMoreWrap");
+
+        if (!loadMore) {
+            list.innerHTML = '<div class="loading">Loading...</div>';
+            loadWrap.innerHTML = '';
+            currentOffset = 0;
+            loadedTickets = [];
+        } else {
+            loadWrap.innerHTML = '<div class="loading-more">Loading more...</div>';
+        }
+
+        var category = document.getElementById("filterCategory").value;
+        var language = document.getElementById("filterLanguage").value;
+        var sort = document.getElementById("filterSort").value;
+        var statuses = getStatusesForTab(currentTab);
+
+        var url = API_BASE + "/api/admin/tickets?limit=" + currentLimit + "&offset=" + currentOffset;
+        if (statuses.length > 0) {
+            url += "&statuses=" + statuses.join(',');
+        }
+        if (category) url += "&category=" + encodeURIComponent(category);
+        if (language) url += "&language=" + encodeURIComponent(language);
+        if (sort) url += "&sort=" + encodeURIComponent(sort);
+
+        try {
+            var res = await fetch(url, { headers: { "Authorization": "Bearer " + token } });
+            if (res.status === 401) { logout(); return; }
+            var data = await res.json();
+            if (data.success) {
+                var tickets = data.tickets || [];
+                var pagination = data.pagination || { total: 0 };
+                currentTotal = pagination.total;
+
+                if (loadMore) {
+                    loadedTickets = loadedTickets.concat(tickets);
+                } else {
+                    loadedTickets = tickets;
+                }
+                currentOffset = loadedTickets.length;
+
+                renderTickets(loadedTickets);
+                updateLoadMoreButton();
+            } else {
+                list.innerHTML = '<div class="loading">Error loading tickets</div>';
+            }
+        } catch (e) {
+            list.innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
+        }
+    }
+
+    function renderTickets(tickets) {
+        var list = document.getElementById("ticketList");
+        if (!tickets || tickets.length === 0) {
+            list.innerHTML = '<div class="loading">No tickets found</div>';
+            return;
+        }
+        var html = '<div class="ticket-header-row">' +
+            '<span>Category</span>' +
+            '<span>SLA</span>' +
+            '<span>Status</span>' +
+            '<span>Subject</span>' +
+            '<span>Requester</span>' +
+            '<span>Last Updated</span>' +
+            '</div>';
+        for (var i = 0; i < tickets.length; i++) {
+            var t = tickets[i];
+            var statusClass = "status-" + t.status;
+            var slaInfo = getSlaDisplay(t.sla_status || 'on_track');
+            var actionDate = t.last_action || t.created_at;
+            var subjectText = t.subject || "No subject";
+            var truncatedSubject = subjectText.length > 55 ? subjectText.substring(0, 55) + "…" : subjectText;
+            var catColor = getCatColor(t.category);
+            var catLabel = (t.category || 'other').charAt(0).toUpperCase() + (t.category || 'other').slice(1);
+            html += '<div class="ticket-item" onclick="openTicketModal(' + t.ticket_id + ')">' +
+                '<span class="cat-cell"><span class="cat-dot" style="background:' + catColor + ';"></span><span class="cat-name">' + escapeHtml(catLabel) + '</span></span>' +
+                '<span class="sla-cell"><span class="sla-dot" style="background:' + getSlaColor(slaInfo.cls) + ';"></span><span class="sla-label">' + slaInfo.label + '</span></span>' +
+                '<span class="status ' + statusClass + '">' + t.status.replace('_', ' ') + '</span>' +
+                '<span class="subject" title="' + escapeHtml(subjectText) + '">' + escapeHtml(truncatedSubject) + '</span>' +
+                '<span class="email">' + (t.sender_email || "") + '</span>' +
+                '<span style="font-size:12px;color:var(--text-muted);">' + formatDate(actionDate) + '</span>' +
+                '</div>';
+        }
+        list.innerHTML = html;
+    }
+
+    // ── Color helpers ──
+    var CAT_COLORS = ["#5aa9ff","#ffb347","#a78bfa","#34d399","#f87171","#fbbf24","#60a5fa","#4ade80","#fb923c","#c084fc"];
+    var catColorMap = {};
+    var catColorIdx = 0;
+    function getCatColor(cat) {
+        if (!cat) return "#8892b0";
+        if (!catColorMap[cat]) { catColorMap[cat] = CAT_COLORS[catColorIdx % CAT_COLORS.length]; catColorIdx++; }
+        return catColorMap[cat];
+    }
+    function getSlaColor(cls) {
+        var map = {
+            'sla-on-track': '#22c55e',
+            'sla-at-risk':  '#eab308',
+            'sla-critical': '#f97316',
+            'sla-breached': '#ef4444',
+            'sla-paused':   '#8892b0'
+        };
+        return map[cls] || '#8892b0';
+    }
+
+    function escapeHtml(str) {
+        if (!str) return "";
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  MODAL
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function openModal() {
+        document.getElementById("ticketModal").classList.add("active");
+        document.body.style.overflow = "hidden";
+    }
+
+    function closeModal() {
+        document.getElementById("ticketModal").classList.remove("active");
+        document.body.style.overflow = "";
+    }
+
+    document.getElementById("ticketModal").addEventListener("click", function(e) {
+        if (e.target === this) { closeModal(); }
+    });
+    document.addEventListener("keydown", function(e) {
+        if (e.key === "Escape") { closeModal(); }
+    });
+
+    async function openTicketModal(id) {
+        openModal();
+        var content = document.getElementById("modalContent");
+        content.innerHTML = '<div class="loading">Loading...</div>';
+        try {
+            var res = await fetch(API_BASE + "/api/admin/ticket/" + id, {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (res.status === 401) { logout(); closeModal(); return; }
+            var data = await res.json();
+            var ticket = data.ticket || data.data || data;
+            if (ticket && ticket.id) {
+                if (!ticket.comments) ticket.comments = [];
+                renderTicketDetailModal(ticket);
+            } else {
+                content.innerHTML = '<div class="loading">Error loading ticket</div>';
+            }
+        } catch (e) {
+            content.innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
+        }
+    }
+
+    function renderTicketDetailModal(ticket) {
+        var content = document.getElementById("modalContent");
+        var commentsHtml = "";
+        if (ticket.comments && ticket.comments.length > 0) {
+            for (var i = 0; i < ticket.comments.length; i++) {
+                var c = ticket.comments[i];
+                commentsHtml += '<div class="comment"><div class="meta"><span>' + (c.author_email || "System") + '</span><span>' + formatDate(c.created_at) + '</span></div><div class="comment-content">' + c.content + '</div></div>';
+            }
+        }
+
+        var statusOptions = ["new", "open", "in_progress", "pending", "resolved", "closed"];
+        var statusDropdown = '<select id="detailStatus">';
+        for (var i = 0; i < statusOptions.length; i++) {
+            var s = statusOptions[i];
+            statusDropdown += '<option value="' + s + '" ' + (s === ticket.status ? "selected" : "") + '>' + s + '</option>';
+        }
+        statusDropdown += '</select>';
+
+        var senderDropdown = '<select id="detailReplyFrom">';
+        var hasDefault = false;
+        if (emailSenders && emailSenders.length > 0) {
+            for (var i = 0; i < emailSenders.length; i++) {
+                var sender = emailSenders[i];
+                var label = sender.label || sender.email;
+                var selected = (sender.action === "support") ? "selected" : "";
+                senderDropdown += '<option value="' + sender.email + '" ' + selected + '>' + label + ' (' + sender.email + ')</option>';
+                if (sender.action === "support") hasDefault = true;
+            }
+        }
+        if (!hasDefault) {
+            senderDropdown += '<option value="support@dornori.com" selected>Support (support@dornori.com)</option>';
+        }
+        senderDropdown += '</select>';
+
+        var slaLabel = getSlaDisplay(ticket.sla_status || 'on_track').label;
+        var slaClass = getSlaDisplay(ticket.sla_status || 'on_track').cls;
+        var catColor = getCatColor(ticket.category);
+        var isClosed = ticket.status === 'closed';
+
+        var actionsHtml = '';
+        if (!isClosed) {
+            actionsHtml = `
+            <div class="detail-section action-section">
+                <h4>✏️ Update Status</h4>
+                ${statusDropdown}
+                <div class="actions"><button class="btn-primary" onclick="updateStatus(${ticket.id})">Save Status</button></div>
+            </div>
+            <div class="detail-section action-section comment-input">
+                <h4>📝 Add Comment</h4>
+                <textarea id="detailComment" placeholder="Write an internal comment..."></textarea>
+                <div class="actions"><button class="btn-primary" onclick="addComment(${ticket.id})">Add Comment</button></div>
+            </div>
+            <div class="detail-section action-section">
+                <h4>✉️ Reply to Customer</h4>
+                <label>From:</label>
+                ${senderDropdown}
+                <textarea id="detailReplyBody" placeholder="Write your reply to the customer..."></textarea>
+                <div class="actions"><button class="btn-primary" onclick="sendReply(${ticket.id})">Send Reply</button></div>
+            </div>`;
+        } else {
+            actionsHtml = `
+            <div class="detail-section action-section">
+                <h4>✏️ Reopen Ticket</h4>
+                ${statusDropdown}
+                <div class="actions"><button class="btn-primary" onclick="updateStatus(${ticket.id})">Update Status</button></div>
+            </div>`;
+        }
+
+        var fullName = [ticket.sender_name, ticket.sender_last_name].filter(Boolean).join(' ') || 'Unknown';
+        var orderNum = ticket.order_number ? escapeHtml(ticket.order_number) : '—';
+
+        content.innerHTML = `
+            <div class="detail-section">
+                <h3>📋 Ticket Details</h3>
+                <div class="modal-subject-row"><span class="meta-label" style="font-size:11px;color:var(--text-muted);margin-right:6px;">Subject:</span><span class="modal-subject-text">${escapeHtml(ticket.subject || 'No subject')}</span></div>
+                <div class="ticket-meta-grid">
+                    <div class="meta-item"><span class="meta-label">Ticket Number</span><span class="meta-value" style="font-family:monospace;color:var(--accent);">#${ticket.ticket_number}</span></div>
+                    <div class="meta-item"><span class="meta-label">Status</span><span class="meta-value">${ticket.status.toUpperCase()}</span></div>
+                    <div class="meta-item"><span class="meta-label">SLA</span><span class="meta-value ${slaClass} sla-badge-inline">${slaLabel}</span></div>
+                    <div class="meta-item"><span class="meta-label">Category</span><span class="meta-value"><span class="cat-dot" style="background:${catColor};margin-right:6px;"></span>${ticket.category || "Other"}</span></div>
+                    <div class="meta-item"><span class="meta-label">Name</span><span class="meta-value">${escapeHtml(fullName)}</span></div>
+                    <div class="meta-item"><span class="meta-label">Email</span><span class="meta-value">${ticket.sender_email || "Unknown"}</span></div>
+                    <div class="meta-item"><span class="meta-label">Order Number</span><span class="meta-value">${orderNum}</span></div>
+                    <div class="meta-item"><span class="meta-label">Created</span><span class="meta-value">${formatDate(ticket.created_at)}</span></div>
+                </div>
+            </div>
+            <div class="detail-section">
+                <h3>💬 Message</h3>
+                <div class="ticket-body">${ticket.message || "No message"}</div>
+            </div>
+            <div class="detail-section comments-section">
+                <h3>💭 Comments (${ticket.comments ? ticket.comments.length : 0})</h3>
+                ${commentsHtml || '<div style="color:var(--text-muted);font-size:13px;">No comments yet</div>'}
+            </div>
+            ${actionsHtml}
+        `;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  ACTIONS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function updateStatus(id) {
+        var status = document.getElementById("detailStatus").value;
+        try {
+            var res = await fetch(API_BASE + "/api/admin/ticket/" + id + "/status", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                body: JSON.stringify({ status: status })
+            });
+            if (res.status === 401) { logout(); closeModal(); return; }
+            var data = await res.json();
+            if (data.success) { openTicketModal(id); loadStats(); resetAndLoad(); }
+            else { alert("Update failed"); }
+        } catch (e) { alert("Error: " + e.message); }
+    }
+
+    async function addComment(id) {
+        var content = document.getElementById("detailComment").value;
+        if (!content) return alert("Please enter a comment");
+        try {
+            var res = await fetch(API_BASE + "/api/admin/ticket/" + id + "/comment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                body: JSON.stringify({ content: content, type: "internal" })
+            });
+            if (res.status === 401) { logout(); closeModal(); return; }
+            var data = await res.json();
+            if (data.success) { document.getElementById("detailComment").value = ""; openTicketModal(id); loadStats(); resetAndLoad(); }
+            else { alert("Failed to add comment"); }
+        } catch (e) { alert("Error: " + e.message); }
+    }
+
+    async function sendReply(id) {
+        var from = document.getElementById("detailReplyFrom").value;
+        var rawBody = document.getElementById("detailReplyBody").value;
+        if (!rawBody) return alert("Please enter a reply");
+        var body = '<p>' + rawBody
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/\r\n|\r|\n/g, '</p><p>') + '</p>';
+        body = body.replace(/<p>\s*<\/p>/g, '');
+        try {
+            var res = await fetch(API_BASE + "/api/admin/ticket/" + id + "/reply", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                body: JSON.stringify({ from: from, body: body })
+            });
+            if (res.status === 401) { logout(); closeModal(); return; }
+            var data = await res.json();
+            if (data.success) { document.getElementById("detailReplyBody").value = ""; alert("Reply sent!"); openTicketModal(id); loadStats(); resetAndLoad(); }
+            else { alert("Failed to send reply"); }
+        } catch (e) { alert("Error: " + e.message); }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  INIT
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (localStorage.getItem("token")) {
+        token = localStorage.getItem("token");
+        document.getElementById("login").style.display = "none";
+        document.getElementById("dashboard").style.display = "block";
+        loadEmailSenders();
+        loadCategories();
+        loadLanguages();
+        loadStats();
+        resetAndLoad();
+        checkPushStatus();
+    }
+
+    checkNotificationBanner();
+</script>
+</body>
+</html>
