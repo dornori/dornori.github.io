@@ -15,6 +15,24 @@
         .header-right button#testPushBtn { background: #3b82f6; color: #fff; border: 1px solid #3b82f6; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; display: none; }
         .header-right button#testPushBtn:hover { background: #2563eb; }
         #pushStatus { font-size: 12px; color: var(--text-muted); margin-left: 6px; }
+        .notification-permission-banner {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+            font-size: 14px;
+        }
+        .notification-permission-banner button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 5px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
@@ -41,6 +59,11 @@
                 <span id="pushStatus"></span>
                 <button onclick="logout()">Logout</button>
             </div>
+        </div>
+
+        <div id="notificationBanner" class="notification-permission-banner">
+            ⚠️ Notifications are blocked. 
+            <button onclick="requestNotificationPermission()">Enable Notifications</button>
         </div>
 
         <div class="stats" id="stats"></div>
@@ -237,11 +260,33 @@
         }
     }
 
+    function checkNotificationBanner() {
+        const banner = document.getElementById('notificationBanner');
+        if (Notification.permission === 'denied') {
+            banner.style.display = 'block';
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+
+    async function requestNotificationPermission() {
+        const result = await Notification.requestPermission();
+        if (result === 'granted') {
+            document.getElementById('notificationBanner').style.display = 'none';
+            alert('✅ Notifications enabled! Click "Enable Live Updates" to start receiving updates.');
+        } else {
+            alert('❌ Permission denied. Please enable notifications in your browser settings.');
+        }
+    }
+
     async function checkPushStatus() {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
             document.getElementById('pushButton').style.display = 'none';
             return;
         }
+        
+        checkNotificationBanner();
+        
         try {
             const registration = await navigator.serviceWorker.ready;
             const subscription = await registration.pushManager.getSubscription();
@@ -253,10 +298,28 @@
                 document.getElementById('pushStatus').textContent = 'Enabled';
                 updatePushUI(true);
             }
-        } catch (e) {}
+        } catch (e) {
+            console.log('Check push status error:', e);
+        }
     }
 
     async function togglePush() {
+        // Check notification permission first
+        if (Notification.permission === 'denied') {
+            document.getElementById('notificationBanner').style.display = 'block';
+            alert('⚠️ Notifications are blocked. Please enable them in your browser settings.');
+            return;
+        }
+        
+        if (Notification.permission === 'default') {
+            const result = await Notification.requestPermission();
+            if (result !== 'granted') {
+                alert('❌ Notification permission required for live updates');
+                return;
+            }
+            document.getElementById('notificationBanner').style.display = 'none';
+        }
+
         if (isPushEnabled) {
             if (pushSubscription) {
                 await pushSubscription.unsubscribe();
@@ -280,15 +343,31 @@
 
         try {
             // Register service worker
-            const registration = await navigator.serviceWorker.register('/admin/sw.js', { scope: '/admin/' });
+            const registration = await navigator.serviceWorker.register('/admin/sw.js', { 
+                scope: '/admin/' 
+            });
             await navigator.serviceWorker.ready;
+            
+            // Check if SW is controlling the page
+            if (!navigator.serviceWorker.controller) {
+                console.log('⚠️ SW not controlling page, refreshing...');
+                // Wait for SW to take control
+                await new Promise(resolve => {
+                    navigator.serviceWorker.addEventListener('controllerchange', resolve);
+                    setTimeout(resolve, 2000);
+                });
+                if (!navigator.serviceWorker.controller) {
+                    alert('Service Worker registration issue. Please refresh the page.');
+                    window.location.reload();
+                    return;
+                }
+            }
             
             // Get VAPID public key from server
             const keyRes = await fetch(API_BASE + '/api/push/public-key');
             const keyData = await keyRes.json();
             if (!keyData.publicKey) throw new Error('No public key');
 
-            // ✅ FIX: Convert base64 to Uint8Array (required by browser)
             const applicationServerKey = urlBase64ToUint8Array(keyData.publicKey);
             
             // Subscribe to push
@@ -370,7 +449,6 @@
     }
 
     // Listen for messages from the service worker
-    // Registered once globally — covers both already-active and newly-registered SWs
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', async function(event) {
             const data = event.data;
@@ -390,9 +468,13 @@
             }
         });
 
-        // Ensure the SW controller is claimed immediately so postMessage reaches this client
+        // Ensure the SW controller is claimed immediately
         navigator.serviceWorker.ready.then(function(reg) {
             console.log('✅ SW ready, controller:', navigator.serviceWorker.controller ? 'active' : 'none');
+            if (!navigator.serviceWorker.controller) {
+                console.log('🔄 SW not controlling page, reloading...');
+                setTimeout(() => window.location.reload(), 1000);
+            }
         });
     }
 
@@ -888,6 +970,9 @@
         resetAndLoad();
         checkPushStatus();
     }
+
+    // Check notification permission on load
+    checkNotificationBanner();
 </script>
 </body>
 </html>
