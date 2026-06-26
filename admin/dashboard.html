@@ -14,6 +14,8 @@
         .header-right button#pushButton.enabled { background: #22c55e; color: #fff; border-color: #22c55e; }
         .header-right button#testPushBtn { background: #3b82f6; color: #fff; border: 1px solid #3b82f6; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; display: none; }
         .header-right button#testPushBtn:hover { background: #2563eb; }
+        .header-right button#testEncryptionBtn { background: #8b5cf6; color: #fff; border: 1px solid #8b5cf6; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; display: none; margin-right: 6px; }
+        .header-right button#testEncryptionBtn:hover { background: #7c3aed; }
         #pushStatus { font-size: 12px; color: var(--text-muted); margin-left: 6px; }
         .notification-permission-banner {
             background: #fef3c7;
@@ -32,6 +34,25 @@
             border-radius: 4px;
             cursor: pointer;
             margin-left: 10px;
+        }
+        .test-result-popup {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            z-index: 9999;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            max-width: 400px;
+            animation: slideIn 0.3s ease;
+        }
+        .test-result-popup.success { background: #22c55e; color: white; }
+        .test-result-popup.error { background: #ef4444; color: white; }
+        .test-result-popup.info { background: #3b82f6; color: white; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
     </style>
 </head>
@@ -54,6 +75,7 @@
                 <a href="reports.html">📊 Reports</a>
                 <a href="newsletter.html">📧 Newsletter</a>
                 <a href="settings.html">⚙️ Settings</a>
+                <button id="testEncryptionBtn" onclick="testEncryption()">🔐 Test Encryption</button>
                 <button id="pushButton" onclick="togglePush()">🔔 Enable Live Updates</button>
                 <button id="testPushBtn" onclick="testPush()">📨 Test Push</button>
                 <span id="pushStatus"></span>
@@ -217,6 +239,10 @@
                 loadStats();
                 resetAndLoad();
                 checkPushStatus();
+                // Show encryption test button if push is available
+                if ('serviceWorker' in navigator && 'PushManager' in window) {
+                    document.getElementById('testEncryptionBtn').style.display = 'inline-block';
+                }
             } else {
                 errorEl.textContent = data.message || "Invalid credentials";
             }
@@ -250,13 +276,62 @@
         return outputArray;
     }
 
+    function showTestResult(message, type = 'info') {
+        const div = document.createElement('div');
+        div.className = `test-result-popup ${type}`;
+        div.textContent = message;
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 8000);
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  TEST ENCRYPTION
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function testEncryption() {
+        if (!token) {
+            showTestResult('❌ Please login first', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('testEncryptionBtn');
+        btn.textContent = '⏳ Testing...';
+        btn.disabled = true;
+
+        try {
+            showTestResult('🔐 Sending encrypted test (number 9)...', 'info');
+            
+            const res = await fetch(API_BASE + '/api/test-encryption', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            
+            const data = await res.json();
+            console.log('📊 Test encryption result:', data);
+            
+            if (data.success) {
+                showTestResult(`✅ Encryption test passed! Sent: ${JSON.stringify(data.payload_sent)}`, 'success');
+                showTestResult('📨 Check for a notification with "🔢 Test: 9"', 'info');
+            } else {
+                showTestResult(`❌ Encryption test failed: ${data.error || data.response || 'Unknown error'}`, 'error');
+            }
+        } catch (err) {
+            showTestResult(`❌ Error: ${err.message}`, 'error');
+        } finally {
+            btn.textContent = '🔐 Test Encryption';
+            btn.disabled = false;
+        }
+    }
+
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PUSH NOTIFICATIONS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function updatePushUI(enabled) {
         const testBtn = document.getElementById('testPushBtn');
+        const encBtn = document.getElementById('testEncryptionBtn');
         if (testBtn) {
             testBtn.style.display = enabled ? 'inline-block' : 'none';
+        }
+        if (encBtn) {
+            encBtn.style.display = enabled ? 'inline-block' : 'none';
         }
     }
 
@@ -273,9 +348,9 @@
         const result = await Notification.requestPermission();
         if (result === 'granted') {
             document.getElementById('notificationBanner').style.display = 'none';
-            alert('✅ Notifications enabled! Click "Enable Live Updates" to start receiving updates.');
+            showTestResult('✅ Notifications enabled! Click "Enable Live Updates" to start.', 'success');
         } else {
-            alert('❌ Permission denied. Please enable notifications in your browser settings.');
+            showTestResult('❌ Permission denied. Please enable in browser settings.', 'error');
         }
     }
 
@@ -307,14 +382,14 @@
         // Check notification permission first
         if (Notification.permission === 'denied') {
             document.getElementById('notificationBanner').style.display = 'block';
-            alert('⚠️ Notifications are blocked. Please enable them in your browser settings.');
+            showTestResult('⚠️ Notifications are blocked. Please enable them in your browser settings.', 'error');
             return;
         }
         
         if (Notification.permission === 'default') {
             const result = await Notification.requestPermission();
             if (result !== 'granted') {
-                alert('❌ Notification permission required for live updates');
+                showTestResult('❌ Notification permission required for live updates', 'error');
                 return;
             }
             document.getElementById('notificationBanner').style.display = 'none';
@@ -337,6 +412,7 @@
                 document.getElementById('pushButton').classList.remove('enabled');
                 document.getElementById('pushStatus').textContent = 'Disabled';
                 updatePushUI(false);
+                showTestResult('🔕 Live updates disabled', 'info');
             }
             return;
         }
@@ -351,13 +427,12 @@
             // Check if SW is controlling the page
             if (!navigator.serviceWorker.controller) {
                 console.log('⚠️ SW not controlling page, refreshing...');
-                // Wait for SW to take control
                 await new Promise(resolve => {
                     navigator.serviceWorker.addEventListener('controllerchange', resolve);
                     setTimeout(resolve, 2000);
                 });
                 if (!navigator.serviceWorker.controller) {
-                    alert('Service Worker registration issue. Please refresh the page.');
+                    showTestResult('Service Worker registration issue. Please refresh the page.', 'error');
                     window.location.reload();
                     return;
                 }
@@ -397,6 +472,8 @@
             document.getElementById('pushStatus').textContent = 'Enabled';
             updatePushUI(true);
             
+            showTestResult('✅ Subscribed to push notifications!', 'success');
+            
             // Auto-send test push after subscribing
             setTimeout(() => {
                 if (confirm('✅ Subscribed! Send a test notification?')) {
@@ -406,13 +483,13 @@
             
         } catch (err) {
             console.error('Push subscription error:', err);
-            alert('Push subscription failed: ' + err.message);
+            showTestResult('❌ Push subscription failed: ' + err.message, 'error');
         }
     }
 
     async function testPush() {
         if (!token) {
-            alert('Please login first');
+            showTestResult('❌ Please login first', 'error');
             return;
         }
         
@@ -420,6 +497,8 @@
             const btn = document.getElementById('testPushBtn');
             btn.textContent = '⏳ Sending...';
             btn.disabled = true;
+            
+            showTestResult('📨 Sending test push notification...', 'info');
             
             const res = await fetch(API_BASE + '/api/test-push', {
                 method: 'POST',
@@ -433,14 +512,15 @@
             console.log('Test push response:', data);
             
             if (data.success && data.sent > 0) {
-                alert('✅ Test push sent! Check if you received a notification.');
+                showTestResult(`✅ Test push sent! (${data.sent} notifications)`, 'success');
+                showTestResult('📨 Check if you received a notification.', 'info');
             } else if (data.success && data.sent === 0) {
-                alert('⚠️ No subscribers found. Click "Enable Live Updates" first.');
+                showTestResult('⚠️ No subscribers found. Click "Enable Live Updates" first.', 'error');
             } else {
-                alert('❌ Test push failed: ' + (data.message || 'Unknown error'));
+                showTestResult('❌ Test push failed: ' + (data.message || 'Unknown error'), 'error');
             }
         } catch (err) {
-            alert('❌ Error: ' + err.message);
+            showTestResult('❌ Error: ' + err.message, 'error');
         } finally {
             const btn = document.getElementById('testPushBtn');
             btn.textContent = '📨 Test Push';
@@ -453,6 +533,24 @@
         navigator.serviceWorker.addEventListener('message', async function(event) {
             const data = event.data;
             console.log('📨 Dashboard received SW message:', data);
+            
+            // Handle test pushes
+            if (data && data.action === 'testPush') {
+                console.log('🎯 TEST PUSH RECEIVED!');
+                console.log('📦 Data:', data.data);
+                console.log('📝 Raw:', data.raw);
+                
+                const testDiv = document.createElement('div');
+                testDiv.className = 'test-result-popup success';
+                testDiv.innerHTML = `✅ Test received: ${JSON.stringify(data.data)}`;
+                document.body.appendChild(testDiv);
+                setTimeout(() => testDiv.remove(), 5000);
+                
+                showTestResult(`🔢 Received test data: ${JSON.stringify(data.data)}`, 'success');
+                return;
+            }
+            
+            // Handle new tickets
             if (data && data.action === 'newTicket' && data.ticketId) {
                 try {
                     const res = await fetch(API_BASE + '/api/admin/ticket/' + data.ticketId, {
@@ -461,6 +559,7 @@
                     const response = await res.json();
                     if (response.success && response.data) {
                         handleNewTicket(response.data);
+                        showTestResult(`🎫 New ticket #${response.data.ticket_number} added!`, 'success');
                     }
                 } catch (e) {
                     console.error('Failed to fetch new ticket:', e);
@@ -487,7 +586,6 @@
         const currentStatuses = getStatusesForTab(currentTab);
         if (!currentStatuses.includes(ticket.status)) {
             updateStatsLocally(ticket.status, 1);
-            showSnackbar('New ticket in ' + ticket.status + ' tab');
             return;
         }
         const categoryFilter = document.getElementById('filterCategory').value;
@@ -540,10 +638,6 @@
                 break;
             }
         }
-    }
-
-    function showSnackbar(message) {
-        alert(message);
     }
 
     function updateLoadMoreButton() {
@@ -969,6 +1063,10 @@
         loadStats();
         resetAndLoad();
         checkPushStatus();
+        // Show encryption test button if push is available
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+            document.getElementById('testEncryptionBtn').style.display = 'inline-block';
+        }
     }
 
     // Check notification permission on load
