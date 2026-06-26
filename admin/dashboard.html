@@ -372,11 +372,21 @@
     // Listen for messages from the service worker
     // Registered once globally — covers both already-active and newly-registered SWs
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.addEventListener('message', function(event) {
+        navigator.serviceWorker.addEventListener('message', async function(event) {
             const data = event.data;
             console.log('📨 Dashboard received SW message:', data);
-            if (data && data.action === 'newTicket') {
-                handleNewTicket(data.ticket || null);
+            if (data && data.action === 'newTicket' && data.ticketId) {
+                try {
+                    const res = await fetch(API_BASE + '/api/admin/ticket/' + data.ticketId, {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    const response = await res.json();
+                    if (response.success && response.data) {
+                        handleNewTicket(response.data);
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch new ticket:', e);
+                }
             }
         });
 
@@ -388,13 +398,7 @@
 
     function handleNewTicket(ticket) {
         if (!ticket) {
-            const list = document.getElementById('ticketList');
-            const headerRow = list.querySelector('.ticket-header-row');
-            const row = document.createElement('div');
-            row.className = 'ticket-item';
-            row.innerHTML = '<span colspan="6" style="color:red;font-weight:bold;">⚠️ PUSH received — ticket data NULL</span>';
-            if (headerRow) headerRow.parentNode.insertBefore(row, headerRow.nextSibling);
-            else list.prepend(row);
+            console.warn('⚠️ handleNewTicket called with null ticket');
             return;
         }
         const ticketId = ticket.ticket_id || ticket.id;
@@ -883,27 +887,6 @@
         loadStats();
         resetAndLoad();
         checkPushStatus();
-
-        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-            navigator.serviceWorker.addEventListener('message', async function(event) {
-                console.log('📨 Dashboard received SW message:', event.data);
-                if (event.data.action === 'newTicket' && event.data.ticketId) {
-                    try {
-                        const res = await fetch(API_BASE + '/api/admin/ticket/' + event.data.ticketId, {
-                            headers: { 'Authorization': 'Bearer ' + token }
-                        });
-                        const data = await res.json();
-                        if (data.success && data.data) {
-                            loadedTickets.unshift(data.data);
-                            renderTickets();
-                            loadStats();
-                        }
-                    } catch (e) {
-                        console.error('Failed to fetch new ticket:', e);
-                    }
-                }
-            });
-        }
     }
 </script>
 </body>
