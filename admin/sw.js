@@ -1,69 +1,71 @@
 self.addEventListener('push', function(event) {
-    console.log('📨 Push received (tickle)');
+    console.log('📨 Push received');
 
-    // Fetch the latest ticket from the server
-    const fetchPromise = fetch('/api/latest-ticket')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.ticketId) {
-                console.log('📊 Latest ticket ID:', data.ticketId);
-                // Show notification with ticket details
-                return self.registration.showNotification(
-                    'New Ticket: ' + (data.ticketNumber || ''),
-                    {
-                        body: data.subject || 'A new ticket was created',
-                        icon: '/favicon.ico',
-                        data: {
-                            url: '/admin/dashboard.html',
-                            ticketId: data.ticketId
-                        },
-                        tag: 'ticket-' + data.ticketId,
-                        requireInteraction: true
-                    }
-                );
-            } else {
-                // Fallback
-                return self.registration.showNotification('New Ticket', {
-                    body: 'A new ticket was created',
-                    icon: '/favicon.ico',
-                    data: { url: '/admin/dashboard.html' }
+    let data = {};
+    try {
+        data = event.data.json();
+        console.log('✅ Parsed JSON:', JSON.stringify(data));
+    } catch(e) {
+        console.log('❌ JSON parse error:', e.message);
+        data = { 
+            title: 'New Ticket', 
+            body: 'A new ticket was created', 
+            url: '/admin/dashboard.html', 
+            ticket_id: null 
+        };
+    }
+
+    // ✅ FIX: Ensure ticket_id is properly handled
+    const ticketId = data.ticket_id || data.id || null;
+    console.log('🔑 Ticket ID from payload:', ticketId);
+
+    const notifyPromise = self.registration.showNotification(data.title || 'New Ticket', {
+        body: data.body || 'A new ticket was created',
+        icon: '/favicon.ico',
+        data: { 
+            url: data.url || '/admin/dashboard.html', 
+            ticketId: ticketId 
+        }
+    });
+
+    // Send message to all open dashboard windows
+    const messagePromise = clients.matchAll({ 
+        type: 'window', 
+        includeUncontrolled: true 
+    }).then(function(clientList) {
+        console.log('📋 Clients found:', clientList.length);
+        for (var client of clientList) {
+            console.log('🔍 Client URL:', client.url);
+            if (client.url.includes('/admin/dashboard.html') || client.url.includes('/admin/')) {
+                // ✅ FIX: Send the ticket ID properly
+                client.postMessage({ 
+                    action: 'newTicket', 
+                    ticketId: ticketId 
                 });
+                console.log('✅ postMessage sent with ticketId:', ticketId);
             }
-        })
-        .catch(err => {
-            console.error('Failed to fetch latest ticket:', err);
-            // Show generic notification
-            return self.registration.showNotification('New Ticket', {
-                body: 'A new ticket was created',
-                icon: '/favicon.ico',
-                data: { url: '/admin/dashboard.html' }
-            });
-        });
+        }
+    });
 
-    event.waitUntil(fetchPromise);
+    event.waitUntil(Promise.all([notifyPromise, messagePromise]));
 });
 
 self.addEventListener('notificationclick', function(event) {
     event.notification.close();
     
+    // ✅ FIX: Get the ticket ID from notification data
     const ticketId = event.notification.data && event.notification.data.ticketId;
-    let url = '/admin/dashboard.html';
+    let url = (event.notification.data && event.notification.data.url) || '/admin/dashboard.html';
     
+    // If we have a ticket ID, add it as a parameter
     if (ticketId) {
         url += '?ticket=' + encodeURIComponent(ticketId);
-        console.log('🔗 Opening dashboard with ticket:', ticketId);
     }
     
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
             for (var client of clientList) {
-                if (client.url.includes('/admin/dashboard.html') && 'focus' in client) {
-                    if (ticketId) {
-                        client.postMessage({ 
-                            action: 'focusTicket', 
-                            ticketId: ticketId 
-                        });
-                    }
+                if (client.url.includes('/admin/') && 'focus' in client) {
                     return client.focus();
                 }
             }
