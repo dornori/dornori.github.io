@@ -14,6 +14,8 @@
         .header-right button#pushButton.enabled { background: #22c55e; color: #fff; border-color: #22c55e; }
         .header-right button#testPushBtn { background: #3b82f6; color: #fff; border: 1px solid #3b82f6; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; display: none; }
         .header-right button#testPushBtn:hover { background: #2563eb; }
+        .header-right button#testEncryptionBtn { background: #8b5cf6; color: #fff; border: 1px solid #8b5cf6; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; display: none; margin-right: 6px; }
+        .header-right button#testEncryptionBtn:hover { background: #7c3aed; }
         #pushStatus { font-size: 12px; color: var(--text-muted); margin-left: 6px; }
         .notification-permission-banner {
             background: #fef3c7;
@@ -73,6 +75,7 @@
                 <a href="reports.html">📊 Reports</a>
                 <a href="newsletter.html">📧 Newsletter</a>
                 <a href="settings.html">⚙️ Settings</a>
+                <button id="testEncryptionBtn" onclick="testEncryption()">🔐 Test Encryption</button>
                 <button id="pushButton" onclick="togglePush()">🔔 Enable Live Updates</button>
                 <button id="testPushBtn" onclick="testPush()">📨 Test Push</button>
                 <span id="pushStatus"></span>
@@ -236,6 +239,9 @@
                 loadStats();
                 resetAndLoad();
                 checkPushStatus();
+                if ('serviceWorker' in navigator && 'PushManager' in window) {
+                    document.getElementById('testEncryptionBtn').style.display = 'inline-block';
+                }
             } else {
                 errorEl.textContent = data.message || "Invalid credentials";
             }
@@ -278,12 +284,53 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  TEST ENCRYPTION
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function testEncryption() {
+        if (!token) {
+            showTestResult('❌ Please login first', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('testEncryptionBtn');
+        btn.textContent = '⏳ Testing...';
+        btn.disabled = true;
+
+        try {
+            showTestResult('🔐 Sending encrypted test with ticket number...', 'info');
+            
+            const res = await fetch(API_BASE + '/api/test-encryption', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            
+            const data = await res.json();
+            console.log('📊 Test encryption result:', data);
+            
+            if (data.success) {
+                showTestResult(`✅ Encryption test passed! Sent: ${data.payload_sent.ticket_number}`, 'success');
+                showTestResult('📨 Check for a notification with the ticket number', 'info');
+            } else {
+                showTestResult(`❌ Encryption test failed: ${data.error || data.response || 'Unknown error'}`, 'error');
+            }
+        } catch (err) {
+            showTestResult(`❌ Error: ${err.message}`, 'error');
+        } finally {
+            btn.textContent = '🔐 Test Encryption';
+            btn.disabled = false;
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PUSH NOTIFICATIONS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function updatePushUI(enabled) {
         const testBtn = document.getElementById('testPushBtn');
+        const encBtn = document.getElementById('testEncryptionBtn');
         if (testBtn) {
             testBtn.style.display = enabled ? 'inline-block' : 'none';
+        }
+        if (encBtn) {
+            encBtn.style.display = enabled ? 'inline-block' : 'none';
         }
     }
 
@@ -474,30 +521,45 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  SERVICE WORKER MESSAGE LISTENER
+    //  SERVICE WORKER MESSAGE LISTENER - THE FIX IS HERE
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', async function(event) {
             const data = event.data;
             console.log('📨 Dashboard received SW message:', data);
-
+            
+            // ✅ When we get a ticket ID from the push, fetch the real ticket
             if (data && data.action === 'newTicket' && data.ticketId) {
                 console.log('🎫 New ticket ID received:', data.ticketId);
+                
                 try {
+                    // Fetch the real ticket from the database
                     const res = await fetch(API_BASE + '/api/admin/ticket/' + data.ticketId, {
                         headers: { 'Authorization': 'Bearer ' + token }
                     });
                     const response = await res.json();
+                    
                     if (response.success && response.data) {
+                        // Inject the real ticket into the dashboard
                         handleNewTicket(response.data);
                         showTestResult(`🎫 New ticket ${response.data.ticket_number} added!`, 'success');
                     }
                 } catch (err) {
                     console.error('Failed to fetch ticket:', err);
+                    showTestResult('❌ Failed to fetch ticket: ' + err.message, 'error');
                 }
+                return;
+            }
+            
+            // Handle test pushes
+            if (data && data.action === 'testPush') {
+                console.log('🎯 TEST PUSH RECEIVED!');
+                showTestResult(`✅ Test received: ${JSON.stringify(data.data)}`, 'success');
+                return;
             }
         });
 
+        // Ensure the SW controller is claimed immediately
         navigator.serviceWorker.ready.then(function(reg) {
             console.log('✅ SW ready, controller:', navigator.serviceWorker.controller ? 'active' : 'none');
             if (!navigator.serviceWorker.controller) {
@@ -993,6 +1055,9 @@
         loadStats();
         resetAndLoad();
         checkPushStatus();
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+            document.getElementById('testEncryptionBtn').style.display = 'inline-block';
+        }
     }
 
     checkNotificationBanner();

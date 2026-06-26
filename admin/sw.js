@@ -1,26 +1,31 @@
 self.addEventListener('push', function(event) {
     console.log('📨 Push received');
+
     let data = {};
     try {
         data = event.data.json();
-        console.log('✅ Parsed JSON, ticket:', data.ticket_number);
+        console.log('✅ Parsed JSON:', JSON.stringify(data));
     } catch(e) {
         console.log('❌ JSON parse error:', e.message);
-        data = {};
+        data = { title: 'New Ticket', body: 'A new ticket was created', url: '/admin/dashboard.html', ticket_id: null };
     }
 
-    const notifyPromise = self.registration.showNotification(data.title || '🔔 New Ticket', {
-        body: data.body || data.subject || 'A new ticket was created',
+    const ticketId = data.ticket_id || null;
+
+    const notifyPromise = self.registration.showNotification(data.title || 'New Ticket', {
+        body: data.body || 'A new ticket was created',
         icon: '/favicon.ico',
-        data: { url: data.url || '/admin/dashboard.html', ticketId: data.ticket_id || null }
+        data: { url: data.url || '/admin/dashboard.html', ticketId: ticketId }
     });
 
     const messagePromise = clients.matchAll({ type: 'window', includeUncontrolled: true })
         .then(function(clientList) {
+            console.log('📋 Clients found:', clientList.length);
             for (var client of clientList) {
-                if (client.url.includes('/admin/dashboard.html') || client.url.includes('dashboard.html')) {
-                    client.postMessage({ action: 'newTicket', ticketId: data.ticket_id || null });
-                    console.log('✅ postMessage sent, ticketId:', data.ticket_id);
+                console.log('🔍 Client URL:', client.url);
+                if (client.url.includes('/admin/dashboard.html')) {
+                    client.postMessage({ action: 'newTicket', ticketId: ticketId });
+                    console.log('✅ postMessage sent, ticketId:', ticketId);
                 }
             }
         });
