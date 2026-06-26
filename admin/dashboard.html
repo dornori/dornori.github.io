@@ -298,7 +298,7 @@
         btn.disabled = true;
 
         try {
-            showTestResult('🔐 Sending encrypted test (number 9)...', 'info');
+            showTestResult('🔐 Sending encrypted test with ticket number...', 'info');
             
             const res = await fetch(API_BASE + '/api/test-encryption', {
                 headers: { 'Authorization': 'Bearer ' + token }
@@ -308,8 +308,8 @@
             console.log('📊 Test encryption result:', data);
             
             if (data.success) {
-                showTestResult(`✅ Encryption test passed! Sent: ${JSON.stringify(data.payload_sent)}`, 'success');
-                showTestResult('📨 Check for a notification with "🔢 Test: 9"', 'info');
+                showTestResult(`✅ Encryption test passed! Sent: ${data.payload_sent.ticket_number}`, 'success');
+                showTestResult('📨 Check for a notification with the ticket number', 'info');
             } else {
                 showTestResult(`❌ Encryption test failed: ${data.error || data.response || 'Unknown error'}`, 'error');
             }
@@ -528,42 +528,33 @@
         }
     }
 
-    // Listen for messages from the service worker
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  SERVICE WORKER MESSAGE LISTENER
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', async function(event) {
             const data = event.data;
             console.log('📨 Dashboard received SW message:', data);
             
+            // ✅ Handle new ticket - inject directly into dashboard
+            if (data && data.action === 'newTicket' && data.ticket) {
+                console.log('🎫 New ticket received via push:', data.ticket.ticket_number);
+                
+                // Inject the ticket directly into the dashboard
+                handleNewTicket(data.ticket);
+                
+                // Show a quick notification on the page
+                showTestResult(`🎫 New ticket ${data.ticket.ticket_number} added!`, 'success');
+                return;
+            }
+            
             // Handle test pushes
             if (data && data.action === 'testPush') {
                 console.log('🎯 TEST PUSH RECEIVED!');
                 console.log('📦 Data:', data.data);
-                console.log('📝 Raw:', data.raw);
                 
-                const testDiv = document.createElement('div');
-                testDiv.className = 'test-result-popup success';
-                testDiv.innerHTML = `✅ Test received: ${JSON.stringify(data.data)}`;
-                document.body.appendChild(testDiv);
-                setTimeout(() => testDiv.remove(), 5000);
-                
-                showTestResult(`🔢 Received test data: ${JSON.stringify(data.data)}`, 'success');
+                showTestResult(`✅ Test received: ${JSON.stringify(data.data)}`, 'success');
                 return;
-            }
-            
-            // Handle new tickets
-            if (data && data.action === 'newTicket' && data.ticketId) {
-                try {
-                    const res = await fetch(API_BASE + '/api/admin/ticket/' + data.ticketId, {
-                        headers: { 'Authorization': 'Bearer ' + token }
-                    });
-                    const response = await res.json();
-                    if (response.success && response.data) {
-                        handleNewTicket(response.data);
-                        showTestResult(`🎫 New ticket #${response.data.ticket_number} added!`, 'success');
-                    }
-                } catch (e) {
-                    console.error('Failed to fetch new ticket:', e);
-                }
             }
         });
 
