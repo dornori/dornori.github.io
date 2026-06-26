@@ -370,16 +370,25 @@
     }
 
     // Listen for messages from the service worker
+    // Registered once globally — covers both already-active and newly-registered SWs
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', function(event) {
             const data = event.data;
+            console.log('📨 Dashboard received SW message:', data);
             if (data && data.action === 'newTicket') {
                 handleNewTicket(data.ticket);
             }
         });
+
+        // Ensure the SW controller is claimed immediately so postMessage reaches this client
+        navigator.serviceWorker.ready.then(function(reg) {
+            console.log('✅ SW ready, controller:', navigator.serviceWorker.controller ? 'active' : 'none');
+        });
     }
 
     function handleNewTicket(ticket) {
+        // Support both id shapes from different push payload sources
+        const ticketId = ticket.ticket_id || ticket.id;
         const currentStatuses = getStatusesForTab(currentTab);
         if (!currentStatuses.includes(ticket.status)) {
             updateStatsLocally(ticket.status, 1);
@@ -403,7 +412,7 @@
 
         const row = document.createElement('div');
         row.className = 'ticket-item';
-        row.setAttribute('onclick', 'openTicketModal(' + ticket.id + ')');
+        row.setAttribute('onclick', 'openTicketModal(' + ticketId + ')');
         row.innerHTML = `
             <span class="cat-cell"><span class="cat-dot" style="background:${catColor};"></span><span class="cat-name">${escapeHtml(catLabel)}</span></span>
             <span class="sla-cell"><span class="sla-dot" style="background:#22c55e;"></span><span class="sla-label">On track</span></span>
