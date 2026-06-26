@@ -5,6 +5,7 @@ self.addEventListener('push', function(event) {
     try {
         data = event.data.json();
     } catch(e) {
+        console.log('❌ JSON parse error:', e.message, '| raw text:', event.data ? event.data.text() : 'no data');
         data = { title: 'New Ticket', body: 'A new ticket was created', url: '/admin/dashboard.html', ticket: null };
     }
 
