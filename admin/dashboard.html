@@ -194,6 +194,7 @@
                 loadStats();
                 resetAndLoad();
                 checkPushStatus();
+                checkUrlForTicket(); // Check for ticket in URL
             } else {
                 errorEl.textContent = data.message || "Invalid credentials";
             }
@@ -288,16 +289,13 @@
             const keyData = await keyRes.json();
             if (!keyData.publicKey) throw new Error('No public key');
 
-            // ✅ FIX: Convert base64 to Uint8Array (required by browser)
             const applicationServerKey = urlBase64ToUint8Array(keyData.publicKey);
             
-            // Subscribe to push
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: applicationServerKey
             });
 
-            // Save subscription to server
             const saveRes = await fetch(API_BASE + '/api/push/subscribe', {
                 method: 'POST',
                 headers: { 
@@ -318,7 +316,6 @@
             document.getElementById('pushStatus').textContent = 'Enabled';
             updatePushUI(true);
             
-            // Auto-send test push after subscribing
             setTimeout(() => {
                 if (confirm('✅ Subscribed! Send a test notification?')) {
                     testPush();
@@ -369,15 +366,17 @@
         }
     }
 
-    // Listen for messages from the service worker
-    // Registered once globally — covers both already-active and newly-registered SWs
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  HANDLE TICKET FOCUS FROM SERVICE WORKER
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', async function(event) {
             const data = event.data;
             console.log('📨 Dashboard received SW message:', data);
+            
             if (data && data.action === 'newTicket' && data.ticketId) {
                 try {
-                    // ✅ FIX: Use ticketId directly, it could be a number or string
                     const res = await fetch(API_BASE + '/api/admin/ticket/' + data.ticketId, {
                         headers: { 'Authorization': 'Bearer ' + token }
                     });
@@ -389,9 +388,15 @@
                     console.error('Failed to fetch new ticket:', e);
                 }
             }
+            
+            if (data && data.action === 'focusTicket' && data.ticketId) {
+                console.log('🎯 Focusing on ticket:', data.ticketId);
+                setTimeout(function() {
+                    openTicketModal(data.ticketId);
+                }, 500);
+            }
         });
 
-        // Ensure the SW controller is claimed immediately so postMessage reaches this client
         navigator.serviceWorker.ready.then(function(reg) {
             console.log('✅ SW ready, controller:', navigator.serviceWorker.controller ? 'active' : 'none');
         });
@@ -402,7 +407,6 @@
             console.warn('⚠️ handleNewTicket called with null ticket');
             return;
         }
-        // ✅ FIX: Use the correct ID field
         const ticketId = ticket.id || ticket.ticket_id || ticket.ticket_number;
         console.log('📊 Handling new ticket with ID:', ticketId);
         
@@ -708,9 +712,7 @@
         var content = document.getElementById("modalContent");
         content.innerHTML = '<div class="loading">Loading...</div>';
         try {
-            // ✅ FIX: Handle both numeric IDs and ticket numbers
-            let url = API_BASE + "/api/admin/ticket/" + id;
-            var res = await fetch(url, {
+            var res = await fetch(API_BASE + "/api/admin/ticket/" + id, {
                 headers: { "Authorization": "Bearer " + token }
             });
             if (res.status === 401) { logout(); closeModal(); return; }
@@ -881,6 +883,21 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  CHECK URL FOR TICKET ID
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function checkUrlForTicket() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const ticketId = urlParams.get('ticket');
+        if (ticketId) {
+            console.log('🎯 Found ticket in URL:', ticketId);
+            setTimeout(function() {
+                openTicketModal(ticketId);
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }, 1500);
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  INIT
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (localStorage.getItem("token")) {
@@ -893,6 +910,7 @@
         loadStats();
         resetAndLoad();
         checkPushStatus();
+        checkUrlForTicket(); // Check URL for ticket ID
     }
 </script>
 </body>
