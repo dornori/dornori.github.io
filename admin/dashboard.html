@@ -883,6 +883,27 @@
         loadStats();
         resetAndLoad();
         checkPushStatus();
+
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.addEventListener('message', async function(event) {
+                console.log('📨 Dashboard received SW message:', event.data);
+                if (event.data.action === 'newTicket' && event.data.ticketId) {
+                    try {
+                        const res = await fetch(API_BASE + '/api/admin/ticket/' + event.data.ticketId, {
+                            headers: { 'Authorization': 'Bearer ' + token }
+                        });
+                        const data = await res.json();
+                        if (data.success && data.data) {
+                            loadedTickets.unshift(data.data);
+                            renderTickets();
+                            loadStats();
+                        }
+                    } catch (e) {
+                        console.error('Failed to fetch new ticket:', e);
+                    }
+                }
+            });
+        }
     }
 </script>
 </body>

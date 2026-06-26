@@ -1,22 +1,21 @@
-```javascript
 self.addEventListener('push', function(event) {
     console.log('📨 Push received');
 
     let data = {};
     try {
         data = event.data.json();
-        console.log('✅ Parsed JSON keys:', Object.keys(data));
+        console.log('✅ Parsed JSON:', JSON.stringify(data));
     } catch(e) {
-        console.log('❌ JSON parse error:', e.message, '| raw text:', event.data ? event.data.text() : 'no data');
-        data = { title: 'New Ticket', body: 'A new ticket was created', url: '/admin/dashboard.html', ticket: null };
+        console.log('❌ JSON parse error:', e.message);
+        data = { title: 'New Ticket', body: 'A new ticket was created', url: '/admin/dashboard.html', ticket_id: null };
     }
 
-    const ticket = data.ticket || null;
+    const ticketId = data.ticket_id || null;
 
     const notifyPromise = self.registration.showNotification(data.title || 'New Ticket', {
         body: data.body || 'A new ticket was created',
         icon: '/favicon.ico',
-        data: { url: data.url || '/admin/dashboard.html' }
+        data: { url: data.url || '/admin/dashboard.html', ticketId: ticketId }
     });
 
     const messagePromise = clients.matchAll({ type: 'window', includeUncontrolled: true })
@@ -25,8 +24,8 @@ self.addEventListener('push', function(event) {
             for (var client of clientList) {
                 console.log('🔍 Client URL:', client.url);
                 if (client.url.includes('/admin/dashboard.html')) {
-                    client.postMessage({ action: 'newTicket', ticket: ticket });
-                    console.log('✅ postMessage sent');
+                    client.postMessage({ action: 'newTicket', ticketId: ticketId });
+                    console.log('✅ postMessage sent, ticketId:', ticketId);
                 }
             }
         });
@@ -63,4 +62,3 @@ self.addEventListener('install', function(event) {
 self.addEventListener('activate', function(event) {
     event.waitUntil(clients.claim());
 });
-```
