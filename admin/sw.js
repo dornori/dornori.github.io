@@ -1,9 +1,11 @@
+```javascript
 self.addEventListener('push', function(event) {
     console.log('📨 Push received');
 
     let data = {};
     try {
         data = event.data.json();
+        console.log('✅ Parsed JSON keys:', Object.keys(data));
     } catch(e) {
         console.log('❌ JSON parse error:', e.message, '| raw text:', event.data ? event.data.text() : 'no data');
         data = { title: 'New Ticket', body: 'A new ticket was created', url: '/admin/dashboard.html', ticket: null };
@@ -61,3 +63,4 @@ self.addEventListener('install', function(event) {
 self.addEventListener('activate', function(event) {
     event.waitUntil(clients.claim());
 });
+```
