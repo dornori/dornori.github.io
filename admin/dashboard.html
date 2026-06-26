@@ -377,6 +377,7 @@
             console.log('📨 Dashboard received SW message:', data);
             if (data && data.action === 'newTicket' && data.ticketId) {
                 try {
+                    // ✅ FIX: Use ticketId directly, it could be a number or string
                     const res = await fetch(API_BASE + '/api/admin/ticket/' + data.ticketId, {
                         headers: { 'Authorization': 'Bearer ' + token }
                     });
@@ -401,7 +402,10 @@
             console.warn('⚠️ handleNewTicket called with null ticket');
             return;
         }
-        const ticketId = ticket.ticket_id || ticket.id;
+        // ✅ FIX: Use the correct ID field
+        const ticketId = ticket.id || ticket.ticket_id || ticket.ticket_number;
+        console.log('📊 Handling new ticket with ID:', ticketId);
+        
         const currentStatuses = getStatusesForTab(currentTab);
         if (!currentStatuses.includes(ticket.status)) {
             updateStatsLocally(ticket.status, 1);
@@ -704,7 +708,9 @@
         var content = document.getElementById("modalContent");
         content.innerHTML = '<div class="loading">Loading...</div>';
         try {
-            var res = await fetch(API_BASE + "/api/admin/ticket/" + id, {
+            // ✅ FIX: Handle both numeric IDs and ticket numbers
+            let url = API_BASE + "/api/admin/ticket/" + id;
+            var res = await fetch(url, {
                 headers: { "Authorization": "Bearer " + token }
             });
             if (res.status === 401) { logout(); closeModal(); return; }
