@@ -1,5 +1,10 @@
-// ─── SERVICE WORKER CONTENT ─────────────────────────────────
-const SW_CONTENT = `
+// Changes to sw.js v1.1:
+// SIMPLIFIED: Removed test payload logging
+// KEPT: Real ticket push notification handling
+
+// REPLACE this section in sw.js (around line 1 - the push event listener):
+
+/*
 self.addEventListener('push', function(event) {
     console.log('📨 Push received');
     console.log('📦 Raw event.data:', event.data);
@@ -33,79 +38,89 @@ self.addEventListener('push', function(event) {
     let notificationBody = 'A new ticket was created';
     
     if (data.ticket_number) {
-        notificationTitle = '🔔 New Ticket ' + data.ticket_number;
+        notificationTitle = '🔔 Ticket ' + data.ticket_number;
         notificationBody = data.body || data.subject || 'New ticket received';
-    } else if (data.test !== undefined) {
-        notificationTitle = '🔢 Test: ' + data.test;
-        notificationBody = JSON.stringify(data);
     }
 
     const notifyPromise = self.registration.showNotification(notificationTitle, {
         body: notificationBody,
         icon: '/favicon.ico',
         data: { 
-            url: data.url || '/admin/dashboard.html', 
+            url: '/admin/dashboard.html', 
             ticketId: data.ticket_id || null,
             ticketNumber: data.ticket_number || null
         }
     });
 
-    // ✅ Send the FULL ticket data to the dashboard
     const messagePromise = clients.matchAll({ type: 'window', includeUncontrolled: true })
         .then(function(clientList) {
             console.log('📋 Clients found:', clientList.length);
             for (var client of clientList) {
                 if (client.url.includes('/admin/dashboard.html') || client.url.includes('dashboard.html')) {
-                    // Send the full ticket data
                     client.postMessage({ 
-                        action: 'newTicket',
-                        ticket: {
-                            id: data.ticket_id,
-                            ticket_id: data.ticket_id,
-                            ticket_number: data.ticket_number,
-                            category: data.category || 'support',
-                            status: data.status || 'new',
-                            subject: data.body || data.subject || 'New ticket',
-                            sender_email: data.sender_email || 'unknown@example.com',
-                            created_at: new Date().toISOString(),
-                            language: data.language || 'en'
-                        }
+                        action: data.ticket_id ? 'newTicket' : 'push',
+                        ticketId: data.ticket_id || null,
+                        data: data
                     });
-                    console.log('✅ postMessage sent with ticket data:', data.ticket_number);
+                    console.log('✅ postMessage sent:', data.ticket_id ? 'newTicket' : 'push');
                 }
             }
         });
 
     event.waitUntil(Promise.all([notifyPromise, messagePromise]));
 });
+*/
 
-self.addEventListener('notificationclick', function(event) {
-    event.notification.close();
-    const url = (event.notification.data && event.notification.data.url) || '/admin/dashboard.html';
-    event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+// WITH THIS (no test payload handling, just real tickets):
+/*
+self.addEventListener('push', function(event) {
+    console.log('📨 Push received');
+    
+    let data = {};
+    
+    if (event.data) {
+        try {
+            data = event.data.json();
+            console.log('✅ Decrypted payload:', data.ticket_number);
+        } catch(e) {
+            console.log('❌ JSON parse error:', e.message);
+            data = {};
+        }
+    }
+
+    // Show notification
+    let notificationTitle = '🔔 New Ticket';
+    let notificationBody = 'A new ticket was created';
+    
+    if (data.ticket_number) {
+        notificationTitle = '🔔 Ticket ' + data.ticket_number;
+        notificationBody = data.subject || 'New ticket received';
+    }
+
+    const notifyPromise = self.registration.showNotification(notificationTitle, {
+        body: notificationBody,
+        icon: '/favicon.ico',
+        data: { 
+            url: '/admin/dashboard.html', 
+            ticketId: data.ticket_id || null,
+            ticketNumber: data.ticket_number || null
+        }
+    });
+
+    const messagePromise = clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then(function(clientList) {
             for (var client of clientList) {
-                if (client.url.includes('/admin/dashboard.html') && 'focus' in client) {
-                    return client.focus();
+                if (client.url.includes('/admin/dashboard.html') || client.url.includes('dashboard.html')) {
+                    client.postMessage({ 
+                        action: 'newTicket',
+                        ticketId: data.ticket_id || null,
+                        data: data
+                    });
+                    console.log('✅ Sent newTicket to dashboard');
                 }
             }
-            if (clients.openWindow) return clients.openWindow(url);
-        })
-    );
-});
+        });
 
-self.addEventListener('message', function(event) {
-    console.log('📨 SW received message:', event.data);
-    if (event.data.action === 'ping') {
-        event.source.postMessage({ action: 'pong', message: 'SW is ready' });
-    }
+    event.waitUntil(Promise.all([notifyPromise, messagePromise]));
 });
-
-self.addEventListener('install', function(event) {
-    self.skipWaiting();
-});
-
-self.addEventListener('activate', function(event) {
-    event.waitUntil(clients.claim());
-});
-`;
+*/
