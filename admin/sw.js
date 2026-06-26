@@ -10,25 +10,25 @@ self.addEventListener('push', function(event) {
 
     const ticket = data.ticket || null;
 
-    // Combine notification + client message into one promise chain
-    event.waitUntil(
-        self.registration.showNotification(data.title || 'New Ticket', {
-            body: data.body || 'A new ticket was created',
-            icon: '/favicon.ico',
-            data: { url: data.url || '/admin/dashboard.html' }
-        }).then(function() {
-            if (!ticket) return;
-            return clients.matchAll({ type: 'window', includeUncontrolled: true })
-                .then(function(clientList) {
-                    for (var client of clientList) {
-                        if (client.url.includes('/admin/dashboard.html')) {
-                            client.postMessage({ action: 'newTicket', ticket: ticket });
-                            console.log('✅ Message sent to dashboard client');
-                        }
-                    }
-                });
-        })
-    );
+    const notifyPromise = self.registration.showNotification(data.title || 'New Ticket', {
+        body: data.body || 'A new ticket was created',
+        icon: '/favicon.ico',
+        data: { url: data.url || '/admin/dashboard.html' }
+    });
+
+    const messagePromise = clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then(function(clientList) {
+            console.log('📋 Clients found:', clientList.length);
+            for (var client of clientList) {
+                console.log('🔍 Client URL:', client.url);
+                if (client.url.includes('/admin/dashboard.html')) {
+                    client.postMessage({ action: 'newTicket', ticket: ticket });
+                    console.log('✅ postMessage sent');
+                }
+            }
+        });
+
+    event.waitUntil(Promise.all([notifyPromise, messagePromise]));
 });
 
 self.addEventListener('notificationclick', function(event) {

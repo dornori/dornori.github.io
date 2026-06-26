@@ -376,7 +376,7 @@
             const data = event.data;
             console.log('📨 Dashboard received SW message:', data);
             if (data && data.action === 'newTicket') {
-                handleNewTicket(data.ticket);
+                handleNewTicket(data.ticket || null);
             }
         });
 
@@ -387,7 +387,16 @@
     }
 
     function handleNewTicket(ticket) {
-        // Support both id shapes from different push payload sources
+        if (!ticket) {
+            const list = document.getElementById('ticketList');
+            const headerRow = list.querySelector('.ticket-header-row');
+            const row = document.createElement('div');
+            row.className = 'ticket-item';
+            row.innerHTML = '<span colspan="6" style="color:red;font-weight:bold;">⚠️ PUSH received — ticket data NULL</span>';
+            if (headerRow) headerRow.parentNode.insertBefore(row, headerRow.nextSibling);
+            else list.prepend(row);
+            return;
+        }
         const ticketId = ticket.ticket_id || ticket.id;
         const currentStatuses = getStatusesForTab(currentTab);
         if (!currentStatuses.includes(ticket.status)) {
