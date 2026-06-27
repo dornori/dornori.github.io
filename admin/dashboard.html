@@ -164,9 +164,45 @@
             const data = await res.json();
             if (data.success && data.notifications && data.notifications.length > 0) {
                 console.log('📬 Notifications received:', data.notifications);
+                
+                // Inject ticket data into loaded tickets if on active tab and status matches
+                const activeStatuses = getStatusesForTab(currentTab);
                 for (const notif of data.notifications) {
+                    // Show notification
                     const action = notif.event === 'created' ? '🆕' : '📝';
-                    showNotification(`${action} Ticket ${notif.ticketId}`, `${notif.event === 'created' ? 'Created' : 'Updated'}. Click Refresh to view.`);
+                    showNotification(
+                        `${action} Ticket ${notif.id}: ${notif.subject}`,
+                        `${notif.category} | ${notif.sla_status} | ${notif.status}`
+                    );
+                    
+                    // If on active tab and status matches, add to visible list
+                    if (activeStatuses.includes(notif.status)) {
+                        const existingIdx = loadedTickets.findIndex(t => t.ticket_id === notif.id);
+                        const ticketItem = {
+                            ticket_id: notif.id,
+                            category: notif.category,
+                            sla_status: notif.sla_status,
+                            status: notif.status,
+                            subject: notif.subject,
+                            sender_email: notif.sender_email,
+                            created_at: notif.created_at,
+                            updated_at: notif.updated_at
+                        };
+                        
+                        if (existingIdx >= 0) {
+                            // Update existing ticket
+                            loadedTickets[existingIdx] = ticketItem;
+                        } else if (notif.event === 'created') {
+                            // Add new ticket to top of list
+                            loadedTickets.unshift(ticketItem);
+                        }
+                    }
+                }
+                
+                // Re-render if we injected any tickets
+                if (loadedTickets.length > 0) {
+                    renderTickets(loadedTickets);
+                    loadStats();
                 }
             }
         } catch (e) {
