@@ -50,6 +50,20 @@
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
+        .ws-status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        .ws-status-indicator.connected { background: #22c55e; }
+        .ws-status-indicator.disconnected { background: #ef4444; }
+        .ws-status-indicator.connecting { background: #eab308; animation: pulse 1s infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
     </style>
 </head>
 <body>
@@ -63,7 +77,7 @@
         <div id="loginLoading" class="loading">⏳ Logging in...</div>
     </div>
 
-    <div id="dashboard">
+    <div id="dashboard" style="display:none;">
         <div class="header">
             <h1>🎫 Dornori Ticketing</h1>
             <div class="header-right">
@@ -72,8 +86,7 @@
                 <a href="newsletter.html">📧 Newsletter</a>
                 <a href="settings.html">⚙️ Settings</a>
                 <button id="wsButton" onclick="toggleWS()">🔌 Connect Live</button>
-                <button onclick="testWSBroadcast()" style="background: #3b82f6; color: white; border: none; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; margin-left: 4px;">📨 Test WS</button>
-                <span id="wsStatus"></span>
+                <span id="wsStatus"><span class="ws-status-indicator disconnected" id="wsIndicator"></span> Disconnected</span>
                 <button onclick="logout()">Logout</button>
             </div>
         </div>
@@ -153,73 +166,116 @@
     var currentLimit = 50;
     var currentTotal = 0;
     var loadedTickets = [];
-    let pushSubscription = null;
-    let isPushEnabled = false;
     let ws = null;
+    let wsReconnectTimer = null;
 
     // ─── WEBSOCKET MANAGEMENT ────────────────────────────────
+    function updateWSStatus(status, message) {
+        const indicator = document.getElementById('wsIndicator');
+        const statusText = document.getElementById('wsStatus');
+        if (indicator) {
+            indicator.className = 'ws-status-indicator ' + status;
+        }
+        if (statusText) {
+            const statusMap = {
+                'connected': '🟢 Connected',
+                'disconnected': '🔴 Disconnected',
+                'connecting': '🟡 Connecting...',
+                'error': '🔴 Error'
+            };
+            statusText.innerHTML = `<span class="ws-status-indicator ${status}"></span> ${statusMap[status] || message || status}`;
+        }
+        const btn = document.getElementById('wsButton');
+        if (btn) {
+            if (status === 'connected') {
+                btn.classList.add('connected');
+                btn.textContent = '🔌 Disconnect';
+            } else {
+                btn.classList.remove('connected');
+                btn.textContent = '🔌 Connect Live';
+            }
+        }
+    }
+
     function connectWS() {
         if (ws && ws.readyState === WebSocket.OPEN) return;
+        if (ws && ws.readyState === WebSocket.CONNECTING) return;
 
-        const wsUrl = API_BASE.replace('https:', 'wss:').replace('http:', 'ws:') + '/api/ws?token=' + encodeURIComponent(token || '');
-        console.log('🔌 Connecting to WS…');
+        if (!token) {
+            console.log('⚠️ No token, skipping WS connection');
+            return;
+        }
 
-        ws = new WebSocket(wsUrl);
+        updateWSStatus('connecting', 'Connecting...');
+        const wsUrl = API_BASE.replace('https:', 'wss:').replace('http:', 'ws:') + '/api/ws?token=' + encodeURIComponent(token);
+        console.log('🔌 Connecting to WS:', wsUrl);
 
-        ws.addEventListener('open', () => {
-            console.log('✅ WebSocket connected');
-            document.getElementById('wsButton')?.classList.add('connected');
-            const wsStatus = document.getElementById('wsStatus');
-            if (wsStatus) wsStatus.textContent = '🟢 Connected';
-            showNotification('✅ Live Updates Connected', 'WebSocket is now active');
-        });
+        try {
+            ws = new WebSocket(wsUrl);
 
-        ws.addEventListener('message', (event) => {
-            try {
-                const msg = JSON.parse(event.data);
-                console.log('📨 WS Message received:', msg);
+            ws.addEventListener('open', () => {
+                console.log('✅ WebSocket connected');
+                updateWSStatus('connected', 'Connected');
+                showNotification('✅ Live Updates Connected', 'WebSocket is now active');
+            });
+
+            ws.addEventListener('message', (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    console.log('📨 WS Message received:', msg);
+                    
+                    if (msg.type === 'newTicket') {
+                        console.log('🎫 New ticket from WS:', msg.ticket);
+                        onNewTicket(msg.ticket);
+                    } else if (msg.type === 'ticketUpdate') {
+                        console.log('📝 Ticket update from WS:', msg.ticket);
+                        onTicketUpdate(msg.ticket);
+                    }
+                } catch (e) {
+                    console.error('Failed to parse WS message:', e);
+                }
+            });
+
+            ws.addEventListener('close', (event) => {
+                console.log('❌ WebSocket disconnected, code:', event.code, 'reason:', event.reason);
+                updateWSStatus('disconnected', 'Disconnected');
+                ws = null;
                 
-                if (msg.type === 'newTicket') {
-                    console.log('🎫 New ticket from WS:', msg.ticket);
-                    onNewTicket(msg.ticket);
-                } else if (msg.type === 'ticketUpdate') {
-                    console.log('📝 Ticket update from WS:', msg.ticket);
-                    onTicketUpdate(msg.ticket);
+                // Auto-reconnect after delay
+                if (token) {
+                    if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+                    wsReconnectTimer = setTimeout(() => {
+                        console.log('🔄 Attempting WS reconnect...');
+                        connectWS();
+                    }, 5000);
                 }
-            } catch (e) {
-                console.error('Failed to parse WS message:', e);
-            }
-        });
+            });
 
-        ws.addEventListener('close', () => {
-            console.log('❌ WebSocket disconnected');
-            document.getElementById('wsButton')?.classList.remove('connected');
-            const wsStatus = document.getElementById('wsStatus');
-            if (wsStatus) wsStatus.textContent = '🔴 Disconnected';
-            
-            setTimeout(() => {
-                if (token && (!ws || ws.readyState !== WebSocket.OPEN)) {
-                    console.log('🔄 Attempting WS reconnect...');
-                    connectWS();
-                }
-            }, 3000);
-        });
-
-        ws.addEventListener('error', (err) => {
-            console.error('❌ WebSocket error:', err);
-            const wsStatus = document.getElementById('wsStatus');
-            if (wsStatus) wsStatus.textContent = '🔴 Error';
-        });
+            ws.addEventListener('error', (err) => {
+                console.error('❌ WebSocket error:', err);
+                updateWSStatus('error', 'Error');
+                // The close event will handle cleanup
+            });
+        } catch (e) {
+            console.error('❌ Failed to create WebSocket:', e);
+            updateWSStatus('error', 'Failed to connect');
+        }
     }
 
     function disconnectWS() {
+        if (wsReconnectTimer) {
+            clearTimeout(wsReconnectTimer);
+            wsReconnectTimer = null;
+        }
         if (ws) {
-            ws.close();
+            try {
+                ws.close(1000, 'User disconnected');
+            } catch (e) {
+                console.error('Error closing WS:', e);
+            }
             ws = null;
         }
-        document.getElementById('wsButton')?.classList.remove('connected');
-        const wsStatus = document.getElementById('wsStatus');
-        if (wsStatus) wsStatus.textContent = '';
+        updateWSStatus('disconnected', 'Disconnected');
     }
 
     function toggleWS() {
@@ -252,11 +308,10 @@
             });
             const data = await res.json();
             if (data.success) {
-                showNotification('✅ Test Ticket Created', data.ticketNumber);
+                showNotification('✅ Test Ticket Created', data.ticketNumber || 'Ticket created');
                 console.log('📤 Test ticket created:', data);
-                // CF Workers are stateless — WS connections live in a different isolate
-                // than the request that creates the ticket, so we trigger the update directly
-                onNewTicket({ ticket_number: data.ticketNumber, id: data.ticketId, subject: 'WebSocket Test Ticket' });
+                // Reload tickets to show the new one
+                resetAndLoad();
             } else {
                 showNotification('❌ Error', data.error || 'Failed to create test ticket');
             }
@@ -266,26 +321,31 @@
         }
     }
 
-    function toggleWS() {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            disconnectWS();
-        } else {
-            connectWS();
-        }
-    }
-
     function onNewTicket(ticket) {
         console.log('🎫 New ticket received:', ticket);
-        loadTickets();
-        showNotification(`🔔 New Ticket ${ticket.ticket_number}`, ticket.subject || 'New ticket received');
+        // Reload tickets to show the new one
+        resetAndLoad();
+        showNotification(`🔔 New Ticket ${ticket.ticket_number || ''}`, ticket.subject || 'New ticket received');
     }
 
     function onTicketUpdate(ticket) {
         console.log('📝 Ticket updated:', ticket);
-        loadTickets();
+        // Reload tickets to show the update
+        resetAndLoad();
+        showNotification(`📝 Ticket Updated ${ticket.ticket_number || ''}`, `Status: ${ticket.status || 'updated'}`);
     }
 
     function showNotification(title, body) {
+        // Also show browser notification if permitted
+        if (Notification.permission === 'granted') {
+            try {
+                new Notification(title, { body: body, icon: '🔔' });
+            } catch (e) {
+                // Silently fail
+            }
+        }
+        
+        // Show in-app notification
         const popup = document.createElement('div');
         popup.className = 'test-result-popup info';
         popup.textContent = `${title} — ${body}`;
@@ -295,7 +355,7 @@
             popup.style.opacity = '0';
             popup.style.transition = 'opacity 0.3s';
             setTimeout(() => popup.remove(), 300);
-        }, 3000);
+        }, 4000);
     }
 
     function getStatusesForTab(tab) {
@@ -358,7 +418,7 @@
         loadingEl.classList.add("active");
         btn.disabled = true;
         btn.textContent = "🔐 Logging in...";
-        showNotification("🔐 Logging in", "Authenticating your credentials...");
+        
         try {
             var res = await fetch(API_BASE + "/api/admin/login", {
                 method: "POST",
@@ -369,7 +429,6 @@
             if (data.success) {
                 token = data.token;
                 localStorage.setItem("token", token);
-                showNotification("✅ Login Successful", "Loading dashboard...");
                 console.log('✅ Login successful for:', email);
                 document.getElementById("login").style.display = "none";
                 document.getElementById("dashboard").style.display = "block";
@@ -378,8 +437,9 @@
                 await loadLanguages();
                 loadStats();
                 resetAndLoad();
-                connectWS();
-                showNotification("✅ Dashboard Ready", "Connected to live updates");
+                // Connect WebSocket after login
+                setTimeout(connectWS, 500);
+                showNotification("✅ Login Successful", "Welcome to Dornori Ticketing");
             } else {
                 errorEl.textContent = data.message || "Invalid credentials";
                 showNotification("❌ Login Failed", data.message || "Invalid credentials");
@@ -401,81 +461,12 @@
         disconnectWS();
         document.getElementById("login").style.display = "block";
         document.getElementById("dashboard").style.display = "none";
+        showNotification("👋 Logged Out", "See you next time!");
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  PUSH NOTIFICATIONS - HELPER
+    //  NOTIFICATIONS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function urlBase64ToUint8Array(base64String) {
-        const padding = '='.repeat((4 - base64String.length % 4) % 4);
-        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-        const rawData = atob(base64);
-        const outputArray = new Uint8Array(rawData.length);
-        for (let i = 0; i < rawData.length; ++i) {
-            outputArray[i] = rawData.charCodeAt(i);
-        }
-        return outputArray;
-    }
-
-    function showTestResult(message, type = 'info') {
-        const div = document.createElement('div');
-        div.className = `test-result-popup ${type}`;
-        div.textContent = message;
-        document.body.appendChild(div);
-        setTimeout(() => div.remove(), 8000);
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  TEST ENCRYPTION
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function testEncryption() {
-        if (!token) {
-            showTestResult('❌ Please login first', 'error');
-            return;
-        }
-
-        const btn = document.getElementById('testEncryptionBtn');
-        btn.textContent = '⏳ Testing...';
-        btn.disabled = true;
-
-        try {
-            showTestResult('🔐 Sending encrypted test (number 9)...', 'info');
-            
-            const res = await fetch(API_BASE + '/api/test-encryption', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            
-            const data = await res.json();
-            console.log('📊 Test encryption result:', data);
-            
-            if (data.success) {
-                showTestResult(`✅ Encryption test passed! Sent: ${JSON.stringify(data.payload_sent)}`, 'success');
-                showTestResult('📨 Check for a notification with "🔢 Test: 9"', 'info');
-            } else {
-                showTestResult(`❌ Encryption test failed: ${data.error || data.response || 'Unknown error'}`, 'error');
-            }
-        } catch (err) {
-            showTestResult(`❌ Error: ${err.message}`, 'error');
-        } finally {
-            btn.textContent = '🔐 Test Encryption';
-            btn.disabled = false;
-        }
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  PUSH NOTIFICATIONS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function updatePushUI(enabled) {
-        const testBtn = document.getElementById('testPushBtn');
-        const encBtn = document.getElementById('testEncryptionBtn');
-        if (testBtn) {
-            testBtn.style.display = enabled ? 'inline-block' : 'none';
-        }
-        if (encBtn) {
-            encBtn.style.display = enabled ? 'inline-block' : 'none';
-        }
-    }
-
     function checkNotificationBanner() {
         const banner = document.getElementById('notificationBanner');
         if (Notification.permission === 'denied') {
@@ -489,284 +480,9 @@
         const result = await Notification.requestPermission();
         if (result === 'granted') {
             document.getElementById('notificationBanner').style.display = 'none';
-            showTestResult('✅ Notifications enabled! Click "Enable Live Updates" to start.', 'success');
+            showNotification('✅ Notifications Enabled', 'You will now receive real-time updates');
         } else {
-            showTestResult('❌ Permission denied. Please enable in browser settings.', 'error');
-        }
-    }
-
-    // async function checkPushStatus() {
-    //     // Legacy push notification check - not used with WebSocket
-    // }
-
-    async function togglePush() {
-        // Check notification permission first
-        if (Notification.permission === 'denied') {
-            document.getElementById('notificationBanner').style.display = 'block';
-            showTestResult('⚠️ Notifications are blocked. Please enable them in your browser settings.', 'error');
-            return;
-        }
-        
-        if (Notification.permission === 'default') {
-            const result = await Notification.requestPermission();
-            if (result !== 'granted') {
-                showTestResult('❌ Notification permission required for live updates', 'error');
-                return;
-            }
-            document.getElementById('notificationBanner').style.display = 'none';
-        }
-
-        if (isPushEnabled) {
-            if (pushSubscription) {
-                await pushSubscription.unsubscribe();
-                await fetch(API_BASE + '/api/push/subscribe', {
-                    method: 'DELETE',
-                    headers: { 
-                        'Authorization': 'Bearer ' + token, 
-                        'Content-Type': 'application/json' 
-                    },
-                    body: JSON.stringify({ endpoint: pushSubscription.endpoint })
-                });
-                isPushEnabled = false;
-                pushSubscription = null;
-                document.getElementById('pushButton').textContent = '🔔 Enable Live Updates';
-                document.getElementById('pushButton').classList.remove('enabled');
-                document.getElementById('pushStatus').textContent = 'Disabled';
-                updatePushUI(false);
-                showTestResult('🔕 Live updates disabled', 'info');
-            }
-            return;
-        }
-
-        try {
-            // Register service worker
-            const registration = await navigator.serviceWorker.register('/admin/sw.js', { 
-                scope: '/admin/' 
-            });
-            await navigator.serviceWorker.ready;
-            
-            // Check if SW is controlling the page
-            if (!navigator.serviceWorker.controller) {
-                console.log('⚠️ SW not controlling page, refreshing...');
-                await new Promise(resolve => {
-                    navigator.serviceWorker.addEventListener('controllerchange', resolve);
-                    setTimeout(resolve, 2000);
-                });
-                if (!navigator.serviceWorker.controller) {
-                    showTestResult('Service Worker registration issue. Please refresh the page.', 'error');
-                    window.location.reload();
-                    return;
-                }
-            }
-            
-            // Get VAPID public key from server
-            const keyRes = await fetch(API_BASE + '/api/push/public-key');
-            const keyData = await keyRes.json();
-            if (!keyData.publicKey) throw new Error('No public key');
-
-            const applicationServerKey = urlBase64ToUint8Array(keyData.publicKey);
-            
-            // Subscribe to push
-            const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: applicationServerKey
-            });
-
-            // Save subscription to server
-            const saveRes = await fetch(API_BASE + '/api/push/subscribe', {
-                method: 'POST',
-                headers: { 
-                    'Authorization': 'Bearer ' + token, 
-                    'Content-Type': 'application/json' 
-                },
-                body: JSON.stringify({ subscription })
-            });
-            if (!saveRes.ok) {
-                const errorData = await saveRes.json();
-                throw new Error(errorData.error || 'Failed to save subscription');
-            }
-
-            pushSubscription = subscription;
-            isPushEnabled = true;
-            document.getElementById('pushButton').textContent = '🔕 Disable Live Updates';
-            document.getElementById('pushButton').classList.add('enabled');
-            document.getElementById('pushStatus').textContent = 'Enabled';
-            updatePushUI(true);
-            
-            showTestResult('✅ Subscribed to push notifications!', 'success');
-            
-            // Auto-send test push after subscribing
-            setTimeout(() => {
-                if (confirm('✅ Subscribed! Send a test notification?')) {
-                    testPush();
-                }
-            }, 500);
-            
-        } catch (err) {
-            console.error('Push subscription error:', err);
-            showTestResult('❌ Push subscription failed: ' + err.message, 'error');
-        }
-    }
-
-    async function testPush() {
-        if (!token) {
-            showTestResult('❌ Please login first', 'error');
-            return;
-        }
-        
-        try {
-            const btn = document.getElementById('testPushBtn');
-            btn.textContent = '⏳ Sending...';
-            btn.disabled = true;
-            
-            showTestResult('📨 Sending test push notification...', 'info');
-            
-            const res = await fetch(API_BASE + '/api/test-push', {
-                method: 'POST',
-                headers: { 
-                    'Authorization': 'Bearer ' + token,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            const data = await res.json();
-            console.log('Test push response:', data);
-            
-            if (data.success && data.sent > 0) {
-                showTestResult(`✅ Test push sent! (${data.sent} notifications)`, 'success');
-                showTestResult('📨 Check if you received a notification.', 'info');
-            } else if (data.success && data.sent === 0) {
-                showTestResult('⚠️ No subscribers found. Click "Enable Live Updates" first.', 'error');
-            } else {
-                showTestResult('❌ Test push failed: ' + (data.message || 'Unknown error'), 'error');
-            }
-        } catch (err) {
-            showTestResult('❌ Error: ' + err.message, 'error');
-        } finally {
-            const btn = document.getElementById('testPushBtn');
-            btn.textContent = '📨 Test Push';
-            btn.disabled = false;
-        }
-    }
-
-    // Listen for messages from the service worker
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.addEventListener('message', async function(event) {
-            const data = event.data;
-            console.log('📨 Dashboard received SW message:', data);
-            
-            // Handle test pushes
-            if (data && data.action === 'testPush') {
-                console.log('🎯 TEST PUSH RECEIVED!');
-                console.log('📦 Data:', data.data);
-                console.log('📝 Raw:', data.raw);
-                
-                const testDiv = document.createElement('div');
-                testDiv.className = 'test-result-popup success';
-                testDiv.innerHTML = `✅ Test received: ${JSON.stringify(data.data)}`;
-                document.body.appendChild(testDiv);
-                setTimeout(() => testDiv.remove(), 5000);
-                
-                showTestResult(`🔢 Received test data: ${JSON.stringify(data.data)}`, 'success');
-                return;
-            }
-            
-            // Handle new tickets
-            if (data && data.action === 'newTicket' && data.ticketId) {
-                try {
-                    const res = await fetch(API_BASE + '/api/admin/ticket/' + data.ticketId, {
-                        headers: { 'Authorization': 'Bearer ' + token }
-                    });
-                    const response = await res.json();
-                    if (response.success && response.data) {
-                        handleNewTicket(response.data);
-                        showTestResult(`🎫 New ticket #${response.data.ticket_number} added!`, 'success');
-                    }
-                } catch (e) {
-                    console.error('Failed to fetch new ticket:', e);
-                }
-            }
-        });
-
-        // Ensure the SW controller is claimed immediately
-        navigator.serviceWorker.ready.then(function(reg) {
-            console.log('✅ SW ready, controller:', navigator.serviceWorker.controller ? 'active' : 'none');
-            if (!navigator.serviceWorker.controller) {
-                console.log('🔄 SW not controlling page, reloading...');
-                setTimeout(() => window.location.reload(), 1000);
-            }
-        });
-    }
-
-    function handleNewTicket(ticket) {
-        if (!ticket) {
-            console.warn('⚠️ handleNewTicket called with null ticket');
-            return;
-        }
-        const ticketId = ticket.ticket_id || ticket.id;
-        const currentStatuses = getStatusesForTab(currentTab);
-        if (!currentStatuses.includes(ticket.status)) {
-            updateStatsLocally(ticket.status, 1);
-            return;
-        }
-        const categoryFilter = document.getElementById('filterCategory').value;
-        const langFilter = document.getElementById('filterLanguage').value;
-        if (categoryFilter && categoryFilter !== ticket.category) return;
-        if (langFilter && langFilter !== ticket.language) return;
-
-        const list = document.getElementById('ticketList');
-        const headerRow = list.querySelector('.ticket-header-row');
-        if (!headerRow) return;
-
-        const statusClass = 'status-' + ticket.status;
-        const catColor = getCatColor(ticket.category);
-        const catLabel = (ticket.category || 'other').charAt(0).toUpperCase() + (ticket.category || 'other').slice(1);
-        const subjectText = ticket.subject || 'No subject';
-        const truncatedSubject = subjectText.length > 55 ? subjectText.substring(0, 55) + '…' : subjectText;
-
-        const row = document.createElement('div');
-        row.className = 'ticket-item';
-        row.setAttribute('onclick', 'openTicketModal(' + ticketId + ')');
-        row.innerHTML = `
-            <span class="cat-cell"><span class="cat-dot" style="background:${catColor};"></span><span class="cat-name">${escapeHtml(catLabel)}</span></span>
-            <span class="sla-cell"><span class="sla-dot" style="background:#22c55e;"></span><span class="sla-label">On track</span></span>
-            <span class="status ${statusClass}">${ticket.status.replace('_', ' ')}</span>
-            <span class="subject" title="${escapeHtml(subjectText)}">${escapeHtml(truncatedSubject)}</span>
-            <span class="email">${escapeHtml(ticket.sender_email || '')}</span>
-            <span style="font-size:12px;color:var(--text-muted);">${formatDate(ticket.created_at)}</span>
-        `;
-        headerRow.parentNode.insertBefore(row, headerRow.nextSibling);
-
-        updateStatsLocally(ticket.status, 1);
-        currentTotal++;
-        updateLoadMoreButton();
-    }
-
-    function updateStatsLocally(status, delta) {
-        const statsContainer = document.getElementById('stats');
-        const statCards = statsContainer.querySelectorAll('.stat-card');
-        const labelMap = { 'new': 'New', 'open': 'Open', 'in_progress': 'In Progress', 'pending': 'Pending', 'resolved': 'Resolved', 'closed': 'Closed' };
-        const label = labelMap[status];
-        if (!label) return;
-        for (const card of statCards) {
-            const labelEl = card.querySelector('.label');
-            if (labelEl && labelEl.textContent === label) {
-                const numberEl = card.querySelector('.number');
-                if (numberEl) {
-                    const current = parseInt(numberEl.textContent, 10) || 0;
-                    numberEl.textContent = Math.max(0, current + delta);
-                }
-                break;
-            }
-        }
-    }
-
-    function updateLoadMoreButton() {
-        const loadWrap = document.getElementById('loadMoreWrap');
-        if (loadedTickets.length < currentTotal) {
-            loadWrap.innerHTML = '<button onclick="loadTickets(true)">Load More</button>';
-        } else {
-            loadWrap.innerHTML = loadedTickets.length > 0 ? '<span style="color:var(--text-muted);font-size:13px;">All tickets loaded</span>' : '';
+            showNotification('❌ Permission Denied', 'Please enable notifications in your browser settings');
         }
     }
 
@@ -950,6 +666,15 @@
         list.innerHTML = html;
     }
 
+    function updateLoadMoreButton() {
+        const loadWrap = document.getElementById('loadMoreWrap');
+        if (loadedTickets.length < currentTotal) {
+            loadWrap.innerHTML = '<button onclick="loadTickets(true)">Load More (' + (currentTotal - loadedTickets.length) + ' remaining)</button>';
+        } else {
+            loadWrap.innerHTML = loadedTickets.length > 0 ? '<span style="color:var(--text-muted);font-size:13px;">All ' + loadedTickets.length + ' tickets loaded</span>' : '';
+        }
+    }
+
     // ── Color helpers ──
     var CAT_COLORS = ["#5aa9ff","#ffb347","#a78bfa","#34d399","#f87171","#fbbf24","#60a5fa","#4ade80","#fb923c","#c084fc"];
     var catColorMap = {};
@@ -1024,7 +749,8 @@
         if (ticket.comments && ticket.comments.length > 0) {
             for (var i = 0; i < ticket.comments.length; i++) {
                 var c = ticket.comments[i];
-                commentsHtml += '<div class="comment"><div class="meta"><span>' + (c.author_email || "System") + '</span><span>' + formatDate(c.created_at) + '</span></div><div class="comment-content">' + c.content + '</div></div>';
+                var commentContent = c.content || '';
+                commentsHtml += '<div class="comment"><div class="meta"><span>' + (c.author_email || "System") + '</span><span>' + formatDate(c.created_at) + '</span></div><div class="comment-content">' + escapeHtml(commentContent) + '</div></div>';
             }
         }
 
@@ -1032,7 +758,7 @@
         var statusDropdown = '<select id="detailStatus">';
         for (var i = 0; i < statusOptions.length; i++) {
             var s = statusOptions[i];
-            statusDropdown += '<option value="' + s + '" ' + (s === ticket.status ? "selected" : "") + '>' + s + '</option>';
+            statusDropdown += '<option value="' + s + '" ' + (s === ticket.status ? "selected" : "") + '>' + s.replace('_', ' ') + '</option>';
         }
         statusDropdown += '</select>';
 
@@ -1106,7 +832,7 @@
             </div>
             <div class="detail-section">
                 <h3>💬 Message</h3>
-                <div class="ticket-body">${ticket.message || "No message"}</div>
+                <div class="ticket-body">${escapeHtml(ticket.message || "No message")}</div>
             </div>
             <div class="detail-section comments-section">
                 <h3>💭 Comments (${ticket.comments ? ticket.comments.length : 0})</h3>
@@ -1129,14 +855,25 @@
             });
             if (res.status === 401) { logout(); closeModal(); return; }
             var data = await res.json();
-            if (data.success) { openTicketModal(id); loadStats(); resetAndLoad(); }
-            else { alert("Update failed"); }
-        } catch (e) { alert("Error: " + e.message); }
+            if (data.success) { 
+                openTicketModal(id); 
+                loadStats(); 
+                resetAndLoad();
+                showNotification('✅ Status Updated', 'Ticket status changed to ' + status);
+            } else {
+                showNotification('❌ Update Failed', data.error || 'Unknown error');
+            }
+        } catch (e) { 
+            showNotification('❌ Error', e.message);
+        }
     }
 
     async function addComment(id) {
         var content = document.getElementById("detailComment").value;
-        if (!content) return alert("Please enter a comment");
+        if (!content) {
+            showNotification('⚠️ Please enter a comment', 'Comment is required');
+            return;
+        }
         try {
             var res = await fetch(API_BASE + "/api/admin/ticket/" + id + "/comment", {
                 method: "POST",
@@ -1145,15 +882,27 @@
             });
             if (res.status === 401) { logout(); closeModal(); return; }
             var data = await res.json();
-            if (data.success) { document.getElementById("detailComment").value = ""; openTicketModal(id); loadStats(); resetAndLoad(); }
-            else { alert("Failed to add comment"); }
-        } catch (e) { alert("Error: " + e.message); }
+            if (data.success) { 
+                document.getElementById("detailComment").value = ""; 
+                openTicketModal(id); 
+                loadStats(); 
+                resetAndLoad();
+                showNotification('✅ Comment Added', 'Your comment has been added');
+            } else {
+                showNotification('❌ Failed', 'Failed to add comment');
+            }
+        } catch (e) { 
+            showNotification('❌ Error', e.message);
+        }
     }
 
     async function sendReply(id) {
         var from = document.getElementById("detailReplyFrom").value;
         var rawBody = document.getElementById("detailReplyBody").value;
-        if (!rawBody) return alert("Please enter a reply");
+        if (!rawBody) {
+            showNotification('⚠️ Please enter a reply', 'Reply content is required');
+            return;
+        }
         var body = '<p>' + rawBody
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
             .replace(/\r\n|\r|\n/g, '</p><p>') + '</p>';
@@ -1166,9 +915,18 @@
             });
             if (res.status === 401) { logout(); closeModal(); return; }
             var data = await res.json();
-            if (data.success) { document.getElementById("detailReplyBody").value = ""; alert("Reply sent!"); openTicketModal(id); loadStats(); resetAndLoad(); }
-            else { alert("Failed to send reply"); }
-        } catch (e) { alert("Error: " + e.message); }
+            if (data.success) { 
+                document.getElementById("detailReplyBody").value = ""; 
+                openTicketModal(id); 
+                loadStats(); 
+                resetAndLoad();
+                showNotification('✅ Reply Sent', 'Your reply has been sent to the customer');
+            } else {
+                showNotification('❌ Failed', 'Failed to send reply');
+            }
+        } catch (e) { 
+            showNotification('❌ Error', e.message);
+        }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1183,15 +941,28 @@
         loadLanguages();
         loadStats();
         resetAndLoad();
-        checkPushStatus();
-        // Show encryption test button if push is available
-        if ('serviceWorker' in navigator && 'PushManager' in window) {
-            document.getElementById('testEncryptionBtn').style.display = 'inline-block';
-        }
+        // Connect WebSocket after initial load
+        setTimeout(connectWS, 1000);
     }
 
     // Check notification permission on load
     checkNotificationBanner();
+
+    // Make functions globally accessible
+    window.login = login;
+    window.logout = logout;
+    window.toggleTheme = toggleTheme;
+    window.toggleWS = toggleWS;
+    window.testWSBroadcast = testWSBroadcast;
+    window.switchTab = switchTab;
+    window.resetAndLoad = resetAndLoad;
+    window.loadTickets = loadTickets;
+    window.openTicketModal = openTicketModal;
+    window.closeModal = closeModal;
+    window.updateStatus = updateStatus;
+    window.addComment = addComment;
+    window.sendReply = sendReply;
+    window.requestNotificationPermission = requestNotificationPermission;
 </script>
 </body>
 </html>
