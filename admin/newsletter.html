@@ -1,4 +1,4 @@
-<!-- newsletter.html v2.5 - Fixed domain, token-based unsubscribe, proper variables -->
+<!-- newsletter.html v2.6 - Added permission enforcement -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -225,6 +225,20 @@ setTheme(localStorage.getItem('theme') || 'light');
 
 const token = localStorage.getItem('token');
 if (!token) window.location.href = '/admin';
+
+// Auth check - only admin
+const storedUser = localStorage.getItem('user');
+if (storedUser) {
+    try {
+        const user = JSON.parse(storedUser);
+        if (user.role !== 'admin') {
+            document.body.innerHTML = '<div style="padding: 20px; color: #ef4444;">⛔ Admin access required</div>';
+            throw new Error('Admin access required');
+        }
+    } catch (e) {
+        document.body.innerHTML = '<div style="padding: 20px; color: #ef4444;">⛔ Admin access required</div>';
+    }
+}
 
 async function api(path, opts = {}) {
     opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };

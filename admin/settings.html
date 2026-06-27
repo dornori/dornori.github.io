@@ -1,4 +1,4 @@
-<!-- settings.html v1.4 -->
+<!-- settings.html v1.5 - Added auth check, admin-only restriction -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1030,9 +1030,32 @@ async function clearFooter(email, safeKey) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// AUTH CHECK
+// ─────────────────────────────────────────────────────────────
+async function checkAuth() {
+    const token = localStorage.getItem("token");
+    const storedUser = localStorage.getItem("user");
+    if (!token || !storedUser) {
+        window.location.href = "dashboard.html";
+        return false;
+    }
+    try {
+        const user = JSON.parse(storedUser);
+        if (user.role !== 'admin') {
+            document.body.innerHTML = '<div style="padding: 20px; color: #ef4444;">⛔ Admin access required</div>';
+            return false;
+        }
+    } catch (e) {
+        window.location.href = "dashboard.html";
+        return false;
+    }
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────────────────
-load();
+checkAuth().then(ok => { if (ok) load(); });
 </script>
 </body>
 </html>
