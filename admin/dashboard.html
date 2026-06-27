@@ -239,6 +239,7 @@
                 loadStats();
                 resetAndLoad();
                 checkPushStatus();
+                // Show encryption test button if push is available
                 if ('serviceWorker' in navigator && 'PushManager' in window) {
                     document.getElementById('testEncryptionBtn').style.display = 'inline-block';
                 }
@@ -297,7 +298,7 @@
         btn.disabled = true;
 
         try {
-            showTestResult('🔐 Sending encrypted test with ticket number...', 'info');
+            showTestResult('🔐 Sending encrypted test (number 9)...', 'info');
             
             const res = await fetch(API_BASE + '/api/test-encryption', {
                 headers: { 'Authorization': 'Bearer ' + token }
@@ -307,8 +308,8 @@
             console.log('📊 Test encryption result:', data);
             
             if (data.success) {
-                showTestResult(`✅ Encryption test passed! Sent: ${data.payload_sent.ticket_number}`, 'success');
-                showTestResult('📨 Check for a notification with the ticket number', 'info');
+                showTestResult(`✅ Encryption test passed! Sent: ${JSON.stringify(data.payload_sent)}`, 'success');
+                showTestResult('📨 Check for a notification with "🔢 Test: 9"', 'info');
             } else {
                 showTestResult(`❌ Encryption test failed: ${data.error || data.response || 'Unknown error'}`, 'error');
             }
@@ -378,6 +379,7 @@
     }
 
     async function togglePush() {
+        // Check notification permission first
         if (Notification.permission === 'denied') {
             document.getElementById('notificationBanner').style.display = 'block';
             showTestResult('⚠️ Notifications are blocked. Please enable them in your browser settings.', 'error');
@@ -416,11 +418,13 @@
         }
 
         try {
+            // Register service worker
             const registration = await navigator.serviceWorker.register('/admin/sw.js', { 
                 scope: '/admin/' 
             });
             await navigator.serviceWorker.ready;
             
+            // Check if SW is controlling the page
             if (!navigator.serviceWorker.controller) {
                 console.log('⚠️ SW not controlling page, refreshing...');
                 await new Promise(resolve => {
@@ -434,17 +438,20 @@
                 }
             }
             
+            // Get VAPID public key from server
             const keyRes = await fetch(API_BASE + '/api/push/public-key');
             const keyData = await keyRes.json();
             if (!keyData.publicKey) throw new Error('No public key');
 
             const applicationServerKey = urlBase64ToUint8Array(keyData.publicKey);
             
+            // Subscribe to push
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: applicationServerKey
             });
 
+            // Save subscription to server
             const saveRes = await fetch(API_BASE + '/api/push/subscribe', {
                 method: 'POST',
                 headers: { 
@@ -467,6 +474,7 @@
             
             showTestResult('✅ Subscribed to push notifications!', 'success');
             
+            // Auto-send test push after subscribing
             setTimeout(() => {
                 if (confirm('✅ Subscribed! Send a test notification?')) {
                     testPush();
@@ -520,42 +528,42 @@
         }
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  SERVICE WORKER MESSAGE LISTENER - THE FIX IS HERE
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Listen for messages from the service worker
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', async function(event) {
             const data = event.data;
             console.log('📨 Dashboard received SW message:', data);
             
-            // ✅ When we get a ticket ID from the push, fetch the real ticket
-            if (data && data.action === 'newTicket' && data.ticketId) {
-                console.log('🎫 New ticket ID received:', data.ticketId);
+            // Handle test pushes
+            if (data && data.action === 'testPush') {
+                console.log('🎯 TEST PUSH RECEIVED!');
+                console.log('📦 Data:', data.data);
+                console.log('📝 Raw:', data.raw);
                 
+                const testDiv = document.createElement('div');
+                testDiv.className = 'test-result-popup success';
+                testDiv.innerHTML = `✅ Test received: ${JSON.stringify(data.data)}`;
+                document.body.appendChild(testDiv);
+                setTimeout(() => testDiv.remove(), 5000);
+                
+                showTestResult(`🔢 Received test data: ${JSON.stringify(data.data)}`, 'success');
+                return;
+            }
+            
+            // Handle new tickets
+            if (data && data.action === 'newTicket' && data.ticketId) {
                 try {
-                    // Fetch the real ticket from the database
                     const res = await fetch(API_BASE + '/api/admin/ticket/' + data.ticketId, {
                         headers: { 'Authorization': 'Bearer ' + token }
                     });
                     const response = await res.json();
-                    
                     if (response.success && response.data) {
-                        // Inject the real ticket into the dashboard
                         handleNewTicket(response.data);
-                        showTestResult(`🎫 New ticket ${response.data.ticket_number} added!`, 'success');
+                        showTestResult(`🎫 New ticket #${response.data.ticket_number} added!`, 'success');
                     }
-                } catch (err) {
-                    console.error('Failed to fetch ticket:', err);
-                    showTestResult('❌ Failed to fetch ticket: ' + err.message, 'error');
+                } catch (e) {
+                    console.error('Failed to fetch new ticket:', e);
                 }
-                return;
-            }
-            
-            // Handle test pushes
-            if (data && data.action === 'testPush') {
-                console.log('🎯 TEST PUSH RECEIVED!');
-                showTestResult(`✅ Test received: ${JSON.stringify(data.data)}`, 'success');
-                return;
             }
         });
 
@@ -1055,11 +1063,13 @@
         loadStats();
         resetAndLoad();
         checkPushStatus();
+        // Show encryption test button if push is available
         if ('serviceWorker' in navigator && 'PushManager' in window) {
             document.getElementById('testEncryptionBtn').style.display = 'inline-block';
         }
     }
 
+    // Check notification permission on load
     checkNotificationBanner();
 </script>
 </body>
