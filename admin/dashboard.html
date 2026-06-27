@@ -50,8 +50,8 @@
 <div class="container">
     <div id="login">
         <h1>🔐 Dornori Ticketing</h1>
-        <input type="email" id="loginEmail" placeholder="Email" value="admin@dornori.com" />
-        <input type="password" id="loginPassword" placeholder="Password" value="password" />
+        <input type="email" id="loginEmail" placeholder="Email" />
+        <input type="password" id="loginPassword" placeholder="Enter your password">
         <button onclick="login()">Login</button>
         <div id="loginError" class="error"></div>
         <div id="loginLoading" class="loading">⏳ Logging in...</div>
@@ -225,6 +225,10 @@
     }
 
     function startNotificationPolling() {
+        // Mark all currently loaded tickets as seen to avoid overwriting them
+        loadedTickets.forEach(ticket => {
+            seenNotificationIds.add(ticket.ticket_id);
+        });
         if (notificationPollTimer) clearInterval(notificationPollTimer);
         notificationPollTimer = setInterval(pollNotifications, notificationPollInterval);
         console.log('✅ Notification polling started');
@@ -598,6 +602,12 @@
             list.innerHTML = '<div class="loading">No tickets found</div>';
             return;
         }
+        
+        // Mark all rendered tickets as seen to prevent overwriting user changes
+        for (var i = 0; i < tickets.length; i++) {
+            seenNotificationIds.add(tickets[i].ticket_id);
+        }
+        
         var html = '<div class="ticket-header-row">' +
             '<span>Category</span>' +
             '<span>SLA</span>' +
