@@ -148,72 +148,7 @@
     var currentTotal = 0;
     var loadedTickets = [];
 
-    // ─── TEST TICKET (REMOVED WS - use manual refresh) ──────────
-    function createTestTicket() {
-        if (ws && ws.readyState === WebSocket.OPEN) return;
-        if (ws && ws.readyState === WebSocket.CONNECTING) return;
-
-        if (!token) {
-            console.log('⚠️ No token, skipping WS connection');
-            return;
-        }
-
-        updateWSStatus('connecting', 'Connecting...');
-        const wsUrl = API_BASE.replace('https:', 'wss:').replace('http:', 'ws:') + '/api/ws?token=' + encodeURIComponent(token);
-        console.log('🔌 Connecting to WS:', wsUrl);
-
-        try {
-            ws = new WebSocket(wsUrl);
-
-            ws.addEventListener('open', () => {
-                console.log('✅ WebSocket connected');
-                updateWSStatus('connected', 'Connected');
-                showNotification('✅ Live Updates Connected', 'WebSocket is now active');
-            });
-
-            ws.addEventListener('message', (event) => {
-                try {
-                    const msg = JSON.parse(event.data);
-                    console.log('📨 WS Message received:', msg);
-                    
-                    if (msg.type === 'newTicket') {
-                        console.log('🎫 New ticket from WS:', msg.ticket);
-                        onNewTicket(msg.ticket);
-                    } else if (msg.type === 'ticketUpdate') {
-                        console.log('📝 Ticket update from WS:', msg.ticket);
-                        onTicketUpdate(msg.ticket);
-                    }
-                } catch (e) {
-                    console.error('Failed to parse WS message:', e);
-                }
-            });
-
-            ws.addEventListener('close', (event) => {
-                console.log('❌ WebSocket disconnected, code:', event.code, 'reason:', event.reason);
-                updateWSStatus('disconnected', 'Disconnected');
-                ws = null;
-                
-                // Auto-reconnect after delay
-                if (token) {
-                    if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
-                    wsReconnectTimer = setTimeout(() => {
-                        console.log('🔄 Attempting WS reconnect...');
-                        connectWS();
-                    }, 5000);
-                }
-            });
-
-            ws.addEventListener('error', (err) => {
-                console.error('❌ WebSocket error:', err);
-                updateWSStatus('error', 'Error');
-                // The close event will handle cleanup
-            });
-        } catch (e) {
-            console.error('❌ Failed to create WebSocket:', e);
-            updateWSStatus('error', 'Failed to connect');
-        }
-    }
-
+    // ─── TEST TICKET (event-driven, no polling) ──────────
     async function createTestTicket() {
         if (!token) {
             showNotification('❌ Error', 'Must be logged in');
