@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Users – Dornori</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+        .container { max-width: 1200px !important; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .form-grid.full { grid-template-columns: 1fr; }
+        .user-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .user-table th, .user-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        .user-table th { background: var(--bg-header); font-weight: 600; }
+        .user-table tr:hover { background: var(--bg-card); }
+        .role-badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .role-badge.admin { background: #ef4444; color: white; }
+        .role-badge.agent { background: #3b82f6; color: white; }
+        .permission-checkbox { display: inline-block; margin-right: 15px; }
+        .permission-checkbox input { margin-right: 5px; }
+        .action-btn { padding: 6px 12px; font-size: 13px; margin-right: 8px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
+        .action-btn:hover { background: var(--accent); color: var(--text-inverse); }
+        .action-btn.delete { background: #fecaca; color: #991b1b; border-color: #fca5a5; }
+        .action-btn.delete:hover { background: #fca5a5; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>👥 Users</h1>
+        <div class="header-right">
+            <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+            <a href="dashboard.html">← Dashboard</a>
+            <a href="reports.html">📊 Reports</a>
+            <a href="settings.html">⚙️ Settings</a>
+        </div>
+    </div>
+
+    <div id="adminOnly" style="display:none;">
+        <div class="error">⛔ Admin only. You don't have permission to manage users.</div>
+    </div>
+
+    <div id="userManagement" style="display:none;">
+        <div class="card">
+            <h2>➕ Add User</h2>
+            <div class="form-grid">
+                <input type="email" id="newEmail" placeholder="Email" />
+                <input type="text" id="newName" placeholder="Full Name" />
+                <input type="password" id="newPassword" placeholder="Password" />
+                <select id="newRole">
+                    <option value="agent">Agent</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div>
+                <label class="permission-checkbox"><input type="checkbox" id="perRead" checked> Read</label>
+                <label class="permission-checkbox"><input type="checkbox" id="perWrite" checked> Write</label>
+                <label class="permission-checkbox"><input type="checkbox" id="perDelete"> Delete</label>
+                <label class="permission-checkbox"><input type="checkbox" id="perSettings"> Settings</label>
+            </div>
+            <button onclick="addUser()" style="margin-top: 15px;">Add User</button>
+            <div id="addUserError" class="error" style="margin-top: 10px;"></div>
+            <div id="addUserSuccess" class="success" style="margin-top: 10px;"></div>
+        </div>
+
+        <div class="card">
+            <h2>👥 Users</h2>
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>Permissions</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                    <tr><td colspan="5" class="loading">Loading users...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
+    var token = localStorage.getItem("token");
+    if (!token) { window.location.href = "/admin"; }
+
+    function setTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
+        const toggles = document.querySelectorAll('.theme-toggle');
+        toggles.forEach(t => t.textContent = theme === 'dark' ? '☀️' : '🌙');
+    }
+
+    function toggleTheme() {
+        const current = document.documentElement.getAttribute('data-theme') || 'light';
+        setTheme(current === 'light' ? 'dark' : 'light');
+    }
+
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
+
+    async function checkPermission() {
+        try {
+            var res = await fetch(API_BASE + "/api/admin/user-profile", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (res.status === 401) {
+                localStorage.removeItem("token");
+                window.location.href = "/admin";
+                return;
+            }
+            var data = await res.json();
+            if (data.user && data.user.role === 'admin') {
+                document.getElementById("userManagement").style.display = 'block';
+                loadUsers();
+            } else {
+                document.getElementById("adminOnly").style.display = 'block';
+            }
+        } catch (e) {
+            document.getElementById("adminOnly").style.display = 'block';
+        }
+    }
+
+    async function loadUsers() {
+        try {
+            var res = await fetch(API_BASE + "/api/admin/users", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            var data = await res.json();
+            if (data.success) {
+                renderUsers(data.users);
+            }
+        } catch (e) {
+            console.error("Error loading users", e);
+        }
+    }
+
+    function renderUsers(users) {
+        var html = '';
+        for (var i = 0; i < users.length; i++) {
+            var u = users[i];
+            var perms = (u.permissions || []).join(', ') || 'none';
+            html += '<tr>';
+            html += '<td>' + u.email + '</td>';
+            html += '<td>' + u.name + '</td>';
+            html += '<td><span class="role-badge ' + u.role + '">' + u.role + '</span></td>';
+            html += '<td>' + perms + '</td>';
+            html += '<td>';
+            if (u.email !== 'admin@dornori.com') {
+                html += '<button class="action-btn" onclick="editUser(\'' + u.email.replace(/'/g, "\\'") + '\')">Edit</button>';
+                html += '<button class="action-btn delete" onclick="deleteUser(\'' + u.email.replace(/'/g, "\\'") + '\')">Delete</button>';
+            } else {
+                html += '<span style="color: var(--text-muted); font-size: 13px;">System Admin</span>';
+            }
+            html += '</td>';
+            html += '</tr>';
+        }
+        document.getElementById("usersTableBody").innerHTML = html;
+    }
+
+    async function addUser() {
+        var email = document.getElementById("newEmail").value.trim();
+        var name = document.getElementById("newName").value.trim();
+        var password = document.getElementById("newPassword").value;
+        var role = document.getElementById("newRole").value;
+        var perms = [];
+        if (document.getElementById("perRead").checked) perms.push('read');
+        if (document.getElementById("perWrite").checked) perms.push('write');
+        if (document.getElementById("perDelete").checked) perms.push('delete');
+        if (document.getElementById("perSettings").checked) perms.push('settings');
+
+        if (!email || !name || !password) {
+            document.getElementById("addUserError").textContent = "All fields required";
+            return;
+        }
+
+        try {
+            var res = await fetch(API_BASE + "/api/admin/users", {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+                body: JSON.stringify({ email, name, password, role, permissions: perms })
+            });
+            var data = await res.json();
+            if (data.success) {
+                document.getElementById("addUserSuccess").textContent = "User added successfully";
+                document.getElementById("newEmail").value = '';
+                document.getElementById("newName").value = '';
+                document.getElementById("newPassword").value = '';
+                setTimeout(() => loadUsers(), 500);
+            } else {
+                document.getElementById("addUserError").textContent = data.error || "Failed to add user";
+            }
+        } catch (e) {
+            document.getElementById("addUserError").textContent = "Error: " + e.message;
+        }
+    }
+
+    async function deleteUser(email) {
+        if (!confirm("Delete user " + email + "?")) return;
+        try {
+            var res = await fetch(API_BASE + "/api/admin/users/" + encodeURIComponent(email), {
+                method: "DELETE",
+                headers: { "Authorization": "Bearer " + token }
+            });
+            var data = await res.json();
+            if (data.success) {
+                loadUsers();
+            }
+        } catch (e) {
+            alert("Error: " + e.message);
+        }
+    }
+
+    function editUser(email) {
+        alert("Edit functionality coming soon for: " + email);
+    }
+
+    checkPermission();
+</script>
+</body>
+</html>

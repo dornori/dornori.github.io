@@ -85,8 +85,10 @@
                 <a href="reports.html">📊 Reports</a>
                 <a href="newsletter.html">📧 Newsletter</a>
                 <a href="settings.html">⚙️ Settings</a>
+                <a id="usersLink" href="users.html" style="display:none;">👥 Users</a>
                 <button id="wsButton" onclick="toggleWS()">🔌 Connect Live</button>
                 <span id="wsStatus"><span class="ws-status-indicator disconnected" id="wsIndicator"></span> Disconnected</span>
+                <span id="userDisplay" style="font-size: 13px; color: var(--text-muted); margin-left: 10px;"></span>
                 <button onclick="logout()">Logout</button>
             </div>
         </div>
@@ -159,6 +161,7 @@
     //  GLOBALS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     var token = null;
+    var currentUser = { email: null, name: null, role: null, permissions: [] };
     var userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     var emailSenders = [];
     var currentTab = 'active';
@@ -428,8 +431,11 @@
             var data = await res.json();
             if (data.success) {
                 token = data.token;
+                currentUser = { email: data.user.email, name: data.user.name, role: data.user.role, permissions: data.user.permissions || [] };
                 localStorage.setItem("token", token);
+                localStorage.setItem("user", JSON.stringify(currentUser));
                 console.log('✅ Login successful for:', email);
+                updateUserDisplay();
                 document.getElementById("login").style.display = "none";
                 document.getElementById("dashboard").style.display = "block";
                 await loadEmailSenders();
@@ -455,9 +461,18 @@
         }
     }
 
+    function updateUserDisplay() {
+        document.getElementById("userDisplay").textContent = currentUser.name + ' (' + currentUser.role + ')';
+        if (currentUser.role === 'admin') {
+            document.getElementById("usersLink").style.display = 'inline-block';
+        }
+    }
+
     function logout() {
         token = null;
+        currentUser = { email: null, name: null, role: null, permissions: [] };
         localStorage.removeItem("token");
+        localStorage.removeItem("user");
         disconnectWS();
         document.getElementById("login").style.display = "block";
         document.getElementById("dashboard").style.display = "none";
@@ -934,6 +949,11 @@
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (localStorage.getItem("token")) {
         token = localStorage.getItem("token");
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+            currentUser = JSON.parse(storedUser);
+        }
+        updateUserDisplay();
         document.getElementById("login").style.display = "none";
         document.getElementById("dashboard").style.display = "block";
         loadEmailSenders();
