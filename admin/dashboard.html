@@ -139,7 +139,7 @@
     //  GLOBALS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     var token = null;
-    var currentUser = { email: null, name: null, role: null, permissions: [], allowed_languages: ['en'], team_id: null };
+    var currentUser = { email: null, name: null, role: null, permissions: [], allowed_languages: ['en'], allowed_emails: [], team_id: null };
     var userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     var emailSenders = [];
     var currentTab = 'active';
@@ -420,6 +420,7 @@
                     role: data.user.role,
                     permissions: data.user.permissions || [],
                     allowed_languages: data.user.allowed_languages || ['en'],
+                    allowed_emails: data.user.allowed_emails || [],
                     team_id: data.user.team_id || null
                 };
                 localStorage.setItem("token", token);
@@ -554,7 +555,15 @@
                 headers: { "Authorization": "Bearer " + token }
             });
             var data = await res.json();
-            if (data.success) { emailSenders = data.addresses || []; }
+            if (data.success) { 
+                const allAddresses = data.addresses || [];
+                // Filter emails based on user's allowed_emails
+                if (currentUser.role === 'admin' || !currentUser.allowed_emails || currentUser.allowed_emails.length === 0) {
+                    emailSenders = allAddresses;
+                } else {
+                    emailSenders = allAddresses.filter(addr => currentUser.allowed_emails.includes(addr.email));
+                }
+            }
         } catch (e) { console.error("Failed to load senders:", e); }
     }
 

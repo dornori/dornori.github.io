@@ -22,11 +22,12 @@
         .langs-cell { font-size: 12px; color: var(--text-muted); }
         .action-btn { padding: 6px 12px; font-size: 13px; margin-right: 6px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
         .action-btn:hover { background: var(--accent); color: var(--text-inverse); }
+        .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .action-btn.delete { background: #fecaca; color: #991b1b; border-color: #fca5a5; }
-        .action-btn.delete:hover { background: #fca5a5; }
+        .action-btn.delete:hover:not(:disabled) { background: #fca5a5; }
         .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 999; align-items: center; justify-content: center; }
         .modal-overlay.show { display: flex; }
-        .modal-content { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 25px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
+        .modal-content { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 25px; max-width: 650px; width: 90%; max-height: 90vh; overflow-y: auto; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
         .modal-header h3 { margin: 0; font-size: 20px; }
         .modal-close { background: none; border: none; font-size: 28px; cursor: pointer; color: var(--text-muted); padding: 0; }
@@ -35,20 +36,33 @@
         .form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
         .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-input); color: var(--text); font-size: 14px; box-sizing: border-box; }
         .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent); }
+        .form-group input:disabled { opacity: 0.6; cursor: not-allowed; }
         .role-info { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
         .langs-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 8px; }
         .lang-checkbox { display: flex; align-items: center; padding: 8px; background: var(--bg-input); border-radius: 4px; }
         .lang-checkbox input { margin-right: 8px; }
-        .lang-checkbox label { margin: 0; cursor: pointer; }
+        .lang-checkbox label { margin: 0; cursor: pointer; font-weight: normal; }
+        .lang-checkbox input:disabled { opacity: 0.5; cursor: not-allowed; }
+        .emails-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 8px; }
+        .email-checkbox { display: flex; align-items: center; padding: 8px; background: var(--bg-input); border-radius: 4px; }
+        .email-checkbox input { margin-right: 8px; }
+        .email-checkbox label { margin: 0; cursor: pointer; font-weight: normal; font-size: 12px; }
+        .email-checkbox input:disabled { opacity: 0.5; cursor: not-allowed; }
         .form-footer { display: flex; gap: 10px; margin-top: 25px; justify-content: flex-end; }
         .btn-primary { background: var(--accent); color: var(--text-inverse); padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
-        .btn-primary:hover { opacity: 0.9; }
+        .btn-primary:hover:not(:disabled) { opacity: 0.9; }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-secondary { background: var(--bg-input); color: var(--text); padding: 10px 20px; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
         .btn-secondary:hover { background: var(--bg-card); }
         .error { color: #ef4444; font-size: 13px; margin-top: 5px; }
+        .success { color: #22c55e; font-size: 13px; margin-top: 5px; }
+        .warning { color: #f59e0b; font-size: 13px; margin-top: 5px; padding: 10px; background: rgba(245, 158, 11, 0.1); border-radius: 4px; }
         .loading { text-align: center; padding: 40px; color: var(--text-muted); }
         .perm-denied { padding: 40px; text-align: center; }
         .perm-denied h2 { color: #ef4444; margin-bottom: 10px; }
+        .section-title { font-weight: 700; margin-top: 15px; margin-bottom: 10px; font-size: 13px; color: var(--text-muted); text-transform: uppercase; }
+        .info-box { background: rgba(59, 130, 246, 0.1); border-left: 3px solid #3b82f6; padding: 10px; margin: 10px 0; border-radius: 4px; font-size: 13px; }
+        .filter-info { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
     </style>
 </head>
 <body>
@@ -71,8 +85,10 @@
     <div id="usersApp" style="display:none;">
         <div class="users-header">
             <h2>Manage Users</h2>
-            <button class="btn-add-user" onclick="openAddUserModal()">+ Add User</button>
+            <button class="btn-add-user" id="addUserBtn" onclick="openAddUserModal()">+ Add User</button>
         </div>
+
+        <div id="filterInfo" class="card info-box" style="display:none;"></div>
 
         <div class="card">
             <div id="usersTableContainer" class="loading">Loading users...</div>
@@ -80,6 +96,7 @@
     </div>
 </div>
 
+<!-- ADD USER MODAL -->
 <div id="addUserModal" class="modal-overlay">
     <div class="modal-content">
         <div class="modal-header">
@@ -97,36 +114,48 @@
             </div>
             <div class="form-group">
                 <label>Password *</label>
-                <input type="password" id="newPassword" placeholder="Password@123" />
+                <input type="password" id="newPassword" placeholder="Min 8 chars" />
             </div>
             <div class="form-group">
                 <label>Role *</label>
                 <select id="newRole" onchange="updateRoleInfo()">
-                    <option value="agent">Agent - View assigned tickets only</option>
-                    <option value="tl">Team Leader - Manage team, view reports</option>
-                    <option value="manager">Manager - Manage all users, view reports</option>
+                    <option value="agent">Agent - Handle assigned tickets</option>
+                    <option value="tl">Team Leader - Manage team &amp; tickets</option>
+                    <option value="manager">Manager - Manage all users &amp; tickets</option>
                     <option value="admin">Admin - Full system access</option>
                 </select>
                 <div class="role-info" id="roleInfo"></div>
             </div>
-            <div class="form-group">
+
+            <div id="newLanguagesGroup" class="form-group">
                 <label>Languages *</label>
                 <div class="langs-group" id="newLanguages"></div>
             </div>
-            <div class="form-group" id="teamGroup" style="display:none;">
+
+            <div id="newTeamGroup" class="form-group" style="display:none;">
                 <label>Team</label>
-                <input type="text" id="newTeamId" placeholder="team_123" />
-                <div class="role-info">Only for Team Leader and Agent roles</div>
+                <select id="newTeamId">
+                    <option value="">— Select Team —</option>
+                </select>
+                <div class="filter-info">Assign user to a team (TL &amp; Agent only)</div>
             </div>
+
+            <div id="newEmailsGroup" class="form-group" style="display:none;">
+                <label>Email Addresses *</label>
+                <div class="emails-group" id="newEmails"></div>
+                <div class="filter-info">Select which support email addresses this user can send replies from</div>
+            </div>
+
             <div id="addUserError" class="error"></div>
             <div class="form-footer">
                 <button class="btn-secondary" onclick="closeModal()">Cancel</button>
-                <button class="btn-primary" onclick="addUser()">Add User</button>
+                <button class="btn-primary" id="addUserSubmit" onclick="addUser()">Add User</button>
             </div>
         </div>
     </div>
 </div>
 
+<!-- EDIT USER MODAL -->
 <div id="editUserModal" class="modal-overlay">
     <div class="modal-content">
         <div class="modal-header">
@@ -142,29 +171,41 @@
                 <label>Name *</label>
                 <input type="text" id="editName" />
             </div>
-            <div class="form-group">
+
+            <div id="editRoleGroup" class="form-group">
                 <label>Role *</label>
                 <select id="editRole" onchange="updateEditRoleInfo()">
-                    <option value="agent">Agent - View assigned tickets only</option>
-                    <option value="tl">Team Leader - Manage team, view reports</option>
-                    <option value="manager">Manager - Manage all users, view reports</option>
+                    <option value="agent">Agent - Handle assigned tickets</option>
+                    <option value="tl">Team Leader - Manage team &amp; tickets</option>
+                    <option value="manager">Manager - Manage all users &amp; tickets</option>
                     <option value="admin">Admin - Full system access</option>
                 </select>
                 <div class="role-info" id="editRoleInfo"></div>
             </div>
-            <div class="form-group">
+
+            <div id="editLanguagesGroup" class="form-group">
                 <label>Languages *</label>
                 <div class="langs-group" id="editLanguages"></div>
             </div>
-            <div class="form-group" id="editTeamGroup" style="display:none;">
+
+            <div id="editTeamGroup" class="form-group" style="display:none;">
                 <label>Team</label>
-                <input type="text" id="editTeamId" />
-                <div class="role-info">Only for Team Leader and Agent roles</div>
+                <select id="editTeamId">
+                    <option value="">— Select Team —</option>
+                </select>
+                <div class="filter-info">Assign user to a team (TL &amp; Agent only)</div>
             </div>
+
+            <div id="editEmailsGroup" class="form-group" style="display:none;">
+                <label>Email Addresses *</label>
+                <div class="emails-group" id="editEmails"></div>
+                <div class="filter-info">Select which support email addresses this user can send replies from</div>
+            </div>
+
             <div id="editUserError" class="error"></div>
             <div class="form-footer">
                 <button class="btn-secondary" onclick="closeEditModal()">Cancel</button>
-                <button class="btn-primary" onclick="saveUser()">Save Changes</button>
+                <button class="btn-primary" id="editUserSubmit" onclick="saveUser()">Save Changes</button>
             </div>
         </div>
     </div>
@@ -172,24 +213,32 @@
 
 <script>
     const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
+    const LANGUAGES = { en: 'English', nl: 'Dutch', de: 'German', fr: 'French', es: 'Spanish', it: 'Italian', pt: 'Portuguese', cs: 'Czech' };
+    const ROLE_DESCRIPTIONS = {
+        admin: 'Full system access. Can manage users, settings, and all data.',
+        manager: 'Manage all agents &amp; team leaders. View all tickets and reports.',
+        tl: 'Manage your team. Assign tickets within team. View team reports.',
+        agent: 'View &amp; update assigned tickets. Add comments &amp; replies.'
+    };
+
     let token = localStorage.getItem('token');
-    let currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-    let users = [];
-    let languages = [];
+    let currentUser = null;
+    let allUsers = [];
+    let supportEmails = [];
+    let teams = [];
     let editingEmail = null;
 
-    const roleDescriptions = {
-        agent: 'Can view and manage assigned tickets only',
-        tl: 'Can manage team, assign tickets, view reports',
-        manager: 'Can manage all users and tickets, view all reports',
-        admin: 'Full system access to all features'
-    };
+    if (!token) window.location.href = '/admin';
+
+    try {
+        const stored = localStorage.getItem('user');
+        if (stored) currentUser = JSON.parse(stored);
+    } catch (e) {}
 
     function setTheme(theme) {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);
-        const toggles = document.querySelectorAll('.theme-toggle');
-        toggles.forEach(t => t.textContent = theme === 'dark' ? '☀️' : '🌙');
+        document.querySelectorAll('.theme-toggle').forEach(t => t.textContent = theme === 'dark' ? '☀️' : '🌙');
     }
 
     function toggleTheme() {
@@ -197,114 +246,238 @@
         setTheme(current === 'light' ? 'dark' : 'light');
     }
 
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    setTheme(savedTheme);
+    setTheme(localStorage.getItem('theme') || 'light');
 
-    async function checkPermission() {
-        if (!token) { window.location.href = '/admin'; return; }
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  PERMISSION CHECKING
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function canManageUsers() {
+        if (!currentUser) return false;
+        if (currentUser.role === 'admin') return true;
+        if (currentUser.role === 'manager') return true;
+        if (currentUser.role === 'tl') return true;
+        return false;
+    }
+
+    function canCreateUsers() {
+        if (!currentUser) return false;
+        return currentUser.role === 'admin' || currentUser.role === 'manager';
+    }
+
+    function canEditUser(targetUser) {
+        if (!currentUser) return false;
+        if (targetUser.email === 'admin@dornori.com' && currentUser.role !== 'admin') return false;
+        if (currentUser.role === 'admin') return true;
+        if (currentUser.role === 'manager') return targetUser.role !== 'admin';
+        if (currentUser.role === 'tl') return currentUser.team_id && targetUser.team_id === currentUser.team_id && targetUser.role === 'agent';
+        return false;
+    }
+
+    function canDeleteUser(targetUser) {
+        if (!currentUser) return false;
+        if (targetUser.email === 'admin@dornori.com') return false;
+        return currentUser.role === 'admin';
+    }
+
+    function getViewableUsers() {
+        if (!currentUser) return [];
+        if (currentUser.role === 'admin') return allUsers;
+        if (currentUser.role === 'manager') return allUsers.filter(u => u.role !== 'admin');
+        if (currentUser.role === 'tl') return allUsers.filter(u => u.team_id === currentUser.team_id);
+        return [currentUser];
+    }
+
+    function checkPermission() {
+        if (!canManageUsers()) {
+            document.getElementById('permDenied').style.display = 'block';
+            document.getElementById('usersApp').style.display = 'none';
+            return false;
+        }
+        document.getElementById('permDenied').style.display = 'none';
+        document.getElementById('usersApp').style.display = 'block';
+        return true;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD DATA
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadData() {
+        if (!checkPermission()) return;
+
         try {
-            const res = await fetch(API_BASE + '/api/admin/user-profile', {
+            // Load users
+            const usersRes = await fetch(API_BASE + '/api/admin/users', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
-            if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/admin'; return; }
-            const data = await res.json();
-            if (data.user && data.user.permissions && (data.user.permissions.includes('users.view_all') || data.user.permissions.includes('users.view_team'))) {
-                currentUser = data.user;
-                document.getElementById('usersApp').style.display = 'block';
-                loadLanguages();
-                loadUsers();
-            } else {
-                document.getElementById('permDenied').style.display = 'block';
+
+            if (usersRes.status === 401 || usersRes.status === 403) {
+                localStorage.removeItem('token');
+                window.location.href = '/admin';
+                return;
             }
+
+            const usersData = await usersRes.json();
+            if (usersData.success) {
+                allUsers = usersData.users || [];
+            }
+
+            // Load support emails from settings
+            const settingsRes = await fetch(API_BASE + '/api/admin/settings', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+
+            if (settingsRes.ok) {
+                const settingsData = await settingsRes.json();
+                if (settingsData.success) {
+                    supportEmails = settingsData.support_emails || [];
+                    teams = settingsData.teams || [];
+                }
+            }
+
+            renderUI();
+            renderUsers();
         } catch (e) {
-            document.getElementById('permDenied').style.display = 'block';
+            document.getElementById('usersTableContainer').innerHTML = '<div class="error">Error loading data: ' + e.message + '</div>';
         }
     }
 
-    async function loadLanguages() {
-        try {
-            const res = await fetch(API_BASE + '/api/admin/settings', { headers: { 'Authorization': 'Bearer ' + token } });
-            const data = await res.json();
-            if (data.data && data.data.languages) {
-                const langs = JSON.parse(data.data.languages.list || '[]');
-                languages = langs.map(l => ({ code: l.code, name: l.name }));
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  RENDER UI
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function renderUI() {
+        // Add user button
+        document.getElementById('addUserBtn').style.display = canCreateUsers() ? 'block' : 'none';
+
+        // Filter info
+        let filterText = '';
+        if (currentUser.role === 'tl') {
+            filterText = `Showing users in team: <strong>${currentUser.team_name || currentUser.team_id}</strong>`;
+        } else if (currentUser.role === 'manager') {
+            filterText = 'Showing all agents &amp; team leaders (excluding admins)';
+        }
+
+        if (filterText) {
+            document.getElementById('filterInfo').innerHTML = '📋 ' + filterText;
+            document.getElementById('filterInfo').style.display = 'block';
+        }
+
+        // Render language checkboxes
+        renderLanguageCheckboxes('newLanguages');
+        renderLanguageCheckboxes('editLanguages');
+
+        // Render email checkboxes
+        renderEmailCheckboxes('newEmails');
+        renderEmailCheckboxes('editEmails');
+
+        // Render team select
+        renderTeamSelect('newTeamId');
+        renderTeamSelect('editTeamId');
+    }
+
+    function renderLanguageCheckboxes(containerId) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = Object.entries(LANGUAGES).map(([code, name]) => `
+            <div class="lang-checkbox">
+                <input type="checkbox" id="${containerId}_${code}" value="${code}" />
+                <label for="${containerId}_${code}">${name}</label>
+            </div>
+        `).join('');
+    }
+
+    function renderEmailCheckboxes(containerId) {
+        const container = document.getElementById(containerId);
+        if (supportEmails.length === 0) {
+            container.innerHTML = '<div class="filter-info">No support email addresses configured</div>';
+            return;
+        }
+        container.innerHTML = supportEmails.map(email => `
+            <div class="email-checkbox">
+                <input type="checkbox" value="${email}" />
+                <label>${email}</label>
+            </div>
+        `).join('');
+    }
+
+    function renderTeamSelect(selectId) {
+        const select = document.getElementById(selectId);
+        select.innerHTML = '<option value="">— Select Team —</option>' + teams.map(t => `
+            <option value="${t.id}">${t.name}</option>
+        `).join('');
+    }
+
+    function renderUsers() {
+        const viewable = getViewableUsers();
+        if (viewable.length === 0) {
+            document.getElementById('usersTableContainer').innerHTML = '<div class="loading">No users to display</div>';
+            return;
+        }
+
+        let html = '<table class="users-table"><thead><tr>';
+        html += '<th>Email</th><th>Name</th><th>Role</th><th>Languages</th>';
+        if (currentUser.role === 'admin' || currentUser.role === 'manager') {
+            html += '<th>Team</th>';
+        }
+        if (supportEmails.length > 0) {
+            html += '<th>Emails</th>';
+        }
+        html += '<th style="width: 140px;">Actions</th></tr></thead><tbody>';
+
+        viewable.forEach(u => {
+            const canEdit = canEditUser(u);
+            const canDelete = canDeleteUser(u);
+            const teamName = teams.find(t => t.id === u.team_id)?.name || '-';
+
+            html += '<tr>';
+            html += `<td><strong>${u.email}</strong></td>`;
+            html += `<td>${u.name || '-'}</td>`;
+            html += `<td><span class="role-badge ${u.role}">${u.role.toUpperCase()}</span></td>`;
+            html += `<td><span class="langs-cell">${(u.allowed_languages || ['en']).join(', ')}</span></td>`;
+
+            if (currentUser.role === 'admin' || currentUser.role === 'manager') {
+                html += `<td><span class="langs-cell">${teamName}</span></td>`;
             }
-            renderLanguageCheckboxes();
-        } catch (e) { console.log('Could not load languages'); }
-    }
 
-    function renderLanguageCheckboxes(targetId = 'newLanguages') {
-        const container = document.getElementById(targetId);
-        container.innerHTML = '';
-        languages.forEach(lang => {
-            const div = document.createElement('div');
-            div.className = 'lang-checkbox';
-            const input = document.createElement('input');
-            input.type = 'checkbox';
-            input.value = lang.code;
-            if (targetId === 'newLanguages' && lang.code === 'en') input.checked = true;
-            const label = document.createElement('label');
-            const text = document.createTextNode(lang.name);
-            label.appendChild(input);
-            label.appendChild(text);
-            div.appendChild(label);
-            container.appendChild(div);
+            if (supportEmails.length > 0) {
+                const userEmails = (u.allowed_emails || []);
+                html += `<td><span class="langs-cell">${userEmails.length > 0 ? userEmails.length + ' email(s)' : '-'}</span></td>`;
+            }
+
+            html += '<td>';
+            if (canEdit) html += `<button class="action-btn" onclick="openEditUserModal('${u.email}')">Edit</button>`;
+            else html += '<button class="action-btn" disabled>Edit</button>';
+            
+            if (canDelete) html += `<button class="action-btn delete" onclick="deleteUser('${u.email}')">Delete</button>`;
+
+            html += '</td></tr>';
         });
-    }
 
-    async function loadUsers() {
-        try {
-            const res = await fetch(API_BASE + '/api/admin/users', { headers: { 'Authorization': 'Bearer ' + token } });
-            if (res.status === 403) { document.getElementById('permDenied').style.display = 'block'; return; }
-            const data = await res.json();
-            users = data.users || [];
-            renderUsersTable();
-        } catch (e) { document.getElementById('usersTableContainer').innerHTML = '<div class="error">Error loading users</div>'; }
-    }
-
-    function renderUsersTable() {
-        const html = `
-            <table class="users-table">
-                <thead>
-                    <tr>
-                        <th>Email</th>
-                        <th>Name</th>
-                        <th>Role</th>
-                        <th>Languages</th>
-                        <th style="width: 150px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${users.map(u => `
-                        <tr>
-                            <td><strong>${u.email}</strong></td>
-                            <td>${u.name || '-'}</td>
-                            <td><span class="role-badge ${u.role}">${u.role.toUpperCase()}</span></td>
-                            <td><span class="langs-cell">${(u.allowed_languages || ['en']).join(', ')}</span></td>
-                            <td>
-                                ${u.email !== 'admin@dornori.com' ? `<button class="action-btn" onclick="openEditUserModal('${u.email}')">Edit</button>` : ''}
-                                ${u.email !== 'admin@dornori.com' && currentUser.role === 'admin' ? `<button class="action-btn delete" onclick="deleteUser('${u.email}')">Delete</button>` : ''}
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
+        html += '</tbody></table>';
         document.getElementById('usersTableContainer').innerHTML = html;
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  MODAL FUNCTIONS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function updateRoleInfo() {
         const role = document.getElementById('newRole').value;
-        document.getElementById('roleInfo').textContent = roleDescriptions[role] || '';
-        const teamGroup = document.getElementById('teamGroup');
+        document.getElementById('roleInfo').textContent = ROLE_DESCRIPTIONS[role] || '';
+
+        const teamGroup = document.getElementById('newTeamGroup');
+        const emailsGroup = document.getElementById('newEmailsGroup');
+
         teamGroup.style.display = ['tl', 'agent'].includes(role) ? 'block' : 'none';
+        emailsGroup.style.display = supportEmails.length > 0 ? 'block' : 'none';
     }
 
     function updateEditRoleInfo() {
         const role = document.getElementById('editRole').value;
-        document.getElementById('editRoleInfo').textContent = roleDescriptions[role] || '';
+        document.getElementById('editRoleInfo').textContent = ROLE_DESCRIPTIONS[role] || '';
+
         const teamGroup = document.getElementById('editTeamGroup');
+        const emailsGroup = document.getElementById('editEmailsGroup');
+
         teamGroup.style.display = ['tl', 'agent'].includes(role) ? 'block' : 'none';
+        emailsGroup.style.display = supportEmails.length > 0 ? 'block' : 'none';
     }
 
     function openAddUserModal() {
@@ -312,7 +485,10 @@
         document.getElementById('newName').value = '';
         document.getElementById('newPassword').value = '';
         document.getElementById('newRole').value = 'agent';
+        document.getElementById('newTeamId').value = '';
         document.getElementById('addUserError').textContent = '';
+        document.querySelectorAll('#newLanguages input').forEach(i => i.checked = false);
+        document.querySelectorAll('#newEmails input').forEach(i => i.checked = false);
         updateRoleInfo();
         document.getElementById('addUserModal').classList.add('show');
     }
@@ -322,19 +498,28 @@
     }
 
     function openEditUserModal(email) {
-        const user = users.find(u => u.email === email);
-        if (!user) return;
+        const user = allUsers.find(u => u.email === email);
+        if (!user || !canEditUser(user)) return;
+
         editingEmail = email;
         document.getElementById('editEmail').value = user.email;
         document.getElementById('editName').value = user.name || '';
         document.getElementById('editRole').value = user.role;
         document.getElementById('editTeamId').value = user.team_id || '';
         document.getElementById('editUserError').textContent = '';
-        renderLanguageCheckboxes('editLanguages');
+
+        document.querySelectorAll('#editLanguages input').forEach(i => i.checked = false);
         (user.allowed_languages || ['en']).forEach(lang => {
             const input = document.querySelector(`#editLanguages input[value="${lang}"]`);
             if (input) input.checked = true;
         });
+
+        document.querySelectorAll('#editEmails input').forEach(i => i.checked = false);
+        (user.allowed_emails || []).forEach(email => {
+            const input = document.querySelector(`#editEmails input[value="${email}"]`);
+            if (input) input.checked = true;
+        });
+
         updateEditRoleInfo();
         document.getElementById('editUserModal').classList.add('show');
     }
@@ -344,6 +529,9 @@
         editingEmail = null;
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  ADD/EDIT/DELETE USERS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function addUser() {
         const email = document.getElementById('newEmail').value.trim();
         const name = document.getElementById('newName').value.trim();
@@ -351,26 +539,38 @@
         const role = document.getElementById('newRole').value;
         const teamId = document.getElementById('newTeamId').value.trim() || null;
         const langs = Array.from(document.querySelectorAll('#newLanguages input:checked')).map(i => i.value);
+        const emails = Array.from(document.querySelectorAll('#newEmails input:checked')).map(i => i.value);
 
-        document.getElementById('addUserError').textContent = '';
-        if (!email || !name || !password) { document.getElementById('addUserError').textContent = 'All fields required'; return; }
-        if (langs.length === 0) { document.getElementById('addUserError').textContent = 'Select at least one language'; return; }
+        const errorEl = document.getElementById('addUserError');
+        errorEl.textContent = '';
+
+        if (!email || !name || !password) { errorEl.textContent = 'All fields required'; return; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errorEl.textContent = 'Invalid email format'; return; }
+        if (password.length < 8) { errorEl.textContent = 'Password must be at least 8 characters'; return; }
+        if (langs.length === 0) { errorEl.textContent = 'Select at least one language'; return; }
+        if (supportEmails.length > 0 && emails.length === 0) { errorEl.textContent = 'Select at least one email address'; return; }
 
         try {
             const res = await fetch(API_BASE + '/api/admin/users', {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, name, password, role, allowed_languages: langs, team_id: teamId })
+                body: JSON.stringify({
+                    email, name, password, role,
+                    allowed_languages: langs,
+                    allowed_emails: emails,
+                    team_id: teamId
+                })
             });
+
             const data = await res.json();
             if (res.ok && data.success) {
                 closeModal();
-                loadUsers();
+                loadData();
             } else {
-                document.getElementById('addUserError').textContent = data.error || 'Error adding user';
+                errorEl.textContent = data.error || 'Error adding user';
             }
         } catch (e) {
-            document.getElementById('addUserError').textContent = 'Network error';
+            errorEl.textContent = 'Network error';
         }
     }
 
@@ -379,41 +579,62 @@
         const role = document.getElementById('editRole').value;
         const teamId = document.getElementById('editTeamId').value.trim() || null;
         const langs = Array.from(document.querySelectorAll('#editLanguages input:checked')).map(i => i.value);
+        const emails = Array.from(document.querySelectorAll('#editEmails input:checked')).map(i => i.value);
 
-        document.getElementById('editUserError').textContent = '';
-        if (!name) { document.getElementById('editUserError').textContent = 'Name required'; return; }
-        if (langs.length === 0) { document.getElementById('editUserError').textContent = 'Select at least one language'; return; }
+        const errorEl = document.getElementById('editUserError');
+        errorEl.textContent = '';
+
+        if (!name) { errorEl.textContent = 'Name required'; return; }
+        if (langs.length === 0) { errorEl.textContent = 'Select at least one language'; return; }
+        if (supportEmails.length > 0 && emails.length === 0) { errorEl.textContent = 'Select at least one email address'; return; }
 
         try {
             const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(editingEmail)}`, {
                 method: 'PUT',
                 headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, role, allowed_languages: langs, team_id: teamId })
+                body: JSON.stringify({
+                    name, role,
+                    allowed_languages: langs,
+                    allowed_emails: emails,
+                    team_id: teamId
+                })
             });
+
             const data = await res.json();
             if (res.ok && data.success) {
                 closeEditModal();
-                loadUsers();
+                loadData();
             } else {
-                document.getElementById('editUserError').textContent = data.error || 'Error saving user';
+                errorEl.textContent = data.error || 'Error saving user';
             }
         } catch (e) {
-            document.getElementById('editUserError').textContent = 'Network error';
+            errorEl.textContent = 'Network error';
         }
     }
 
     async function deleteUser(email) {
-        if (!confirm(`Delete user ${email}?`)) return;
+        if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
+
         try {
             const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(email)}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': 'Bearer ' + token }
             });
-            if (res.ok) { loadUsers(); } else { alert('Error deleting user'); }
-        } catch (e) { alert('Network error'); }
+
+            if (res.ok) {
+                loadData();
+            } else {
+                alert('Error deleting user');
+            }
+        } catch (e) {
+            alert('Network error');
+        }
     }
 
-    checkPermission();
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  INIT
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    loadData();
     window.setTheme = setTheme;
     window.toggleTheme = toggleTheme;
 </script>
