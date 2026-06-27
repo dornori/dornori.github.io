@@ -54,6 +54,15 @@
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
+        /* Test ticket styling */
+        .ticket-item.test-ticket {
+            background: rgba(59, 130, 246, 0.05);
+            border-left: 3px solid #3b82f6;
+        }
+        .ticket-item.test-ticket .subject::after {
+            content: " 🧪";
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -160,6 +169,7 @@
     var loadedTickets = [];
     let pushSubscription = null;
     let isPushEnabled = false;
+    let testTicketCounter = 0;
 
     function getStatusesForTab(tab) {
         if (tab === 'active') return ['new', 'open', 'in_progress', 'pending'];
@@ -285,7 +295,71 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  TEST ENCRYPTION
+    //  INJECT TEST TICKET INTO TABLE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function injectTestTicketIntoTable(testData) {
+        // Check if we should show this ticket based on current tab
+        const currentStatuses = getStatusesForTab(currentTab);
+        // Default to 'new' status for test tickets if not specified
+        const status = testData.status || 'new';
+        
+        // Only inject if the status matches the current tab
+        if (!currentStatuses.includes(status)) {
+            console.log('Test ticket status does not match current tab, not injecting');
+            return;
+        }
+
+        // Check filters
+        const categoryFilter = document.getElementById('filterCategory').value;
+        const langFilter = document.getElementById('filterLanguage').value;
+        
+        if (categoryFilter && categoryFilter !== testData.category) {
+            console.log('Test ticket category does not match filter, not injecting');
+            return;
+        }
+        if (langFilter && langFilter !== testData.language) {
+            console.log('Test ticket language does not match filter, not injecting');
+            return;
+        }
+
+        // Increment counter for unique ticket numbers
+        testTicketCounter++;
+        
+        // Create a ticket object from the test data
+        const testTicket = {
+            ticket_id: `test-${Date.now()}-${testTicketCounter}`,
+            ticket_number: `TEST-${String(testTicketCounter).padStart(4, '0')}`,
+            status: status,
+            category: testData.category || 'test',
+            subject: testData.subject || `🧪 Test Ticket #${testTicketCounter}`,
+            sender_email: testData.sender_email || 'test@example.com',
+            sender_name: testData.sender_name || 'Test User',
+            created_at: new Date().toISOString(),
+            last_action: new Date().toISOString(),
+            message: testData.message || 'This is a test ticket injected from the test button.',
+            sla_status: testData.sla_status || 'on_track',
+            language: testData.language || 'en',
+            is_test: true // Flag to identify test tickets
+        };
+
+        // Add to loaded tickets
+        loadedTickets.unshift(testTicket);
+        
+        // Re-render the tickets
+        renderTickets(loadedTickets);
+        
+        // Update total count
+        currentTotal++;
+        updateLoadMoreButton();
+
+        // Show success message
+        showTestResult(`🧪 Test ticket "#${testTicket.ticket_number}" injected into table!`, 'success');
+        
+        console.log('✅ Test ticket injected:', testTicket);
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  TEST ENCRYPTION (modified to inject into table)
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function testEncryption() {
         if (!token) {
@@ -309,7 +383,23 @@
             
             if (data.success) {
                 showTestResult(`✅ Encryption test passed! Sent: ${JSON.stringify(data.payload_sent)}`, 'success');
-                showTestResult('📨 Check for a notification with "🔢 Test: 9"', 'info');
+                
+                // Extract the test data from the response
+                const testData = {
+                    category: 'test',
+                    subject: `🔢 Test: ${data.payload_sent?.number || '9'}`,
+                    sender_email: 'test-encryption@dornori.com',
+                    sender_name: 'Encryption Test',
+                    message: `This ticket was created from an encryption test. Sent payload: ${JSON.stringify(data.payload_sent)}`,
+                    status: 'new',
+                    sla_status: 'on_track',
+                    language: 'en'
+                };
+                
+                // Inject into table
+                injectTestTicketIntoTable(testData);
+                
+                showTestResult('📨 Test ticket injected into table!', 'info');
             } else {
                 showTestResult(`❌ Encryption test failed: ${data.error || data.response || 'Unknown error'}`, 'error');
             }
@@ -487,6 +577,9 @@
         }
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  TEST PUSH (modified to inject into table)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function testPush() {
         if (!token) {
             showTestResult('❌ Please login first', 'error');
@@ -513,7 +606,23 @@
             
             if (data.success && data.sent > 0) {
                 showTestResult(`✅ Test push sent! (${data.sent} notifications)`, 'success');
-                showTestResult('📨 Check if you received a notification.', 'info');
+                
+                // Create a test ticket from the push data
+                const testData = {
+                    category: 'push_test',
+                    subject: '📨 Test Push Notification',
+                    sender_email: 'push-test@dornori.com',
+                    sender_name: 'Push Test',
+                    message: `This ticket was created from a test push notification. Sent to ${data.sent} subscribers.`,
+                    status: 'new',
+                    sla_status: 'on_track',
+                    language: 'en'
+                };
+                
+                // Inject into table
+                injectTestTicketIntoTable(testData);
+                
+                showTestResult('📨 Test ticket injected into table!', 'info');
             } else if (data.success && data.sent === 0) {
                 showTestResult('⚠️ No subscribers found. Click "Enable Live Updates" first.', 'error');
             } else {
@@ -546,7 +655,22 @@
                 document.body.appendChild(testDiv);
                 setTimeout(() => testDiv.remove(), 5000);
                 
-                showTestResult(`🔢 Received test data: ${JSON.stringify(data.data)}`, 'success');
+                // Create a test ticket from the received data
+                const testData = {
+                    category: 'test_received',
+                    subject: `🧪 Received Test: ${JSON.stringify(data.data)}`,
+                    sender_email: 'sw-test@dornori.com',
+                    sender_name: 'SW Test',
+                    message: `Test data received from service worker: ${JSON.stringify(data.data, null, 2)}`,
+                    status: 'new',
+                    sla_status: 'on_track',
+                    language: 'en'
+                };
+                
+                // Inject into table
+                injectTestTicketIntoTable(testData);
+                
+                showTestResult(`🔢 Received test data and injected into table!`, 'success');
                 return;
             }
             
@@ -817,7 +941,11 @@
             var truncatedSubject = subjectText.length > 55 ? subjectText.substring(0, 55) + "…" : subjectText;
             var catColor = getCatColor(t.category);
             var catLabel = (t.category || 'other').charAt(0).toUpperCase() + (t.category || 'other').slice(1);
-            html += '<div class="ticket-item" onclick="openTicketModal(' + t.ticket_id + ')">' +
+            
+            // Add test-ticket class for test tickets
+            var testClass = t.is_test ? ' test-ticket' : '';
+            
+            html += '<div class="ticket-item' + testClass + '" onclick="openTicketModal(\'' + t.ticket_id + '\')">' +
                 '<span class="cat-cell"><span class="cat-dot" style="background:' + catColor + ';"></span><span class="cat-name">' + escapeHtml(catLabel) + '</span></span>' +
                 '<span class="sla-cell"><span class="sla-dot" style="background:' + getSlaColor(slaInfo.cls) + ';"></span><span class="sla-label">' + slaInfo.label + '</span></span>' +
                 '<span class="status ' + statusClass + '">' + t.status.replace('_', ' ') + '</span>' +
@@ -876,6 +1004,36 @@
     });
 
     async function openTicketModal(id) {
+        // Check if it's a test ticket
+        const testTicket = loadedTickets.find(t => t.ticket_id === id && t.is_test);
+        if (testTicket) {
+            // Show test ticket details in modal
+            openModal();
+            var content = document.getElementById("modalContent");
+            content.innerHTML = `
+                <div class="detail-section">
+                    <h3>🧪 Test Ticket</h3>
+                    <div class="ticket-meta-grid">
+                        <div class="meta-item"><span class="meta-label">Ticket Number</span><span class="meta-value" style="font-family:monospace;color:var(--accent);">#${testTicket.ticket_number}</span></div>
+                        <div class="meta-item"><span class="meta-label">Status</span><span class="meta-value">${testTicket.status.toUpperCase()}</span></div>
+                        <div class="meta-item"><span class="meta-label">Category</span><span class="meta-value">${testTicket.category || "Other"}</span></div>
+                        <div class="meta-item"><span class="meta-label">Name</span><span class="meta-value">${escapeHtml(testTicket.sender_name)}</span></div>
+                        <div class="meta-item"><span class="meta-label">Email</span><span class="meta-value">${testTicket.sender_email || "Unknown"}</span></div>
+                        <div class="meta-item"><span class="meta-label">Created</span><span class="meta-value">${formatDate(testTicket.created_at)}</span></div>
+                    </div>
+                </div>
+                <div class="detail-section">
+                    <h3>💬 Message</h3>
+                    <div class="ticket-body">${testTicket.message || "No message"}</div>
+                </div>
+                <div class="detail-section" style="background:rgba(59,130,246,0.1);padding:12px;border-radius:8px;margin-top:12px;">
+                    <p style="font-size:13px;color:var(--text-muted);margin:0;">🧪 This is a test ticket created from the test button. It will be removed when you refresh the page.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Regular ticket - fetch from API
         openModal();
         var content = document.getElementById("modalContent");
         content.innerHTML = '<div class="loading">Loading...</div>';
