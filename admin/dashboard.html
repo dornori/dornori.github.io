@@ -10,9 +10,6 @@
         .load-more-wrap button { padding: 10px 30px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-weight: 600; cursor: pointer; transition: background .15s; }
         .load-more-wrap button:hover { background: var(--accent); color: var(--text-inverse); }
         .load-more-wrap .loading-more { color: var(--text-muted); font-size: 14px; padding: 10px; }
-        .header-right button#wsButton { background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; }
-        .header-right button#wsButton.connected { background: #22c55e; color: #fff; border-color: #22c55e; }
-        #wsStatus { font-size: 12px; color: var(--text-muted); margin-left: 6px; }
         .notification-permission-banner {
             background: #fef3c7;
             color: #92400e;
@@ -47,23 +44,6 @@
         .test-result-popup.error { background: #ef4444; color: white; }
         .test-result-popup.info { background: #3b82f6; color: white; }
         @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        .ws-status-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 6px;
-        }
-        .ws-status-indicator.connected { background: #22c55e; }
-        .ws-status-indicator.disconnected { background: #ef4444; }
-        .ws-status-indicator.connecting { background: #eab308; animation: pulse 1s infinite; }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
     </style>
 </head>
 <body>
@@ -86,8 +66,6 @@
                 <a href="newsletter.html">📧 Newsletter</a>
                 <a href="settings.html">⚙️ Settings</a>
                 <a id="usersLink" href="users.html" style="display:none;">👥 Users</a>
-                <button id="wsButton" onclick="toggleWS()">🔌 Connect Live</button>
-                <span id="wsStatus"><span class="ws-status-indicator disconnected" id="wsIndicator"></span> Disconnected</span>
                 <span id="userDisplay" style="font-size: 13px; color: var(--text-muted); margin-left: 10px;"></span>
                 <button onclick="logout()">Logout</button>
             </div>
@@ -169,38 +147,9 @@
     var currentLimit = 50;
     var currentTotal = 0;
     var loadedTickets = [];
-    let ws = null;
-    let wsReconnectTimer = null;
 
-    // ─── WEBSOCKET MANAGEMENT ────────────────────────────────
-    function updateWSStatus(status, message) {
-        const indicator = document.getElementById('wsIndicator');
-        const statusText = document.getElementById('wsStatus');
-        if (indicator) {
-            indicator.className = 'ws-status-indicator ' + status;
-        }
-        if (statusText) {
-            const statusMap = {
-                'connected': '🟢 Connected',
-                'disconnected': '🔴 Disconnected',
-                'connecting': '🟡 Connecting...',
-                'error': '🔴 Error'
-            };
-            statusText.innerHTML = `<span class="ws-status-indicator ${status}"></span> ${statusMap[status] || message || status}`;
-        }
-        const btn = document.getElementById('wsButton');
-        if (btn) {
-            if (status === 'connected') {
-                btn.classList.add('connected');
-                btn.textContent = '🔌 Disconnect';
-            } else {
-                btn.classList.remove('connected');
-                btn.textContent = '🔌 Connect Live';
-            }
-        }
-    }
-
-    function connectWS() {
+    // ─── TEST TICKET (REMOVED WS - use manual refresh) ──────────
+    function createTestTicket() {
         if (ws && ws.readyState === WebSocket.OPEN) return;
         if (ws && ws.readyState === WebSocket.CONNECTING) return;
 
@@ -265,31 +214,7 @@
         }
     }
 
-    function disconnectWS() {
-        if (wsReconnectTimer) {
-            clearTimeout(wsReconnectTimer);
-            wsReconnectTimer = null;
-        }
-        if (ws) {
-            try {
-                ws.close(1000, 'User disconnected');
-            } catch (e) {
-                console.error('Error closing WS:', e);
-            }
-            ws = null;
-        }
-        updateWSStatus('disconnected', 'Disconnected');
-    }
-
-    function toggleWS() {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            disconnectWS();
-        } else {
-            connectWS();
-        }
-    }
-
-    async function testWSBroadcast() {
+    async function createTestTicket() {
         if (!token) {
             showNotification('❌ Error', 'Must be logged in');
             return;
@@ -303,39 +228,35 @@
                 },
                 body: JSON.stringify({
                     category: 'test',
-                    name: 'WS Test',
+                    name: 'Test',
                     email: 'test@example.com',
-                    subject: 'WebSocket Test Ticket',
-                    message: 'Testing WebSocket broadcast'
+                    subject: 'Test Ticket',
+                    message: 'This is a test ticket. Click Refresh to see it.'
                 })
             });
             const data = await res.json();
             if (data.success) {
-                showNotification('✅ Test Ticket Created', data.ticketNumber || 'Ticket created');
+                showNotification('✅ Test Ticket Created', data.ticketNumber || 'Ticket created. Click Refresh to view.');
                 console.log('📤 Test ticket created:', data);
-                // Reload tickets to show the new one
-                resetAndLoad();
             } else {
                 showNotification('❌ Error', data.error || 'Failed to create test ticket');
             }
         } catch (e) {
-            console.error('Test broadcast error:', e);
+            console.error('Test ticket error:', e);
             showNotification('❌ Error', e.message);
         }
     }
 
     function onNewTicket(ticket) {
         console.log('🎫 New ticket received:', ticket);
-        // Reload tickets to show the new one
-        resetAndLoad();
-        showNotification(`🔔 New Ticket ${ticket.ticket_number || ''}`, ticket.subject || 'New ticket received');
+        // User must click Refresh to see new tickets
+        showNotification(`🔔 New Ticket ${ticket.ticket_number || ''}`, 'Click Refresh button to view');
     }
 
     function onTicketUpdate(ticket) {
         console.log('📝 Ticket updated:', ticket);
-        // Reload tickets to show the update
-        resetAndLoad();
-        showNotification(`📝 Ticket Updated ${ticket.ticket_number || ''}`, `Status: ${ticket.status || 'updated'}`);
+        // User must click Refresh to see updates
+        showNotification(`📝 Ticket Updated ${ticket.ticket_number || ''}`, 'Click Refresh button to view changes');
     }
 
     function showNotification(title, body) {
@@ -443,8 +364,6 @@
                 await loadLanguages();
                 loadStats();
                 resetAndLoad();
-                // Connect WebSocket after login
-                setTimeout(connectWS, 500);
                 showNotification("✅ Login Successful", "Welcome to Dornori Ticketing");
             } else {
                 errorEl.textContent = data.message || "Invalid credentials";
@@ -473,7 +392,6 @@
         currentUser = { email: null, name: null, role: null, permissions: [] };
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        disconnectWS();
         document.getElementById("login").style.display = "block";
         document.getElementById("dashboard").style.display = "none";
         showNotification("👋 Logged Out", "See you next time!");
@@ -961,8 +879,6 @@
         loadLanguages();
         loadStats();
         resetAndLoad();
-        // Connect WebSocket after initial load
-        setTimeout(connectWS, 1000);
     }
 
     // Check notification permission on load
@@ -972,8 +888,7 @@
     window.login = login;
     window.logout = logout;
     window.toggleTheme = toggleTheme;
-    window.toggleWS = toggleWS;
-    window.testWSBroadcast = testWSBroadcast;
+    window.createTestTicket = createTestTicket;
     window.switchTab = switchTab;
     window.resetAndLoad = resetAndLoad;
     window.loadTickets = loadTickets;
