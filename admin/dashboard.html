@@ -149,6 +149,7 @@
     var loadedTickets = [];
     var notificationPollTimer = null;
     var notificationPollInterval = 5000; // Poll every 5 seconds
+    var seenNotificationIds = new Set(); // Track which ticket IDs we've already processed
 
     // ─── NOTIFICATION POLLING ──────────────────────────────
     async function pollNotifications() {
@@ -167,7 +168,18 @@
                 
                 // Inject ticket data into loaded tickets if on active tab and status matches
                 const activeStatuses = getStatusesForTab(currentTab);
+                let ticketsChanged = false;
+                
                 for (const notif of data.notifications) {
+                    // Skip if we've already processed this ticket ID
+                    if (seenNotificationIds.has(notif.id)) {
+                        console.log(`⏭️  Already seen ticket ${notif.id}, skipping`);
+                        continue;
+                    }
+                    
+                    // Mark as seen
+                    seenNotificationIds.add(notif.id);
+                    
                     // Show notification
                     const action = notif.event === 'created' ? '🆕' : '📝';
                     showNotification(
@@ -196,11 +208,12 @@
                             // Add new ticket to top of list
                             loadedTickets.unshift(ticketItem);
                         }
+                        ticketsChanged = true;
                     }
                 }
                 
                 // Re-render if we injected any tickets
-                if (loadedTickets.length > 0) {
+                if (ticketsChanged && loadedTickets.length > 0) {
                     renderTickets(loadedTickets);
                     loadStats();
                 }
@@ -401,6 +414,7 @@
 
     function logout() {
         stopNotificationPolling();
+        seenNotificationIds.clear(); // Reset seen tickets for next session
         token = null;
         currentUser = { email: null, name: null, role: null, permissions: [] };
         localStorage.removeItem("token");
