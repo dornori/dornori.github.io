@@ -180,14 +180,14 @@
                     // Mark as seen
                     seenNotificationIds.add(notif.id);
                     
-                    // Show notification
+                    // Show notification regardless of current tab
                     const action = notif.event === 'created' ? '🆕' : '📝';
                     showNotification(
                         `${action} Ticket ${notif.id}: ${notif.subject}`,
                         `${notif.category} | ${notif.sla_status} | ${notif.status}`
                     );
                     
-                    // If on active tab and status matches, add to visible list
+                    // If on active tab and status matches, add to visible list and update
                     if (activeStatuses.includes(notif.status)) {
                         const existingIdx = loadedTickets.findIndex(t => t.ticket_id === notif.id);
                         const ticketItem = {
@@ -204,11 +204,12 @@
                         if (existingIdx >= 0) {
                             // Update existing ticket
                             loadedTickets[existingIdx] = ticketItem;
+                            ticketsChanged = true;
                         } else if (notif.event === 'created') {
                             // Add new ticket to top of list
                             loadedTickets.unshift(ticketItem);
+                            ticketsChanged = true;
                         }
-                        ticketsChanged = true;
                     }
                 }
                 
