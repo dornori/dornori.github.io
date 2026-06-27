@@ -27,7 +27,7 @@
         .action-btn.delete:hover:not(:disabled) { background: #fca5a5; }
         .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 999; align-items: center; justify-content: center; }
         .modal-overlay.show { display: flex; }
-        .modal-content { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 25px; max-width: 650px; width: 90%; max-height: 90vh; overflow-y: auto; }
+        .modal-content { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 25px; max-width: 700px; width: 90%; max-height: 90vh; overflow-y: auto; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
         .modal-header h3 { margin: 0; font-size: 20px; }
         .modal-close { background: none; border: none; font-size: 28px; cursor: pointer; color: var(--text-muted); padding: 0; }
@@ -40,14 +40,21 @@
         .role-info { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
         .langs-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 8px; }
         .lang-checkbox { display: flex; align-items: center; padding: 8px; background: var(--bg-input); border-radius: 4px; }
+        .lang-checkbox input, .lang-checkbox label { margin: 0; cursor: pointer; }
         .lang-checkbox input { margin-right: 8px; }
-        .lang-checkbox label { margin: 0; cursor: pointer; font-weight: normal; }
-        .lang-checkbox input:disabled { opacity: 0.5; cursor: not-allowed; }
+        .lang-checkbox label { font-weight: normal; }
         .emails-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 8px; }
         .email-checkbox { display: flex; align-items: center; padding: 8px; background: var(--bg-input); border-radius: 4px; }
+        .email-checkbox input, .email-checkbox label { margin: 0; cursor: pointer; font-size: 12px; }
         .email-checkbox input { margin-right: 8px; }
-        .email-checkbox label { margin: 0; cursor: pointer; font-weight: normal; font-size: 12px; }
-        .email-checkbox input:disabled { opacity: 0.5; cursor: not-allowed; }
+        .add-item-btn { padding: 8px 12px; font-size: 12px; background: var(--accent); color: var(--text-inverse); border: none; border-radius: 4px; cursor: pointer; margin-top: 8px; }
+        .add-item-btn:hover { opacity: 0.9; }
+        .add-item-row { display: flex; gap: 8px; margin-top: 8px; }
+        .add-item-row input { flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-input); color: var(--text); }
+        .add-item-row button { padding: 8px 12px; background: var(--accent); color: var(--text-inverse); border: none; border-radius: 4px; cursor: pointer; }
+        .add-item-row button:hover { opacity: 0.9; }
+        .item-tag { display: inline-block; background: var(--accent); color: var(--text-inverse); padding: 4px 8px; border-radius: 3px; margin-right: 6px; margin-bottom: 6px; font-size: 12px; }
+        .item-tag button { background: none; border: none; color: inherit; cursor: pointer; margin-left: 4px; padding: 0; font-weight: bold; }
         .form-footer { display: flex; gap: 10px; margin-top: 25px; justify-content: flex-end; }
         .btn-primary { background: var(--accent); color: var(--text-inverse); padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
         .btn-primary:hover:not(:disabled) { opacity: 0.9; }
@@ -56,13 +63,11 @@
         .btn-secondary:hover { background: var(--bg-card); }
         .error { color: #ef4444; font-size: 13px; margin-top: 5px; }
         .success { color: #22c55e; font-size: 13px; margin-top: 5px; }
-        .warning { color: #f59e0b; font-size: 13px; margin-top: 5px; padding: 10px; background: rgba(245, 158, 11, 0.1); border-radius: 4px; }
         .loading { text-align: center; padding: 40px; color: var(--text-muted); }
         .perm-denied { padding: 40px; text-align: center; }
         .perm-denied h2 { color: #ef4444; margin-bottom: 10px; }
-        .section-title { font-weight: 700; margin-top: 15px; margin-bottom: 10px; font-size: 13px; color: var(--text-muted); text-transform: uppercase; }
-        .info-box { background: rgba(59, 130, 246, 0.1); border-left: 3px solid #3b82f6; padding: 10px; margin: 10px 0; border-radius: 4px; font-size: 13px; }
-        .filter-info { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+        .section-divider { border-top: 1px solid var(--border); margin: 20px 0; padding-top: 15px; }
+        .section-title { font-weight: 700; font-size: 13px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -87,8 +92,6 @@
             <h2>Manage Users</h2>
             <button class="btn-add-user" id="addUserBtn" onclick="openAddUserModal()">+ Add User</button>
         </div>
-
-        <div id="filterInfo" class="card info-box" style="display:none;"></div>
 
         <div class="card">
             <div id="usersTableContainer" class="loading">Loading users...</div>
@@ -127,7 +130,7 @@
                 <div class="role-info" id="roleInfo"></div>
             </div>
 
-            <div id="newLanguagesGroup" class="form-group">
+            <div class="form-group">
                 <label>Languages *</label>
                 <div class="langs-group" id="newLanguages"></div>
             </div>
@@ -137,19 +140,31 @@
                 <select id="newTeamId">
                     <option value="">— Select Team —</option>
                 </select>
-                <div class="filter-info">Assign user to a team (TL &amp; Agent only)</div>
+                <div class="section-divider"></div>
+                <label>Or Create New Team</label>
+                <div class="add-item-row">
+                    <input type="text" id="newTeamName" placeholder="Team name (e.g., Support NL)" />
+                    <button onclick="createNewTeam()">Create</button>
+                </div>
+                <div id="newTeamsList"></div>
             </div>
 
             <div id="newEmailsGroup" class="form-group" style="display:none;">
-                <label>Email Addresses *</label>
+                <label>Support Email Addresses *</label>
                 <div class="emails-group" id="newEmails"></div>
-                <div class="filter-info">Select which support email addresses this user can send replies from</div>
+                <div class="section-divider"></div>
+                <label>Or Add New Email</label>
+                <div class="add-item-row">
+                    <input type="email" id="newEmailAddr" placeholder="support@example.com" />
+                    <button onclick="addNewEmail()">Add</button>
+                </div>
+                <div id="newEmailsList"></div>
             </div>
 
             <div id="addUserError" class="error"></div>
             <div class="form-footer">
                 <button class="btn-secondary" onclick="closeModal()">Cancel</button>
-                <button class="btn-primary" id="addUserSubmit" onclick="addUser()">Add User</button>
+                <button class="btn-primary" onclick="addUser()">Add User</button>
             </div>
         </div>
     </div>
@@ -183,7 +198,7 @@
                 <div class="role-info" id="editRoleInfo"></div>
             </div>
 
-            <div id="editLanguagesGroup" class="form-group">
+            <div class="form-group">
                 <label>Languages *</label>
                 <div class="langs-group" id="editLanguages"></div>
             </div>
@@ -193,19 +208,31 @@
                 <select id="editTeamId">
                     <option value="">— Select Team —</option>
                 </select>
-                <div class="filter-info">Assign user to a team (TL &amp; Agent only)</div>
+                <div class="section-divider"></div>
+                <label>Or Create New Team</label>
+                <div class="add-item-row">
+                    <input type="text" id="editTeamName" placeholder="Team name (e.g., Support NL)" />
+                    <button onclick="createNewTeamEdit()">Create</button>
+                </div>
+                <div id="editTeamsList"></div>
             </div>
 
             <div id="editEmailsGroup" class="form-group" style="display:none;">
-                <label>Email Addresses *</label>
+                <label>Support Email Addresses *</label>
                 <div class="emails-group" id="editEmails"></div>
-                <div class="filter-info">Select which support email addresses this user can send replies from</div>
+                <div class="section-divider"></div>
+                <label>Or Add New Email</label>
+                <div class="add-item-row">
+                    <input type="email" id="editEmailAddr" placeholder="support@example.com" />
+                    <button onclick="addNewEmailEdit()">Add</button>
+                </div>
+                <div id="editEmailsList"></div>
             </div>
 
             <div id="editUserError" class="error"></div>
             <div class="form-footer">
                 <button class="btn-secondary" onclick="closeEditModal()">Cancel</button>
-                <button class="btn-primary" id="editUserSubmit" onclick="saveUser()">Save Changes</button>
+                <button class="btn-primary" onclick="saveUser()">Save Changes</button>
             </div>
         </div>
     </div>
@@ -227,6 +254,10 @@
     let supportEmails = [];
     let teams = [];
     let editingEmail = null;
+    let newTeams = [];
+    let newEmails = [];
+    let editTeams = [];
+    let editEmails = [];
 
     if (!token) window.location.href = '/admin';
 
@@ -248,20 +279,14 @@
 
     setTheme(localStorage.getItem('theme') || 'light');
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  PERMISSION CHECKING
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function canManageUsers() {
         if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        if (currentUser.role === 'manager') return true;
-        if (currentUser.role === 'tl') return true;
-        return false;
+        return ['admin', 'manager', 'tl'].includes(currentUser.role);
     }
 
     function canCreateUsers() {
         if (!currentUser) return false;
-        return currentUser.role === 'admin' || currentUser.role === 'manager';
+        return ['admin', 'manager'].includes(currentUser.role);
     }
 
     function canEditUser(targetUser) {
@@ -298,14 +323,10 @@
         return true;
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD DATA
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadData() {
         if (!checkPermission()) return;
 
         try {
-            // Load users
             const usersRes = await fetch(API_BASE + '/api/admin/users', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -321,7 +342,6 @@
                 allUsers = usersData.users || [];
             }
 
-            // Load support emails from settings
             const settingsRes = await fetch(API_BASE + '/api/admin/settings', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -341,35 +361,12 @@
         }
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  RENDER UI
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function renderUI() {
-        // Add user button
         document.getElementById('addUserBtn').style.display = canCreateUsers() ? 'block' : 'none';
-
-        // Filter info
-        let filterText = '';
-        if (currentUser.role === 'tl') {
-            filterText = `Showing users in team: <strong>${currentUser.team_name || currentUser.team_id}</strong>`;
-        } else if (currentUser.role === 'manager') {
-            filterText = 'Showing all agents &amp; team leaders (excluding admins)';
-        }
-
-        if (filterText) {
-            document.getElementById('filterInfo').innerHTML = '📋 ' + filterText;
-            document.getElementById('filterInfo').style.display = 'block';
-        }
-
-        // Render language checkboxes
         renderLanguageCheckboxes('newLanguages');
         renderLanguageCheckboxes('editLanguages');
-
-        // Render email checkboxes
         renderEmailCheckboxes('newEmails');
         renderEmailCheckboxes('editEmails');
-
-        // Render team select
         renderTeamSelect('newTeamId');
         renderTeamSelect('editTeamId');
     }
@@ -387,7 +384,7 @@
     function renderEmailCheckboxes(containerId) {
         const container = document.getElementById(containerId);
         if (supportEmails.length === 0) {
-            container.innerHTML = '<div class="filter-info">No support email addresses configured</div>';
+            container.innerHTML = '<div style="font-size:12px;color:var(--text-muted)">No support emails configured. Add one below.</div>';
             return;
         }
         container.innerHTML = supportEmails.map(email => `
@@ -400,9 +397,9 @@
 
     function renderTeamSelect(selectId) {
         const select = document.getElementById(selectId);
-        select.innerHTML = '<option value="">— Select Team —</option>' + teams.map(t => `
-            <option value="${t.id}">${t.name}</option>
-        `).join('');
+        select.innerHTML = '<option value="">— Select Team —</option>' + 
+            teams.map(t => `<option value="${t.id}">${t.name}</option>`).join('') +
+            newTeams.map(t => `<option value="${t}" style="font-style:italic">[NEW] ${t}</option>`).join('');
     }
 
     function renderUsers() {
@@ -414,40 +411,28 @@
 
         let html = '<table class="users-table"><thead><tr>';
         html += '<th>Email</th><th>Name</th><th>Role</th><th>Languages</th>';
-        if (currentUser.role === 'admin' || currentUser.role === 'manager') {
-            html += '<th>Team</th>';
-        }
-        if (supportEmails.length > 0) {
-            html += '<th>Emails</th>';
-        }
-        html += '<th style="width: 140px;">Actions</th></tr></thead><tbody>';
+        if (['admin', 'manager'].includes(currentUser.role)) html += '<th>Team</th>';
+        if (supportEmails.length > 0) html += '<th>Emails</th>';
+        html += '<th style="width:140px">Actions</th></tr></thead><tbody>';
 
         viewable.forEach(u => {
             const canEdit = canEditUser(u);
             const canDelete = canDeleteUser(u);
-            const teamName = teams.find(t => t.id === u.team_id)?.name || '-';
+            const teamName = teams.find(t => t.id === u.team_id)?.name || u.team_id || '-';
 
             html += '<tr>';
             html += `<td><strong>${u.email}</strong></td>`;
             html += `<td>${u.name || '-'}</td>`;
             html += `<td><span class="role-badge ${u.role}">${u.role.toUpperCase()}</span></td>`;
             html += `<td><span class="langs-cell">${(u.allowed_languages || ['en']).join(', ')}</span></td>`;
-
-            if (currentUser.role === 'admin' || currentUser.role === 'manager') {
-                html += `<td><span class="langs-cell">${teamName}</span></td>`;
-            }
-
+            if (['admin', 'manager'].includes(currentUser.role)) html += `<td><span class="langs-cell">${teamName}</span></td>`;
             if (supportEmails.length > 0) {
-                const userEmails = (u.allowed_emails || []);
+                const userEmails = u.allowed_emails || [];
                 html += `<td><span class="langs-cell">${userEmails.length > 0 ? userEmails.length + ' email(s)' : '-'}</span></td>`;
             }
-
             html += '<td>';
             if (canEdit) html += `<button class="action-btn" onclick="openEditUserModal('${u.email}')">Edit</button>`;
-            else html += '<button class="action-btn" disabled>Edit</button>';
-            
             if (canDelete) html += `<button class="action-btn delete" onclick="deleteUser('${u.email}')">Delete</button>`;
-
             html += '</td></tr>';
         });
 
@@ -455,40 +440,120 @@
         document.getElementById('usersTableContainer').innerHTML = html;
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  MODAL FUNCTIONS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function updateRoleInfo() {
         const role = document.getElementById('newRole').value;
         document.getElementById('roleInfo').textContent = ROLE_DESCRIPTIONS[role] || '';
-
         const teamGroup = document.getElementById('newTeamGroup');
         const emailsGroup = document.getElementById('newEmailsGroup');
-
         teamGroup.style.display = ['tl', 'agent'].includes(role) ? 'block' : 'none';
-        emailsGroup.style.display = supportEmails.length > 0 ? 'block' : 'none';
+        emailsGroup.style.display = ['agent', 'tl', 'manager'].includes(role) ? 'block' : 'none';
     }
 
     function updateEditRoleInfo() {
         const role = document.getElementById('editRole').value;
         document.getElementById('editRoleInfo').textContent = ROLE_DESCRIPTIONS[role] || '';
-
         const teamGroup = document.getElementById('editTeamGroup');
         const emailsGroup = document.getElementById('editEmailsGroup');
-
         teamGroup.style.display = ['tl', 'agent'].includes(role) ? 'block' : 'none';
-        emailsGroup.style.display = supportEmails.length > 0 ? 'block' : 'none';
+        emailsGroup.style.display = ['agent', 'tl', 'manager'].includes(role) ? 'block' : 'none';
     }
 
+    function createNewTeam() {
+        const input = document.getElementById('newTeamName');
+        const name = input.value.trim();
+        if (!name) return;
+        if (newTeams.includes(name)) { alert('Team already added'); return; }
+        newTeams.push(name);
+        input.value = '';
+        renderTeamSelect('newTeamId');
+        renderNewTeamsList();
+    }
+
+    function createNewTeamEdit() {
+        const input = document.getElementById('editTeamName');
+        const name = input.value.trim();
+        if (!name) return;
+        if (editTeams.includes(name) || newTeams.includes(name)) { alert('Team already added'); return; }
+        editTeams.push(name);
+        input.value = '';
+        renderTeamSelect('editTeamId');
+        renderEditTeamsList();
+    }
+
+    function addNewEmail() {
+        const input = document.getElementById('newEmailAddr');
+        const email = input.value.trim();
+        if (!email || !email.includes('@')) { alert('Invalid email'); return; }
+        if (newEmails.includes(email) || supportEmails.includes(email)) { alert('Email already exists'); return; }
+        newEmails.push(email);
+        input.value = '';
+        renderEmailCheckboxes('newEmails');
+        renderNewEmailsList();
+    }
+
+    function addNewEmailEdit() {
+        const input = document.getElementById('editEmailAddr');
+        const email = input.value.trim();
+        if (!email || !email.includes('@')) { alert('Invalid email'); return; }
+        if (editEmails.includes(email) || newEmails.includes(email) || supportEmails.includes(email)) { alert('Email already exists'); return; }
+        editEmails.push(email);
+        input.value = '';
+        renderEmailCheckboxes('editEmails');
+        renderEditEmailsList();
+    }
+
+    function renderNewTeamsList() {
+        const container = document.getElementById('newTeamsList');
+        if (newTeams.length === 0) { container.innerHTML = ''; return; }
+        container.innerHTML = '<div style="margin-top:8px">' + newTeams.map(t => `
+            <span class="item-tag">[NEW] ${t}<button onclick="removeNewTeam('${t}')">✕</button></span>
+        `).join('') + '</div>';
+    }
+
+    function renderEditTeamsList() {
+        const container = document.getElementById('editTeamsList');
+        if (editTeams.length === 0) { container.innerHTML = ''; return; }
+        container.innerHTML = '<div style="margin-top:8px">' + editTeams.map(t => `
+            <span class="item-tag">[NEW] ${t}<button onclick="removeEditTeam('${t}')">✕</button></span>
+        `).join('') + '</div>';
+    }
+
+    function renderNewEmailsList() {
+        const container = document.getElementById('newEmailsList');
+        if (newEmails.length === 0) { container.innerHTML = ''; return; }
+        container.innerHTML = '<div style="margin-top:8px">' + newEmails.map(e => `
+            <span class="item-tag">[NEW] ${e}<button onclick="removeNewEmail('${e}')">✕</button></span>
+        `).join('') + '</div>';
+    }
+
+    function renderEditEmailsList() {
+        const container = document.getElementById('editEmailsList');
+        if (editEmails.length === 0) { container.innerHTML = ''; return; }
+        container.innerHTML = '<div style="margin-top:8px">' + editEmails.map(e => `
+            <span class="item-tag">[NEW] ${e}<button onclick="removeEditEmail('${e}')">✕</button></span>
+        `).join('') + '</div>';
+    }
+
+    function removeNewTeam(name) { newTeams = newTeams.filter(t => t !== name); renderTeamSelect('newTeamId'); renderNewTeamsList(); }
+    function removeEditTeam(name) { editTeams = editTeams.filter(t => t !== name); renderTeamSelect('editTeamId'); renderEditTeamsList(); }
+    function removeNewEmail(email) { newEmails = newEmails.filter(e => e !== email); renderEmailCheckboxes('newEmails'); renderNewEmailsList(); }
+    function removeEditEmail(email) { editEmails = editEmails.filter(e => e !== email); renderEmailCheckboxes('editEmails'); renderEditEmailsList(); }
+
     function openAddUserModal() {
+        newTeams = [];
+        newEmails = [];
         document.getElementById('newEmail').value = '';
         document.getElementById('newName').value = '';
         document.getElementById('newPassword').value = '';
         document.getElementById('newRole').value = 'agent';
         document.getElementById('newTeamId').value = '';
+        document.getElementById('newTeamName').value = '';
+        document.getElementById('newEmailAddr').value = '';
         document.getElementById('addUserError').textContent = '';
         document.querySelectorAll('#newLanguages input').forEach(i => i.checked = false);
         document.querySelectorAll('#newEmails input').forEach(i => i.checked = false);
+        renderNewTeamsList();
+        renderNewEmailsList();
         updateRoleInfo();
         document.getElementById('addUserModal').classList.add('show');
     }
@@ -502,10 +567,14 @@
         if (!user || !canEditUser(user)) return;
 
         editingEmail = email;
+        editTeams = [];
+        editEmails = [];
         document.getElementById('editEmail').value = user.email;
         document.getElementById('editName').value = user.name || '';
         document.getElementById('editRole').value = user.role;
         document.getElementById('editTeamId').value = user.team_id || '';
+        document.getElementById('editTeamName').value = '';
+        document.getElementById('editEmailAddr').value = '';
         document.getElementById('editUserError').textContent = '';
 
         document.querySelectorAll('#editLanguages input').forEach(i => i.checked = false);
@@ -520,6 +589,8 @@
             if (input) input.checked = true;
         });
 
+        renderEditTeamsList();
+        renderEditEmailsList();
         updateEditRoleInfo();
         document.getElementById('editUserModal').classList.add('show');
     }
@@ -529,9 +600,6 @@
         editingEmail = null;
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  ADD/EDIT/DELETE USERS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function addUser() {
         const email = document.getElementById('newEmail').value.trim();
         const name = document.getElementById('newName').value.trim();
@@ -539,16 +607,16 @@
         const role = document.getElementById('newRole').value;
         const teamId = document.getElementById('newTeamId').value.trim() || null;
         const langs = Array.from(document.querySelectorAll('#newLanguages input:checked')).map(i => i.value);
-        const emails = Array.from(document.querySelectorAll('#newEmails input:checked')).map(i => i.value);
+        const emails = [...Array.from(document.querySelectorAll('#newEmails input:checked')).map(i => i.value), ...newEmails];
 
         const errorEl = document.getElementById('addUserError');
         errorEl.textContent = '';
 
         if (!email || !name || !password) { errorEl.textContent = 'All fields required'; return; }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errorEl.textContent = 'Invalid email format'; return; }
-        if (password.length < 8) { errorEl.textContent = 'Password must be at least 8 characters'; return; }
-        if (langs.length === 0) { errorEl.textContent = 'Select at least one language'; return; }
-        if (supportEmails.length > 0 && emails.length === 0) { errorEl.textContent = 'Select at least one email address'; return; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errorEl.textContent = 'Invalid email'; return; }
+        if (password.length < 8) { errorEl.textContent = 'Password min 8 chars'; return; }
+        if (langs.length === 0) { errorEl.textContent = 'Select languages'; return; }
+        if (['agent', 'tl'].includes(role) && emails.length === 0) { errorEl.textContent = 'Select/add email addresses'; return; }
 
         try {
             const res = await fetch(API_BASE + '/api/admin/users', {
@@ -579,14 +647,14 @@
         const role = document.getElementById('editRole').value;
         const teamId = document.getElementById('editTeamId').value.trim() || null;
         const langs = Array.from(document.querySelectorAll('#editLanguages input:checked')).map(i => i.value);
-        const emails = Array.from(document.querySelectorAll('#editEmails input:checked')).map(i => i.value);
+        const emails = [...Array.from(document.querySelectorAll('#editEmails input:checked')).map(i => i.value), ...editEmails];
 
         const errorEl = document.getElementById('editUserError');
         errorEl.textContent = '';
 
         if (!name) { errorEl.textContent = 'Name required'; return; }
-        if (langs.length === 0) { errorEl.textContent = 'Select at least one language'; return; }
-        if (supportEmails.length > 0 && emails.length === 0) { errorEl.textContent = 'Select at least one email address'; return; }
+        if (langs.length === 0) { errorEl.textContent = 'Select languages'; return; }
+        if (['agent', 'tl'].includes(role) && emails.length === 0) { errorEl.textContent = 'Select/add email addresses'; return; }
 
         try {
             const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(editingEmail)}`, {
@@ -631,9 +699,6 @@
         }
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  INIT
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     loadData();
     window.setTheme = setTheme;
     window.toggleTheme = toggleTheme;
