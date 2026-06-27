@@ -10,7 +10,7 @@
     </style>
 </head>
 <body>
-<!-- reports.html v1.1 -->
+<!-- reports.html v1.2 - Added permission enforcement -->
 <div class="container">
     <div class="header">
         <h1>📊 Reports</h1>
@@ -53,11 +53,18 @@
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     var token = localStorage.getItem("token");
     if (!token) { window.location.href = "/admin"; }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD REPORTS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function loadReports() {
+    
+    var currentUser = null;
+    try {
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) currentUser = JSON.parse(storedUser);
+    } catch (e) {}
+    
+    if (!currentUser || currentUser.role !== 'admin') {
+        document.getElementById("reportContent").innerHTML = '<div class="error">⛔ Admin only. You don\'t have permission to view reports.</div>';
+    } else {
+        loadReports();
+    }
         var content = document.getElementById("reportContent");
         try {
             var res = await fetch(API_BASE + "/api/admin/reports", {

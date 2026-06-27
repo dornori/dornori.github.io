@@ -1,4 +1,4 @@
-<!-- settings.html v1.4 -->
+<!-- settings.html v1.5 - Added auth check, admin-only restriction -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -348,6 +348,13 @@ setTheme(localStorage.getItem('theme') || 'light');
 // ── Auth ──
 const token = localStorage.getItem('token');
 if (!token) window.location.href = '/admin';
+
+const storedUser = localStorage.getItem('user');
+const currentUser = storedUser ? JSON.parse(storedUser) : null;
+if (!currentUser || currentUser.role !== 'admin') {
+    document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>Only admins can access settings.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
+    throw new Error('Admin access required');
+}
 
 async function api(path, opts = {}) {
     opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
@@ -1023,9 +1030,32 @@ async function clearFooter(email, safeKey) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// AUTH CHECK
+// ─────────────────────────────────────────────────────────────
+async function checkAuth() {
+    const token = localStorage.getItem("token");
+    const storedUser = localStorage.getItem("user");
+    if (!token || !storedUser) {
+        window.location.href = "dashboard.html";
+        return false;
+    }
+    try {
+        const user = JSON.parse(storedUser);
+        if (user.role !== 'admin') {
+            document.body.innerHTML = '<div style="padding: 20px; color: #ef4444;">⛔ Admin access required</div>';
+            return false;
+        }
+    } catch (e) {
+        window.location.href = "dashboard.html";
+        return false;
+    }
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────────────────
-load();
+checkAuth().then(ok => { if (ok) load(); });
 </script>
 </body>
 </html>

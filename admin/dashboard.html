@@ -139,7 +139,7 @@
     //  GLOBALS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     var token = null;
-    var currentUser = { email: null, name: null, role: null, permissions: [] };
+    var currentUser = { email: null, name: null, role: null, permissions: [], allowed_languages: ['en'], team_id: null };
     var userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     var emailSenders = [];
     var currentTab = 'active';
@@ -150,6 +150,39 @@
     var notificationPollTimer = null;
     var notificationPollInterval = 5000; // Poll every 5 seconds
     var seenNotificationIds = new Set(); // Track which ticket IDs we've already processed
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  PERMISSION SERVICE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const PermissionService = {
+        has: (permission) => currentUser.permissions && currentUser.permissions.includes(permission),
+        canViewPage: (page) => {
+            const pagePerms = {
+                'reports': 'reports.view',
+                'newsletter': 'newsletter.view',
+                'settings': 'settings.view',
+                'users': 'users.view_all'
+            };
+            return !pagePerms[page] || PermissionService.has(pagePerms[page]);
+        },
+        canViewAllTickets: () => PermissionService.has('tickets.view_all'),
+        canAssign: () => PermissionService.has('tickets.assign'),
+        getAllowedLanguages: () => currentUser.allowed_languages || ['en'],
+        getTeamId: () => currentUser.team_id,
+        updateUI: () => {
+            // Hide navigation links based on permissions
+            const links = {
+                'reports': 'a[href="reports.html"]',
+                'newsletter': 'a[href="newsletter.html"]',
+                'settings': 'a[href="settings.html"]',
+                'users': '#usersLink'
+            };
+            for (const [page, selector] of Object.entries(links)) {
+                const el = document.querySelector(selector);
+                if (el) el.style.display = PermissionService.canViewPage(page) ? '' : 'none';
+            }
+        }
+    };
 
     // ─── NOTIFICATION POLLING ──────────────────────────────
     async function pollNotifications() {
@@ -381,10 +414,18 @@
             var data = await res.json();
             if (data.success) {
                 token = data.token;
-                currentUser = { email: data.user.email, name: data.user.name, role: data.user.role, permissions: data.user.permissions || [] };
+                currentUser = {
+                    email: data.user.email,
+                    name: data.user.name,
+                    role: data.user.role,
+                    permissions: data.user.permissions || [],
+                    allowed_languages: data.user.allowed_languages || ['en'],
+                    team_id: data.user.team_id || null
+                };
                 localStorage.setItem("token", token);
                 localStorage.setItem("user", JSON.stringify(currentUser));
-                console.log('✅ Login successful for:', email);
+                console.log('✅ Login successful for:', email, 'Role:', currentUser.role);
+                PermissionService.updateUI();
                 updateUserDisplay();
                 document.getElementById("login").style.display = "none";
                 document.getElementById("dashboard").style.display = "block";
@@ -909,6 +950,7 @@
         if (storedUser) {
             currentUser = JSON.parse(storedUser);
         }
+        PermissionService.updateUI();
         updateUserDisplay();
         document.getElementById("login").style.display = "none";
         document.getElementById("dashboard").style.display = "block";

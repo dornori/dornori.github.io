@@ -60,17 +60,21 @@
         if (storedUser) currentUser = JSON.parse(storedUser);
     } catch (e) {}
     
-    if (!currentUser || currentUser.role !== 'admin') {
-        document.getElementById("reportContent").innerHTML = '<div class="error">⛔ Admin only. You don\'t have permission to view reports.</div>';
+    const hasReportsPermission = currentUser && currentUser.permissions && currentUser.permissions.includes('reports.view');
+    
+    if (!currentUser || !hasReportsPermission) {
+        document.getElementById("reportContent").innerHTML = '<div class="error">⛔ Permission denied. You don\'t have permission to view reports.</div>';
     } else {
         loadReports();
     }
+
+    async function loadReports() {
         var content = document.getElementById("reportContent");
         try {
             var res = await fetch(API_BASE + "/api/admin/reports", {
                 headers: { "Authorization": "Bearer " + token }
             });
-            if (res.status === 401) {
+            if (res.status === 401 || res.status === 403) {
                 localStorage.removeItem("token");
                 window.location.href = "/admin";
                 return;
@@ -79,10 +83,10 @@
             if (data.success) {
                 renderReports(data.data);
             } else {
-                content.innerHTML = '<div class="loading">Error loading reports</div>';
+                content.innerHTML = '<div class="error">Error loading reports: ' + (data.error || 'Unknown error') + '</div>';
             }
         } catch (e) {
-            content.innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
+            content.innerHTML = '<div class="error">Error: ' + e.message + '</div>';
         }
     }
 
