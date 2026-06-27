@@ -72,6 +72,7 @@
                 <a href="newsletter.html">📧 Newsletter</a>
                 <a href="settings.html">⚙️ Settings</a>
                 <button id="wsButton" onclick="toggleWS()">🔌 Connect Live</button>
+                <button onclick="testWSBroadcast()" style="background: #3b82f6; color: white; border: none; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; margin-left: 4px;">📨 Test WS</button>
                 <span id="wsStatus"></span>
                 <button onclick="logout()">Logout</button>
             </div>
@@ -160,8 +161,8 @@
     function connectWS() {
         if (ws && ws.readyState === WebSocket.OPEN) return;
 
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/api/ws`;
+        const wsUrl = API_BASE.replace('https:', 'wss:').replace('http:', 'ws:') + '/api/ws';
+        console.log('🔌 Attempting WS connection to:', wsUrl);
 
         ws = new WebSocket(wsUrl);
 
@@ -169,17 +170,20 @@
             console.log('✅ WebSocket connected');
             document.getElementById('wsButton')?.classList.add('connected');
             const wsStatus = document.getElementById('wsStatus');
-            if (wsStatus) wsStatus.textContent = '● Connected';
+            if (wsStatus) wsStatus.textContent = '🟢 Connected';
+            showNotification('✅ Live Updates Connected', 'WebSocket is now active');
         });
 
         ws.addEventListener('message', (event) => {
             try {
                 const msg = JSON.parse(event.data);
-                console.log('📨 WS Message:', msg);
+                console.log('📨 WS Message received:', msg);
                 
                 if (msg.type === 'newTicket') {
+                    console.log('🎫 New ticket from WS:', msg.ticket);
                     onNewTicket(msg.ticket);
                 } else if (msg.type === 'ticketUpdate') {
+                    console.log('📝 Ticket update from WS:', msg.ticket);
                     onTicketUpdate(msg.ticket);
                 }
             } catch (e) {
@@ -191,10 +195,11 @@
             console.log('❌ WebSocket disconnected');
             document.getElementById('wsButton')?.classList.remove('connected');
             const wsStatus = document.getElementById('wsStatus');
-            if (wsStatus) wsStatus.textContent = '● Disconnected';
+            if (wsStatus) wsStatus.textContent = '🔴 Disconnected';
             
             setTimeout(() => {
                 if (token && (!ws || ws.readyState !== WebSocket.OPEN)) {
+                    console.log('🔄 Attempting WS reconnect...');
                     connectWS();
                 }
             }, 3000);
@@ -203,7 +208,7 @@
         ws.addEventListener('error', (err) => {
             console.error('❌ WebSocket error:', err);
             const wsStatus = document.getElementById('wsStatus');
-            if (wsStatus) wsStatus.textContent = '● Error';
+            if (wsStatus) wsStatus.textContent = '🔴 Error';
         });
     }
 
@@ -215,6 +220,47 @@
         document.getElementById('wsButton')?.classList.remove('connected');
         const wsStatus = document.getElementById('wsStatus');
         if (wsStatus) wsStatus.textContent = '';
+    }
+
+    function toggleWS() {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            disconnectWS();
+        } else {
+            connectWS();
+        }
+    }
+
+    async function testWSBroadcast() {
+        if (!token) {
+            showNotification('❌ Error', 'Must be logged in');
+            return;
+        }
+        try {
+            const res = await fetch(API_BASE + '/api/message', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    category: 'test',
+                    name: 'WS Test',
+                    email: 'test@example.com',
+                    subject: 'WebSocket Test Ticket',
+                    message: 'Testing WebSocket broadcast'
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showNotification('✅ Test Ticket Created', data.ticketNumber);
+                console.log('📤 Test ticket created:', data);
+            } else {
+                showNotification('❌ Error', data.error || 'Failed to create test ticket');
+            }
+        } catch (e) {
+            console.error('Test broadcast error:', e);
+            showNotification('❌ Error', e.message);
+        }
     }
 
     function toggleWS() {
