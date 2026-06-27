@@ -298,30 +298,8 @@
     //  INJECT TEST TICKET INTO TABLE
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function injectTestTicketIntoTable(testData) {
-        // Check if we should show this ticket based on current tab
-        const currentStatuses = getStatusesForTab(currentTab);
-        // Default to 'new' status for test tickets if not specified
-        const status = testData.status || 'new';
+        console.log('🧪 injectTestTicketIntoTable called with:', testData);
         
-        // Only inject if the status matches the current tab
-        if (!currentStatuses.includes(status)) {
-            console.log('Test ticket status does not match current tab, not injecting');
-            return;
-        }
-
-        // Check filters
-        const categoryFilter = document.getElementById('filterCategory').value;
-        const langFilter = document.getElementById('filterLanguage').value;
-        
-        if (categoryFilter && categoryFilter !== testData.category) {
-            console.log('Test ticket category does not match filter, not injecting');
-            return;
-        }
-        if (langFilter && langFilter !== testData.language) {
-            console.log('Test ticket language does not match filter, not injecting');
-            return;
-        }
-
         // Increment counter for unique ticket numbers
         testTicketCounter++;
         
@@ -329,7 +307,7 @@
         const testTicket = {
             ticket_id: `test-${Date.now()}-${testTicketCounter}`,
             ticket_number: `TEST-${String(testTicketCounter).padStart(4, '0')}`,
-            status: status,
+            status: testData.status || 'new',
             category: testData.category || 'test',
             subject: testData.subject || `🧪 Test Ticket #${testTicketCounter}`,
             sender_email: testData.sender_email || 'test@example.com',
@@ -342,20 +320,50 @@
             is_test: true // Flag to identify test tickets
         };
 
-        // Add to loaded tickets
+        console.log('📋 Created test ticket:', testTicket);
+
+        // Check if we should show this ticket based on current tab
+        const currentStatuses = getStatusesForTab(currentTab);
+        
+        // ALWAYS add the ticket to loadedTickets, even if it doesn't match current tab
+        // This way it will be there when the user switches tabs
         loadedTickets.unshift(testTicket);
         
-        // Re-render the tickets
-        renderTickets(loadedTickets);
+        // Only render if the status matches the current tab and filters
+        const statusMatches = currentStatuses.includes(testTicket.status);
+        const categoryFilter = document.getElementById('filterCategory').value;
+        const langFilter = document.getElementById('filterLanguage').value;
+        const categoryMatches = !categoryFilter || categoryFilter === testTicket.category;
+        const langMatches = !langFilter || langFilter === testTicket.language;
         
-        // Update total count
-        currentTotal++;
-        updateLoadMoreButton();
-
-        // Show success message
-        showTestResult(`🧪 Test ticket "#${testTicket.ticket_number}" injected into table!`, 'success');
+        console.log('Status matches?', statusMatches, 'Category matches?', categoryMatches, 'Lang matches?', langMatches);
+        
+        if (statusMatches && categoryMatches && langMatches) {
+            // Re-render the tickets
+            renderTickets(loadedTickets);
+            
+            // Update total count
+            currentTotal++;
+            updateLoadMoreButton();
+            
+            showTestResult(`🧪 Test ticket "#${testTicket.ticket_number}" injected into table!`, 'success');
+        } else {
+            // Ticket is in the list but not visible due to filters/tab
+            // Update stats and show a message
+            updateStatsLocally(testTicket.status, 1);
+            currentTotal++;
+            updateLoadMoreButton();
+            
+            let reason = '';
+            if (!statusMatches) reason = `switch to the "${currentTab === 'active' ? 'Active' : currentTab}" tab`;
+            else if (!categoryMatches) reason = `remove the category filter`;
+            else if (!langMatches) reason = `remove the language filter`;
+            
+            showTestResult(`🧪 Test ticket created but not visible (${reason}). Check other tabs or filters.`, 'info');
+        }
         
         console.log('✅ Test ticket injected:', testTicket);
+        console.log('📊 Total loaded tickets:', loadedTickets.length);
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -398,8 +406,6 @@
                 
                 // Inject into table
                 injectTestTicketIntoTable(testData);
-                
-                showTestResult('📨 Test ticket injected into table!', 'info');
             } else {
                 showTestResult(`❌ Encryption test failed: ${data.error || data.response || 'Unknown error'}`, 'error');
             }
@@ -621,8 +627,6 @@
                 
                 // Inject into table
                 injectTestTicketIntoTable(testData);
-                
-                showTestResult('📨 Test ticket injected into table!', 'info');
             } else if (data.success && data.sent === 0) {
                 showTestResult('⚠️ No subscribers found. Click "Enable Live Updates" first.', 'error');
             } else {
@@ -670,7 +674,6 @@
                 // Inject into table
                 injectTestTicketIntoTable(testData);
                 
-                showTestResult(`🔢 Received test data and injected into table!`, 'success');
                 return;
             }
             
