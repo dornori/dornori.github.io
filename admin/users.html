@@ -161,6 +161,21 @@
                 <div id="newEmailsList"></div>
             </div>
 
+            <div class="section-divider"></div>
+            <div class="form-group">
+                <label>Page Permissions</label>
+                <div class="perm-matrix" id="newPermissions">
+                    <div style="display: grid; grid-template-columns: 150px 80px 80px 80px 80px; gap: 10px; margin-bottom: 15px;">
+                        <div style="font-weight: 600; font-size: 12px;">Page</div>
+                        <div style="font-weight: 600; font-size: 12px; text-align: center;">View</div>
+                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Edit</div>
+                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Create</div>
+                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Delete</div>
+                    </div>
+                    <div id="newPermsGrid"></div>
+                </div>
+            </div>
+
             <div id="addUserError" class="error"></div>
             <div class="form-footer">
                 <button class="btn-secondary" onclick="closeModal()">Cancel</button>
@@ -229,6 +244,21 @@
                 <div id="editEmailsList"></div>
             </div>
 
+            <div class="section-divider"></div>
+            <div class="form-group">
+                <label>Page Permissions</label>
+                <div class="perm-matrix" id="editPermissions">
+                    <div style="display: grid; grid-template-columns: 150px 80px 80px 80px 80px; gap: 10px; margin-bottom: 15px;">
+                        <div style="font-weight: 600; font-size: 12px;">Page</div>
+                        <div style="font-weight: 600; font-size: 12px; text-align: center;">View</div>
+                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Edit</div>
+                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Create</div>
+                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Delete</div>
+                    </div>
+                    <div id="editPermsGrid"></div>
+                </div>
+            </div>
+
             <div id="editUserError" class="error"></div>
             <div class="form-footer">
                 <button class="btn-secondary" onclick="closeEditModal()">Cancel</button>
@@ -247,6 +277,14 @@
         tl: 'Manage your team. Assign tickets within team. View team reports.',
         agent: 'View &amp; update assigned tickets. Add comments &amp; replies.'
     };
+    
+    const PAGE_PERMISSIONS = {
+        tickets: { label: 'Tickets', perms: ['view', 'edit', 'create', 'delete'] },
+        reports: { label: 'Reports', perms: ['view', 'edit', 'create', 'delete'] },
+        users: { label: 'Users', perms: ['view', 'edit', 'create', 'delete'] },
+        settings: { label: 'Settings', perms: ['view', 'edit', 'create', 'delete'] },
+        newsletter: { label: 'Newsletter', perms: ['view', 'edit', 'create', 'delete'] }
+    };
 
     let token = localStorage.getItem('token');
     let currentUser = null;
@@ -258,6 +296,8 @@
     let newEmails = [];
     let editTeams = [];
     let editEmails = [];
+    let newPagePerms = {};
+    let editPagePerms = {};
 
     if (!token) window.location.href = '/admin';
 
@@ -539,9 +579,48 @@
     function removeNewEmail(email) { newEmails = newEmails.filter(e => e !== email); renderEmailCheckboxes('newEmails'); renderNewEmailsList(); }
     function removeEditEmail(email) { editEmails = editEmails.filter(e => e !== email); renderEmailCheckboxes('editEmails'); renderEditEmailsList(); }
 
+    function renderNewPermsGrid() {
+        const container = document.getElementById('newPermsGrid');
+        let html = '';
+        for (const [pageKey, pageData] of Object.entries(PAGE_PERMISSIONS)) {
+            if (!newPagePerms[pageKey]) newPagePerms[pageKey] = {};
+            html += `<div style="display: grid; grid-template-columns: 150px 80px 80px 80px 80px; gap: 10px; margin-bottom: 8px; align-items: center;">
+                <div style="font-size: 14px;">${pageData.label}</div>`;
+            for (const perm of pageData.perms) {
+                const checked = newPagePerms[pageKey][perm] || false;
+                html += `<label style="text-align: center; margin: 0; cursor: pointer;">
+                    <input type="checkbox" ${checked ? 'checked' : ''} 
+                        onchange="newPagePerms['${pageKey}']['${perm}'] = this.checked">
+                </label>`;
+            }
+            html += `</div>`;
+        }
+        container.innerHTML = html;
+    }
+
+    function renderEditPermsGrid() {
+        const container = document.getElementById('editPermsGrid');
+        let html = '';
+        for (const [pageKey, pageData] of Object.entries(PAGE_PERMISSIONS)) {
+            if (!editPagePerms[pageKey]) editPagePerms[pageKey] = {};
+            html += `<div style="display: grid; grid-template-columns: 150px 80px 80px 80px 80px; gap: 10px; margin-bottom: 8px; align-items: center;">
+                <div style="font-size: 14px;">${pageData.label}</div>`;
+            for (const perm of pageData.perms) {
+                const checked = editPagePerms[pageKey][perm] || false;
+                html += `<label style="text-align: center; margin: 0; cursor: pointer;">
+                    <input type="checkbox" ${checked ? 'checked' : ''} 
+                        onchange="editPagePerms['${pageKey}']['${perm}'] = this.checked">
+                </label>`;
+            }
+            html += `</div>`;
+        }
+        container.innerHTML = html;
+    }
+
     function openAddUserModal() {
         newTeams = [];
         newEmails = [];
+        newPagePerms = {};
         document.getElementById('newEmail').value = '';
         document.getElementById('newName').value = '';
         document.getElementById('newPassword').value = '';
@@ -554,6 +633,7 @@
         document.querySelectorAll('#newEmails input').forEach(i => i.checked = false);
         renderNewTeamsList();
         renderNewEmailsList();
+        renderNewPermsGrid();
         updateRoleInfo();
         document.getElementById('addUserModal').classList.add('show');
     }
@@ -569,6 +649,7 @@
         editingEmail = email;
         editTeams = [];
         editEmails = [];
+        editPagePerms = {};
         document.getElementById('editEmail').value = user.email;
         document.getElementById('editName').value = user.name || '';
         document.getElementById('editRole').value = user.role;
@@ -588,9 +669,14 @@
             const input = document.querySelector(`#editEmails input[value="${email}"]`);
             if (input) input.checked = true;
         });
+        
+        if (user.page_permissions) {
+            editPagePerms = JSON.parse(JSON.stringify(user.page_permissions));
+        }
 
         renderEditTeamsList();
         renderEditEmailsList();
+        renderEditPermsGrid();
         updateEditRoleInfo();
         document.getElementById('editUserModal').classList.add('show');
     }
@@ -626,7 +712,8 @@
                     email, name, password, role,
                     allowed_languages: langs,
                     allowed_emails: emails,
-                    team_id: teamId
+                    team_id: teamId,
+                    page_permissions: newPagePerms
                 })
             });
 
@@ -664,7 +751,8 @@
                     name, role,
                     allowed_languages: langs,
                     allowed_emails: emails,
-                    team_id: teamId
+                    team_id: teamId,
+                    page_permissions: editPagePerms
                 })
             });
 

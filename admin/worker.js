@@ -58,7 +58,7 @@ async function getUser(email, env) {
     }
     
     try {
-        const row = await env.DB.prepare('SELECT email, name, role, password_hash, allowed_languages, team_id FROM users WHERE email = ?').bind(email).first();
+        const row = await env.DB.prepare('SELECT email, name, role, password_hash, allowed_languages, allowed_emails, team_id FROM users WHERE email = ?').bind(email).first();
         if (row) {
             const role = row.role || 'agent';
             const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.agent;
@@ -69,6 +69,7 @@ async function getUser(email, env) {
                 password_hash: row.password_hash,
                 permissions: permissions,
                 allowed_languages: row.allowed_languages ? JSON.parse(row.allowed_languages) : ['en'],
+                allowed_emails: row.allowed_emails ? JSON.parse(row.allowed_emails) : [],
                 team_id: row.team_id,
                 session_version: `v${Date.now()}`
             };
@@ -87,6 +88,7 @@ async function getUser(email, env) {
             password_hash: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', 
             permissions: ROLE_PERMISSIONS.admin,
             allowed_languages: ['en'],
+            allowed_emails: [],
             session_version: 'v1.0'
         };
         cache.users.set(email, user);
@@ -1179,7 +1181,20 @@ export default {
                     if (!grouped[s.category]) grouped[s.category] = {};
                     grouped[s.category][s.key] = s.value;
                 }
-                return json({ success: true, data: grouped, settings: settingsArray });
+                
+                // Also include support emails and teams for user management UI
+                try {
+                    let supportEmailsStr = await getSetting(env, 'email', 'support_emails_list');
+                    const supportEmails = supportEmailsStr ? JSON.parse(supportEmailsStr) : [];
+                    
+                    const usersResult = await env.DB.prepare('SELECT DISTINCT team_id FROM users WHERE team_id IS NOT NULL AND team_id != "" ORDER BY team_id').all();
+                    const teamIds = (usersResult.results || []).map(r => r.team_id);
+                    const teams = teamIds.map(id => ({ id, name: id }));
+                    
+                    return json({ success: true, data: grouped, settings: settingsArray, support_emails: supportEmails, teams: teams });
+                } catch (e) {
+                    return json({ success: true, data: grouped, settings: settingsArray, support_emails: [], teams: [] });
+                }
             }
             if (path === '/api/admin/settings' && method === 'PUT') {
                 const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
@@ -1324,7 +1339,7 @@ export default {
                 const user = await getUser(email, env);
                 if (!user) return json({ error: 'Invalid credentials' }, 401);
                 if ((await sha256(password)) !== user.password_hash) return json({ error: 'Invalid credentials' }, 401);
-                return json({ success: true, token: generateToken(email), user: { email: user.email, name: user.name, role: user.role, permissions: user.permissions, allowed_languages: user.allowed_languages, team_id: user.team_id } });
+                return json({ success: true, token: generateToken(email), user: { email: user.email, name: user.name, role: user.role, permissions: user.permissions, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, team_id: user.team_id } });
             }
 
             // ── User profile ──
@@ -1333,7 +1348,7 @@ export default {
                 const email = verifyToken(token);
                 if (!email) return json({ error: 'Unauthorized' }, 401);
                 const user = await getUser(email, env);
-                return json({ success: true, user: { email: user.email, name: user.name, role: user.role, permissions: user.permissions, allowed_languages: user.allowed_languages, team_id: user.team_id } });
+                return json({ success: true, user: { email: user.email, name: user.name, role: user.role, permissions: user.permissions, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, team_id: user.team_id } });
             }
 
             // ── Get all users (admin only) ──
@@ -1344,20 +1359,21 @@ export default {
                 const user = await getUser(email, env);
                 if (!await hasPermission(email, 'users.view_all', env)) return json({ error: 'Permission denied' }, 403);
                 try {
-                    const users = await env.DB.prepare('SELECT email, name, role, allowed_languages, team_id FROM users ORDER BY email').all();
+                    const users = await env.DB.prepare('SELECT email, name, role, allowed_languages, allowed_emails, team_id FROM users ORDER BY email').all();
                     const results = (users.results || []).map(u => ({ 
                         email: u.email, 
                         name: u.name, 
                         role: u.role || 'agent',
                         allowed_languages: u.allowed_languages ? JSON.parse(u.allowed_languages) : ['en'],
+                        allowed_emails: u.allowed_emails ? JSON.parse(u.allowed_emails) : [],
                         team_id: u.team_id || null
                     }));
                     if (!results.find(u => u.email === 'admin@dornori.com')) {
-                        results.unshift({ email: 'admin@dornori.com', name: 'Admin', role: 'admin', allowed_languages: ['en'], team_id: null });
+                        results.unshift({ email: 'admin@dornori.com', name: 'Admin', role: 'admin', allowed_languages: ['en'], allowed_emails: [], team_id: null });
                     }
                     return json({ success: true, users: results });
                 } catch (e) {
-                    return json({ success: true, users: [{ email: 'admin@dornori.com', name: 'Admin', role: 'admin', allowed_languages: ['en'], team_id: null }] });
+                    return json({ success: true, users: [{ email: 'admin@dornori.com', name: 'Admin', role: 'admin', allowed_languages: ['en'], allowed_emails: [], team_id: null }] });
                 }
             }
 
@@ -1367,12 +1383,16 @@ export default {
                 const email = verifyToken(token);
                 if (!email) return json({ error: 'Unauthorized' }, 401);
                 if (!await hasPermission(email, 'users.manage_permissions', env)) return json({ error: 'Permission denied' }, 403);
-                const { email: newEmail, name, password, role, allowed_languages, team_id } = await request.json();
+                const { email: newEmail, name, password, role, allowed_languages, allowed_emails, team_id } = await request.json();
                 if (!newEmail || !name || !password) return json({ error: 'Missing required fields' }, 400);
+                if (!password || password.length < 8) return json({ error: 'Password must be at least 8 characters' }, 400);
+                if (!allowed_languages || allowed_languages.length === 0) return json({ error: 'At least one language required' }, 400);
                 try {
                     const hash = await sha256(password);
                     const langs = JSON.stringify(allowed_languages || ['en']);
-                    await env.DB.prepare('INSERT INTO users (email, name, role, password_hash, allowed_languages, team_id) VALUES (?, ?, ?, ?, ?, ?)').bind(newEmail, name, role || 'agent', hash, langs, team_id || null).run();
+                    const emails = JSON.stringify(allowed_emails || []);
+                    await env.DB.prepare('INSERT INTO users (email, name, role, password_hash, allowed_languages, allowed_emails, team_id) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(newEmail, name, role || 'agent', hash, langs, emails, team_id || null).run();
+                    clearCache();
                     return json({ success: true });
                 } catch (e) {
                     return json({ error: 'User already exists' }, 409);
@@ -1387,10 +1407,12 @@ export default {
                 if (!await hasPermission(email, 'users.edit', env)) return json({ error: 'Permission denied' }, 403);
                 const userEmail = decodeURIComponent(path.split('/')[4]);
                 if (userEmail === 'admin@dornori.com') return json({ error: 'Cannot edit admin' }, 400);
-                const { name, role, allowed_languages, team_id } = await request.json();
+                const { name, role, allowed_languages, allowed_emails, team_id } = await request.json();
                 try {
                     const langs = JSON.stringify(allowed_languages || ['en']);
-                    await env.DB.prepare('UPDATE users SET name = ?, role = ?, allowed_languages = ?, team_id = ? WHERE email = ?').bind(name, role, langs, team_id || null, userEmail).run();
+                    const emails = JSON.stringify(allowed_emails || []);
+                    await env.DB.prepare('UPDATE users SET name = ?, role = ?, allowed_languages = ?, allowed_emails = ?, team_id = ? WHERE email = ?').bind(name, role, langs, emails, team_id || null, userEmail).run();
+                    clearCache();
                     return json({ success: true });
                 } catch (e) {
                     return json({ error: 'Error updating user' }, 500);
@@ -1407,6 +1429,7 @@ export default {
                 if (userEmail === 'admin@dornori.com') return json({ error: 'Cannot delete admin' }, 400);
                 try {
                     await env.DB.prepare('DELETE FROM users WHERE email = ?').bind(userEmail).run();
+                    clearCache();
                     return json({ success: true });
                 } catch (e) {
                     return json({ error: 'Error deleting user' }, 500);
@@ -1538,10 +1561,18 @@ export default {
                 const userEmail = verifyToken(token);
                 if (!userEmail) return json({ error: 'Unauthorized' }, 401);
                 if (!await hasPermission(userEmail, 'tickets.reply', env)) return json({ error: 'Permission denied' }, 403);
+                
                 const id = parseInt(path.split('/')[4]);
                 const { from, body } = await request.json();
                 const ticket = await getTicket(id, env);
                 if (!ticket) return json({ error: 'Not found' }, 404);
+                
+                // Check if user has access to this email address
+                const user = await getUser(userEmail, env);
+                if (user.role !== 'admin' && (!user.allowed_emails || !user.allowed_emails.includes(from))) {
+                    return json({ error: 'You do not have access to send from this email address' }, 403);
+                }
+                
                 const emailResult = await sendEmail(env, ticket.sender_email, `Re: [${ticket.ticket_number}] ${ticket.subject}`, body, from);
                 if (emailResult.success) {
                     await addComment(id, { type: 'public', authorEmail: from || 'system', content: 'Reply sent: ' + body }, env);
@@ -1580,7 +1611,7 @@ export default {
                     
                     if (['resolved', 'closed'].includes(ticket.status)) await updateTicket(ticket.id, { status: 'open' }, env);
                     console.log('✅ Comment added to ticket:', ticketNumber);
-                    return;
+                    return; 
                 }
             }
             const category = await getCategoryForIncomingAddress(env, message.to);
