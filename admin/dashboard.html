@@ -147,6 +147,46 @@
     var currentLimit = 50;
     var currentTotal = 0;
     var loadedTickets = [];
+    var notificationPollTimer = null;
+    var notificationPollInterval = 5000; // Poll every 5 seconds
+
+    // ─── NOTIFICATION POLLING ──────────────────────────────
+    async function pollNotifications() {
+        if (!token) return;
+        try {
+            const res = await fetch(API_BASE + '/api/admin/notifications', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.status === 401) {
+                logout();
+                return;
+            }
+            const data = await res.json();
+            if (data.success && data.notifications && data.notifications.length > 0) {
+                console.log('📬 Notifications received:', data.notifications);
+                for (const notif of data.notifications) {
+                    const action = notif.event === 'created' ? '🆕' : '📝';
+                    showNotification(`${action} Ticket ${notif.ticketId}`, `${notif.event === 'created' ? 'Created' : 'Updated'}. Click Refresh to view.`);
+                }
+            }
+        } catch (e) {
+            console.error('Notification poll error:', e);
+        }
+    }
+
+    function startNotificationPolling() {
+        if (notificationPollTimer) clearInterval(notificationPollTimer);
+        notificationPollTimer = setInterval(pollNotifications, notificationPollInterval);
+        console.log('✅ Notification polling started');
+    }
+
+    function stopNotificationPolling() {
+        if (notificationPollTimer) {
+            clearInterval(notificationPollTimer);
+            notificationPollTimer = null;
+        }
+        console.log('⛔ Notification polling stopped');
+    }
 
     // ─── TEST TICKET (event-driven, no polling) ──────────
     async function createTestTicket() {
@@ -299,6 +339,7 @@
                 await loadLanguages();
                 loadStats();
                 resetAndLoad();
+                startNotificationPolling();
                 showNotification("✅ Login Successful", "Welcome to Dornori Ticketing");
             } else {
                 errorEl.textContent = data.message || "Invalid credentials";
@@ -323,6 +364,7 @@
     }
 
     function logout() {
+        stopNotificationPolling();
         token = null;
         currentUser = { email: null, name: null, role: null, permissions: [] };
         localStorage.removeItem("token");
@@ -814,6 +856,7 @@
         loadLanguages();
         loadStats();
         resetAndLoad();
+        startNotificationPolling();
     }
 
     // Check notification permission on load
