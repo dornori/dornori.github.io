@@ -719,13 +719,16 @@
 
             const data = await res.json();
             if (res.ok && data.success) {
+                showSuccessPopup('✅ User Added', `${name} (${email}) created successfully`);
                 closeModal();
                 loadData();
             } else {
                 errorEl.textContent = data.error || 'Error adding user';
+                showErrorPopup('Error', data.error || 'Failed to add user');
             }
         } catch (e) {
             errorEl.textContent = 'Network error';
+            showErrorPopup('Network Error', e.message);
         }
     }
 
@@ -758,13 +761,16 @@
 
             const data = await res.json();
             if (res.ok && data.success) {
+                showSuccessPopup('✅ User Saved', `${name} updated successfully`);
                 closeEditModal();
                 loadData();
             } else {
                 errorEl.textContent = data.error || 'Error saving user';
+                showErrorPopup('Error', data.error || 'Failed to save user');
             }
         } catch (e) {
             errorEl.textContent = 'Network error';
+            showErrorPopup('Network Error', e.message);
         }
     }
 
@@ -778,13 +784,38 @@
             });
 
             if (res.ok) {
+                showSuccessPopup('✅ User Deleted', `${email} has been deleted`);
                 loadData();
             } else {
-                alert('Error deleting user');
+                showErrorPopup('Error', 'Failed to delete user');
             }
         } catch (e) {
-            alert('Network error');
+            showErrorPopup('Network Error', e.message);
         }
+    }
+
+    function showSuccessPopup(title, message) {
+        const popup = document.createElement('div');
+        popup.style.cssText = `
+            position: fixed; top: 20px; right: 20px; background: #22c55e; color: white;
+            padding: 15px 20px; border-radius: 8px; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            font-weight: bold; max-width: 400px; animation: slideIn 0.3s ease;
+        `;
+        popup.innerHTML = `<div style="font-size: 16px;">${title}</div><div style="font-size: 13px; margin-top: 5px;">${message}</div>`;
+        document.body.appendChild(popup);
+        setTimeout(() => popup.remove(), 3000);
+    }
+
+    function showErrorPopup(title, message) {
+        const popup = document.createElement('div');
+        popup.style.cssText = `
+            position: fixed; top: 20px; right: 20px; background: #ef4444; color: white;
+            padding: 15px 20px; border-radius: 8px; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            font-weight: bold; max-width: 400px; animation: slideIn 0.3s ease;
+        `;
+        popup.innerHTML = `<div style="font-size: 16px;">${title}</div><div style="font-size: 13px; margin-top: 5px;">${message}</div>`;
+        document.body.appendChild(popup);
+        setTimeout(() => popup.remove(), 4000);
     }
 
     loadData();
