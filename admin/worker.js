@@ -58,7 +58,7 @@ async function getUser(email, env) {
     }
     
     try {
-        const row = await env.DB.prepare('SELECT email, name, role, password_hash, allowed_languages, allowed_emails, team_id FROM users WHERE email = ?').bind(email).first();
+        const row = await env.DB.prepare('SELECT email, name, role, password_hash, allowed_languages, allowed_emails, team_id, page_permissions FROM users WHERE email = ?').bind(email).first();
         if (row) {
             const role = row.role || 'agent';
             const permissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.agent;
@@ -70,6 +70,7 @@ async function getUser(email, env) {
                 permissions: permissions,
                 allowed_languages: row.allowed_languages ? JSON.parse(row.allowed_languages) : ['en'],
                 allowed_emails: row.allowed_emails ? JSON.parse(row.allowed_emails) : [],
+                page_permissions: row.page_permissions ? JSON.parse(row.page_permissions) : {},
                 team_id: row.team_id,
                 session_version: `v${Date.now()}`
             };
@@ -89,6 +90,7 @@ async function getUser(email, env) {
             permissions: ROLE_PERMISSIONS.admin,
             allowed_languages: ['en'],
             allowed_emails: [],
+            page_permissions: {},
             session_version: 'v1.0'
         };
         cache.users.set(email, user);
@@ -730,9 +732,16 @@ async function addComment(ticketId, data, env) {
 }
 
 // ─── TICKET LIST ──────────────────────────────────────────────
-async function getTickets(filters, env) {
+async function getTickets(filters, env, user) {
     let query = 'SELECT * FROM ticket_summary WHERE 1=1';
     const params = [];
+
+    // Enforce user's allowed_languages restriction
+    if (user && user.allowed_languages && user.allowed_languages.length > 0 && user.role !== 'admin') {
+        const langPlaceholders = user.allowed_languages.map(() => '?').join(',');
+        query += ` AND language IN (${langPlaceholders})`;
+        params.push(...user.allowed_languages);
+    }
 
     if (filters.statuses && Array.isArray(filters.statuses) && filters.statuses.length > 0) {
         const placeholders = filters.statuses.map(() => '?').join(',');
@@ -767,9 +776,16 @@ async function getTickets(filters, env) {
     return r.results || [];
 }
 
-async function getTotalTicketCount(filters, env) {
+async function getTotalTicketCount(filters, env, user) {
     let query = 'SELECT COUNT(*) as total FROM ticket_summary WHERE 1=1';
     const params = [];
+
+    // Enforce user's allowed_languages restriction
+    if (user && user.allowed_languages && user.allowed_languages.length > 0 && user.role !== 'admin') {
+        const langPlaceholders = user.allowed_languages.map(() => '?').join(',');
+        query += ` AND language IN (${langPlaceholders})`;
+        params.push(...user.allowed_languages);
+    }
 
     if (filters.statuses && Array.isArray(filters.statuses) && filters.statuses.length > 0) {
         const placeholders = filters.statuses.map(() => '?').join(',');
@@ -792,8 +808,22 @@ async function getTicketByNumber(ticketNumber, env) {
 }
 
 // ─── STATS ────────────────────────────────────────────────────
-async function getStats(env) {
-    const r = await env.DB.prepare('SELECT status, COUNT(*) as count FROM tickets GROUP BY status').all();
+async function getStats(env, user) {
+    let query = 'SELECT status, COUNT(*) as count FROM tickets WHERE 1=1';
+    const params = [];
+    
+    // Enforce user's allowed_languages restriction
+    if (user && user.allowed_languages && user.allowed_languages.length > 0 && user.role !== 'admin') {
+        const langPlaceholders = user.allowed_languages.map(() => '?').join(',');
+        query += ` AND language IN (${langPlaceholders})`;
+        params.push(...user.allowed_languages);
+    }
+    
+    query += ' GROUP BY status';
+    const r = params.length > 0 
+        ? await env.DB.prepare(query).bind(...params).all()
+        : await env.DB.prepare(query).all();
+    
     const stats = { new: 0, open: 0, in_progress: 0, pending: 0, resolved: 0, closed: 0 };
     for (const row of r.results || []) if (stats.hasOwnProperty(row.status)) stats[row.status] = row.count;
     return stats;
@@ -1091,7 +1121,8 @@ export default {
                 const email = verifyToken(token);
                 if (!email) return json({ error: 'Unauthorized' }, 401);
                 if (!await hasPermission(email, 'tickets.view', env)) return json({ error: 'Permission denied' }, 403);
-                return json({ success: true, stats: await getStats(env) });
+                const user = await getUser(email, env);
+                return json({ success: true, stats: await getStats(env, user) });
             }
 
             // ── Auto-reply ──
@@ -1383,7 +1414,7 @@ export default {
                 const email = verifyToken(token);
                 if (!email) return json({ error: 'Unauthorized' }, 401);
                 if (!await hasPermission(email, 'users.manage_permissions', env)) return json({ error: 'Permission denied' }, 403);
-                const { email: newEmail, name, password, role, allowed_languages, allowed_emails, team_id } = await request.json();
+                const { email: newEmail, name, password, role, allowed_languages, allowed_emails, team_id, page_permissions } = await request.json();
                 if (!newEmail || !name || !password) return json({ error: 'Missing required fields' }, 400);
                 if (!password || password.length < 8) return json({ error: 'Password must be at least 8 characters' }, 400);
                 if (!allowed_languages || allowed_languages.length === 0) return json({ error: 'At least one language required' }, 400);
@@ -1391,7 +1422,8 @@ export default {
                     const hash = await sha256(password);
                     const langs = JSON.stringify(allowed_languages || ['en']);
                     const emails = JSON.stringify(allowed_emails || []);
-                    await env.DB.prepare('INSERT INTO users (email, name, role, password_hash, allowed_languages, allowed_emails, team_id) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(newEmail, name, role || 'agent', hash, langs, emails, team_id || null).run();
+                    const perms = JSON.stringify(page_permissions || {});
+                    await env.DB.prepare('INSERT INTO users (email, name, role, password_hash, allowed_languages, allowed_emails, team_id, page_permissions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(newEmail, name, role || 'agent', hash, langs, emails, team_id || null, perms).run();
                     clearCache();
                     return json({ success: true });
                 } catch (e) {
@@ -1407,11 +1439,12 @@ export default {
                 if (!await hasPermission(email, 'users.edit', env)) return json({ error: 'Permission denied' }, 403);
                 const userEmail = decodeURIComponent(path.split('/')[4]);
                 if (userEmail === 'admin@dornori.com') return json({ error: 'Cannot edit admin' }, 400);
-                const { name, role, allowed_languages, allowed_emails, team_id } = await request.json();
+                const { name, role, allowed_languages, allowed_emails, team_id, page_permissions } = await request.json();
                 try {
                     const langs = JSON.stringify(allowed_languages || ['en']);
                     const emails = JSON.stringify(allowed_emails || []);
-                    await env.DB.prepare('UPDATE users SET name = ?, role = ?, allowed_languages = ?, allowed_emails = ?, team_id = ? WHERE email = ?').bind(name, role, langs, emails, team_id || null, userEmail).run();
+                    const perms = JSON.stringify(page_permissions || {});
+                    await env.DB.prepare('UPDATE users SET name = ?, role = ?, allowed_languages = ?, allowed_emails = ?, team_id = ?, page_permissions = ? WHERE email = ?').bind(name, role, langs, emails, team_id || null, perms, userEmail).run();
                     clearCache();
                     return json({ success: true });
                 } catch (e) {
@@ -1442,6 +1475,8 @@ export default {
                 const email = verifyToken(token);
                 if (!email) return json({ error: 'Unauthorized' }, 401);
                 if (!await hasPermission(email, 'tickets.view', env)) return json({ error: 'Permission denied' }, 403);
+                
+                const user = await getUser(email, env);
 
                 const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 100); // Cap at 100
                 const offset = parseInt(url.searchParams.get('offset') || '0');
@@ -1457,8 +1492,8 @@ export default {
                     filters.status = url.searchParams.get('status') || null;
                 }
 
-                const tickets = await getTickets(filters, env);
-                const total = await getTotalTicketCount(filters, env);
+                const tickets = await getTickets(filters, env, user);
+                const total = await getTotalTicketCount(filters, env, user);
 
                 return json({
                     success: true,
