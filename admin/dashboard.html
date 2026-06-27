@@ -354,7 +354,8 @@
         errorEl.textContent = "";
         loadingEl.classList.add("active");
         btn.disabled = true;
-        btn.textContent = "Logging in...";
+        btn.textContent = "🔐 Logging in...";
+        showNotification("🔐 Logging in", "Authenticating your credentials...");
         try {
             var res = await fetch(API_BASE + "/api/admin/login", {
                 method: "POST",
@@ -365,6 +366,8 @@
             if (data.success) {
                 token = data.token;
                 localStorage.setItem("token", token);
+                showNotification("✅ Login Successful", "Loading dashboard...");
+                console.log('✅ Login successful for:', email);
                 document.getElementById("login").style.display = "none";
                 document.getElementById("dashboard").style.display = "block";
                 await loadEmailSenders();
@@ -372,17 +375,16 @@
                 await loadLanguages();
                 loadStats();
                 resetAndLoad();
-                checkPushStatus();
                 connectWS();
-                // Show encryption test button if push is available
-                if ('serviceWorker' in navigator && 'PushManager' in window) {
-                    document.getElementById('testEncryptionBtn').style.display = 'inline-block';
-                }
+                showNotification("✅ Dashboard Ready", "Connected to live updates");
             } else {
                 errorEl.textContent = data.message || "Invalid credentials";
+                showNotification("❌ Login Failed", data.message || "Invalid credentials");
             }
         } catch (e) {
             errorEl.textContent = "Network error – please try again.";
+            showNotification("❌ Network Error", e.message);
+            console.error('Login error:', e);
         } finally {
             loadingEl.classList.remove("active");
             btn.disabled = false;
@@ -490,29 +492,9 @@
         }
     }
 
-    async function checkPushStatus() {
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-            document.getElementById('pushButton').style.display = 'none';
-            return;
-        }
-        
-        checkNotificationBanner();
-        
-        try {
-            const registration = await navigator.serviceWorker.ready;
-            const subscription = await registration.pushManager.getSubscription();
-            if (subscription) {
-                pushSubscription = subscription;
-                isPushEnabled = true;
-                document.getElementById('pushButton').textContent = '🔕 Disable Live Updates';
-                document.getElementById('pushButton').classList.add('enabled');
-                document.getElementById('pushStatus').textContent = 'Enabled';
-                updatePushUI(true);
-            }
-        } catch (e) {
-            console.log('Check push status error:', e);
-        }
-    }
+    // async function checkPushStatus() {
+    //     // Legacy push notification check - not used with WebSocket
+    // }
 
     async function togglePush() {
         // Check notification permission first
