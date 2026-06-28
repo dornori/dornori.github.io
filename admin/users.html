@@ -150,15 +150,14 @@
             </div>
 
             <div id="newEmailsGroup" class="form-group" style="display:none;">
-                <label>Support Email Addresses *</label>
-                <div class="emails-group" id="newEmails"></div>
-                <div class="section-divider"></div>
-                <label>Or Add New Email</label>
-                <div class="add-item-row">
-                    <input type="email" id="newEmailAddr" placeholder="support@example.com" />
-                    <button onclick="addNewEmail()">Add</button>
+                <label>Allowed Email Addresses *</label>
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                    <select id="newEmailSelect" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text);">
+                        <option value="">— Select email address —</option>
+                    </select>
+                    <button onclick="addEmailToNew()" style="padding:8px 14px;background:var(--accent);color:var(--text-inverse);border:none;border-radius:4px;cursor:pointer;white-space:nowrap;">Add →</button>
                 </div>
-                <div id="newEmailsList"></div>
+                <div id="newEmailsList" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;"></div>
             </div>
 
             <div class="section-divider"></div>
@@ -233,15 +232,14 @@
             </div>
 
             <div id="editEmailsGroup" class="form-group" style="display:none;">
-                <label>Support Email Addresses *</label>
-                <div class="emails-group" id="editEmails"></div>
-                <div class="section-divider"></div>
-                <label>Or Add New Email</label>
-                <div class="add-item-row">
-                    <input type="email" id="editEmailAddr" placeholder="support@example.com" />
-                    <button onclick="addNewEmailEdit()">Add</button>
+                <label>Allowed Email Addresses *</label>
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                    <select id="editEmailSelect" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text);">
+                        <option value="">— Select email address —</option>
+                    </select>
+                    <button onclick="addEmailToEdit()" style="padding:8px 14px;background:var(--accent);color:var(--text-inverse);border:none;border-radius:4px;cursor:pointer;white-space:nowrap;">Add →</button>
                 </div>
-                <div id="editEmailsList"></div>
+                <div id="editEmailsList" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;"></div>
             </div>
 
             <div class="section-divider"></div>
@@ -389,8 +387,17 @@
             if (settingsRes.ok) {
                 const settingsData = await settingsRes.json();
                 if (settingsData.success) {
-                    supportEmails = settingsData.support_emails || [];
                     teams = settingsData.teams || [];
+                }
+            }
+
+            const emailsRes = await fetch(API_BASE + '/api/admin/email-addresses?active_only=true', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (emailsRes.ok) {
+                const emailsData = await emailsRes.json();
+                if (emailsData.success) {
+                    supportEmails = (emailsData.addresses || []).map(a => a.email);
                 }
             }
 
@@ -405,10 +412,17 @@
         document.getElementById('addUserBtn').style.display = canCreateUsers() ? 'block' : 'none';
         renderLanguageCheckboxes('newLanguages');
         renderLanguageCheckboxes('editLanguages');
-        renderEmailCheckboxes('newEmails');
-        renderEmailCheckboxes('editEmails');
+        populateEmailSelect('newEmailSelect');
+        populateEmailSelect('editEmailSelect');
         renderTeamSelect('newTeamId');
         renderTeamSelect('editTeamId');
+    }
+
+    function populateEmailSelect(selectId) {
+        const sel = document.getElementById(selectId);
+        if (!sel) return;
+        sel.innerHTML = '<option value="">— Select email address —</option>' +
+            supportEmails.map(e => `<option value="${e}">${e}</option>`).join('');
     }
 
     function renderLanguageCheckboxes(containerId) {
@@ -421,19 +435,7 @@
         `).join('');
     }
 
-    function renderEmailCheckboxes(containerId) {
-        const container = document.getElementById(containerId);
-        if (supportEmails.length === 0) {
-            container.innerHTML = '<div style="font-size:12px;color:var(--text-muted)">No support emails configured. Add one below.</div>';
-            return;
-        }
-        container.innerHTML = supportEmails.map(email => `
-            <div class="email-checkbox">
-                <input type="checkbox" value="${email}" />
-                <label>${email}</label>
-            </div>
-        `).join('');
-    }
+
 
     function renderTeamSelect(selectId) {
         const select = document.getElementById(selectId);
@@ -520,25 +522,23 @@
         renderEditTeamsList();
     }
 
-    function addNewEmail() {
-        const input = document.getElementById('newEmailAddr');
-        const email = input.value.trim();
-        if (!email || !email.includes('@')) { alert('Invalid email'); return; }
-        if (newEmails.includes(email) || supportEmails.includes(email)) { alert('Email already exists'); return; }
+    function addEmailToNew() {
+        const sel = document.getElementById('newEmailSelect');
+        const email = sel.value;
+        if (!email) return;
+        if (newEmails.includes(email)) return;
         newEmails.push(email);
-        input.value = '';
-        renderEmailCheckboxes('newEmails');
+        sel.value = '';
         renderNewEmailsList();
     }
 
-    function addNewEmailEdit() {
-        const input = document.getElementById('editEmailAddr');
-        const email = input.value.trim();
-        if (!email || !email.includes('@')) { alert('Invalid email'); return; }
-        if (editEmails.includes(email) || newEmails.includes(email) || supportEmails.includes(email)) { alert('Email already exists'); return; }
+    function addEmailToEdit() {
+        const sel = document.getElementById('editEmailSelect');
+        const email = sel.value;
+        if (!email) return;
+        if (editEmails.includes(email)) return;
         editEmails.push(email);
-        input.value = '';
-        renderEmailCheckboxes('editEmails');
+        sel.value = '';
         renderEditEmailsList();
     }
 
@@ -560,24 +560,22 @@
 
     function renderNewEmailsList() {
         const container = document.getElementById('newEmailsList');
-        if (newEmails.length === 0) { container.innerHTML = ''; return; }
-        container.innerHTML = '<div style="margin-top:8px">' + newEmails.map(e => `
-            <span class="item-tag">[NEW] ${e}<button onclick="removeNewEmail('${e}')">✕</button></span>
-        `).join('') + '</div>';
+        container.innerHTML = newEmails.map(e =>
+            `<span class="item-tag">${e}<button onclick="removeNewEmail('${e}')" style="margin-left:6px;background:none;border:none;cursor:pointer;color:inherit;">✕</button></span>`
+        ).join('');
     }
 
     function renderEditEmailsList() {
         const container = document.getElementById('editEmailsList');
-        if (editEmails.length === 0) { container.innerHTML = ''; return; }
-        container.innerHTML = '<div style="margin-top:8px">' + editEmails.map(e => `
-            <span class="item-tag">[NEW] ${e}<button onclick="removeEditEmail('${e}')">✕</button></span>
-        `).join('') + '</div>';
+        container.innerHTML = editEmails.map(e =>
+            `<span class="item-tag">${e}<button onclick="removeEditEmail('${e}')" style="margin-left:6px;background:none;border:none;cursor:pointer;color:inherit;">✕</button></span>`
+        ).join('');
     }
 
     function removeNewTeam(name) { newTeams = newTeams.filter(t => t !== name); renderTeamSelect('newTeamId'); renderNewTeamsList(); }
     function removeEditTeam(name) { editTeams = editTeams.filter(t => t !== name); renderTeamSelect('editTeamId'); renderEditTeamsList(); }
-    function removeNewEmail(email) { newEmails = newEmails.filter(e => e !== email); renderEmailCheckboxes('newEmails'); renderNewEmailsList(); }
-    function removeEditEmail(email) { editEmails = editEmails.filter(e => e !== email); renderEmailCheckboxes('editEmails'); renderEditEmailsList(); }
+    function removeNewEmail(email) { newEmails = newEmails.filter(e => e !== email); renderNewEmailsList(); }
+    function removeEditEmail(email) { editEmails = editEmails.filter(e => e !== email); renderEditEmailsList(); }
 
     function renderNewPermsGrid() {
         const container = document.getElementById('newPermsGrid');
@@ -627,10 +625,9 @@
         document.getElementById('newRole').value = 'agent';
         document.getElementById('newTeamId').value = '';
         document.getElementById('newTeamName').value = '';
-        document.getElementById('newEmailAddr').value = '';
+        document.getElementById('newEmailSelect').value = '';
         document.getElementById('addUserError').textContent = '';
         document.querySelectorAll('#newLanguages input').forEach(i => i.checked = false);
-        document.querySelectorAll('#newEmails input').forEach(i => i.checked = false);
         renderNewTeamsList();
         renderNewEmailsList();
         renderNewPermsGrid();
@@ -655,7 +652,6 @@
         document.getElementById('editRole').value = user.role;
         document.getElementById('editTeamId').value = user.team_id || '';
         document.getElementById('editTeamName').value = '';
-        document.getElementById('editEmailAddr').value = '';
         document.getElementById('editUserError').textContent = '';
 
         document.querySelectorAll('#editLanguages input').forEach(i => i.checked = false);
@@ -664,19 +660,9 @@
             if (input) input.checked = true;
         });
 
-        renderEmailCheckboxes('editEmails');
-        document.querySelectorAll('#editEmails input').forEach(i => i.checked = false);
-        (user.allowed_emails || []).forEach(email => {
-            const input = document.querySelector(`#editEmails input[value="${email}"]`);
-            if (input) {
-                input.checked = true;
-            } else {
-                // Email not in checkbox list - it's a custom email
-                if (!editEmails.includes(email)) {
-                    editEmails.push(email);
-                }
-            }
-        });
+        editEmails = [...(user.allowed_emails || [])];
+        document.getElementById('editEmailSelect').value = '';
+        renderEditEmailsList();
         
         if (user.page_permissions) {
             editPagePerms = JSON.parse(JSON.stringify(user.page_permissions));
@@ -701,7 +687,7 @@
         const role = document.getElementById('newRole').value;
         const teamId = document.getElementById('newTeamId').value.trim() || null;
         const langs = Array.from(document.querySelectorAll('#newLanguages input:checked')).map(i => i.value);
-        const emails = [...Array.from(document.querySelectorAll('#newEmails input:checked')).map(i => i.value), ...newEmails];
+        const emails = [...newEmails];
 
         const errorEl = document.getElementById('addUserError');
         errorEl.textContent = '';
@@ -745,7 +731,7 @@
         const role = document.getElementById('editRole').value;
         const teamId = document.getElementById('editTeamId').value.trim() || null;
         const langs = Array.from(document.querySelectorAll('#editLanguages input:checked')).map(i => i.value);
-        const emails = [...Array.from(document.querySelectorAll('#editEmails input:checked')).map(i => i.value), ...editEmails];
+        const emails = [...editEmails];
 
         const errorEl = document.getElementById('editUserError');
         errorEl.textContent = '';
