@@ -188,9 +188,22 @@
                     document.getElementById('dashboard').style.display = 'block';
                     PermissionService.updateUI();
                     updateUserDisplay();
-                    loadEmailSenders();
+                    // Re-fetch fresh profile to ensure allowed_languages/allowed_emails are current
+                    fetch(API_BASE + '/api/admin/user-profile', { headers: { 'Authorization': 'Bearer ' + token } })
+                        .then(function(r) { return r.json(); })
+                        .then(function(d) {
+                            if (d.success && d.user) {
+                                currentUser.allowed_languages = d.user.allowed_languages || [];
+                                currentUser.allowed_emails = d.user.allowed_emails || [];
+                                localStorage.setItem('user', JSON.stringify(currentUser));
+                            }
+                        })
+                        .catch(function() {})
+                        .finally(function() {
+                            loadEmailSenders();
+                            loadLanguages();
+                        });
                     loadCategories();
-                    loadLanguages();
                     loadStats();
                     resetAndLoad();
                     startNotificationPolling();
