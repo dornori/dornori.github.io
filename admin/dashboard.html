@@ -171,7 +171,16 @@
         if (savedToken && savedUser) {
             try {
                 token = savedToken;
-                currentUser = JSON.parse(savedUser);
+                const parsedUser = JSON.parse(savedUser);
+                currentUser = {
+                    email: parsedUser.email,
+                    name: parsedUser.name,
+                    role: parsedUser.role,
+                    permissions: parsedUser.permissions || [],
+                    allowed_languages: parsedUser.allowed_languages || [],
+                    allowed_emails: parsedUser.allowed_emails || [],
+                    team_id: parsedUser.team_id || null
+                };
                 PermissionService.permissions = currentUser.permissions || [];
                 
                 if (currentUser) {
@@ -359,15 +368,13 @@
                 var current = sel.value;
                 var opts = '';
                 
-                // Filter languages based on user restrictions
-                var allowedLangs = langList;
-                if (currentUser && currentUser.allowed_languages && currentUser.allowed_languages.length > 0) {
-                    allowedLangs = langList.filter(l => currentUser.allowed_languages.includes(l.code));
-                    // Only show "All Languages" if user has access to multiple languages
-                    if (allowedLangs.length > 1) {
-                        opts = '<option value="">All Languages</option>';
-                    }
-                } else {
+                var userLangs = currentUser && currentUser.allowed_languages;
+                var isRestricted = userLangs && userLangs.length > 0 && currentUser.role !== 'admin';
+                var allowedLangs = isRestricted
+                    ? langList.filter(function(l) { return userLangs.includes(l.code); })
+                    : langList;
+                
+                if (allowedLangs.length > 1) {
                     opts = '<option value="">All Languages</option>';
                 }
                 
@@ -375,7 +382,9 @@
                     opts += '<option value="' + escapeHtml(l.code) + '">' + escapeHtml(l.name) + '</option>';
                 });
                 sel.innerHTML = opts;
-                sel.value = current;
+                if (current && sel.querySelector('option[value="' + current + '"]')) {
+                    sel.value = current;
+                }
             }
         } catch (e) { console.error("Failed to load languages:", e); }
     }
@@ -388,11 +397,13 @@
             var data = await res.json();
             if (data.success) { 
                 const allAddresses = data.addresses || [];
-                // Filter emails based on user's allowed_emails
-                if (currentUser.role === 'admin' || !currentUser.allowed_emails || currentUser.allowed_emails.length === 0) {
+                if (currentUser.role === 'admin') {
                     emailSenders = allAddresses;
-                } else {
+                } else if (currentUser.allowed_emails && currentUser.allowed_emails.length > 0) {
                     emailSenders = allAddresses.filter(addr => currentUser.allowed_emails.includes(addr.email));
+                } else {
+                    // No specific email restrictions configured — show all addresses
+                    emailSenders = allAddresses;
                 }
             }
         } catch (e) { console.error("Failed to load senders:", e); }
