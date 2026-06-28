@@ -127,6 +127,39 @@
     let emailSenders = [];
     let notificationPollInterval = null;
     let allLanguages = [];
+    
+    function getLanguages() {
+        var langList = [];
+        try {
+            var settings = allLanguages;
+            if (settings.length > 0) {
+                return settings;
+            }
+        } catch (e) {}
+        return [];
+    }
+    
+    let LANG_NAMES = {};
+    async function buildLangNames() {
+        try {
+            var res = await fetch(API_BASE + "/api/admin/settings", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            var data = await res.json();
+            if (!data.success) return;
+            var settings = data.settings || [];
+            settings.forEach(function(s) {
+                if (s.category === "languages" && s.key === "list") {
+                    try { 
+                        var langList = JSON.parse(s.value || '[]');
+                        allLanguages = langList;
+                        LANG_NAMES = {};
+                        langList.forEach(function(l){ LANG_NAMES[l.code] = l.name; });
+                    } catch(e) {}
+                }
+            });
+        } catch (e) { console.error("Failed to build language names:", e); }
+    }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PERMISSION SERVICE
@@ -356,11 +389,15 @@
 
     function applyUserLanguageFilter() {
         var sel = document.getElementById('filterLanguage');
-        if (!sel || !currentUser || !allLanguages || allLanguages.length === 0) return;
+        if (!sel || !currentUser) return;
         var userLangs = (currentUser.role === 'admin') ? null : (currentUser.allowed_languages || []);
+        // Use allLanguages if already loaded, else fall back to LANG_NAMES map
+        var langSource = (allLanguages && allLanguages.length > 0)
+            ? allLanguages
+            : Object.entries(LANG_NAMES).map(function(e){ return {code:e[0], name:e[1]}; });
         var list = (userLangs && userLangs.length > 0)
-            ? allLanguages.filter(function(l){ return userLangs.includes(l.code); })
-            : allLanguages;
+            ? langSource.filter(function(l){ return userLangs.includes(l.code); })
+            : langSource;
         var opts = list.length !== 1 ? '<option value="">All Languages</option>' : '';
         list.forEach(function(l){ opts += '<option value="'+l.code+'">'+l.name+'</option>'; });
         sel.innerHTML = opts;
@@ -374,15 +411,16 @@
             var data = await res.json();
             if (!data.success) return;
             var settings = data.settings || [];
+            var langList = [];
             settings.forEach(function(s) {
                 if (s.category === "languages" && s.key === "list") {
-                    try { 
-                        allLanguages = JSON.parse(s.value || '[]');
-                    } catch(e) {
-                        allLanguages = [];
-                    }
+                    try { langList = JSON.parse(s.value || '[]'); } catch(e) {}
                 }
             });
+            allLanguages = langList;
+            LANG_NAMES = {};
+            langList.forEach(function(l){ LANG_NAMES[l.code] = l.name; });
+            
             applyUserLanguageFilter();
         } catch (e) { console.error("Failed to load languages:", e); }
     }
