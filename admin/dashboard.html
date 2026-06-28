@@ -181,7 +181,21 @@
                     PermissionService.updateUI();
                     updateUserDisplay();
                     applyUserLanguageFilter();
-                    loadEmailSenders();
+                    // Fetch fresh profile to get current allowed_emails/allowed_languages
+                    fetch(API_BASE + '/api/admin/user-profile', { headers: { 'Authorization': 'Bearer ' + token } })
+                        .then(r => r.json())
+                        .then(d => {
+                            if (d.success && d.user) {
+                                currentUser.allowed_emails = d.user.allowed_emails || [];
+                                currentUser.allowed_languages = d.user.allowed_languages || [];
+                                localStorage.setItem('user', JSON.stringify(currentUser));
+                            }
+                        })
+                        .catch(() => {})
+                        .finally(() => {
+                            applyUserLanguageFilter();
+                            loadEmailSenders();
+                        });
                     loadCategories();
                     loadLanguages();
                     loadStats();
