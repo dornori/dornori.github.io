@@ -127,7 +127,6 @@
     let emailSenders = [];
     let notificationPollInterval = null;
     let allLanguages = [];
-    const LANG_NAMES = { en:'English', nl:'Dutch', de:'German', fr:'French', es:'Spanish', it:'Italian', pt:'Portuguese', cs:'Czech' };
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PERMISSION SERVICE
@@ -181,7 +180,6 @@
                     PermissionService.updateUI();
                     updateUserDisplay();
                     applyUserLanguageFilter();
-                    // Fetch fresh profile to get current allowed_emails/allowed_languages
                     fetch(API_BASE + '/api/admin/user-profile', { headers: { 'Authorization': 'Bearer ' + token } })
                         .then(r => r.json())
                         .then(d => {
@@ -261,7 +259,6 @@
                 updateUserDisplay();
                 document.getElementById("login").style.display = "none";
                 document.getElementById("dashboard").style.display = "block";
-                applyUserLanguageFilter();
                 await loadEmailSenders();
                 await loadCategories();
                 await loadLanguages();
@@ -355,22 +352,6 @@
         } catch (e) { console.error("Failed to load categories:", e); }
     }
 
-    function applyUserLanguageFilter() {
-        var sel = document.getElementById('filterLanguage');
-        if (!sel || !currentUser) return;
-        var userLangs = (currentUser.role === 'admin') ? null : (currentUser.allowed_languages || []);
-        // Use allLanguages if already loaded, else fall back to LANG_NAMES map
-        var langSource = (allLanguages && allLanguages.length > 0)
-            ? allLanguages
-            : Object.entries(LANG_NAMES).map(function(e){ return {code:e[0], name:e[1]}; });
-        var list = (userLangs && userLangs.length > 0)
-            ? langSource.filter(function(l){ return userLangs.includes(l.code); })
-            : langSource;
-        var opts = list.length !== 1 ? '<option value="">All Languages</option>' : '';
-        list.forEach(function(l){ opts += '<option value="'+l.code+'">'+l.name+'</option>'; });
-        sel.innerHTML = opts;
-    }
-
     async function loadLanguages() {
         try {
             var res = await fetch(API_BASE + "/api/admin/settings", {
@@ -387,7 +368,29 @@
             });
             allLanguages = langList;
             
-            applyUserLanguageFilter();
+            var sel = document.getElementById("filterLanguage");
+            if (sel) {
+                var current = sel.value;
+                var opts = '';
+                
+                // Filter languages based on user restrictions
+                var allowedLangs = langList;
+                if (currentUser && currentUser.allowed_languages && currentUser.allowed_languages.length > 0) {
+                    allowedLangs = langList.filter(l => currentUser.allowed_languages.includes(l.code));
+                    // Only show "All Languages" if user has access to multiple languages
+                    if (allowedLangs.length > 1) {
+                        opts = '<option value="">All Languages</option>';
+                    }
+                } else {
+                    opts = '<option value="">All Languages</option>';
+                }
+                
+                allowedLangs.forEach(function(l) {
+                    opts += '<option value="' + escapeHtml(l.code) + '">' + escapeHtml(l.name) + '</option>';
+                });
+                sel.innerHTML = opts;
+                sel.value = current;
+            }
         } catch (e) { console.error("Failed to load languages:", e); }
     }
 
@@ -402,8 +405,15 @@
                 if (currentUser.role === 'admin' || !currentUser.allowed_emails || currentUser.allowed_emails.length === 0) {
                     emailSenders = allAddresses;
                 } else {
+                    // allowed_emails stores plain strings; match against both email_addresses table and direct strings
                     const allowedLower = currentUser.allowed_emails.map(e => e.toLowerCase());
-                    emailSenders = allAddresses.filter(addr => allowedLower.includes((addr.email || '').toLowerCase()));
+                    const matched = allAddresses.filter(addr => allowedLower.includes((addr.email || '').toLowerCase()));
+                    // If none matched in email_addresses table, fall back to allowed_emails as plain objects
+                    if (matched.length > 0) {
+                        emailSenders = matched;
+                    } else {
+                        emailSenders = currentUser.allowed_emails.map(e => ({ email: e }));
+                    }
                 }
             }
         } catch (e) { console.error("Failed to load senders:", e); }
