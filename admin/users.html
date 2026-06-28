@@ -117,8 +117,7 @@
             </div>
             <div class="form-group">
                 <label>Password *</label>
-                <input type="password" id="newPassword" placeholder="Min 8 chars" oninput="validatePasswordLength('new')" />
-                <div class="error" id="newPasswordError" style="display:none;"></div>
+                <input type="password" id="newPassword" placeholder="Min 8 chars" />
             </div>
             <div class="form-group">
                 <label>Role *</label>
@@ -665,10 +664,18 @@
             if (input) input.checked = true;
         });
 
+        renderEmailCheckboxes('editEmails');
         document.querySelectorAll('#editEmails input').forEach(i => i.checked = false);
         (user.allowed_emails || []).forEach(email => {
             const input = document.querySelector(`#editEmails input[value="${email}"]`);
-            if (input) input.checked = true;
+            if (input) {
+                input.checked = true;
+            } else {
+                // Email not in checkbox list - it's a custom email
+                if (!editEmails.includes(email)) {
+                    editEmails.push(email);
+                }
+            }
         });
         
         if (user.page_permissions) {
@@ -687,18 +694,6 @@
         editingEmail = null;
     }
 
-    function validatePasswordLength(type) {
-        const pwInput = document.getElementById(type + 'Password');
-        const errEl = document.getElementById(type + 'PasswordError');
-        
-        if (pwInput.value.length > 0 && pwInput.value.length < 8) {
-            errEl.textContent = 'Password must be at least 8 characters';
-            errEl.style.display = 'block';
-        } else {
-            errEl.style.display = 'none';
-        }
-    }
-
     async function addUser() {
         const email = document.getElementById('newEmail').value.trim();
         const name = document.getElementById('newName').value.trim();
@@ -711,42 +706,11 @@
         const errorEl = document.getElementById('addUserError');
         errorEl.textContent = '';
 
-        // Validate all fields before submission
-        if (!email) { 
-            errorEl.textContent = '⚠️ Email is required'; 
-            errorEl.style.display = 'block';
-            return; 
-        }
-        if (!name) { 
-            errorEl.textContent = '⚠️ Name is required'; 
-            errorEl.style.display = 'block';
-            return; 
-        }
-        if (!password) { 
-            errorEl.textContent = '⚠️ Password is required'; 
-            errorEl.style.display = 'block';
-            return; 
-        }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { 
-            errorEl.textContent = '⚠️ Invalid email format'; 
-            errorEl.style.display = 'block';
-            return; 
-        }
-        if (password.length < 8) { 
-            errorEl.textContent = '⚠️ Password must be at least 8 characters'; 
-            errorEl.style.display = 'block';
-            return; 
-        }
-        if (langs.length === 0) { 
-            errorEl.textContent = '⚠️ Select at least one language'; 
-            errorEl.style.display = 'block';
-            return; 
-        }
-        if (['agent', 'tl'].includes(role) && emails.length === 0) { 
-            errorEl.textContent = '⚠️ Select/add email addresses for this role'; 
-            errorEl.style.display = 'block';
-            return; 
-        }
+        if (!email || !name || !password) { errorEl.textContent = 'All fields required'; return; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errorEl.textContent = 'Invalid email'; return; }
+        if (password.length < 8) { errorEl.textContent = 'Password min 8 chars'; return; }
+        if (langs.length === 0) { errorEl.textContent = 'Select languages'; return; }
+        if (['agent', 'tl'].includes(role) && emails.length === 0) { errorEl.textContent = 'Select/add email addresses'; return; }
 
         try {
             const res = await fetch(API_BASE + '/api/admin/users', {
@@ -761,13 +725,7 @@
                 })
             });
 
-            let data = {};
-            try {
-                data = await res.json();
-            } catch (e) {
-                data = { error: 'Invalid server response' };
-            }
-
+            const data = await res.json();
             if (res.ok) {
                 showSuccessPopup('✅ User Added', `${name} (${email}) created successfully`);
                 closeModal();
@@ -777,7 +735,7 @@
                 showErrorPopup('Error', data.error || 'Failed to add user');
             }
         } catch (e) {
-            errorEl.textContent = 'Network error: ' + e.message;
+            errorEl.textContent = 'Network error';
             showErrorPopup('Network Error', e.message);
         }
     }
@@ -792,21 +750,9 @@
         const errorEl = document.getElementById('editUserError');
         errorEl.textContent = '';
 
-        if (!name) { 
-            errorEl.textContent = '⚠️ Name is required'; 
-            errorEl.style.display = 'block';
-            return; 
-        }
-        if (langs.length === 0) { 
-            errorEl.textContent = '⚠️ Select at least one language'; 
-            errorEl.style.display = 'block';
-            return; 
-        }
-        if (['agent', 'tl'].includes(role) && emails.length === 0) { 
-            errorEl.textContent = '⚠️ Select/add email addresses for this role'; 
-            errorEl.style.display = 'block';
-            return; 
-        }
+        if (!name) { errorEl.textContent = 'Name required'; return; }
+        if (langs.length === 0) { errorEl.textContent = 'Select languages'; return; }
+        if (['agent', 'tl'].includes(role) && emails.length === 0) { errorEl.textContent = 'Select/add email addresses'; return; }
 
         try {
             const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(editingEmail)}`, {
@@ -821,13 +767,7 @@
                 })
             });
 
-            let data = {};
-            try {
-                data = await res.json();
-            } catch (e) {
-                data = { error: 'Invalid server response' };
-            }
-
+            const data = await res.json();
             if (res.ok) {
                 showSuccessPopup('✅ User Saved', `${name} updated successfully`);
                 closeEditModal();
@@ -837,7 +777,7 @@
                 showErrorPopup('Error', data.error || 'Failed to save user');
             }
         } catch (e) {
-            errorEl.textContent = 'Network error: ' + e.message;
+            errorEl.textContent = 'Network error';
             showErrorPopup('Network Error', e.message);
         }
     }
