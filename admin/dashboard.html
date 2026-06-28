@@ -45,6 +45,34 @@
         .test-result-popup.info { background: #3b82f6; color: white; }
         @keyframes slideIn {
         }
+        /* Notification toast styles */
+        .notification-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px 20px;
+            max-width: 380px;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease;
+            border-left: 4px solid var(--accent);
+        }
+        .notification-toast h4 { margin: 0 0 5px 0; font-size: 14px; }
+        .notification-toast p { margin: 0; font-size: 13px; color: var(--text-muted); }
+        .notification-toast .close-toast {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+        .notification-toast .close-toast:hover { color: var(--text); }
     </style>
 </head>
 <body>
@@ -131,6 +159,7 @@
     let languagesLoaded = false;
     let categoriesLoaded = false;
     let allCategories = [];
+    let isRefreshing = false;
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PERMISSION SERVICE
@@ -163,14 +192,42 @@
     };
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD LANGUAGES - Skip if not admin (403)
+    //  TOAST NOTIFICATIONS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function showToast(title, message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = 'notification-toast';
+        const colors = {
+            info: 'var(--accent)',
+            success: '#22c55e',
+            error: '#ef4444',
+            warning: '#f59e0b'
+        };
+        toast.style.borderLeftColor = colors[type] || colors.info;
+        toast.innerHTML = `
+            <button class="close-toast" onclick="this.parentElement.remove()">×</button>
+            <h4>${title}</h4>
+            <p>${message}</p>
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            if (toast.parentElement) toast.remove();
+        }, 8000);
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD LANGUAGES FROM SETTINGS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadLanguagesFromSettings() {
-        // If user is not admin, skip loading languages (use defaults from user profile)
         if (currentUser.role !== 'admin') {
-            console.log('👤 Non-admin user - using default languages from profile');
-            // Use languages from user profile if available
-            const userLangs = currentUser.allowed_languages || ['en'];
+            console.log('👤 Non-admin user - using languages from profile');
+            const userLangs = currentUser.allowed_languages || [];
+            if (userLangs.length === 0) {
+                allLanguages = [];
+                languagesLoaded = true;
+                applyUserLanguageFilter();
+                return;
+            }
             allLanguages = userLangs.map(code => ({ code, name: LANG_NAMES[code] || code }));
             languagesLoaded = true;
             applyUserLanguageFilter();
@@ -193,7 +250,6 @@
                     try {
                         langList = JSON.parse(setting.value || '[]');
                     } catch (e) {
-                        console.warn('Failed to parse languages list:', e);
                         langList = [];
                     }
                     break;
@@ -201,16 +257,11 @@
             }
 
             if (!langList || langList.length === 0) {
-                langList = [
-                    { code: 'en', name: 'English' },
-                    { code: 'nl', name: 'Dutch' },
-                    { code: 'de', name: 'German' },
-                    { code: 'fr', name: 'French' },
-                    { code: 'es', name: 'Spanish' },
-                    { code: 'it', name: 'Italian' },
-                    { code: 'pt', name: 'Portuguese' },
-                    { code: 'cs', name: 'Czech' }
-                ];
+                allLanguages = [];
+                LANG_NAMES = {};
+                languagesLoaded = true;
+                applyUserLanguageFilter();
+                return;
             }
 
             allLanguages = langList;
@@ -224,44 +275,24 @@
             console.log('✅ Languages loaded:', Object.keys(LANG_NAMES).length, 'languages');
         } catch (e) {
             console.error('Failed to load languages:', e);
-            // Use default languages
-            const fallback = [
-                { code: 'en', name: 'English' },
-                { code: 'nl', name: 'Dutch' },
-                { code: 'de', name: 'German' },
-                { code: 'fr', name: 'French' },
-                { code: 'es', name: 'Spanish' },
-                { code: 'it', name: 'Italian' },
-                { code: 'pt', name: 'Portuguese' },
-                { code: 'cs', name: 'Czech' }
-            ];
-            allLanguages = fallback;
+            allLanguages = [];
             LANG_NAMES = {};
-            for (const lang of fallback) {
-                LANG_NAMES[lang.code] = lang.name;
-            }
             languagesLoaded = true;
             applyUserLanguageFilter();
         }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD CATEGORIES - Skip if not admin (403)
+    //  LOAD CATEGORIES FROM USER PROFILE
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadCategoriesFromSettings() {
-        // If user is not admin, skip loading categories (use defaults)
         if (currentUser.role !== 'admin') {
-            console.log('👤 Non-admin user - using default categories');
-            allCategories = ['other', 'general', 'support', 'billing', 'technical'];
+            console.log('👤 Non-admin user - loading categories from profile');
+            const userCategories = currentUser.allowed_categories || [];
+            allCategories = userCategories.sort();
             categoriesLoaded = true;
-            
-            const sel = document.getElementById('filterCategory');
-            let opts = '<option value="">All Categories</option>';
-            for (const cat of allCategories) {
-                const label = cat.charAt(0).toUpperCase() + cat.slice(1);
-                opts += '<option value="' + cat + '">' + label + '</option>';
-            }
-            sel.innerHTML = opts;
+            updateCategoryDropdown();
+            console.log('✅ Categories loaded from user profile:', allCategories.length, 'categories:', allCategories);
             return;
         }
 
@@ -274,7 +305,7 @@
             if (!data.success) throw new Error(data.error || 'Failed to load settings');
 
             const settings = data.settings || [];
-            const cats = new Set(['other']);
+            const cats = new Set();
             
             for (const setting of settings) {
                 if (setting.category === 'category' && setting.key && setting.key.endsWith('_description')) {
@@ -292,94 +323,28 @@
             }
 
             allCategories = Array.from(cats).sort();
-            
-            const sel = document.getElementById('filterCategory');
-            let opts = '<option value="">All Categories</option>';
-            for (const cat of allCategories) {
-                if (cat === 'other' && allCategories.length <= 1) continue;
-                const label = cat.charAt(0).toUpperCase() + cat.slice(1);
-                opts += '<option value="' + cat + '">' + label + '</option>';
-            }
-            sel.innerHTML = opts;
-            
             categoriesLoaded = true;
-            console.log('✅ Categories loaded:', allCategories.length, 'categories');
+            updateCategoryDropdown();
+            console.log('✅ Categories loaded from settings:', allCategories.length, 'categories');
+            
         } catch (e) {
-            console.error('Failed to load categories:', e);
-            allCategories = ['other', 'general', 'support', 'billing', 'technical'];
-            
-            const sel = document.getElementById('filterCategory');
-            let opts = '<option value="">All Categories</option>';
-            for (const cat of allCategories) {
-                const label = cat.charAt(0).toUpperCase() + cat.slice(1);
-                opts += '<option value="' + cat + '">' + label + '</option>';
-            }
-            sel.innerHTML = opts;
+            console.error('Failed to load categories from settings:', e);
+            allCategories = [];
             categoriesLoaded = true;
+            updateCategoryDropdown();
         }
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD EMAIL SENDERS - Works for all users
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function loadEmailSenders() {
-        try {
-            console.log('🔍 Loading email senders for user:', currentUser.email);
-            
-            // First, try to get fresh user profile
-            try {
-                const profileRes = await fetch(API_BASE + '/api/admin/user-profile', {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
-                if (profileRes.ok) {
-                    const profileData = await profileRes.json();
-                    if (profileData.success && profileData.user) {
-                        currentUser.allowed_emails = profileData.user.allowed_emails || [];
-                        currentUser.allowed_languages = profileData.user.allowed_languages || [];
-                        localStorage.setItem('user', JSON.stringify(currentUser));
-                        console.log('🔄 Updated allowed_emails from profile:', currentUser.allowed_emails);
-                    }
-                }
-            } catch (e) {
-                console.warn('Could not refresh profile, using cached data');
-            }
-            
-            // For non-admin users, we don't need to fetch all emails - just use their allowed ones
-            if (currentUser.role !== 'admin') {
-                const allowedEmails = currentUser.allowed_emails || [];
-                console.log('👤 Non-admin user - using allowed emails:', allowedEmails);
-                emailSenders = allowedEmails.filter(e => e);
-                console.log('✅ Email senders set to:', emailSenders);
-                return;
-            }
-            
-            // Admin users fetch all email addresses
-            const res = await fetch(API_BASE + "/api/admin/email-addresses?active_only=true", {
-                headers: { "Authorization": "Bearer " + token }
-            });
-            
-            if (!res.ok) {
-                console.error('❌ Failed to fetch email addresses:', res.status);
-                emailSenders = [];
-                return;
-            }
-            
-            const data = await res.json();
-            
-            if (data.success) { 
-                const allAddresses = data.addresses || [];
-                emailSenders = allAddresses
-                    .map(addr => addr.email || addr.address)
-                    .filter(e => e);
-                console.log('👑 Admin user - showing all', emailSenders.length, 'emails');
-            } else {
-                console.error('❌ Failed to load email addresses:', data.error);
-                emailSenders = [];
-            }
-        } catch (e) {
-            console.error('❌ Failed to load senders:', e);
-            emailSenders = [];
+    function updateCategoryDropdown() {
+        const sel = document.getElementById('filterCategory');
+        if (!sel) return;
+        
+        let opts = '<option value="">All Categories</option>';
+        for (const cat of allCategories) {
+            const label = cat.charAt(0).toUpperCase() + cat.slice(1);
+            opts += '<option value="' + cat + '">' + label + '</option>';
         }
+        sel.innerHTML = opts;
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -404,18 +369,16 @@
                     PermissionService.updateUI();
                     updateUserDisplay();
                     
-                    // Load email senders first (doesn't require admin)
-                    loadEmailSenders().then(() => {
-                        // Then load languages and categories (handle 403 gracefully)
-                        Promise.all([
-                            loadLanguagesFromSettings(),
-                            loadCategoriesFromSettings()
-                        ]).then(() => {
-                            loadStats();
-                            resetAndLoad();
-                            startNotificationPolling();
-                            checkNotificationBanner();
-                        });
+                    loadEmailSenders();
+                    
+                    Promise.all([
+                        loadLanguagesFromSettings(),
+                        loadCategoriesFromSettings()
+                    ]).then(() => {
+                        loadStats();
+                        resetAndLoad();
+                        startNotificationPolling();
+                        checkNotificationBanner();
                     });
                 }
             } catch (e) {
@@ -464,15 +427,15 @@
                     name: data.user.name,
                     role: data.user.role,
                     permissions: data.user.permissions || [],
-                    allowed_languages: data.user.allowed_languages || ['en'],
+                    allowed_languages: data.user.allowed_languages || [],
                     allowed_emails: data.user.allowed_emails || [],
+                    allowed_categories: data.user.allowed_categories || [],
                     team_id: data.user.team_id || null
                 };
                 localStorage.setItem("token", token);
                 localStorage.setItem("user", JSON.stringify(currentUser));
                 PermissionService.permissions = currentUser.permissions;
                 console.log('✅ Login successful for:', email, 'Role:', currentUser.role);
-                console.log('📧 User allowed_emails:', currentUser.allowed_emails);
                 
                 PermissionService.updateUI();
                 updateUserDisplay();
@@ -487,14 +450,15 @@
                 loadStats();
                 resetAndLoad();
                 startNotificationPolling();
-                showNotification("✅ Login Successful", "Welcome to Dornori Ticketing");
+                checkNotificationBanner();
+                showToast('✅ Login Successful', 'Welcome to Dornori Ticketing', 'success');
             } else {
                 errorEl.textContent = data.message || "Invalid credentials";
-                showNotification("❌ Login Failed", data.message || "Invalid credentials");
+                showToast('❌ Login Failed', data.message || 'Invalid credentials', 'error');
             }
         } catch (e) {
             errorEl.textContent = "Network error – please try again.";
-            showNotification("❌ Network Error", e.message);
+            showToast('❌ Network Error', e.message, 'error');
             console.error('Login error:', e);
         } finally {
             loadingEl.classList.remove("active");
@@ -521,7 +485,7 @@
         emailSenders = [];
         document.getElementById("login").style.display = "block";
         document.getElementById("dashboard").style.display = "none";
-        showNotification("👋 Logged Out", "See you next time!");
+        showToast('👋 Logged Out', 'See you next time!', 'info');
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -540,9 +504,9 @@
         const result = await Notification.requestPermission();
         if (result === 'granted') {
             document.getElementById('notificationBanner').style.display = 'none';
-            showNotification('✅ Notifications Enabled', 'You will now receive real-time updates');
+            showToast('✅ Notifications Enabled', 'You will now receive real-time updates', 'success');
         } else {
-            showNotification('❌ Permission Denied', 'Please enable notifications in your browser settings');
+            showToast('❌ Permission Denied', 'Please enable notifications in your browser settings', 'error');
         }
     }
 
@@ -554,7 +518,7 @@
         if (!sel || !currentUser) return;
         
         if (!languagesLoaded || allLanguages.length === 0) {
-            sel.innerHTML = '<option value="">Loading languages...</option>';
+            sel.innerHTML = '<option value="">No languages configured</option>';
             return;
         }
         
@@ -563,11 +527,67 @@
             ? allLanguages.filter(function(l) { return userLangs.includes(l.code); })
             : allLanguages;
         
+        if (list.length === 0) {
+            sel.innerHTML = '<option value="">No languages available</option>';
+            return;
+        }
+        
         var opts = list.length !== 1 ? '<option value="">All Languages</option>' : '';
         list.forEach(function(l) { 
             opts += '<option value="' + l.code + '">' + l.name + '</option>'; 
         });
         sel.innerHTML = opts;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD EMAIL SENDERS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadEmailSenders() {
+        try {
+            // Try to get fresh user profile
+            try {
+                const profileRes = await fetch(API_BASE + '/api/admin/user-profile', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (profileRes.ok) {
+                    const profileData = await profileRes.json();
+                    if (profileData.success && profileData.user) {
+                        currentUser.allowed_emails = profileData.user.allowed_emails || [];
+                        currentUser.allowed_languages = profileData.user.allowed_languages || [];
+                        currentUser.allowed_categories = profileData.user.allowed_categories || [];
+                        localStorage.setItem('user', JSON.stringify(currentUser));
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not refresh profile, using cached data');
+            }
+            
+            if (currentUser.role !== 'admin') {
+                const allowedEmails = currentUser.allowed_emails || [];
+                emailSenders = allowedEmails.filter(e => e);
+                return;
+            }
+            
+            const res = await fetch(API_BASE + "/api/admin/email-addresses?active_only=true", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            
+            if (!res.ok) {
+                emailSenders = [];
+                return;
+            }
+            
+            const data = await res.json();
+            if (data.success) { 
+                const allAddresses = data.addresses || [];
+                emailSenders = allAddresses.map(addr => addr.email || addr.address).filter(e => e);
+            } else {
+                emailSenders = [];
+            }
+        } catch (e) {
+            console.error('Failed to load senders:', e);
+            emailSenders = [];
+        }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -676,7 +696,7 @@
             var subjectText = t.subject || "No subject";
             var truncatedSubject = subjectText.length > 55 ? subjectText.substring(0, 55) + "…" : subjectText;
             var catColor = getCatColor(t.category);
-            var catLabel = (t.category || 'other').charAt(0).toUpperCase() + (t.category || 'other').slice(1);
+            var catLabel = t.category ? t.category.charAt(0).toUpperCase() + t.category.slice(1) : '';
             html += '<div class="ticket-item" onclick="openTicketModal(' + t.ticket_id + ')">' +
                 '<span class="cat-cell"><span class="cat-dot" style="background:' + catColor + ';"></span><span class="cat-name">' + escapeHtml(catLabel) + '</span></span>' +
                 '<span class="sla-cell"><span class="sla-dot" style="background:' + getSlaColor(slaInfo.cls) + ';"></span><span class="sla-label">' + slaInfo.label + '</span></span>' +
@@ -702,7 +722,7 @@
     var catColorMap = {};
     var catColorIdx = 0;
     function getCatColor(cat) {
-        if (!cat) return "#8892b0";
+        if (!cat || cat.trim() === '') return "#8892b0";
         if (!catColorMap[cat]) { catColorMap[cat] = CAT_COLORS[catColorIdx % CAT_COLORS.length]; catColorIdx++; }
         return catColorMap[cat];
     }
@@ -768,7 +788,7 @@
                     '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">' +
                     '<div><strong>Ticket Number:</strong> ' + t.ticket_number + '</div>' +
                     '<div><strong>Status:</strong> <span class="status status-' + t.status + '">' + t.status.replace('_', ' ') + '</span></div>' +
-                    '<div><strong>Category:</strong> <span style="color: ' + catColor + '; font-weight: 600;">' + escapeHtml(t.category || 'other') + '</span></div>' +
+                    '<div><strong>Category:</strong> <span style="color: ' + catColor + '; font-weight: 600;">' + escapeHtml(t.category || '') + '</span></div>' +
                     '<div><strong>SLA:</strong> <span class="sla-badge" style="background:' + getSlaColor(slaInfo.cls) + ';color:white;padding:4px 8px;border-radius:3px;">' + slaInfo.label + '</span></div>' +
                     '<div><strong>From:</strong> ' + escapeHtml(t.sender_email) + '</div>' +
                     '<div><strong>Name:</strong> ' + escapeHtml(t.sender_name) + '</div>' +
@@ -857,14 +877,14 @@
             });
             const data = await res.json();
             if (data.success) {
-                showNotification('✅ Status Updated', 'Ticket status changed to ' + newStatus);
+                showToast('✅ Status Updated', 'Ticket status changed to ' + newStatus, 'success');
                 openTicketModal(id);
                 resetAndLoad();
             } else {
-                showNotification('❌ Error', data.error || 'Failed to update status');
+                showToast('❌ Error', data.error || 'Failed to update status', 'error');
             }
         } catch (e) {
-            showNotification('❌ Error', e.message);
+            showToast('❌ Error', e.message, 'error');
         }
     }
 
@@ -882,13 +902,13 @@
             });
             const data = await res.json();
             if (data.success) {
-                showNotification('✅ Comment Added', '');
+                showToast('✅ Comment Added', '', 'success');
                 openTicketModal(id);
             } else {
-                showNotification('❌ Error', data.error || 'Failed to add comment');
+                showToast('❌ Error', data.error || 'Failed to add comment', 'error');
             }
         } catch (e) {
-            showNotification('❌ Error', e.message);
+            showToast('❌ Error', e.message, 'error');
         }
     }
 
@@ -908,14 +928,92 @@
             });
             const data = await res.json();
             if (data.success) {
-                showNotification('✅ Reply Sent', 'Email sent to ' + toEmail);
+                showToast('✅ Reply Sent', 'Email sent to ' + toEmail, 'success');
                 openTicketModal(id);
                 resetAndLoad();
             } else {
-                showNotification('❌ Error', data.error || 'Failed to send reply');
+                showToast('❌ Error', data.error || 'Failed to send reply', 'error');
             }
         } catch (e) {
-            showNotification('❌ Error', e.message);
+            showToast('❌ Error', e.message, 'error');
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  NOTIFICATION POLLING - FIXED
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function startNotificationPolling() {
+        // Clear any existing interval
+        if (notificationPollInterval) {
+            clearInterval(notificationPollInterval);
+            notificationPollInterval = null;
+        }
+        
+        // Poll every 15 seconds (was 30)
+        notificationPollInterval = setInterval(async function() {
+            if (!token) {
+                stopNotificationPolling();
+                return;
+            }
+            
+            try {
+                const res = await fetch(API_BASE + "/api/admin/notifications", {
+                    headers: { "Authorization": "Bearer " + token }
+                });
+                
+                if (res.status === 401) { 
+                    logout(); 
+                    return; 
+                }
+                
+                if (!res.ok) return;
+                
+                const data = await res.json();
+                if (!data.success || !data.notifications) return;
+                
+                // Process new notifications
+                let newNotifications = false;
+                for (const notif of data.notifications) {
+                    const id = notif.id || notif.ticket_id || notif.event + '_' + Date.now();
+                    if (!seenNotificationIds.has(id)) {
+                        seenNotificationIds.add(id);
+                        newNotifications = true;
+                        
+                        // Show toast notification
+                        const eventType = notif.event || 'update';
+                        const title = `📢 ${eventType.toUpperCase()} - Ticket #${notif.id || ''}`;
+                        const message = notif.subject || `Ticket ${notif.id || ''} was ${eventType}`;
+                        showToast(title, message, eventType === 'created' ? 'success' : 'info');
+                        
+                        // Play notification sound if available
+                        try {
+                            if (Notification.permission === 'granted') {
+                                new Notification(title, { 
+                                    body: message, 
+                                    icon: '/favicon.ico'
+                                });
+                            }
+                        } catch (e) {}
+                    }
+                }
+                
+                // If we got new notifications, refresh the ticket list
+                if (newNotifications) {
+                    console.log('🔄 New notifications received, refreshing tickets...');
+                    // Only refresh if we're on the dashboard (not in a modal)
+                    resetAndLoad();
+                }
+                
+            } catch (e) {
+                console.warn('Notification poll error:', e.message);
+            }
+        }, 15000); // 15 seconds
+    }
+
+    function stopNotificationPolling() {
+        if (notificationPollInterval) {
+            clearInterval(notificationPollInterval);
+            notificationPollInterval = null;
         }
     }
 
@@ -930,7 +1028,12 @@
     }
 
     function resetAndLoad() {
-        loadTickets(false);
+        if (!isRefreshing) {
+            isRefreshing = true;
+            loadTickets(false).finally(() => {
+                isRefreshing = false;
+            });
+        }
     }
 
     function getStatusesForTab(tab) {
@@ -971,43 +1074,6 @@
             'paused': { cls: 'sla-paused', label: '⏸️ Paused' }
         };
         return map[status] || map['on_track'];
-    }
-
-    function showNotification(title, message) {
-        if (window.Notification && Notification.permission === 'granted') {
-            new Notification(title, { body: message, icon: '/favicon.ico' });
-        }
-    }
-
-    function startNotificationPolling() {
-        notificationPollInterval = setInterval(async function() {
-            try {
-                var res = await fetch(API_BASE + "/api/admin/notifications", {
-                    headers: { "Authorization": "Bearer " + token }
-                });
-                if (res.status === 401) { logout(); return; }
-                var data = await res.json();
-                if (data.success && data.notifications) {
-                    data.notifications.forEach(function(notif) {
-                        if (!seenNotificationIds.has(notif.id)) {
-                            seenNotificationIds.add(notif.id);
-                            var title = notif.event.toUpperCase() + ' — #' + notif.id;
-                            var message = notif.subject || '(No subject)';
-                            showNotification(title, message);
-                        }
-                    });
-                }
-            } catch (e) {
-                console.error('Notification poll error:', e);
-            }
-        }, 30000);
-    }
-
-    function stopNotificationPolling() {
-        if (notificationPollInterval) {
-            clearInterval(notificationPollInterval);
-            notificationPollInterval = null;
-        }
     }
 </script>
 </body>
