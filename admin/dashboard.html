@@ -128,6 +128,9 @@
     let notificationPollInterval = null;
     let allLanguages = [];
     let LANG_NAMES = {};
+    let languagesLoaded = false;
+    let categoriesLoaded = false;
+    let allCategories = [];
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PERMISSION SERVICE
@@ -160,6 +163,226 @@
     };
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD LANGUAGES - Skip if not admin (403)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadLanguagesFromSettings() {
+        // If user is not admin, skip loading languages (use defaults from user profile)
+        if (currentUser.role !== 'admin') {
+            console.log('👤 Non-admin user - using default languages from profile');
+            // Use languages from user profile if available
+            const userLangs = currentUser.allowed_languages || ['en'];
+            allLanguages = userLangs.map(code => ({ code, name: LANG_NAMES[code] || code }));
+            languagesLoaded = true;
+            applyUserLanguageFilter();
+            return;
+        }
+
+        try {
+            const res = await fetch(API_BASE + "/api/admin/settings", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (!res.ok) throw new Error('Failed to load settings');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to load settings');
+
+            const settings = data.settings || [];
+            let langList = [];
+            
+            for (const setting of settings) {
+                if (setting.category === 'languages' && setting.key === 'list') {
+                    try {
+                        langList = JSON.parse(setting.value || '[]');
+                    } catch (e) {
+                        console.warn('Failed to parse languages list:', e);
+                        langList = [];
+                    }
+                    break;
+                }
+            }
+
+            if (!langList || langList.length === 0) {
+                langList = [
+                    { code: 'en', name: 'English' },
+                    { code: 'nl', name: 'Dutch' },
+                    { code: 'de', name: 'German' },
+                    { code: 'fr', name: 'French' },
+                    { code: 'es', name: 'Spanish' },
+                    { code: 'it', name: 'Italian' },
+                    { code: 'pt', name: 'Portuguese' },
+                    { code: 'cs', name: 'Czech' }
+                ];
+            }
+
+            allLanguages = langList;
+            LANG_NAMES = {};
+            for (const lang of langList) {
+                LANG_NAMES[lang.code] = lang.name;
+            }
+            languagesLoaded = true;
+            applyUserLanguageFilter();
+
+            console.log('✅ Languages loaded:', Object.keys(LANG_NAMES).length, 'languages');
+        } catch (e) {
+            console.error('Failed to load languages:', e);
+            // Use default languages
+            const fallback = [
+                { code: 'en', name: 'English' },
+                { code: 'nl', name: 'Dutch' },
+                { code: 'de', name: 'German' },
+                { code: 'fr', name: 'French' },
+                { code: 'es', name: 'Spanish' },
+                { code: 'it', name: 'Italian' },
+                { code: 'pt', name: 'Portuguese' },
+                { code: 'cs', name: 'Czech' }
+            ];
+            allLanguages = fallback;
+            LANG_NAMES = {};
+            for (const lang of fallback) {
+                LANG_NAMES[lang.code] = lang.name;
+            }
+            languagesLoaded = true;
+            applyUserLanguageFilter();
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD CATEGORIES - Skip if not admin (403)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadCategoriesFromSettings() {
+        // If user is not admin, skip loading categories (use defaults)
+        if (currentUser.role !== 'admin') {
+            console.log('👤 Non-admin user - using default categories');
+            allCategories = ['other', 'general', 'support', 'billing', 'technical'];
+            categoriesLoaded = true;
+            
+            const sel = document.getElementById('filterCategory');
+            let opts = '<option value="">All Categories</option>';
+            for (const cat of allCategories) {
+                const label = cat.charAt(0).toUpperCase() + cat.slice(1);
+                opts += '<option value="' + cat + '">' + label + '</option>';
+            }
+            sel.innerHTML = opts;
+            return;
+        }
+
+        try {
+            const res = await fetch(API_BASE + "/api/admin/settings", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (!res.ok) throw new Error('Failed to load settings');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to load settings');
+
+            const settings = data.settings || [];
+            const cats = new Set(['other']);
+            
+            for (const setting of settings) {
+                if (setting.category === 'category' && setting.key && setting.key.endsWith('_description')) {
+                    const catName = setting.key.replace('_description', '');
+                    if (setting.value !== '__deleted__' && setting.value && setting.value.trim() !== '') {
+                        cats.add(catName);
+                    }
+                }
+                if (setting.category === 'category' && setting.key && setting.key.endsWith('_color')) {
+                    const catName = setting.key.replace('_color', '');
+                    if (setting.value !== '__deleted__') {
+                        cats.add(catName);
+                    }
+                }
+            }
+
+            allCategories = Array.from(cats).sort();
+            
+            const sel = document.getElementById('filterCategory');
+            let opts = '<option value="">All Categories</option>';
+            for (const cat of allCategories) {
+                if (cat === 'other' && allCategories.length <= 1) continue;
+                const label = cat.charAt(0).toUpperCase() + cat.slice(1);
+                opts += '<option value="' + cat + '">' + label + '</option>';
+            }
+            sel.innerHTML = opts;
+            
+            categoriesLoaded = true;
+            console.log('✅ Categories loaded:', allCategories.length, 'categories');
+        } catch (e) {
+            console.error('Failed to load categories:', e);
+            allCategories = ['other', 'general', 'support', 'billing', 'technical'];
+            
+            const sel = document.getElementById('filterCategory');
+            let opts = '<option value="">All Categories</option>';
+            for (const cat of allCategories) {
+                const label = cat.charAt(0).toUpperCase() + cat.slice(1);
+                opts += '<option value="' + cat + '">' + label + '</option>';
+            }
+            sel.innerHTML = opts;
+            categoriesLoaded = true;
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD EMAIL SENDERS - Works for all users
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadEmailSenders() {
+        try {
+            console.log('🔍 Loading email senders for user:', currentUser.email);
+            
+            // First, try to get fresh user profile
+            try {
+                const profileRes = await fetch(API_BASE + '/api/admin/user-profile', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (profileRes.ok) {
+                    const profileData = await profileRes.json();
+                    if (profileData.success && profileData.user) {
+                        currentUser.allowed_emails = profileData.user.allowed_emails || [];
+                        currentUser.allowed_languages = profileData.user.allowed_languages || [];
+                        localStorage.setItem('user', JSON.stringify(currentUser));
+                        console.log('🔄 Updated allowed_emails from profile:', currentUser.allowed_emails);
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not refresh profile, using cached data');
+            }
+            
+            // For non-admin users, we don't need to fetch all emails - just use their allowed ones
+            if (currentUser.role !== 'admin') {
+                const allowedEmails = currentUser.allowed_emails || [];
+                console.log('👤 Non-admin user - using allowed emails:', allowedEmails);
+                emailSenders = allowedEmails.filter(e => e);
+                console.log('✅ Email senders set to:', emailSenders);
+                return;
+            }
+            
+            // Admin users fetch all email addresses
+            const res = await fetch(API_BASE + "/api/admin/email-addresses?active_only=true", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            
+            if (!res.ok) {
+                console.error('❌ Failed to fetch email addresses:', res.status);
+                emailSenders = [];
+                return;
+            }
+            
+            const data = await res.json();
+            
+            if (data.success) { 
+                const allAddresses = data.addresses || [];
+                emailSenders = allAddresses
+                    .map(addr => addr.email || addr.address)
+                    .filter(e => e);
+                console.log('👑 Admin user - showing all', emailSenders.length, 'emails');
+            } else {
+                console.error('❌ Failed to load email addresses:', data.error);
+                emailSenders = [];
+            }
+        } catch (e) {
+            console.error('❌ Failed to load senders:', e);
+            emailSenders = [];
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  INIT & STORAGE
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     window.addEventListener('load', function() {
@@ -180,29 +403,20 @@
                     document.getElementById('dashboard').style.display = 'block';
                     PermissionService.updateUI();
                     updateUserDisplay();
-                    applyUserLanguageFilter();
-                    // Fetch fresh profile to get current allowed_emails/allowed_languages
-                    fetch(API_BASE + '/api/admin/user-profile', { headers: { 'Authorization': 'Bearer ' + token } })
-                        .then(r => r.json())
-                        .then(d => {
-                            if (d.success && d.user) {
-                                currentUser.allowed_emails = d.user.allowed_emails || [];
-                                currentUser.allowed_languages = d.user.allowed_languages || [];
-                                localStorage.setItem('user', JSON.stringify(currentUser));
-                                applyUserLanguageFilter();
-                                loadEmailSenders();
-                            }
-                        })
-                        .catch(() => {
-                            applyUserLanguageFilter();
-                            loadEmailSenders();
+                    
+                    // Load email senders first (doesn't require admin)
+                    loadEmailSenders().then(() => {
+                        // Then load languages and categories (handle 403 gracefully)
+                        Promise.all([
+                            loadLanguagesFromSettings(),
+                            loadCategoriesFromSettings()
+                        ]).then(() => {
+                            loadStats();
+                            resetAndLoad();
+                            startNotificationPolling();
+                            checkNotificationBanner();
                         });
-                    loadCategories();
-                    loadLanguages();
-                    loadStats();
-                    resetAndLoad();
-                    startNotificationPolling();
-                    checkNotificationBanner();
+                    });
                 }
             } catch (e) {
                 console.error('Failed to restore session:', e);
@@ -258,14 +472,18 @@
                 localStorage.setItem("user", JSON.stringify(currentUser));
                 PermissionService.permissions = currentUser.permissions;
                 console.log('✅ Login successful for:', email, 'Role:', currentUser.role);
+                console.log('📧 User allowed_emails:', currentUser.allowed_emails);
+                
                 PermissionService.updateUI();
                 updateUserDisplay();
                 document.getElementById("login").style.display = "none";
                 document.getElementById("dashboard").style.display = "block";
-                applyUserLanguageFilter();
+                
                 await loadEmailSenders();
-                await loadCategories();
-                await loadLanguages();
+                await Promise.all([
+                    loadLanguagesFromSettings(),
+                    loadCategoriesFromSettings()
+                ]);
                 loadStats();
                 resetAndLoad();
                 startNotificationPolling();
@@ -300,6 +518,7 @@
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         PermissionService.permissions = [];
+        emailSenders = [];
         document.getElementById("login").style.display = "block";
         document.getElementById("dashboard").style.display = "none";
         showNotification("👋 Logged Out", "See you next time!");
@@ -328,87 +547,27 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD CATEGORIES & LANGUAGES
+    //  APPLY USER LANGUAGE FILTER
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function loadCategories() {
-        try {
-            var res = await fetch(API_BASE + "/api/admin/settings", {
-                headers: { "Authorization": "Bearer " + token }
-            });
-            var data = await res.json();
-            if (!data.success) return;
-            var settings = data.settings || [];
-            var cats = new Set(["other"]);
-            settings.forEach(function(s) {
-                if (s.category === "category" && s.key.endsWith("_description") && s.value !== "__deleted__") {
-                    cats.add(s.key.replace("_description", ""));
-                }
-            });
-            var sel = document.getElementById("filterCategory");
-            var current = sel.value;
-            var opts = '<option value="">All Categories</option>';
-            Array.from(cats).sort().forEach(function(c) {
-                var label = c.charAt(0).toUpperCase() + c.slice(1);
-                opts += '<option value="' + c + '">' + label + '</option>';
-            });
-            sel.innerHTML = opts;
-            sel.value = current;
-        } catch (e) { console.error("Failed to load categories:", e); }
-    }
-
     function applyUserLanguageFilter() {
         var sel = document.getElementById('filterLanguage');
         if (!sel || !currentUser) return;
+        
+        if (!languagesLoaded || allLanguages.length === 0) {
+            sel.innerHTML = '<option value="">Loading languages...</option>';
+            return;
+        }
+        
         var userLangs = (currentUser.role === 'admin') ? null : (currentUser.allowed_languages || []);
-        // Use allLanguages if already loaded, else fall back to LANG_NAMES map
-        var langSource = (allLanguages && allLanguages.length > 0)
-            ? allLanguages
-            : Object.entries(LANG_NAMES).map(function(e){ return {code:e[0], name:e[1]}; });
         var list = (userLangs && userLangs.length > 0)
-            ? langSource.filter(function(l){ return userLangs.includes(l.code); })
-            : langSource;
+            ? allLanguages.filter(function(l) { return userLangs.includes(l.code); })
+            : allLanguages;
+        
         var opts = list.length !== 1 ? '<option value="">All Languages</option>' : '';
-        list.forEach(function(l){ opts += '<option value="'+l.code+'">'+l.name+'</option>'; });
+        list.forEach(function(l) { 
+            opts += '<option value="' + l.code + '">' + l.name + '</option>'; 
+        });
         sel.innerHTML = opts;
-    }
-
-    async function loadLanguages() {
-        try {
-            var res = await fetch(API_BASE + "/api/admin/settings", {
-                headers: { "Authorization": "Bearer " + token }
-            });
-            var data = await res.json();
-            if (!data.success) return;
-            var settings = data.settings || [];
-            settings.forEach(function(s) {
-                if (s.category === "languages" && s.key === "list") {
-                    try { 
-                        allLanguages = JSON.parse(s.value || '[]');
-                        LANG_NAMES = {};
-                        allLanguages.forEach(function(l){ LANG_NAMES[l.code] = l.name; });
-                    } catch(e) {}
-                }
-            });
-            applyUserLanguageFilter();
-        } catch (e) { console.error("Failed to load languages:", e); }
-    }
-
-    async function loadEmailSenders() {
-        try {
-            var res = await fetch(API_BASE + "/api/admin/email-addresses?active_only=true", {
-                headers: { "Authorization": "Bearer " + token }
-            });
-            var data = await res.json();
-            if (data.success) { 
-                const allAddresses = data.addresses || [];
-                if (currentUser.role === 'admin' || !currentUser.allowed_emails || currentUser.allowed_emails.length === 0) {
-                    emailSenders = allAddresses;
-                } else {
-                    const allowedLower = currentUser.allowed_emails.map(e => e.toLowerCase());
-                    emailSenders = allAddresses.filter(addr => allowedLower.includes((addr.email || '').toLowerCase()));
-                }
-            }
-        } catch (e) { console.error("Failed to load senders:", e); }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -659,11 +818,17 @@
                     var senderEmail = t.sender_email || '';
                     html += '<hr style="border: none; border-top: 1px solid var(--border); margin: 20px 0;">' +
                         '<div><strong>Send Reply:</strong></div>' +
-                        '<select id="replyFrom" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-input); color: var(--text);">' +
-                        '<option value="">— Select sender email —</option>';
-                    emailSenders.forEach(function(e) {
-                        html += '<option value="' + e.email + '">' + e.email + '</option>';
-                    });
+                        '<select id="replyFrom" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-input); color: var(--text);">';
+                    
+                    if (emailSenders.length === 0) {
+                        html += '<option value="">No email addresses available</option>';
+                    } else {
+                        html += '<option value="">— Select sender email —</option>';
+                        emailSenders.forEach(function(emailAddr) {
+                            html += '<option value="' + emailAddr + '">' + emailAddr + '</option>';
+                        });
+                    }
+                    
                     html += '</select>' +
                         '<textarea id="replyText" placeholder="Reply message" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-input); color: var(--text); height: 100px; font-family: inherit;"></textarea>' +
                         '<button onclick="sendReply(' + t.ticket_id + ', \'' + senderEmail + '\')" style="width: 100%; padding: 8px; margin-top: 8px; background: var(--accent); color: var(--text-inverse); border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Send Reply</button>';

@@ -1,3 +1,5 @@
+[file name]: users.html
+[file content begin]
 <!DOCTYPE html>
 <html>
 <head>
@@ -43,6 +45,11 @@
         .lang-checkbox input, .lang-checkbox label { margin: 0; cursor: pointer; }
         .lang-checkbox input { margin-right: 8px; }
         .lang-checkbox label { font-weight: normal; }
+        .categories-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 8px; }
+        .category-checkbox { display: flex; align-items: center; padding: 8px; background: var(--bg-input); border-radius: 4px; }
+        .category-checkbox input, .category-checkbox label { margin: 0; cursor: pointer; }
+        .category-checkbox input { margin-right: 8px; }
+        .category-checkbox label { font-weight: normal; font-size: 13px; }
         .emails-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 8px; }
         .email-checkbox { display: flex; align-items: center; padding: 8px; background: var(--bg-input); border-radius: 4px; }
         .email-checkbox input, .email-checkbox label { margin: 0; cursor: pointer; font-size: 12px; }
@@ -68,6 +75,7 @@
         .perm-denied h2 { color: #ef4444; margin-bottom: 10px; }
         .section-divider { border-top: 1px solid var(--border); margin: 20px 0; padding-top: 15px; }
         .section-title { font-weight: 700; font-size: 13px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; }
+        .category-tag { display: inline-block; background: var(--bg-input); padding: 4px 10px; border-radius: 3px; font-size: 12px; margin-right: 4px; margin-bottom: 4px; border: 1px solid var(--border); }
     </style>
 </head>
 <body>
@@ -133,6 +141,13 @@
             <div class="form-group">
                 <label>Languages *</label>
                 <div class="langs-group" id="newLanguages"></div>
+            </div>
+
+            <!-- NEW: Category Permissions -->
+            <div class="form-group">
+                <label>Category Access *</label>
+                <div class="role-info" style="margin-bottom: 8px;">Select which categories this user can access. Leave all unchecked to allow access to all categories (admin only).</div>
+                <div class="categories-group" id="newCategories"></div>
             </div>
 
             <div id="newTeamGroup" class="form-group" style="display:none;">
@@ -217,6 +232,13 @@
                 <div class="langs-group" id="editLanguages"></div>
             </div>
 
+            <!-- NEW: Category Permissions -->
+            <div class="form-group">
+                <label>Category Access *</label>
+                <div class="role-info" style="margin-bottom: 8px;">Select which categories this user can access. Leave all unchecked to allow access to all categories.</div>
+                <div class="categories-group" id="editCategories"></div>
+            </div>
+
             <div id="editTeamGroup" class="form-group" style="display:none;">
                 <label>Team</label>
                 <select id="editTeamId">
@@ -268,7 +290,16 @@
 
 <script>
     const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
-    const LANGUAGES = { en: 'English', nl: 'Dutch', de: 'German', fr: 'French', es: 'Spanish', it: 'Italian', pt: 'Portuguese', cs: 'Czech' };
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  DYNAMIC LANGUAGES & CATEGORIES - loaded from settings
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    let LANGUAGES = {};
+    let languageList = [];
+    let languagesLoaded = false;
+    let allCategories = [];
+    let categoriesLoaded = false;
+
     const ROLE_DESCRIPTIONS = {
         admin: 'Full system access. Can manage users, settings, and all data.',
         manager: 'Manage all agents &amp; team leaders. View all tickets and reports.',
@@ -296,6 +327,8 @@
     let editEmails = [];
     let newPagePerms = {};
     let editPagePerms = {};
+    let newSelectedCategories = [];
+    let editSelectedCategories = [];
 
     if (!token) window.location.href = '/admin';
 
@@ -304,6 +337,109 @@
         if (stored) currentUser = JSON.parse(stored);
     } catch (e) {}
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD LANGUAGES & CATEGORIES FROM SETTINGS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadSettings() {
+        try {
+            const res = await fetch(API_BASE + '/api/admin/settings', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!res.ok) throw new Error('Failed to load settings');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to load settings');
+
+            const settings = data.settings || [];
+            
+            // Load languages
+            let langList = [];
+            for (const setting of settings) {
+                if (setting.category === 'languages' && setting.key === 'list') {
+                    try {
+                        langList = JSON.parse(setting.value || '[]');
+                    } catch (e) {
+                        langList = [];
+                    }
+                    break;
+                }
+            }
+            if (!langList || langList.length === 0) {
+                langList = [
+                    { code: 'en', name: 'English' },
+                    { code: 'nl', name: 'Dutch' },
+                    { code: 'de', name: 'German' },
+                    { code: 'fr', name: 'French' },
+                    { code: 'es', name: 'Spanish' },
+                    { code: 'it', name: 'Italian' },
+                    { code: 'pt', name: 'Portuguese' },
+                    { code: 'cs', name: 'Czech' }
+                ];
+            }
+            languageList = langList;
+            LANGUAGES = {};
+            for (const lang of langList) {
+                LANGUAGES[lang.code] = lang.name;
+            }
+            languagesLoaded = true;
+
+            // Load categories
+            const cats = new Set();
+            for (const setting of settings) {
+                if (setting.category === 'category' && setting.key && setting.key.endsWith('_description')) {
+                    const catName = setting.key.replace('_description', '');
+                    if (setting.value !== '__deleted__' && setting.value && setting.value.trim() !== '') {
+                        cats.add(catName);
+                    }
+                }
+                if (setting.category === 'category' && setting.key && setting.key.endsWith('_color')) {
+                    const catName = setting.key.replace('_color', '');
+                    if (setting.value !== '__deleted__') {
+                        cats.add(catName);
+                    }
+                }
+            }
+            allCategories = Array.from(cats).sort();
+            categoriesLoaded = true;
+
+            renderLanguageCheckboxes('newLanguages');
+            renderLanguageCheckboxes('editLanguages');
+            renderCategoryCheckboxes('newCategories');
+            renderCategoryCheckboxes('editCategories');
+            renderUI();
+
+            console.log('✅ Settings loaded:', languageList.length, 'languages,', allCategories.length, 'categories');
+        } catch (e) {
+            console.error('Failed to load settings:', e);
+            // Fallbacks
+            const fallback = [
+                { code: 'en', name: 'English' },
+                { code: 'nl', name: 'Dutch' },
+                { code: 'de', name: 'German' },
+                { code: 'fr', name: 'French' },
+                { code: 'es', name: 'Spanish' },
+                { code: 'it', name: 'Italian' },
+                { code: 'pt', name: 'Portuguese' },
+                { code: 'cs', name: 'Czech' }
+            ];
+            languageList = fallback;
+            LANGUAGES = {};
+            for (const lang of fallback) {
+                LANGUAGES[lang.code] = lang.name;
+            }
+            languagesLoaded = true;
+            allCategories = ['general', 'support', 'billing', 'technical'];
+            categoriesLoaded = true;
+            renderLanguageCheckboxes('newLanguages');
+            renderLanguageCheckboxes('editLanguages');
+            renderCategoryCheckboxes('newCategories');
+            renderCategoryCheckboxes('editCategories');
+            renderUI();
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  THEME
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function setTheme(theme) {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);
@@ -317,6 +453,71 @@
 
     setTheme(localStorage.getItem('theme') || 'light');
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  RENDER HELPERS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function renderLanguageCheckboxes(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        if (!languagesLoaded || languageList.length === 0) {
+            container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px;">Loading languages...</div>';
+            return;
+        }
+        container.innerHTML = languageList.map(lang => `
+            <div class="lang-checkbox">
+                <input type="checkbox" id="${containerId}_${lang.code}" value="${lang.code}" />
+                <label for="${containerId}_${lang.code}">${lang.name}</label>
+            </div>
+        `).join('');
+    }
+
+    function renderCategoryCheckboxes(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        if (!categoriesLoaded || allCategories.length === 0) {
+            container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px;">Loading categories...</div>';
+            return;
+        }
+        container.innerHTML = allCategories.map(cat => {
+            const catLabel = cat.charAt(0).toUpperCase() + cat.slice(1);
+            // Check if this category is selected (for edit mode)
+            const isChecked = containerId === 'editCategories' 
+                ? editSelectedCategories.includes(cat)
+                : false;
+            return `
+                <div class="category-checkbox">
+                    <input type="checkbox" id="${containerId}_${cat}" value="${cat}" ${isChecked ? 'checked' : ''} />
+                    <label for="${containerId}_${cat}">${catLabel}</label>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function populateEmailSelect(selectId) {
+        const sel = document.getElementById(selectId);
+        if (!sel) return;
+        sel.innerHTML = '<option value="">— Select email address —</option>' +
+            supportEmails.map(e => `<option value="${e}">${e}</option>`).join('');
+    }
+
+    function renderTeamSelect(selectId) {
+        const select = document.getElementById(selectId);
+        select.innerHTML = '<option value="">— Select Team —</option>' + 
+            teams.map(t => `<option value="${t.id}">${t.name}</option>`).join('') +
+            (selectId === 'newTeamId' ? newTeams : editTeams).map(t => `<option value="${t}" style="font-style:italic">[NEW] ${t}</option>`).join('');
+    }
+
+    function renderUI() {
+        document.getElementById('addUserBtn').style.display = canCreateUsers() ? 'block' : 'none';
+        populateEmailSelect('newEmailSelect');
+        populateEmailSelect('editEmailSelect');
+        renderTeamSelect('newTeamId');
+        renderTeamSelect('editTeamId');
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  PERMISSION CHECKS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function canManageUsers() {
         if (!currentUser) return false;
         return ['admin', 'manager', 'tl'].includes(currentUser.role);
@@ -361,10 +562,16 @@
         return true;
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD DATA
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadData() {
         if (!checkPermission()) return;
 
         try {
+            // Load settings first (languages & categories)
+            await loadSettings();
+
             const usersRes = await fetch(API_BASE + '/api/admin/users', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -380,10 +587,10 @@
                 allUsers = usersData.users || [];
             }
 
+            // Load teams from settings (already loaded in loadSettings, but we need to extract them)
             const settingsRes = await fetch(API_BASE + '/api/admin/settings', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
-
             if (settingsRes.ok) {
                 const settingsData = await settingsRes.json();
                 if (settingsData.success) {
@@ -408,42 +615,9 @@
         }
     }
 
-    function renderUI() {
-        document.getElementById('addUserBtn').style.display = canCreateUsers() ? 'block' : 'none';
-        renderLanguageCheckboxes('newLanguages');
-        renderLanguageCheckboxes('editLanguages');
-        populateEmailSelect('newEmailSelect');
-        populateEmailSelect('editEmailSelect');
-        renderTeamSelect('newTeamId');
-        renderTeamSelect('editTeamId');
-    }
-
-    function populateEmailSelect(selectId) {
-        const sel = document.getElementById(selectId);
-        if (!sel) return;
-        sel.innerHTML = '<option value="">— Select email address —</option>' +
-            supportEmails.map(e => `<option value="${e}">${e}</option>`).join('');
-    }
-
-    function renderLanguageCheckboxes(containerId) {
-        const container = document.getElementById(containerId);
-        container.innerHTML = Object.entries(LANGUAGES).map(([code, name]) => `
-            <div class="lang-checkbox">
-                <input type="checkbox" id="${containerId}_${code}" value="${code}" />
-                <label for="${containerId}_${code}">${name}</label>
-            </div>
-        `).join('');
-    }
-
-
-
-    function renderTeamSelect(selectId) {
-        const select = document.getElementById(selectId);
-        select.innerHTML = '<option value="">— Select Team —</option>' + 
-            teams.map(t => `<option value="${t.id}">${t.name}</option>`).join('') +
-            newTeams.map(t => `<option value="${t}" style="font-style:italic">[NEW] ${t}</option>`).join('');
-    }
-
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  RENDER USERS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function renderUsers() {
         const viewable = getViewableUsers();
         if (viewable.length === 0) {
@@ -453,6 +627,7 @@
 
         let html = '<table class="users-table"><thead><tr>';
         html += '<th>Email</th><th>Name</th><th>Role</th><th>Languages</th>';
+        html += '<th>Categories</th>';
         if (['admin', 'manager'].includes(currentUser.role)) html += '<th>Team</th>';
         if (supportEmails.length > 0) html += '<th>Emails</th>';
         html += '<th style="width:140px">Actions</th></tr></thead><tbody>';
@@ -462,11 +637,17 @@
             const canDelete = canDeleteUser(u);
             const teamName = teams.find(t => t.id === u.team_id)?.name || u.team_id || '-';
 
+            const langNames = (u.allowed_languages || ['en']).map(code => LANGUAGES[code] || code);
+            const categoryNames = (u.allowed_categories || []).map(cat => 
+                cat.charAt(0).toUpperCase() + cat.slice(1)
+            );
+
             html += '<tr>';
             html += `<td><strong>${u.email}</strong></td>`;
             html += `<td>${u.name || '-'}</td>`;
             html += `<td><span class="role-badge ${u.role}">${u.role.toUpperCase()}</span></td>`;
-            html += `<td><span class="langs-cell">${(u.allowed_languages || ['en']).join(', ')}</span></td>`;
+            html += `<td><span class="langs-cell">${langNames.join(', ')}</span></td>`;
+            html += `<td><span class="langs-cell">${categoryNames.length > 0 ? categoryNames.join(', ') : 'All'}</span></td>`;
             if (['admin', 'manager'].includes(currentUser.role)) html += `<td><span class="langs-cell">${teamName}</span></td>`;
             if (supportEmails.length > 0) {
                 const userEmails = u.allowed_emails || [];
@@ -482,6 +663,9 @@
         document.getElementById('usersTableContainer').innerHTML = html;
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  MODAL HELPERS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function updateRoleInfo() {
         const role = document.getElementById('newRole').value;
         document.getElementById('roleInfo').textContent = ROLE_DESCRIPTIONS[role] || '';
@@ -615,9 +799,13 @@
         container.innerHTML = html;
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  OPEN / CLOSE MODALS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function openAddUserModal() {
         newTeams = [];
         newEmails = [];
+        newSelectedCategories = [];
         newPagePerms = {};
         document.getElementById('newEmail').value = '';
         document.getElementById('newName').value = '';
@@ -628,6 +816,7 @@
         document.getElementById('newEmailSelect').value = '';
         document.getElementById('addUserError').textContent = '';
         document.querySelectorAll('#newLanguages input').forEach(i => i.checked = false);
+        document.querySelectorAll('#newCategories input').forEach(i => i.checked = false);
         renderNewTeamsList();
         renderNewEmailsList();
         renderNewPermsGrid();
@@ -646,6 +835,7 @@
         editingEmail = email;
         editTeams = [];
         editEmails = [];
+        editSelectedCategories = user.allowed_categories || [];
         editPagePerms = {};
         document.getElementById('editEmail').value = user.email;
         document.getElementById('editName').value = user.name || '';
@@ -659,6 +849,9 @@
             const input = document.querySelector(`#editLanguages input[value="${lang}"]`);
             if (input) input.checked = true;
         });
+
+        // Render categories with selections
+        renderCategoryCheckboxes('editCategories');
 
         editEmails = [...(user.allowed_emails || [])];
         document.getElementById('editEmailSelect').value = '';
@@ -680,6 +873,9 @@
         editingEmail = null;
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  API ACTIONS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function addUser() {
         const email = document.getElementById('newEmail').value.trim();
         const name = document.getElementById('newName').value.trim();
@@ -687,6 +883,7 @@
         const role = document.getElementById('newRole').value;
         const teamId = document.getElementById('newTeamId').value.trim() || null;
         const langs = Array.from(document.querySelectorAll('#newLanguages input:checked')).map(i => i.value);
+        const categories = Array.from(document.querySelectorAll('#newCategories input:checked')).map(i => i.value);
         const emails = [...newEmails];
 
         const errorEl = document.getElementById('addUserError');
@@ -705,6 +902,7 @@
                 body: JSON.stringify({
                     email, name, password, role,
                     allowed_languages: langs,
+                    allowed_categories: categories,
                     allowed_emails: emails,
                     team_id: teamId,
                     page_permissions: newPagePerms
@@ -731,6 +929,7 @@
         const role = document.getElementById('editRole').value;
         const teamId = document.getElementById('editTeamId').value.trim() || null;
         const langs = Array.from(document.querySelectorAll('#editLanguages input:checked')).map(i => i.value);
+        const categories = Array.from(document.querySelectorAll('#editCategories input:checked')).map(i => i.value);
         const emails = [...editEmails];
 
         const errorEl = document.getElementById('editUserError');
@@ -747,6 +946,7 @@
                 body: JSON.stringify({
                     name, role,
                     allowed_languages: langs,
+                    allowed_categories: categories,
                     allowed_emails: emails,
                     team_id: teamId,
                     page_permissions: editPagePerms
@@ -788,6 +988,9 @@
         }
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  POPUP NOTIFICATIONS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function showSuccessPopup(title, message) {
         const popup = document.createElement('div');
         popup.style.cssText = `
@@ -812,9 +1015,31 @@
         setTimeout(() => popup.remove(), 4000);
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  INIT
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     loadData();
+
     window.setTheme = setTheme;
     window.toggleTheme = toggleTheme;
+    window.openAddUserModal = openAddUserModal;
+    window.closeModal = closeModal;
+    window.openEditUserModal = openEditUserModal;
+    window.closeEditModal = closeEditModal;
+    window.addUser = addUser;
+    window.saveUser = saveUser;
+    window.deleteUser = deleteUser;
+    window.updateRoleInfo = updateRoleInfo;
+    window.updateEditRoleInfo = updateEditRoleInfo;
+    window.createNewTeam = createNewTeam;
+    window.createNewTeamEdit = createNewTeamEdit;
+    window.addEmailToNew = addEmailToNew;
+    window.addEmailToEdit = addEmailToEdit;
+    window.removeNewTeam = removeNewTeam;
+    window.removeEditTeam = removeEditTeam;
+    window.removeNewEmail = removeNewEmail;
+    window.removeEditEmail = removeEditEmail;
 </script>
 </body>
 </html>
+[file content end]
