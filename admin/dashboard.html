@@ -127,6 +127,7 @@
     let emailSenders = [];
     let notificationPollInterval = null;
     let allLanguages = [];
+    const LANG_NAMES = { en:'English', nl:'Dutch', de:'German', fr:'French', es:'Spanish', it:'Italian', pt:'Portuguese', cs:'Czech' };
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PERMISSION SERVICE
@@ -171,16 +172,7 @@
         if (savedToken && savedUser) {
             try {
                 token = savedToken;
-                const parsedUser = JSON.parse(savedUser);
-                currentUser = {
-                    email: parsedUser.email,
-                    name: parsedUser.name,
-                    role: parsedUser.role,
-                    permissions: parsedUser.permissions || [],
-                    allowed_languages: parsedUser.allowed_languages || [],
-                    allowed_emails: parsedUser.allowed_emails || [],
-                    team_id: parsedUser.team_id || null
-                };
+                currentUser = JSON.parse(savedUser);
                 PermissionService.permissions = currentUser.permissions || [];
                 
                 if (currentUser) {
@@ -188,22 +180,10 @@
                     document.getElementById('dashboard').style.display = 'block';
                     PermissionService.updateUI();
                     updateUserDisplay();
-                    // Re-fetch fresh profile to ensure allowed_languages/allowed_emails are current
-                    fetch(API_BASE + '/api/admin/user-profile', { headers: { 'Authorization': 'Bearer ' + token } })
-                        .then(function(r) { return r.json(); })
-                        .then(function(d) {
-                            if (d.success && d.user) {
-                                currentUser.allowed_languages = d.user.allowed_languages || [];
-                                currentUser.allowed_emails = d.user.allowed_emails || [];
-                                localStorage.setItem('user', JSON.stringify(currentUser));
-                            }
-                        })
-                        .catch(function() {})
-                        .finally(function() {
-                            loadEmailSenders();
-                            loadLanguages();
-                        });
+                    applyUserLanguageFilter();
+                    loadEmailSenders();
                     loadCategories();
+                    loadLanguages();
                     loadStats();
                     resetAndLoad();
                     startNotificationPolling();
@@ -267,6 +247,7 @@
                 updateUserDisplay();
                 document.getElementById("login").style.display = "none";
                 document.getElementById("dashboard").style.display = "block";
+                applyUserLanguageFilter();
                 await loadEmailSenders();
                 await loadCategories();
                 await loadLanguages();
@@ -360,6 +341,22 @@
         } catch (e) { console.error("Failed to load categories:", e); }
     }
 
+    function applyUserLanguageFilter() {
+        var sel = document.getElementById('filterLanguage');
+        if (!sel || !currentUser) return;
+        var userLangs = (currentUser.role === 'admin') ? null : (currentUser.allowed_languages || []);
+        // Use allLanguages if already loaded, else fall back to LANG_NAMES map
+        var langSource = (allLanguages && allLanguages.length > 0)
+            ? allLanguages
+            : Object.entries(LANG_NAMES).map(function(e){ return {code:e[0], name:e[1]}; });
+        var list = (userLangs && userLangs.length > 0)
+            ? langSource.filter(function(l){ return userLangs.includes(l.code); })
+            : langSource;
+        var opts = list.length !== 1 ? '<option value="">All Languages</option>' : '';
+        list.forEach(function(l){ opts += '<option value="'+l.code+'">'+l.name+'</option>'; });
+        sel.innerHTML = opts;
+    }
+
     async function loadLanguages() {
         try {
             var res = await fetch(API_BASE + "/api/admin/settings", {
@@ -376,29 +373,7 @@
             });
             allLanguages = langList;
             
-            var sel = document.getElementById("filterLanguage");
-            if (sel) {
-                var current = sel.value;
-                var opts = '';
-                
-                var userLangs = currentUser && currentUser.allowed_languages;
-                var isRestricted = userLangs && userLangs.length > 0 && currentUser.role !== 'admin';
-                var allowedLangs = isRestricted
-                    ? langList.filter(function(l) { return userLangs.includes(l.code); })
-                    : langList;
-                
-                if (allowedLangs.length > 1) {
-                    opts = '<option value="">All Languages</option>';
-                }
-                
-                allowedLangs.forEach(function(l) {
-                    opts += '<option value="' + escapeHtml(l.code) + '">' + escapeHtml(l.name) + '</option>';
-                });
-                sel.innerHTML = opts;
-                if (current && sel.querySelector('option[value="' + current + '"]')) {
-                    sel.value = current;
-                }
-            }
+            applyUserLanguageFilter();
         } catch (e) { console.error("Failed to load languages:", e); }
     }
 
@@ -410,13 +385,11 @@
             var data = await res.json();
             if (data.success) { 
                 const allAddresses = data.addresses || [];
-                if (currentUser.role === 'admin') {
+                if (currentUser.role === 'admin' || !currentUser.allowed_emails || currentUser.allowed_emails.length === 0) {
                     emailSenders = allAddresses;
-                } else if (currentUser.allowed_emails && currentUser.allowed_emails.length > 0) {
-                    emailSenders = allAddresses.filter(addr => currentUser.allowed_emails.includes(addr.email));
                 } else {
-                    // No specific email restrictions configured — show all addresses
-                    emailSenders = allAddresses;
+                    const allowedLower = currentUser.allowed_emails.map(e => e.toLowerCase());
+                    emailSenders = allAddresses.filter(addr => allowedLower.includes((addr.email || '').toLowerCase()));
                 }
             }
         } catch (e) { console.error("Failed to load senders:", e); }
