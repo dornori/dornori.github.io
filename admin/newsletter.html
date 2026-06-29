@@ -1,4 +1,4 @@
-<!-- newsletter.html v2.8 - Access denied matches settings.html pattern -->
+<!-- newsletter.html v2.9 - Permission-based nav hiding -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -165,8 +165,9 @@
         <div class="header-right">
             <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
             <a href="dashboard.html">← Dashboard</a>
-            <a href="reports.html">📊 Reports</a>
-            <a href="settings.html">⚙️ Settings</a>
+            <a id="nav-reports" href="reports.html">📊 Reports</a>
+            <a id="nav-settings" href="settings.html">⚙️ Settings</a>
+            <a id="nav-users" href="users.html">👥 Users</a>
         </div>
     </div>
 
@@ -227,10 +228,16 @@ const token = localStorage.getItem('token');
 
 const storedUser = localStorage.getItem('user');
 const currentUser = storedUser ? JSON.parse(storedUser) : null;
-if (!token || !currentUser || currentUser.role !== 'admin') {
+const hasNewsletterPermission = currentUser && currentUser.permissions && currentUser.permissions.includes('newsletter.view');
+if (!token || !currentUser || !hasNewsletterPermission) {
     document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to access newsletter.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
     throw new Error('Newsletter access required');
 }
+
+const perms = (currentUser && currentUser.permissions) || [];
+if (!perms.includes('reports.view'))    document.getElementById('nav-reports').style.display = 'none';
+if (!perms.includes('settings.view'))   document.getElementById('nav-settings').style.display = 'none';
+if (!perms.includes('users.view'))      document.getElementById('nav-users').style.display = 'none';
 
 async function api(path, opts = {}) {
     opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };

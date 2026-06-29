@@ -1,4 +1,4 @@
-<!-- settings.html v1.6 - Fixed auth: no redirects, removed dead checkAuth, consolidated access denied -->
+<!-- settings.html v1.7 - Permission-based nav hiding -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -322,8 +322,9 @@
         <div class="header-right">
             <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
             <a href="dashboard.html">← Dashboard</a>
-            <a href="reports.html">📊 Reports</a>
-            <a href="newsletter.html">📧 Newsletter</a>
+            <a id="nav-reports" href="reports.html">📊 Reports</a>
+            <a id="nav-newsletter" href="newsletter.html">📧 Newsletter</a>
+            <a id="nav-users" href="users.html">👥 Users</a>
         </div>
     </div>
 
@@ -354,6 +355,11 @@ if (!token || !currentUser || !hasSettingsPermission) {
     document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to access settings.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
     throw new Error('Settings access required');
 }
+
+const perms = (currentUser && currentUser.permissions) || [];
+if (!perms.includes('reports.view'))    document.getElementById('nav-reports').style.display = 'none';
+if (!perms.includes('newsletter.view')) document.getElementById('nav-newsletter').style.display = 'none';
+if (!perms.includes('users.view'))      document.getElementById('nav-users').style.display = 'none';
 
 async function api(path, opts = {}) {
     opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };

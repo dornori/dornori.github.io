@@ -83,8 +83,9 @@
         <div class="header-right">
             <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
             <a href="dashboard.html">← Dashboard</a>
-            <a href="reports.html">📊 Reports</a>
-            <a href="settings.html">⚙️ Settings</a>
+            <a id="nav-reports" href="reports.html">📊 Reports</a>
+            <a id="nav-newsletter" href="newsletter.html">📧 Newsletter</a>
+            <a id="nav-settings" href="settings.html">⚙️ Settings</a>
         </div>
     </div>
 
@@ -313,8 +314,20 @@
         newsletter: { label: 'Newsletter', perms: ['view', 'edit', 'create', 'delete'] }
     };
 
-    let token = localStorage.getItem('token');
-    let currentUser = null;
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    let currentUser = storedUser ? JSON.parse(storedUser) : null;
+    const hasUsersPermission = currentUser && currentUser.permissions && currentUser.permissions.includes('users.view');
+    if (!token || !currentUser || !hasUsersPermission) {
+        document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to manage users.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
+        throw new Error('Users access required');
+    }
+
+    const perms = (currentUser && currentUser.permissions) || [];
+    if (!perms.includes('reports.view'))    document.getElementById('nav-reports').style.display = 'none';
+    if (!perms.includes('newsletter.view')) document.getElementById('nav-newsletter').style.display = 'none';
+    if (!perms.includes('settings.view'))   document.getElementById('nav-settings').style.display = 'none';
+
     let allUsers = [];
     let supportEmails = [];
     let teams = [];
@@ -328,12 +341,6 @@
     let newSelectedCategories = [];
     let editSelectedCategories = [];
 
-    const _storedUser = localStorage.getItem('user');
-    currentUser = _storedUser ? JSON.parse(_storedUser) : null;
-    if (!token || !currentUser || !['admin', 'manager', 'tl'].includes(currentUser.role)) {
-        document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to manage users.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
-        throw new Error('Users access required');
-    }
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  LOAD LANGUAGES & CATEGORIES FROM SETTINGS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -576,6 +583,7 @@
             if (usersRes.status === 401 || usersRes.status === 403) {
                 localStorage.removeItem('token');
                 throw new Error('Unauthorized');
+                return;
             }
 
             const usersData = await usersRes.json();
@@ -1015,6 +1023,7 @@
     //  INIT
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     loadData();
+
     window.setTheme = setTheme;
     window.toggleTheme = toggleTheme;
     window.openAddUserModal = openAddUserModal;
