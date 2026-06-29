@@ -1,4 +1,3 @@
-<!-- settings.html v1.9 - Using edgedeskconfig.js -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -474,7 +473,8 @@ function renderAll() {
 
     const html = TABS.map(t => {
         const content = buildPanel(t.id);
-        return `<div class="tab-panel" id="panel-${t.id}" data-tab-id="${t.id}">${content}</div>`;
+        const isPromise = content && typeof content.then === 'function';
+        return `<div class="tab-panel" id="panel-${t.id}" data-tab-id="${t.id}">${isPromise ? '<div class="loading">Loading…</div>' : content}</div>`;
     }).join('');
     document.getElementById('tabContent').innerHTML = html;
 }
@@ -483,6 +483,24 @@ function switchTab(id) {
     currentTab = id;
     document.querySelectorAll('.tab-strip button').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + id));
+    
+    if (id === 'auto_reply') {
+        buildAutoReply().then(html => {
+            const panel = document.getElementById('panel-' + id);
+            if (panel) panel.innerHTML = html;
+        }).catch(e => {
+            const panel = document.getElementById('panel-' + id);
+            if (panel) panel.innerHTML = '<div class="error">Failed to load auto-replies</div>';
+        });
+    } else if (id === 'email_routing') {
+        const html = buildEmailRouting();
+        const panel = document.getElementById('panel-' + id);
+        if (panel) panel.innerHTML = html;
+    } else if (id === 'outgoing') {
+        const html = buildOutgoing();
+        const panel = document.getElementById('panel-' + id);
+        if (panel) panel.innerHTML = html;
+    }
 }
 
 function buildPanel(id) {
@@ -492,37 +510,66 @@ function buildPanel(id) {
         case 'categories':    return buildCategories();
         case 'languages':     return buildLanguages();
         case 'email_routing': return buildEmailRouting();
-        case 'auto_reply':    return buildAutoReply();
+        case 'auto_reply':    return 'Loading…';
         case 'outgoing':      return buildOutgoing();
     }
     return '';
 }
 
 // ─────────────────────────────────────────────────────────────
-// GENERAL
+// GENERAL - UPDATED with Default Language & Default From
 // ─────────────────────────────────────────────────────────────
 function buildGeneral() {
     const tz = S('general', 'timezone', 'UTC');
     const domain = S('general', 'domain', '');
+    const defaultLang = S('general', 'default_language', '');
+    const defaultFrom = S('email', 'default_from', '');
+    const langs = getLanguages();
+    
     const tzs = ['UTC','Europe/Vienna','Europe/London','Europe/Paris','Europe/Berlin','America/New_York','America/Los_Angeles','America/Chicago','Asia/Dubai','Asia/Singapore','Asia/Tokyo','Australia/Sydney','Pacific/Auckland'];
+    const langOpts = langs.map(l => `<option value="${esc(l.code)}"${l.code===defaultLang?' selected':''}>${esc(l.name)} (${esc(l.code)})</option>`).join('');
+    
     return `<div class="s-card">
         <div class="s-card-head"><div><h3>General Settings</h3><p>System-wide configuration</p></div></div>
+        
         <div class="f-row" style="max-width:320px;">
             <label>Timezone</label>
             <select id="gen_tz">${tzs.map(t => `<option${t===tz?' selected':''}>${t}</option>`).join('')}</select>
         </div>
+        
         <div class="f-row" style="max-width:420px;">
             <label>Domain <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;">(used to build unsubscribe links — no protocol, no trailing slash)</span></label>
-            <input type="text" id="gen_domain" value="${esc(domain)}" placeholder="dornori.com" />
+            <input type="text" id="gen_domain" value="${esc(domain)}" placeholder="edgedesk.com" />
         </div>
+        
+        <hr class="divider" />
+        
+        <div class="f-row" style="max-width:320px;">
+            <label>Default Language <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;">(fallback when no language is specified)</span></label>
+            <select id="gen_default_lang">${langOpts}</select>
+        </div>
+        
+        <div class="f-row" style="max-width:420px;">
+            <label>Default From Address <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;">(fallback when auto-reply has no from address set)</span></label>
+            <input type="email" id="gen_default_from" value="${esc(defaultFrom)}" placeholder="support@edgedesk.com" />
+        </div>
+        
         <button class="btn btn-accent" onclick="saveGeneral()">Save changes</button>
     </div>`;
 }
+
 async function saveGeneral() {
-    const ok = await saveSettings([
+    const defaultLang = document.getElementById('gen_default_lang').value;
+    const defaultFrom = document.getElementById('gen_default_from').value.trim();
+    
+    const updates = [
         { category:'general', key:'timezone', value: document.getElementById('gen_tz').value },
-        { category:'general', key:'domain',   value: document.getElementById('gen_domain').value.trim() }
-    ]);
+        { category:'general', key:'domain',   value: document.getElementById('gen_domain').value.trim() },
+        { category:'general', key:'default_language', value: defaultLang },
+        { category:'email',   key:'default_from', value: defaultFrom }
+    ];
+    
+    const ok = await saveSettings(updates);
     ok ? toast('✅ Saved') : toast('❌ Failed', 'error');
     if (ok) await load();
 }
@@ -778,8 +825,9 @@ function buildEmailRouting() {
 async function updateEmailCat(id, cat) {
     const addr = emailAddresses.find(a => a.id === id);
     if (!addr) return;
+    const lang = addr.language || '';
     const d = await api('/api/admin/email-addresses/' + id, {
-        method: 'PUT', body: JSON.stringify({ email: addr.email, label: cat, action: cat, language: addr.language || '', is_active: 1 })
+        method: 'PUT', body: JSON.stringify({ email: addr.email, label: cat, action: cat, language: lang, is_active: 1 })
     });
     d.success ? toast('✅ Routing updated') : toast('❌ Failed', 'error');
     if (d.success) { addr.action = cat; await load(); }
@@ -813,8 +861,9 @@ async function editEmailAddr(id) {
     if (!addr) return;
     const newEmail = prompt('Edit email address:', addr.email);
     if (!newEmail || newEmail === addr.email) return;
+    const lang = addr.language || '';
     const d = await api('/api/admin/email-addresses/' + id, {
-        method: 'PUT', body: JSON.stringify({ email: newEmail, label: addr.action, action: addr.action, language: addr.language || '', is_active: 1 })
+        method: 'PUT', body: JSON.stringify({ email: newEmail, label: addr.action, action: addr.action, language: lang, is_active: 1 })
     });
     d.success ? (toast('✅ Updated'), load()) : toast('❌ Failed', 'error');
 }
@@ -826,7 +875,7 @@ async function deleteEmailAddr(id) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// AUTO-REPLY
+// AUTO-REPLY - FIXED (from working v1.7)
 // ─────────────────────────────────────────────────────────────
 const DYN_TAGS = [
     { tag: '{{ticket_id}}',    label: 'Ticket ID' },
@@ -1079,3 +1128,4 @@ function logout() {
 </script>
 </body>
 </html>
+```

@@ -1,168 +1,1431 @@
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Reports – Dornori</title>
-    <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dornori - Settings</title>
     <style>
-        .container { max-width: 1200px !important; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fb;
+            color: #1a1a2e;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e5ec;
+        }
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #4a6cf7;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #3a5cd9;
+        }
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #059669;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        .btn-secondary {
+            background: #e0e5ec;
+            color: #1a1a2e;
+        }
+        .btn-secondary:hover {
+            background: #d0d5dc;
+        }
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 4px;
+            background: #e0e5ec;
+            border-radius: 10px;
+            padding: 4px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            color: #6b7280;
+        }
+        .tab.active {
+            background: white;
+            color: #1a1a2e;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .tab:hover {
+            color: #1a1a2e;
+        }
+
+        .tab-content {
+            display: none;
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        .settings-group {
+            margin-bottom: 28px;
+        }
+        .settings-group:last-child {
+            margin-bottom: 0;
+        }
+        .settings-group h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #374151;
+        }
+
+        .setting-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px 16px;
+            background: #f9fafb;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .setting-row label {
+            min-width: 140px;
+            font-weight: 500;
+            font-size: 14px;
+            color: #374151;
+        }
+        .setting-row input,
+        .setting-row select,
+        .setting-row textarea {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        .setting-row input:focus,
+        .setting-row select:focus,
+        .setting-row textarea:focus {
+            outline: none;
+            border-color: #4a6cf7;
+            box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.1);
+        }
+        .setting-row textarea {
+            min-height: 60px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        .setting-row .hint {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin-top: 16px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        table thead {
+            background: #f9fafb;
+        }
+        table th {
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f3f4f6;
+            vertical-align: middle;
+        }
+        table tr:hover {
+            background: #f9fafb;
+        }
+        table .actions {
+            display: flex;
+            gap: 8px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .badge-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .badge-inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .badge-language {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .badge-category {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+        .empty-state p {
+            margin-bottom: 12px;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+        .modal .form-group {
+            margin-bottom: 16px;
+        }
+        .modal .form-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: #374151;
+        }
+        .modal .form-group input,
+        .modal .form-group select,
+        .modal .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .modal .form-group input:focus,
+        .modal .form-group select:focus,
+        .modal .form-group textarea:focus {
+            outline: none;
+            border-color: #4a6cf7;
+            box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.1);
+        }
+        .modal .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        .modal .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 2000;
+            animation: slideIn 0.3s ease;
+            max-width: 400px;
+        }
+        .toast-success {
+            background: #10b981;
+        }
+        .toast-error {
+            background: #ef4444;
+        }
+        .toast-info {
+            background: #4a6cf7;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .inline-flex {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        @media (max-width: 768px) {
+            .setting-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .setting-row label {
+                min-width: auto;
+            }
+            .header {
+                flex-direction: column;
+                gap: 12px;
+                align-items: stretch;
+            }
+            .header-actions {
+                flex-wrap: wrap;
+            }
+            .tabs {
+                flex-wrap: wrap;
+            }
+            .tab {
+                flex: 1;
+                text-align: center;
+                padding: 8px 12px;
+                font-size: 12px;
+                min-width: 80px;
+            }
+            table {
+                font-size: 12px;
+            }
+            table th,
+            table td {
+                padding: 8px 10px;
+            }
+        }
     </style>
 </head>
 <body>
-<!-- reports.html v1.4 - Aligned auth with settings.html, permission-based nav hiding -->
-<div class="container">
-    <div class="header">
-        <h1>📊 Reports</h1>
-        <div class="header-right">
-                <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
-                <a id="nav-reports" href="reports.html" style="display:none;">📊 Reports</a>
-                <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 Newsletter</a>
-                <a id="nav-settings" href="settings.html" style="display:none;">⚙️ Settings</a>
-                <a id="nav-users" href="users.html" style="display:none;">👥 Users</a>
-                <div id="userDisplay"></div>
-                <button onclick="logout()">Logout</button>
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ Settings</h1>
+            <div class="header-actions">
+                <button class="btn btn-success" onclick="saveAllSettings()">💾 Save All</button>
+                <button class="btn btn-secondary" onclick="loadSettings()">🔄 Refresh</button>
+                <button class="btn btn-secondary" onclick="window.location.href='dashboard.html'">← Dashboard</button>
             </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="general">General</button>
+            <button class="tab" data-tab="categories">Categories</button>
+            <button class="tab" data-tab="languages">Languages</button>
+            <button class="tab" data-tab="email-addresses">Email Addresses</button>
+            <button class="tab" data-tab="auto-reply">Auto-Replies</button>
+            <button class="tab" data-tab="sla">SLA</button>
+            <button class="tab" data-tab="email">Email</button>
+            <button class="tab" data-tab="newsletter">Newsletter</button>
+        </div>
+
+        <!-- General Settings -->
+        <div class="tab-content active" id="tab-general">
+            <div class="settings-group">
+                <h3>General Settings</h3>
+                <div id="general-settings"></div>
+            </div>
+        </div>
+
+        <!-- Categories -->
+        <div class="tab-content" id="tab-categories">
+            <div class="settings-group">
+                <h3>Categories</h3>
+                <p style="color:#6b7280;margin-bottom:16px;font-size:14px;">Configure ticket categories. Each category needs a description.</p>
+                <div id="categories-list"></div>
+                <button class="btn btn-primary btn-sm" onclick="addCategory()" style="margin-top:12px;">+ Add Category</button>
+            </div>
+        </div>
+
+        <!-- Languages -->
+        <div class="tab-content" id="tab-languages">
+            <div class="settings-group">
+                <h3>Languages</h3>
+                <p style="color:#6b7280;margin-bottom:16px;font-size:14px;">Configure supported languages. Each language needs a code and name.</p>
+                <div id="languages-list"></div>
+                <button class="btn btn-primary btn-sm" onclick="addLanguage()" style="margin-top:12px;">+ Add Language</button>
+            </div>
+        </div>
+
+        <!-- Email Addresses -->
+        <div class="tab-content" id="tab-email-addresses">
+            <div class="settings-group">
+                <h3>Email Addresses</h3>
+                <p style="color:#6b7280;margin-bottom:16px;font-size:14px;">Configure incoming email addresses and their category + language mapping.</p>
+                <div id="email-addresses-list"></div>
+                <button class="btn btn-primary btn-sm" onclick="addEmailAddress()" style="margin-top:12px;">+ Add Email Address</button>
+            </div>
+        </div>
+
+        <!-- Auto-Replies -->
+        <div class="tab-content" id="tab-auto-reply">
+            <div class="settings-group">
+                <h3>Auto-Replies</h3>
+                <p style="color:#6b7280;margin-bottom:16px;font-size:14px;">Configure auto-reply emails for each category and language combination.</p>
+                <div id="auto-reply-list"></div>
+                <button class="btn btn-primary btn-sm" onclick="addAutoReply()" style="margin-top:12px;">+ Add Auto-Reply</button>
+            </div>
+        </div>
+
+        <!-- SLA -->
+        <div class="tab-content" id="tab-sla">
+            <div class="settings-group">
+                <h3>SLA Settings</h3>
+                <p style="color:#6b7280;margin-bottom:16px;font-size:14px;">Configure response and resolution times (in hours) for each category.</p>
+                <div id="sla-list"></div>
+                <button class="btn btn-primary btn-sm" onclick="addSLA()" style="margin-top:12px;">+ Add SLA</button>
+            </div>
+        </div>
+
+        <!-- Email -->
+        <div class="tab-content" id="tab-email">
+            <div class="settings-group">
+                <h3>Email Settings</h3>
+                <div id="email-settings"></div>
+            </div>
+        </div>
+
+        <!-- Newsletter -->
+        <div class="tab-content" id="tab-newsletter">
+            <div class="settings-group">
+                <h3>Newsletter Settings</h3>
+                <div id="newsletter-settings"></div>
+            </div>
+        </div>
     </div>
-    <div id="reportContent"><div class="loading">Loading reports...</div></div>
-</div>
 
-<script>
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  CONFIG
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal">
+            <h2 id="modal-title">Add</h2>
+            <div id="modal-body"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveModal()">Save</button>
+            </div>
+        </div>
+    </div>
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  THEME TOGGLE
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function setTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('theme', theme);
-        document.querySelectorAll('.theme-toggle').forEach(t => t.textContent = theme === 'dark' ? '☀️' : '🌙');
-    }
-    function toggleTheme() {
-        const current = document.documentElement.getAttribute('data-theme') || 'light';
-        setTheme(current === 'light' ? 'dark' : 'light');
-    }
-    setTheme(localStorage.getItem('theme') || 'light');
+    <script>
+        let settings = {};
+        let categories = [];
+        let languages = [];
+        let emailAddresses = [];
+        let autoReplies = [];
+        let slaSettings = [];
+        let token = localStorage.getItem('token');
+        let modalCallback = null;
+        let modalData = null;
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  AUTH CHECK
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    const currentUser = storedUser ? JSON.parse(storedUser) : null;
-    const hasReportsPermission = currentUser && currentUser.permissions && currentUser.permissions.includes('reports.view');
-    if (!token || !currentUser || !hasReportsPermission) {
-        document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to view reports.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
-        throw new Error('Reports access required');
-    }
+        if (!token) {
+            window.location.href = 'login.html';
+        }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  NAV VISIBILITY
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    const perms = (currentUser && currentUser.permissions) || [];
-    if (!perms.includes('newsletter.view')) document.getElementById('nav-newsletter').style.display = 'none';
-    if (!perms.includes('settings.view'))   document.getElementById('nav-settings').style.display = 'none';
-    if (!perms.includes('users.view'))      document.getElementById('nav-users').style.display = 'none';
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD & RENDER
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function loadReports() {
-        var content = document.getElementById("reportContent");
-        try {
-            var res = await fetch(API_BASE + "/api/admin/reports", {
-                headers: { "Authorization": "Bearer " + token }
+        // ─── TABS ──────────────────────────────────────────────
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById('tab-' + this.dataset.tab).classList.add('active');
             });
-            if (res.status === 401 || res.status === 403) {
-                localStorage.removeItem("token");
-                throw new Error('Unauthorized');
+        });
+
+        // ─── TOAST ─────────────────────────────────────────────
+        function showToast(message, type = 'success') {
+            const existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        // ─── API HELPERS ──────────────────────────────────────
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            const options = {
+                method,
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            };
+            if (data) options.body = JSON.stringify(data);
+            const res = await fetch(endpoint, options);
+            const json = await res.json();
+            if (!res.ok) {
+                if (json.error === 'Unauthorized') {
+                    localStorage.removeItem('token');
+                    window.location.href = 'login.html';
+                }
+                throw new Error(json.error || 'API error');
             }
-            var data = await res.json();
-            if (data.success) {
-                renderReports(data.data);
-            } else {
-                content.innerHTML = '<div class="error">Error loading reports: ' + (data.error || 'Unknown error') + '</div>';
+            return json;
+        }
+
+        // ─── LOAD SETTINGS ────────────────────────────────────
+        async function loadSettings() {
+            try {
+                document.querySelector('.container').classList.add('loading');
+                const res = await apiCall('/api/admin/settings');
+                settings = res.data || {};
+                
+                // Load categories from settings
+                categories = [];
+                if (settings.category) {
+                    for (const [key, value] of Object.entries(settings.category)) {
+                        if (key.endsWith('_description') && value !== '__deleted__') {
+                            const slug = key.replace('_description', '');
+                            categories.push({ slug, description: value });
+                        }
+                    }
+                }
+
+                // Load languages
+                languages = [];
+                if (settings.languages && settings.languages.list) {
+                    try {
+                        const parsed = JSON.parse(settings.languages.list);
+                        languages = parsed;
+                    } catch(e) {}
+                }
+
+                // Load email addresses
+                const emailRes = await apiCall('/api/admin/email-addresses');
+                emailAddresses = emailRes.addresses || [];
+
+                // Load auto-replies
+                const arRes = await apiCall('/api/admin/auto-reply');
+                autoReplies = arRes.data || [];
+
+                // Load SLA settings
+                slaSettings = [];
+                if (settings.sla) {
+                    for (const [key, value] of Object.entries(settings.sla)) {
+                        if (key.endsWith('_response')) {
+                            const cat = key.replace('_response', '');
+                            const resolution = settings.sla[cat + '_resolution'] || '';
+                            slaSettings.push({ category: cat, response: value, resolution });
+                        }
+                    }
+                }
+
+                renderAll();
+                showToast('Settings loaded successfully');
+            } catch (e) {
+                showToast(e.message, 'error');
+            } finally {
+                document.querySelector('.container').classList.remove('loading');
             }
-        } catch (e) {
-            content.innerHTML = '<div class="error">Error: ' + e.message + '</div>';
         }
-    }
 
-    function renderReports(data) {
-        var total = 0;
-        for (var key in data.status) { total += data.status[key]; }
-
-        var html = '<div class="stats-grid">';
-        html += '<div class="stat-card"><div class="number">' + total + '</div><div class="label">Total Tickets</div></div>';
-        html += '<div class="stat-card"><div class="number">' + data.sla.on_track + '</div><div class="label">On Track</div><div class="sub">SLA</div></div>';
-        html += '<div class="stat-card"><div class="number">' + data.sla.at_risk + '</div><div class="label">At Risk</div><div class="sub">SLA</div></div>';
-        html += '<div class="stat-card"><div class="number">' + data.sla.breached + '</div><div class="label">Breached</div><div class="sub">SLA</div></div>';
-        html += '</div>';
-
-        var statusColors = { new: "#5aa9ff", open: "#5ae05a", in_progress: "#ffb347", pending: "#ff6b6b", resolved: "#4ae0e0", closed: "#8892b0" };
-        var pieData = [];
-        for (var key in data.status) {
-            if (data.status[key] > 0) pieData.push({ label: key, value: data.status[key], color: statusColors[key] || "#888" });
+        // ─── RENDER ────────────────────────────────────────────
+        function renderAll() {
+            renderGeneral();
+            renderCategories();
+            renderLanguages();
+            renderEmailAddresses();
+            renderAutoReplies();
+            renderSLA();
+            renderEmail();
+            renderNewsletter();
         }
-        var totalPie = pieData.reduce(function(s, d) { return s + d.value; }, 0);
-        var conicParts = "", cum = 0;
-        for (var i = 0; i < pieData.length; i++) {
-            var d = pieData[i];
-            var percent = d.value / totalPie * 100;
-            conicParts += d.color + " " + cum + "% " + (cum + percent) + "%";
-            if (i < pieData.length - 1) conicParts += ", ";
-            cum += percent;
+
+        function renderGeneral() {
+            const container = document.getElementById('general-settings');
+            const general = settings.general || {};
+            container.innerHTML = `
+                <div class="setting-row">
+                    <label>Domain</label>
+                    <input type="text" id="general-domain" value="${general.domain || ''}" placeholder="e.g., dornori.com">
+                    <span class="hint">Used for unsubscribe links and public URLs</span>
+                </div>
+            `;
         }
-        var pieHtml = '<div class="pie-container"><div class="pie-svg" style="background:conic-gradient(' + conicParts + ')"></div><div class="pie-legend">';
-        for (var i = 0; i < pieData.length; i++) {
-            pieHtml += '<div class="item"><span class="color-box" style="background:' + pieData[i].color + '"></span>' + pieData[i].label + ' (' + pieData[i].value + ')</div>';
+
+        function renderCategories() {
+            const container = document.getElementById('categories-list');
+            if (categories.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No categories configured</p></div>';
+                return;
+            }
+            let html = `
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr><th>Category</th><th>Description</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody>
+            `;
+            for (const cat of categories) {
+                html += `
+                    <tr>
+                        <td><strong>${cat.slug}</strong></td>
+                        <td>${cat.description}</td>
+                        <td>
+                            <div class="actions">
+                                <button class="btn btn-secondary btn-sm" onclick="editCategory('${cat.slug}')">Edit</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteCategory('${cat.slug}')">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
         }
-        pieHtml += '</div></div>';
 
-        var dailyData = data.daily, maxDaily = 0;
-        for (var i = 0; i < dailyData.length; i++) { if (dailyData[i].count > maxDaily) maxDaily = dailyData[i].count; }
-        var barHtml = '<div class="bar-chart">';
-        for (var i = 0; i < dailyData.length; i++) {
-            var day = dailyData[i];
-            var heightPercent = maxDaily > 0 ? (day.count / maxDaily * 100) : 0;
-            barHtml += '<div class="bar" style="height:' + Math.max(2, heightPercent) + '%;"><span class="value">' + day.count + '</span><span class="day-label">' + day.day.slice(5) + '</span></div>';
+        function renderLanguages() {
+            const container = document.getElementById('languages-list');
+            if (languages.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No languages configured</p></div>';
+                return;
+            }
+            let html = `
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr><th>Code</th><th>Name</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody>
+            `;
+            for (const lang of languages) {
+                html += `
+                    <tr>
+                        <td><strong>${lang.code}</strong></td>
+                        <td>${lang.name}</td>
+                        <td>
+                            <div class="actions">
+                                <button class="btn btn-secondary btn-sm" onclick="editLanguage('${lang.code}')">Edit</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteLanguage('${lang.code}')">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
         }
-        barHtml += '</div>';
 
-        var catHtml = '<table><tr><th>Category</th><th>Count</th></tr>';
-        for (var key in data.categories) { catHtml += '<tr><td>' + key + '</td><td>' + data.categories[key] + '</td></tr>'; }
-        catHtml += '</table>';
-
-        var senderHtml = '<table><tr><th>Email</th><th>Tickets</th></tr>';
-        for (var i = 0; i < data.top_senders.length; i++) {
-            senderHtml += '<tr><td>' + data.top_senders[i].sender_email + '</td><td>' + data.top_senders[i].count + '</td></tr>';
+        function renderEmailAddresses() {
+            const container = document.getElementById('email-addresses-list');
+            if (emailAddresses.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No email addresses configured</p></div>';
+                return;
+            }
+            let html = `
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr><th>Email</th><th>Label</th><th>Category</th><th>Language</th><th>Status</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody>
+            `;
+            for (const ea of emailAddresses) {
+                const statusBadge = ea.is_active ? 'badge-active' : 'badge-inactive';
+                const statusText = ea.is_active ? 'Active' : 'Inactive';
+                html += `
+                    <tr>
+                        <td><strong>${ea.email}</strong></td>
+                        <td>${ea.label}</td>
+                        <td><span class="badge badge-category">${ea.action}</span></td>
+                        <td><span class="badge badge-language">${ea.language || 'Not set'}</span></td>
+                        <td><span class="badge ${statusBadge}">${statusText}</span></td>
+                        <td>
+                            <div class="actions">
+                                <button class="btn btn-secondary btn-sm" onclick="editEmailAddress(${ea.id})">Edit</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteEmailAddress(${ea.id})">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
         }
-        senderHtml += '</table>';
 
-        html += '<div class="report-row"><div class="report-box"><h3>📊 Status Breakdown</h3>' + pieHtml + '</div><div class="report-box"><h3>📈 Daily Volume (last 30 days)</h3>' + barHtml + '</div></div>';
-        html += '<div class="report-row"><div class="report-box"><h3>📂 Categories</h3>' + catHtml + '</div><div class="report-box"><h3>🏆 Top Senders</h3>' + senderHtml + '</div></div>';
-        document.getElementById("reportContent").innerHTML = html;
-    }
+        function renderAutoReplies() {
+            const container = document.getElementById('auto-reply-list');
+            if (autoReplies.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No auto-replies configured</p></div>';
+                return;
+            }
+            let html = `
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr><th>Category</th><th>Language</th><th>Enabled</th><th>Subject</th><th>From</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody>
+            `;
+            for (const ar of autoReplies) {
+                const enabled = ar.enabled ? '✅' : '❌';
+                html += `
+                    <tr>
+                        <td><span class="badge badge-category">${ar.category}</span></td>
+                        <td><span class="badge badge-language">${ar.language}</span></td>
+                        <td>${enabled}</td>
+                        <td>${ar.subject ? ar.subject.substring(0, 40) + (ar.subject.length > 40 ? '...' : '') : '-'}</td>
+                        <td>${ar.from || '-'}</td>
+                        <td>
+                            <div class="actions">
+                                <button class="btn btn-secondary btn-sm" onclick="editAutoReply('${ar.category}','${ar.language}')">Edit</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteAutoReply('${ar.category}','${ar.language}')">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
 
-    loadReports();
+        function renderSLA() {
+            const container = document.getElementById('sla-list');
+            if (slaSettings.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No SLA settings configured</p></div>';
+                return;
+            }
+            let html = `
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr><th>Category</th><th>Response (hours)</th><th>Resolution (hours)</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody>
+            `;
+            for (const sla of slaSettings) {
+                html += `
+                    <tr>
+                        <td><span class="badge badge-category">${sla.category}</span></td>
+                        <td>${sla.response}</td>
+                        <td>${sla.resolution}</td>
+                        <td>
+                            <div class="actions">
+                                <button class="btn btn-secondary btn-sm" onclick="editSLA('${sla.category}')">Edit</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteSLA('${sla.category}')">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
 
-    function renderUserBadge() {
-        const u = currentUser;
-        if (!u) return;
-        const initials = (u.name || u.email || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-        const meta = [u.role, u.team_id].filter(Boolean).join(' · ');
-        const el = document.getElementById('userDisplay');
-        if (el) el.innerHTML = `<div class="user-badge"><div class="user-badge-avatar">${initials}</div><div class="user-badge-info"><span class="user-badge-name">${u.name || u.email}</span><span class="user-badge-meta">${meta}</span></div></div>`;
-    }
-    renderUserBadge();
-    function logout() {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = 'dashboard.html';
-    }
-</script>
+        function renderEmail() {
+            const container = document.getElementById('email-settings');
+            const email = settings.email || {};
+            container.innerHTML = `
+                <div class="setting-row">
+                    <label>Support Emails List</label>
+                    <input type="text" id="email-support_emails_list" value="${email.support_emails_list || ''}" placeholder='["support@dornori.com"]'>
+                    <span class="hint">JSON array of support email addresses</span>
+                </div>
+                <div class="setting-row">
+                    <label>Footer HTML</label>
+                    <textarea id="email-footer_html" rows="4" placeholder="Email footer HTML">${email.footer_html || ''}</textarea>
+                    <span class="hint">HTML footer appended to all outgoing emails</span>
+                </div>
+            `;
+        }
+
+        function renderNewsletter() {
+            const container = document.getElementById('newsletter-settings');
+            const nl = settings.newsletter || {};
+            container.innerHTML = `
+                <div class="setting-row">
+                    <label>Unsubscribe Link Path (en)</label>
+                    <input type="text" id="newsletter-unsubscribe_link_path_en" value="${nl.unsubscribe_link_path_en || 'unsubscribe.html'}">
+                    <span class="hint">Path for English unsubscribe page</span>
+                </div>
+                <div class="setting-row">
+                    <label>Unsubscribe Link Path (other)</label>
+                    <input type="text" id="newsletter-unsubscribe_link_path" value="${nl.unsubscribe_link_path || 'unsubscribe.html'}">
+                    <span class="hint">Default path (used when language-specific not set)</span>
+                </div>
+                <hr style="margin:20px 0;border-color:#e5e7eb;">
+                <h4 style="margin-bottom:12px;">Newsletter Auto-Replies</h4>
+                <p style="color:#6b7280;font-size:14px;margin-bottom:12px;">Configured per language in the Auto-Replies tab with category "newsletter"</p>
+            `;
+        }
+
+        // ─── CATEGORIES ────────────────────────────────────────
+        function addCategory() {
+            openModal('Add Category', `
+                <div class="form-group">
+                    <label>Category Slug</label>
+                    <input type="text" id="modal-category-slug" placeholder="e.g., support, sales, technical">
+                    <span class="hint">Lowercase, no spaces (use hyphens)</span>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="modal-category-desc" placeholder="Description of this category">
+                </div>
+            `, () => {
+                const slug = document.getElementById('modal-category-slug').value.trim().toLowerCase().replace(/\s+/g, '-');
+                const desc = document.getElementById('modal-category-desc').value.trim();
+                if (!slug || !desc) { showToast('Please fill in all fields', 'error'); return false; }
+                modalData = { slug, desc };
+                return true;
+            });
+            modalCallback = async () => {
+                await apiCall('/api/admin/settings', 'PUT', {
+                    settings: [
+                        { category: 'category', key: modalData.slug + '_description', value: modalData.desc }
+                    ]
+                });
+                await loadSettings();
+                showToast('Category added successfully');
+            };
+        }
+
+        function editCategory(slug) {
+            const cat = categories.find(c => c.slug === slug);
+            if (!cat) return;
+            openModal('Edit Category', `
+                <div class="form-group">
+                    <label>Category Slug</label>
+                    <input type="text" value="${cat.slug}" disabled style="background:#f3f4f6;">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="modal-category-desc" value="${cat.description}">
+                </div>
+            `, () => {
+                const desc = document.getElementById('modal-category-desc').value.trim();
+                if (!desc) { showToast('Description is required', 'error'); return false; }
+                modalData = { slug, desc };
+                return true;
+            });
+            modalCallback = async () => {
+                await apiCall('/api/admin/settings', 'PUT', {
+                    settings: [
+                        { category: 'category', key: modalData.slug + '_description', value: modalData.desc }
+                    ]
+                });
+                await loadSettings();
+                showToast('Category updated successfully');
+            };
+        }
+
+        function deleteCategory(slug) {
+            if (!confirm(`Delete category "${slug}"?`)) return;
+            openModal('Confirm Delete', `
+                <p>Are you sure you want to delete category "${slug}"?</p>
+                <p style="color:#ef4444;font-size:14px;">This will mark it as deleted but keep historical data.</p>
+            `, () => true);
+            modalCallback = async () => {
+                await apiCall('/api/admin/settings', 'PUT', {
+                    settings: [
+                        { category: 'category', key: slug + '_description', value: '__deleted__' }
+                    ]
+                });
+                await loadSettings();
+                showToast('Category deleted successfully');
+            };
+        }
+
+        // ─── LANGUAGES ─────────────────────────────────────────
+        function addLanguage() {
+            openModal('Add Language', `
+                <div class="form-group">
+                    <label>Language Code</label>
+                    <input type="text" id="modal-lang-code" placeholder="e.g., en, fr, es, de">
+                    <span class="hint">ISO 639-1 two-letter code</span>
+                </div>
+                <div class="form-group">
+                    <label>Language Name</label>
+                    <input type="text" id="modal-lang-name" placeholder="e.g., English, French, Spanish">
+                </div>
+            `, () => {
+                const code = document.getElementById('modal-lang-code').value.trim().toLowerCase();
+                const name = document.getElementById('modal-lang-name').value.trim();
+                if (!code || !name) { showToast('Please fill in all fields', 'error'); return false; }
+                if (languages.find(l => l.code === code)) { showToast('Language code already exists', 'error'); return false; }
+                modalData = { code, name };
+                return true;
+            });
+            modalCallback = async () => {
+                const newList = [...languages, modalData];
+                await apiCall('/api/admin/settings', 'PUT', {
+                    settings: [
+                        { category: 'languages', key: 'list', value: JSON.stringify(newList) }
+                    ]
+                });
+                await loadSettings();
+                showToast('Language added successfully');
+            };
+        }
+
+        function editLanguage(code) {
+            const lang = languages.find(l => l.code === code);
+            if (!lang) return;
+            openModal('Edit Language', `
+                <div class="form-group">
+                    <label>Language Code</label>
+                    <input type="text" value="${lang.code}" disabled style="background:#f3f4f6;">
+                </div>
+                <div class="form-group">
+                    <label>Language Name</label>
+                    <input type="text" id="modal-lang-name" value="${lang.name}">
+                </div>
+            `, () => {
+                const name = document.getElementById('modal-lang-name').value.trim();
+                if (!name) { showToast('Name is required', 'error'); return false; }
+                modalData = { code, name };
+                return true;
+            });
+            modalCallback = async () => {
+                const newList = languages.map(l => l.code === modalData.code ? modalData : l);
+                await apiCall('/api/admin/settings', 'PUT', {
+                    settings: [
+                        { category: 'languages', key: 'list', value: JSON.stringify(newList) }
+                    ]
+                });
+                await loadSettings();
+                showToast('Language updated successfully');
+            };
+        }
+
+        function deleteLanguage(code) {
+            if (!confirm(`Delete language "${code}"?`)) return;
+            openModal('Confirm Delete', `
+                <p>Are you sure you want to delete language "${code}"?</p>
+                <p style="color:#ef4444;font-size:14px;">This will remove it from the list.</p>
+            `, () => true);
+            modalCallback = async () => {
+                const newList = languages.filter(l => l.code !== code);
+                await apiCall('/api/admin/settings', 'PUT', {
+                    settings: [
+                        { category: 'languages', key: 'list', value: JSON.stringify(newList) }
+                    ]
+                });
+                await loadSettings();
+                showToast('Language deleted successfully');
+            };
+        }
+
+        // ─── EMAIL ADDRESSES ──────────────────────────────────
+        function addEmailAddress() {
+            const catOptions = categories.map(c => `<option value="${c.slug}">${c.slug}</option>`).join('');
+            const langOptions = languages.map(l => `<option value="${l.code}">${l.code} - ${l.name}</option>`).join('');
+            openModal('Add Email Address', `
+                <div class="form-group">
+                    <label>Email Address *</label>
+                    <input type="email" id="modal-email-email" placeholder="support@dornori.com">
+                </div>
+                <div class="form-group">
+                    <label>Label *</label>
+                    <input type="text" id="modal-email-label" placeholder="Support Team">
+                </div>
+                <div class="form-group">
+                    <label>Category *</label>
+                    <select id="modal-email-category">${catOptions}</select>
+                </div>
+                <div class="form-group">
+                    <label>Language *</label>
+                    <select id="modal-email-language">${langOptions}</select>
+                </div>
+                <div class="form-group">
+                    <label>Active</label>
+                    <select id="modal-email-active">
+                        <option value="1">Yes</option>
+                        <option value="0">No</option>
+                    </select>
+                </div>
+            `, () => {
+                const email = document.getElementById('modal-email-email').value.trim();
+                const label = document.getElementById('modal-email-label').value.trim();
+                const category = document.getElementById('modal-email-category').value;
+                const language = document.getElementById('modal-email-language').value;
+                const active = parseInt(document.getElementById('modal-email-active').value);
+                if (!email || !label) { showToast('Email and label are required', 'error'); return false; }
+                if (!language) { showToast('Language is required', 'error'); return false; }
+                modalData = { email, label, category, language, active };
+                return true;
+            });
+            modalCallback = async () => {
+                await apiCall('/api/admin/email-addresses', 'POST', {
+                    email: modalData.email,
+                    label: modalData.label,
+                    action: modalData.category,
+                    language: modalData.language
+                });
+                await loadSettings();
+                showToast('Email address added successfully');
+            };
+        }
+
+        function editEmailAddress(id) {
+            const ea = emailAddresses.find(e => e.id === id);
+            if (!ea) return;
+            const catOptions = categories.map(c => `<option value="${c.slug}" ${c.slug === ea.action ? 'selected' : ''}>${c.slug}</option>`).join('');
+            const langOptions = languages.map(l => `<option value="${l.code}" ${l.code === ea.language ? 'selected' : ''}>${l.code} - ${l.name}</option>`).join('');
+            openModal('Edit Email Address', `
+                <div class="form-group">
+                    <label>Email Address *</label>
+                    <input type="email" id="modal-email-email" value="${ea.email}">
+                </div>
+                <div class="form-group">
+                    <label>Label *</label>
+                    <input type="text" id="modal-email-label" value="${ea.label}">
+                </div>
+                <div class="form-group">
+                    <label>Category *</label>
+                    <select id="modal-email-category">${catOptions}</select>
+                </div>
+                <div class="form-group">
+                    <label>Language *</label>
+                    <select id="modal-email-language">${langOptions}</select>
+                </div>
+                <div class="form-group">
+                    <label>Active</label>
+                    <select id="modal-email-active">
+                        <option value="1" ${ea.is_active ? 'selected' : ''}>Yes</option>
+                        <option value="0" ${!ea.is_active ? 'selected' : ''}>No</option>
+                    </select>
+                </div>
+            `, () => {
+                const email = document.getElementById('modal-email-email').value.trim();
+                const label = document.getElementById('modal-email-label').value.trim();
+                const category = document.getElementById('modal-email-category').value;
+                const language = document.getElementById('modal-email-language').value;
+                const active = parseInt(document.getElementById('modal-email-active').value);
+                if (!email || !label) { showToast('Email and label are required', 'error'); return false; }
+                if (!language) { showToast('Language is required', 'error'); return false; }
+                modalData = { id, email, label, category, language, active };
+                return true;
+            });
+            modalCallback = async () => {
+                await apiCall(`/api/admin/email-addresses/${modalData.id}`, 'PUT', {
+                    email: modalData.email,
+                    label: modalData.label,
+                    action: modalData.category,
+                    language: modalData.language,
+                    is_active: modalData.active
+                });
+                await loadSettings();
+                showToast('Email address updated successfully');
+            };
+        }
+
+        function deleteEmailAddress(id) {
+            if (!confirm('Delete this email address?')) return;
+            openModal('Confirm Delete', `
+                <p>Are you sure you want to delete this email address?</p>
+            `, () => true);
+            modalCallback = async () => {
+                await apiCall(`/api/admin/email-addresses/${id}`, 'DELETE');
+                await loadSettings();
+                showToast('Email address deleted successfully');
+            };
+        }
+
+        // ─── AUTO-REPLIES ─────────────────────────────────────
+        function addAutoReply() {
+            const catOptions = categories.map(c => `<option value="${c.slug}">${c.slug}</option>`).join('');
+            const langOptions = languages.map(l => `<option value="${l.code}">${l.code} - ${l.name}</option>`).join('');
+            openModal('Add Auto-Reply', `
+                <div class="form-group">
+                    <label>Category *</label>
+                    <select id="modal-ar-category">${catOptions}</select>
+                </div>
+                <div class="form-group">
+                    <label>Language *</label>
+                    <select id="modal-ar-language">${langOptions}</select>
+                </div>
+                <div class="form-group">
+                    <label>Enabled</label>
+                    <select id="modal-ar-enabled">
+                        <option value="1">Yes</option>
+                        <option value="0">No</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Subject *</label>
+                    <input type="text" id="modal-ar-subject" placeholder="[Ticket {{ticket_id}}] Your inquiry">
+                    <span class="hint">Use {{ticket_id}}, {{sender_name}}, {{sender_email}}, {{category}}, {{subject}}</span>
+                </div>
+                <div class="form-group">
+                    <label>Body *</label>
+                    <textarea id="modal-ar-body" rows="4" placeholder="Thank you for your inquiry..."></textarea>
+                    <span class="hint">HTML supported. Use same placeholders as subject.</span>
+                </div>
+                <div class="form-group">
+                    <label>From Address</label>
+                    <input type="email" id="modal-ar-from" placeholder="support@dornori.com">
+                    <span class="hint">Optional. If not set, will use category default.</span>
+                </div>
+            `, () => {
+                const category = document.getElementById('modal-ar-category').value;
+                const language = document.getElementById('modal-ar-language').value;
+                const enabled = parseInt(document.getElementById('modal-ar-enabled').value);
+                const subject = document.getElementById('modal-ar-subject').value.trim();
+                const body = document.getElementById('modal-ar-body').value.trim();
+                const from = document.getElementById('modal-ar-from').value.trim() || null;
+                if (!subject || !body) { showToast('Subject and body are required', 'error'); return false; }
+                modalData = { category, language, enabled, subject, body, from };
+                return true;
+            });
+            modalCallback = async () => {
+                await apiCall('/api/admin/auto-reply', 'PUT', modalData);
+                await loadSettings();
+                showToast('Auto-reply added successfully');
+            };
+        }
+
+        function editAutoReply(category, language) {
+            const ar = autoReplies.find(a => a.category === category && a.language === language);
+            if (!ar) return;
+            const catOptions = categories.map(c => `<option value="${c.slug}" ${c.slug === category ? 'selected' : ''}>${c.slug}</option>`).join('');
+            const langOptions = languages.map(l => `<option value="${l.code}" ${l.code === language ? 'selected' : ''}>${l.code} - ${l.name}</option>`).join('');
+            openModal('Edit Auto-Reply', `
+                <div class="form-group">
+                    <label>Category *</label>
+                    <select id="modal-ar-category">${catOptions}</select>
+                </div>
+                <div class="form-group">
+                    <label>Language *</label>
+                    <select id="modal-ar-language">${langOptions}</select>
+                </div>
+                <div class="form-group">
+                    <label>Enabled</label>
+                    <select id="modal-ar-enabled">
+                        <option value="1" ${ar.enabled ? 'selected' : ''}>Yes</option>
+                        <option value="0" ${!ar.enabled ? 'selected' : ''}>No</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Subject *</label>
+                    <input type="text" id="modal-ar-subject" value="${ar.subject || ''}">
+                </div>
+                <div class="form-group">
+                    <label>Body *</label>
+                    <textarea id="modal-ar-body" rows="4">${ar.body || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>From Address</label>
+                    <input type="email" id="modal-ar-from" value="${ar.from || ''}">
+                </div>
+            `, () => {
+                const newCategory = document.getElementById('modal-ar-category').value;
+                const newLanguage = document.getElementById('modal-ar-language').value;
+                const enabled = parseInt(document.getElementById('modal-ar-enabled').value);
+                const subject = document.getElementById('modal-ar-subject').value.trim();
+                const body = document.getElementById('modal-ar-body').value.trim();
+                const from = document.getElementById('modal-ar-from').value.trim() || null;
+                if (!subject || !body) { showToast('Subject and body are required', 'error'); return false; }
+                modalData = { 
+                    oldCategory: category, 
+                    oldLanguage: language,
+                    category: newCategory, 
+                    language: newLanguage, 
+                    enabled, subject, body, from 
+                };
+                return true;
+            });
+            modalCallback = async () => {
+                if (modalData.oldCategory !== modalData.category || modalData.oldLanguage !== modalData.language) {
+                    await apiCall('/api/admin/auto-reply', 'DELETE', {
+                        category: modalData.oldCategory,
+                        language: modalData.oldLanguage
+                    });
+                    await apiCall('/api/admin/auto-reply', 'PUT', {
+                        category: modalData.category,
+                        language: modalData.language,
+                        enabled: modalData.enabled,
+                        subject: modalData.subject,
+                        body: modalData.body,
+                        from: modalData.from
+                    });
+                } else {
+                    await apiCall('/api/admin/auto-reply', 'PUT', {
+                        category: modalData.category,
+                        language: modalData.language,
+                        enabled: modalData.enabled,
+                        subject: modalData.subject,
+                        body: modalData.body,
+                        from: modalData.from
+                    });
+                }
+                await loadSettings();
+                showToast('Auto-reply updated successfully');
+            };
+        }
+
+        function deleteAutoReply(category, language) {
+            if (!confirm(`Delete auto-reply for ${category} (${language})?`)) return;
+            openModal('Confirm Delete', `
+                <p>Are you sure you want to delete this auto-reply?</p>
+            `, () => true);
+            modalCallback = async () => {
+                await apiCall('/api/admin/auto-reply', 'DELETE', { category, language });
+                await loadSettings();
+                showToast('Auto-reply deleted successfully');
+            };
+        }
+
+        // ─── SLA ──────────────────────────────────────────────
+        function addSLA() {
+            const catOptions = categories.map(c => `<option value="${c.slug}">${c.slug}</option>`).join('');
+            openModal('Add SLA', `
+                <div class="form-group">
+                    <label>Category *</label>
+                    <select id="modal-sla-category">${catOptions}</select>
+                </div>
+                <div class="form-group">
+                    <label>Response Time (hours) *</label>
+                    <input type="number" id="modal-sla-response" placeholder="24" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Resolution Time (hours) *</label>
+                    <input type="number" id="modal-sla-resolution" placeholder="72" min="1">
+                </div>
+            `, () => {
+                const category = document.getElementById('modal-sla-category').value;
+                const response = document.getElementById('modal-sla-response').value.trim();
+                const resolution = document.getElementById('modal-sla-resolution').value.trim();
+                if (!response || !resolution) { showToast('Please fill in all fields', 'error'); return false; }
+                modalData = { category, response, resolution };
+                return true;
+            });
+            modalCallback = async () => {
+                await apiCall('/api/admin/settings', 'PUT', {
+                    settings: [
+                        { category: 'sla', key: modalData.category + '_response', value: modalData.response },
+                        { category: 'sla', key: modalData.category + '_resolution', value: modalData.resolution }
+                    ]
+                });
+                await loadSettings();
+                showToast('SLA added successfully');
+            };
+        }
+
+        function editSLA(category) {
+            const sla = slaSettings.find(s => s.category === category);
+            if (!sla) return;
+            const catOptions = categories.map(c => `<option value="${c.slug}" ${c.slug === category ? 'selected' : ''}>${c.slug}</option>`).join('');
+            openModal('Edit SLA', `
+                <div class="form-group">
+                    <label>Category *</label>
+                    <select id="modal-sla-category">${catOptions}</select>
+                </div>
+                <div class="form-group">
+                    <label>Response Time (hours) *</label>
+                    <input type="number" id="modal-sla-response" value="${sla.response}" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Resolution Time (hours) *</label>
+                    <input type="number" id="modal-sla-resolution" value="${sla.resolution}" min="1">
+                </div>
+            `, () => {
+                const newCategory = document.getElementById('modal-sla-category').value;
+                const response = document.getElementById('modal-sla-response').value.trim();
+                const resolution = document.getElementById('modal-sla-resolution').value.trim();
+                if (!response || !resolution) { showToast('Please fill in all fields', 'error'); return false; }
+                modalData = { oldCategory: category, category: newCategory, response, resolution };
+                return true;
+            });
+            modalCallback = async () => {
+                const updates = [];
+                if (modalData.oldCategory !== modalData.category) {
+                    updates.push(
+                        { category: 'sla', key: modalData.oldCategory + '_response', value: '__deleted__' },
+                        { category: 'sla', key: modalData.oldCategory + '_resolution', value: '__deleted__' }
+                    );
+                }
+                updates.push(
+                    { category: 'sla', key: modalData.category + '_response', value: modalData.response },
+                    { category: 'sla', key: modalData.category + '_resolution', value: modalData.resolution }
+                );
+                await apiCall('/api/admin/settings', 'PUT', { settings: updates });
+                await loadSettings();
+                showToast('SLA updated successfully');
+            };
+        }
+
+        function deleteSLA(category) {
+            if (!confirm(`Delete SLA for "${category}"?`)) return;
+            openModal('Confirm Delete', `
+                <p>Are you sure you want to delete SLA for "${category}"?</p>
+            `, () => true);
+            modalCallback = async () => {
+                await apiCall('/api/admin/settings', 'PUT', {
+                    settings: [
+                        { category: 'sla', key: category + '_response', value: '__deleted__' },
+                        { category: 'sla', key: category + '_resolution', value: '__deleted__' }
+                    ]
+                });
+                await loadSettings();
+                showToast('SLA deleted successfully');
+            };
+        }
+
+        // ─── SAVE ALL SETTINGS ────────────────────────────────
+        async function saveAllSettings() {
+            try {
+                document.querySelector('.container').classList.add('loading');
+                
+                const updates = [];
+
+                // General
+                const domain = document.getElementById('general-domain')?.value?.trim();
+                if (domain !== undefined) {
+                    updates.push({ category: 'general', key: 'domain', value: domain });
+                }
+
+                // Email
+                const supportEmails = document.getElementById('email-support_emails_list')?.value?.trim();
+                if (supportEmails !== undefined) {
+                    updates.push({ category: 'email', key: 'support_emails_list', value: supportEmails });
+                }
+                const footerHtml = document.getElementById('email-footer_html')?.value?.trim();
+                if (footerHtml !== undefined) {
+                    updates.push({ category: 'email', key: 'footer_html', value: footerHtml });
+                }
+
+                // Newsletter
+                const unsubEn = document.getElementById('newsletter-unsubscribe_link_path_en')?.value?.trim();
+                if (unsubEn !== undefined) {
+                    updates.push({ category: 'newsletter', key: 'unsubscribe_link_path_en', value: unsubEn });
+                }
+                const unsubDefault = document.getElementById('newsletter-unsubscribe_link_path')?.value?.trim();
+                if (unsubDefault !== undefined) {
+                    updates.push({ category: 'newsletter', key: 'unsubscribe_link_path', value: unsubDefault });
+                }
+
+                if (updates.length > 0) {
+                    await apiCall('/api/admin/settings', 'PUT', { settings: updates });
+                    showToast('Settings saved successfully');
+                } else {
+                    showToast('No settings to save', 'info');
+                }
+                
+                await loadSettings();
+            } catch (e) {
+                showToast(e.message, 'error');
+            } finally {
+                document.querySelector('.container').classList.remove('loading');
+            }
+        }
+
+        // ─── MODAL ─────────────────────────────────────────────
+        function openModal(title, bodyHTML, validator) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-body').innerHTML = bodyHTML;
+            document.getElementById('modal').classList.add('active');
+            modalCallback = null;
+            modalData = null;
+            window._modalValidator = validator;
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+            modalCallback = null;
+            modalData = null;
+            window._modalValidator = null;
+        }
+
+        function saveModal() {
+            if (window._modalValidator) {
+                const valid = window._modalValidator();
+                if (!valid) return;
+            }
+            if (modalCallback) {
+                modalCallback();
+            }
+            closeModal();
+        }
+
+        // ─── INIT ──────────────────────────────────────────────
+        loadSettings();
+
+        document.getElementById('modal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+    </script>
 </body>
 </html>
