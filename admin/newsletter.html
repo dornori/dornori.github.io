@@ -167,7 +167,7 @@
                 <a id="nav-reports" href="reports.html">📊 Reports</a>
                 <a id="nav-settings" href="settings.html">⚙️ Settings</a>
                 <a id="nav-users" href="users.html">👥 Users</a>
-                <span id="userDisplay" style="font-size: 13px; color: var(--text-muted); margin-left: 10px;"></span>
+                <div id="userDisplay"></div>
                 <button onclick="logout()">Logout</button>
             </div>
     </div>
@@ -783,11 +783,15 @@ function expCsv(status) {
 
 load();
 
-    // Populate user display
-    if (currentUser && currentUser.name) {
+    function renderUserBadge() {
+        const u = currentUser;
+        if (!u) return;
+        const initials = (u.name || u.email || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+        const meta = [u.role, u.team_id].filter(Boolean).join(' · ');
         const el = document.getElementById('userDisplay');
-        if (el) el.textContent = currentUser.name + ' (' + currentUser.role + ')';
+        if (el) el.innerHTML = `<div class="user-badge"><div class="user-badge-avatar">${initials}</div><div class="user-badge-info"><span class="user-badge-name">${u.name || u.email}</span><span class="user-badge-meta">${meta}</span></div></div>`;
     }
+    renderUserBadge();
     function logout() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');

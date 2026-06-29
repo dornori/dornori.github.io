@@ -82,10 +82,11 @@
         <h1>👥 User Management</h1>
         <div class="header-right">
                 <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
-                <a id="nav-reports" href="reports.html">📊 Reports</a>
-                <a id="nav-newsletter" href="newsletter.html">📧 Newsletter</a>
-                <a id="nav-settings" href="settings.html">⚙️ Settings</a>
-                <span id="userDisplay" style="font-size: 13px; color: var(--text-muted); margin-left: 10px;"></span>
+                <a id="nav-reports" href="reports.html" style="display:none;">📊 Reports</a>
+                <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 Newsletter</a>
+                <a id="nav-settings" href="settings.html" style="display:none;">⚙️ Settings</a>
+                <a id="nav-users" href="users.html" style="display:none;">👥 Users</a>
+                <div id="userDisplay"></div>
                 <button onclick="logout()">Logout</button>
             </div>
     </div>
@@ -318,8 +319,9 @@
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     let currentUser = storedUser ? JSON.parse(storedUser) : null;
-    const hasUsersPermission = currentUser && currentUser.permissions && currentUser.permissions.includes('users.view');
-    if (!token || !currentUser || !hasUsersPermission) {
+   const isAdmin = currentUser && currentUser.role === 'admin';
+const hasUsersPermission = currentUser && currentUser.permissions && currentUser.permissions.includes('users.view');
+if (!token || !currentUser || (!isAdmin && !hasUsersPermission)) {
         document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to manage users.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
         throw new Error('Users access required');
     }
@@ -1045,11 +1047,15 @@
     window.removeNewEmail = removeNewEmail;
     window.removeEditEmail = removeEditEmail;
 
-    // Populate user display
-    if (currentUser && currentUser.name) {
+    function renderUserBadge() {
+        const u = currentUser;
+        if (!u) return;
+        const initials = (u.name || u.email || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+        const meta = [u.role, u.team_id].filter(Boolean).join(' · ');
         const el = document.getElementById('userDisplay');
-        if (el) el.textContent = currentUser.name + ' (' + currentUser.role + ')';
+        if (el) el.innerHTML = `<div class="user-badge"><div class="user-badge-avatar">${initials}</div><div class="user-badge-info"><span class="user-badge-name">${u.name || u.email}</span><span class="user-badge-meta">${meta}</span></div></div>`;
     }
+    renderUserBadge();
     function logout() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
