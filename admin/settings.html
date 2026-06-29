@@ -1,4 +1,4 @@
-<!-- settings.html v1.5 - Added auth check, admin-only restriction -->
+<!-- settings.html v1.6 - Fixed auth: no redirects, removed dead checkAuth, consolidated access denied -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -347,12 +347,10 @@ setTheme(localStorage.getItem('theme') || 'light');
 
 // ── Auth ──
 const token = localStorage.getItem('token');
-if (!token) window.location.href = '/admin';
-
 const storedUser = localStorage.getItem('user');
 const currentUser = storedUser ? JSON.parse(storedUser) : null;
 const hasSettingsPermission = currentUser && currentUser.permissions && currentUser.permissions.includes('settings.view');
-if (!currentUser || !hasSettingsPermission) {
+if (!token || !currentUser || !hasSettingsPermission) {
     document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to access settings.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
     throw new Error('Settings access required');
 }
@@ -360,7 +358,7 @@ if (!currentUser || !hasSettingsPermission) {
 async function api(path, opts = {}) {
     opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
     const res = await fetch(API_BASE + path, opts);
-    if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/admin'; throw new Error('Unauthorized'); }
+    if (res.status === 401) { localStorage.removeItem('token'); throw new Error('Unauthorized'); }
     if (res.status === 403) { throw new Error('Permission denied'); }
     return res.json();
 }
@@ -1032,32 +1030,9 @@ async function clearFooter(email, safeKey) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// AUTH CHECK
-// ─────────────────────────────────────────────────────────────
-async function checkAuth() {
-    const token = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
-    if (!token || !storedUser) {
-        window.location.href = "dashboard.html";
-        return false;
-    }
-    try {
-        const user = JSON.parse(storedUser);
-        if (user.role !== 'admin') {
-            document.body.innerHTML = '<div style="padding: 20px; color: #ef4444;">⛔ Admin access required</div>';
-            return false;
-        }
-    } catch (e) {
-        window.location.href = "dashboard.html";
-        return false;
-    }
-    return true;
-}
-
-// ─────────────────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────────────────
-checkAuth().then(ok => { if (ok) load(); });
+load();
 </script>
 </body>
 </html>

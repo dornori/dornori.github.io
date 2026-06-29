@@ -328,13 +328,12 @@
     let newSelectedCategories = [];
     let editSelectedCategories = [];
 
-    if (!token) window.location.href = '/admin';
-
-    try {
-        const stored = localStorage.getItem('user');
-        if (stored) currentUser = JSON.parse(stored);
-    } catch (e) {}
-
+    const _storedUser = localStorage.getItem('user');
+    currentUser = _storedUser ? JSON.parse(_storedUser) : null;
+    if (!token || !currentUser || !['admin', 'manager', 'tl'].includes(currentUser.role)) {
+        document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to manage users.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
+        throw new Error('Users access required');
+    }
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  LOAD LANGUAGES & CATEGORIES FROM SETTINGS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -576,8 +575,7 @@
 
             if (usersRes.status === 401 || usersRes.status === 403) {
                 localStorage.removeItem('token');
-                window.location.href = '/admin';
-                return;
+                throw new Error('Unauthorized');
             }
 
             const usersData = await usersRes.json();
@@ -1017,7 +1015,6 @@
     //  INIT
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     loadData();
-
     window.setTheme = setTheme;
     window.toggleTheme = toggleTheme;
     window.openAddUserModal = openAddUserModal;

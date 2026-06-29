@@ -10,7 +10,7 @@
     </style>
 </head>
 <body>
-<!-- reports.html v1.2 - Added permission enforcement -->
+<!-- reports.html v1.3 - Access denied matches settings.html pattern -->
 <div class="container">
     <div class="header">
         <h1>📊 Reports</h1>
@@ -51,21 +51,12 @@
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  AUTH CHECK
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    var token = localStorage.getItem("token");
-    if (!token) { window.location.href = "/admin"; }
-    
-    var currentUser = null;
-    try {
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) currentUser = JSON.parse(storedUser);
-    } catch (e) {}
-    
-    const hasReportsPermission = currentUser && currentUser.permissions && currentUser.permissions.includes('reports.view');
-    
-    if (!currentUser || !hasReportsPermission) {
-        document.getElementById("reportContent").innerHTML = '<div class="error">⛔ Permission denied. You don\'t have permission to view reports.</div>';
-    } else {
-        loadReports();
+    const token = localStorage.getItem('token');
+    const _storedUser = localStorage.getItem('user');
+    const currentUser = _storedUser ? JSON.parse(_storedUser) : null;
+    if (!token || !currentUser) {
+        document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to view reports.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
+        throw new Error('Reports access required');
     }
 
     async function loadReports() {
@@ -76,8 +67,7 @@
             });
             if (res.status === 401 || res.status === 403) {
                 localStorage.removeItem("token");
-                window.location.href = "/admin";
-                return;
+                throw new Error('Unauthorized');
             }
             var data = await res.json();
             if (data.success) {
@@ -167,7 +157,6 @@
         document.getElementById("reportContent").innerHTML = html;
     }
 
-    loadReports();
 </script>
 </body>
 </html>
