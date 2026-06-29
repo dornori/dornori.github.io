@@ -95,7 +95,7 @@
                 <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 Newsletter</a>
                 <a id="nav-settings" href="settings.html" style="display:none;">⚙️ Settings</a>
                 <a id="nav-users" href="users.html" style="display:none;">👥 Users</a>
-                <span id="userDisplay" style="font-size: 13px; color: var(--text-muted); margin-left: 10px;"></span>
+                <div id="userDisplay"></div>
                 <button onclick="logout()">Logout</button>
             </div>
         </div>
@@ -464,8 +464,17 @@
         }
     }
 
+    function renderUserBadge() {
+        const u = currentUser;
+        if (!u) return;
+        const initials = (u.name || u.email || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+        const meta = [u.role, u.team_id].filter(Boolean).join(' · ');
+        const el = document.getElementById('userDisplay');
+        if (el) el.innerHTML = `<div class="user-badge"><div class="user-badge-avatar">${initials}</div><div class="user-badge-info"><span class="user-badge-name">${u.name || u.email}</span><span class="user-badge-meta">${meta}</span></div></div>`;
+    }
+
     function updateUserDisplay() {
-        document.getElementById("userDisplay").textContent = currentUser.name + ' (' + currentUser.role + ')';
+        renderUserBadge();
         const isAdmin = currentUser.role === 'admin';
         const p = currentUser.permissions || [];
         if (isAdmin || p.includes('reports.view'))    document.getElementById('nav-reports').style.display = 'inline-block';
@@ -974,65 +983,93 @@
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  NOTIFICATION POLLING
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function notifMatchesUser(notif) {
+        if (!currentUser || currentUser.role === 'admin') return true;
+        const userLangs = currentUser.allowed_languages || [];
+        if (userLangs.length === 0) return true;
+        const notifLang = notif.language || notif.ticket_language || null;
+        if (!notifLang) return true;
+        return userLangs.includes(notifLang);
+    }
+
+    async function seedSeenNotifications() {
+        try {
+            const res = await fetch(API_BASE + "/api/admin/notifications", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!data.success || !data.notifications) return;
+            for (const notif of data.notifications) {
+                const id = notif.id || notif.ticket_id || notif.event + '_' + notif.created_at;
+                seenNotificationIds.add(id);
+            }
+        } catch (e) {}
+    }
+
     function startNotificationPolling() {
         if (notificationPollInterval) {
             clearInterval(notificationPollInterval);
             notificationPollInterval = null;
         }
-        
-        notificationPollInterval = setInterval(async function() {
-            if (!token) {
-                stopNotificationPolling();
-                return;
-            }
-            
-            try {
-                const res = await fetch(API_BASE + "/api/admin/notifications", {
-                    headers: { "Authorization": "Bearer " + token }
-                });
-                
-                if (res.status === 401) { 
-                    logout(); 
-                    return; 
+
+        seedSeenNotifications().then(() => {
+            notificationPollInterval = setInterval(async function() {
+                if (!token) {
+                    stopNotificationPolling();
+                    return;
                 }
-                
-                if (!res.ok) return;
-                
-                const data = await res.json();
-                if (!data.success || !data.notifications) return;
-                
-                let newNotifications = false;
-                for (const notif of data.notifications) {
-                    const id = notif.id || notif.ticket_id || notif.event + '_' + Date.now();
-                    if (!seenNotificationIds.has(id)) {
-                        seenNotificationIds.add(id);
-                        newNotifications = true;
-                        
-                        const eventType = notif.event || 'update';
-                        const title = `📢 ${eventType.toUpperCase()} - Ticket #${notif.id || ''}`;
-                        const message = notif.subject || `Ticket ${notif.id || ''} was ${eventType}`;
-                        showToast(title, message, eventType === 'created' ? 'success' : 'info');
-                        
-                        try {
-                            if (Notification.permission === 'granted') {
-                                new Notification(title, { 
-                                    body: message, 
-                                    icon: '/favicon.ico'
-                                });
-                            }
-                        } catch (e) {}
+
+                try {
+                    const res = await fetch(API_BASE + "/api/admin/notifications", {
+                        headers: { "Authorization": "Bearer " + token }
+                    });
+
+                    if (res.status === 401) {
+                        logout();
+                        return;
                     }
+
+                    if (!res.ok) return;
+
+                    const data = await res.json();
+                    if (!data.success || !data.notifications) return;
+
+                    let newNotifications = false;
+                    for (const notif of data.notifications) {
+                        const id = notif.id || notif.ticket_id || notif.event + '_' + notif.created_at;
+                        if (!seenNotificationIds.has(id)) {
+                            seenNotificationIds.add(id);
+                            newNotifications = true;
+
+                            if (!notifMatchesUser(notif)) continue;
+
+                            const eventType = notif.event || 'update';
+                            const title = `📢 ${eventType.toUpperCase()} - Ticket #${notif.id || ''}`;
+                            const message = notif.subject || `Ticket ${notif.id || ''} was ${eventType}`;
+                            showToast(title, message, eventType === 'created' ? 'success' : 'info');
+
+                            try {
+                                if (Notification.permission === 'granted') {
+                                    new Notification(title, {
+                                        body: message,
+                                        icon: '/favicon.ico'
+                                    });
+                                }
+                            } catch (e) {}
+                        }
+                    }
+
+                    if (newNotifications) {
+                        console.log('🔄 New notifications received, refreshing tickets...');
+                        resetAndLoad();
+                    }
+
+                } catch (e) {
+                    console.warn('Notification poll error:', e.message);
                 }
-                
-                if (newNotifications) {
-                    console.log('🔄 New notifications received, refreshing tickets...');
-                    resetAndLoad();
-                }
-                
-            } catch (e) {
-                console.warn('Notification poll error:', e.message);
-            }
-        }, 15000);
+            }, 15000);
+        });
     }
 
     function stopNotificationPolling() {
