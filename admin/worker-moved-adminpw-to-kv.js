@@ -1,12 +1,11 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  Dornori Ticketing Worker — v5.3 (KV auto-creation removed)
+//  Dornori Ticketing Worker — v5.7 (default from address)
 //  Changes: 
-//  - Removed all KV auto-creation/bootstrapping code
-//  - EMAIL_CONFIG must be manually configured in KV
-//  - Removed hardcoded admin credentials
-//  - Removed default role/language fallbacks (validation required)
-//  - Category 'other' → 'unclassified'
-//  - All input validation enforced
+//  - Added email.default_from setting (no hardcoded fallbacks)
+//  - Auto-reply uses default_from if per-category from not set
+//  - Email handler uses per-email language mapping
+//  - NO hardcoded defaults - all settings must be configured
+//  - Removed KV auto-creation
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 // ─── CACHE ─────────────────────────────────────────────────────
@@ -55,13 +54,13 @@ async function getEmailConfig(env) {
             cache.emailConfigTimestamp = Date.now();
             return config;
         } else {
-            console.log('⚠️ EMAIL_CONFIG not found in KV - email sending will fail');
+            console.error('❌ EMAIL_CONFIG not found in KV');
+            throw new Error('EMAIL_CONFIG is required but not configured in KV');
         }
     } catch (e) {
         console.error('❌ getEmailConfig error:', e.message);
+        throw new Error(`EMAIL_CONFIG required: ${e.message}`);
     }
-    console.log('❌ Returning null - EMAIL_CONFIG unavailable');
-    return null;
 }
 
 // ─── AUTH ─────────────────────────────────────────────────────
@@ -203,11 +202,19 @@ async function updateSetting(env, category, key, value) {
     cache.autoReplies = null;
 }
 
+async function getDefaultFrom(env) {
+    const from = await getSetting(env, 'email', 'default_from');
+    if (!from) {
+        throw new Error('Default from address not configured. Please set email.default_from in settings.');
+    }
+    return from;
+}
+
 async function getKnownCategories(env) {
     if (cache.categories !== null && isCacheValid(cache.settingsTimestamp)) {
         return cache.categories;
     }
-    const cats = new Set(['unclassified']);
+    const cats = new Set();
     try {
         const r = await env.DB.prepare(
             `SELECT key, value FROM settings WHERE category = 'category' AND key LIKE '%_description'`
@@ -217,6 +224,11 @@ async function getKnownCategories(env) {
             if (row.value !== '__deleted__') cats.add(slug);
         }
     } catch (e) {}
+    
+    if (cats.size === 0) {
+        throw new Error('No categories configured. Please configure categories in settings.');
+    }
+    
     cache.categories = Array.from(cats);
     cache.settingsTimestamp = Date.now();
     return cache.categories;
@@ -235,16 +247,12 @@ async function getKnownLanguages(env) {
             return cache.languages;
         }
     } catch (e) {}
-    cache.languages = null;
-    cache.settingsTimestamp = Date.now();
-    return cache.languages;
+    
+    throw new Error('No languages configured. Please configure languages in settings.');
 }
 
 async function validateLanguage(language, env) {
     const knownLangs = await getKnownLanguages(env);
-    if (!knownLangs || knownLangs.length === 0) {
-        throw new Error('No languages configured');
-    }
     const normalized = (language || '').toLowerCase().trim();
     if (!normalized) {
         throw new Error('Language is required');
@@ -305,9 +313,14 @@ async function getAutoReply(env, category, language) {
         };
         let enabled = await getSetting(env, 'auto_reply', langKeys.enabled);
         if (enabled !== null) {
-            const subject = await getSetting(env, 'auto_reply', langKeys.subject) || 'Welcome to the Dornori Newsletter';
-            const body    = await getSetting(env, 'auto_reply', langKeys.body) || '';
-            const from    = await getSetting(env, 'auto_reply', langKeys.from) || null;
+            const subject = await getSetting(env, 'auto_reply', langKeys.subject);
+            const body = await getSetting(env, 'auto_reply', langKeys.body);
+            const from = await getSetting(env, 'auto_reply', langKeys.from);
+            
+            if (!subject || !body) {
+                throw new Error(`Newsletter auto-reply subject and body must be configured for language: ${lang}`);
+            }
+            
             return { enabled: enabled === '1', subject, body, from };
         }
         
@@ -321,27 +334,22 @@ async function getAutoReply(env, category, language) {
             };
             enabled = await getSetting(env, 'auto_reply', enKeys.enabled);
             if (enabled !== null) {
-                const subject = await getSetting(env, 'auto_reply', enKeys.subject) || 'Welcome to the Dornori Newsletter';
-                const body    = await getSetting(env, 'auto_reply', enKeys.body) || '';
-                const from    = await getSetting(env, 'auto_reply', enKeys.from) || null;
+                const subject = await getSetting(env, 'auto_reply', enKeys.subject);
+                const body = await getSetting(env, 'auto_reply', enKeys.body);
+                const from = await getSetting(env, 'auto_reply', enKeys.from);
+                
+                if (!subject || !body) {
+                    throw new Error(`Newsletter auto-reply subject and body must be configured for language: en`);
+                }
+                
                 return { enabled: enabled === '1', subject, body, from };
             }
         }
         
-        // Last resort: check legacy newsletter keys
-        const legacyEnabled = await getSetting(env, 'auto_reply', 'newsletter_enabled');
-        if (legacyEnabled !== null) {
-            const subject = await getSetting(env, 'auto_reply', 'newsletter_subject') || 'Welcome to the Dornori Newsletter';
-            const body    = await getSetting(env, 'auto_reply', 'newsletter_body') || '';
-            const from    = await getSetting(env, 'auto_reply', 'newsletter_from') || null;
-            return { enabled: legacyEnabled === '1', subject, body, from };
-        }
-        
-        // Return null if no settings found (no default)
-        return null;
+        throw new Error(`Newsletter auto-reply not configured for language: ${lang}`);
     }
     
-    // For non-newsletter categories, use existing logic
+    // For non-newsletter categories
     // Try language-specific keys
     const langKeys = {
         enabled: `${cat}_${lang}_enabled`,
@@ -351,11 +359,17 @@ async function getAutoReply(env, category, language) {
     };
     let enabled = await getSetting(env, 'auto_reply', langKeys.enabled);
     if (enabled !== null) {
-        const subject = await getSetting(env, 'auto_reply', langKeys.subject) || '';
-        const body    = await getSetting(env, 'auto_reply', langKeys.body) || '';
-        const from    = await getSetting(env, 'auto_reply', langKeys.from) || null;
+        const subject = await getSetting(env, 'auto_reply', langKeys.subject);
+        const body = await getSetting(env, 'auto_reply', langKeys.body);
+        const from = await getSetting(env, 'auto_reply', langKeys.from);
+        
+        if (!subject || !body) {
+            throw new Error(`Auto-reply subject and body must be configured for category: ${cat}, language: ${lang}`);
+        }
+        
         return { enabled: enabled === '1', subject, body, from };
     }
+    
     // If language is not 'en', try English as fallback
     if (lang !== 'en') {
         const enKeys = {
@@ -366,43 +380,39 @@ async function getAutoReply(env, category, language) {
         };
         enabled = await getSetting(env, 'auto_reply', enKeys.enabled);
         if (enabled !== null) {
-            const subject = await getSetting(env, 'auto_reply', enKeys.subject) || '';
-            const body    = await getSetting(env, 'auto_reply', enKeys.body) || '';
-            const from    = await getSetting(env, 'auto_reply', enKeys.from) || null;
+            const subject = await getSetting(env, 'auto_reply', enKeys.subject);
+            const body = await getSetting(env, 'auto_reply', enKeys.body);
+            const from = await getSetting(env, 'auto_reply', enKeys.from);
+            
+            if (!subject || !body) {
+                throw new Error(`Auto-reply subject and body must be configured for category: ${cat}, language: en`);
+            }
+            
             return { enabled: enabled === '1', subject, body, from };
         }
     }
-    // Finally, fallback to legacy keys (no language)
-    const legacyKeys = {
-        enabled: `${cat}_enabled`,
-        subject: `${cat}_subject`,
-        body: `${cat}_body`,
-        from: `${cat}_from`
-    };
-    enabled = await getSetting(env, 'auto_reply', legacyKeys.enabled);
-    if (enabled === null) return null;
-    const subject = await getSetting(env, 'auto_reply', legacyKeys.subject) || `[Ticket {{ticket_id}}] Your ${cat} inquiry`;
-    const body    = await getSetting(env, 'auto_reply', legacyKeys.body) || `<p>Thank you for your ${cat} inquiry. We will respond shortly.</p>`;
-    const from    = await getSetting(env, 'auto_reply', legacyKeys.from) || null;
-    return { enabled: enabled === '1', subject, body, from };
+    
+    throw new Error(`Auto-reply not configured for category: ${cat}, language: ${lang}`);
 }
 
 async function saveAutoReply(env, category, language, enabled, subject, body, from) {
     const cat = await validateCategory(category, env);
     const lang = await validateLanguage(language, env);
     
+    if (!subject || !body) {
+        throw new Error('Subject and body are required for auto-reply');
+    }
+    
     if (cat === 'newsletter') {
-        // For newsletter, use language-specific keys
         const langKey = lang === 'en' ? '' : '_' + lang;
         await updateSetting(env, 'auto_reply', `newsletter${langKey}_enabled`, enabled ? '1' : '0');
-        await updateSetting(env, 'auto_reply', `newsletter${langKey}_subject`, subject || '');
-        await updateSetting(env, 'auto_reply', `newsletter${langKey}_body`, body || '');
+        await updateSetting(env, 'auto_reply', `newsletter${langKey}_subject`, subject);
+        await updateSetting(env, 'auto_reply', `newsletter${langKey}_body`, body);
         if (from) await updateSetting(env, 'auto_reply', `newsletter${langKey}_from`, from);
     } else {
-        // For tickets, use category_lang format
         await updateSetting(env, 'auto_reply', `${cat}_${lang}_enabled`, enabled ? '1' : '0');
-        await updateSetting(env, 'auto_reply', `${cat}_${lang}_subject`, subject || '');
-        await updateSetting(env, 'auto_reply', `${cat}_${lang}_body`, body || '');
+        await updateSetting(env, 'auto_reply', `${cat}_${lang}_subject`, subject);
+        await updateSetting(env, 'auto_reply', `${cat}_${lang}_body`, body);
         if (from) await updateSetting(env, 'auto_reply', `${cat}_${lang}_from`, from);
     }
     cache.autoReplies = null;
@@ -433,7 +443,6 @@ async function getAllAutoReplies(env) {
             if (parts.length < 2) continue;
             let cat, lang, suffix;
             
-            // Newsletter special case
             if (s.key.startsWith('newsletter')) {
                 if (s.key === 'newsletter_enabled' || s.key === 'newsletter_subject' || s.key === 'newsletter_body' || s.key === 'newsletter_from') {
                     cat = 'newsletter';
@@ -447,7 +456,6 @@ async function getAllAutoReplies(env) {
                     suffix = match[2];
                 }
             } else {
-                // Non-newsletter categories
                 cat = parts[0];
                 lang = parts[1];
                 suffix = parts.slice(2).join('_');
@@ -461,6 +469,7 @@ async function getAllAutoReplies(env) {
         for (const cat in replies) {
             for (const lang in replies[cat]) {
                 const r = replies[cat][lang];
+                if (r.enabled === undefined || r.subject === undefined || r.body === undefined) continue;
                 result.push({
                     category: cat,
                     language: lang,
@@ -477,20 +486,6 @@ async function getAllAutoReplies(env) {
     } catch { return []; }
 }
 
-async function ensureAutoReplyDefaults(env) {
-    // Only for non-newsletter categories
-    const cats = await getKnownCategories(env);
-    for (const cat of cats) {
-        if (cat === 'newsletter') continue; // Skip newsletter - no defaults
-        const enabled = await getSetting(env, 'auto_reply', cat + '_enabled');
-        if (enabled === null) {
-            await updateSetting(env, 'auto_reply', cat + '_enabled', '1');
-            await updateSetting(env, 'auto_reply', cat + '_subject', `[Ticket {{ticket_id}}] Your ${cat} inquiry`);
-            await updateSetting(env, 'auto_reply', cat + '_body', `<p>Thank you for your ${cat} inquiry. We will respond shortly.</p>`);
-        }
-    }
-}
-
 // ─── EMAIL ADDRESSES ──────────────────────────────────────────
 async function getEmailAddresses(env, activeOnly = false) {
     try {
@@ -500,26 +495,49 @@ async function getEmailAddresses(env, activeOnly = false) {
     } catch { return []; }
 }
 
-async function addEmailAddress(env, email, label, action) {
-    await env.DB.prepare('INSERT INTO email_addresses (email, label, action) VALUES (?, ?, ?)').bind(email, label, action).run();
+async function addEmailAddress(env, email, label, action, language) {
+    if (!language) {
+        throw new Error('Language is required for email address configuration');
+    }
+    await validateLanguage(language, env);
+    await env.DB.prepare('INSERT INTO email_addresses (email, label, action, language) VALUES (?, ?, ?, ?)').bind(email, label, action, language).run();
 }
 
-async function updateEmailAddress(env, id, email, label, action, is_active) {
-    await env.DB.prepare('UPDATE email_addresses SET email = ?, label = ?, action = ?, is_active = ?, updated_at = datetime("now") WHERE id = ?')
-        .bind(email, label, action, is_active, id).run();
+async function updateEmailAddress(env, id, email, label, action, language, is_active) {
+    if (language) {
+        await validateLanguage(language, env);
+    }
+    await env.DB.prepare('UPDATE email_addresses SET email = ?, label = ?, action = ?, language = ?, is_active = ?, updated_at = datetime("now") WHERE id = ?')
+        .bind(email, label, action, language, is_active, id).run();
 }
 
 async function deleteEmailAddress(env, id) {
     await env.DB.prepare('DELETE FROM email_addresses WHERE id = ?').bind(id).run();
 }
 
-async function getCategoryForIncomingAddress(env, toAddress) {
+async function getEmailAddressConfig(env, toAddress) {
     if (!toAddress) return null;
     const clean = toAddress.toLowerCase().trim();
     try {
-        const row = await env.DB.prepare('SELECT action FROM email_addresses WHERE is_active = 1 AND lower(email) = ?').bind(clean).first();
-        if (row && row.action) return normalizeCategory(row.action);
-    } catch (e) {}
+        const row = await env.DB.prepare('SELECT action, language FROM email_addresses WHERE is_active = 1 AND lower(email) = ?').bind(clean).first();
+        if (row && row.action) {
+            const category = normalizeCategory(row.action);
+            if (!category) return null;
+            
+            await validateCategory(category, env);
+            
+            let language = row.language;
+            if (language) {
+                await validateLanguage(language, env);
+            } else {
+                throw new Error(`No language configured for email address: ${toAddress}`);
+            }
+            
+            return { category, language };
+        }
+    } catch (e) {
+        throw e;
+    }
     return null;
 }
 
@@ -570,8 +588,11 @@ async function deleteSubscriber(id, env) {
 }
 
 async function buildUnsubscribeLink(env, token, language) {
-    let domain = (await getSetting(env, 'general', 'domain')) || 'dornori.com';
-    domain = domain.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    const domain = await getSetting(env, 'general', 'domain');
+    if (!domain) {
+        throw new Error('Domain not configured. Please set general.domain in settings.');
+    }
+    
     const lang = await validateLanguage(language, env);
     let unsubPath = await getSetting(env, 'newsletter', `unsubscribe_link_path_${lang}`);
     if (!unsubPath && lang !== 'en') {
@@ -580,8 +601,13 @@ async function buildUnsubscribeLink(env, token, language) {
     if (!unsubPath) {
         unsubPath = await getSetting(env, 'newsletter', 'unsubscribe_link_path');
     }
-    unsubPath = unsubPath || 'unsubscribe.html';
-    return `https://${domain}/${unsubPath.replace(/^\//, '')}?token=${token}`;
+    if (!unsubPath) {
+        throw new Error(`Unsubscribe link path not configured for language: ${lang}`);
+    }
+    
+    const cleanDomain = domain.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    const cleanPath = unsubPath.replace(/^\//, '');
+    return `https://${cleanDomain}/${cleanPath}?token=${token}`;
 }
 
 // ─── NEWSLETTERS ─────────────────────────────────────────────
@@ -629,7 +655,14 @@ async function sendNewsletter(env, subject, body, language) {
                 .replaceAll('{{subscriber_email}}',  sub.email)
                 .replaceAll('{{subscriber_name}}',   sub.name || '')
                 .replaceAll('{{unsubscribe_link}}',  unsubLink);
-            const res = await sendEmail(env, sub.email, subject, personalBody, 'newsletter@dornori.com');
+            
+            const ar = await getAutoReply(env, 'newsletter', sub.language);
+            let from = ar.from;
+            if (!from) {
+                from = await getDefaultFrom(env);
+            }
+            
+            const res = await sendEmail(env, sub.email, subject, personalBody, from);
             if (res.success) sent++;
         }));
     }
@@ -653,11 +686,23 @@ function generateTicketNumber() {
 
 async function getSLA(env, category) {
     const cat = await validateCategory(category, env);
-    const resp = parseInt(await getSetting(env, 'sla', cat + '_response') || '24');
-    const resol = parseInt(await getSetting(env, 'sla', cat + '_resolution') || '72');
+    const resp = await getSetting(env, 'sla', cat + '_response');
+    const resol = await getSetting(env, 'sla', cat + '_resolution');
+    
+    if (!resp || !resol) {
+        throw new Error(`SLA response and resolution times must be configured for category: ${cat}`);
+    }
+    
+    const respHours = parseInt(resp);
+    const resolHours = parseInt(resol);
+    
+    if (isNaN(respHours) || isNaN(resolHours)) {
+        throw new Error(`SLA times must be valid numbers for category: ${cat}`);
+    }
+    
     return {
-        responseDue: new Date(Date.now() + resp * 3600000).toISOString(),
-        resolutionDue: new Date(Date.now() + resol * 3600000).toISOString()
+        responseDue: new Date(Date.now() + respHours * 3600000).toISOString(),
+        resolutionDue: new Date(Date.now() + resolHours * 3600000).toISOString()
     };
 }
 
@@ -968,6 +1013,12 @@ async function sendEmail(env, to, subject, body, from) {
         console.error('❌ SCRIPT_URL missing from env');
         return { success: false, error: 'SCRIPT_URL missing' };
     }
+    
+    if (!from) {
+        console.error('❌ From address is required');
+        return { success: false, error: 'From address is required' };
+    }
+    
     console.log('📧 sendEmail called - to:', to, 'from:', from);
     
     const emailConfig = await getEmailConfig(env);
@@ -993,7 +1044,7 @@ async function sendEmail(env, to, subject, body, from) {
             to,
             subject: safeSubject,
             message: fullHtml,
-            from: from || 'support@dornori.com'
+            from: from
         };
         console.log('📤 Sending to Apps Script with username and secret configured');
         const formBody = Object.keys(params)
@@ -1027,8 +1078,8 @@ async function sendTicketConfirmation(ticket, env, emailOverride) {
     const ar = await getAutoReply(env, cat, lang);
     if (!ar || !ar.enabled) return { success: true, skipped: true };
 
-    let subject = ar.subject || `[Ticket {{ticket_id}}] Your ${cat} inquiry`;
-    let body = ar.body || `<p>Thank you for your ${cat} inquiry. We will respond shortly.</p>`;
+    let subject = ar.subject;
+    let body = ar.body;
 
     const replacements = {
         '{{ticket_id}}': ticket.ticket_number,
@@ -1043,7 +1094,10 @@ async function sendTicketConfirmation(ticket, env, emailOverride) {
     }
 
     const formattedBody = formatEmailBody(body);
-    const from = ar.from || (await getSetting(env, 'category', cat + '_assigned_email')) || 'support@dornori.com';
+    let from = ar.from;
+    if (!from) {
+        from = await getDefaultFrom(env);
+    }
     return await sendEmail(env, email, subject, formattedBody, from);
 }
 
@@ -1051,13 +1105,11 @@ async function sendNewsletterConfirmation(env, email, token, language) {
     const lang = await validateLanguage(language, env);
     const ar = await getAutoReply(env, 'newsletter', lang);
     
-    // Don't send if no auto-reply settings exist
     if (!ar || !ar.enabled) return { success: true, skipped: true };
 
-    let subject = ar.subject || 'Welcome to the Dornori Newsletter';
-    let body = ar.body || '';
+    let subject = ar.subject;
+    let body = ar.body;
 
-    // Replace placeholders
     const unsubscribeLink = await buildUnsubscribeLink(env, token, lang);
     const replacements = {
         '{{subscriber_email}}': email,
@@ -1069,7 +1121,10 @@ async function sendNewsletterConfirmation(env, email, token, language) {
     }
 
     const formattedBody = formatEmailBody(body);
-    const from = ar.from || 'newsletter@dornori.com';
+    let from = ar.from;
+    if (!from) {
+        from = await getDefaultFrom(env);
+    }
     return await sendEmail(env, email, subject, formattedBody, from);
 }
 
@@ -1166,9 +1221,6 @@ export default {
         const path = url.pathname;
         const method = request.method;
 
-        // Only ensure defaults for non-newsletter categories
-        try { await ensureAutoReplyDefaults(env); } catch(e) {}
-
         try {
             // ── Reports ──
             if (path === '/api/admin/reports' && method === 'GET') {
@@ -1241,11 +1293,11 @@ export default {
                 const email = verifyToken(token);
                 if (!email) return json({ error: 'Unauthorized' }, 401);
                 if (!await hasPermission(email, 'settings.edit', env)) return json({ error: 'Permission denied' }, 403);
-                const { email: newEmail, label, action } = await request.json();
-                if (!newEmail || !label) return json({ error: 'Email and label required' }, 400);
+                const { email: newEmail, label, action, language } = await request.json();
+                if (!newEmail || !label || !language) return json({ error: 'Email, label and language required' }, 400);
                 try {
                     const cat = await validateCategory(action || label, env);
-                    await addEmailAddress(env, newEmail, label, cat);
+                    await addEmailAddress(env, newEmail, label, cat, language);
                     return json({ success: true });
                 } catch (e) {
                     return json({ error: e.message }, 400);
@@ -1257,10 +1309,10 @@ export default {
                 if (!email) return json({ error: 'Unauthorized' }, 401);
                 if (!await hasPermission(email, 'settings.edit', env)) return json({ error: 'Permission denied' }, 403);
                 const id = parseInt(path.split('/')[4]);
-                const { email: newEmail, label, action, is_active } = await request.json();
+                const { email: newEmail, label, action, language, is_active } = await request.json();
                 try {
                     const cat = await validateCategory(action || label, env);
-                    await updateEmailAddress(env, id, newEmail, label, cat, is_active);
+                    await updateEmailAddress(env, id, newEmail, label, cat, language, is_active);
                     return json({ success: true });
                 } catch (e) {
                     return json({ error: e.message }, 400);
@@ -1376,7 +1428,6 @@ export default {
                         language: lang,
                         metadata: { subscriberId: subscriber.id }
                     }, env);
-                    // Only send confirmation if auto-reply is configured
                     await sendNewsletterConfirmation(env, email, token, lang);
                     return json({ success: true, subscriberId: subscriber.id, ticketNumber: ticket.ticket_number });
                 } catch (e) {
@@ -1766,6 +1817,7 @@ export default {
             let ticketNumber = null;
             if (subject) { const m = subject.match(ticketRegex); if (m) ticketNumber = m[0]; }
             if (!ticketNumber && body) { const m = body.match(ticketRegex); if (m) ticketNumber = m[0]; }
+            
             if (ticketNumber) {
                 const ticket = await getTicketByNumber(ticketNumber, env);
                 if (ticket) {
@@ -1782,22 +1834,28 @@ export default {
                     return; 
                 }
             }
-            const category = await getCategoryForIncomingAddress(env, message.to);
-            if (!category) {
-                console.log('⚠️ No category found for incoming email to:', message.to);
+            
+            // Get email address configuration (category + language)
+            const config = await getEmailAddressConfig(env, message.to);
+            if (!config) {
+                console.log('⚠️ No configuration found for incoming email to:', message.to);
                 return;
             }
+            
+            const { category, language } = config;
+            
             const ticket = await createTicket({
                 category,
                 senderName: from.split('@')[0] || 'Unknown',
                 senderEmail: from,
                 subject: subject || 'No subject',
                 message: body || '(No content)',
-                language: 'en',
+                language: language,
                 metadata: { source: 'email', to: message.to }
             }, env);
+            
             if (from) await sendTicketConfirmation(ticket, env, from);
-            console.log('✅ New ticket created:', ticket.ticket_number, 'category:', category);
+            console.log('✅ New ticket created:', ticket.ticket_number, 'category:', category, 'language:', language);
         } catch (err) {
             console.log('❌ Email error:', err.message);
         }
