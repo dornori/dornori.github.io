@@ -91,10 +91,10 @@
             <h1>🎫 Dornori Ticketing</h1>
             <div class="header-right">
                 <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
-                <a href="reports.html">📊 Reports</a>
-                <a href="newsletter.html">📧 Newsletter</a>
-                <a href="settings.html">⚙️ Settings</a>
-                <a id="usersLink" href="users.html" style="display:none;">👥 Users</a>
+                <a id="nav-reports" href="reports.html" style="display:none;">📊 Reports</a>
+                <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 Newsletter</a>
+                <a id="nav-settings" href="settings.html" style="display:none;">⚙️ Settings</a>
+                <a id="nav-users" href="users.html" style="display:none;">👥 Users</a>
                 <span id="userDisplay" style="font-size: 13px; color: var(--text-muted); margin-left: 10px;"></span>
                 <button onclick="logout()">Logout</button>
             </div>
@@ -168,11 +168,7 @@
     const PermissionService = {
         permissions: [],
         
-        updateUI() {
-            if (currentUser && currentUser.role === 'admin') {
-                document.getElementById('usersLink').style.display = 'inline-block';
-            }
-        },
+        updateUI() {},
 
         can(permission) {
             if (!currentUser) return false;
@@ -470,9 +466,12 @@
 
     function updateUserDisplay() {
         document.getElementById("userDisplay").textContent = currentUser.name + ' (' + currentUser.role + ')';
-        if (currentUser.role === 'admin') {
-            document.getElementById("usersLink").style.display = 'inline-block';
-        }
+        const isAdmin = currentUser.role === 'admin';
+        const p = currentUser.permissions || [];
+        if (isAdmin || p.includes('reports.view'))    document.getElementById('nav-reports').style.display = 'inline-block';
+        if (isAdmin || p.includes('newsletter.view')) document.getElementById('nav-newsletter').style.display = 'inline-block';
+        if (isAdmin || p.includes('settings.view'))   document.getElementById('nav-settings').style.display = 'inline-block';
+        if (isAdmin || p.includes('users.view'))      document.getElementById('nav-users').style.display = 'inline-block';
     }
 
     function logout() {
