@@ -1,9 +1,10 @@
+<!-- settings.html v1.5 - Added auth check, admin-only restriction -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Settings – EdgeDesk</title>
+    <title>Settings – Dornori</title>
     <link rel="stylesheet" href="style.css" />
     <style>
         /* ── Settings-specific overrides ── */
@@ -261,25 +262,6 @@
         }
         .oe-footer-status.has-footer { color: var(--success); font-style: normal; }
 
-        /* Email address row with language */
-        .email-row {
-            display: grid;
-            grid-template-columns: 1fr 160px 120px auto;
-            gap: 12px;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid var(--border);
-        }
-        .email-row .email-addr { font-weight: 600; font-size: 14px; }
-        .email-row .email-lang {
-            font-size: 12px;
-            padding: 2px 10px;
-            border-radius: 12px;
-            background: var(--bg-input);
-            color: var(--text-muted);
-            font-weight: 600;
-        }
-
         /* Add-new row */
         .add-row {
             display: flex;
@@ -330,7 +312,6 @@
         @media (max-width: 640px) {
             .f-grid-2, .f-grid-3 { grid-template-columns: 1fr; }
             .add-row { flex-direction: column; }
-            .email-row { grid-template-columns: 1fr; gap: 6px; }
         }
     </style>
 </head>
@@ -340,12 +321,9 @@
         <h1>⚙️ Settings</h1>
         <div class="header-right">
             <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
-            <a id="nav-reports" href="reports.html" style="display:none;">📊 Reports</a>
-            <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 Newsletter</a>
-            <a id="nav-settings" href="settings.html" style="display:none;">⚙️ Settings</a>
-            <a id="nav-users" href="users.html" style="display:none;">👥 Users</a>
-            <div id="userDisplay"></div>
-            <button onclick="logout()">Logout</button>
+            <a href="dashboard.html">← Dashboard</a>
+            <a href="reports.html">📊 Reports</a>
+            <a href="newsletter.html">📧 Newsletter</a>
         </div>
     </div>
 
@@ -355,10 +333,8 @@
 
 <div id="toast" class="toast"></div>
 
-<script src="edgedeskconfig.js"></script>
 <script>
-// ── Get API_BASE from config ──
-const API_BASE = window.EDGEDESK_CONFIG ? window.EDGEDESK_CONFIG.API_BASE : 'https://dornori-ticketing.dornori-info.workers.dev';
+const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
 
 // ── Theme ──
 function setTheme(t) {
@@ -371,49 +347,19 @@ setTheme(localStorage.getItem('theme') || 'light');
 
 // ── Auth ──
 const token = localStorage.getItem('token');
+if (!token) window.location.href = '/admin';
+
 const storedUser = localStorage.getItem('user');
 const currentUser = storedUser ? JSON.parse(storedUser) : null;
-const isAdmin = currentUser && currentUser.role === 'admin';
-const hasSettingsPermission = isAdmin || (currentUser && currentUser.page_permissions && currentUser.page_permissions.settings && currentUser.page_permissions.settings.view);
-if (!token || !currentUser || !hasSettingsPermission) {
-    document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to access settings.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
-    throw new Error('Settings access required');
+if (!currentUser || currentUser.role !== 'admin') {
+    document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>Only admins can access settings.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
+    throw new Error('Admin access required');
 }
 
-const pagePerms = (currentUser && currentUser.page_permissions) || {};
-
-function hasPageAccess(page) {
-    if (currentUser.role === 'admin') return true;
-    const perms = pagePerms[page] || {};
-    return perms.view === true;
-}
-
-function canEditSettings() {
-    if (currentUser.role === 'admin') return true;
-    return pagePerms.settings?.edit === true;
-}
-
-function canCreateSettings() {
-    if (currentUser.role === 'admin') return true;
-    return pagePerms.settings?.create === true;
-}
-
-function canDeleteSettings() {
-    if (currentUser.role === 'admin') return true;
-    return pagePerms.settings?.delete === true;
-}
-
-// Show all nav buttons except current page (settings)
-if (hasPageAccess('reports'))    document.getElementById('nav-reports').style.display = '';
-if (hasPageAccess('newsletter'))  document.getElementById('nav-newsletter').style.display = '';
-if (hasPageAccess('users'))      document.getElementById('nav-users').style.display = '';
-
-// ── API ──
 async function api(path, opts = {}) {
     opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
     const res = await fetch(API_BASE + path, opts);
-    if (res.status === 401) { localStorage.removeItem('token'); throw new Error('Unauthorized'); }
-    if (res.status === 403) { throw new Error('Permission denied'); }
+    if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/admin'; throw new Error('Unauthorized'); }
     return res.json();
 }
 
@@ -436,7 +382,7 @@ function S(cat, key, def = '') {
 }
 
 function getCategories() {
-    const cats = new Set();
+    const cats = new Set(['other']);
     settings.forEach(s => {
         if (s.category === 'category' && s.key.endsWith('_description') && s.value !== '__deleted__') {
             cats.add(s.key.replace('_description', ''));
@@ -445,22 +391,12 @@ function getCategories() {
     return Array.from(cats);
 }
 
-function getLanguages() {
-    const langList = S('languages', 'list', '[]');
-    try {
-        const parsed = JSON.parse(langList);
-        return parsed;
-    } catch (e) {
-        return [];
-    }
-}
-
 // ── Load ──
 async function load() {
     try {
         const [sd, ed] = await Promise.all([api('/api/admin/settings'), api('/api/admin/email-addresses')]);
         settings = sd.settings || [];
-        emailAddresses = ed.addresses || [];
+        emailAddresses = ed.data || ed.addresses || [];
         renderAll();
         switchTab(currentTab);
     } catch(e) {
@@ -468,87 +404,8 @@ async function load() {
     }
 }
 
-// ── Permission helpers ──
-function disableForm(elementId, disabled) {
-    const el = document.getElementById(elementId);
-    if (!el) return;
-    if (disabled) {
-        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.tagName === 'SELECT') {
-            el.disabled = true;
-        }
-        el.style.opacity = '0.6';
-        el.style.pointerEvents = 'none';
-    } else {
-        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.tagName === 'SELECT') {
-            el.disabled = false;
-        }
-        el.style.opacity = '1';
-        el.style.pointerEvents = 'auto';
-    }
-}
-
-function disableElements(selector, disabled) {
-    document.querySelectorAll(selector).forEach(el => {
-        if (disabled) {
-            el.disabled = true;
-            el.style.opacity = '0.5';
-            el.style.cursor = 'not-allowed';
-            el.title = 'Permission denied';
-        } else {
-            el.disabled = false;
-            el.style.opacity = '1';
-            el.style.cursor = 'pointer';
-            el.title = '';
-        }
-    });
-}
-
 // ── Save helper ──
 async function saveSettings(updates) {
-    if (!canEditSettings()) {
-        alert('You do not have permission to edit settings');
-        return Promise.reject(new Error('Permission denied'));
-    }
-
-function disableForm(elementId, disabled) {
-    const el = document.getElementById(elementId);
-    if (!el) return;
-    if (disabled) {
-        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.tagName === 'SELECT') {
-            el.disabled = true;
-        }
-        el.style.opacity = '0.6';
-        el.style.pointerEvents = 'none';
-    } else {
-        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.tagName === 'SELECT') {
-            el.disabled = false;
-        }
-        el.style.opacity = '1';
-        el.style.pointerEvents = 'auto';
-    }
-}
-
-function disableElements(selector, disabled) {
-    document.querySelectorAll(selector).forEach(el => {
-        if (disabled) {
-            el.disabled = true;
-            el.style.opacity = '0.5';
-            el.style.cursor = 'not-allowed';
-            el.title = 'Permission denied';
-        } else {
-            el.disabled = false;
-            el.style.opacity = '1';
-            el.style.cursor = 'pointer';
-            el.title = '';
-        }
-    });
-}
-
-async function saveSettings(updates) {
-    if (!canEditSettings()) {
-        alert('You do not have permission to edit settings');
-        return Promise.reject(new Error('Permission denied'));
-    }
     const d = await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ settings: updates }) });
     return d.success;
 }
@@ -580,16 +437,6 @@ function renderAll() {
         return `<div class="tab-panel" id="panel-${t.id}" data-tab-id="${t.id}">${isPromise ? '<div class="loading">Loading…</div>' : content}</div>`;
     }).join('');
     document.getElementById('tabContent').innerHTML = html;
-    
-    // Disable all form fields if no edit permission
-    setTimeout(() => {
-        const noEdit = !canEditSettings();
-        const noCreate = !canCreateSettings();
-        const noDelete = !canDeleteSettings();
-        
-        disableElements('input[type="text"], input[type="password"], textarea, select', noEdit || noCreate || noDelete);
-        disableElements('button[onclick*="save"], button[onclick*="delete"]', noEdit || noCreate || noDelete);
-    }, 100);
 }
 
 function switchTab(id) {
@@ -623,70 +470,37 @@ function buildPanel(id) {
         case 'categories':    return buildCategories();
         case 'languages':     return buildLanguages();
         case 'email_routing': return buildEmailRouting();
-        case 'auto_reply':    return 'Loading…';
+        case 'auto_reply':    return buildAutoReply();
         case 'outgoing':      return buildOutgoing();
     }
     return '';
 }
 
 // ─────────────────────────────────────────────────────────────
-// GENERAL - UPDATED with Default Language & Default From
+// GENERAL
 // ─────────────────────────────────────────────────────────────
 function buildGeneral() {
     const tz = S('general', 'timezone', 'UTC');
     const domain = S('general', 'domain', '');
-    const defaultLang = S('general', 'default_language', '');
-    const defaultFrom = S('email', 'default_from', '');
-    const langs = getLanguages();
-    
     const tzs = ['UTC','Europe/Vienna','Europe/London','Europe/Paris','Europe/Berlin','America/New_York','America/Los_Angeles','America/Chicago','Asia/Dubai','Asia/Singapore','Asia/Tokyo','Australia/Sydney','Pacific/Auckland'];
-    const langOpts = langs.map(l => `<option value="${esc(l.code)}"${l.code===defaultLang?' selected':''}>${esc(l.name)} (${esc(l.code)})</option>`).join('');
-    
     return `<div class="s-card">
         <div class="s-card-head"><div><h3>General Settings</h3><p>System-wide configuration</p></div></div>
-        
         <div class="f-row" style="max-width:320px;">
             <label>Timezone</label>
             <select id="gen_tz">${tzs.map(t => `<option${t===tz?' selected':''}>${t}</option>`).join('')}</select>
         </div>
-        
         <div class="f-row" style="max-width:420px;">
             <label>Domain <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;">(used to build unsubscribe links — no protocol, no trailing slash)</span></label>
-            <input type="text" id="gen_domain" value="${esc(domain)}" placeholder="edgedesk.com" />
+            <input type="text" id="gen_domain" value="${esc(domain)}" placeholder="dornori.com" />
         </div>
-        
-        <hr class="divider" />
-        
-        <div class="f-row" style="max-width:320px;">
-            <label>Default Language <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;">(fallback when no language is specified)</span></label>
-            <select id="gen_default_lang">${langOpts}</select>
-        </div>
-        
-        <div class="f-row" style="max-width:420px;">
-            <label>Default From Address <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;">(fallback when auto-reply has no from address set)</span></label>
-            <input type="email" id="gen_default_from" value="${esc(defaultFrom)}" placeholder="support@edgedesk.com" />
-        </div>
-        
         <button class="btn btn-accent" onclick="saveGeneral()">Save changes</button>
     </div>`;
 }
-
 async function saveGeneral() {
-    if (!canEditSettings()) {
-        alert('You do not have permission to edit settings');
-        return;
-    }
-    const defaultLang = document.getElementById('gen_default_lang').value;
-    const defaultFrom = document.getElementById('gen_default_from').value.trim();
-    
-    const updates = [
+    const ok = await saveSettings([
         { category:'general', key:'timezone', value: document.getElementById('gen_tz').value },
-        { category:'general', key:'domain',   value: document.getElementById('gen_domain').value.trim() },
-        { category:'general', key:'default_language', value: defaultLang },
-        { category:'email',   key:'default_from', value: defaultFrom }
-    ];
-    
-    const ok = await saveSettings(updates);
+        { category:'general', key:'domain',   value: document.getElementById('gen_domain').value.trim() }
+    ]);
     ok ? toast('✅ Saved') : toast('❌ Failed', 'error');
     if (ok) await load();
 }
@@ -696,7 +510,6 @@ async function saveGeneral() {
 // ─────────────────────────────────────────────────────────────
 function buildSla() {
     const cats = getCategories();
-    if (cats.length === 0) return `<div class="s-card"><div class="empty-state">No categories configured yet. Add them in the Categories tab.</div></div>`;
     return `<div class="s-card">
         <div class="s-card-head"><div><h3>SLA Rules</h3><p>Response and resolution time targets per category, in hours</p></div></div>
         <div style="display:grid;gap:12px;">
@@ -716,10 +529,6 @@ function buildSla() {
     </div>`;
 }
 async function saveSla() {
-    if (!canEditSettings()) {
-        alert('You do not have permission to edit settings');
-        return;
-    }
     const cats = getCategories();
     const updates = cats.flatMap(c => [
         { category:'sla', key: c+'_response',   value: document.getElementById('sla_'+c+'_resp').value },
@@ -793,14 +602,10 @@ function buildCategories() {
 
 function toggleCat(cat) {
     const el = document.getElementById('catitem-' + cat);
-    if (el) el.classList.toggle('open');
+    el.classList.toggle('open');
 }
 
 async function saveCat(cat) {
-    if (!canCreateSettings()) {
-        alert('You do not have permission to create settings');
-        return;
-    }
     const desc  = document.getElementById('cat_desc_'+cat).value;
     const color = document.getElementById('cat_color_'+cat).value;
     const ok = await saveSettings([
@@ -812,10 +617,6 @@ async function saveCat(cat) {
 }
 
 async function deleteCat(cat) {
-    if (!canDeleteSettings()) {
-        alert('You do not have permission to delete settings');
-        return;
-    }
     if (!confirm(`Delete category "${cat}"?\n\nEmail routing and auto-reply rules for this category will remain in the database but become inactive.`)) return;
     const ok = await saveSettings([{ category:'category', key: cat+'_description', value: '__deleted__' }]);
     ok ? toast('✅ Category deleted') : toast('❌ Failed', 'error');
@@ -850,6 +651,11 @@ async function addCat() {
 // ─────────────────────────────────────────────────────────────
 // LANGUAGES
 // ─────────────────────────────────────────────────────────────
+function getLanguages() {
+    const langs = S('languages', 'list', '[]');
+    try { return JSON.parse(langs); } catch { return []; }
+}
+
 function buildLanguages() {
     const langs = getLanguages();
     const items = langs.map((lang, idx) => `
@@ -861,7 +667,7 @@ function buildLanguages() {
     `).join('');
 
     return `<div class="s-card">
-        <div class="s-card-head"><div><h3>Languages</h3><p>Manage languages for ticket filtering in the dashboard - the first language is the default for tickets that are created without their language specified - eg incoming emails.</p></div></div>
+        <div class="s-card-head"><div><h3>Languages</h3><p>Manage languages for ticket filtering in the dashboard</p></div></div>
         ${items || '<div class="empty-state">No languages yet</div>'}
         
         <hr class="divider" />
@@ -899,10 +705,6 @@ async function addLang() {
 }
 
 async function deleteLang(idx) {
-    if (!canDeleteSettings()) {
-        alert('You do not have permission to delete settings');
-        return;
-    }
     if (!confirm('Remove this language?')) return;
     const langs = getLanguages();
     langs.splice(idx, 1);
@@ -912,26 +714,17 @@ async function deleteLang(idx) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// EMAIL ROUTING (with Language support)
+// EMAIL ROUTING
 // ─────────────────────────────────────────────────────────────
 function buildEmailRouting() {
     const cats = getCategories();
-    const langs = getLanguages();
     const catOpts = cats.map(c => `<option value="${c}">${cap(c)}</option>`).join('');
-    const langOpts = langs.map(l => `<option value="${l.code}">${l.code} - ${l.name}</option>`).join('');
 
     const rows = emailAddresses.map(addr => {
-        const catOptsWithSelected = cats.map(c => 
-            `<option value="${c}"${c===addr.action?' selected':''}>${cap(c)}</option>`
-        ).join('');
-        const langOptsWithSelected = langs.map(l => 
-            `<option value="${l.code}"${l.code===addr.language?' selected':''}>${l.code} - ${l.name}</option>`
-        ).join('');
-        
-        return `<div class="email-row">
-            <span class="email-addr">${esc(addr.email)}</span>
-            <select onchange="updateEmailCat(${addr.id}, this.value)" style="padding:7px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);">${catOptsWithSelected}</select>
-            <select onchange="updateEmailLang(${addr.id}, this.value)" style="padding:7px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);">${langOptsWithSelected}</select>
+        const opts = cats.map(c => `<option value="${c}"${c===addr.action?' selected':''}>${cap(c)}</option>`).join('');
+        return `<div style="display:grid;grid-template-columns:1fr 200px auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+            <span style="font-weight:600;font-size:14px;">${esc(addr.email)}</span>
+            <select onchange="updateEmailCat(${addr.id}, this.value)" style="padding:7px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);">${opts}</select>
             <div style="display:flex;gap:6px;">
                 <button class="btn btn-ghost btn-sm" onclick="editEmailAddr(${addr.id})">Edit</button>
                 <button class="btn btn-danger btn-sm" onclick="deleteEmailAddr(${addr.id})">Delete</button>
@@ -940,16 +733,15 @@ function buildEmailRouting() {
     }).join('');
 
     return `<div class="s-card">
-        <div class="s-card-head"><div><h3>Email Routing</h3><p>Map incoming email addresses to ticket categories and languages. Categories and Languages are pulled from their respective tabs.</p></div></div>
+        <div class="s-card-head"><div><h3>Email Routing</h3><p>Map incoming email addresses to ticket categories. Categories are pulled from the Categories tab.</p></div></div>
 
         ${emailAddresses.length ? rows : '<div class="empty-state">No email addresses yet — add one below</div>'}
 
         <hr class="divider" />
         <h4 style="font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;">Add address</h4>
-        <div style="display:grid;grid-template-columns:1fr 180px 140px auto;gap:12px;align-items:flex-end;">
+        <div style="display:grid;grid-template-columns:1fr 200px auto;gap:12px;align-items:flex-end;">
             <div class="f-row" style="margin:0;"><label>Email address</label><input type="email" id="newErEmail" placeholder="support@example.com" /></div>
             <div class="f-row" style="margin:0;"><label>Category</label><select id="newErCat" style="padding:9px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);width:100%;">${catOpts}</select></div>
-            <div class="f-row" style="margin:0;"><label>Language</label><select id="newErLang" style="padding:9px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);width:100%;">${langOpts}</select></div>
             <button class="btn btn-accent" style="white-space:nowrap;" onclick="addEmailAddr()">Add address</button>
         </div>
     </div>`;
@@ -958,32 +750,19 @@ function buildEmailRouting() {
 async function updateEmailCat(id, cat) {
     const addr = emailAddresses.find(a => a.id === id);
     if (!addr) return;
-    const lang = addr.language || '';
     const d = await api('/api/admin/email-addresses/' + id, {
-        method: 'PUT', body: JSON.stringify({ email: addr.email, label: cat, action: cat, language: lang, is_active: 1 })
+        method: 'PUT', body: JSON.stringify({ email: addr.email, label: cat, action: cat, is_active: 1 })
     });
     d.success ? toast('✅ Routing updated') : toast('❌ Failed', 'error');
-    if (d.success) { addr.action = cat; await load(); }
-}
-
-async function updateEmailLang(id, lang) {
-    const addr = emailAddresses.find(a => a.id === id);
-    if (!addr) return;
-    const d = await api('/api/admin/email-addresses/' + id, {
-        method: 'PUT', body: JSON.stringify({ email: addr.email, label: addr.action, action: addr.action, language: lang, is_active: 1 })
-    });
-    d.success ? toast('✅ Language updated') : toast('❌ Failed', 'error');
-    if (d.success) { addr.language = lang; await load(); }
+    if (d.success) { addr.action = cat; }
 }
 
 async function addEmailAddr() {
     const email = document.getElementById('newErEmail').value.trim();
     const cat   = document.getElementById('newErCat').value;
-    const lang  = document.getElementById('newErLang').value;
     if (!email) { toast('Enter an email address', 'error'); return; }
-    if (!lang) { toast('Select a language', 'error'); return; }
     const d = await api('/api/admin/email-addresses', {
-        method: 'POST', body: JSON.stringify({ email, label: cat, action: cat, language: lang })
+        method: 'POST', body: JSON.stringify({ email, label: cat, action: cat })
     });
     if (d.success) { document.getElementById('newErEmail').value = ''; toast('✅ Address added'); await load(); }
     else { toast('❌ ' + (d.error || 'Failed'), 'error'); }
@@ -994,25 +773,20 @@ async function editEmailAddr(id) {
     if (!addr) return;
     const newEmail = prompt('Edit email address:', addr.email);
     if (!newEmail || newEmail === addr.email) return;
-    const lang = addr.language || '';
     const d = await api('/api/admin/email-addresses/' + id, {
-        method: 'PUT', body: JSON.stringify({ email: newEmail, label: addr.action, action: addr.action, language: lang, is_active: 1 })
+        method: 'PUT', body: JSON.stringify({ email: newEmail, label: addr.action, action: addr.action, is_active: 1 })
     });
     d.success ? (toast('✅ Updated'), load()) : toast('❌ Failed', 'error');
 }
 
 async function deleteEmailAddr(id) {
-    if (!canDeleteSettings()) {
-        alert('You do not have permission to delete settings');
-        return;
-    }
     if (!confirm('Delete this email address?')) return;
     const d = await api('/api/admin/email-addresses/' + id, { method: 'DELETE' });
     d.success ? (toast('✅ Deleted'), load()) : toast('❌ Failed', 'error');
 }
 
 // ─────────────────────────────────────────────────────────────
-// AUTO-REPLY - FIXED (from working v1.7)
+// AUTO-REPLY
 // ─────────────────────────────────────────────────────────────
 const DYN_TAGS = [
     { tag: '{{ticket_id}}',    label: 'Ticket ID' },
@@ -1117,7 +891,7 @@ async function buildAutoReply() {
 
 function toggleAr(cat) {
     const el = document.getElementById('aritem-' + cat);
-    if (el) el.classList.toggle('open');
+    el.classList.toggle('open');
 }
 
 function insertTag(targetId, tag) {
@@ -1129,19 +903,25 @@ function insertTag(targetId, tag) {
     el.focus();
 }
 
+function getLanguages() {
+    const langList = S('languages', 'list', '[]');
+    try {
+        const parsed = JSON.parse(langList);
+        return parsed;
+    } catch (e) {
+        return [{code: 'en', name: 'English'}];
+    }
+}
+
 async function setArLanguage(lang) {
     sessionStorage.setItem('ar_active_lang', lang);
-    const panel = document.getElementById('panel-auto_reply');
-    if (panel) {
-        panel.innerHTML = await buildAutoReply();
+    const tabContent = document.querySelector('[data-tab-id="auto_reply"]');
+    if (tabContent) {
+        tabContent.innerHTML = await buildAutoReply();
     }
 }
 
 async function saveAr(cat, lang) {
-    if (!canEditSettings()) {
-        alert('You do not have permission to edit settings');
-        return;
-    }
     const enabled = document.getElementById('ar_en_'+cat).checked ? 1 : 0;
     const subject = document.getElementById('ar_subj_'+cat).value;
     const body    = document.getElementById('ar_body_'+cat).value;
@@ -1166,10 +946,6 @@ async function saveAr(cat, lang) {
 }
 
 async function deleteAr(cat, lang) {
-    if (!canDeleteSettings()) {
-        alert('You do not have permission to delete settings');
-        return;
-    }
     if (!confirm(`Remove auto-reply for "${cat}" in ${lang}?\nThe category itself is not deleted.`)) return;
     const d = await api('/api/admin/auto-reply', {
         method: 'DELETE',
@@ -1205,7 +981,8 @@ function buildOutgoing() {
             <div class="oe-body">
                 <div class="f-row">
                     <label>Footer HTML <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;">(appended to every outgoing email from this address)</span></label>
-                    <textarea id="oe_footer_${safeKey}" rows="7" placeholder="<p>Best regards,<br/>The EdgeDesk Team</p>\n\n<p style='font-size:11px;color:#888;'>You're receiving this because you contacted us at ${esc(addr.email)}</p>">${esc(footer)}</textarea>
+                    ${tagBar('oe_footer_'+safeKey)}
+                    <textarea id="oe_footer_${safeKey}" rows="7" placeholder="<p>Best regards,<br/>The Dornori Team</p>\n\n<p style='font-size:11px;color:#888;'>You're receiving this because you contacted us at ${esc(addr.email)}</p>">${esc(footer)}</textarea>
                 </div>
                 <div style="display:flex;gap:8px;margin-top:4px;align-items:center;">
                     <button class="btn btn-accent btn-sm" onclick="saveFooter('${esc(addr.email)}','${safeKey}')">Save footer</button>
@@ -1228,18 +1005,16 @@ function buildOutgoing() {
 }
 
 async function saveFooter(email, safeKey) {
-    if (!canEditSettings()) {
-        alert('You do not have permission to edit settings');
-        return;
-    }
     const body = document.getElementById('oe_footer_' + safeKey).value;
     const ok = await saveSettings([{ category:'email', key:'footer_'+safeKey, value: body }]);
     if (ok) {
         toast('✅ Footer saved for ' + email);
         const s = document.getElementById('oe_status_' + safeKey);
         if (s) { s.textContent = 'Saved ✓'; setTimeout(() => s.textContent = '', 2500); }
+        // Sync local state
         const existing = settings.find(s => s.category==='email' && s.key==='footer_'+safeKey);
         if (existing) existing.value = body; else settings.push({ category:'email', key:'footer_'+safeKey, value: body });
+        // Update indicator
         const statusEl = document.querySelector('#oe_footer_' + safeKey)?.closest('.oe-item')?.querySelector('.oe-footer-status');
         if (statusEl) { statusEl.textContent = body ? 'Custom footer set' : 'No footer'; statusEl.className = 'oe-footer-status ' + (body ? 'has-footer' : ''); }
     } else {
@@ -1255,26 +1030,32 @@ async function clearFooter(email, safeKey) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// AUTH CHECK
+// ─────────────────────────────────────────────────────────────
+async function checkAuth() {
+    const token = localStorage.getItem("token");
+    const storedUser = localStorage.getItem("user");
+    if (!token || !storedUser) {
+        window.location.href = "dashboard.html";
+        return false;
+    }
+    try {
+        const user = JSON.parse(storedUser);
+        if (user.role !== 'admin') {
+            document.body.innerHTML = '<div style="padding: 20px; color: #ef4444;">⛔ Admin access required</div>';
+            return false;
+        }
+    } catch (e) {
+        window.location.href = "dashboard.html";
+        return false;
+    }
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────────────────
-load();
-
-function renderUserBadge() {
-    const u = currentUser;
-    if (!u) return;
-    const initials = (u.name || u.email || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-    const meta = [u.role, u.team_id].filter(Boolean).join(' · ');
-    const el = document.getElementById('userDisplay');
-    if (el) el.innerHTML = `<div class="user-badge"><div class="user-badge-avatar">${initials}</div><div class="user-badge-info"><span class="user-badge-name">${u.name || u.email}</span><span class="user-badge-meta">${meta}</span></div></div>`;
-}
-renderUserBadge();
-
-function logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = 'dashboard.html';
-}
+checkAuth().then(ok => { if (ok) load(); });
 </script>
 </body>
 </html>
-```

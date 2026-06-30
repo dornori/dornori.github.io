@@ -1,4 +1,4 @@
-<!-- newsletter.html v2.9 - Permission-based nav hiding -->
+<!-- newsletter.html v2.6 - Added permission enforcement -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -163,13 +163,11 @@
     <div class="header">
         <h1>📧 Newsletter</h1>
         <div class="header-right">
-                <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
-                <a id="nav-reports" href="reports.html">📊 Reports</a>
-                <a id="nav-settings" href="settings.html">⚙️ Settings</a>
-                <a id="nav-users" href="users.html">👥 Users</a>
-                <div id="userDisplay"></div>
-                <button onclick="logout()">Logout</button>
-            </div>
+            <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+            <a href="dashboard.html">← Dashboard</a>
+            <a href="reports.html">📊 Reports</a>
+            <a href="settings.html">⚙️ Settings</a>
+        </div>
     </div>
 
     <div class="n-page">
@@ -226,49 +224,26 @@ function toggleTheme() { setTheme(document.documentElement.getAttribute('data-th
 setTheme(localStorage.getItem('theme') || 'light');
 
 const token = localStorage.getItem('token');
+if (!token) window.location.href = '/admin';
 
+// Auth check - only admin
 const storedUser = localStorage.getItem('user');
-const currentUser = storedUser ? JSON.parse(storedUser) : null;
-const isAdmin = currentUser && currentUser.role === 'admin';
-const hasNewsletterPermission = isAdmin || (currentUser && currentUser.page_permissions && currentUser.page_permissions.newsletter && currentUser.page_permissions.newsletter.view);
-if (!token || !currentUser || !hasNewsletterPermission) {
-    document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to access newsletter.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
-    throw new Error('Newsletter access required');
+if (storedUser) {
+    try {
+        const user = JSON.parse(storedUser);
+        if (user.role !== 'admin') {
+            document.body.innerHTML = '<div style="padding: 20px; color: #ef4444;">⛔ Admin access required</div>';
+            throw new Error('Admin access required');
+        }
+    } catch (e) {
+        document.body.innerHTML = '<div style="padding: 20px; color: #ef4444;">⛔ Admin access required</div>';
+    }
 }
-
-const pagePerms = (currentUser && currentUser.page_permissions) || {};
-
-function hasPageAccess(page) {
-    if (currentUser.role === 'admin') return true;
-    const perms = pagePerms[page] || {};
-    return perms.view === true;
-}
-
-function canEditNewsletter() {
-    if (currentUser.role === 'admin') return true;
-    return pagePerms.newsletter?.edit === true;
-}
-
-function canCreateNewsletter() {
-    if (currentUser.role === 'admin') return true;
-    return pagePerms.newsletter?.create === true;
-}
-
-function canDeleteNewsletter() {
-    if (currentUser.role === 'admin') return true;
-    return pagePerms.newsletter?.delete === true;
-}
-
-// Show all nav buttons except current page (newsletter)
-if (hasPageAccess('reports'))   document.getElementById('nav-reports').style.display = '';
-if (hasPageAccess('settings'))  document.getElementById('nav-settings').style.display = '';
-if (hasPageAccess('users'))     document.getElementById('nav-users').style.display = '';
 
 async function api(path, opts = {}) {
     opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
     const res = await fetch(API_BASE + path, opts);
-    if (res.status === 401) { localStorage.removeItem('token'); throw new Error('Unauthorized'); }
-    if (res.status === 403) { throw new Error('Permission denied'); }
+    if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/admin'; throw new Error('Unauthorized'); }
     return res.json();
 }
 
@@ -328,12 +303,6 @@ function getLangName(code) {
 
 function render() {
     const langs = getLangs();
-    
-    // Disable editor and buttons if no create permission
-    const canCreate = canCreateNewsletter();
-    disableForm('nl_editor', !canCreate);
-    disableForm('nl_source', !canCreate);
-    disableElements('.btn-row .btn-warning, .btn-row .btn-ghost', !canCreate);
     const langOpts = langs.map(l => `<option value="${esc(l.code)}"${l.code === currentLang ? ' selected' : ''}>${esc(l.name)}</option>`).join('');
     
     document.getElementById('content').innerHTML = `
@@ -535,10 +504,6 @@ async function loadNewsletter(id) {
 }
 
 async function deleteNewsletter(id, subject) {
-    if (!canDeleteNewsletter()) {
-        alert('You do not have permission to delete newsletters');
-        return;
-    }
     if (!confirm(`Delete "${subject}"?\nThis cannot be undone.`)) return;
     const d = await api('/api/admin/newsletters/' + id, { method: 'DELETE' });
     if (d.success) {
@@ -677,10 +642,6 @@ function onSearch(v) {
 }
 
 async function saveAutoReply() {
-    if (!canEditNewsletter()) {
-        alert('You do not have permission to edit newsletter settings');
-        return;
-    }
     const unsubPath = document.getElementById('nl_unsub_path').value.trim() || 'unsubscribe.html';
     const lang = currentLang === 'all' ? 'en' : currentLang;
     const langKey = lang === 'en' ? '' : '_' + lang;
@@ -748,10 +709,6 @@ function closeSendModal() {
 }
 
 async function executeSend() {
-    if (!canCreateNewsletter()) {
-        alert('You do not have permission to send newsletters');
-        return;
-    }
     if (!pendingSend) return;
     const { subj, body } = pendingSend;
     document.getElementById('sendModalFoot').innerHTML = '<span style="font-size:13px;color:var(--text-muted);">Sending…</span>';
@@ -782,37 +739,7 @@ async function executeSend() {
     }
 }
 
-function disableForm(elementId, disabled) {
-    const el = document.getElementById(elementId);
-    if (!el) return;
-    if (disabled) {
-        if (el.contentEditable) el.contentEditable = 'false';
-        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') el.disabled = true;
-        el.style.opacity = '0.6';
-        el.style.pointerEvents = 'none';
-    } else {
-        if (el.contentEditable) el.contentEditable = 'true';
-        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') el.disabled = false;
-        el.style.opacity = '1';
-        el.style.pointerEvents = 'auto';
-    }
-}
-
-function disableElements(selector, disabled) {
-    document.querySelectorAll(selector).forEach(el => {
-        if (disabled) {
-            el.disabled = true;
-            el.style.opacity = '0.5';
-            el.style.cursor = 'not-allowed';
-            el.title = 'Permission denied';
-        } else {
-            el.disabled = false;
-            el.style.opacity = '1';
-            el.style.cursor = 'pointer';
-            el.title = '';
-        }
-    });
-}
+async function saveDraft() {
     const subj = getSubject();
     const body = getEditorHtml();
     if (!subj && !body) { toast('Nothing to save', 'error'); return; }
@@ -854,21 +781,6 @@ function expCsv(status) {
 }
 
 load();
-
-    function renderUserBadge() {
-        const u = currentUser;
-        if (!u) return;
-        const initials = (u.name || u.email || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-        const meta = [u.role, u.team_id].filter(Boolean).join(' · ');
-        const el = document.getElementById('userDisplay');
-        if (el) el.innerHTML = `<div class="user-badge"><div class="user-badge-avatar">${initials}</div><div class="user-badge-info"><span class="user-badge-name">${u.name || u.email}</span><span class="user-badge-meta">${meta}</span></div></div>`;
-    }
-    renderUserBadge();
-    function logout() {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = 'dashboard.html';
-    }
 </script>
 </body>
 </html>

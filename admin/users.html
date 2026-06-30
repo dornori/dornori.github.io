@@ -6,497 +6,157 @@
     <title>Users – Dornori</title>
     <link rel="stylesheet" href="style.css" />
     <style>
-        .container { max-width: 1400px !important; }
-        .users-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .btn-add-user { background: var(--accent); color: var(--text-inverse); padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
-        .btn-add-user:hover { opacity: 0.9; }
-        .users-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .users-table th, .users-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
-        .users-table th { background: var(--bg-header); font-weight: 600; font-size: 14px; }
-        .users-table tr:hover { background: var(--bg-card); }
-        .role-badge { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .container { max-width: 1200px !important; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .form-grid.full { grid-template-columns: 1fr; }
+        .user-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .user-table th, .user-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        .user-table th { background: var(--bg-header); font-weight: 600; }
+        .user-table tr:hover { background: var(--bg-card); }
+        .role-badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; }
         .role-badge.admin { background: #ef4444; color: white; }
-        .role-badge.manager { background: #f59e0b; color: white; }
-        .role-badge.tl { background: #06b6d4; color: white; }
         .role-badge.agent { background: #3b82f6; color: white; }
-        .langs-cell { font-size: 12px; color: var(--text-muted); }
-        .action-btn { padding: 6px 12px; font-size: 13px; margin-right: 6px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
+        .permission-checkbox { display: inline-block; margin-right: 15px; }
+        .permission-checkbox input { margin-right: 5px; }
+        .action-btn { padding: 6px 12px; font-size: 13px; margin-right: 8px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
         .action-btn:hover { background: var(--accent); color: var(--text-inverse); }
-        .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .action-btn.delete { background: #fecaca; color: #991b1b; border-color: #fca5a5; }
-        .action-btn.delete:hover:not(:disabled) { background: #fca5a5; }
-        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 999; align-items: center; justify-content: center; }
+        .action-btn.delete:hover { background: #fca5a5; }
+        .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .action-btn:disabled:hover { background: var(--bg-input); color: var(--text); }
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
         .modal-overlay.show { display: flex; }
-        .modal-content { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 25px; max-width: 700px; width: 90%; max-height: 90vh; overflow-y: auto; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
-        .modal-header h3 { margin: 0; font-size: 20px; }
-        .modal-close { background: none; border: none; font-size: 28px; cursor: pointer; color: var(--text-muted); padding: 0; }
-        .modal-close:hover { color: var(--text); }
-        .form-group { margin-bottom: 18px; }
-        .form-group label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
-        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-input); color: var(--text); font-size: 14px; box-sizing: border-box; }
-        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent); }
-        .form-group input:disabled { opacity: 0.6; cursor: not-allowed; }
-        .role-info { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
-        .langs-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 8px; }
-        .lang-checkbox { display: flex; align-items: center; padding: 8px; background: var(--bg-input); border-radius: 4px; }
-        .lang-checkbox input, .lang-checkbox label { margin: 0; cursor: pointer; }
-        .lang-checkbox input { margin-right: 8px; }
-        .lang-checkbox label { font-weight: normal; }
-        .categories-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 8px; }
-        .category-checkbox { display: flex; align-items: center; padding: 8px; background: var(--bg-input); border-radius: 4px; }
-        .category-checkbox input, .category-checkbox label { margin: 0; cursor: pointer; }
-        .category-checkbox input { margin-right: 8px; }
-        .category-checkbox label { font-weight: normal; font-size: 13px; }
-        .emails-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 8px; }
-        .email-checkbox { display: flex; align-items: center; padding: 8px; background: var(--bg-input); border-radius: 4px; }
-        .email-checkbox input, .email-checkbox label { margin: 0; cursor: pointer; font-size: 12px; }
-        .email-checkbox input { margin-right: 8px; }
-        .add-item-btn { padding: 8px 12px; font-size: 12px; background: var(--accent); color: var(--text-inverse); border: none; border-radius: 4px; cursor: pointer; margin-top: 8px; }
-        .add-item-btn:hover { opacity: 0.9; }
-        .add-item-row { display: flex; gap: 8px; margin-top: 8px; }
-        .add-item-row input { flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-input); color: var(--text); }
-        .add-item-row button { padding: 8px 12px; background: var(--accent); color: var(--text-inverse); border: none; border-radius: 4px; cursor: pointer; }
-        .add-item-row button:hover { opacity: 0.9; }
-        .item-tag { display: inline-block; background: var(--accent); color: var(--text-inverse); padding: 4px 8px; border-radius: 3px; margin-right: 6px; margin-bottom: 6px; font-size: 12px; }
-        .item-tag button { background: none; border: none; color: inherit; cursor: pointer; margin-left: 4px; padding: 0; font-weight: bold; }
-        .form-footer { display: flex; gap: 10px; margin-top: 25px; justify-content: flex-end; }
-        .btn-primary { background: var(--accent); color: var(--text-inverse); padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
-        .btn-primary:hover:not(:disabled) { opacity: 0.9; }
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-secondary { background: var(--bg-input); color: var(--text); padding: 10px 20px; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
-        .btn-secondary:hover { background: var(--bg-card); }
-        .error { color: #ef4444; font-size: 13px; margin-top: 5px; }
-        .success { color: #22c55e; font-size: 13px; margin-top: 5px; }
-        .loading { text-align: center; padding: 40px; color: var(--text-muted); }
-        .perm-denied { padding: 40px; text-align: center; }
-        .perm-denied h2 { color: #ef4444; margin-bottom: 10px; }
-        .section-divider { border-top: 1px solid var(--border); margin: 20px 0; padding-top: 15px; }
-        .section-title { font-weight: 700; font-size: 13px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; }
-        .category-tag { display: inline-block; background: var(--bg-input); padding: 4px 10px; border-radius: 3px; font-size: 12px; margin-right: 4px; margin-bottom: 4px; border: 1px solid var(--border); }
+        .modal-content { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 20px; max-width: 500px; width: 90%; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h3 { margin: 0; }
+        .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted); }
+        .modal-body { display: flex; flex-direction: column; gap: 15px; }
+        .modal-footer { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
-        <h1>👥 User Management</h1>
+        <h1>👥 Users</h1>
         <div class="header-right">
-                <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
-                <a id="nav-reports" href="reports.html" style="display:none;">📊 Reports</a>
-                <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 Newsletter</a>
-                <a id="nav-settings" href="settings.html" style="display:none;">⚙️ Settings</a>
-                <a id="nav-users" href="users.html" style="display:none;">👥 Users</a>
-                <div id="userDisplay"></div>
-                <button onclick="logout()">Logout</button>
+            <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+            <a href="dashboard.html">← Dashboard</a>
+            <a href="reports.html">📊 Reports</a>
+            <a href="settings.html">⚙️ Settings</a>
+        </div>
+    </div>
+
+    <div id="adminOnly" style="display:none;">
+        <div class="error">⛔ Admin only. You don't have permission to manage users.</div>
+    </div>
+
+    <div id="userManagement" style="display:none;">
+        <div class="card">
+            <h2>➕ Add User</h2>
+            <div class="form-grid">
+                <input type="email" id="newEmail" placeholder="Email" />
+                <input type="text" id="newName" placeholder="Full Name" />
+                <input type="password" id="newPassword" placeholder="Password" />
+                <select id="newRole">
+                    <option value="agent">Agent</option>
+                    <option value="admin">Admin</option>
+                </select>
             </div>
-    </div>
-
-    <div id="permDenied" class="card perm-denied" style="display:none;">
-        <h2>⛔ Permission Denied</h2>
-        <p>You don't have permission to manage users.</p>
-    </div>
-
-    <div id="usersApp" style="display:none;">
-        <div class="users-header">
-            <h2>Manage Users</h2>
-            <button class="btn-add-user" id="addUserBtn" onclick="openAddUserModal()">+ Add User</button>
+            <div>
+                <label class="permission-checkbox"><input type="checkbox" id="perRead" checked> Read</label>
+                <label class="permission-checkbox"><input type="checkbox" id="perWrite" checked> Write</label>
+                <label class="permission-checkbox"><input type="checkbox" id="perDelete"> Delete</label>
+                <label class="permission-checkbox"><input type="checkbox" id="perSettings"> Settings</label>
+            </div>
+            <div>
+                <label style="font-weight: 600; margin-top: 10px; display: block;">📧 Email Addresses (comma-separated)</label>
+                <textarea id="newEmailAddresses" placeholder="support@example.com, help@example.com" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 4px; font-family: monospace; font-size: 12px; min-height: 60px;"></textarea>
+                <small style="color: var(--text-muted);">Leave empty to allow all email addresses</small>
+            </div>
+            <button onclick="addUser()" style="margin-top: 15px;">Add User</button>
+            <div id="addUserError" class="error" style="margin-top: 10px;"></div>
+            <div id="addUserSuccess" class="success" style="margin-top: 10px;"></div>
         </div>
 
         <div class="card">
-            <div id="usersTableContainer" class="loading">Loading users...</div>
+            <h2>👥 Users</h2>
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>Permissions</th>
+                        <th>Email Addresses</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                    <tr><td colspan="6" class="loading">Loading users...</td></tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 
-<!-- ADD USER MODAL -->
-<div id="addUserModal" class="modal-overlay">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>Add New User</h3>
-            <button class="modal-close" onclick="closeModal()">×</button>
-        </div>
-        <div id="addUserForm">
-            <div class="form-group">
-                <label>Email *</label>
-                <input type="email" id="newEmail" placeholder="user@example.com" />
-            </div>
-            <div class="form-group">
-                <label>Name *</label>
-                <input type="text" id="newName" placeholder="John Doe" />
-            </div>
-            <div class="form-group">
-                <label>Password *</label>
-                <input type="password" id="newPassword" placeholder="Min 8 chars" />
-            </div>
-            <div class="form-group">
-                <label>Role *</label>
-                <select id="newRole" onchange="updateRoleInfo()">
-                    <option value="agent">Agent - Handle assigned tickets</option>
-                    <option value="tl">Team Leader - Manage team &amp; tickets</option>
-                    <option value="manager">Manager - Manage all users &amp; tickets</option>
-                    <option value="admin">Admin - Full system access</option>
-                </select>
-                <div class="role-info" id="roleInfo"></div>
-            </div>
-
-            <div class="form-group">
-                <label>Languages *</label>
-                <div style="margin-bottom: 8px;">
-                    <button type="button" onclick="document.querySelectorAll('#newLanguages input').forEach(i => i.checked = true)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 4px;">✓ Check All</button>
-                    <button type="button" onclick="document.querySelectorAll('#newLanguages input').forEach(i => i.checked = false)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px;">✗ Uncheck All</button>
-                </div>
-                <div class="langs-group" id="newLanguages"></div>
-            </div>
-
-            <!-- NEW: Category Permissions -->
-            <div class="form-group">
-                <label>Category Access *</label>
-                <div class="role-info" style="margin-bottom: 8px;">Select which categories this user can access. Check categories to grant access.</div>
-                <div style="margin-bottom: 8px;">
-                    <button type="button" onclick="document.querySelectorAll('#newCategories input').forEach(i => i.checked = true)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 4px;">✓ Check All</button>
-                    <button type="button" onclick="document.querySelectorAll('#newCategories input').forEach(i => i.checked = false)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px;">✗ Uncheck All</button>
-                </div>
-                <div class="categories-group" id="newCategories"></div>
-            </div>
-
-            <div id="newTeamGroup" class="form-group" style="display:none;">
-                <label>Team</label>
-                <select id="newTeamId">
-                    <option value="">— Select Team —</option>
-                </select>
-                <div class="section-divider"></div>
-                <label>Or Create New Team</label>
-                <div class="add-item-row">
-                    <input type="text" id="newTeamName" placeholder="Team name (e.g., Support NL)" />
-                    <button onclick="createNewTeam()">Create</button>
-                </div>
-                <div id="newTeamsList"></div>
-            </div>
-
-            <div id="newEmailsGroup" class="form-group" style="display:none;">
-                <label>Allowed Email Addresses *</label>
-                <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-                    <select id="newEmailSelect" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text);">
-                        <option value="">— Select email address —</option>
-                    </select>
-                    <button onclick="addEmailToNew()" style="padding:8px 14px;background:var(--accent);color:var(--text-inverse);border:none;border-radius:4px;cursor:pointer;white-space:nowrap;">Add →</button>
-                </div>
-                <div id="newEmailsList" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;"></div>
-            </div>
-
-            <div class="section-divider"></div>
-            <div class="form-group">
-                <label>Page Permissions</label>
-                <div class="perm-matrix" id="newPermissions">
-                    <div style="display: grid; grid-template-columns: 150px 80px 80px 80px 80px; gap: 10px; margin-bottom: 15px;">
-                        <div style="font-weight: 600; font-size: 12px;">Page</div>
-                        <div style="font-weight: 600; font-size: 12px; text-align: center;">View</div>
-                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Edit</div>
-                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Create</div>
-                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Delete</div>
-                    </div>
-                    <div id="newPermsGrid"></div>
-                </div>
-            </div>
-
-            <div id="addUserError" class="error"></div>
-            <div class="form-footer">
-                <button class="btn-secondary" onclick="closeModal()">Cancel</button>
-                <button class="btn-primary" onclick="addUser()">Add User</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- EDIT USER MODAL -->
-<div id="editUserModal" class="modal-overlay">
+<!-- Edit User Modal -->
+<div class="modal-overlay" id="editModal">
     <div class="modal-content">
         <div class="modal-header">
             <h3>Edit User</h3>
-            <button class="modal-close" onclick="closeEditModal()">×</button>
+            <button class="modal-close" onclick="closeEditModal()">✕</button>
         </div>
-        <div id="editUserForm">
-            <div class="form-group">
+        <div class="modal-body">
+            <div>
                 <label>Email</label>
-                <input type="email" id="editEmail" disabled style="opacity: 0.6;" />
+                <input type="email" id="editEmail" disabled style="background: var(--bg-input); opacity: 0.7;" />
             </div>
-            <div class="form-group">
-                <label>Name *</label>
+            <div>
+                <label>Name</label>
                 <input type="text" id="editName" />
             </div>
-
-            <div id="editRoleGroup" class="form-group">
-                <label>Role *</label>
-                <select id="editRole" onchange="updateEditRoleInfo()">
-                    <option value="agent">Agent - Handle assigned tickets</option>
-                    <option value="tl">Team Leader - Manage team &amp; tickets</option>
-                    <option value="manager">Manager - Manage all users &amp; tickets</option>
-                    <option value="admin">Admin - Full system access</option>
+            <div>
+                <label>Role</label>
+                <select id="editRole">
+                    <option value="agent">Agent</option>
+                    <option value="admin">Admin</option>
                 </select>
-                <div class="role-info" id="editRoleInfo"></div>
             </div>
-
-            <div class="form-group">
-                <label>Languages *</label>
-                <div style="margin-bottom: 8px;">
-                    <button type="button" onclick="document.querySelectorAll('#editLanguages input').forEach(i => i.checked = true)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 4px;">✓ Check All</button>
-                    <button type="button" onclick="document.querySelectorAll('#editLanguages input').forEach(i => i.checked = false)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px;">✗ Uncheck All</button>
-                </div>
-                <div class="langs-group" id="editLanguages"></div>
-            </div>
-
-            <!-- NEW: Category Permissions -->
-            <div class="form-group">
-                <label>Category Access *</label>
-                <div class="role-info" style="margin-bottom: 8px;">Select which categories this user can access. Check categories to grant access.</div>
-                <div style="margin-bottom: 8px;">
-                    <button type="button" onclick="document.querySelectorAll('#editCategories input').forEach(i => i.checked = true)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 4px;">✓ Check All</button>
-                    <button type="button" onclick="document.querySelectorAll('#editCategories input').forEach(i => i.checked = false)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px;">✗ Uncheck All</button>
-                </div>
-                <div class="categories-group" id="editCategories"></div>
-            </div>
-
-            <div id="editTeamGroup" class="form-group" style="display:none;">
-                <label>Team</label>
-                <select id="editTeamId">
-                    <option value="">— Select Team —</option>
-                </select>
-                <div class="section-divider"></div>
-                <label>Or Create New Team</label>
-                <div class="add-item-row">
-                    <input type="text" id="editTeamName" placeholder="Team name (e.g., Support NL)" />
-                    <button onclick="createNewTeamEdit()">Create</button>
-                </div>
-                <div id="editTeamsList"></div>
-            </div>
-
-            <div id="editEmailsGroup" class="form-group" style="display:none;">
-                <label>Allowed Email Addresses *</label>
-                <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-                    <select id="editEmailSelect" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text);">
-                        <option value="">— Select email address —</option>
-                    </select>
-                    <button onclick="addEmailToEdit()" style="padding:8px 14px;background:var(--accent);color:var(--text-inverse);border:none;border-radius:4px;cursor:pointer;white-space:nowrap;">Add →</button>
-                </div>
-                <div id="editEmailsList" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;"></div>
-            </div>
-
-            <div class="section-divider"></div>
-            <div class="form-group">
-                <label>Page Permissions</label>
-                <div class="perm-matrix" id="editPermissions">
-                    <div style="display: grid; grid-template-columns: 150px 80px 80px 80px 80px; gap: 10px; margin-bottom: 15px;">
-                        <div style="font-weight: 600; font-size: 12px;">Page</div>
-                        <div style="font-weight: 600; font-size: 12px; text-align: center;">View</div>
-                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Edit</div>
-                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Create</div>
-                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Delete</div>
-                    </div>
-                    <div id="editPermsGrid"></div>
+            <div>
+                <label>Permissions</label>
+                <div>
+                    <label class="permission-checkbox"><input type="checkbox" id="editPerRead"> Read</label>
+                    <label class="permission-checkbox"><input type="checkbox" id="editPerWrite"> Write</label>
+                    <label class="permission-checkbox"><input type="checkbox" id="editPerDelete"> Delete</label>
+                    <label class="permission-checkbox"><input type="checkbox" id="editPerSettings"> Settings</label>
                 </div>
             </div>
-
-            <div id="editUserError" class="error"></div>
-            <div class="form-footer">
-                <button class="btn-secondary" onclick="closeEditModal()">Cancel</button>
-                <button class="btn-primary" onclick="saveUser()">Save Changes</button>
+            <div>
+                <label>📧 Email Addresses (comma-separated)</label>
+                <textarea id="editEmailAddresses" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 4px; font-family: monospace; font-size: 12px; min-height: 60px;"></textarea>
+                <small style="color: var(--text-muted);">Leave empty to allow all email addresses</small>
             </div>
+            <div id="editError" class="error"></div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="closeEditModal()" style="background: var(--bg-input); border: 1px solid var(--border); padding: 8px 16px; border-radius: 4px; cursor: pointer;">Cancel</button>
+            <button onclick="saveUserEdit()" style="background: var(--accent); color: var(--text-inverse); padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer;">Save Changes</button>
         </div>
     </div>
 </div>
 
 <script>
     const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
+    var token = localStorage.getItem("token");
+    var currentUser = null;
     
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  DYNAMIC LANGUAGES & CATEGORIES - loaded from settings
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    let LANGUAGES = {};
-    let languageList = [];
-    let languagesLoaded = false;
-    let allCategories = [];
-    let categoriesLoaded = false;
+    if (!token) { window.location.href = "/admin"; }
 
-    const ROLE_DESCRIPTIONS = {
-        admin: 'Full system access. Can manage users, settings, and all data.',
-        manager: 'Manage all agents &amp; team leaders. View all tickets and reports.',
-        tl: 'Manage your team. Assign tickets within team. View team reports.',
-        agent: 'View &amp; update assigned tickets. Add comments &amp; replies.'
-    };
-    
-    const PAGE_PERMISSIONS = {
-        tickets: { label: 'Tickets', actions: ['view', 'edit', 'create', 'delete'] },
-        reports: { label: 'Reports', actions: ['view', 'edit', 'create', 'delete'] },
-        users: { label: 'Users', actions: ['view', 'edit', 'create', 'delete'] },
-        settings: { label: 'Settings', actions: ['view', 'edit', 'create', 'delete'] },
-        newsletter: { label: 'Newsletter', actions: ['view', 'edit', 'create', 'delete'] }
-    };
-
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    let currentUser = storedUser ? JSON.parse(storedUser) : null;
-    const isAdmin = currentUser && currentUser.role === 'admin';
-    const hasUsersPermission = isAdmin || (currentUser && currentUser.page_permissions && currentUser.page_permissions.users && currentUser.page_permissions.users.view);
-    if (!token || !currentUser || (!isAdmin && !hasUsersPermission)) {
-        document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to manage users.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
-        throw new Error('Users access required');
-    }
-
-    const pagePerms = (currentUser && currentUser.page_permissions) || {};
-    
-    function hasPageAccess(page) {
-        if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const perms = pagePerms[page] || {};
-        return perms.view === true;
-    }
-    
-    function canCreateUser() {
-        if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const perms = pagePerms.users || {};
-        return perms.create === true;
-    }
-
-    function canEditUserAction() {
-        if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const perms = pagePerms.users || {};
-        return perms.edit === true;
-    }
-
-    function canDeleteUserAction() {
-        if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const perms = pagePerms.users || {};
-        return perms.delete === true;
-    }
-    
-    // Show all nav buttons except current page (users)
-    if (hasPageAccess('reports')) document.getElementById('nav-reports').style.display = '';
-    if (hasPageAccess('newsletter')) document.getElementById('nav-newsletter').style.display = '';
-    if (hasPageAccess('settings')) document.getElementById('nav-settings').style.display = '';
-
-    let allUsers = [];
-    let supportEmails = [];
-    let teams = [];
-    let editingEmail = null;
-    let newTeams = [];
-    let newEmails = [];
-    let editTeams = [];
-    let editEmails = [];
-    let newPagePerms = {};
-    let editPagePerms = {};
-    let newSelectedCategories = [];
-    let editSelectedCategories = [];
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD LANGUAGES & CATEGORIES FROM SETTINGS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function loadSettings() {
-        try {
-            const res = await fetch(API_BASE + '/api/admin/settings', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            if (!res.ok) throw new Error('Failed to load settings');
-            const data = await res.json();
-            if (!data.success) throw new Error(data.error || 'Failed to load settings');
-
-            const settings = data.settings || [];
-            
-            // Load languages
-            let langList = [];
-            for (const setting of settings) {
-                if (setting.category === 'languages' && setting.key === 'list') {
-                    try {
-                        langList = JSON.parse(setting.value || '[]');
-                    } catch (e) {
-                        langList = [];
-                    }
-                    break;
-                }
-            }
-            if (!langList || langList.length === 0) {
-                langList = [
-                    { code: 'en', name: 'English' },
-                    { code: 'nl', name: 'Dutch' },
-                    { code: 'de', name: 'German' },
-                    { code: 'fr', name: 'French' },
-                    { code: 'es', name: 'Spanish' },
-                    { code: 'it', name: 'Italian' },
-                    { code: 'pt', name: 'Portuguese' },
-                    { code: 'cs', name: 'Czech' }
-                ];
-            }
-            languageList = langList;
-            LANGUAGES = {};
-            for (const lang of langList) {
-                LANGUAGES[lang.code] = lang.name;
-            }
-            languagesLoaded = true;
-
-            // Load categories
-            const cats = new Set();
-            for (const setting of settings) {
-                if (setting.category === 'category' && setting.key && setting.key.endsWith('_description')) {
-                    const catName = setting.key.replace('_description', '');
-                    if (setting.value !== '__deleted__' && setting.value && setting.value.trim() !== '') {
-                        cats.add(catName);
-                    }
-                }
-                if (setting.category === 'category' && setting.key && setting.key.endsWith('_color')) {
-                    const catName = setting.key.replace('_color', '');
-                    if (setting.value !== '__deleted__') {
-                        cats.add(catName);
-                    }
-                }
-            }
-            allCategories = Array.from(cats).sort();
-            categoriesLoaded = true;
-
-            renderLanguageCheckboxes('newLanguages');
-            renderLanguageCheckboxes('editLanguages');
-            renderCategoryCheckboxes('newCategories');
-            renderCategoryCheckboxes('editCategories');
-            renderUI();
-
-            console.log('✅ Settings loaded:', languageList.length, 'languages,', allCategories.length, 'categories');
-        } catch (e) {
-            console.error('Failed to load settings:', e);
-            // Fallbacks
-            const fallback = [
-                { code: 'en', name: 'English' },
-                { code: 'nl', name: 'Dutch' },
-                { code: 'de', name: 'German' },
-                { code: 'fr', name: 'French' },
-                { code: 'es', name: 'Spanish' },
-                { code: 'it', name: 'Italian' },
-                { code: 'pt', name: 'Portuguese' },
-                { code: 'cs', name: 'Czech' }
-            ];
-            languageList = fallback;
-            LANGUAGES = {};
-            for (const lang of fallback) {
-                LANGUAGES[lang.code] = lang.name;
-            }
-            languagesLoaded = true;
-            allCategories = ['general', 'support', 'billing', 'technical'];
-            categoriesLoaded = true;
-            renderLanguageCheckboxes('newLanguages');
-            renderLanguageCheckboxes('editLanguages');
-            renderCategoryCheckboxes('newCategories');
-            renderCategoryCheckboxes('editCategories');
-            renderUI();
-        }
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  THEME
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function setTheme(theme) {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);
-        document.querySelectorAll('.theme-toggle').forEach(t => t.textContent = theme === 'dark' ? '☀️' : '🌙');
+        const toggles = document.querySelectorAll('.theme-toggle');
+        toggles.forEach(t => t.textContent = theme === 'dark' ? '☀️' : '🌙');
     }
 
     function toggleTheme() {
@@ -504,698 +164,199 @@
         setTheme(current === 'light' ? 'dark' : 'light');
     }
 
-    setTheme(localStorage.getItem('theme') || 'light');
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  RENDER HELPERS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function renderLanguageCheckboxes(containerId) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        if (!languagesLoaded || languageList.length === 0) {
-            container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px;">Loading languages...</div>';
-            return;
-        }
-        container.innerHTML = languageList.map(lang => `
-            <div class="lang-checkbox">
-                <input type="checkbox" id="${containerId}_${lang.code}" value="${lang.code}" />
-                <label for="${containerId}_${lang.code}">${lang.name}</label>
-            </div>
-        `).join('');
-    }
-
-    function renderCategoryCheckboxes(containerId) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        if (!categoriesLoaded || allCategories.length === 0) {
-            container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px;">Loading categories...</div>';
-            return;
-        }
-        container.innerHTML = allCategories.map(cat => {
-            const catLabel = cat.charAt(0).toUpperCase() + cat.slice(1);
-            // Check if this category is selected (for edit mode)
-            const isChecked = containerId === 'editCategories' 
-                ? editSelectedCategories.includes(cat)
-                : false;
-            return `
-                <div class="category-checkbox">
-                    <input type="checkbox" id="${containerId}_${cat}" value="${cat}" ${isChecked ? 'checked' : ''} />
-                    <label for="${containerId}_${cat}">${catLabel}</label>
-                </div>
-            `;
-        }).join('');
-    }
-
-    function populateEmailSelect(selectId) {
-        const sel = document.getElementById(selectId);
-        if (!sel) return;
-        sel.innerHTML = '<option value="">— Select email address —</option>' +
-            supportEmails.map(e => `<option value="${e}">${e}</option>`).join('');
-    }
-
-    function renderTeamSelect(selectId) {
-        const select = document.getElementById(selectId);
-        select.innerHTML = '<option value="">— Select Team —</option>' + 
-            teams.map(t => `<option value="${t.id}">${t.name}</option>`).join('') +
-            (selectId === 'newTeamId' ? newTeams : editTeams).map(t => `<option value="${t}" style="font-style:italic">[NEW] ${t}</option>`).join('');
-    }
-
-    function renderUI() {
-        document.getElementById('addUserBtn').style.display = canCreateUser() ? 'block' : 'none';
-        populateEmailSelect('newEmailSelect');
-        populateEmailSelect('editEmailSelect');
-        renderTeamSelect('newTeamId');
-        renderTeamSelect('editTeamId');
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  PERMISSION CHECKS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function canManageUsers() {
-        if (!currentUser) return false;
-        return ['admin', 'manager', 'tl'].includes(currentUser.role);
-    }
-
-    function canCreateUsers() {
-        if (!currentUser) return false;
-        return ['admin', 'manager'].includes(currentUser.role);
-    }
-
-    function canEditUser(targetUser) {
-        if (!currentUser) return false;
-        if (targetUser.email === 'admin@dornori.com' && currentUser.role !== 'admin') return false;
-        if (currentUser.role === 'admin') return true;
-        if (!canEditUserAction()) return false;
-        if (currentUser.role === 'manager') return targetUser.role !== 'admin';
-        if (currentUser.role === 'tl') return currentUser.team_id && targetUser.team_id === currentUser.team_id && targetUser.role === 'agent';
-        return false;
-    }
-
-    function canDeleteUser(targetUser) {
-        if (!currentUser) return false;
-        if (targetUser.email === 'admin@dornori.com') return false;
-        if (currentUser.role === 'admin') return true;
-        if (!canDeleteUserAction()) return false;
-        return false;
-    }
-
-    function getViewableUsers() {
-        if (!currentUser) return [];
-        if (currentUser.role === 'admin') return allUsers;
-        if (currentUser.role === 'manager') return allUsers.filter(u => u.role !== 'admin');
-        if (currentUser.role === 'tl') return allUsers.filter(u => u.team_id === currentUser.team_id);
-        return [currentUser];
-    }
-
-    function checkPermission() {
-        if (!canManageUsers()) {
-            document.getElementById('permDenied').style.display = 'block';
-            document.getElementById('usersApp').style.display = 'none';
-            return false;
-        }
-        document.getElementById('permDenied').style.display = 'none';
-        document.getElementById('usersApp').style.display = 'block';
-        return true;
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD DATA
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function loadData() {
-        if (!checkPermission()) return;
-
+    async function checkPermission() {
         try {
-            // Load settings first (languages & categories)
-            await loadSettings();
-
-            const usersRes = await fetch(API_BASE + '/api/admin/users', {
-                headers: { 'Authorization': 'Bearer ' + token }
+            var res = await fetch(API_BASE + "/api/admin/user-profile", {
+                headers: { "Authorization": "Bearer " + token }
             });
-
-            if (usersRes.status === 401 || usersRes.status === 403) {
-                localStorage.removeItem('token');
-                throw new Error('Unauthorized');
+            if (res.status === 401) {
+                localStorage.removeItem("token");
+                window.location.href = "/admin";
                 return;
             }
-
-            const usersData = await usersRes.json();
-            if (usersData.success) {
-                allUsers = usersData.users || [];
+            var data = await res.json();
+            if (data.user && data.user.role === 'admin') {
+                currentUser = data.user;
+                document.getElementById("userManagement").style.display = 'block';
+                loadUsers();
+            } else {
+                document.getElementById("adminOnly").style.display = 'block';
             }
-
-            // Load teams from settings (already loaded in loadSettings, but we need to extract them)
-            const settingsRes = await fetch(API_BASE + '/api/admin/settings', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            if (settingsRes.ok) {
-                const settingsData = await settingsRes.json();
-                if (settingsData.success) {
-                    teams = settingsData.teams || [];
-                }
-            }
-
-            const emailsRes = await fetch(API_BASE + '/api/admin/email-addresses?active_only=true', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            if (emailsRes.ok) {
-                const emailsData = await emailsRes.json();
-                if (emailsData.success) {
-                    supportEmails = (emailsData.addresses || []).map(a => a.email);
-                }
-            }
-
-            renderUI();
-            renderUsers();
         } catch (e) {
-            document.getElementById('usersTableContainer').innerHTML = '<div class="error">Error loading data: ' + e.message + '</div>';
+            document.getElementById("adminOnly").style.display = 'block';
         }
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  RENDER USERS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function renderUsers() {
-        const viewable = getViewableUsers();
-        if (viewable.length === 0) {
-            document.getElementById('usersTableContainer').innerHTML = '<div class="loading">No users to display</div>';
-            return;
+    async function loadUsers() {
+        try {
+            var res = await fetch(API_BASE + "/api/admin/users", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            var data = await res.json();
+            if (data.success) {
+                renderUsers(data.users);
+            }
+        } catch (e) {
+            console.error("Error loading users", e);
         }
+    }
 
-        let html = '<table class="users-table"><thead><tr>';
-        html += '<th>Email</th><th>Name</th><th>Role</th><th>Languages</th>';
-        html += '<th>Categories</th>';
-        if (['admin', 'manager'].includes(currentUser.role)) html += '<th>Team</th>';
-        if (supportEmails.length > 0) html += '<th>Emails</th>';
-        html += '<th style="width:140px">Actions</th></tr></thead><tbody>';
-
-        viewable.forEach(u => {
-            const canEdit = canEditUser(u);
-            const canDelete = canDeleteUser(u);
-            const teamName = teams.find(t => t.id === u.team_id)?.name || u.team_id || '-';
-
-            const langNames = (u.allowed_languages || ['en']).map(code => LANGUAGES[code] || code);
-            const categoryNames = (u.allowed_categories || []).map(cat => 
-                cat.charAt(0).toUpperCase() + cat.slice(1)
-            );
-
+    function renderUsers(users) {
+        var html = '';
+        for (var i = 0; i < users.length; i++) {
+            var u = users[i];
+            var perms = (u.permissions || []).join(', ') || 'none';
+            var emailAddrs = u.allowed_emails && u.allowed_emails.length > 0 ? u.allowed_emails.join(', ') : 'All';
             html += '<tr>';
-            html += `<td><strong>${u.email}</strong></td>`;
-            html += `<td>${u.name || '-'}</td>`;
-            html += `<td><span class="role-badge ${u.role}">${u.role.toUpperCase()}</span></td>`;
-            html += `<td><span class="langs-cell">${langNames.join(', ')}</span></td>`;
-            html += `<td><span class="langs-cell">${categoryNames.length > 0 ? categoryNames.join(', ') : 'All'}</span></td>`;
-            if (['admin', 'manager'].includes(currentUser.role)) html += `<td><span class="langs-cell">${teamName}</span></td>`;
-            if (supportEmails.length > 0) {
-                const userEmails = u.allowed_emails || [];
-                html += `<td><span class="langs-cell">${userEmails.length > 0 ? userEmails.length + ' email(s)' : '-'}</span></td>`;
-            }
+            html += '<td>' + u.email + '</td>';
+            html += '<td>' + u.name + '</td>';
+            html += '<td><span class="role-badge ' + u.role + '">' + u.role + '</span></td>';
+            html += '<td>' + perms + '</td>';
+            html += '<td><small style="font-family: monospace; font-size: 11px;">' + emailAddrs + '</small></td>';
             html += '<td>';
-            const pagePermsEdit = pagePerms.users?.edit;
-            const pagePermsDel = pagePerms.users?.delete;
-            if (canEditUser(u)) html += `<button class="action-btn" onclick="openEditUserModal('${u.email}')" ${!pagePermsEdit ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Edit</button>`;
-            if (canDeleteUser(u)) html += `<button class="action-btn delete" onclick="deleteUser('${u.email}')" ${!pagePermsDel ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Delete</button>`;
-            html += '</td></tr>';
-        });
-
-        html += '</tbody></table>';
-        document.getElementById('usersTableContainer').innerHTML = html;
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  MODAL HELPERS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function updateRoleInfo() {
-        const role = document.getElementById('newRole').value;
-        document.getElementById('roleInfo').textContent = ROLE_DESCRIPTIONS[role] || '';
-        const teamGroup = document.getElementById('newTeamGroup');
-        const emailsGroup = document.getElementById('newEmailsGroup');
-        teamGroup.style.display = ['tl', 'agent'].includes(role) ? 'block' : 'none';
-        emailsGroup.style.display = ['agent', 'tl', 'manager'].includes(role) ? 'block' : 'none';
-    }
-
-    function updateEditRoleInfo() {
-        const role = document.getElementById('editRole').value;
-        document.getElementById('editRoleInfo').textContent = ROLE_DESCRIPTIONS[role] || '';
-        const teamGroup = document.getElementById('editTeamGroup');
-        const emailsGroup = document.getElementById('editEmailsGroup');
-        teamGroup.style.display = ['tl', 'agent'].includes(role) ? 'block' : 'none';
-        emailsGroup.style.display = ['agent', 'tl', 'manager'].includes(role) ? 'block' : 'none';
-    }
-
-    function createNewTeam() {
-        const input = document.getElementById('newTeamName');
-        const name = input.value.trim();
-        if (!name) return;
-        if (newTeams.includes(name)) { alert('Team already added'); return; }
-        newTeams.push(name);
-        input.value = '';
-        renderTeamSelect('newTeamId');
-        renderNewTeamsList();
-    }
-
-    function createNewTeamEdit() {
-        const input = document.getElementById('editTeamName');
-        const name = input.value.trim();
-        if (!name) return;
-        if (editTeams.includes(name) || newTeams.includes(name)) { alert('Team already added'); return; }
-        editTeams.push(name);
-        input.value = '';
-        renderTeamSelect('editTeamId');
-        renderEditTeamsList();
-    }
-
-    function addEmailToNew() {
-        const sel = document.getElementById('newEmailSelect');
-        const email = sel.value;
-        if (!email) return;
-        if (newEmails.includes(email)) return;
-        newEmails.push(email);
-        sel.value = '';
-        renderNewEmailsList();
-    }
-
-    function addEmailToEdit() {
-        const sel = document.getElementById('editEmailSelect');
-        const email = sel.value;
-        if (!email) return;
-        if (editEmails.includes(email)) return;
-        editEmails.push(email);
-        sel.value = '';
-        renderEditEmailsList();
-    }
-
-    function renderNewTeamsList() {
-        const container = document.getElementById('newTeamsList');
-        if (newTeams.length === 0) { container.innerHTML = ''; return; }
-        container.innerHTML = '<div style="margin-top:8px">' + newTeams.map(t => `
-            <span class="item-tag">[NEW] ${t}<button onclick="removeNewTeam('${t}')">✕</button></span>
-        `).join('') + '</div>';
-    }
-
-    function renderEditTeamsList() {
-        const container = document.getElementById('editTeamsList');
-        if (editTeams.length === 0) { container.innerHTML = ''; return; }
-        container.innerHTML = '<div style="margin-top:8px">' + editTeams.map(t => `
-            <span class="item-tag">[NEW] ${t}<button onclick="removeEditTeam('${t}')">✕</button></span>
-        `).join('') + '</div>';
-    }
-
-    function renderNewEmailsList() {
-        const container = document.getElementById('newEmailsList');
-        container.innerHTML = newEmails.map(e =>
-            `<span class="item-tag">${e}<button onclick="removeNewEmail('${e}')" style="margin-left:6px;background:none;border:none;cursor:pointer;color:inherit;">✕</button></span>`
-        ).join('');
-    }
-
-    function renderEditEmailsList() {
-        const container = document.getElementById('editEmailsList');
-        container.innerHTML = editEmails.map(e =>
-            `<span class="item-tag">${e}<button onclick="removeEditEmail('${e}')" style="margin-left:6px;background:none;border:none;cursor:pointer;color:inherit;">✕</button></span>`
-        ).join('');
-    }
-
-    function removeNewTeam(name) { newTeams = newTeams.filter(t => t !== name); renderTeamSelect('newTeamId'); renderNewTeamsList(); }
-    function removeEditTeam(name) { editTeams = editTeams.filter(t => t !== name); renderTeamSelect('editTeamId'); renderEditTeamsList(); }
-    function removeNewEmail(email) { newEmails = newEmails.filter(e => e !== email); renderNewEmailsList(); }
-    function removeEditEmail(email) { editEmails = editEmails.filter(e => e !== email); renderEditEmailsList(); }
-
-    function renderNewPermsGrid() {
-        const container = document.getElementById('newPermsGrid');
-        let html = '';
-        for (const [pageKey, pageData] of Object.entries(PAGE_PERMISSIONS)) {
-            if (!newPagePerms[pageKey]) newPagePerms[pageKey] = {};
-            html += `<div style="display: grid; grid-template-columns: 150px 80px 80px 80px 80px; gap: 10px; margin-bottom: 8px; align-items: center;">
-                <div style="font-size: 14px; font-weight: 500;">${pageData.label}</div>`;
-            for (const action of pageData.actions) {
-                const checked = newPagePerms[pageKey][action] || false;
-                html += `<label style="text-align: center; margin: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-                    <input type="checkbox" ${checked ? 'checked' : ''} 
-                        onchange="newPagePerms['${pageKey}']['${action}'] = this.checked" 
-                        style="cursor: pointer;">
-                </label>`;
+            if (u.email !== 'admin@dornori.com') {
+                html += '<button class="action-btn" onclick="openEditModal(\'' + u.email.replace(/'/g, "\\'") + '\')">Edit</button>';
+                html += '<button class="action-btn delete" onclick="deleteUser(\'' + u.email.replace(/'/g, "\\'") + '\')">Delete</button>';
+            } else {
+                html += '<span style="color: var(--text-muted); font-size: 13px;">System Admin</span>';
             }
-            html += `</div>`;
+            html += '</td>';
+            html += '</tr>';
         }
-        container.innerHTML = html;
+        document.getElementById("usersTableBody").innerHTML = html;
     }
 
-    function renderEditPermsGrid() {
-        const container = document.getElementById('editPermsGrid');
-        let html = '';
-        for (const [pageKey, pageData] of Object.entries(PAGE_PERMISSIONS)) {
-            if (!editPagePerms[pageKey]) editPagePerms[pageKey] = {};
-            html += `<div style="display: grid; grid-template-columns: 150px 80px 80px 80px 80px; gap: 10px; margin-bottom: 8px; align-items: center;">
-                <div style="font-size: 14px; font-weight: 500;">${pageData.label}</div>`;
-            for (const action of pageData.actions) {
-                const checked = editPagePerms[pageKey][action] || false;
-                html += `<label style="text-align: center; margin: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-                    <input type="checkbox" ${checked ? 'checked' : ''} 
-                        onchange="editPagePerms['${pageKey}']['${action}'] = this.checked" 
-                        style="cursor: pointer;">
-                </label>`;
-            }
-            html += `</div>`;
-        }
-        container.innerHTML = html;
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  OPEN / CLOSE MODALS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function openAddUserModal() {
-        if (!canCreateUser()) {
-            showErrorPopup('Permission Denied', 'You do not have permission to add users');
-            return;
-        }
-        newTeams = [];
-        newEmails = [];
-        newSelectedCategories = [];
-        newPagePerms = {};
-        document.getElementById('newEmail').value = '';
-        document.getElementById('newName').value = '';
-        document.getElementById('newPassword').value = '';
-        document.getElementById('newRole').value = 'agent';
-        document.getElementById('newTeamId').value = '';
-        document.getElementById('newTeamName').value = '';
-        document.getElementById('newEmailSelect').value = '';
-        document.getElementById('addUserError').textContent = '';
-        document.querySelectorAll('#newLanguages input').forEach(i => i.checked = false);
-        document.querySelectorAll('#newCategories input').forEach(i => i.checked = false);
-        renderNewTeamsList();
-        renderNewEmailsList();
-        renderNewPermsGrid();
-        updateRoleInfo();
-        document.getElementById('addUserModal').classList.add('show');
-    }
-
-    function closeModal() {
-        document.getElementById('addUserModal').classList.remove('show');
-    }
-
-    function openEditUserModal(email) {
-        const user = allUsers.find(u => u.email === email);
-        if (!user) return;
-        if (!canEditUser(user)) {
-            showErrorPopup('Permission Denied', 'You do not have permission to edit this user');
-            return;
-        }
-
-        editingEmail = email;
-        editTeams = [];
-        editEmails = [];
-        editSelectedCategories = user.allowed_categories || [];
-        editPagePerms = {};
-        document.getElementById('editEmail').value = user.email;
-        document.getElementById('editName').value = user.name || '';
-        document.getElementById('editRole').value = user.role;
-        document.getElementById('editTeamId').value = user.team_id || '';
-        document.getElementById('editTeamName').value = '';
-        document.getElementById('editUserError').textContent = '';
-
-        document.querySelectorAll('#editLanguages input').forEach(i => i.checked = false);
-        (user.allowed_languages || ['en']).forEach(lang => {
-            const input = document.querySelector(`#editLanguages input[value="${lang}"]`);
-            if (input) input.checked = true;
-        });
-
-        // Render categories with selections
-        renderCategoryCheckboxes('editCategories');
-
-        editEmails = [...(user.allowed_emails || [])];
-        document.getElementById('editEmailSelect').value = '';
-        renderEditEmailsList();
-        
-        if (user.page_permissions) {
-            editPagePerms = JSON.parse(JSON.stringify(user.page_permissions));
-        }
-
-        renderEditTeamsList();
-        renderEditEmailsList();
-        renderEditPermsGrid();
-        updateEditRoleInfo();
-        document.getElementById('editUserModal').classList.add('show');
-    }
-
-    function closeEditModal() {
-        document.getElementById('editUserModal').classList.remove('show');
-        editingEmail = null;
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  API ACTIONS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function addUser() {
-        if (!canCreateUser()) {
-            showErrorPopup('Permission Denied', 'You do not have permission to add users');
+        var email = document.getElementById("newEmail").value.trim();
+        var name = document.getElementById("newName").value.trim();
+        var password = document.getElementById("newPassword").value;
+        var role = document.getElementById("newRole").value;
+        var emailAddrs = document.getElementById("newEmailAddresses").value.trim();
+        var allowedEmails = emailAddrs ? emailAddrs.split(',').map(e => e.trim()).filter(e => e) : [];
+        
+        var perms = [];
+        if (document.getElementById("perRead").checked) perms.push('read');
+        if (document.getElementById("perWrite").checked) perms.push('write');
+        if (document.getElementById("perDelete").checked) perms.push('delete');
+        if (document.getElementById("perSettings").checked) perms.push('settings');
+
+        if (!email || !name || !password) {
+            document.getElementById("addUserError").textContent = "All fields required";
             return;
-        }
-        const email = document.getElementById('newEmail').value.trim();
-        const name = document.getElementById('newName').value.trim();
-        const password = document.getElementById('newPassword').value;
-        const role = document.getElementById('newRole').value;
-        const teamId = document.getElementById('newTeamId').value.trim() || null;
-        const langs = Array.from(document.querySelectorAll('#newLanguages input:checked')).map(i => i.value);
-        const categories = Array.from(document.querySelectorAll('#newCategories input:checked')).map(i => i.value);
-        const emails = [...newEmails];
-
-        const errorEl = document.getElementById('addUserError');
-        errorEl.textContent = '';
-
-        if (!email || !name || !password) { errorEl.textContent = 'All fields required'; return; }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errorEl.textContent = 'Invalid email'; return; }
-        if (password.length < 8) { errorEl.textContent = 'Password min 8 chars'; return; }
-        if (langs.length === 0) { errorEl.textContent = 'Select at least one language'; return; }
-        if (['agent', 'tl'].includes(role) && emails.length === 0) { errorEl.textContent = 'Agents/TLs must have email addresses'; return; }
-        if (role === 'tl' && !teamId) { errorEl.textContent = 'Team Leaders must have a team'; return; }
-        
-        // Validate that all selected languages exist
-        for (const lang of langs) {
-            if (!languageList.some(l => l.code === lang)) {
-                errorEl.textContent = `Invalid language: ${lang}`;
-                return;
-            }
-        }
-        
-        // Validate that all selected categories exist
-        for (const cat of categories) {
-            if (!allCategories.includes(cat)) {
-                errorEl.textContent = `Invalid category: ${cat}`;
-                return;
-            }
-        }
-        
-        // Validate page_permissions structure
-        for (const [page, perms] of Object.entries(newPagePerms)) {
-            if (typeof perms !== 'object') {
-                errorEl.textContent = `Invalid permissions for page: ${page}`;
-                return;
-            }
-            for (const [action, val] of Object.entries(perms)) {
-                if (typeof val !== 'boolean') {
-                    errorEl.textContent = `Invalid permission value for ${page}.${action}`;
-                    return;
-                }
-            }
         }
 
         try {
-            const res = await fetch(API_BASE + '/api/admin/users', {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email, name, password, role,
-                    allowed_languages: langs,
-                    allowed_categories: categories,
-                    allowed_emails: emails,
-                    team_id: teamId,
-                    page_permissions: newPagePerms
-                })
+            var res = await fetch(API_BASE + "/api/admin/users", {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+                body: JSON.stringify({ email, name, password, role, permissions: perms, allowed_emails: allowedEmails })
             });
-
-            const data = await res.json();
-            if (res.ok) {
-                showSuccessPopup('✅ User Added', `${name} (${email}) created successfully`);
-                closeModal();
-                loadData();
+            var data = await res.json();
+            if (data.success) {
+                document.getElementById("addUserSuccess").textContent = "User added successfully";
+                document.getElementById("newEmail").value = '';
+                document.getElementById("newName").value = '';
+                document.getElementById("newPassword").value = '';
+                document.getElementById("newEmailAddresses").value = '';
+                document.getElementById("addUserError").textContent = '';
+                setTimeout(() => loadUsers(), 500);
             } else {
-                errorEl.textContent = data.error || 'Error adding user';
-                showErrorPopup('Error', data.error || 'Failed to add user');
+                document.getElementById("addUserError").textContent = data.error || "Failed to add user";
             }
         } catch (e) {
-            errorEl.textContent = 'Network error';
-            showErrorPopup('Network Error', e.message);
-        }
-    }
-
-    async function saveUser() {
-        if (!canEditUserAction()) {
-            showErrorPopup('Permission Denied', 'You do not have permission to edit users');
-            return;
-        }
-        const name = document.getElementById('editName').value.trim();
-        const role = document.getElementById('editRole').value;
-        const teamId = document.getElementById('editTeamId').value.trim() || null;
-        const langs = Array.from(document.querySelectorAll('#editLanguages input:checked')).map(i => i.value);
-        const categories = Array.from(document.querySelectorAll('#editCategories input:checked')).map(i => i.value);
-        const emails = [...editEmails];
-
-        const errorEl = document.getElementById('editUserError');
-        errorEl.textContent = '';
-
-        if (!name) { errorEl.textContent = 'Name required'; return; }
-        if (langs.length === 0) { errorEl.textContent = 'Select at least one language'; return; }
-        if (['agent', 'tl'].includes(role) && emails.length === 0) { errorEl.textContent = 'Agents/TLs must have email addresses'; return; }
-        if (role === 'tl' && !teamId) { errorEl.textContent = 'Team Leaders must have a team'; return; }
-        
-        // Validate that all selected languages exist
-        for (const lang of langs) {
-            if (!languageList.some(l => l.code === lang)) {
-                errorEl.textContent = `Invalid language: ${lang}`;
-                return;
-            }
-        }
-        
-        // Validate that all selected categories exist
-        for (const cat of categories) {
-            if (!allCategories.includes(cat)) {
-                errorEl.textContent = `Invalid category: ${cat}`;
-                return;
-            }
-        }
-        
-        // Validate page_permissions structure
-        for (const [page, perms] of Object.entries(editPagePerms)) {
-            if (typeof perms !== 'object') {
-                errorEl.textContent = `Invalid permissions for page: ${page}`;
-                return;
-            }
-            for (const [action, val] of Object.entries(perms)) {
-                if (typeof val !== 'boolean') {
-                    errorEl.textContent = `Invalid permission value for ${page}.${action}`;
-                    return;
-                }
-            }
-        }
-
-        try {
-            const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(editingEmail)}`, {
-                method: 'PUT',
-                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name, role,
-                    allowed_languages: langs,
-                    allowed_categories: categories,
-                    allowed_emails: emails,
-                    team_id: teamId,
-                    page_permissions: editPagePerms
-                })
-            });
-
-            const data = await res.json();
-            if (res.ok) {
-                showSuccessPopup('✅ User Saved', `${name} updated successfully`);
-                closeEditModal();
-                loadData();
-            } else {
-                errorEl.textContent = data.error || 'Error saving user';
-                showErrorPopup('Error', data.error || 'Failed to save user');
-            }
-        } catch (e) {
-            errorEl.textContent = 'Network error';
-            showErrorPopup('Network Error', e.message);
+            document.getElementById("addUserError").textContent = "Error: " + e.message;
         }
     }
 
     async function deleteUser(email) {
-        if (!canDeleteUserAction()) {
-            showErrorPopup('Permission Denied', 'You do not have permission to delete users');
-            return;
-        }
-        if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
-
+        if (!confirm("Delete user " + email + "?")) return;
         try {
-            const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(email)}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': 'Bearer ' + token }
+            var res = await fetch(API_BASE + "/api/admin/users/" + encodeURIComponent(email), {
+                method: "DELETE",
+                headers: { "Authorization": "Bearer " + token }
             });
-
-            if (res.ok) {
-                showSuccessPopup('✅ User Deleted', `${email} has been deleted`);
-                loadData();
-            } else {
-                showErrorPopup('Error', 'Failed to delete user');
+            var data = await res.json();
+            if (data.success) {
+                loadUsers();
             }
         } catch (e) {
-            showErrorPopup('Network Error', e.message);
+            alert("Error: " + e.message);
         }
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  POPUP NOTIFICATIONS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function showSuccessPopup(title, message) {
-        const popup = document.createElement('div');
-        popup.style.cssText = `
-            position: fixed; top: 20px; right: 20px; background: #22c55e; color: white;
-            padding: 15px 20px; border-radius: 8px; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            font-weight: bold; max-width: 400px; animation: slideIn 0.3s ease;
-        `;
-        popup.innerHTML = `<div style="font-size: 16px;">${title}</div><div style="font-size: 13px; margin-top: 5px;">${message}</div>`;
-        document.body.appendChild(popup);
-        setTimeout(() => popup.remove(), 3000);
+    var editingUserEmail = null;
+
+    function openEditModal(email) {
+        editingUserEmail = email;
+        var users = [];
+        
+        fetch(API_BASE + "/api/admin/users", {
+            headers: { "Authorization": "Bearer " + token }
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                var user = data.users.find(u => u.email === email);
+                if (user) {
+                    document.getElementById("editEmail").value = user.email;
+                    document.getElementById("editName").value = user.name;
+                    document.getElementById("editRole").value = user.role;
+                    document.getElementById("editPerRead").checked = (user.permissions || []).includes('read');
+                    document.getElementById("editPerWrite").checked = (user.permissions || []).includes('write');
+                    document.getElementById("editPerDelete").checked = (user.permissions || []).includes('delete');
+                    document.getElementById("editPerSettings").checked = (user.permissions || []).includes('settings');
+                    document.getElementById("editEmailAddresses").value = (user.allowed_emails || []).join(', ');
+                    document.getElementById("editError").textContent = '';
+                    document.getElementById("editModal").classList.add('show');
+                }
+            }
+        });
     }
 
-    function showErrorPopup(title, message) {
-        const popup = document.createElement('div');
-        popup.style.cssText = `
-            position: fixed; top: 20px; right: 20px; background: #ef4444; color: white;
-            padding: 15px 20px; border-radius: 8px; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            font-weight: bold; max-width: 400px; animation: slideIn 0.3s ease;
-        `;
-        popup.innerHTML = `<div style="font-size: 16px;">${title}</div><div style="font-size: 13px; margin-top: 5px;">${message}</div>`;
-        document.body.appendChild(popup);
-        setTimeout(() => popup.remove(), 4000);
+    function closeEditModal() {
+        document.getElementById("editModal").classList.remove('show');
+        editingUserEmail = null;
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  INIT
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    loadData();
+    async function saveUserEdit() {
+        if (!editingUserEmail) return;
 
-    window.setTheme = setTheme;
-    window.toggleTheme = toggleTheme;
-    window.openAddUserModal = openAddUserModal;
-    window.closeModal = closeModal;
-    window.openEditUserModal = openEditUserModal;
-    window.closeEditModal = closeEditModal;
-    window.addUser = addUser;
-    window.saveUser = saveUser;
-    window.deleteUser = deleteUser;
-    window.updateRoleInfo = updateRoleInfo;
-    window.updateEditRoleInfo = updateEditRoleInfo;
-    window.createNewTeam = createNewTeam;
-    window.createNewTeamEdit = createNewTeamEdit;
-    window.addEmailToNew = addEmailToNew;
-    window.addEmailToEdit = addEmailToEdit;
-    window.removeNewTeam = removeNewTeam;
-    window.removeEditTeam = removeEditTeam;
-    window.removeNewEmail = removeNewEmail;
-    window.removeEditEmail = removeEditEmail;
+        var name = document.getElementById("editName").value.trim();
+        var role = document.getElementById("editRole").value;
+        var emailAddrs = document.getElementById("editEmailAddresses").value.trim();
+        var allowedEmails = emailAddrs ? emailAddrs.split(',').map(e => e.trim()).filter(e => e) : [];
+        
+        var perms = [];
+        if (document.getElementById("editPerRead").checked) perms.push('read');
+        if (document.getElementById("editPerWrite").checked) perms.push('write');
+        if (document.getElementById("editPerDelete").checked) perms.push('delete');
+        if (document.getElementById("editPerSettings").checked) perms.push('settings');
 
-    function renderUserBadge() {
-        const u = currentUser;
-        if (!u) return;
-        const initials = (u.name || u.email || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-        const meta = [u.role, u.team_id].filter(Boolean).join(' · ');
-        const el = document.getElementById('userDisplay');
-        if (el) el.innerHTML = `<div class="user-badge"><div class="user-badge-avatar">${initials}</div><div class="user-badge-info"><span class="user-badge-name">${u.name || u.email}</span><span class="user-badge-meta">${meta}</span></div></div>`;
+        if (!name) {
+            document.getElementById("editError").textContent = "Name is required";
+            return;
+        }
+
+        try {
+            var res = await fetch(API_BASE + "/api/admin/users/" + encodeURIComponent(editingUserEmail), {
+                method: "PUT",
+                headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+                body: JSON.stringify({ name, role, permissions: perms, allowed_emails: allowedEmails })
+            });
+            var data = await res.json();
+            if (data.success) {
+                closeEditModal();
+                loadUsers();
+            } else {
+                document.getElementById("editError").textContent = data.error || "Failed to update user";
+            }
+        } catch (e) {
+            document.getElementById("editError").textContent = "Error: " + e.message;
+        }
     }
-    renderUserBadge();
-    function logout() {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = 'dashboard.html';
-    }
+
+    checkPermission();
 </script>
 </body>
 </html>
