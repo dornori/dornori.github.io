@@ -388,6 +388,21 @@ function hasPageAccess(page) {
     return perms.view === true;
 }
 
+function canEditSettings() {
+    if (currentUser.role === 'admin') return true;
+    return pagePerms.settings?.edit === true;
+}
+
+function canCreateSettings() {
+    if (currentUser.role === 'admin') return true;
+    return pagePerms.settings?.create === true;
+}
+
+function canDeleteSettings() {
+    if (currentUser.role === 'admin') return true;
+    return pagePerms.settings?.delete === true;
+}
+
 // Show all nav buttons except current page (settings)
 if (hasPageAccess('reports'))    document.getElementById('nav-reports').style.display = '';
 if (hasPageAccess('newsletter'))  document.getElementById('nav-newsletter').style.display = '';
@@ -453,8 +468,87 @@ async function load() {
     }
 }
 
+// ── Permission helpers ──
+function disableForm(elementId, disabled) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (disabled) {
+        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.tagName === 'SELECT') {
+            el.disabled = true;
+        }
+        el.style.opacity = '0.6';
+        el.style.pointerEvents = 'none';
+    } else {
+        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.tagName === 'SELECT') {
+            el.disabled = false;
+        }
+        el.style.opacity = '1';
+        el.style.pointerEvents = 'auto';
+    }
+}
+
+function disableElements(selector, disabled) {
+    document.querySelectorAll(selector).forEach(el => {
+        if (disabled) {
+            el.disabled = true;
+            el.style.opacity = '0.5';
+            el.style.cursor = 'not-allowed';
+            el.title = 'Permission denied';
+        } else {
+            el.disabled = false;
+            el.style.opacity = '1';
+            el.style.cursor = 'pointer';
+            el.title = '';
+        }
+    });
+}
+
 // ── Save helper ──
 async function saveSettings(updates) {
+    if (!canEditSettings()) {
+        alert('You do not have permission to edit settings');
+        return Promise.reject(new Error('Permission denied'));
+    }
+
+function disableForm(elementId, disabled) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (disabled) {
+        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.tagName === 'SELECT') {
+            el.disabled = true;
+        }
+        el.style.opacity = '0.6';
+        el.style.pointerEvents = 'none';
+    } else {
+        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.tagName === 'SELECT') {
+            el.disabled = false;
+        }
+        el.style.opacity = '1';
+        el.style.pointerEvents = 'auto';
+    }
+}
+
+function disableElements(selector, disabled) {
+    document.querySelectorAll(selector).forEach(el => {
+        if (disabled) {
+            el.disabled = true;
+            el.style.opacity = '0.5';
+            el.style.cursor = 'not-allowed';
+            el.title = 'Permission denied';
+        } else {
+            el.disabled = false;
+            el.style.opacity = '1';
+            el.style.cursor = 'pointer';
+            el.title = '';
+        }
+    });
+}
+
+async function saveSettings(updates) {
+    if (!canEditSettings()) {
+        alert('You do not have permission to edit settings');
+        return Promise.reject(new Error('Permission denied'));
+    }
     const d = await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ settings: updates }) });
     return d.success;
 }
@@ -486,6 +580,16 @@ function renderAll() {
         return `<div class="tab-panel" id="panel-${t.id}" data-tab-id="${t.id}">${isPromise ? '<div class="loading">Loading…</div>' : content}</div>`;
     }).join('');
     document.getElementById('tabContent').innerHTML = html;
+    
+    // Disable all form fields if no edit permission
+    setTimeout(() => {
+        const noEdit = !canEditSettings();
+        const noCreate = !canCreateSettings();
+        const noDelete = !canDeleteSettings();
+        
+        disableElements('input[type="text"], input[type="password"], textarea, select', noEdit || noCreate || noDelete);
+        disableElements('button[onclick*="save"], button[onclick*="delete"]', noEdit || noCreate || noDelete);
+    }, 100);
 }
 
 function switchTab(id) {
@@ -568,6 +672,10 @@ function buildGeneral() {
 }
 
 async function saveGeneral() {
+    if (!canEditSettings()) {
+        alert('You do not have permission to edit settings');
+        return;
+    }
     const defaultLang = document.getElementById('gen_default_lang').value;
     const defaultFrom = document.getElementById('gen_default_from').value.trim();
     
@@ -608,6 +716,10 @@ function buildSla() {
     </div>`;
 }
 async function saveSla() {
+    if (!canEditSettings()) {
+        alert('You do not have permission to edit settings');
+        return;
+    }
     const cats = getCategories();
     const updates = cats.flatMap(c => [
         { category:'sla', key: c+'_response',   value: document.getElementById('sla_'+c+'_resp').value },
@@ -685,6 +797,10 @@ function toggleCat(cat) {
 }
 
 async function saveCat(cat) {
+    if (!canCreateSettings()) {
+        alert('You do not have permission to create settings');
+        return;
+    }
     const desc  = document.getElementById('cat_desc_'+cat).value;
     const color = document.getElementById('cat_color_'+cat).value;
     const ok = await saveSettings([
@@ -696,6 +812,10 @@ async function saveCat(cat) {
 }
 
 async function deleteCat(cat) {
+    if (!canDeleteSettings()) {
+        alert('You do not have permission to delete settings');
+        return;
+    }
     if (!confirm(`Delete category "${cat}"?\n\nEmail routing and auto-reply rules for this category will remain in the database but become inactive.`)) return;
     const ok = await saveSettings([{ category:'category', key: cat+'_description', value: '__deleted__' }]);
     ok ? toast('✅ Category deleted') : toast('❌ Failed', 'error');
@@ -779,6 +899,10 @@ async function addLang() {
 }
 
 async function deleteLang(idx) {
+    if (!canDeleteSettings()) {
+        alert('You do not have permission to delete settings');
+        return;
+    }
     if (!confirm('Remove this language?')) return;
     const langs = getLanguages();
     langs.splice(idx, 1);
@@ -878,6 +1002,10 @@ async function editEmailAddr(id) {
 }
 
 async function deleteEmailAddr(id) {
+    if (!canDeleteSettings()) {
+        alert('You do not have permission to delete settings');
+        return;
+    }
     if (!confirm('Delete this email address?')) return;
     const d = await api('/api/admin/email-addresses/' + id, { method: 'DELETE' });
     d.success ? (toast('✅ Deleted'), load()) : toast('❌ Failed', 'error');
@@ -1010,6 +1138,10 @@ async function setArLanguage(lang) {
 }
 
 async function saveAr(cat, lang) {
+    if (!canEditSettings()) {
+        alert('You do not have permission to edit settings');
+        return;
+    }
     const enabled = document.getElementById('ar_en_'+cat).checked ? 1 : 0;
     const subject = document.getElementById('ar_subj_'+cat).value;
     const body    = document.getElementById('ar_body_'+cat).value;
@@ -1034,6 +1166,10 @@ async function saveAr(cat, lang) {
 }
 
 async function deleteAr(cat, lang) {
+    if (!canDeleteSettings()) {
+        alert('You do not have permission to delete settings');
+        return;
+    }
     if (!confirm(`Remove auto-reply for "${cat}" in ${lang}?\nThe category itself is not deleted.`)) return;
     const d = await api('/api/admin/auto-reply', {
         method: 'DELETE',
@@ -1092,6 +1228,10 @@ function buildOutgoing() {
 }
 
 async function saveFooter(email, safeKey) {
+    if (!canEditSettings()) {
+        alert('You do not have permission to edit settings');
+        return;
+    }
     const body = document.getElementById('oe_footer_' + safeKey).value;
     const ok = await saveSettings([{ category:'email', key:'footer_'+safeKey, value: body }]);
     if (ok) {

@@ -141,13 +141,21 @@
 
             <div class="form-group">
                 <label>Languages *</label>
+                <div style="margin-bottom: 8px;">
+                    <button type="button" onclick="document.querySelectorAll('#newLanguages input').forEach(i => i.checked = true)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 4px;">✓ Check All</button>
+                    <button type="button" onclick="document.querySelectorAll('#newLanguages input').forEach(i => i.checked = false)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px;">✗ Uncheck All</button>
+                </div>
                 <div class="langs-group" id="newLanguages"></div>
             </div>
 
             <!-- NEW: Category Permissions -->
             <div class="form-group">
                 <label>Category Access *</label>
-                <div class="role-info" style="margin-bottom: 8px;">Select which categories this user can access. Leave all unchecked to allow access to all categories (admin only).</div>
+                <div class="role-info" style="margin-bottom: 8px;">Select which categories this user can access. Check categories to grant access.</div>
+                <div style="margin-bottom: 8px;">
+                    <button type="button" onclick="document.querySelectorAll('#newCategories input').forEach(i => i.checked = true)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 4px;">✓ Check All</button>
+                    <button type="button" onclick="document.querySelectorAll('#newCategories input').forEach(i => i.checked = false)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px;">✗ Uncheck All</button>
+                </div>
                 <div class="categories-group" id="newCategories"></div>
             </div>
 
@@ -230,13 +238,21 @@
 
             <div class="form-group">
                 <label>Languages *</label>
+                <div style="margin-bottom: 8px;">
+                    <button type="button" onclick="document.querySelectorAll('#editLanguages input').forEach(i => i.checked = true)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 4px;">✓ Check All</button>
+                    <button type="button" onclick="document.querySelectorAll('#editLanguages input').forEach(i => i.checked = false)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px;">✗ Uncheck All</button>
+                </div>
                 <div class="langs-group" id="editLanguages"></div>
             </div>
 
             <!-- NEW: Category Permissions -->
             <div class="form-group">
                 <label>Category Access *</label>
-                <div class="role-info" style="margin-bottom: 8px;">Select which categories this user can access. Leave all unchecked to allow access to all categories.</div>
+                <div class="role-info" style="margin-bottom: 8px;">Select which categories this user can access. Check categories to grant access.</div>
+                <div style="margin-bottom: 8px;">
+                    <button type="button" onclick="document.querySelectorAll('#editCategories input').forEach(i => i.checked = true)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 4px;">✓ Check All</button>
+                    <button type="button" onclick="document.querySelectorAll('#editCategories input').forEach(i => i.checked = false)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px;">✗ Uncheck All</button>
+                </div>
                 <div class="categories-group" id="editCategories"></div>
             </div>
 
@@ -329,9 +345,31 @@
     const pagePerms = (currentUser && currentUser.page_permissions) || {};
     
     function hasPageAccess(page) {
+        if (!currentUser) return false;
         if (currentUser.role === 'admin') return true;
         const perms = pagePerms[page] || {};
         return perms.view === true;
+    }
+    
+    function canCreateUser() {
+        if (!currentUser) return false;
+        if (currentUser.role === 'admin') return true;
+        const perms = pagePerms.users || {};
+        return perms.create === true;
+    }
+
+    function canEditUserAction() {
+        if (!currentUser) return false;
+        if (currentUser.role === 'admin') return true;
+        const perms = pagePerms.users || {};
+        return perms.edit === true;
+    }
+
+    function canDeleteUserAction() {
+        if (!currentUser) return false;
+        if (currentUser.role === 'admin') return true;
+        const perms = pagePerms.users || {};
+        return perms.delete === true;
     }
     
     // Show all nav buttons except current page (users)
@@ -523,7 +561,7 @@
     }
 
     function renderUI() {
-        document.getElementById('addUserBtn').style.display = canCreateUsers() ? 'block' : 'none';
+        document.getElementById('addUserBtn').style.display = canCreateUser() ? 'block' : 'none';
         populateEmailSelect('newEmailSelect');
         populateEmailSelect('editEmailSelect');
         renderTeamSelect('newTeamId');
@@ -547,6 +585,7 @@
         if (!currentUser) return false;
         if (targetUser.email === 'admin@dornori.com' && currentUser.role !== 'admin') return false;
         if (currentUser.role === 'admin') return true;
+        if (!canEditUserAction()) return false;
         if (currentUser.role === 'manager') return targetUser.role !== 'admin';
         if (currentUser.role === 'tl') return currentUser.team_id && targetUser.team_id === currentUser.team_id && targetUser.role === 'agent';
         return false;
@@ -555,7 +594,9 @@
     function canDeleteUser(targetUser) {
         if (!currentUser) return false;
         if (targetUser.email === 'admin@dornori.com') return false;
-        return currentUser.role === 'admin';
+        if (currentUser.role === 'admin') return true;
+        if (!canDeleteUserAction()) return false;
+        return false;
     }
 
     function getViewableUsers() {
@@ -669,8 +710,10 @@
                 html += `<td><span class="langs-cell">${userEmails.length > 0 ? userEmails.length + ' email(s)' : '-'}</span></td>`;
             }
             html += '<td>';
-            if (canEdit) html += `<button class="action-btn" onclick="openEditUserModal('${u.email}')">Edit</button>`;
-            if (canDelete) html += `<button class="action-btn delete" onclick="deleteUser('${u.email}')">Delete</button>`;
+            const pagePermsEdit = pagePerms.users?.edit;
+            const pagePermsDel = pagePerms.users?.delete;
+            if (canEditUser(u)) html += `<button class="action-btn" onclick="openEditUserModal('${u.email}')" ${!pagePermsEdit ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Edit</button>`;
+            if (canDeleteUser(u)) html += `<button class="action-btn delete" onclick="deleteUser('${u.email}')" ${!pagePermsDel ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Delete</button>`;
             html += '</td></tr>';
         });
 
@@ -820,6 +863,10 @@
     //  OPEN / CLOSE MODALS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function openAddUserModal() {
+        if (!canCreateUser()) {
+            showErrorPopup('Permission Denied', 'You do not have permission to add users');
+            return;
+        }
         newTeams = [];
         newEmails = [];
         newSelectedCategories = [];
@@ -847,7 +894,11 @@
 
     function openEditUserModal(email) {
         const user = allUsers.find(u => u.email === email);
-        if (!user || !canEditUser(user)) return;
+        if (!user) return;
+        if (!canEditUser(user)) {
+            showErrorPopup('Permission Denied', 'You do not have permission to edit this user');
+            return;
+        }
 
         editingEmail = email;
         editTeams = [];
@@ -894,6 +945,10 @@
     //  API ACTIONS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function addUser() {
+        if (!canCreateUser()) {
+            showErrorPopup('Permission Denied', 'You do not have permission to add users');
+            return;
+        }
         const email = document.getElementById('newEmail').value.trim();
         const name = document.getElementById('newName').value.trim();
         const password = document.getElementById('newPassword').value;
@@ -909,8 +964,39 @@
         if (!email || !name || !password) { errorEl.textContent = 'All fields required'; return; }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errorEl.textContent = 'Invalid email'; return; }
         if (password.length < 8) { errorEl.textContent = 'Password min 8 chars'; return; }
-        if (langs.length === 0) { errorEl.textContent = 'Select languages'; return; }
-        if (['agent', 'tl'].includes(role) && emails.length === 0) { errorEl.textContent = 'Select/add email addresses'; return; }
+        if (langs.length === 0) { errorEl.textContent = 'Select at least one language'; return; }
+        if (['agent', 'tl'].includes(role) && emails.length === 0) { errorEl.textContent = 'Agents/TLs must have email addresses'; return; }
+        if (role === 'tl' && !teamId) { errorEl.textContent = 'Team Leaders must have a team'; return; }
+        
+        // Validate that all selected languages exist
+        for (const lang of langs) {
+            if (!languageList.some(l => l.code === lang)) {
+                errorEl.textContent = `Invalid language: ${lang}`;
+                return;
+            }
+        }
+        
+        // Validate that all selected categories exist
+        for (const cat of categories) {
+            if (!allCategories.includes(cat)) {
+                errorEl.textContent = `Invalid category: ${cat}`;
+                return;
+            }
+        }
+        
+        // Validate page_permissions structure
+        for (const [page, perms] of Object.entries(newPagePerms)) {
+            if (typeof perms !== 'object') {
+                errorEl.textContent = `Invalid permissions for page: ${page}`;
+                return;
+            }
+            for (const [action, val] of Object.entries(perms)) {
+                if (typeof val !== 'boolean') {
+                    errorEl.textContent = `Invalid permission value for ${page}.${action}`;
+                    return;
+                }
+            }
+        }
 
         try {
             const res = await fetch(API_BASE + '/api/admin/users', {
@@ -942,6 +1028,10 @@
     }
 
     async function saveUser() {
+        if (!canEditUserAction()) {
+            showErrorPopup('Permission Denied', 'You do not have permission to edit users');
+            return;
+        }
         const name = document.getElementById('editName').value.trim();
         const role = document.getElementById('editRole').value;
         const teamId = document.getElementById('editTeamId').value.trim() || null;
@@ -953,8 +1043,39 @@
         errorEl.textContent = '';
 
         if (!name) { errorEl.textContent = 'Name required'; return; }
-        if (langs.length === 0) { errorEl.textContent = 'Select languages'; return; }
-        if (['agent', 'tl'].includes(role) && emails.length === 0) { errorEl.textContent = 'Select/add email addresses'; return; }
+        if (langs.length === 0) { errorEl.textContent = 'Select at least one language'; return; }
+        if (['agent', 'tl'].includes(role) && emails.length === 0) { errorEl.textContent = 'Agents/TLs must have email addresses'; return; }
+        if (role === 'tl' && !teamId) { errorEl.textContent = 'Team Leaders must have a team'; return; }
+        
+        // Validate that all selected languages exist
+        for (const lang of langs) {
+            if (!languageList.some(l => l.code === lang)) {
+                errorEl.textContent = `Invalid language: ${lang}`;
+                return;
+            }
+        }
+        
+        // Validate that all selected categories exist
+        for (const cat of categories) {
+            if (!allCategories.includes(cat)) {
+                errorEl.textContent = `Invalid category: ${cat}`;
+                return;
+            }
+        }
+        
+        // Validate page_permissions structure
+        for (const [page, perms] of Object.entries(editPagePerms)) {
+            if (typeof perms !== 'object') {
+                errorEl.textContent = `Invalid permissions for page: ${page}`;
+                return;
+            }
+            for (const [action, val] of Object.entries(perms)) {
+                if (typeof val !== 'boolean') {
+                    errorEl.textContent = `Invalid permission value for ${page}.${action}`;
+                    return;
+                }
+            }
+        }
 
         try {
             const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(editingEmail)}`, {
@@ -986,6 +1107,10 @@
     }
 
     async function deleteUser(email) {
+        if (!canDeleteUserAction()) {
+            showErrorPopup('Permission Denied', 'You do not have permission to delete users');
+            return;
+        }
         if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
 
         try {

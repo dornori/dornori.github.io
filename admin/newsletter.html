@@ -244,6 +244,21 @@ function hasPageAccess(page) {
     return perms.view === true;
 }
 
+function canEditNewsletter() {
+    if (currentUser.role === 'admin') return true;
+    return pagePerms.newsletter?.edit === true;
+}
+
+function canCreateNewsletter() {
+    if (currentUser.role === 'admin') return true;
+    return pagePerms.newsletter?.create === true;
+}
+
+function canDeleteNewsletter() {
+    if (currentUser.role === 'admin') return true;
+    return pagePerms.newsletter?.delete === true;
+}
+
 // Show all nav buttons except current page (newsletter)
 if (hasPageAccess('reports'))   document.getElementById('nav-reports').style.display = '';
 if (hasPageAccess('settings'))  document.getElementById('nav-settings').style.display = '';
@@ -313,6 +328,12 @@ function getLangName(code) {
 
 function render() {
     const langs = getLangs();
+    
+    // Disable editor and buttons if no create permission
+    const canCreate = canCreateNewsletter();
+    disableForm('nl_editor', !canCreate);
+    disableForm('nl_source', !canCreate);
+    disableElements('.btn-row .btn-warning, .btn-row .btn-ghost', !canCreate);
     const langOpts = langs.map(l => `<option value="${esc(l.code)}"${l.code === currentLang ? ' selected' : ''}>${esc(l.name)}</option>`).join('');
     
     document.getElementById('content').innerHTML = `
@@ -514,6 +535,10 @@ async function loadNewsletter(id) {
 }
 
 async function deleteNewsletter(id, subject) {
+    if (!canDeleteNewsletter()) {
+        alert('You do not have permission to delete newsletters');
+        return;
+    }
     if (!confirm(`Delete "${subject}"?\nThis cannot be undone.`)) return;
     const d = await api('/api/admin/newsletters/' + id, { method: 'DELETE' });
     if (d.success) {
@@ -652,6 +677,10 @@ function onSearch(v) {
 }
 
 async function saveAutoReply() {
+    if (!canEditNewsletter()) {
+        alert('You do not have permission to edit newsletter settings');
+        return;
+    }
     const unsubPath = document.getElementById('nl_unsub_path').value.trim() || 'unsubscribe.html';
     const lang = currentLang === 'all' ? 'en' : currentLang;
     const langKey = lang === 'en' ? '' : '_' + lang;
@@ -719,6 +748,10 @@ function closeSendModal() {
 }
 
 async function executeSend() {
+    if (!canCreateNewsletter()) {
+        alert('You do not have permission to send newsletters');
+        return;
+    }
     if (!pendingSend) return;
     const { subj, body } = pendingSend;
     document.getElementById('sendModalFoot').innerHTML = '<span style="font-size:13px;color:var(--text-muted);">Sending…</span>';
@@ -749,7 +782,37 @@ async function executeSend() {
     }
 }
 
-async function saveDraft() {
+function disableForm(elementId, disabled) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if (disabled) {
+        if (el.contentEditable) el.contentEditable = 'false';
+        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') el.disabled = true;
+        el.style.opacity = '0.6';
+        el.style.pointerEvents = 'none';
+    } else {
+        if (el.contentEditable) el.contentEditable = 'true';
+        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') el.disabled = false;
+        el.style.opacity = '1';
+        el.style.pointerEvents = 'auto';
+    }
+}
+
+function disableElements(selector, disabled) {
+    document.querySelectorAll(selector).forEach(el => {
+        if (disabled) {
+            el.disabled = true;
+            el.style.opacity = '0.5';
+            el.style.cursor = 'not-allowed';
+            el.title = 'Permission denied';
+        } else {
+            el.disabled = false;
+            el.style.opacity = '1';
+            el.style.cursor = 'pointer';
+            el.title = '';
+        }
+    });
+}
     const subj = getSubject();
     const body = getEditorHtml();
     if (!subj && !body) { toast('Nothing to save', 'error'); return; }
