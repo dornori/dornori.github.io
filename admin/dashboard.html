@@ -44,6 +44,35 @@
         .test-result-popup.error { background: #ef4444; color: white; }
         .test-result-popup.info { background: #3b82f6; color: white; }
         @keyframes slideIn {
+        }
+        /* Notification toast styles */
+        .notification-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px 20px;
+            max-width: 380px;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease;
+            border-left: 4px solid var(--accent);
+        }
+        .notification-toast h4 { margin: 0 0 5px 0; font-size: 14px; }
+        .notification-toast p { margin: 0; font-size: 13px; color: var(--text-muted); }
+        .notification-toast .close-toast {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+        .notification-toast .close-toast:hover { color: var(--text); }
     </style>
 </head>
 <body>
@@ -62,11 +91,11 @@
             <h1>🎫 Dornori Ticketing</h1>
             <div class="header-right">
                 <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
-                <a href="reports.html">📊 Reports</a>
-                <a href="newsletter.html">📧 Newsletter</a>
-                <a href="settings.html">⚙️ Settings</a>
-                <a id="usersLink" href="users.html" style="display:none;">👥 Users</a>
-                <span id="userDisplay" style="font-size: 13px; color: var(--text-muted); margin-left: 10px;"></span>
+                <a id="nav-reports" href="reports.html" style="display:none;">📊 Reports</a>
+                <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 Newsletter</a>
+                <a id="nav-settings" href="settings.html" style="display:none;">⚙️ Settings</a>
+                <a id="nav-users" href="users.html" style="display:none;">👥 Users</a>
+                <div id="userDisplay"></div>
                 <button onclick="logout()">Logout</button>
             </div>
         </div>
@@ -99,10 +128,11 @@
             <button class="btn-refresh" onclick="resetAndLoad()">⟳ Refresh</button>
         </div>
 
-        <div id="ticketList" class="ticket-list"><div class="loading">Loading tickets...</div></div>
+        <div id="ticketList" class="ticket-list"></div>
         <div id="loadMoreWrap" class="load-more-wrap"></div>
     </div>
 
+    <!-- TICKET MODAL -->
     <div id="ticketModal" class="modal-overlay">
         <div class="modal-content">
             <button class="modal-close" onclick="closeModal()">✕</button>
@@ -112,19 +142,295 @@
 </div>
 
 <script>
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  CONFIG
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
+    
+    let token = null;
+    let currentUser = null;
+    let currentTab = 'active';
+    let currentLimit = 25;
+    let currentOffset = 0;
+    let currentTotal = 0;
+    let loadedTickets = [];
+    let seenNotificationIds = new Set();
+    let emailSenders = [];
+    let notificationPollInterval = null;
+    let allLanguages = [];
+    let LANG_NAMES = {};
+    let languagesLoaded = false;
+    let categoriesLoaded = false;
+    let allCategories = [];
+    let isRefreshing = false;
+    let userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  THEME TOGGLE
+    //  PERMISSION SERVICE
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const PermissionService = {
+        updateUI() {
+            this.updateNavigation();
+        },
+
+        can(action, page = 'tickets') {
+            if (!currentUser) return false;
+            if (currentUser.role === 'admin') return true;
+            const pagePerms = currentUser.page_permissions || {};
+            const perms = pagePerms[page] || {};
+            return perms[action] === true;
+        },
+
+        hasPageAccess(page) {
+            if (!currentUser) return false;
+            if (currentUser.role === 'admin') return true;
+            const pagePerms = currentUser.page_permissions || {};
+            const perms = pagePerms[page] || {};
+            return perms.view === true;
+        },
+
+        updateNavigation() {
+            const navs = [
+                { id: 'nav-reports', page: 'reports' },
+                { id: 'nav-newsletter', page: 'newsletter' },
+                { id: 'nav-settings', page: 'settings' },
+                { id: 'nav-users', page: 'users' }
+            ];
+            
+            for (const nav of navs) {
+                const el = document.getElementById(nav.id);
+                if (el) {
+                    el.style.display = this.hasPageAccess(nav.page) ? '' : 'none';
+                }
+            }
+        }
+    };
+
+    function canEdit() {
+        if (!currentUser) return false;
+        if (currentUser.role === 'admin') return true;
+        const perms = currentUser.page_permissions?.tickets || {};
+        return perms.edit === true;
+    }
+
+    function canCreate() {
+        if (!currentUser) return false;
+        if (currentUser.role === 'admin') return true;
+        const perms = currentUser.page_permissions?.tickets || {};
+        return perms.create === true;
+    }
+
+    function canDelete() {
+        if (!currentUser) return false;
+        if (currentUser.role === 'admin') return true;
+        const perms = currentUser.page_permissions?.tickets || {};
+        return perms.delete === true;
+    }
+
+    function disableIfNoPermission(button, canDo) {
+        if (!canDo) {
+            button.disabled = true;
+            button.title = 'Permission denied';
+            button.style.opacity = '0.5';
+            button.style.cursor = 'not-allowed';
+        }
+        return button;
+    }
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function showToast(title, message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = 'notification-toast';
+        const colors = {
+            info: 'var(--accent)',
+            success: '#22c55e',
+            error: '#ef4444',
+            warning: '#f59e0b'
+        };
+        toast.style.borderLeftColor = colors[type] || colors.info;
+        toast.innerHTML = `
+            <button class="close-toast" onclick="this.parentElement.remove()">×</button>
+            <h4>${title}</h4>
+            <p>${message}</p>
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            if (toast.parentElement) toast.remove();
+        }, 8000);
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD LANGUAGES FROM SETTINGS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadLanguagesFromSettings() {
+        if (currentUser.role !== 'admin') {
+            console.log('👤 Non-admin user - using languages from profile');
+            const userLangs = currentUser.allowed_languages || [];
+            if (userLangs.length === 0) {
+                allLanguages = [];
+                languagesLoaded = true;
+                applyUserLanguageFilter();
+                return;
+            }
+            allLanguages = userLangs.map(code => ({ code, name: LANG_NAMES[code] || code }));
+            languagesLoaded = true;
+            applyUserLanguageFilter();
+            return;
+        }
+
+        try {
+            const res = await fetch(API_BASE + "/api/admin/settings", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (!res.ok) throw new Error('Failed to load settings');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to load settings');
+
+            const settings = data.settings || [];
+            let langList = [];
+            
+            for (const setting of settings) {
+                if (setting.category === 'languages' && setting.key === 'list') {
+                    try {
+                        langList = JSON.parse(setting.value || '[]');
+                    } catch (e) {
+                        langList = [];
+                    }
+                    break;
+                }
+            }
+
+            if (!langList || langList.length === 0) {
+                allLanguages = [];
+                LANG_NAMES = {};
+                languagesLoaded = true;
+                applyUserLanguageFilter();
+                return;
+            }
+
+            allLanguages = langList;
+            LANG_NAMES = {};
+            for (const lang of langList) {
+                LANG_NAMES[lang.code] = lang.name;
+            }
+            languagesLoaded = true;
+            applyUserLanguageFilter();
+
+            console.log('✅ Languages loaded:', Object.keys(LANG_NAMES).length, 'languages');
+        } catch (e) {
+            console.error('Failed to load languages:', e);
+            allLanguages = [];
+            LANG_NAMES = {};
+            languagesLoaded = true;
+            applyUserLanguageFilter();
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD CATEGORIES FROM USER PROFILE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadCategoriesFromSettings() {
+        if (currentUser.role !== 'admin') {
+            console.log('👤 Non-admin user - loading categories from profile');
+            const userCategories = currentUser.allowed_categories || [];
+            allCategories = userCategories.sort();
+            categoriesLoaded = true;
+            updateCategoryDropdown();
+            console.log('✅ Categories loaded from user profile:', allCategories.length, 'categories:', allCategories);
+            return;
+        }
+
+        try {
+            const res = await fetch(API_BASE + "/api/admin/settings", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (!res.ok) throw new Error('Failed to load settings');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to load settings');
+
+            const settings = data.settings || [];
+            const cats = new Set();
+            
+            for (const setting of settings) {
+                if (setting.category === 'category' && setting.key && setting.key.endsWith('_description')) {
+                    const catName = setting.key.replace('_description', '');
+                    if (setting.value !== '__deleted__' && setting.value && setting.value.trim() !== '') {
+                        cats.add(catName);
+                    }
+                }
+                if (setting.category === 'category' && setting.key && setting.key.endsWith('_color')) {
+                    const catName = setting.key.replace('_color', '');
+                    if (setting.value !== '__deleted__') {
+                        cats.add(catName);
+                    }
+                }
+            }
+
+            allCategories = Array.from(cats).sort();
+            categoriesLoaded = true;
+            updateCategoryDropdown();
+            console.log('✅ Categories loaded from settings:', allCategories.length, 'categories');
+            
+        } catch (e) {
+            console.error('Failed to load categories from settings:', e);
+            allCategories = [];
+            categoriesLoaded = true;
+            updateCategoryDropdown();
+        }
+    }
+
+    function updateCategoryDropdown() {
+        const sel = document.getElementById('filterCategory');
+        if (!sel) return;
+        
+        let opts = '<option value="">All Categories</option>';
+        for (const cat of allCategories) {
+            const label = cat.charAt(0).toUpperCase() + cat.slice(1);
+            opts += '<option value="' + cat + '">' + label + '</option>';
+        }
+        sel.innerHTML = opts;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  INIT & STORAGE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    window.addEventListener('load', function() {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        
+        const savedToken = localStorage.getItem('token');
+        const savedUser = localStorage.getItem('user');
+        
+        if (savedToken && savedUser) {
+            try {
+                token = savedToken;
+                currentUser = JSON.parse(savedUser);
+                
+                if (currentUser) {
+                    document.getElementById('login').style.display = 'none';
+                    document.getElementById('dashboard').style.display = 'block';
+                    PermissionService.updateUI();
+                    updateUserDisplay();
+                    
+                    loadEmailSenders();
+                    
+                    Promise.all([
+                        loadLanguagesFromSettings(),
+                        loadCategoriesFromSettings()
+                    ]).then(() => {
+                        loadStats();
+                        resetAndLoad();
+                        startNotificationPolling();
+                        checkNotificationBanner();
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to restore session:', e);
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+            }
+        }
+    });
+
     function setTheme(theme) {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);
-        const toggles = document.querySelectorAll('.theme-toggle');
-        toggles.forEach(t => t.textContent = theme === 'dark' ? '☀️' : '🌙');
     }
 
     function toggleTheme() {
@@ -132,234 +438,8 @@
         setTheme(current === 'light' ? 'dark' : 'light');
     }
 
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    setTheme(savedTheme);
-
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  GLOBALS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    var token = null;
-    var currentUser = { email: null, name: null, role: null, permissions: [] };
-    var userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    var emailSenders = [];
-    var currentTab = 'active';
-    var currentOffset = 0;
-    var currentLimit = 50;
-    var currentTotal = 0;
-    var loadedTickets = [];
-    var notificationPollTimer = null;
-    var notificationPollInterval = 5000; // Poll every 5 seconds
-    var seenNotificationIds = new Set(); // Track which ticket IDs we've already processed
-
-    // ─── NOTIFICATION POLLING ──────────────────────────────
-    async function pollNotifications() {
-        if (!token) return;
-        try {
-            const res = await fetch(API_BASE + '/api/admin/notifications', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.status === 401) {
-                logout();
-                return;
-            }
-            const data = await res.json();
-            if (data.success && data.notifications && data.notifications.length > 0) {
-                console.log('📬 Notifications received:', data.notifications);
-                
-                // Inject ticket data into loaded tickets if on active tab and status matches
-                const activeStatuses = getStatusesForTab(currentTab);
-                let ticketsChanged = false;
-                
-                for (const notif of data.notifications) {
-                    // Skip if we've already processed this ticket ID
-                    if (seenNotificationIds.has(notif.id)) {
-                        console.log(`⏭️  Already seen ticket ${notif.id}, skipping`);
-                        continue;
-                    }
-                    
-                    // Mark as seen
-                    seenNotificationIds.add(notif.id);
-                    
-                    // Show notification regardless of current tab
-                    const action = notif.event === 'created' ? '🆕' : '📝';
-                    showNotification(
-                        `${action} Ticket ${notif.id}: ${notif.subject}`,
-                        `${notif.category} | ${notif.sla_status} | ${notif.status}`
-                    );
-                    
-                    // If on active tab and status matches, add to visible list and update
-                    if (activeStatuses.includes(notif.status)) {
-                        const existingIdx = loadedTickets.findIndex(t => t.ticket_id === notif.id);
-                        const ticketItem = {
-                            ticket_id: notif.id,
-                            category: notif.category,
-                            sla_status: notif.sla_status,
-                            status: notif.status,
-                            subject: notif.subject,
-                            sender_email: notif.sender_email,
-                            created_at: notif.created_at,
-                            updated_at: notif.updated_at
-                        };
-                        
-                        if (existingIdx >= 0) {
-                            // Update existing ticket
-                            loadedTickets[existingIdx] = ticketItem;
-                            ticketsChanged = true;
-                        } else if (notif.event === 'created') {
-                            // Add new ticket to top of list
-                            loadedTickets.unshift(ticketItem);
-                            ticketsChanged = true;
-                        }
-                    }
-                }
-                
-                // Re-render if we injected any tickets
-                if (ticketsChanged && loadedTickets.length > 0) {
-                    renderTickets(loadedTickets);
-                    loadStats();
-                }
-            }
-        } catch (e) {
-            console.error('Notification poll error:', e);
-        }
-    }
-
-    function startNotificationPolling() {
-        // Mark all currently loaded tickets as seen to avoid overwriting them
-        loadedTickets.forEach(ticket => {
-            seenNotificationIds.add(ticket.ticket_id);
-        });
-        if (notificationPollTimer) clearInterval(notificationPollTimer);
-        notificationPollTimer = setInterval(pollNotifications, notificationPollInterval);
-        console.log('✅ Notification polling started');
-    }
-
-    function stopNotificationPolling() {
-        if (notificationPollTimer) {
-            clearInterval(notificationPollTimer);
-            notificationPollTimer = null;
-        }
-        console.log('⛔ Notification polling stopped');
-    }
-
-    // ─── TEST TICKET (event-driven, no polling) ──────────
-    async function createTestTicket() {
-        if (!token) {
-            showNotification('❌ Error', 'Must be logged in');
-            return;
-        }
-        try {
-            const res = await fetch(API_BASE + '/api/message', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    category: 'test',
-                    name: 'Test',
-                    email: 'test@example.com',
-                    subject: 'Test Ticket',
-                    message: 'This is a test ticket. Click Refresh to see it.'
-                })
-            });
-            const data = await res.json();
-            if (data.success) {
-                showNotification('✅ Test Ticket Created', data.ticketNumber || 'Ticket created. Click Refresh to view.');
-                console.log('📤 Test ticket created:', data);
-            } else {
-                showNotification('❌ Error', data.error || 'Failed to create test ticket');
-            }
-        } catch (e) {
-            console.error('Test ticket error:', e);
-            showNotification('❌ Error', e.message);
-        }
-    }
-
-    function onNewTicket(ticket) {
-        console.log('🎫 New ticket received:', ticket);
-        // User must click Refresh to see new tickets
-        showNotification(`🔔 New Ticket ${ticket.ticket_number || ''}`, 'Click Refresh button to view');
-    }
-
-    function onTicketUpdate(ticket) {
-        console.log('📝 Ticket updated:', ticket);
-        // User must click Refresh to see updates
-        showNotification(`📝 Ticket Updated ${ticket.ticket_number || ''}`, 'Click Refresh button to view changes');
-    }
-
-    function showNotification(title, body) {
-        // Also show browser notification if permitted
-        if (Notification.permission === 'granted') {
-            try {
-                new Notification(title, { body: body, icon: '🔔' });
-            } catch (e) {
-                // Silently fail
-            }
-        }
-        
-        // Show in-app notification
-        const popup = document.createElement('div');
-        popup.className = 'test-result-popup info';
-        popup.textContent = `${title} — ${body}`;
-        document.body.appendChild(popup);
-        
-        setTimeout(() => {
-            popup.style.opacity = '0';
-            popup.style.transition = 'opacity 0.3s';
-            setTimeout(() => popup.remove(), 300);
-        }, 4000);
-    }
-
-    function getStatusesForTab(tab) {
-        if (tab === 'active') return ['new', 'open', 'in_progress', 'pending'];
-        if (tab === 'resolved') return ['resolved'];
-        if (tab === 'closed') return ['closed'];
-        return [];
-    }
-
-    function switchTab(tab) {
-        currentTab = tab;
-        document.querySelectorAll('.ticket-tab').forEach(function(btn) {
-            btn.classList.toggle('active', btn.dataset.tab === tab);
-        });
-        resetAndLoad();
-    }
-
-    function resetAndLoad() {
-        currentOffset = 0;
-        loadedTickets = [];
-        document.getElementById('loadMoreWrap').innerHTML = '';
-        loadTickets();
-    }
-
-    function formatDate(dateStr) {
-        if (!dateStr) return "Invalid Date";
-        try {
-            var cleaned = dateStr.replace(" ", "T");
-            if (!cleaned.includes("Z") && !cleaned.includes("+")) { cleaned += "Z"; }
-            var d = new Date(cleaned);
-            if (isNaN(d.getTime())) { return dateStr; }
-            return d.toLocaleString(undefined, {
-                year: "numeric", month: "short", day: "numeric",
-                hour: "2-digit", minute: "2-digit",
-                timeZone: userTimezone || "UTC"
-            });
-        } catch (e) { return dateStr; }
-    }
-
-    function getSlaDisplay(slaStatus) {
-        const map = {
-            'on_track': { label: 'On track', cls: 'sla-on-track' },
-            'at_risk':  { label: 'At risk',  cls: 'sla-at-risk' },
-            'breached': { label: 'Breached', cls: 'sla-breached' },
-            'paused':   { label: 'Paused',   cls: 'sla-paused' }
-        };
-        return map[slaStatus] || { label: 'Unknown', cls: 'sla-paused' };
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOGIN / LOGOUT
+    //  AUTHENTICATION
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function login() {
         var email = document.getElementById("loginEmail").value;
@@ -381,27 +461,42 @@
             var data = await res.json();
             if (data.success) {
                 token = data.token;
-                currentUser = { email: data.user.email, name: data.user.name, role: data.user.role, permissions: data.user.permissions || [] };
+                currentUser = {
+                    email: data.user.email,
+                    name: data.user.name,
+                    role: data.user.role,
+                    page_permissions: data.user.page_permissions || {},
+                    allowed_languages: data.user.allowed_languages || [],
+                    allowed_emails: data.user.allowed_emails || [],
+                    allowed_categories: data.user.allowed_categories || [],
+                    team_id: data.user.team_id || null
+                };
                 localStorage.setItem("token", token);
                 localStorage.setItem("user", JSON.stringify(currentUser));
-                console.log('✅ Login successful for:', email);
+                console.log('✅ Login successful for:', email, 'Role:', currentUser.role);
+                
+                PermissionService.updateUI();
                 updateUserDisplay();
                 document.getElementById("login").style.display = "none";
                 document.getElementById("dashboard").style.display = "block";
+                
                 await loadEmailSenders();
-                await loadCategories();
-                await loadLanguages();
+                await Promise.all([
+                    loadLanguagesFromSettings(),
+                    loadCategoriesFromSettings()
+                ]);
                 loadStats();
                 resetAndLoad();
                 startNotificationPolling();
-                showNotification("✅ Login Successful", "Welcome to Dornori Ticketing");
+                checkNotificationBanner();
+                showToast('✅ Login Successful', 'Welcome to Dornori Ticketing', 'success');
             } else {
                 errorEl.textContent = data.message || "Invalid credentials";
-                showNotification("❌ Login Failed", data.message || "Invalid credentials");
+                showToast('❌ Login Failed', data.message || 'Invalid credentials', 'error');
             }
         } catch (e) {
             errorEl.textContent = "Network error – please try again.";
-            showNotification("❌ Network Error", e.message);
+            showToast('❌ Network Error', e.message, 'error');
             console.error('Login error:', e);
         } finally {
             loadingEl.classList.remove("active");
@@ -410,23 +505,37 @@
         }
     }
 
+    function renderUserBadge() {
+        const u = currentUser;
+        if (!u) return;
+        const initials = (u.name || u.email || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+        const meta = [u.role, u.team_id].filter(Boolean).join(' · ');
+        const el = document.getElementById('userDisplay');
+        if (el) el.innerHTML = `<div class="user-badge"><div class="user-badge-avatar">${initials}</div><div class="user-badge-info"><span class="user-badge-name">${u.name || u.email}</span><span class="user-badge-meta">${meta}</span></div></div>`;
+    }
+
     function updateUserDisplay() {
-        document.getElementById("userDisplay").textContent = currentUser.name + ' (' + currentUser.role + ')';
-        if (currentUser.role === 'admin') {
-            document.getElementById("usersLink").style.display = 'inline-block';
-        }
+        renderUserBadge();
+        const isAdmin = currentUser.role === 'admin';
+        const p = currentUser.permissions || [];
+        if (isAdmin || p.includes('reports.view'))    document.getElementById('nav-reports').style.display = 'inline-block';
+        if (isAdmin || p.includes('newsletter.view')) document.getElementById('nav-newsletter').style.display = 'inline-block';
+        if (isAdmin || p.includes('settings.view'))   document.getElementById('nav-settings').style.display = 'inline-block';
+        if (isAdmin || p.includes('users.view'))      document.getElementById('nav-users').style.display = 'inline-block';
     }
 
     function logout() {
         stopNotificationPolling();
-        seenNotificationIds.clear(); // Reset seen tickets for next session
+        seenNotificationIds.clear();
         token = null;
-        currentUser = { email: null, name: null, role: null, permissions: [] };
+        currentUser = { email: null, name: null, role: null, page_permissions: {} };
         localStorage.removeItem("token");
         localStorage.removeItem("user");
+        PermissionService.permissions = [];
+        emailSenders = [];
         document.getElementById("login").style.display = "block";
         document.getElementById("dashboard").style.display = "none";
-        showNotification("👋 Logged Out", "See you next time!");
+        showToast('👋 Logged Out', 'See you next time!', 'info');
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -445,76 +554,94 @@
         const result = await Notification.requestPermission();
         if (result === 'granted') {
             document.getElementById('notificationBanner').style.display = 'none';
-            showNotification('✅ Notifications Enabled', 'You will now receive real-time updates');
+            showToast('✅ Notifications Enabled', 'You will now receive real-time updates', 'success');
         } else {
-            showNotification('❌ Permission Denied', 'Please enable notifications in your browser settings');
+            showToast('❌ Permission Denied', 'Please enable notifications in your browser settings', 'error');
         }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD CATEGORIES & LANGUAGES
+    //  APPLY USER LANGUAGE FILTER
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function loadCategories() {
-        try {
-            var res = await fetch(API_BASE + "/api/admin/settings", {
-                headers: { "Authorization": "Bearer " + token }
-            });
-            var data = await res.json();
-            if (!data.success) return;
-            var settings = data.settings || [];
-            var cats = new Set(["other"]);
-            settings.forEach(function(s) {
-                if (s.category === "category" && s.key.endsWith("_description") && s.value !== "__deleted__") {
-                    cats.add(s.key.replace("_description", ""));
-                }
-            });
-            var sel = document.getElementById("filterCategory");
-            var current = sel.value;
-            var opts = '<option value="">All Categories</option>';
-            Array.from(cats).sort().forEach(function(c) {
-                var label = c.charAt(0).toUpperCase() + c.slice(1);
-                opts += '<option value="' + c + '">' + label + '</option>';
-            });
-            sel.innerHTML = opts;
-            sel.value = current;
-        } catch (e) { console.error("Failed to load categories:", e); }
+    function applyUserLanguageFilter() {
+        var sel = document.getElementById('filterLanguage');
+        if (!sel || !currentUser) return;
+        
+        if (!languagesLoaded || allLanguages.length === 0) {
+            sel.innerHTML = '<option value="">No languages configured</option>';
+            return;
+        }
+        
+        var userLangs = (currentUser.role === 'admin') ? null : (currentUser.allowed_languages || []);
+        var list = (userLangs && userLangs.length > 0)
+            ? allLanguages.filter(function(l) { return userLangs.includes(l.code); })
+            : allLanguages;
+        
+        if (list.length === 0) {
+            sel.innerHTML = '<option value="">No languages available</option>';
+            return;
+        }
+        
+        var opts = list.length !== 1 ? '<option value="">All Languages</option>' : '';
+        list.forEach(function(l) { 
+            opts += '<option value="' + l.code + '">' + l.name + '</option>'; 
+        });
+        sel.innerHTML = opts;
     }
 
-    async function loadLanguages() {
-        try {
-            var res = await fetch(API_BASE + "/api/admin/settings", {
-                headers: { "Authorization": "Bearer " + token }
-            });
-            var data = await res.json();
-            if (!data.success) return;
-            var settings = data.settings || [];
-            var langList = [];
-            settings.forEach(function(s) {
-                if (s.category === "languages" && s.key === "list") {
-                    try { langList = JSON.parse(s.value || '[]'); } catch(e) {}
-                }
-            });
-            var sel = document.getElementById("filterLanguage");
-            if (sel) {
-                var current = sel.value;
-                var opts = '<option value="">All Languages</option>';
-                langList.forEach(function(l) {
-                    opts += '<option value="' + escapeHtml(l.code) + '">' + escapeHtml(l.name) + '</option>';
-                });
-                sel.innerHTML = opts;
-                sel.value = current;
-            }
-        } catch (e) { console.error("Failed to load languages:", e); }
-    }
-
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD EMAIL SENDERS - FIXED
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadEmailSenders() {
         try {
-            var res = await fetch(API_BASE + "/api/admin/email-addresses?active_only=true", {
+            // Try to get fresh user profile
+            try {
+                const profileRes = await fetch(API_BASE + '/api/admin/user-profile', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (profileRes.ok) {
+                    const profileData = await profileRes.json();
+                    if (profileData.success && profileData.user) {
+                        currentUser.allowed_emails = profileData.user.allowed_emails || [];
+                        currentUser.allowed_languages = profileData.user.allowed_languages || [];
+                        currentUser.allowed_categories = profileData.user.allowed_categories || [];
+                        localStorage.setItem('user', JSON.stringify(currentUser));
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not refresh profile, using cached data');
+            }
+            
+            // Non-admin: use allowed emails from profile
+            if (currentUser.role !== 'admin') {
+                emailSenders = currentUser.allowed_emails || [];
+                return;
+            }
+            
+            // Admin: fetch all email addresses
+            const res = await fetch(API_BASE + "/api/admin/email-addresses?active_only=true", {
                 headers: { "Authorization": "Bearer " + token }
             });
-            var data = await res.json();
-            if (data.success) { emailSenders = data.addresses || []; }
-        } catch (e) { console.error("Failed to load senders:", e); }
+            
+            if (!res.ok) {
+                emailSenders = [];
+                return;
+            }
+            
+            const data = await res.json();
+            if (data.success) {
+                // Get just the email addresses as strings
+                const allAddresses = data.addresses || [];
+                emailSenders = allAddresses
+                    .map(addr => addr.address || addr.email)
+                    .filter(e => e);
+            } else {
+                emailSenders = [];
+            }
+        } catch (e) {
+            console.error('Failed to load senders:', e);
+            emailSenders = [];
+        }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -603,7 +730,6 @@
             return;
         }
         
-        // Mark all rendered tickets as seen to prevent overwriting user changes
         for (var i = 0; i < tickets.length; i++) {
             seenNotificationIds.add(tickets[i].ticket_id);
         }
@@ -624,7 +750,7 @@
             var subjectText = t.subject || "No subject";
             var truncatedSubject = subjectText.length > 55 ? subjectText.substring(0, 55) + "…" : subjectText;
             var catColor = getCatColor(t.category);
-            var catLabel = (t.category || 'other').charAt(0).toUpperCase() + (t.category || 'other').slice(1);
+            var catLabel = t.category ? t.category.charAt(0).toUpperCase() + t.category.slice(1) : '';
             html += '<div class="ticket-item" onclick="openTicketModal(' + t.ticket_id + ')">' +
                 '<span class="cat-cell"><span class="cat-dot" style="background:' + catColor + ';"></span><span class="cat-name">' + escapeHtml(catLabel) + '</span></span>' +
                 '<span class="sla-cell"><span class="sla-dot" style="background:' + getSlaColor(slaInfo.cls) + ';"></span><span class="sla-label">' + slaInfo.label + '</span></span>' +
@@ -646,12 +772,11 @@
         }
     }
 
-    // ── Color helpers ──
     var CAT_COLORS = ["#5aa9ff","#ffb347","#a78bfa","#34d399","#f87171","#fbbf24","#60a5fa","#4ade80","#fb923c","#c084fc"];
     var catColorMap = {};
     var catColorIdx = 0;
     function getCatColor(cat) {
-        if (!cat) return "#8892b0";
+        if (!cat || cat.trim() === '') return "#8892b0";
         if (!catColorMap[cat]) { catColorMap[cat] = CAT_COLORS[catColorIdx % CAT_COLORS.length]; catColorIdx++; }
         return catColorMap[cat];
     }
@@ -673,7 +798,7 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  MODAL
+    //  MODAL - FIXED EMAIL DROPDOWN
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function openModal() {
         document.getElementById("ticketModal").classList.add("active");
@@ -733,19 +858,20 @@
         }
         statusDropdown += '</select>';
 
+        // FIXED: Email sender dropdown - just email addresses, no hardcoded fallback
         var senderDropdown = '<select id="detailReplyFrom">';
-        var hasDefault = false;
         if (emailSenders && emailSenders.length > 0) {
+            // Select first one by default
+            var isFirst = true;
             for (var i = 0; i < emailSenders.length; i++) {
-                var sender = emailSenders[i];
-                var label = sender.label || sender.email;
-                var selected = (sender.action === "support") ? "selected" : "";
-                senderDropdown += '<option value="' + sender.email + '" ' + selected + '>' + label + ' (' + sender.email + ')</option>';
-                if (sender.action === "support") hasDefault = true;
+                var email = emailSenders[i];
+                var selected = isFirst ? "selected" : "";
+                senderDropdown += '<option value="' + email + '" ' + selected + '>' + email + '</option>';
+                isFirst = false;
             }
-        }
-        if (!hasDefault) {
-            senderDropdown += '<option value="support@dornori.com" selected>Support (support@dornori.com)</option>';
+        } else {
+            // No senders available - show empty state
+            senderDropdown += '<option value="" disabled selected>No email senders available</option>';
         }
         senderDropdown += '</select>';
 
@@ -754,37 +880,37 @@
         var catColor = getCatColor(ticket.category);
         var isClosed = ticket.status === 'closed';
 
+        var fullName = [ticket.sender_name, ticket.sender_last_name].filter(Boolean).join(' ') || 'Unknown';
+        var orderNum = ticket.order_number ? escapeHtml(ticket.order_number) : '—';
+
         var actionsHtml = '';
         if (!isClosed) {
             actionsHtml = `
             <div class="detail-section action-section">
                 <h4>✏️ Update Status</h4>
                 ${statusDropdown}
-                <div class="actions"><button class="btn-primary" onclick="updateStatus(${ticket.id})">Save Status</button></div>
+                <div class="actions"><button class="btn-primary" onclick="updateStatus(${ticket.id})" ${!canEdit() ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Save Status</button></div>
             </div>
             <div class="detail-section action-section comment-input">
                 <h4>📝 Add Comment</h4>
-                <textarea id="detailComment" placeholder="Write an internal comment..."></textarea>
-                <div class="actions"><button class="btn-primary" onclick="addComment(${ticket.id})">Add Comment</button></div>
+                <textarea id="detailComment" placeholder="Write an internal comment..." ${!canEdit() ? 'disabled' : ''}></textarea>
+                <div class="actions"><button class="btn-primary" onclick="addComment(${ticket.id})" ${!canEdit() ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Add Comment</button></div>
             </div>
             <div class="detail-section action-section">
                 <h4>✉️ Reply to Customer</h4>
                 <label>From:</label>
                 ${senderDropdown}
-                <textarea id="detailReplyBody" placeholder="Write your reply to the customer..."></textarea>
-                <div class="actions"><button class="btn-primary" onclick="sendReply(${ticket.id})">Send Reply</button></div>
+                <textarea id="detailReplyBody" placeholder="Write your reply to the customer..." ${!canEdit() ? 'disabled' : ''}></textarea>
+                <div class="actions"><button class="btn-primary" onclick="sendReply(${ticket.id})" ${!canEdit() ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Send Reply</button></div>
             </div>`;
         } else {
             actionsHtml = `
             <div class="detail-section action-section">
                 <h4>✏️ Reopen Ticket</h4>
                 ${statusDropdown}
-                <div class="actions"><button class="btn-primary" onclick="updateStatus(${ticket.id})">Update Status</button></div>
+                <div class="actions"><button class="btn-primary" onclick="updateStatus(${ticket.id})" ${!canEdit() ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Update Status</button></div>
             </div>`;
         }
-
-        var fullName = [ticket.sender_name, ticket.sender_last_name].filter(Boolean).join(' ') || 'Unknown';
-        var orderNum = ticket.order_number ? escapeHtml(ticket.order_number) : '—';
 
         content.innerHTML = `
             <div class="detail-section">
@@ -817,6 +943,10 @@
     //  ACTIONS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function updateStatus(id) {
+        if (!canEdit()) {
+            showToast('❌ Permission Denied', 'You do not have edit permission for tickets', 'error');
+            return;
+        }
         var status = document.getElementById("detailStatus").value;
         try {
             var res = await fetch(API_BASE + "/api/admin/ticket/" + id + "/status", {
@@ -830,19 +960,23 @@
                 openTicketModal(id); 
                 loadStats(); 
                 resetAndLoad();
-                showNotification('✅ Status Updated', 'Ticket status changed to ' + status);
+                showToast('✅ Status Updated', 'Ticket status changed to ' + status, 'success');
             } else {
-                showNotification('❌ Update Failed', data.error || 'Unknown error');
+                showToast('❌ Update Failed', data.error || 'Unknown error', 'error');
             }
         } catch (e) { 
-            showNotification('❌ Error', e.message);
+            showToast('❌ Error', e.message, 'error');
         }
     }
 
     async function addComment(id) {
+        if (!canEdit()) {
+            showToast('❌ Permission Denied', 'You do not have edit permission for tickets', 'error');
+            return;
+        }
         var content = document.getElementById("detailComment").value;
         if (!content) {
-            showNotification('⚠️ Please enter a comment', 'Comment is required');
+            showToast('⚠️ Please enter a comment', 'Comment is required', 'warning');
             return;
         }
         try {
@@ -858,20 +992,24 @@
                 openTicketModal(id); 
                 loadStats(); 
                 resetAndLoad();
-                showNotification('✅ Comment Added', 'Your comment has been added');
+                showToast('✅ Comment Added', 'Your comment has been added', 'success');
             } else {
-                showNotification('❌ Failed', 'Failed to add comment');
+                showToast('❌ Failed', 'Failed to add comment', 'error');
             }
         } catch (e) { 
-            showNotification('❌ Error', e.message);
+            showToast('❌ Error', e.message, 'error');
         }
     }
 
     async function sendReply(id) {
+        if (!canEdit()) {
+            showToast('❌ Permission Denied', 'You do not have edit permission for tickets', 'error');
+            return;
+        }
         var from = document.getElementById("detailReplyFrom").value;
         var rawBody = document.getElementById("detailReplyBody").value;
         if (!rawBody) {
-            showNotification('⚠️ Please enter a reply', 'Reply content is required');
+            showToast('⚠️ Please enter a reply', 'Reply content is required', 'warning');
             return;
         }
         var body = '<p>' + rawBody
@@ -891,52 +1029,142 @@
                 openTicketModal(id); 
                 loadStats(); 
                 resetAndLoad();
-                showNotification('✅ Reply Sent', 'Your reply has been sent to the customer');
+                showToast('✅ Reply Sent', 'Your reply has been sent to the customer', 'success');
             } else {
-                showNotification('❌ Failed', 'Failed to send reply');
+                showToast('❌ Failed', 'Failed to send reply', 'error');
             }
         } catch (e) { 
-            showNotification('❌ Error', e.message);
+            showToast('❌ Error', e.message, 'error');
         }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  INIT
+    //  NOTIFICATION POLLING
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    if (localStorage.getItem("token")) {
-        token = localStorage.getItem("token");
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-            currentUser = JSON.parse(storedUser);
+    function startNotificationPolling() {
+        if (notificationPollInterval) {
+            clearInterval(notificationPollInterval);
+            notificationPollInterval = null;
         }
-        updateUserDisplay();
-        document.getElementById("login").style.display = "none";
-        document.getElementById("dashboard").style.display = "block";
-        loadEmailSenders();
-        loadCategories();
-        loadLanguages();
-        loadStats();
+        
+        notificationPollInterval = setInterval(async function() {
+            if (!token) {
+                stopNotificationPolling();
+                return;
+            }
+            
+            try {
+                const res = await fetch(API_BASE + "/api/admin/notifications", {
+                    headers: { "Authorization": "Bearer " + token }
+                });
+                
+                if (res.status === 401) { 
+                    logout(); 
+                    return; 
+                }
+                
+                if (!res.ok) return;
+                
+                const data = await res.json();
+                if (!data.success || !data.notifications) return;
+                
+                let newNotifications = false;
+                for (const notif of data.notifications) {
+                    const id = notif.id || notif.ticket_id || notif.event + '_' + Date.now();
+                    if (!seenNotificationIds.has(id)) {
+                        seenNotificationIds.add(id);
+                        newNotifications = true;
+                        
+                        const eventType = notif.event || 'update';
+                        const title = `📢 ${eventType.toUpperCase()} - Ticket #${notif.id || ''}`;
+                        const message = notif.subject || `Ticket ${notif.id || ''} was ${eventType}`;
+                        showToast(title, message, eventType === 'created' ? 'success' : 'info');
+                        
+                        try {
+                            if (Notification.permission === 'granted') {
+                                new Notification(title, { 
+                                    body: message, 
+                                    icon: '/favicon.ico'
+                                });
+                            }
+                        } catch (e) {}
+                    }
+                }
+                
+                if (newNotifications) {
+                    console.log('🔄 New notifications received, refreshing tickets...');
+                    resetAndLoad();
+                }
+                
+            } catch (e) {
+                console.warn('Notification poll error:', e.message);
+            }
+        }, 15000);
+    }
+
+    function stopNotificationPolling() {
+        if (notificationPollInterval) {
+            clearInterval(notificationPollInterval);
+            notificationPollInterval = null;
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  TABS & FILTERING
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function switchTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll('.ticket-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
         resetAndLoad();
-        startNotificationPolling();
     }
 
-    // Check notification permission on load
-    checkNotificationBanner();
+    function resetAndLoad() {
+        if (!isRefreshing) {
+            isRefreshing = true;
+            loadTickets(false).finally(() => {
+                isRefreshing = false;
+            });
+        }
+    }
 
-    // Make functions globally accessible
-    window.login = login;
-    window.logout = logout;
-    window.toggleTheme = toggleTheme;
-    window.createTestTicket = createTestTicket;
-    window.switchTab = switchTab;
-    window.resetAndLoad = resetAndLoad;
-    window.loadTickets = loadTickets;
-    window.openTicketModal = openTicketModal;
-    window.closeModal = closeModal;
-    window.updateStatus = updateStatus;
-    window.addComment = addComment;
-    window.sendReply = sendReply;
-    window.requestNotificationPermission = requestNotificationPermission;
+    function getStatusesForTab(tab) {
+        var map = {
+            'active': ['new', 'open', 'in_progress', 'pending'],
+            'resolved': ['resolved'],
+            'closed': ['closed']
+        };
+        return map[tab] || [];
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  UTILITIES
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function formatDate(dateStr) {
+        if (!dateStr) return "Invalid Date";
+        try {
+            var cleaned = dateStr.replace(" ", "T");
+            if (!cleaned.includes("Z") && !cleaned.includes("+")) { cleaned += "Z"; }
+            var d = new Date(cleaned);
+            if (isNaN(d.getTime())) { return dateStr; }
+            return d.toLocaleString(undefined, {
+                year: "numeric", month: "short", day: "numeric",
+                hour: "2-digit", minute: "2-digit",
+                timeZone: userTimezone || "UTC"
+            });
+        } catch (e) { return dateStr; }
+    }
+
+    function getSlaDisplay(status) {
+        var map = {
+            'on_track': { cls: 'sla-on-track', label: '✅ On Track' },
+            'at_risk': { cls: 'sla-at-risk', label: '⚠️ At Risk' },
+            'critical': { cls: 'sla-critical', label: '🔴 Critical' },
+            'breached': { cls: 'sla-breached', label: '❌ Breached' },
+            'paused': { cls: 'sla-paused', label: '⏸️ Paused' }
+        };
+        return map[status] || map['on_track'];
+    }
 </script>
 </body>
 </html>

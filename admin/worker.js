@@ -1,11 +1,11 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  Dornori Ticketing Worker — v6.0 (safe category deletion)
+//  Dornori Ticketing Worker — v6.1 (SECURITY FIXES)
 //  Changes: 
-//  - Category deletion permanently removes all associated data
-//  - Safe deletion with no wildcard risks
-//  - Added general.default_language (no hardcoded 'en')
-//  - Added email.default_from (no hardcoded email fallbacks)
-//  - Email handler falls back to unclassified if category missing
+//  - EMPTY allowed_categories = NO category access (was ALL)
+//  - EMPTY allowed_languages = NO language access (was ALL)
+//  - User creation requires at least 1 language AND 1 category
+//  - Tickets query returns empty if user has no categories/languages
+//  - Stats respect category/language restrictions
 //  - getAllAutoReplies() handles legacy keys as 'default' language
 //  - saveAutoReply() allows empty from values
 //  - NO hardcoded defaults anywhere
@@ -136,19 +136,23 @@ async function hasPermission(email, permission, env) {
     const user = await getUser(email, env);
     if (!user) return false;
     if (user.role === 'admin') return true;
-    return user.permissions && user.permissions.includes(permission);
+    
+    // Parse permission string (e.g., "reports.view" -> page="reports", action="view")
+    const [page, action] = permission.split('.');
+    if (!page || !action) return false;
+    
+    // Check page_permissions structure: { page: { view: true, edit: false, ... } }
+    const pagePerms = user.page_permissions || {};
+    const perms = pagePerms[page] || {};
+    return perms[action] === true;
 }
 
 async function checkPagePermission(user, page) {
-    const pagePermissions = {
-        'dashboard': ['tickets.view'],
-        'reports': ['reports.view'],
-        'newsletter': ['newsletter.view'],
-        'settings': ['settings.view'],
-        'users': ['users.view_all']
-    };
-    const required = pagePermissions[page] || [];
-    return required.length === 0 || required.some(p => user.permissions && user.permissions.includes(p));
+    if (user.role === 'admin') return true;
+    const pagePerms = user.page_permissions || {};
+    const perms = pagePerms[page] || {};
+    // Check if user has at least view permission
+    return perms.view === true;
 }
 
 // ─── SANITIZATION ─────────────────────────────────────────────
@@ -858,17 +862,31 @@ async function getTicketByNumber(ticketNumber, env) {
 }
 
 // ─── TICKET LIST WITH CATEGORY FILTERING ────────────────────
+// SECURITY FIX: Empty categories/languages = NO access (not ALL)
 async function getTickets(filters, env, user) {
     let query = 'SELECT * FROM ticket_summary WHERE 1=1';
     const params = [];
 
-    if (user && user.allowed_languages && user.allowed_languages.length > 0 && user.role !== 'admin') {
+    // SECURITY FIX: If user is not admin, they MUST have at least one language AND one category
+    if (user && user.role !== 'admin') {
+        // Check if user has ANY languages configured
+        if (!user.allowed_languages || user.allowed_languages.length === 0) {
+            console.warn(`User ${user.email} has no languages configured - returning empty results`);
+            return [];
+        }
+        
+        // Check if user has ANY categories configured
+        if (!user.allowed_categories || user.allowed_categories.length === 0) {
+            console.warn(`User ${user.email} has no categories configured - returning empty results`);
+            return [];
+        }
+        
+        // Apply language filter (MUST have at least one)
         const langPlaceholders = user.allowed_languages.map(() => '?').join(',');
         query += ` AND language IN (${langPlaceholders})`;
         params.push(...user.allowed_languages);
-    }
-
-    if (user && user.allowed_categories && user.allowed_categories.length > 0 && user.role !== 'admin') {
+        
+        // Apply category filter (MUST have at least one)
         const catPlaceholders = user.allowed_categories.map(() => '?').join(',');
         query += ` AND category IN (${catPlaceholders})`;
         params.push(...user.allowed_categories);
@@ -906,17 +924,31 @@ async function getTickets(filters, env, user) {
     return r.results || [];
 }
 
+// SECURITY FIX: Empty categories/languages = NO access (not ALL)
 async function getTotalTicketCount(filters, env, user) {
     let query = 'SELECT COUNT(*) as total FROM ticket_summary WHERE 1=1';
     const params = [];
 
-    if (user && user.allowed_languages && user.allowed_languages.length > 0 && user.role !== 'admin') {
+    // SECURITY FIX: If user is not admin, they MUST have at least one language AND one category
+    if (user && user.role !== 'admin') {
+        // Check if user has ANY languages configured
+        if (!user.allowed_languages || user.allowed_languages.length === 0) {
+            console.warn(`User ${user.email} has no languages configured - returning 0`);
+            return 0;
+        }
+        
+        // Check if user has ANY categories configured
+        if (!user.allowed_categories || user.allowed_categories.length === 0) {
+            console.warn(`User ${user.email} has no categories configured - returning 0`);
+            return 0;
+        }
+        
+        // Apply language filter (MUST have at least one)
         const langPlaceholders = user.allowed_languages.map(() => '?').join(',');
         query += ` AND language IN (${langPlaceholders})`;
         params.push(...user.allowed_languages);
-    }
-
-    if (user && user.allowed_categories && user.allowed_categories.length > 0 && user.role !== 'admin') {
+        
+        // Apply category filter (MUST have at least one)
         const catPlaceholders = user.allowed_categories.map(() => '?').join(',');
         query += ` AND category IN (${catPlaceholders})`;
         params.push(...user.allowed_categories);
@@ -939,17 +971,31 @@ async function getTotalTicketCount(filters, env, user) {
 }
 
 // ─── STATS ────────────────────────────────────────────────────
+// SECURITY FIX: Empty categories/languages = NO access (not ALL)
 async function getStats(env, user) {
     let query = 'SELECT status, COUNT(*) as count FROM tickets WHERE 1=1';
     const params = [];
     
-    if (user && user.allowed_languages && user.allowed_languages.length > 0 && user.role !== 'admin') {
+    // SECURITY FIX: If user is not admin, they MUST have at least one language AND one category
+    if (user && user.role !== 'admin') {
+        // Check if user has ANY languages configured
+        if (!user.allowed_languages || user.allowed_languages.length === 0) {
+            console.warn(`User ${user.email} has no languages configured - returning empty stats`);
+            return { new: 0, open: 0, in_progress: 0, pending: 0, resolved: 0, closed: 0 };
+        }
+        
+        // Check if user has ANY categories configured
+        if (!user.allowed_categories || user.allowed_categories.length === 0) {
+            console.warn(`User ${user.email} has no categories configured - returning empty stats`);
+            return { new: 0, open: 0, in_progress: 0, pending: 0, resolved: 0, closed: 0 };
+        }
+        
+        // Apply language filter (MUST have at least one)
         const langPlaceholders = user.allowed_languages.map(() => '?').join(',');
         query += ` AND language IN (${langPlaceholders})`;
         params.push(...user.allowed_languages);
-    }
-    
-    if (user && user.allowed_categories && user.allowed_categories.length > 0 && user.role !== 'admin') {
+        
+        // Apply category filter (MUST have at least one)
         const catPlaceholders = user.allowed_categories.map(() => '?').join(',');
         query += ` AND category IN (${catPlaceholders})`;
         params.push(...user.allowed_categories);
@@ -1615,7 +1661,7 @@ export default {
                         email: user.email, 
                         name: user.name, 
                         role: user.role, 
-                        permissions: user.permissions, 
+                        page_permissions: user.page_permissions, 
                         allowed_languages: user.allowed_languages, 
                         allowed_emails: user.allowed_emails,
                         allowed_categories: user.allowed_categories,
@@ -1636,7 +1682,7 @@ export default {
                         email: user.email, 
                         name: user.name, 
                         role: user.role, 
-                        permissions: user.permissions, 
+                        page_permissions: user.page_permissions, 
                         allowed_languages: user.allowed_languages, 
                         allowed_emails: user.allowed_emails,
                         allowed_categories: user.allowed_categories,
@@ -1688,12 +1734,13 @@ export default {
                 if (!normalizedNewEmail || !name || !password) return json({ error: 'Missing required fields' }, 400);
                 if (!password || password.length < 8) return json({ error: 'Password must be at least 8 characters' }, 400);
                 if (!allowed_languages || allowed_languages.length === 0) return json({ error: 'At least one language required' }, 400);
+                if (!allowed_categories || allowed_categories.length === 0) return json({ error: 'At least one category required' }, 400);
                 try {
                     await validateRole(role || 'agent');
                     for (const lang of allowed_languages) {
                         await validateLanguage(lang, env);
                     }
-                    for (const cat of allowed_categories || []) {
+                    for (const cat of allowed_categories) {
                         await validateCategory(cat, env);
                     }
                     const hash = await sha256(password);

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reports – Dornori</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+        .container { max-width: 1200px !important; }
+    </style>
+</head>
+<body>
+<!-- reports.html v1.2 - Added permission enforcement -->
+<div class="container">
+    <div class="header">
+        <h1>📊 Reports</h1>
+        <div class="header-right">
+            <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+            <a href="dashboard.html">← Dashboard</a>
+            <a href="newsletter.html">📧 Newsletter</a>
+            <a href="settings.html">⚙️ Settings</a>
+        </div>
+    </div>
+    <div id="reportContent"><div class="loading">Loading reports...</div></div>
+</div>
+
+<script>
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  CONFIG
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  THEME TOGGLE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function setTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
+        const toggles = document.querySelectorAll('.theme-toggle');
+        toggles.forEach(t => t.textContent = theme === 'dark' ? '☀️' : '🌙');
+    }
+
+    function toggleTheme() {
+        const current = document.documentElement.getAttribute('data-theme') || 'light';
+        setTheme(current === 'light' ? 'dark' : 'light');
+    }
+
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  AUTH CHECK
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    var token = localStorage.getItem("token");
+    if (!token) { window.location.href = "/admin"; }
+    
+    var currentUser = null;
+    try {
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) currentUser = JSON.parse(storedUser);
+    } catch (e) {}
+    
+    if (!currentUser || currentUser.role !== 'admin') {
+        document.getElementById("reportContent").innerHTML = '<div class="error">⛔ Admin only. You don\'t have permission to view reports.</div>';
+    } else {
+        loadReports();
+    }
+        var content = document.getElementById("reportContent");
+        try {
+            var res = await fetch(API_BASE + "/api/admin/reports", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (res.status === 401) {
+                localStorage.removeItem("token");
+                window.location.href = "/admin";
+                return;
+            }
+            var data = await res.json();
+            if (data.success) {
+                renderReports(data.data);
+            } else {
+                content.innerHTML = '<div class="loading">Error loading reports</div>';
+            }
+        } catch (e) {
+            content.innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
+        }
+    }
+
+    function renderReports(data) {
+        var total = 0;
+        for (var key in data.status) { total += data.status[key]; }
+
+        var html = '<div class="stats-grid">';
+        html += '<div class="stat-card"><div class="number">' + total + '</div><div class="label">Total Tickets</div></div>';
+        html += '<div class="stat-card"><div class="number">' + data.sla.on_track + '</div><div class="label">On Track</div><div class="sub">SLA</div></div>';
+        html += '<div class="stat-card"><div class="number">' + data.sla.at_risk + '</div><div class="label">At Risk</div><div class="sub">SLA</div></div>';
+        html += '<div class="stat-card"><div class="number">' + data.sla.breached + '</div><div class="label">Breached</div><div class="sub">SLA</div></div>';
+        html += '</div>';
+
+        // Pie chart (conic gradient)
+        var statusColors = {
+            new: "#5aa9ff",
+            open: "#5ae05a",
+            in_progress: "#ffb347",
+            pending: "#ff6b6b",
+            resolved: "#4ae0e0",
+            closed: "#8892b0"
+        };
+        var pieData = [];
+        for (var key in data.status) {
+            if (data.status[key] > 0) {
+                pieData.push({ label: key, value: data.status[key], color: statusColors[key] || "#888" });
+            }
+        }
+        var totalPie = pieData.reduce(function(s, d) { return s + d.value; }, 0);
+        var conicParts = "";
+        var cum = 0;
+        for (var i = 0; i < pieData.length; i++) {
+            var d = pieData[i];
+            var percent = d.value / totalPie * 100;
+            conicParts += d.color + " " + cum + "% " + (cum + percent) + "%";
+            if (i < pieData.length - 1) conicParts += ", ";
+            cum += percent;
+        }
+        var pieHtml = '<div class="pie-container"><div class="pie-svg" style="background:conic-gradient(' + conicParts + ')"></div><div class="pie-legend">';
+        for (var i = 0; i < pieData.length; i++) {
+            var d = pieData[i];
+            pieHtml += '<div class="item"><span class="color-box" style="background:' + d.color + '"></span>' + d.label + ' (' + d.value + ')</div>';
+        }
+        pieHtml += '</div></div>';
+
+        // Bar chart
+        var dailyData = data.daily;
+        var maxDaily = 0;
+        for (var i = 0; i < dailyData.length; i++) {
+            if (dailyData[i].count > maxDaily) maxDaily = dailyData[i].count;
+        }
+        var barHtml = '<div class="bar-chart">';
+        for (var i = 0; i < dailyData.length; i++) {
+            var day = dailyData[i];
+            var heightPercent = maxDaily > 0 ? (day.count / maxDaily * 100) : 0;
+            barHtml += '<div class="bar" style="height:' + Math.max(2, heightPercent) + '%;"><span class="value">' + day.count + '</span><span class="day-label">' + day.day.slice(5) + '</span></div>';
+        }
+        barHtml += '</div>';
+
+        // Categories table
+        var catHtml = '<table><tr><th>Category</th><th>Count</th></tr>';
+        for (var key in data.categories) {
+            catHtml += '<tr><td>' + key + '</td><td>' + data.categories[key] + '</td></tr>';
+        }
+        catHtml += '</table>';
+
+        // Top senders
+        var senderHtml = '<table><tr><th>Email</th><th>Tickets</th></tr>';
+        for (var i = 0; i < data.top_senders.length; i++) {
+            senderHtml += '<tr><td>' + data.top_senders[i].sender_email + '</td><td>' + data.top_senders[i].count + '</td></tr>';
+        }
+        senderHtml += '</table>';
+
+        html += '<div class="report-row"><div class="report-box"><h3>📊 Status Breakdown</h3>' + pieHtml + '</div><div class="report-box"><h3>📈 Daily Volume (last 30 days)</h3>' + barHtml + '</div></div>';
+        html += '<div class="report-row"><div class="report-box"><h3>📂 Categories</h3>' + catHtml + '</div><div class="report-box"><h3>🏆 Top Senders</h3>' + senderHtml + '</div></div>';
+
+        document.getElementById("reportContent").innerHTML = html;
+    }
+
+    loadReports();
+</script>
+</body>
+</html>
