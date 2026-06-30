@@ -309,35 +309,27 @@
     };
     
     const PAGE_PERMISSIONS = {
-        tickets: { label: 'Tickets', actions: ['view', 'edit', 'create', 'delete'] },
-        reports: { label: 'Reports', actions: ['view', 'edit', 'create', 'delete'] },
-        users: { label: 'Users', actions: ['view', 'edit', 'create', 'delete'] },
-        settings: { label: 'Settings', actions: ['view', 'edit', 'create', 'delete'] },
-        newsletter: { label: 'Newsletter', actions: ['view', 'edit', 'create', 'delete'] }
+        tickets: { label: 'Tickets', perms: ['view', 'edit', 'create', 'delete'] },
+        reports: { label: 'Reports', perms: ['view', 'edit', 'create', 'delete'] },
+        users: { label: 'Users', perms: ['view', 'edit', 'create', 'delete'] },
+        settings: { label: 'Settings', perms: ['view', 'edit', 'create', 'delete'] },
+        newsletter: { label: 'Newsletter', perms: ['view', 'edit', 'create', 'delete'] }
     };
 
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     let currentUser = storedUser ? JSON.parse(storedUser) : null;
-    const isAdmin = currentUser && currentUser.role === 'admin';
-    const hasUsersPermission = isAdmin || (currentUser && currentUser.page_permissions && currentUser.page_permissions.users && currentUser.page_permissions.users.view);
-    if (!token || !currentUser || (!isAdmin && !hasUsersPermission)) {
+   const isAdmin = currentUser && currentUser.role === 'admin';
+const hasUsersPermission = currentUser && currentUser.permissions && currentUser.permissions.includes('users.view');
+if (!token || !currentUser || (!isAdmin && !hasUsersPermission)) {
         document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to manage users.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
         throw new Error('Users access required');
     }
 
-    const pagePerms = (currentUser && currentUser.page_permissions) || {};
-    
-    function hasPageAccess(page) {
-        if (currentUser.role === 'admin') return true;
-        const perms = pagePerms[page] || {};
-        return perms.view === true;
-    }
-    
-    // Show all nav buttons except current page (users)
-    if (hasPageAccess('reports')) document.getElementById('nav-reports').style.display = '';
-    if (hasPageAccess('newsletter')) document.getElementById('nav-newsletter').style.display = '';
-    if (hasPageAccess('settings')) document.getElementById('nav-settings').style.display = '';
+    const perms = (currentUser && currentUser.permissions) || [];
+    if (!perms.includes('reports.view'))    document.getElementById('nav-reports').style.display = 'none';
+    if (!perms.includes('newsletter.view')) document.getElementById('nav-newsletter').style.display = 'none';
+    if (!perms.includes('settings.view'))   document.getElementById('nav-settings').style.display = 'none';
 
     let allUsers = [];
     let supportEmails = [];
@@ -782,13 +774,12 @@
         for (const [pageKey, pageData] of Object.entries(PAGE_PERMISSIONS)) {
             if (!newPagePerms[pageKey]) newPagePerms[pageKey] = {};
             html += `<div style="display: grid; grid-template-columns: 150px 80px 80px 80px 80px; gap: 10px; margin-bottom: 8px; align-items: center;">
-                <div style="font-size: 14px; font-weight: 500;">${pageData.label}</div>`;
-            for (const action of pageData.actions) {
-                const checked = newPagePerms[pageKey][action] || false;
-                html += `<label style="text-align: center; margin: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                <div style="font-size: 14px;">${pageData.label}</div>`;
+            for (const perm of pageData.perms) {
+                const checked = newPagePerms[pageKey][perm] || false;
+                html += `<label style="text-align: center; margin: 0; cursor: pointer;">
                     <input type="checkbox" ${checked ? 'checked' : ''} 
-                        onchange="newPagePerms['${pageKey}']['${action}'] = this.checked" 
-                        style="cursor: pointer;">
+                        onchange="newPagePerms['${pageKey}']['${perm}'] = this.checked">
                 </label>`;
             }
             html += `</div>`;
@@ -802,13 +793,12 @@
         for (const [pageKey, pageData] of Object.entries(PAGE_PERMISSIONS)) {
             if (!editPagePerms[pageKey]) editPagePerms[pageKey] = {};
             html += `<div style="display: grid; grid-template-columns: 150px 80px 80px 80px 80px; gap: 10px; margin-bottom: 8px; align-items: center;">
-                <div style="font-size: 14px; font-weight: 500;">${pageData.label}</div>`;
-            for (const action of pageData.actions) {
-                const checked = editPagePerms[pageKey][action] || false;
-                html += `<label style="text-align: center; margin: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                <div style="font-size: 14px;">${pageData.label}</div>`;
+            for (const perm of pageData.perms) {
+                const checked = editPagePerms[pageKey][perm] || false;
+                html += `<label style="text-align: center; margin: 0; cursor: pointer;">
                     <input type="checkbox" ${checked ? 'checked' : ''} 
-                        onchange="editPagePerms['${pageKey}']['${action}'] = this.checked" 
-                        style="cursor: pointer;">
+                        onchange="editPagePerms['${pageKey}']['${perm}'] = this.checked">
                 </label>`;
             }
             html += `</div>`;

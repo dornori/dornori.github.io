@@ -229,25 +229,16 @@ const token = localStorage.getItem('token');
 
 const storedUser = localStorage.getItem('user');
 const currentUser = storedUser ? JSON.parse(storedUser) : null;
-const isAdmin = currentUser && currentUser.role === 'admin';
-const hasNewsletterPermission = isAdmin || (currentUser && currentUser.page_permissions && currentUser.page_permissions.newsletter && currentUser.page_permissions.newsletter.view);
+const hasNewsletterPermission = currentUser && currentUser.permissions && currentUser.permissions.includes('newsletter.view');
 if (!token || !currentUser || !hasNewsletterPermission) {
     document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to access newsletter.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
     throw new Error('Newsletter access required');
 }
 
-const pagePerms = (currentUser && currentUser.page_permissions) || {};
-
-function hasPageAccess(page) {
-    if (currentUser.role === 'admin') return true;
-    const perms = pagePerms[page] || {};
-    return perms.view === true;
-}
-
-// Show all nav buttons except current page (newsletter)
-if (hasPageAccess('reports'))   document.getElementById('nav-reports').style.display = '';
-if (hasPageAccess('settings'))  document.getElementById('nav-settings').style.display = '';
-if (hasPageAccess('users'))     document.getElementById('nav-users').style.display = '';
+const perms = (currentUser && currentUser.permissions) || [];
+if (!perms.includes('reports.view'))    document.getElementById('nav-reports').style.display = 'none';
+if (!perms.includes('settings.view'))   document.getElementById('nav-settings').style.display = 'none';
+if (!perms.includes('users.view'))      document.getElementById('nav-users').style.display = 'none';
 
 async function api(path, opts = {}) {
     opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };

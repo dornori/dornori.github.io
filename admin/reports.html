@@ -7,15 +7,44 @@
     <link rel="stylesheet" href="style.css" />
     <style>
         .container { max-width: 1200px !important; }
+        .notification-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px 20px;
+            max-width: 380px;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease;
+            border-left: 4px solid var(--accent);
+        }
+        .notification-toast h4 { margin: 0 0 5px 0; font-size: 14px; }
+        .notification-toast p { margin: 0; font-size: 13px; color: var(--text-muted); }
+        .notification-toast .close-toast {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+        .notification-toast .close-toast:hover { color: var(--text); }
+        .perm-denied { padding: 40px; text-align: center; }
+        .perm-denied h2 { color: #ef4444; margin-bottom: 10px; }
     </style>
 </head>
 <body>
-<!-- reports.html v1.4 - Aligned auth with settings.html, permission-based nav hiding -->
 <div class="container">
     <div class="header">
         <h1>📊 Reports</h1>
         <div class="header-right">
                 <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+                <a id="nav-dashboard" href="dashboard.html">🎫 Dashboard</a>
                 <a id="nav-reports" href="reports.html" style="display:none;">📊 Reports</a>
                 <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 Newsletter</a>
                 <a id="nav-settings" href="settings.html" style="display:none;">⚙️ Settings</a>
@@ -24,14 +53,66 @@
                 <button onclick="logout()">Logout</button>
             </div>
     </div>
-    <div id="reportContent"><div class="loading">Loading reports...</div></div>
+
+    <div id="permDenied" class="card perm-denied" style="display:none;">
+        <h2>⛔ Permission Denied</h2>
+        <p>You don't have permission to view reports.</p>
+        <a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a>
+    </div>
+
+    <div id="reportContent" style="display:none;"><div class="loading">Loading reports...</div></div>
 </div>
 
 <script>
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  CONFIG
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
+
+    let token = null;
+    let currentUser = null;
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  PERMISSION SERVICE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const PermissionService = {
+        can(action, subject = 'reports') {
+            if (!currentUser) return false;
+            if (currentUser.role === 'admin') return true;
+            
+            const pagePerms = currentUser.page_permissions || {};
+            const perms = pagePerms[subject] || {};
+            return perms[action] === true;
+        },
+
+        hasPageAccess(page) {
+            if (!currentUser) return false;
+            if (currentUser.role === 'admin') return true;
+            
+            const pagePerms = currentUser.page_permissions || {};
+            const perms = pagePerms[page] || {};
+            return perms.view === true;
+        }
+    };
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  TOAST NOTIFICATIONS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function showToast(title, message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = 'notification-toast';
+        const colors = {
+            info: 'var(--accent)',
+            success: '#22c55e',
+            error: '#ef4444',
+            warning: '#f59e0b'
+        };
+        toast.style.borderLeftColor = colors[type] || colors.info;
+        toast.innerHTML = `
+            <button class="close-toast" onclick="this.parentElement.remove()">×</button>
+            <h4>${title}</h4>
+            <p>${message}</p>
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 5000);
+    }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  THEME TOGGLE
@@ -48,24 +129,63 @@
     setTheme(localStorage.getItem('theme') || 'light');
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  AUTH CHECK
+    //  AUTH CHECK & INIT
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    const currentUser = storedUser ? JSON.parse(storedUser) : null;
-    const hasReportsPermission = currentUser && currentUser.permissions && currentUser.permissions.includes('reports.view');
-    if (!token || !currentUser || !hasReportsPermission) {
-        document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to view reports.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
-        throw new Error('Reports access required');
+    function initPage() {
+        token = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+        currentUser = storedUser ? JSON.parse(storedUser) : null;
+
+        if (!token || !currentUser) {
+            window.location.href = 'dashboard.html';
+            return;
+        }
+
+        if (!PermissionService.can('read', 'reports')) {
+            document.getElementById('permDenied').style.display = 'block';
+            document.getElementById('reportContent').style.display = 'none';
+            return;
+        }
+
+        document.getElementById('permDenied').style.display = 'none';
+        document.getElementById('reportContent').style.display = 'block';
+        
+        updateNavigation();
+        renderUserBadge();
+        loadReports();
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  NAV VISIBILITY
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    const perms = (currentUser && currentUser.permissions) || [];
-    if (!perms.includes('newsletter.view')) document.getElementById('nav-newsletter').style.display = 'none';
-    if (!perms.includes('settings.view'))   document.getElementById('nav-settings').style.display = 'none';
-    if (!perms.includes('users.view'))      document.getElementById('nav-users').style.display = 'none';
+    function updateNavigation() {
+        const navItems = {
+            'nav-dashboard': 'dashboard',
+            'nav-reports': 'reports',
+            'nav-newsletter': 'newsletter',
+            'nav-settings': 'settings',
+            'nav-users': 'users'
+        };
+
+        for (const [id, page] of Object.entries(navItems)) {
+            const el = document.getElementById(id);
+            if (!el) continue;
+            
+            // Always show dashboard and current page
+            if (page === 'dashboard') {
+                el.style.display = '';
+            } else if (page === 'reports') {
+                el.style.display = 'none'; // Hide current page
+            } else if (PermissionService.hasPageAccess(page)) {
+                el.style.display = '';
+            } else {
+                el.style.display = 'none';
+            }
+        }
+    }
+
+    function logout() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = 'dashboard.html';
+    }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  LOAD & RENDER
@@ -77,8 +197,8 @@
                 headers: { "Authorization": "Bearer " + token }
             });
             if (res.status === 401 || res.status === 403) {
-                localStorage.removeItem("token");
-                throw new Error('Unauthorized');
+                logout();
+                return;
             }
             var data = await res.json();
             if (data.success) {
@@ -147,8 +267,6 @@
         document.getElementById("reportContent").innerHTML = html;
     }
 
-    loadReports();
-
     function renderUserBadge() {
         const u = currentUser;
         if (!u) return;
@@ -157,12 +275,9 @@
         const el = document.getElementById('userDisplay');
         if (el) el.innerHTML = `<div class="user-badge"><div class="user-badge-avatar">${initials}</div><div class="user-badge-info"><span class="user-badge-name">${u.name || u.email}</span><span class="user-badge-meta">${meta}</span></div></div>`;
     }
-    renderUserBadge();
-    function logout() {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = 'dashboard.html';
-    }
+
+    // Initialize on page load
+    initPage();
 </script>
 </body>
 </html>

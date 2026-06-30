@@ -166,40 +166,25 @@
     //  PERMISSION SERVICE
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     const PermissionService = {
-        updateUI() {
-            this.updateNavigation();
-        },
+        permissions: [],
+        
+        updateUI() {},
 
-        can(action, page = 'tickets') {
+        can(permission) {
             if (!currentUser) return false;
             if (currentUser.role === 'admin') return true;
-            const pagePerms = currentUser.page_permissions || {};
-            const perms = pagePerms[page] || {};
-            return perms[action] === true;
+            return this.permissions.includes(permission);
         },
 
         hasPageAccess(page) {
-            if (!currentUser) return false;
-            if (currentUser.role === 'admin') return true;
-            const pagePerms = currentUser.page_permissions || {};
-            const perms = pagePerms[page] || {};
-            return perms.view === true;
-        },
-
-        updateNavigation() {
-            const navs = [
-                { id: 'nav-reports', page: 'reports' },
-                { id: 'nav-newsletter', page: 'newsletter' },
-                { id: 'nav-settings', page: 'settings' },
-                { id: 'nav-users', page: 'users' }
-            ];
-            
-            for (const nav of navs) {
-                const el = document.getElementById(nav.id);
-                if (el) {
-                    el.style.display = this.hasPageAccess(nav.page) ? '' : 'none';
-                }
-            }
+            const pagePerms = {
+                'dashboard': 'tickets.view',
+                'reports': 'reports.view',
+                'newsletter': 'newsletter.view',
+                'settings': 'settings.edit'
+            };
+            const perm = pagePerms[page];
+            return !perm || this.can(perm);
         }
     };
 
@@ -373,6 +358,7 @@
             try {
                 token = savedToken;
                 currentUser = JSON.parse(savedUser);
+                PermissionService.permissions = currentUser.permissions || [];
                 
                 if (currentUser) {
                     document.getElementById('login').style.display = 'none';
@@ -437,7 +423,7 @@
                     email: data.user.email,
                     name: data.user.name,
                     role: data.user.role,
-                    page_permissions: data.user.page_permissions || {},
+                    permissions: data.user.permissions || [],
                     allowed_languages: data.user.allowed_languages || [],
                     allowed_emails: data.user.allowed_emails || [],
                     allowed_categories: data.user.allowed_categories || [],
@@ -445,6 +431,7 @@
                 };
                 localStorage.setItem("token", token);
                 localStorage.setItem("user", JSON.stringify(currentUser));
+                PermissionService.permissions = currentUser.permissions;
                 console.log('✅ Login successful for:', email, 'Role:', currentUser.role);
                 
                 PermissionService.updateUI();
@@ -500,7 +487,7 @@
         stopNotificationPolling();
         seenNotificationIds.clear();
         token = null;
-        currentUser = { email: null, name: null, role: null, page_permissions: {} };
+        currentUser = { email: null, name: null, role: null, permissions: [] };
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         PermissionService.permissions = [];
