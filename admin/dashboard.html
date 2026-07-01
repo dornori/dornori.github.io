@@ -21,6 +21,7 @@
         <div class="header">
             <h1>🎫 Dornori Ticketing</h1>
             <div class="header-right">
+                <span id="wsIndicator" style="font-size:12px;color:var(--text-muted);margin-right:12px;"></span>
                 <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
                 <a id="nav-reports" href="reports.html" style="display:none;">📊 Reports</a>
                 <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 Newsletter</a>
@@ -74,6 +75,7 @@
 
 <script>
     const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
+    const WS_URL = 'wss://dornori-ticketing.dornori-info.workers.dev/api/admin/ws';
     
     let token = null;
     let currentUser = null;
@@ -82,10 +84,7 @@
     let currentOffset = 0;
     let currentTotal = 0;
     let loadedTickets = [];
-    let seenNotificationIds = new Set();
-    let isFirstNotificationPoll = true;
     let emailSenders = [];
-    let notificationPollInterval = null;
     let allLanguages = [];
     let LANG_NAMES = {};
     let languagesLoaded = false;
@@ -93,6 +92,112 @@
     let allCategories = [];
     let isRefreshing = false;
     let userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+    // ─── WEBSOCKET ──────────────────────────────────────────
+    let ws = null;
+    let wsReconnectTimer = null;
+
+    function connectWebSocket() {
+        if (!token) return;
+        
+        try {
+            ws = new WebSocket(WS_URL + '?token=' + encodeURIComponent(token));
+            
+            ws.onopen = function() {
+                console.log('🔌 WebSocket connected');
+                document.getElementById('wsIndicator').textContent = '🟢 Live';
+                document.getElementById('wsIndicator').style.color = '#22c55e';
+            };
+            
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'pong') return;
+                    
+                    if (data.type === 'new_ticket' && data.ticket) {
+                        const t = data.ticket;
+                        console.log('🎫 New ticket via WebSocket:', t.ticket_number);
+                        
+                        // Build a ticket-like object for injectTicketUpdate
+                        const ticketObj = {
+                            id: t.id || 0,
+                            ticket_id: t.id || 0,
+                            ticket_number: t.ticket_number,
+                            category: t.category,
+                            sla_status: t.sla_status,
+                            status: t.status,
+                            subject: t.subject,
+                            sender_name: t.sender_name,
+                            sender_email: t.sender_email || '',
+                            last_action: t.last_updated,
+                            created_at: t.last_updated,
+                            language: t.language || 'en'
+                        };
+                        
+                        // Try to update the list without full reload
+                        upsertTicketInList(ticketObj, true);
+                        
+                        // Show toast
+                        showToast('🎫 New Ticket', '#' + t.ticket_number + ' - ' + (t.subject || 'No subject'), 'success');
+                        
+                        // Browser notification
+                        try {
+                            if (Notification.permission === 'granted') {
+                                new Notification('🎫 New Ticket #' + t.ticket_number, { 
+                                    body: t.subject || 'New ticket arrived',
+                                    icon: '/favicon.ico'
+                                });
+                            }
+                        } catch(e) {}
+                        
+                        // Reload stats
+                        loadStats();
+                    }
+                } catch(e) {
+                    console.warn('WebSocket message parse error:', e.message);
+                }
+            };
+            
+            ws.onclose = function(event) {
+                console.log('🔌 WebSocket closed:', event.code);
+                document.getElementById('wsIndicator').textContent = '🔴 Offline';
+                document.getElementById('wsIndicator').style.color = '#ef4444';
+                ws = null;
+                
+                // Reconnect after 5 seconds
+                if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+                wsReconnectTimer = setTimeout(connectWebSocket, 5000);
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+            
+            // Keepalive ping every 30 seconds
+            const pingInterval = setInterval(function() {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'ping' }));
+                } else {
+                    clearInterval(pingInterval);
+                }
+            }, 30000);
+            
+        } catch(e) {
+            console.error('WebSocket connection failed:', e.message);
+            if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+            wsReconnectTimer = setTimeout(connectWebSocket, 5000);
+        }
+    }
+
+    function disconnectWebSocket() {
+        if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+        if (ws) {
+            ws.onclose = null; // Prevent auto-reconnect
+            ws.close();
+            ws = null;
+        }
+    }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PERMISSION SERVICE
@@ -349,7 +454,7 @@
                     ]).then(() => {
                         loadStats();
                         resetAndLoad();
-                        startNotificationPolling();
+                        connectWebSocket();  // ← WEBSOCKET INSTEAD OF POLLING
                         checkNotificationBanner();
                     });
                 }
@@ -361,10 +466,6 @@
         }
     });
 
-    // Pull the latest permissions/role from the server. Local storage only
-    // reflects what was true at login time, so without this a permission
-    // change made by an admin would not take effect until the user logs
-    // out and back in.
     async function refreshCurrentUser() {
         try {
             const res = await fetch(API_BASE + "/api/admin/me", {
@@ -449,7 +550,7 @@
                 ]);
                 loadStats();
                 resetAndLoad();
-                startNotificationPolling();
+                connectWebSocket();  // ← WEBSOCKET
                 checkNotificationBanner();
                 showToast('✅ Login Successful', 'Welcome to Dornori Ticketing', 'success');
             } else {
@@ -487,16 +588,15 @@
     }
 
     function logout() {
-        stopNotificationPolling();
-        seenNotificationIds.clear();
+        disconnectWebSocket();  // ← CLEANUP WEBSOCKET
         token = null;
         currentUser = { email: null, name: null, role: null, page_permissions: {} };
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        PermissionService.permissions = [];
         emailSenders = [];
         document.getElementById("login").style.display = "block";
         document.getElementById("dashboard").style.display = "none";
+        document.getElementById('wsIndicator').textContent = '';
         showToast('👋 Logged Out', 'See you next time!', 'info');
     }
 
@@ -552,11 +652,10 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD EMAIL SENDERS - FIXED
+    //  LOAD EMAIL SENDERS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadEmailSenders() {
         try {
-            // Try to get fresh user profile
             try {
                 const profileRes = await fetch(API_BASE + '/api/admin/user-profile', {
                     headers: { 'Authorization': 'Bearer ' + token }
@@ -574,13 +673,11 @@
                 console.warn('Could not refresh profile, using cached data');
             }
             
-            // Non-admin: use allowed emails from profile
             if (currentUser.role !== 'admin') {
                 emailSenders = currentUser.allowed_emails || [];
                 return;
             }
             
-            // Admin: fetch all email addresses
             const res = await fetch(API_BASE + "/api/admin/email-addresses?active_only=true", {
                 headers: { "Authorization": "Bearer " + token }
             });
@@ -592,7 +689,6 @@
             
             const data = await res.json();
             if (data.success) {
-                // Get just the email addresses as strings
                 const allAddresses = data.addresses || [];
                 emailSenders = allAddresses
                     .map(addr => addr.address || addr.email)
@@ -723,24 +819,8 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  TARGETED TICKET INJECTION (no full-list DB refetch)
+    //  TARGETED TICKET INJECTION
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function injectTicketUpdate(ticketDbId, eventType) {
-        if (!ticketDbId) return;
-        try {
-            var res = await fetch(API_BASE + "/api/admin/ticket/" + ticketDbId, {
-                headers: { "Authorization": "Bearer " + token }
-            });
-            if (!res.ok) return;
-            var data = await res.json();
-            var ticket = data.data || data.ticket || data;
-            if (!ticket || !ticket.id) return;
-            upsertTicketInList(ticket, eventType === 'created');
-        } catch (e) {
-            console.warn('Failed to fetch ticket for injection:', e.message);
-        }
-    }
-
     function ticketMatchesCurrentFilters(t) {
         var statuses = getStatusesForTab(currentTab);
         if (statuses.length > 0 && statuses.indexOf(t.status) === -1) return false;
@@ -780,9 +860,6 @@
             if (compareTickets(ticket, loadedTickets[i], sort) < 0) { insertAt = i; break; }
         }
 
-        // Would land at the bottom of what's currently loaded - that's outside
-        // the visible window, so skip the DOM churn; it'll show up naturally
-        // via "Load more" or the next filter/tab change.
         if (insertAt >= loadedTickets.length && loadedTickets.length > 0) return;
 
         loadedTickets.splice(insertAt, 0, ticket);
@@ -826,7 +903,7 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  MODAL - FIXED EMAIL DROPDOWN
+    //  MODAL
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function openModal() {
         document.getElementById("ticketModal").classList.add("active");
@@ -886,10 +963,8 @@
         }
         statusDropdown += '</select>';
 
-        // FIXED: Email sender dropdown - just email addresses, no hardcoded fallback
         var senderDropdown = '<select id="detailReplyFrom">';
         if (emailSenders && emailSenders.length > 0) {
-            // Select first one by default
             var isFirst = true;
             for (var i = 0; i < emailSenders.length; i++) {
                 var email = emailSenders[i];
@@ -898,7 +973,6 @@
                 isFirst = false;
             }
         } else {
-            // No senders available - show empty state
             senderDropdown += '<option value="" disabled selected>No email senders available</option>';
         }
         senderDropdown += '</select>';
@@ -1063,95 +1137,6 @@
             }
         } catch (e) { 
             showToast('❌ Error', e.message, 'error');
-        }
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  NOTIFICATION POLLING
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function startNotificationPolling() {
-        if (notificationPollInterval) {
-            clearInterval(notificationPollInterval);
-            notificationPollInterval = null;
-        }
-
-        isFirstNotificationPoll = true;
-
-        async function pollNotifications() {
-            if (!token) {
-                stopNotificationPolling();
-                return;
-            }
-
-            const suppressToast = isFirstNotificationPoll;
-
-            try {
-                const res = await fetch(API_BASE + "/api/admin/notifications", {
-                    headers: { "Authorization": "Bearer " + token }
-                });
-                
-                if (res.status === 401) { 
-                    logout(); 
-                    return; 
-                }
-                
-                if (!res.ok) return;
-                
-                const data = await res.json();
-                if (!data.success || !data.notifications) return;
-                
-                let newNotifications = false;
-                for (const notif of data.notifications) {
-                    const id = notif.notif_key || notif.id || notif.event + '_' + Date.now();
-                    if (!seenNotificationIds.has(id)) {
-                        seenNotificationIds.add(id);
-
-                        // On the first poll after login, the queue may contain events for
-                        // tickets that are already showing in the just-loaded list.
-                        // Seed seenNotificationIds from them silently instead of toasting.
-                        if (suppressToast) continue;
-
-                        newNotifications = true;
-                        
-                        const eventType = notif.event || 'update';
-                        const ticketRef = notif.ticket_number || notif.id || '';
-                        const title = `📢 ${eventType.toUpperCase()} - Ticket #${ticketRef}`;
-                        const message = notif.subject || `Ticket ${ticketRef} was ${eventType}`;
-                        showToast(title, message, eventType === 'created' ? 'success' : 'info');
-                        
-                        try {
-                            if (Notification.permission === 'granted') {
-                                new Notification(title, { 
-                                    body: message, 
-                                    icon: '/favicon.ico'
-                                });
-                            }
-                        } catch (e) {}
-
-                        // Inject the single changed ticket into its sorted position
-                        // instead of re-querying/re-rendering the whole list.
-                        injectTicketUpdate(notif.id, eventType);
-                    }
-                }
-                
-            } catch (e) {
-                console.warn('Notification poll error:', e.message);
-            } finally {
-                isFirstNotificationPoll = false;
-            }
-        }
-
-        // Run immediately so the baseline is seeded right after the ticket list
-        // loads, rather than waiting up to 15s (during which a real new ticket
-        // could otherwise be missed or, if the list hadn't loaded yet, wrongly toasted).
-        pollNotifications();
-        notificationPollInterval = setInterval(pollNotifications, 15000);
-    }
-
-    function stopNotificationPolling() {
-        if (notificationPollInterval) {
-            clearInterval(notificationPollInterval);
-            notificationPollInterval = null;
         }
     }
 
