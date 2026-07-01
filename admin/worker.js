@@ -147,6 +147,17 @@ async function hasPermission(email, permission, env) {
     return perms[action] === true;
 }
 
+// Some settings endpoints (category/language/email-routing management) are backed by a
+// single generic write path that the UI gates behind separate create/edit/delete buttons.
+// Accept it if the user has the specific action OR general edit rights.
+async function hasSettingsWrite(email, action, env) {
+    const user = await getUser(email, env);
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    const perms = (user.page_permissions || {}).settings || {};
+    return perms.edit === true || perms[action] === true;
+}
+
 async function checkPagePermission(user, page) {
     if (user.role === 'admin') return true;
     const pagePerms = user.page_permissions || {};
@@ -793,7 +804,6 @@ async function createTicket(data, env) {
 
 async function queueTicketNotification(env, event, ticketId, ticketData) {
     try {
-        const queue = await env.KV.get('ticket_queue', 'json') || [];
         const record = [
             event,
             ticketData.id || ticketId,
@@ -805,8 +815,11 @@ async function queueTicketNotification(env, event, ticketId, ticketData) {
             ticketData.created_at || new Date().toISOString(),
             ticketData.updated_at || new Date().toISOString()
         ].join('|');
-        queue.push(record);
-        await env.KV.put('ticket_queue', JSON.stringify(queue));
+        // Unique key per notification (instead of read-modify-write on one shared
+        // key) so concurrent ticket creations - e.g. a burst of inbound emails -
+        // can't overwrite and silently drop each other's queue entry.
+        const key = `ticket_notif:${Date.now()}:${crypto.randomUUID()}`;
+        await env.KV.put(key, record, { expirationTtl: 86400 });
     } catch (e) {
         console.log(`⚠️ Failed to queue notification: ${e.message}`);
     }
@@ -1389,7 +1402,7 @@ export default {
                 const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
                 const email = verifyToken(token);
                 if (!email) return json({ error: 'Unauthorized' }, 401);
-                if (!await hasPermission(email, 'settings.edit', env)) return json({ error: 'Permission denied' }, 403);
+                if (!await hasSettingsWrite(email, 'create', env)) return json({ error: 'Permission denied' }, 403);
                 const { category, language, enabled, subject, body, from } = await request.json();
                 if (!category || !language) return json({ error: 'Category and language required' }, 400);
                 try {
@@ -1403,7 +1416,7 @@ export default {
                 const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
                 const email = verifyToken(token);
                 if (!email) return json({ error: 'Unauthorized' }, 401);
-                if (!await hasPermission(email, 'settings.edit', env)) return json({ error: 'Permission denied' }, 403);
+                if (!await hasSettingsWrite(email, 'delete', env)) return json({ error: 'Permission denied' }, 403);
                 const { category, language } = await request.json();
                 if (!category || !language) return json({ error: 'Category and language required' }, 400);
                 try {
@@ -1428,7 +1441,7 @@ export default {
                 const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
                 const email = verifyToken(token);
                 if (!email) return json({ error: 'Unauthorized' }, 401);
-                if (!await hasPermission(email, 'settings.edit', env)) return json({ error: 'Permission denied' }, 403);
+                if (!await hasSettingsWrite(email, 'create', env)) return json({ error: 'Permission denied' }, 403);
                 const { email: newEmail, label, action, language } = await request.json();
                 if (!newEmail || !label || !language) return json({ error: 'Email, label and language required' }, 400);
                 try {
@@ -1443,7 +1456,7 @@ export default {
                 const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
                 const email = verifyToken(token);
                 if (!email) return json({ error: 'Unauthorized' }, 401);
-                if (!await hasPermission(email, 'settings.edit', env)) return json({ error: 'Permission denied' }, 403);
+                if (!await hasSettingsWrite(email, 'edit', env)) return json({ error: 'Permission denied' }, 403);
                 const id = parseInt(path.split('/')[4]);
                 const { email: newEmail, label, action, language, is_active } = await request.json();
                 try {
@@ -1466,7 +1479,7 @@ export default {
                 const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
                 const email = verifyToken(token);
                 if (!email) return json({ error: 'Unauthorized' }, 401);
-                if (!await hasPermission(email, 'settings.edit', env)) return json({ error: 'Permission denied' }, 403);
+                if (!await hasSettingsWrite(email, 'delete', env)) return json({ error: 'Permission denied' }, 403);
                 const id = parseInt(path.split('/')[4]);
                 await deleteEmailAddress(env, id);
                 return json({ success: true });
@@ -1499,7 +1512,9 @@ export default {
                 const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
                 const email = verifyToken(token);
                 if (!email) return json({ error: 'Unauthorized' }, 401);
-                if (!await hasPermission(email, 'settings.edit', env)) return json({ error: 'Permission denied' }, 403);
+                // This single endpoint backs general/SLA settings (edit), category add/language add (create),
+                // and category/language removal (delete) -- accept any settings write permission.
+                if (!await hasSettingsWrite(email, 'create', env) && !await hasSettingsWrite(email, 'delete', env)) return json({ error: 'Permission denied' }, 403);
                 const { settings } = await request.json();
                 for (const s of settings) await updateSetting(env, s.category, s.key, s.value);
                 return json({ success: true });
@@ -1645,6 +1660,28 @@ export default {
                 } catch (e) {
                     return json({ error: e.message }, 400);
                 }
+            }
+
+            // ── Current user (refresh permissions without re-login) ──
+            if (path === '/api/admin/me' && method === 'GET') {
+                const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
+                const email = verifyToken(token);
+                if (!email) return json({ error: 'Unauthorized' }, 401);
+                const user = await getUser(email, env);
+                if (!user) return json({ error: 'Unauthorized' }, 401);
+                return json({
+                    success: true,
+                    user: {
+                        email: user.email,
+                        name: user.name,
+                        role: user.role,
+                        page_permissions: user.page_permissions,
+                        allowed_languages: user.allowed_languages,
+                        allowed_emails: user.allowed_emails,
+                        allowed_categories: user.allowed_categories,
+                        team_id: user.team_id
+                    }
+                });
             }
 
             // ── Admin login ──
@@ -1855,7 +1892,7 @@ export default {
                 const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
                 const userEmail = verifyToken(token);
                 if (!userEmail) return json({ error: 'Unauthorized' }, 401);
-                if (!await hasPermission(userEmail, 'tickets.update', env)) return json({ error: 'Permission denied' }, 403);
+                if (!await hasPermission(userEmail, 'tickets.edit', env)) return json({ error: 'Permission denied' }, 403);
                 const id = parseInt(path.split('/')[4]);
                 const { status } = await request.json();
                 
@@ -1878,7 +1915,7 @@ export default {
                 const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
                 const userEmail = verifyToken(token);
                 if (!userEmail) return json({ error: 'Unauthorized' }, 401);
-                if (!await hasPermission(userEmail, 'tickets.comment', env)) return json({ error: 'Permission denied' }, 403);
+                if (!await hasPermission(userEmail, 'tickets.edit', env)) return json({ error: 'Permission denied' }, 403);
                 const id = parseInt(path.split('/')[4]);
                 const { content, type } = await request.json();
                 const comment = await addComment(id, { type: type || 'internal', authorEmail: userEmail, content }, env);
@@ -1891,10 +1928,13 @@ export default {
                 if (!verifyToken(token)) return json({ error: 'Unauthorized' }, 401);
                 
                 try {
-                    const queue = await env.KV.get('ticket_queue', 'json') || [];
-                    const notifications = queue.map(record => {
-                        const parts = record.split('|');
-                        return {
+                    const list = await env.KV.list({ prefix: 'ticket_notif:' });
+                    const notifications = [];
+                    for (const k of list.keys) {
+                        const val = await env.KV.get(k.name);
+                        if (!val) continue;
+                        const parts = val.split('|');
+                        notifications.push({
                             event: parts[0],
                             id: parseInt(parts[1]),
                             category: parts[2],
@@ -1904,20 +1944,10 @@ export default {
                             sender_email: parts[6],
                             created_at: parts[7],
                             updated_at: parts[8]
-                        };
-                    });
-                    
-                    const now = new Date();
-                    const lastCleanup = await env.KV.get('ticket_queue_last_cleanup') || '0';
-                    const lastCleanupTime = parseInt(lastCleanup);
-                    const dayInMs = 24 * 60 * 60 * 1000;
-                    
-                    if (now.getTime() - lastCleanupTime > dayInMs) {
-                        await env.KV.put('ticket_queue', JSON.stringify([]));
-                        await env.KV.put('ticket_queue_last_cleanup', String(now.getTime()));
-                        console.log('🗑️ Ticket queue cleared (daily cleanup)');
+                        });
                     }
-                    
+                    notifications.sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+
                     return json({ success: true, notifications: notifications });
                 } catch (e) {
                     return json({ success: true, notifications: [] });
@@ -1929,7 +1959,7 @@ export default {
                 const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
                 const userEmail = verifyToken(token);
                 if (!userEmail) return json({ error: 'Unauthorized' }, 401);
-                if (!await hasPermission(userEmail, 'tickets.reply', env)) return json({ error: 'Permission denied' }, 403);
+                if (!await hasPermission(userEmail, 'tickets.edit', env)) return json({ error: 'Permission denied' }, 403);
                 
                 const id = parseInt(path.split('/')[4]);
                 const { from, body } = await request.json();
@@ -1955,7 +1985,7 @@ export default {
                 const token = (request.headers.get('Authorization') || '').replace('Bearer ', '');
                 const email = verifyToken(token);
                 if (!email) return json({ error: 'Unauthorized' }, 401);
-                if (!await hasPermission(email, 'settings.edit', env)) return json({ error: 'Permission denied' }, 403);
+                if (!await hasSettingsWrite(email, 'delete', env)) return json({ error: 'Permission denied' }, 403);
                 const cat = decodeURIComponent(path.split('/')[4]);
                 if (!cat || cat === 'unclassified') {
                     return json({ error: 'Cannot delete unclassified category' }, 400);

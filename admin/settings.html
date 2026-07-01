@@ -382,6 +382,32 @@ if (!token || !currentUser || !hasSettingsPermission) {
 
 const pagePerms = (currentUser && currentUser.page_permissions) || {};
 
+// Refresh permissions from the server in the background: localStorage only
+// reflects what was true at login, so without this an admin permission
+// change wouldn't take effect until the user logs out and back in.
+(async function refreshCurrentUser() {
+    try {
+        const res = await fetch(API_BASE + '/api/admin/me', { headers: { Authorization: 'Bearer ' + token } });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.success && data.user) {
+            currentUser.role = data.user.role;
+            currentUser.page_permissions = data.user.page_permissions || {};
+            currentUser.allowed_languages = data.user.allowed_languages || [];
+            currentUser.allowed_emails = data.user.allowed_emails || [];
+            currentUser.allowed_categories = data.user.allowed_categories || [];
+            currentUser.team_id = data.user.team_id || null;
+            Object.keys(pagePerms).forEach(k => delete pagePerms[k]);
+            Object.assign(pagePerms, currentUser.page_permissions);
+            if (!isAdmin && !(pagePerms.settings && pagePerms.settings.view)) {
+                window.location.href = 'dashboard.html';
+                return;
+            }
+            if (typeof load === 'function') load();
+        }
+    } catch (e) { /* keep last-known permissions on failure */ }
+})();
+
 function hasPageAccess(page) {
     if (currentUser.role === 'admin') return true;
     const perms = pagePerms[page] || {};
