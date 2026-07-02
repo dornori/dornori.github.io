@@ -16,12 +16,13 @@
 (function () {
   'use strict';
   
-  var WORKER_URL = (window.CONFIG && window.CONFIG.endpoints && window.CONFIG.endpoints.formHandler) || 'https://edge-form-handler-api.dornori-info.workers.dev/api/message';
+  var WORKER_URL = 'https://dornori-ticketing.dornori-info.workers.dev/api/message';
   
   var params = new URLSearchParams(window.location.search);
   var ref    = params.get('ref') || localStorage.getItem('webshop_last_order') || '—';
   var status = params.get('status') || 'success';
   var lang   = window.LANG || localStorage.getItem('dornori-lang') || 'en';
+  var ticketNumber = null;
 
   function T(key, fallback) {
     if (window.T && window.T[key]) return window.T[key];
@@ -112,8 +113,11 @@
       .then(function(result) {
         console.log('📥 Worker response:', result);
         if (result.success) {
-          console.log('✅ Order notification sent successfully');
+          ticketNumber = result.ticketNumber;
+          console.log('✅ Order notification sent successfully, ticket:', ticketNumber);
           localStorage.removeItem('webshop_order_snapshot');
+          // Re-render to show ticket number instead of order ref
+          render();
         } else {
           console.warn('⚠️  Worker returned error:', result.error);
         }
@@ -132,12 +136,13 @@
     
     if (status === 'success') {
       var kitSlug = (window.T && window.T.url_slugs && window.T.url_slugs.kit) || 'kit';
+      var displayRef = ticketNumber || ref;
       page.innerHTML =
         '<div class="webshop-result-icon webshop-result-icon--success">✓</div>' +
         '<h1>' + T('success_title', 'Order Confirmed!') + '</h1>' +
         '<p>' + T('success_message', 'Thank you for your purchase. You will receive a confirmation email shortly.') + '</p>' +
         '<p>' + T('success_ref', 'Your order reference is') + ':</p>' +
-        '<div class="webshop-ref-badge">' + ref + '</div>' +
+        '<div class="webshop-ref-badge">' + displayRef + '</div>' +
         '<p style="font-size:0.82rem;color:var(--c-text-muted);">' + T('success_ref_note', 'Please save this reference in case you need to contact support.') + '</p>' +
         '<a href="/' + lang + '/" class="webshop-btn webshop-btn--primary" style="margin-top:8px;">' +
           T('continue_shopping', 'Continue Shopping') +
