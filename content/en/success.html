@@ -1,5 +1,5 @@
 <div class="container">
-<!-- content/en/success.html — UI strings loaded from lang/en/common.json via window.T -->
+<!-- content/en/success.html — sends order data to CF worker for ticketing -->
 <style>
   .success-wrap { min-height:60vh; display:flex; align-items:center; justify-content:center; padding:3rem 1rem; }
   .webshop-confetti { position:fixed; top:0; left:0; right:0; pointer-events:none; z-index:9999; }
@@ -14,12 +14,15 @@
 
 <script>
 (function () {
+  'use strict';
+  
+  var WORKER_URL = (window.CONFIG && window.CONFIG.endpoints && window.CONFIG.endpoints.formHandler) || 'https://edge-form-handler-api.dornori-info.workers.dev/api/message';
+  
   var params = new URLSearchParams(window.location.search);
   var ref    = params.get('ref') || localStorage.getItem('webshop_last_order') || '—';
   var status = params.get('status') || 'success';
   var lang   = window.LANG || localStorage.getItem('dornori-lang') || 'en';
 
-  // T(): resolve from window.T (set by i18n.js from lang/<lang>/common.json), then Shop.t(), then fallback
   function T(key, fallback) {
     if (window.T && window.T[key]) return window.T[key];
     if (typeof Shop !== 'undefined' && Shop.t) return Shop.t(key, fallback);
@@ -29,15 +32,27 @@
   function fmt(n) { return (Math.round((n||0)*100)/100).toFixed(2); }
 
   function sendOrderToWorker() {
-    if (status !== 'success') return;
+    if (status !== 'success') {
+      console.log('⏭️  Skipping worker notification (status=' + status + ')');
+      return;
+    }
+
     try {
       var raw = localStorage.getItem('webshop_order_snapshot');
-      if (!raw) return;
+      if (!raw) {
+        console.warn('⚠️  No order snapshot in localStorage');
+        return;
+      }
+
       var snap = JSON.parse(raw);
-      if (!snap || !snap.orderRef || snap.orderRef !== ref) return; // stale/mismatched snapshot, skip
+      if (!snap || !snap.orderRef || snap.orderRef !== ref) {
+        console.warn('⚠️  Snapshot mismatch or missing orderRef');
+        return;
+      }
 
       var fd = snap.formData || {};
       var currency = (snap.totals && snap.totals.currency) || 'EUR';
+      
       var addressLines = [
         fd.address, fd.city, fd.postal, fd.country
       ].filter(Boolean).join(', ');
@@ -55,8 +70,6 @@
         'Shipping: ' + fmt(t.shipping) + ' ' + currency + '\n' +
         'Tax: ' + fmt(t.tax) + ' ' + currency + '\n' +
         'Total: ' + fmt(t.total) + ' ' + currency;
-
-      var WORKER_URL = ((window.CONFIG && CONFIG.endpoints && CONFIG.endpoints.formHandler) || 'https://dornori-ticketing.dornori-info.workers.dev') + '/api/message';
 
       var payload = {
         category: 'payment',
@@ -76,23 +89,47 @@
         },
       };
 
+      console.log('📤 Sending order to worker:');
+      console.log('  - Endpoint:', WORKER_URL);
+      console.log('  - Order Ref:', snap.orderRef);
+      console.log('  - Customer:', payload.name, '<' + payload.email + '>');
+      console.log('  - Total:', fmt(t.total), currency);
+      console.log('  - Full payload:', payload);
+
       fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      }).then(function() {
-        localStorage.removeItem('webshop_order_snapshot');
-      }).catch(function(e) {
-        console.warn('Order worker notification failed:', e);
+      })
+      .then(function(res) {
+        if (!res.ok) {
+          return res.text().then(function(text) {
+            throw new Error('HTTP ' + res.status + ': ' + text);
+          });
+        }
+        return res.json();
+      })
+      .then(function(result) {
+        console.log('📥 Worker response:', result);
+        if (result.success) {
+          console.log('✅ Order notification sent successfully');
+          localStorage.removeItem('webshop_order_snapshot');
+        } else {
+          console.warn('⚠️  Worker returned error:', result.error);
+        }
+      })
+      .catch(function(err) {
+        console.error('❌ Failed to send order notification:', err.message);
       });
     } catch (e) {
-      console.warn('sendOrderToWorker failed:', e);
+      console.error('❌ sendOrderToWorker exception:', e);
     }
   }
 
   function render() {
     var page = document.getElementById('result-page');
     if (!page) return;
+    
     if (status === 'success') {
       var kitSlug = (window.T && window.T.url_slugs && window.T.url_slugs.kit) || 'kit';
       page.innerHTML =
@@ -142,12 +179,27 @@
   }
 
   function doRender() {
-    // window.T may already be loaded; if not, wait for Shop.loadLang
-    if (typeof Shop !== 'undefined') {
-      Shop.loadLang().then(render);
+    // Wait for Shop to be ready, then load lang, then render
+    if (typeof Shop !== 'undefined' && Shop.loadLang) {
+      Shop.loadLang().then(function() {
+        render();
+        // Give a small delay to ensure snapshot is written before sending
+        setTimeout(sendOrderToWorker, 500);
+      }).catch(function(err) {
+        console.warn('Failed to load language:', err);
+        render();
+        setTimeout(sendOrderToWorker, 500);
+      });
     } else {
       document.addEventListener('webshop:ready', function() {
-        Shop.loadLang().then(render);
+        Shop.loadLang().then(function() {
+          render();
+          setTimeout(sendOrderToWorker, 500);
+        }).catch(function(err) {
+          console.warn('Failed to load language:', err);
+          render();
+          setTimeout(sendOrderToWorker, 500);
+        });
       });
     }
   }
