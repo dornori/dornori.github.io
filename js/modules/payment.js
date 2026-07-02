@@ -49,20 +49,33 @@ const Payment = (() => {
 
   /* ── PayPal adapter ──────────────────────────────────── */
   const _paypal = {
-    async init() {
-      const { clientId, currency, intent } = CONFIG.payment.paypal;
+    _loadedCurrency: null,
+    async init(forceCurrency) {
+      const { clientId, intent } = CONFIG.payment.paypal;
       if (!clientId) {
         return;
       }
+      const targetCurrency = forceCurrency ||
+        ((typeof Currency !== 'undefined' && Currency.getActive) ? Currency.getActive() : CONFIG.payment.paypal.currency);
+      if (window.paypal && this._loadedCurrency === targetCurrency) return;
+      // The SDK's order-create currency must match whatever it was loaded with —
+      // if the shopper switched currencies since the last load, tear down and reload.
+      document.querySelectorAll('script[src*="paypal.com/sdk/js"]').forEach(s => s.remove());
+      delete window.paypal;
       await _loadScript(
-        `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${currency}&intent=${intent || "capture"}`
+        `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${targetCurrency}&intent=${intent || "capture"}`
       );
+      this._loadedCurrency = targetCurrency;
     },
     async render(cart, totals, orderRef, el, formData) {
       const activeCurrency = (typeof Currency !== 'undefined' && Currency.getActive)
         ? Currency.getActive()
         : CONFIG.payment.paypal.currency;
-      
+
+      if (!window.paypal || this._loadedCurrency !== activeCurrency) {
+        await this.init(activeCurrency);
+      }
+
       if (!window.paypal) {
         el.innerHTML = `<div style="padding:20px;text-align:center;border:1px dashed var(--c-border);border-radius:var(--radius);color:var(--c-text-3);font-size:0.85rem;line-height:1.6;">
           <strong style="display:block;margin-bottom:6px;">PayPal not loaded</strong>
