@@ -163,12 +163,12 @@ const CONFIG = {
         shop:                { file: 'shop.html'              },
         product:             { file: 'product.html'           },
         success:             { file: 'success.html'           },
+	    unsubscribe:         { file: 'unsubscribe.html'       },
         'faq':               { file: 'faq.html'               },
         'reviews':           { file: 'reviews.html'           },
         'about-us':          { file: 'about-us.html'          },
         'form':              { file: 'form.html'              },
         'newsletter':        { file: 'subscribe.html'         },
-        'unsubscribe':       { file: 'unsubscribe.html'       },
     },
 
     // ── Socials ───────────────────────────────────────────────────────────────
