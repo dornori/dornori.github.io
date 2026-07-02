@@ -129,6 +129,7 @@
                             subject: t.subject,
                             sender_name: t.sender_name,
                             sender_email: t.sender_email || '',
+                            last_updated_by: t.last_updated_by || '',
                             last_action: t.last_updated,
                             created_at: t.last_updated,
                             language: t.language || 'en'
@@ -783,12 +784,13 @@
         
         
         var html = '<div class="ticket-header-row">' +
-            '<span>Category</span>' +
             '<span>SLA</span>' +
             '<span>Status</span>' +
-            '<span>Subject</span>' +
+            '<span>Category</span>' +
             '<span>Requester</span>' +
+            '<span>Subject</span>' +
             '<span>Last Updated</span>' +
+            '<span>Updated By</span>' +
             '</div>';
         for (var i = 0; i < tickets.length; i++) {
             var t = tickets[i];
@@ -796,16 +798,18 @@
             var slaInfo = getSlaDisplay(t.sla_status || 'on_track');
             var actionDate = t.last_action || t.created_at;
             var subjectText = t.subject || "No subject";
-            var truncatedSubject = subjectText.length > 55 ? subjectText.substring(0, 55) + "…" : subjectText;
+            var truncatedSubject = subjectText.length > 80 ? subjectText.substring(0, 80) + "…" : subjectText;
             var catColor = getCatColor(t.category);
-            var catLabel = t.category ? t.category.charAt(0).toUpperCase() + t.category.slice(1) : '';
+            var catLabel = t.category ? t.category.charAt(0).toUpperCase() + t.category.slice(1) : 'Other';
+            var updatedBy = t.last_updated_by ? (t.last_updated_by === t.sender_email ? '👤 ' + t.last_updated_by : t.last_updated_by) : '-';
             html += '<div class="ticket-item" onclick="openTicketModal(' + t.ticket_id + ')">' +
-                '<span class="cat-cell"><span class="cat-dot" style="background:' + catColor + ';"></span><span class="cat-name">' + escapeHtml(catLabel) + '</span></span>' +
-                '<span class="sla-cell"><span class="sla-dot" style="background:' + getSlaColor(slaInfo.cls) + ';"></span><span class="sla-label">' + slaInfo.label + '</span></span>' +
+                '<span class="sla-cell" style="padding:0;display:flex;align-items:center;"><span class="sla-dot" style="background:' + getSlaColor(slaInfo.cls) + ';"></span></span>' +
                 '<span class="status ' + statusClass + '">' + t.status.replace('_', ' ') + '</span>' +
+                '<span class="cat-cell"><span class="cat-dot" style="background:' + catColor + ';"></span><span class="cat-name">' + escapeHtml(catLabel) + '</span></span>' +
+                '<span class="email" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;">' + (t.sender_email || "") + '</span>' +
                 '<span class="subject" title="' + escapeHtml(subjectText) + '">' + escapeHtml(truncatedSubject) + '</span>' +
-                '<span class="email">' + (t.sender_email || "") + '</span>' +
                 '<span style="font-size:12px;color:var(--text-muted);">' + formatDate(actionDate) + '</span>' +
+                '<span style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(updatedBy) + '</span>' +
                 '</div>';
         }
         list.innerHTML = html;
@@ -939,12 +943,87 @@
 
     function renderTicketDetailModal(ticket) {
         var content = document.getElementById("modalContent");
-        var commentsHtml = "";
+        var activityHtml = "";
         if (ticket.comments && ticket.comments.length > 0) {
             for (var i = 0; i < ticket.comments.length; i++) {
                 var c = ticket.comments[i];
-                var commentContent = c.content || '';
-                commentsHtml += '<div class="comment"><div class="meta"><span>' + (c.author_email || "System") + '</span><span>' + formatDate(c.created_at) + '</span></div><div class="comment-content">' + escapeHtml(commentContent) + '</div></div>';
+                var isPublicReply = c.comment_type === 'public';
+                var isIncoming = c.comment_type === 'incoming';
+                var isStatusChange = c.comment_type === 'status_change';
+                var timestamp = formatDate(c.created_at);
+                var author = c.author_email || 'System';
+                
+                var boxStyle = 'style="border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:12px;background:var(--bg-input);"';
+                var headerStyle = 'style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);"';
+                var iconStyle = 'style="font-size:18px;min-width:24px;"';
+                var titleStyle = 'style="font-weight:600;font-size:13px;flex:1;"';
+                var timeStyle = 'style="font-size:12px;color:var(--text-muted);"';
+                var subHeaderStyle = 'style="font-size:12px;color:var(--text-muted);margin-bottom:8px;padding:0 0 8px 0;border-bottom:1px solid var(--border);"';
+                var msgStyle = 'style="font-size:13px;line-height:1.6;margin-top:8px;white-space:pre-wrap;word-wrap:break-word;"';
+                
+                if (isPublicReply) {
+                    // content is encoded as \u0001<sentFromEmail>\u0001<message>
+                    var raw = c.content || '';
+                    var replyFrom = '';
+                    var replyContent = raw;
+                    if (raw.charAt(0) === '\u0001') {
+                        var parts = raw.substring(1).split('\u0001');
+                        replyFrom = parts[0] || '';
+                        replyContent = parts.slice(1).join('\u0001');
+                    } else {
+                        // legacy record: author_email was the sending address
+                        replyFrom = author;
+                        replyContent = raw.replace(/^Reply sent:\s*/, '');
+                    }
+                    activityHtml += '<div ' + boxStyle + '>' +
+                        '<div ' + headerStyle + '>' +
+                        '<span ' + iconStyle + '>📧</span>' +
+                        '<span ' + titleStyle + '>Email sent to Customer</span>' +
+                        '<span ' + timeStyle + '>' + timestamp + '</span>' +
+                        '</div>' +
+                        '<div ' + subHeaderStyle + '>' +
+                        '<div>' + escapeHtml(author) + '</div>' +
+                        (replyFrom ? '<div style="margin-top:4px;"><strong>Sent from:</strong> ' + escapeHtml(replyFrom) + '</div>' : '') +
+                        '</div>' +
+                        '<div ' + msgStyle + '>' + escapeHtml(replyContent) + '</div>' +
+                        '</div>';
+                } else if (isIncoming) {
+                    activityHtml += '<div ' + boxStyle + '>' +
+                        '<div ' + headerStyle + '>' +
+                        '<span ' + iconStyle + '>📥</span>' +
+                        '<span ' + titleStyle + '>Email received from Customer</span>' +
+                        '<span ' + timeStyle + '>' + timestamp + '</span>' +
+                        '</div>' +
+                        '<div ' + subHeaderStyle + '>' + escapeHtml(author) + '</div>' +
+                        '<div ' + msgStyle + '>' + escapeHtml(c.content || '') + '</div>' +
+                        '</div>';
+                } else if (isStatusChange) {
+                    var oldStatus = c.old_status || 'unknown';
+                    var newStatus = c.new_status || 'unknown';
+                    activityHtml += '<div ' + boxStyle + '>' +
+                        '<div ' + headerStyle + '>' +
+                        '<span ' + iconStyle + '>✏️</span>' +
+                        '<span ' + titleStyle + '>Status changed</span>' +
+                        '<span ' + timeStyle + '>' + timestamp + '</span>' +
+                        '</div>' +
+                        '<div ' + subHeaderStyle + '>' +
+                        escapeHtml(author) +
+                        '</div>' +
+                        '<div style="font-size:13px;"><span style="display:inline-block;padding:3px 10px;border-radius:4px;background:#fee2e2;color:#991b1b;font-family:monospace;font-weight:600;">' + escapeHtml(oldStatus) + '</span><span style="margin:0 8px;">→</span><span style="display:inline-block;padding:3px 10px;border-radius:4px;background:#dbeafe;color:#1e40af;font-family:monospace;font-weight:600;">' + escapeHtml(newStatus) + '</span></div>' +
+                        '</div>';
+                } else {
+                    activityHtml += '<div ' + boxStyle + '>' +
+                        '<div ' + headerStyle + '>' +
+                        '<span ' + iconStyle + '>💭</span>' +
+                        '<span ' + titleStyle + '>Internal comment</span>' +
+                        '<span ' + timeStyle + '>' + timestamp + '</span>' +
+                        '</div>' +
+                        '<div ' + subHeaderStyle + '>' +
+                        escapeHtml(author) +
+                        '</div>' +
+                        '<div ' + msgStyle + '>' + escapeHtml(c.content || '') + '</div>' +
+                        '</div>';
+                }
             }
         }
 
@@ -977,6 +1056,11 @@
 
         var fullName = [ticket.sender_name, ticket.sender_last_name].filter(Boolean).join(' ') || 'Unknown';
         var orderNum = ticket.order_number ? escapeHtml(ticket.order_number) : '—';
+        var ticketCompany = '—';
+        try {
+            var metaObj = typeof ticket.metadata === 'string' ? JSON.parse(ticket.metadata) : (ticket.metadata || {});
+            if (metaObj && metaObj.company) ticketCompany = metaObj.company;
+        } catch (e) {}
 
         var actionsHtml = '';
         if (!isClosed) {
@@ -1018,17 +1102,21 @@
                     <div class="meta-item"><span class="meta-label">Category</span><span class="meta-value"><span class="cat-dot" style="background:${catColor};margin-right:6px;"></span>${ticket.category || "Other"}</span></div>
                     <div class="meta-item"><span class="meta-label">Name</span><span class="meta-value">${escapeHtml(fullName)}</span></div>
                     <div class="meta-item"><span class="meta-label">Email</span><span class="meta-value">${ticket.sender_email || "Unknown"}</span></div>
+                    <div class="meta-item"><span class="meta-label">Phone</span><span class="meta-value">${escapeHtml(ticket.sender_phone || '—')}</span></div>
+                    <div class="meta-item"><span class="meta-label">Company</span><span class="meta-value">${escapeHtml(ticketCompany)}</span></div>
                     <div class="meta-item"><span class="meta-label">Order Number</span><span class="meta-value">${orderNum}</span></div>
                     <div class="meta-item"><span class="meta-label">Created</span><span class="meta-value">${formatDate(ticket.created_at)}</span></div>
+                    <div class="meta-item"><span class="meta-label">Updated By</span><span class="meta-value">${ticket.last_updated_by ? (ticket.last_updated_by === ticket.sender_email ? '👤 Customer (' + escapeHtml(ticket.last_updated_by) + ')' : escapeHtml(ticket.last_updated_by)) : '—'}</span></div>
+                    <div class="meta-item"><span class="meta-label">Last Updated</span><span class="meta-value">${formatDate(ticket.updated_at || ticket.last_action || ticket.created_at)}</span></div>
                 </div>
             </div>
             <div class="detail-section">
                 <h3>💬 Message</h3>
                 <div class="ticket-body">${escapeHtml(ticket.message || "No message")}</div>
             </div>
-            <div class="detail-section comments-section">
-                <h3>💭 Comments (${ticket.comments ? ticket.comments.length : 0})</h3>
-                ${commentsHtml || '<div style="color:var(--text-muted);font-size:13px;">No comments yet</div>'}
+            <div class="detail-section activity-log-section">
+                <h3>📋 Activity Log (${ticket.comments ? ticket.comments.length : 0})</h3>
+                ${activityHtml || '<div style="color:var(--text-muted);font-size:13px;">No activity yet</div>'}
             </div>
             ${actionsHtml}
         `;

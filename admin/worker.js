@@ -815,7 +815,8 @@ async function getTicket(id, env) {
         SELECT id, ticket_number, category, language, status, priority, 
                sender_name, sender_email, sender_phone, order_number,
                subject, message, created_at, updated_at, last_action, 
-               sla_response_due, sla_resolution_due, assigned_to, metadata
+               sla_response_due, sla_resolution_due, assigned_to, metadata,
+               last_updated_by
         FROM tickets WHERE id = ?
     `).bind(id).first();
   if (!ticket) return null;
@@ -851,10 +852,10 @@ __name(updateTicket, "updateTicket");
 async function addComment(ticketId, data, env) {
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const result = await env.DB.prepare(`
-        INSERT INTO ticket_comments (ticket_id, comment_type, author_email, content, created_at)
-        VALUES (?, ?, ?, ?, ?)
-    `).bind(ticketId, data.type || "public", data.authorEmail || "", data.content, now).run();
-  await env.DB.prepare("UPDATE tickets SET last_action = ?, updated_at = ? WHERE id = ?").bind(now, now, ticketId).run();
+        INSERT INTO ticket_comments (ticket_id, comment_type, author_email, content, created_at, old_status, new_status)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(ticketId, data.type || "public", data.authorEmail || "", data.content, now, data.oldStatus || null, data.newStatus || null).run();
+  await env.DB.prepare("UPDATE tickets SET last_action = ?, updated_at = ?, last_updated_by = ? WHERE id = ?").bind(now, now, data.authorEmail || null, ticketId).run();
   const ticket = await getTicketSnapshot(ticketId, env);
   if (ticket) await pushTicketNotification(ticket, env);
   return { id: result.meta?.last_row_id || result.lastInsertRowid };
@@ -867,7 +868,7 @@ __name(getTicketByNumber, "getTicketByNumber");
 async function getTickets(filters, env, user) {
   let query = `SELECT id, id AS ticket_id, ticket_number, category, language, status, priority,
         sender_name, sender_email, sender_phone, order_number, subject, created_at, updated_at,
-        last_action, sla_response_due, sla_resolution_due, assigned_to
+        last_action, sla_response_due, sla_resolution_due, assigned_to, last_updated_by
         FROM tickets WHERE 1=1`;
   const params = [];
   if (user && user.role !== "admin") {
@@ -1544,7 +1545,13 @@ var worker_default = {
         if (!await checkAccess(userEmail, "tickets", "update", env)) return json({ error: "Permission denied" }, 403);
         const id = parseInt(path.split("/")[4]);
         const { status } = await request.json();
-        const newTicket = await updateTicket(id, { status }, env);
+        const existingTicket = await getTicket(id, env);
+        const oldStatus = existingTicket ? existingTicket.status : null;
+        let newTicket = await updateTicket(id, { status }, env);
+        if (status && oldStatus && oldStatus !== status) {
+          await addComment(id, { type: "status_change", authorEmail: userEmail, content: "", oldStatus, newStatus: status }, env);
+          newTicket = await getTicket(id, env);
+        }
         return json({ success: true, data: newTicket });
       }
       if (path.startsWith("/api/admin/ticket/") && path.includes("/comment") && method === "POST") {
@@ -1567,7 +1574,7 @@ var worker_default = {
         if (!ticket) return json({ error: "Not found" }, 404);
         const result = await sendEmail(env, ticket.sender_email, `Re: [${ticket.ticket_number}] ${ticket.subject}`, body, from);
         if (result.success) {
-          await addComment(id, { type: "public", authorEmail: from, content: "Reply sent: " + body }, env);
+          await addComment(id, { type: "public", authorEmail: userEmail, content: "\u0001" + from + "\u0001" + body }, env);
           return json({ success: true });
         }
         return json({ success: false, error: result.error }, 500);
@@ -1605,9 +1612,7 @@ var worker_default = {
       if (ticketNumber) {
         const ticket2 = await getTicketByNumber(ticketNumber, env);
         if (ticket2) {
-          await addComment(ticket2.id, { type: "public", authorEmail: from, content: `**Reply from ${from}**
-
-${body || "(No content)"}` }, env);
+          await addComment(ticket2.id, { type: "incoming", authorEmail: from, content: body || "(No content)" }, env);
           if (["resolved", "closed"].includes(ticket2.status)) await updateTicket(ticket2.id, { status: "open" }, env);
           return;
         }

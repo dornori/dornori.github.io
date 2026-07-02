@@ -587,6 +587,20 @@
             (selectId === 'newTeamId' ? newTeams : editTeams).map(t => `<option value="${t}" style="font-style:italic">[NEW] ${t}</option>`).join('');
     }
 
+    function disableEditFormIfReadOnly() {
+        if (!canEditUserAction()) {
+            document.querySelectorAll('#editUserModal input:not([type="hidden"]), #editUserModal select, #editUserModal textarea').forEach(el => {
+                el.disabled = true;
+                el.style.opacity = '0.6';
+            });
+            document.querySelectorAll('#editUserModal .category-checkbox input, #editUserModal .email-checkbox input, #editUserModal input[type="checkbox"]').forEach(el => {
+                el.disabled = true;
+            });
+            document.getElementById('saveUserBtn').disabled = true;
+            document.getElementById('saveUserBtn').style.opacity = '0.5';
+        }
+    }
+
     function renderUI() {
         document.getElementById('addUserBtn').style.display = canCreateUser() ? 'block' : 'none';
         populateEmailSelect('newEmailSelect');
@@ -961,6 +975,7 @@
         renderEditPermsGrid();
         updateEditRoleInfo();
         document.getElementById('editUserModal').classList.add('show');
+        disableEditFormIfReadOnly();
     }
 
     function closeEditModal() {
@@ -1012,8 +1027,28 @@
             }
         }
         
+        // Auto-populate permissions for admin/manager roles
+        let finalPagePerms = newPagePerms;
+        if (role === 'admin') {
+            finalPagePerms = {
+                tickets: { view: true, view_all: true, update: true, assign: true, comment: true, reply: true, delete: true },
+                users: { view_all: true, edit_all: true, edit: true, manage_permissions: true, delete: true, view_team: true },
+                settings: { view: true, edit: true, create: true, delete: true },
+                newsletter: { view: true, send: true },
+                reports: { view: true, view_all: true }
+            };
+        } else if (role === 'manager') {
+            finalPagePerms = {
+                tickets: { view: true, view_all: true, update: true, assign: true, comment: true, reply: true, delete: true },
+                users: { view_all: true, edit: true, manage_permissions: false, delete: false, view_team: true },
+                settings: { view: true, edit: true, create: true, delete: false },
+                newsletter: { view: true, send: false },
+                reports: { view: true, view_all: true }
+            };
+        }
+
         // Validate page_permissions structure
-        for (const [page, perms] of Object.entries(newPagePerms)) {
+        for (const [page, perms] of Object.entries(finalPagePerms)) {
             if (typeof perms !== 'object') {
                 errorEl.textContent = `Invalid permissions for page: ${page}`;
                 return;
@@ -1036,7 +1071,7 @@
                     allowed_categories: categories,
                     allowed_emails: emails,
                     team_id: teamId,
-                    page_permissions: newPagePerms
+                    page_permissions: finalPagePerms
                 })
             });
 
@@ -1093,8 +1128,28 @@
             }
         }
         
+        // Auto-populate permissions for admin/manager roles
+        let finalPagePerms = editPagePerms;
+        if (role === 'admin') {
+            finalPagePerms = {
+                tickets: { view: true, view_all: true, update: true, assign: true, comment: true, reply: true, delete: true },
+                users: { view_all: true, edit_all: true, edit: true, manage_permissions: true, delete: true, view_team: true },
+                settings: { view: true, edit: true, create: true, delete: true },
+                newsletter: { view: true, send: true },
+                reports: { view: true, view_all: true }
+            };
+        } else if (role === 'manager') {
+            finalPagePerms = {
+                tickets: { view: true, view_all: true, update: true, assign: true, comment: true, reply: true, delete: true },
+                users: { view_all: true, edit: true, manage_permissions: false, delete: false, view_team: true },
+                settings: { view: true, edit: true, create: true, delete: false },
+                newsletter: { view: true, send: false },
+                reports: { view: true, view_all: true }
+            };
+        }
+
         // Validate page_permissions structure
-        for (const [page, perms] of Object.entries(editPagePerms)) {
+        for (const [page, perms] of Object.entries(finalPagePerms)) {
             if (typeof perms !== 'object') {
                 errorEl.textContent = `Invalid permissions for page: ${page}`;
                 return;
@@ -1117,7 +1172,7 @@
                     allowed_categories: categories,
                     allowed_emails: emails,
                     team_id: teamId,
-                    page_permissions: editPagePerms
+                    page_permissions: finalPagePerms
                 })
             });
 
