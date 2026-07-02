@@ -323,6 +323,7 @@ async function pushTicketNotification(ticket, env) {
       subject: ticket.subject || "",
       sender_name: ticket.sender_name || "Unknown",
       sender_email: ticket.sender_email || "",
+      last_updated_by: ticket.last_updated_by || "",
       last_updated: ticket.updated_at || ticket.created_at || (/* @__PURE__ */ new Date()).toISOString()
     }
   });
@@ -344,7 +345,7 @@ async function getTicketSnapshot(ticketId, env) {
   try {
     const ticket = await env.DB.prepare(`
             SELECT id, ticket_number, subject, status, category, language, 
-                   sender_email, sender_name, priority, created_at, updated_at, last_action
+                   sender_email, sender_name, priority, created_at, updated_at, last_action, last_updated_by
             FROM tickets WHERE id = ?
         `).bind(ticketId).first();
     return ticket || null;
@@ -773,8 +774,8 @@ async function createTicket(data, env) {
   const senderName = sanitizeName(data.senderName || "");
   const result = await env.DB.prepare(`
         INSERT INTO tickets (ticket_number, category, language, status, priority, sender_name, sender_email, sender_phone, 
-        order_number, subject, message, created_at, last_action, sla_response_due, sla_resolution_due, metadata)
-        VALUES (?, ?, ?, 'new', 'medium', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        order_number, subject, message, created_at, last_action, sla_response_due, sla_resolution_due, metadata, last_updated_by)
+        VALUES (?, ?, ?, 'new', 'medium', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
     ticketNumber,
     category,
@@ -789,7 +790,8 @@ async function createTicket(data, env) {
     now,
     sla.responseDue,
     sla.resolutionDue,
-    JSON.stringify(data.metadata || {})
+    JSON.stringify(data.metadata || {}),
+    data.senderEmail || ""
   ).run();
   const id = result.meta?.last_row_id || result.lastInsertRowid;
   const ticket = {
@@ -804,7 +806,8 @@ async function createTicket(data, env) {
     created_at: now,
     updated_at: now,
     sla_status: "on_track",
-    message: data.message || ""
+    message: data.message || "",
+    last_updated_by: data.senderEmail || ""
   };
   await pushTicketNotification(ticket, env);
   return ticket;
@@ -1445,7 +1448,7 @@ var worker_default = {
         try {
           const category = await validateCategory(data.category || "support", env);
           const language = await validateLanguage(data.language, env);
-          const ticket = await createTicket({ category, senderName: data.name || "", senderEmail: data.email || "", subject: data.subject || "Website Inquiry", message: data.message || "", language, metadata: { source: "website" } }, env);
+          const ticket = await createTicket({ category, senderName: data.name || "", senderEmail: data.email || "", senderPhone: data.phone || "", subject: data.subject || "Website Inquiry", message: data.message || "", language, metadata: { source: "website", company: data.company || "", ...(data.metadata || {}) } }, env);
           if (data.email) await sendTicketConfirmation(ticket, env);
           return json({ success: true, ticketNumber: ticket.ticket_number, ticketId: ticket.id });
         } catch (e) {

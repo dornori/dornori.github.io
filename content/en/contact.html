@@ -248,7 +248,10 @@
         if (!lastName) fieldErr('cf-last-name', 'cf-last-name-err', t.required || 'Required');
         if (!email) fieldErr('cf-email', 'cf-email-err', t.required || 'Required');
         else if (!isValidEmail(email)) fieldErr('cf-email', 'cf-email-err', t.invalidEmail || 'Invalid email');
-        if (phone && !/^[\+\d\s\-\(\)]{7,20}$/.test(phone)) fieldErr('cf-phone', 'cf-phone-err', t.invalidPhone || 'Invalid phone');
+        // Phone validation - more flexible, allow empty
+        if (phone && !/^[\+\d\s\-\(\)]{7,20}$/.test(phone)) {
+            fieldErr('cf-phone', 'cf-phone-err', t.invalidPhone || 'Invalid phone format');
+        }
         if (!subject) fieldErr('cf-subject', 'cf-subject-err', t.required || 'Required');
         if (!message) fieldErr('cf-message', 'cf-message-err', t.required || 'Required');
         else if (message.length < 10) fieldErr('cf-message', 'cf-message-err', t.minMessage || 'Min 10 characters');
@@ -267,21 +270,53 @@
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (t.sendingText || 'Sending...');
 
+        // Build payload with ALL fields separate
         var payload = {
             category: selectedCategory,
             name: firstName + ' ' + lastName,
             email: email,
-            phone: phone || '',
-            company: company || '',
+            phone: phone || '',  // Phone is sent as a separate field
+            company: company || '',  // Company is sent as a separate field
             subject: subject,
             language: lang,
-            message: message,
-            metadata: { source: 'contact-form', firstName: firstName, lastName: lastName, language: lang }
+            message: message,  // Message is separate from phone and company
+            metadata: { 
+                source: 'contact-form', 
+                firstName: firstName, 
+                lastName: lastName, 
+                language: lang,
+                phoneProvided: !!phone,
+                companyProvided: !!company,
+                category: selectedCategory
+            }
         };
 
-        fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-        .then(function(res) { return res.json(); })
+        // Debug: Log the payload to verify fields
+        console.log('📤 Sending contact form payload:');
+        console.log('  - Category:', payload.category);
+        console.log('  - Name:', payload.name);
+        console.log('  - Email:', payload.email);
+        console.log('  - Phone:', payload.phone, '(separate field)');
+        console.log('  - Company:', payload.company, '(separate field)');
+        console.log('  - Subject:', payload.subject);
+        console.log('  - Message length:', payload.message.length, 'chars');
+        console.log('  - Full payload:', payload);
+
+        fetch(WORKER_URL, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(payload) 
+        })
+        .then(function(res) { 
+            if (!res.ok) {
+                return res.text().then(function(text) {
+                    throw new Error('HTTP ' + res.status + ': ' + text);
+                });
+            }
+            return res.json(); 
+        })
         .then(function(result) {
+            console.log('📥 Server response:', result);
             if (result.success) {
                 $('cf-s2').style.display = 'none';
                 $('cf-success').style.display = 'block';
@@ -290,19 +325,24 @@
                 setText('cf-step-label', t.stepDoneLabel || '✅ Done');
                 showToast(t.successTitle || 'Message sent!', false);
             } else {
-                throw new Error(result.error || 'Server error');
+                throw new Error(result.error || 'Server returned error');
             }
         })
         .catch(function(err) {
-            showToast((t.sendFailed || 'Failed') + ': ' + err.message, true);
+            console.error('❌ Submission error:', err);
+            showToast((t.sendFailed || 'Failed to send') + ': ' + err.message, true);
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-paper-plane"></i> ' + (t.submitButton || 'Send Message');
             if (turnstileWidget !== null && typeof turnstile !== 'undefined' && turnstile.reset) {
-                turnstile.reset(turnstileWidget);
-                turnstileToken = null;
+                try {
+                    turnstile.reset(turnstileWidget);
+                    turnstileToken = null;
+                } catch(e) { /* ignore */ }
             }
         })
-        .finally(function() { isSubmitting = false; });
+        .finally(function() { 
+            isSubmitting = false; 
+        });
     }
 
     function populateUI() {
@@ -321,7 +361,12 @@
         var lbl = function(id, key, optional) {
             var el = $(id);
             if (!el) return;
-            el.innerHTML = (t[key] || key) + (optional ? ' <span style="color:var(--text-muted);font-weight:400;">' + (t[optional] || optional) + '</span>' : ' <span style="color:#ef4444">*</span>');
+            var labelText = t[key] || key;
+            if (optional) {
+                el.innerHTML = labelText + ' <span style="color:var(--text-muted);font-weight:400;">' + (t[optional] || optional) + '</span>';
+            } else {
+                el.innerHTML = labelText + ' <span style="color:#ef4444">*</span>';
+            }
         };
         lbl('label-first-name', 'firstName');
         lbl('label-last-name', 'lastName');
@@ -363,7 +408,9 @@
         var msg = $('cf-message');
         var counter = $('cf-char-counter');
         if (msg && counter) {
-            msg.addEventListener('input', function() { counter.textContent = msg.value.length + ' / 5000'; });
+            msg.addEventListener('input', function() { 
+                counter.textContent = msg.value.length + ' / 5000'; 
+            });
         }
 
         var backBtn2 = $('cf-back');
@@ -374,8 +421,26 @@
 
     fetch(jsonPath, { cache: 'no-store' })
         .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function(data) { t = data; populateUI(); })
-        .catch(function(err) { console.error('Failed to load contact.json:', err); });
+        .then(function(data) { 
+            console.log('📄 Loaded language file:', lang);
+            t = data; 
+            populateUI(); 
+        })
+        .catch(function(err) { 
+            console.error('❌ Failed to load contact.json:', err); 
+            // Fallback to English
+            t = {
+                title: 'Contact Us',
+                firstName: 'First Name',
+                lastName: 'Last Name',
+                email: 'Email',
+                phone: 'Phone',
+                company: 'Company',
+                subject: 'Subject',
+                message: 'Message'
+            };
+            populateUI();
+        });
 })();
 </script>
 </div>
