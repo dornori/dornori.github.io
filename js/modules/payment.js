@@ -126,6 +126,11 @@ const Payment = (() => {
       }];
 
       // Include payer info from customer details
+      const billingIsDifferent = formData && formData.billingChoice === "different";
+      const billingSrc = billingIsDifferent ? {
+        address: formData.billing_address, city: formData.billing_city,
+        postal: formData.billing_postal, country: formData.billing_country,
+      } : formData;
       const payerInfo = formData ? {
         email_address: formData.email,
         name: {
@@ -136,6 +141,12 @@ const Payment = (() => {
           phone_number: {
             national_number: formData.phone.replace(/\D/g, ""),
           },
+        } : undefined,
+        address: billingSrc && billingSrc.address ? {
+          address_line_1: billingSrc.address || "",
+          admin_area_2: billingSrc.city || "",
+          postal_code: billingSrc.postal || "",
+          country_code: billingSrc.country || "US",
         } : undefined,
       } : undefined;
 

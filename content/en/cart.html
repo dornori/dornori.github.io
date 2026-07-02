@@ -649,6 +649,21 @@
     });
 
     document.addEventListener('payment:success', async function() {
+      try {
+        var snapCart   = Shop.getCart();
+        var snapTotals = Shop.calculateTotals(snapCart, formData.isBusiness, formData.country);
+        localStorage.setItem('webshop_order_snapshot', JSON.stringify({
+          orderRef: orderRef,
+          formData: formData,
+          items: snapCart.map(function(i) {
+            return { name: i.name, qty: i.qty, price: i.price, sku: i.sku || i.id || '' };
+          }),
+          totals: {
+            subtotal: snapTotals.subtotal, shipping: snapTotals.isFreeShipping ? 0 : snapTotals.shipping,
+            tax: snapTotals.tax, total: snapTotals.total, currency: (window.CONFIG && CONFIG.currencyCode) || 'EUR',
+          },
+        }));
+      } catch (e) { console.warn('Order snapshot failed:', e); }
       Shop.clearCart();
       localStorage.removeItem(FORM_KEY);
       try { await Shop.submitOrderStatus(orderRef, 'PAYMENT_SUCCESS'); } catch {}

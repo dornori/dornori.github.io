@@ -26,6 +26,70 @@
     return fallback || key;
   }
 
+  function fmt(n) { return (Math.round((n||0)*100)/100).toFixed(2); }
+
+  function sendOrderToWorker() {
+    if (status !== 'success') return;
+    try {
+      var raw = localStorage.getItem('webshop_order_snapshot');
+      if (!raw) return;
+      var snap = JSON.parse(raw);
+      if (!snap || !snap.orderRef || snap.orderRef !== ref) return; // stale/mismatched snapshot, skip
+
+      var fd = snap.formData || {};
+      var currency = (snap.totals && snap.totals.currency) || 'EUR';
+      var addressLines = [
+        fd.address, fd.city, fd.postal, fd.country
+      ].filter(Boolean).join(', ');
+
+      var productLines = (snap.items || []).map(function(i) {
+        return i.qty + '× ' + i.name + ' (' + i.sku + ') @ ' + fmt(i.price) + ' ' + currency + ' each';
+      }).join('\n');
+
+      var t = snap.totals || {};
+      var messageBody =
+        'Order: ' + snap.orderRef + '\n\n' +
+        'Shipping address:\n' + addressLines + '\n\n' +
+        'Products:\n' + productLines + '\n\n' +
+        'Subtotal: ' + fmt(t.subtotal) + ' ' + currency + '\n' +
+        'Shipping: ' + fmt(t.shipping) + ' ' + currency + '\n' +
+        'Tax: ' + fmt(t.tax) + ' ' + currency + '\n' +
+        'Total: ' + fmt(t.total) + ' ' + currency;
+
+      var WORKER_URL = ((window.CONFIG && CONFIG.endpoints && CONFIG.endpoints.formHandler) || 'https://dornori-ticketing.dornori-info.workers.dev') + '/api/message';
+
+      var payload = {
+        category: 'payment',
+        name: ((fd.first_name || '') + ' ' + (fd.last_name || '')).trim(),
+        email: fd.email || '',
+        phone: fd.phone || '',
+        company: '',
+        subject: 'Order ' + snap.orderRef,
+        language: lang,
+        message: messageBody,
+        metadata: {
+          source: 'checkout-success',
+          orderRef: snap.orderRef,
+          firstName: fd.first_name || '',
+          lastName: fd.last_name || '',
+          language: lang,
+        },
+      };
+
+      fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).then(function() {
+        localStorage.removeItem('webshop_order_snapshot');
+      }).catch(function(e) {
+        console.warn('Order worker notification failed:', e);
+      });
+    } catch (e) {
+      console.warn('sendOrderToWorker failed:', e);
+    }
+  }
+
   function render() {
     var page = document.getElementById('result-page');
     if (!page) return;
@@ -42,6 +106,7 @@
           T('continue_shopping', 'Continue Shopping') +
         '</a>';
       launchConfetti();
+      sendOrderToWorker();
     } else {
       var cartSlug = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || 'cart';
       page.innerHTML =
