@@ -66,11 +66,14 @@ const CONFIG = {
     businessVatExempt:  false,
 
     shipping: {
-        freeThreshold: 150,
+        freeThreshold: Infinity,
         base:          8.50,
         perKg:         1.20,
         maxFreeWeight: 20,
         estimatedDays: "3–5",
+        // Volumetric (dimensional) weight divisor in cm³/kg — standard courier value.
+        // billable weight per item = max(actual weight, (l*w*h)/volumetricDivisor)
+        volumetricDivisor: 5000,
     },
 
     // ── API Endpoints ─────────────────────────────────────────────────────────

@@ -75,26 +75,40 @@ const Payment = (() => {
       el.innerHTML = "";
       const cfg = CONFIG.payment.paypal;
 
+      // Round each line item first, then sum the *rounded* lines for item_total.
+      // PayPal requires item_total to exactly equal Σ(unit_amount × quantity) in cents —
+      // deriving it from a separately-rounded cart subtotal can be a cent off and the
+      // whole order (including all item/shipping/address detail) gets rejected.
+      const itemLines = cart.map(i => {
+        const unit = Math.round((i.price + Number.EPSILON) * 100) / 100;
+        return {
+          name: i.name + (i.selectedColor ? ` (${i.selectedColor})` : ""),
+          unit_amount: { currency_code: activeCurrency, value: unit.toFixed(2) },
+          quantity: String(i.qty),
+          sku: i.sku || i.id || "",
+          description: i.description || "",
+          _lineTotal: unit * i.qty,
+        };
+      });
+      const itemTotalValue = itemLines.reduce((a, l) => a + l._lineTotal, 0);
+      const shippingValue  = Math.round((totals.shipping + Number.EPSILON) * 100) / 100;
+      const taxValue       = Math.round((totals.tax + Number.EPSILON) * 100) / 100;
+      const grandTotal     = Math.round((itemTotalValue + shippingValue + taxValue + Number.EPSILON) * 100) / 100;
+
       // Build purchase units with individual item details
       const purchaseUnits = [{
         reference_id: orderRef,
         description: `${CONFIG.shopName} – ${orderRef}`,
         amount: {
           currency_code: activeCurrency,
-          value: totals.total.toFixed(2),
+          value: grandTotal.toFixed(2),
           breakdown: {
-            item_total: { currency_code: activeCurrency, value: totals.subtotal.toFixed(2) },
-            shipping: { currency_code: activeCurrency, value: totals.shipping.toFixed(2) },
-            tax_total: { currency_code: activeCurrency, value: totals.tax.toFixed(2) },
+            item_total: { currency_code: activeCurrency, value: itemTotalValue.toFixed(2) },
+            shipping: { currency_code: activeCurrency, value: shippingValue.toFixed(2) },
+            tax_total: { currency_code: activeCurrency, value: taxValue.toFixed(2) },
           },
         },
-        items: cart.map(i => ({
-          name: i.name + (i.selectedColor ? ` (${i.selectedColor})` : ""),
-          unit_amount: { currency_code: activeCurrency, value: i.price.toFixed(2) },
-          quantity: String(i.qty),
-          sku: i.sku || i.id || "",
-          description: i.description || "",
-        })),
+        items: itemLines.map(({ _lineTotal, ...line }) => line),
         // Include shipping address from customer details
         shipping: formData ? {
           name: {
@@ -131,8 +145,14 @@ const Payment = (() => {
           purchase_units: purchaseUnits,
           payer: payerInfo,
           application_context: {
+            brand_name: CONFIG.shopName || undefined,
             return_url: _resolveUrl(cfg.returnPath),
             cancel_url: _resolveUrl(cfg.cancelPath),
+            // Without this, PayPal defaults to GET_FROM_FILE and silently ignores the
+            // shipping address / items / payer data we built above, falling back to
+            // whatever is on the buyer's PayPal account (only their account name shows up).
+            shipping_preference: formData && formData.address ? "SET_PROVIDED_ADDRESS" : "GET_FROM_FILE",
+            user_action: "PAY_NOW",
           },
         }),
         onApprove: async (data, actions) => {

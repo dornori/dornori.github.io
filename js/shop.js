@@ -123,6 +123,24 @@ var Shop = (() => {
     const v = getVariant(product, variantId);
     return v ? (v.weight || 0) : (product.weight || 0);
   }
+  function variantDimensions(product, variantId) {
+    const v = getVariant(product, variantId);
+    return (v && v.dimensions) ? v.dimensions : (product.dimensions || null);
+  }
+  // Volumetric (dimensional) weight in kg from L×W×H (cm) using CONFIG.shipping.volumetricDivisor.
+  function volumetricWeight(dimensions) {
+    if (!dimensions) return 0;
+    const { l, w, h } = dimensions;
+    const divisor = (CONFIG.shipping && CONFIG.shipping.volumetricDivisor) || 5000;
+    if (!l || !w || !h) return 0;
+    return (l * w * h) / divisor;
+  }
+  // Billable weight for one unit: the greater of actual weight and volumetric weight.
+  function billableWeight(item) {
+    const actual = item.weight || 0;
+    const vol = volumetricWeight(item.dimensions);
+    return Math.max(actual, vol);
+  }
   function variantImage(product, variantId) {
     const v = getVariant(product, variantId);
     if (v?.image) return v.image;
@@ -173,13 +191,14 @@ var Shop = (() => {
     const price         = discount > 0 ? rawPrice * (1 - discount / 100) : rawPrice;
     const originalPrice = discount > 0 ? rawPrice : null;
     const weight = variantId ? variantWeight(product, variantId) : (product.weight || 0);
+    const dimensions = variantId ? variantDimensions(product, variantId) : (product.dimensions || null);
     const image  = imageOverride || (variantId ? variantImage(product, variantId) : selectedColor ? colorImageSrc(product, selectedColor) : product.image);
     const variantLabelStr = variantId ? variantLabel(product, variantId) : selectedColor;
     const productLabel = variantId ? _products[variantId]?.label : product.label;
     const maxQty = variantId ? variantStock(product, variantId) : (product.stock || 99);
     const resolvedName = pName(product) || product.name || product.id;
     if (existing) { existing.qty = Math.min(existing.qty + qty, maxQty || 99); }
-    else cart.push({ ...product, name: resolvedName, cartKey: key, qty, price, originalPrice, discount, weight, image, selectedColor: variantLabelStr, productLabel: productLabel, variantId });
+    else cart.push({ ...product, name: resolvedName, cartKey: key, qty, price, originalPrice, discount, weight, dimensions, image, selectedColor: variantLabelStr, productLabel: productLabel, variantId });
     saveCart(cart); return cart;
   }
   function removeFromCart(cartKey) { saveCart(getCart().filter(i => i.cartKey !== cartKey)); }
@@ -203,13 +222,16 @@ var Shop = (() => {
       }
       return a;
     }, 0);
-    const totalWeight = cart.reduce((a, i) => a + (i.weight || 0) * i.qty, 0);
+    const totalWeight    = cart.reduce((a, i) => a + (i.weight || 0) * i.qty, 0);
+    // Billable weight accounts for both actual weight AND package dimensions (volumetric weight),
+    // per item, since bulky-but-light items still cost more to ship. Carriers bill on whichever is greater.
+    const totalBillableWeight = cart.reduce((a, i) => a + billableWeight(i) * i.qty, 0);
     let cfg = { base: CONFIG.shipping.base, perKg: CONFIG.shipping.perKg, freeThreshold: CONFIG.shipping.freeThreshold, estimatedDays: CONFIG.shipping.estimatedDays };
     if (countryCode && typeof Shipping !== "undefined") cfg = Shipping.getRate(countryCode);
     const isFreeShipping = subtotal >= cfg.freeThreshold;
-    const shipping       = isFreeShipping ? 0 : cfg.base + totalWeight * cfg.perKg;
+    const shipping       = isFreeShipping ? 0 : cfg.base + totalBillableWeight * cfg.perKg;
     const tax            = isBusiness ? 0 : subtotal * CONFIG.taxRate;
-    return { subtotal, shipping, tax, total: subtotal + shipping + tax, totalWeight, isFreeShipping, estimatedDays: cfg.estimatedDays, totalDiscount };
+    return { subtotal, shipping, tax, total: subtotal + shipping + tax, totalWeight, totalBillableWeight, isFreeShipping, estimatedDays: cfg.estimatedDays, totalDiscount };
   }
 
   /* ─── LANG LOADER ───────────────────────────────────── */
