@@ -67,6 +67,7 @@
     <div id="ticketModal" class="modal-overlay">
         <div class="modal-content">
             <button class="modal-close" onclick="closeModal()">✕</button>
+            <div id="lockBanner" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:6px;background:#fef3c7;color:#92400e;font-size:13px;font-weight:600;"></div>
             <div id="modalContent"></div>
         </div>
     </div>
@@ -91,6 +92,9 @@
     let allCategories = [];
     let isRefreshing = false;
     let userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    let currentModalTicketId = null;
+    let ticketLockedByOther = false;
+    let ticketLockedByInfo = null;
     
     // ─── WEBSOCKET ──────────────────────────────────────────
     let ws = null;
@@ -113,10 +117,29 @@
                     const data = JSON.parse(event.data);
                     
                     if (data.type === 'pong') return;
-                    
-                    if (data.type === 'new_ticket' && data.ticket) {
+
+                    if (data.type === 'ticket_locked' && data.ticket_id) {
+                        if (currentModalTicketId === data.ticket_id && data.locked_by && data.locked_by.email !== (currentUser && currentUser.email)) {
+                            ticketLockedByOther = true;
+                            ticketLockedByInfo = data.locked_by;
+                            applyLockStateToModal();
+                        }
+                        return;
+                    }
+
+                    if (data.type === 'ticket_unlocked' && data.ticket_id) {
+                        if (currentModalTicketId === data.ticket_id) {
+                            ticketLockedByOther = false;
+                            ticketLockedByInfo = null;
+                            applyLockStateToModal();
+                        }
+                        return;
+                    }
+
+                    if ((data.type === 'new_ticket' || data.type === 'ticket_updated') && data.ticket) {
                         const t = data.ticket;
-                        console.log('🎫 New ticket via WebSocket:', t.ticket_number);
+                        const isNew = data.type === 'new_ticket';
+                        console.log((isNew ? '🎫 New ticket' : '✏️ Ticket updated') + ' via WebSocket:', t.ticket_number);
                         
                         // Build a ticket-like object for injectTicketUpdate
                         const ticketObj = {
@@ -136,16 +159,25 @@
                         };
                         
                         // Try to update the list without full reload
-                        upsertTicketInList(ticketObj, true);
+                        upsertTicketInList(ticketObj, isNew);
+
+                        // If this ticket is currently open in the modal, refresh it
+                        if (currentModalTicketId === ticketObj.ticket_id) {
+                            openTicketModal(ticketObj.ticket_id, true);
+                        }
                         
                         // Show toast
-                        showToast('🎫 New Ticket', '#' + t.ticket_number + ' - ' + (t.subject || 'No subject'), 'success');
+                        if (isNew) {
+                            showToast('🎫 New Ticket', '#' + t.ticket_number + ' - ' + (t.subject || 'No subject'), 'success');
+                        } else {
+                            showToast('✏️ Ticket Updated', '#' + t.ticket_number + ' - ' + (t.subject || 'No subject'), 'info');
+                        }
                         
                         // Browser notification
                         try {
                             if (Notification.permission === 'granted') {
-                                new Notification('🎫 New Ticket #' + t.ticket_number, { 
-                                    body: t.subject || 'New ticket arrived',
+                                new Notification((isNew ? '🎫 New Ticket #' : '✏️ Ticket Updated #') + t.ticket_number, {
+                                    body: t.subject || (isNew ? 'New ticket arrived' : 'Ticket was updated'),
                                     icon: '/favicon.ico'
                                 });
                             }
@@ -907,9 +939,25 @@
         document.body.style.overflow = "hidden";
     }
 
+    function releaseTicketLock(id) {
+        if (!id) return;
+        try {
+            fetch(API_BASE + "/api/admin/ticket/" + id + "/unlock", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token }
+            }).catch(function(){});
+        } catch (e) {}
+    }
+
     function closeModal() {
         document.getElementById("ticketModal").classList.remove("active");
         document.body.style.overflow = "";
+        if (currentModalTicketId) {
+            releaseTicketLock(currentModalTicketId);
+        }
+        currentModalTicketId = null;
+        ticketLockedByOther = false;
+        ticketLockedByInfo = null;
     }
 
     document.getElementById("ticketModal").addEventListener("click", function(e) {
@@ -918,11 +966,59 @@
     document.addEventListener("keydown", function(e) {
         if (e.key === "Escape") { closeModal(); }
     });
+    window.addEventListener("beforeunload", function() {
+        if (currentModalTicketId) releaseTicketLock(currentModalTicketId);
+    });
 
-    async function openTicketModal(id) {
-        openModal();
+    function applyLockStateToModal() {
+        var banner = document.getElementById("lockBanner");
+        if (banner) {
+            if (ticketLockedByOther) {
+                var who = ticketLockedByInfo ? (ticketLockedByInfo.name || ticketLockedByInfo.email) : 'another agent';
+                banner.style.display = 'block';
+                banner.textContent = '🔒 This ticket is currently being edited by ' + who + '. Editing is disabled until they close it.';
+            } else {
+                banner.style.display = 'none';
+            }
+        }
+        document.querySelectorAll('#modalContent .action-section button, #modalContent .action-section textarea, #modalContent .action-section select').forEach(function(el) {
+            if (ticketLockedByOther) {
+                el.disabled = true;
+                el.style.opacity = '0.5';
+                el.style.cursor = 'not-allowed';
+            } else if (canEdit()) {
+                el.disabled = false;
+                el.style.opacity = '';
+                el.style.cursor = '';
+            }
+        });
+    }
+
+    async function openTicketModal(id, isRefresh) {
+        if (!isRefresh) {
+            openModal();
+            if (currentModalTicketId && currentModalTicketId !== id) releaseTicketLock(currentModalTicketId);
+            currentModalTicketId = id;
+            ticketLockedByOther = false;
+            ticketLockedByInfo = null;
+            var content = document.getElementById("modalContent");
+            content.innerHTML = '<div class="loading">Loading...</div>';
+
+            try {
+                var lockRes = await fetch(API_BASE + "/api/admin/ticket/" + id + "/lock", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token }
+                });
+                if (lockRes.status === 401) { logout(); closeModal(); return; }
+                var lockData = await lockRes.json();
+                if (!lockData.success && lockData.locked_by) {
+                    ticketLockedByOther = true;
+                    ticketLockedByInfo = lockData.locked_by;
+                }
+            } catch (e) {}
+        }
+
         var content = document.getElementById("modalContent");
-        content.innerHTML = '<div class="loading">Loading...</div>';
         try {
             var res = await fetch(API_BASE + "/api/admin/ticket/" + id, {
                 headers: { "Authorization": "Bearer " + token }
@@ -933,11 +1029,12 @@
             if (ticket && ticket.id) {
                 if (!ticket.comments) ticket.comments = [];
                 renderTicketDetailModal(ticket);
-            } else {
+                applyLockStateToModal();
+            } else if (!isRefresh) {
                 content.innerHTML = '<div class="loading">Error loading ticket</div>';
             }
         } catch (e) {
-            content.innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
+            if (!isRefresh) content.innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
         }
     }
 
@@ -1143,7 +1240,7 @@
                 openTicketModal(id); 
                 loadStats(); 
                 resetAndLoad();
-                showToast('✅ Status Updated', 'Ticket status changed to ' + status, 'success');
+                // No toast here - push notification will show the update
             } else {
                 showToast('❌ Update Failed', data.error || 'Unknown error', 'error');
             }
@@ -1175,7 +1272,7 @@
                 openTicketModal(id); 
                 loadStats(); 
                 resetAndLoad();
-                showToast('✅ Comment Added', 'Your comment has been added', 'success');
+                // No toast here - push notification will show the update
             } else {
                 showToast('❌ Failed', 'Failed to add comment', 'error');
             }

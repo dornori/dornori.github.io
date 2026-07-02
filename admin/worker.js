@@ -310,9 +310,9 @@ async function validateCategory(category, env) {
   return normalized;
 }
 __name(validateCategory, "validateCategory");
-async function pushTicketNotification(ticket, env) {
+async function pushTicketNotification(ticket, env, eventType = "updated") {
   const notification = JSON.stringify({
-    type: "new_ticket",
+    type: eventType === "created" ? "new_ticket" : "ticket_updated",
     ticket: {
       id: ticket.id,
       ticket_number: ticket.ticket_number || "",
@@ -809,7 +809,7 @@ async function createTicket(data, env) {
     message: data.message || "",
     last_updated_by: data.senderEmail || ""
   };
-  await pushTicketNotification(ticket, env);
+  await pushTicketNotification(ticket, env, "created");
   return ticket;
 }
 __name(createTicket, "createTicket");
@@ -1232,8 +1232,42 @@ var worker_default = {
         hubUrl.searchParams.set("role", user.role);
         hubUrl.searchParams.set("allowed_languages", JSON.stringify(user.allowed_languages || []));
         hubUrl.searchParams.set("allowed_categories", JSON.stringify(user.allowed_categories || []));
+        hubUrl.searchParams.set("email", user.email || email);
+        hubUrl.searchParams.set("name", user.name || user.email || email);
         const hubRequest = new Request(hubUrl.toString(), request);
         return stub.fetch(hubRequest);
+      }
+      if (path.startsWith("/api/admin/ticket/") && path.includes("/lock") && method === "POST") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const userEmail = await verifyToken(token, env);
+        if (!userEmail) return json({ error: "Unauthorized" }, 401);
+        if (!await checkAccess(userEmail, "tickets", "view", env)) return json({ error: "Permission denied" }, 403);
+        if (!env.TICKET_HUB) return json({ success: true });
+        const id = parseInt(path.split("/")[4]);
+        const user = await getUser(userEmail, env);
+        const hubId = env.TICKET_HUB.idFromName("global");
+        const stub = env.TICKET_HUB.get(hubId);
+        const res = await stub.fetch("https://ticket-hub/lock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ticketId: id, email: userEmail, name: user?.name || userEmail })
+        });
+        return json(await res.json());
+      }
+      if (path.startsWith("/api/admin/ticket/") && path.includes("/unlock") && method === "POST") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const userEmail = await verifyToken(token, env);
+        if (!userEmail) return json({ error: "Unauthorized" }, 401);
+        if (!env.TICKET_HUB) return json({ success: true });
+        const id = parseInt(path.split("/")[4]);
+        const hubId = env.TICKET_HUB.idFromName("global");
+        const stub = env.TICKET_HUB.get(hubId);
+        const res = await stub.fetch("https://ticket-hub/unlock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ticketId: id, email: userEmail })
+        });
+        return json(await res.json());
       }
       if (path === "/api/admin/test-push" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
@@ -1248,7 +1282,7 @@ var worker_default = {
           subject: "Test Ticket - Hub Working!",
           sender_name: "Test User",
           updated_at: (/* @__PURE__ */ new Date()).toISOString()
-        }, env);
+        }, env, "created");
         return json({ success: true, message: "Test ticket sent via TICKET_HUB" });
       }
       if (path === "/api/admin/reports" && method === "GET") {
@@ -1635,6 +1669,15 @@ var TicketHub = class {
   constructor(state, env) {
     this.state = state;
     this.env = env;
+    this.locks = /* @__PURE__ */ new Map();
+  }
+  broadcastAll(notification) {
+    for (const ws of this.state.getWebSockets()) {
+      try {
+        ws.send(notification);
+      } catch (e) {
+      }
+    }
   }
   async fetch(request) {
     const url = new URL(request.url);
@@ -1671,8 +1714,44 @@ var TicketHub = class {
       }
       return new Response("ok");
     }
+    if (request.method === "POST" && url.pathname === "/lock") {
+      const LOCK_STALE_MS = 9e4;
+      let body = {};
+      try {
+        body = await request.json();
+      } catch (e) {
+      }
+      const ticketId = body.ticketId;
+      const email = body.email;
+      const name = body.name || email;
+      if (!ticketId || !email) return new Response(JSON.stringify({ success: false, error: "Missing ticketId or email" }), { status: 400 });
+      const existing = this.locks.get(ticketId);
+      if (existing && existing.email !== email && Date.now() - existing.ts < LOCK_STALE_MS) {
+        return new Response(JSON.stringify({ success: false, locked_by: { email: existing.email, name: existing.name } }));
+      }
+      this.locks.set(ticketId, { email, name, ts: Date.now() });
+      this.broadcastAll(JSON.stringify({ type: "ticket_locked", ticket_id: ticketId, locked_by: { email, name } }));
+      return new Response(JSON.stringify({ success: true }));
+    }
+    if (request.method === "POST" && url.pathname === "/unlock") {
+      let body = {};
+      try {
+        body = await request.json();
+      } catch (e) {
+      }
+      const ticketId = body.ticketId;
+      const email = body.email;
+      const existing = this.locks.get(ticketId);
+      if (existing && (existing.email === email || !email)) {
+        this.locks.delete(ticketId);
+        this.broadcastAll(JSON.stringify({ type: "ticket_unlocked", ticket_id: ticketId }));
+      }
+      return new Response(JSON.stringify({ success: true }));
+    }
     if (url.pathname === "/connect" && request.headers.get("Upgrade") === "websocket") {
       const role = url.searchParams.get("role") || "agent";
+      const email = url.searchParams.get("email") || "";
+      const name = url.searchParams.get("name") || email;
       let allowed_languages = [];
       let allowed_categories = [];
       try {
@@ -1686,7 +1765,7 @@ var TicketHub = class {
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
       this.state.acceptWebSocket(server);
-      server.serializeAttachment({ role, allowed_languages, allowed_categories });
+      server.serializeAttachment({ role, allowed_languages, allowed_categories, email, name });
       return new Response(null, { status: 101, webSocket: client });
     }
     return new Response("Not found", { status: 404 });
@@ -1698,7 +1777,25 @@ var TicketHub = class {
     } catch (e) {
     }
   }
+  releaseLocksFor(email) {
+    if (!email) return;
+    for (const [ticketId, lock] of this.locks.entries()) {
+      if (lock.email === email) {
+        this.locks.delete(ticketId);
+        this.broadcastAll(JSON.stringify({ type: "ticket_unlocked", ticket_id: ticketId }));
+      }
+    }
+  }
   async webSocketClose(ws, code, reason, wasClean) {
+    try {
+      let meta = {};
+      try {
+        meta = ws.deserializeAttachment() || {};
+      } catch (e) {
+      }
+      this.releaseLocksFor(meta.email);
+    } catch (e) {
+    }
     try {
       ws.close(code, reason);
     } catch (e) {
