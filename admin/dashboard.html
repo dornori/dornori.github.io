@@ -95,6 +95,7 @@
     let currentModalTicketId = null;
     let ticketLockedByOther = false;
     let ticketLockedByInfo = null;
+    let ticketLocks = {}; // Track all locked tickets: { ticketId: { email, name } }
     
     // ─── WEBSOCKET ──────────────────────────────────────────
     let ws = null;
@@ -119,20 +120,22 @@
                     if (data.type === 'pong') return;
 
                     if (data.type === 'ticket_locked' && data.ticket_id) {
+                        ticketLocks[data.ticket_id] = data.locked_by || {};
                         if (currentModalTicketId === data.ticket_id && data.locked_by && data.locked_by.email !== (currentUser && currentUser.email)) {
                             ticketLockedByOther = true;
                             ticketLockedByInfo = data.locked_by;
-                            applyLockStateToModal();
                         }
+                        renderTickets(loadedTickets);
                         return;
                     }
 
                     if (data.type === 'ticket_unlocked' && data.ticket_id) {
+                        delete ticketLocks[data.ticket_id];
                         if (currentModalTicketId === data.ticket_id) {
                             ticketLockedByOther = false;
                             ticketLockedByInfo = null;
-                            applyLockStateToModal();
                         }
+                        renderTickets(loadedTickets);
                         return;
                     }
 
@@ -141,7 +144,6 @@
                         const isNew = data.type === 'new_ticket';
                         console.log((isNew ? '🎫 New ticket' : '✏️ Ticket updated') + ' via WebSocket:', t.ticket_number);
                         
-                        // Build a ticket-like object for injectTicketUpdate
                         const ticketObj = {
                             id: t.id || 0,
                             ticket_id: t.id || 0,
@@ -158,22 +160,18 @@
                             language: t.language || 'en'
                         };
                         
-                        // Try to update the list without full reload
                         upsertTicketInList(ticketObj, isNew);
 
-                        // If this ticket is currently open in the modal, refresh it
                         if (currentModalTicketId === ticketObj.ticket_id) {
                             openTicketModal(ticketObj.ticket_id, true);
                         }
                         
-                        // Show toast
                         if (isNew) {
                             showToast('🎫 New Ticket', '#' + t.ticket_number + ' - ' + (t.subject || 'No subject'), 'success');
                         } else {
                             showToast('✏️ Ticket Updated', '#' + t.ticket_number + ' - ' + (t.subject || 'No subject'), 'info');
                         }
                         
-                        // Browser notification
                         try {
                             if (Notification.permission === 'granted') {
                                 new Notification((isNew ? '🎫 New Ticket #' : '✏️ Ticket Updated #') + t.ticket_number, {
@@ -183,7 +181,6 @@
                             }
                         } catch(e) {}
                         
-                        // Reload stats
                         loadStats();
                     }
                 } catch(e) {
@@ -197,7 +194,6 @@
                 document.getElementById('wsIndicator').style.color = '#ef4444';
                 ws = null;
                 
-                // Reconnect after 5 seconds
                 if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
                 wsReconnectTimer = setTimeout(connectWebSocket, 5000);
             };
@@ -206,7 +202,6 @@
                 console.error('WebSocket error:', error);
             };
             
-            // Keepalive ping every 30 seconds
             const pingInterval = setInterval(function() {
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({ type: 'ping' }));
@@ -225,14 +220,14 @@
     function disconnectWebSocket() {
         if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
         if (ws) {
-            ws.onclose = null; // Prevent auto-reconnect
+            ws.onclose = null;
             ws.close();
             ws = null;
         }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  PERMISSION SERVICE
+    //  PERMISSION SERVICE - UNIFIED
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     const PermissionService = {
         updateUI() {
@@ -242,9 +237,23 @@
         can(action, page = 'tickets') {
             if (!currentUser) return false;
             if (currentUser.role === 'admin') return true;
+            
+            // Map UI actions to permission keys
+            const actionMap = {
+                'view': 'view',
+                'edit': 'edit',
+                'update': 'edit',
+                'create': 'create',
+                'delete': 'delete',
+                'comment': 'edit',
+                'reply': 'edit',
+                'assign': 'edit'
+            };
+            
             const pagePerms = currentUser.page_permissions || {};
             const perms = pagePerms[page] || {};
-            return perms[action] === true;
+            const mappedAction = actionMap[action] || action;
+            return perms[mappedAction] === true;
         },
 
         hasPageAccess(page) {
@@ -272,6 +281,7 @@
         }
     };
 
+    // ─── PERMISSION HELPERS ──────────────────────────────────
     function canEdit() {
         if (!currentUser) return false;
         if (currentUser.role === 'admin') return true;
@@ -302,7 +312,7 @@
         }
         return button;
     }
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     function showToast(title, message, type = 'info') {
         const toast = document.createElement('div');
         toast.className = 'notification-toast';
@@ -486,7 +496,7 @@
                     ]).then(() => {
                         loadStats();
                         resetAndLoad();
-                        connectWebSocket();  // ← WEBSOCKET INSTEAD OF POLLING
+                        connectWebSocket();
                         checkNotificationBanner();
                     });
                 }
@@ -582,7 +592,7 @@
                 ]);
                 loadStats();
                 resetAndLoad();
-                connectWebSocket();  // ← WEBSOCKET
+                connectWebSocket();
                 checkNotificationBanner();
                 showToast('✅ Login Successful', 'Welcome to Dornori Ticketing', 'success');
             } else {
@@ -614,7 +624,7 @@
     }
 
     function logout() {
-        disconnectWebSocket();  // ← CLEANUP WEBSOCKET
+        disconnectWebSocket();
         token = null;
         currentUser = { email: null, name: null, role: null, page_permissions: {} };
         localStorage.removeItem("token");
@@ -814,7 +824,6 @@
             return;
         }
         
-        
         var html = '<div class="ticket-header-row">' +
             '<span>SLA</span>' +
             '<span>Status</span>' +
@@ -826,6 +835,7 @@
             '</div>';
         for (var i = 0; i < tickets.length; i++) {
             var t = tickets[i];
+            var isLocked = ticketLocks[t.ticket_id];
             var statusClass = "status-" + t.status;
             var slaInfo = getSlaDisplay(t.sla_status || 'on_track');
             var actionDate = t.last_action || t.created_at;
@@ -834,7 +844,10 @@
             var catColor = getCatColor(t.category);
             var catLabel = t.category ? t.category.charAt(0).toUpperCase() + t.category.slice(1) : 'Other';
             var updatedBy = t.last_updated_by ? (t.last_updated_by === t.sender_email ? '👤 ' + t.last_updated_by : t.last_updated_by) : '-';
-            html += '<div class="ticket-item" onclick="openTicketModal(' + t.ticket_id + ')">' +
+            var rowStyle = isLocked ? 'opacity:0.6;background:var(--bg-secondary);cursor:not-allowed;' : '';
+            var lockBadge = isLocked ? '<span style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:11px;background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:4px;font-weight:600;white-space:nowrap;">🔒 ' + escapeHtml(isLocked.name || isLocked.email) + '</span>' : '';
+            var onClickHandler = isLocked ? '' : 'openTicketModal(' + t.ticket_id + ')';
+            html += '<div class="ticket-item" onclick="' + onClickHandler + '" style="' + rowStyle + 'position:relative;">' +
                 '<span class="sla-cell" style="padding:0;display:flex;align-items:center;"><span class="sla-dot" style="background:' + getSlaColor(slaInfo.cls) + ';"></span></span>' +
                 '<span class="status ' + statusClass + '">' + t.status.replace('_', ' ') + '</span>' +
                 '<span class="cat-cell"><span class="cat-dot" style="background:' + catColor + ';"></span><span class="cat-name">' + escapeHtml(catLabel) + '</span></span>' +
@@ -842,6 +855,7 @@
                 '<span class="subject" title="' + escapeHtml(subjectText) + '">' + escapeHtml(truncatedSubject) + '</span>' +
                 '<span style="font-size:12px;color:var(--text-muted);">' + formatDate(actionDate) + '</span>' +
                 '<span style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(updatedBy) + '</span>' +
+                lockBadge +
                 '</div>';
         }
         list.innerHTML = html;
@@ -971,51 +985,38 @@
     });
 
     function applyLockStateToModal() {
-        var banner = document.getElementById("lockBanner");
-        if (banner) {
-            if (ticketLockedByOther) {
-                var who = ticketLockedByInfo ? (ticketLockedByInfo.name || ticketLockedByInfo.email) : 'another agent';
-                banner.style.display = 'block';
-                banner.textContent = '🔒 This ticket is currently being edited by ' + who + '. Editing is disabled until they close it.';
-            } else {
-                banner.style.display = 'none';
-            }
-        }
-        document.querySelectorAll('#modalContent .action-section button, #modalContent .action-section textarea, #modalContent .action-section select').forEach(function(el) {
-            if (ticketLockedByOther) {
-                el.disabled = true;
-                el.style.opacity = '0.5';
-                el.style.cursor = 'not-allowed';
-            } else if (canEdit()) {
-                el.disabled = false;
-                el.style.opacity = '';
-                el.style.cursor = '';
-            }
-        });
+        return;
     }
 
     async function openTicketModal(id, isRefresh) {
         if (!isRefresh) {
-            openModal();
             if (currentModalTicketId && currentModalTicketId !== id) releaseTicketLock(currentModalTicketId);
             currentModalTicketId = id;
             ticketLockedByOther = false;
             ticketLockedByInfo = null;
-            var content = document.getElementById("modalContent");
-            content.innerHTML = '<div class="loading">Loading...</div>';
 
             try {
                 var lockRes = await fetch(API_BASE + "/api/admin/ticket/" + id + "/lock", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token }
                 });
-                if (lockRes.status === 401) { logout(); closeModal(); return; }
+                if (lockRes.status === 401) { logout(); return; }
                 var lockData = await lockRes.json();
                 if (!lockData.success && lockData.locked_by) {
                     ticketLockedByOther = true;
                     ticketLockedByInfo = lockData.locked_by;
+                    currentModalTicketId = null;
+                    showToast('🔒 Ticket Locked', 'This ticket is being edited by ' + (lockData.locked_by.name || lockData.locked_by.email), 'warning');
+                    return;
                 }
-            } catch (e) {}
+            } catch (e) {
+                showToast('❌ Error', 'Failed to lock ticket', 'error');
+                return;
+            }
+            
+            openModal();
+            var content = document.getElementById("modalContent");
+            content.innerHTML = '<div class="loading">Loading...</div>';
         }
 
         var content = document.getElementById("modalContent");
@@ -1059,7 +1060,6 @@
                 var msgStyle = 'style="font-size:13px;line-height:1.6;margin-top:8px;white-space:pre-wrap;word-wrap:break-word;"';
                 
                 if (isPublicReply) {
-                    // content is encoded as \u0001<sentFromEmail>\u0001<message>
                     var raw = c.content || '';
                     var replyFrom = '';
                     var replyContent = raw;
@@ -1068,7 +1068,6 @@
                         replyFrom = parts[0] || '';
                         replyContent = parts.slice(1).join('\u0001');
                     } else {
-                        // legacy record: author_email was the sending address
                         replyFrom = author;
                         replyContent = raw.replace(/^Reply sent:\s*/, '');
                     }
@@ -1161,23 +1160,24 @@
 
         var actionsHtml = '';
         if (!isClosed) {
+            var canEditTicket = canEdit();
             actionsHtml = `
             <div class="detail-section action-section">
                 <h4>✏️ Update Status</h4>
                 ${statusDropdown}
-                <div class="actions"><button class="btn-primary" onclick="updateStatus(${ticket.id})" ${!canEdit() ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Save Status</button></div>
+                <div class="actions"><button class="btn-primary" onclick="updateStatus(${ticket.id})" ${!canEditTicket ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Save Status</button></div>
             </div>
             <div class="detail-section action-section comment-input">
                 <h4>📝 Add Comment</h4>
-                <textarea id="detailComment" placeholder="Write an internal comment..." ${!canEdit() ? 'disabled' : ''}></textarea>
-                <div class="actions"><button class="btn-primary" onclick="addComment(${ticket.id})" ${!canEdit() ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Add Comment</button></div>
+                <textarea id="detailComment" placeholder="Write an internal comment..." ${!canEditTicket ? 'disabled' : ''}></textarea>
+                <div class="actions"><button class="btn-primary" onclick="addComment(${ticket.id})" ${!canEditTicket ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Add Comment</button></div>
             </div>
             <div class="detail-section action-section">
                 <h4>✉️ Reply to Customer</h4>
                 <label>From:</label>
                 ${senderDropdown}
-                <textarea id="detailReplyBody" placeholder="Write your reply to the customer..." ${!canEdit() ? 'disabled' : ''}></textarea>
-                <div class="actions"><button class="btn-primary" onclick="sendReply(${ticket.id})" ${!canEdit() ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Send Reply</button></div>
+                <textarea id="detailReplyBody" placeholder="Write your reply to the customer..." ${!canEditTicket ? 'disabled' : ''}></textarea>
+                <div class="actions"><button class="btn-primary" onclick="sendReply(${ticket.id})" ${!canEditTicket ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Send Reply</button></div>
             </div>`;
         } else {
             actionsHtml = `
@@ -1240,7 +1240,6 @@
                 openTicketModal(id); 
                 loadStats(); 
                 resetAndLoad();
-                // No toast here - push notification will show the update
             } else {
                 showToast('❌ Update Failed', data.error || 'Unknown error', 'error');
             }
@@ -1272,7 +1271,6 @@
                 openTicketModal(id); 
                 loadStats(); 
                 resetAndLoad();
-                // No toast here - push notification will show the update
             } else {
                 showToast('❌ Failed', 'Failed to add comment', 'error');
             }

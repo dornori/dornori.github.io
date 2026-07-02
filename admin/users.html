@@ -149,7 +149,6 @@
                 <div class="langs-group" id="newLanguages"></div>
             </div>
 
-            <!-- NEW: Category Permissions -->
             <div class="form-group">
                 <label>Category Access *</label>
                 <div class="role-info" style="margin-bottom: 8px;">Select which categories this user can access. Check categories to grant access.</div>
@@ -246,7 +245,6 @@
                 <div class="langs-group" id="editLanguages"></div>
             </div>
 
-            <!-- NEW: Category Permissions -->
             <div class="form-group">
                 <label>Category Access *</label>
                 <div class="role-info" style="margin-bottom: 8px;">Select which categories this user can access. Check categories to grant access.</div>
@@ -300,7 +298,7 @@
             <div id="editUserError" class="error"></div>
             <div class="form-footer">
                 <button class="btn-secondary" onclick="closeEditModal()">Cancel</button>
-                <button class="btn-primary" onclick="saveUser()">Save Changes</button>
+                <button class="btn-primary" id="saveUserBtn" onclick="saveUser()">Save Changes</button>
             </div>
         </div>
     </div>
@@ -336,8 +334,39 @@
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     let currentUser = storedUser ? JSON.parse(storedUser) : null;
+    
+    // ─── UNIFIED PERMISSION CHECKS ──────────────────────────────
+    function hasPageAccess(page) {
+        if (!currentUser) return false;
+        if (currentUser.role === 'admin') return true;
+        const perms = currentUser.page_permissions?.[page] || {};
+        return perms.view === true;
+    }
+
+    function canCreateUser() {
+        if (!currentUser) return false;
+        if (currentUser.role === 'admin') return true;
+        const perms = currentUser.page_permissions?.users || {};
+        return perms.create === true;
+    }
+
+    function canEditUserAction() {
+        if (!currentUser) return false;
+        if (currentUser.role === 'admin') return true;
+        const perms = currentUser.page_permissions?.users || {};
+        return perms.edit === true;
+    }
+
+    function canDeleteUserAction() {
+        if (!currentUser) return false;
+        if (currentUser.role === 'admin') return true;
+        const perms = currentUser.page_permissions?.users || {};
+        return perms.delete === true;
+    }
+
     const isAdmin = currentUser && currentUser.role === 'admin';
     const hasUsersPermission = isAdmin || (currentUser && currentUser.page_permissions && currentUser.page_permissions.users && currentUser.page_permissions.users.view);
+    
     if (!token || !currentUser || (!isAdmin && !hasUsersPermission)) {
         document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to manage users.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
         throw new Error('Users access required');
@@ -345,9 +374,7 @@
 
     const pagePerms = (currentUser && currentUser.page_permissions) || {};
 
-    // Refresh permissions from the server in the background: localStorage only
-    // reflects what was true at login, so without this an admin permission
-    // change wouldn't take effect until the user logs out and back in.
+    // Refresh permissions from the server
     (async function refreshCurrentUser() {
         try {
             const res = await fetch(API_BASE + '/api/admin/me', { headers: { Authorization: 'Bearer ' + token } });
@@ -370,34 +397,6 @@
             }
         } catch (e) { /* keep last-known permissions on failure */ }
     })();
-    
-    function hasPageAccess(page) {
-        if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const perms = pagePerms[page] || {};
-        return perms.view === true;
-    }
-    
-    function canCreateUser() {
-        if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const perms = pagePerms.users || {};
-        return perms.create === true;
-    }
-
-    function canEditUserAction() {
-        if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const perms = pagePerms.users || {};
-        return perms.edit === true;
-    }
-
-    function canDeleteUserAction() {
-        if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const perms = pagePerms.users || {};
-        return perms.delete === true;
-    }
     
     // Show all nav buttons except current page (users)
     if (hasPageAccess('reports')) document.getElementById('nav-reports').style.display = '';
@@ -560,7 +559,6 @@
         }
         container.innerHTML = allCategories.map(cat => {
             const catLabel = cat.charAt(0).toUpperCase() + cat.slice(1);
-            // Check if this category is selected (for edit mode)
             const isChecked = containerId === 'editCategories' 
                 ? editSelectedCategories.includes(cat)
                 : false;
@@ -619,7 +617,7 @@
 
     function canCreateUsers() {
         if (!currentUser) return false;
-        return ['admin', 'manager'].includes(currentUser.role);
+        return ['admin', 'manager'].includes(currentUser.role) || canCreateUser();
     }
 
     function canEditUser(targetUser) {
@@ -666,7 +664,6 @@
         if (!checkPermission()) return;
 
         try {
-            // Load settings first (languages & categories)
             await loadSettings();
 
             const usersRes = await fetch(API_BASE + '/api/admin/users', {
@@ -684,7 +681,6 @@
                 allUsers = usersData.users || [];
             }
 
-            // Load teams from settings (already loaded in loadSettings, but we need to extract them)
             const settingsRes = await fetch(API_BASE + '/api/admin/settings', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -959,7 +955,6 @@
             if (input) input.checked = true;
         });
 
-        // Render categories with selections
         renderCategoryCheckboxes('editCategories');
 
         editEmails = [...(user.allowed_emails || [])];
@@ -1010,7 +1005,6 @@
         if (['agent', 'tl'].includes(role) && emails.length === 0) { errorEl.textContent = 'Agents/TLs must have email addresses'; return; }
         if (role === 'tl' && !teamId) { errorEl.textContent = 'Team Leaders must have a team'; return; }
         
-        // Validate that all selected languages exist
         const validLangCodes = languageList.map(l => l.code);
         for (const lang of langs) {
             if (!validLangCodes.includes(lang)) {
@@ -1019,7 +1013,6 @@
             }
         }
         
-        // Validate that all selected categories exist
         for (const cat of categories) {
             if (!allCategories.includes(cat)) {
                 errorEl.textContent = `Invalid category: ${cat}`;
@@ -1027,27 +1020,25 @@
             }
         }
         
-        // Auto-populate permissions for admin/manager roles
         let finalPagePerms = newPagePerms;
         if (role === 'admin') {
             finalPagePerms = {
-                tickets: { view: true, view_all: true, update: true, assign: true, comment: true, reply: true, delete: true },
-                users: { view_all: true, edit_all: true, edit: true, manage_permissions: true, delete: true, view_team: true },
+                tickets: { view: true, edit: true, create: true, delete: true },
+                users: { view: true, edit: true, create: true, delete: true },
                 settings: { view: true, edit: true, create: true, delete: true },
-                newsletter: { view: true, send: true },
-                reports: { view: true, view_all: true }
+                newsletter: { view: true, edit: true, create: true, delete: true },
+                reports: { view: true, edit: true, create: true, delete: true }
             };
         } else if (role === 'manager') {
             finalPagePerms = {
-                tickets: { view: true, view_all: true, update: true, assign: true, comment: true, reply: true, delete: true },
-                users: { view_all: true, edit: true, manage_permissions: false, delete: false, view_team: true },
+                tickets: { view: true, edit: true, create: true, delete: true },
+                users: { view: true, edit: true, create: true, delete: false },
                 settings: { view: true, edit: true, create: true, delete: false },
-                newsletter: { view: true, send: false },
-                reports: { view: true, view_all: true }
+                newsletter: { view: true, edit: true, create: true, delete: false },
+                reports: { view: true, edit: true, create: true, delete: false }
             };
         }
 
-        // Validate page_permissions structure
         for (const [page, perms] of Object.entries(finalPagePerms)) {
             if (typeof perms !== 'object') {
                 errorEl.textContent = `Invalid permissions for page: ${page}`;
@@ -1111,7 +1102,6 @@
         if (['agent', 'tl'].includes(role) && emails.length === 0) { errorEl.textContent = 'Agents/TLs must have email addresses'; return; }
         if (role === 'tl' && !teamId) { errorEl.textContent = 'Team Leaders must have a team'; return; }
         
-        // Validate that all selected languages exist
         const validLangCodes = languageList.map(l => l.code);
         for (const lang of langs) {
             if (!validLangCodes.includes(lang)) {
@@ -1120,7 +1110,6 @@
             }
         }
         
-        // Validate that all selected categories exist
         for (const cat of categories) {
             if (!allCategories.includes(cat)) {
                 errorEl.textContent = `Invalid category: ${cat}`;
@@ -1128,27 +1117,25 @@
             }
         }
         
-        // Auto-populate permissions for admin/manager roles
         let finalPagePerms = editPagePerms;
         if (role === 'admin') {
             finalPagePerms = {
-                tickets: { view: true, view_all: true, update: true, assign: true, comment: true, reply: true, delete: true },
-                users: { view_all: true, edit_all: true, edit: true, manage_permissions: true, delete: true, view_team: true },
+                tickets: { view: true, edit: true, create: true, delete: true },
+                users: { view: true, edit: true, create: true, delete: true },
                 settings: { view: true, edit: true, create: true, delete: true },
-                newsletter: { view: true, send: true },
-                reports: { view: true, view_all: true }
+                newsletter: { view: true, edit: true, create: true, delete: true },
+                reports: { view: true, edit: true, create: true, delete: true }
             };
         } else if (role === 'manager') {
             finalPagePerms = {
-                tickets: { view: true, view_all: true, update: true, assign: true, comment: true, reply: true, delete: true },
-                users: { view_all: true, edit: true, manage_permissions: false, delete: false, view_team: true },
+                tickets: { view: true, edit: true, create: true, delete: true },
+                users: { view: true, edit: true, create: true, delete: false },
                 settings: { view: true, edit: true, create: true, delete: false },
-                newsletter: { view: true, send: false },
-                reports: { view: true, view_all: true }
+                newsletter: { view: true, edit: true, create: true, delete: false },
+                reports: { view: true, edit: true, create: true, delete: false }
             };
         }
 
-        // Validate page_permissions structure
         for (const [page, perms] of Object.entries(finalPagePerms)) {
             if (typeof perms !== 'object') {
                 errorEl.textContent = `Invalid permissions for page: ${page}`;
