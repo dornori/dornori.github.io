@@ -1,14 +1,18 @@
 /* =========================================================
    WEBSHOP — Payment Module  (js/modules/payment.js)
    =========================================================
-   Reads:  CONFIG.payment
+   Reads:  CONFIG.payment, CONFIG.shopName
+           Customer formData (from cart.html step 2)
+           Cart data with product details
+           Shipping data (from Shipping module)
+   
    Emits:  CustomEvent "payment:success" { orderRef, processor, details }
            CustomEvent "payment:cancel"  { orderRef, processor }
            CustomEvent "payment:error"   { orderRef, processor, error }
 
    Usage:
      await Payment.init();
-     Payment.render(cart, totals, orderRef, "#payment-mount");
+     Payment.render(cart, totals, orderRef, "#payment-mount", formData);
 
    Switch processor at runtime:
      Payment.switchProcessor("stripe");
@@ -26,7 +30,7 @@ const Payment = (() => {
       const baseSrc = src.split("?")[0];
       const existing = document.querySelector(`script[src*="${baseSrc}"]`);
       if (existing && existing._loadSuccess) { resolve(); return; }
-      if (existing) existing.remove(); // remove failed/stale tag so we can retry
+      if (existing) existing.remove();
       const s = Object.assign(document.createElement("script"), {
         src,
         onload:  () => { s._loadSuccess = true; resolve(); },
@@ -39,7 +43,6 @@ const Payment = (() => {
 
   function _resolveUrl(path) {
     const base = (window.__BASE_PATH__ && window.__BASE_PATH__ !== '/') ? window.__BASE_PATH__ : '';
-    // If path already starts with base, don't double-prefix
     const resolved = (base && !path.startsWith(base)) ? base + path.replace(/^\//, '') : path;
     return window.location.origin + resolved;
   }
@@ -49,18 +52,17 @@ const Payment = (() => {
     async init() {
       const { clientId, currency, intent } = CONFIG.payment.paypal;
       if (!clientId) {
-        // No clientId configured — skip SDK load so PayPal render shows the placeholder
         return;
       }
       await _loadScript(
         `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${currency}&intent=${intent || "capture"}`
       );
     },
-    async render(cart, totals, orderRef, el) {
-      // Use the currently active display currency, not the hardcoded config default
+    async render(cart, totals, orderRef, el, formData) {
       const activeCurrency = (typeof Currency !== 'undefined' && Currency.getActive)
         ? Currency.getActive()
-        : cfg.currency;
+        : CONFIG.payment.paypal.currency;
+      
       if (!window.paypal) {
         el.innerHTML = `<div style="padding:20px;text-align:center;border:1px dashed var(--c-border);border-radius:var(--radius);color:var(--c-text-3);font-size:0.85rem;line-height:1.6;">
           <strong style="display:block;margin-bottom:6px;">PayPal not loaded</strong>
@@ -69,40 +71,76 @@ const Payment = (() => {
         </div>`;
         return;
       }
+      
       el.innerHTML = "";
       const cfg = CONFIG.payment.paypal;
+
+      // Build purchase units with individual item details
+      const purchaseUnits = [{
+        reference_id: orderRef,
+        description: `${CONFIG.shopName} – ${orderRef}`,
+        amount: {
+          currency_code: activeCurrency,
+          value: totals.total.toFixed(2),
+          breakdown: {
+            item_total: { currency_code: activeCurrency, value: totals.subtotal.toFixed(2) },
+            shipping: { currency_code: activeCurrency, value: totals.shipping.toFixed(2) },
+            tax_total: { currency_code: activeCurrency, value: totals.tax.toFixed(2) },
+          },
+        },
+        items: cart.map(i => ({
+          name: i.name + (i.selectedColor ? ` (${i.selectedColor})` : ""),
+          unit_amount: { currency_code: activeCurrency, value: i.price.toFixed(2) },
+          quantity: String(i.qty),
+          sku: i.sku || i.id || "",
+          description: i.description || "",
+        })),
+        // Include shipping address from customer details
+        shipping: formData ? {
+          name: {
+            full_name: `${formData.first_name} ${formData.last_name}`.trim(),
+          },
+          address: {
+            address_line_1: formData.address || "",
+            address_line_2: "",
+            admin_area_2: formData.city || "",
+            admin_area_1: "",
+            postal_code: formData.postal || "",
+            country_code: formData.country || "US",
+          },
+        } : undefined,
+      }];
+
+      // Include payer info from customer details
+      const payerInfo = formData ? {
+        email_address: formData.email,
+        name: {
+          given_name: formData.first_name || "",
+          surname: formData.last_name || "",
+        },
+        phone: formData.phone ? {
+          phone_number: {
+            national_number: formData.phone.replace(/\D/g, ""),
+          },
+        } : undefined,
+      } : undefined;
+
       await window.paypal.Buttons({
         style: { layout: "vertical", color: "black", shape: "rect", label: "pay", height: 48 },
         createOrder: (data, actions) => actions.order.create({
-          purchase_units: [{
-            reference_id: orderRef,
-            description:  `${CONFIG.shopName} – ${orderRef}`,
-            amount: {
-              currency_code: cfg.currency,
-              value:         totals.total.toFixed(2),
-              breakdown: {
-                item_total: { currency_code: cfg.currency, value: totals.subtotal.toFixed(2) },
-                shipping:   { currency_code: cfg.currency, value: totals.shipping.toFixed(2) },
-                tax_total:  { currency_code: cfg.currency, value: totals.tax.toFixed(2) },
-              },
-            },
-            items: cart.map(i => ({
-              name:        i.name + (i.selectedColor ? ` (${i.selectedColor})` : ""),
-              unit_amount: { currency_code: cfg.currency, value: i.price.toFixed(2) },
-              quantity:    String(i.qty),
-            })),
-          }],
+          purchase_units: purchaseUnits,
+          payer: payerInfo,
           application_context: {
             return_url: _resolveUrl(cfg.returnPath),
             cancel_url: _resolveUrl(cfg.cancelPath),
           },
         }),
-        onApprove:  async (data, actions) => {
+        onApprove: async (data, actions) => {
           const d = await actions.order.capture();
           _dispatch("payment:success", { orderRef, processor: "paypal", details: d });
         },
-        onCancel:   ()    => _dispatch("payment:cancel",  { orderRef, processor: "paypal" }),
-        onError:    err   => {
+        onCancel: () => _dispatch("payment:cancel", { orderRef, processor: "paypal" }),
+        onError: err => {
           console.error("[Payment/PayPal]", err);
           _dispatch("payment:error", { orderRef, processor: "paypal", error: err });
         },
@@ -118,7 +156,7 @@ const Payment = (() => {
       await _loadScript("https://js.stripe.com/v3/");
       this._instance = window.Stripe(CONFIG.payment.stripe.publishableKey);
     },
-    async render(cart, totals, orderRef, el) {
+    async render(cart, totals, orderRef, el, formData) {
       if (!this._instance) throw new Error("[Payment/Stripe] Not initialized");
       const cfg = CONFIG.payment.stripe;
 
@@ -137,7 +175,13 @@ const Payment = (() => {
           body: JSON.stringify({
             amount: Math.round(totals.total * 100),
             currency: cfg.currency,
-            metadata: { orderRef },
+            metadata: {
+              orderRef,
+              customerEmail: formData?.email || "",
+              customerName: formData ? `${formData.first_name} ${formData.last_name}`.trim() : "",
+              shippingCountry: formData?.country || "",
+              shippingAddress: formData?.address || "",
+            },
           }),
         });
         ({ clientSecret } = await res.json());
@@ -148,7 +192,7 @@ const Payment = (() => {
       }
 
       this._elements = this._instance.elements({ clientSecret, appearance: cfg.appearance });
-      el.innerHTML   = `
+      el.innerHTML = `
         <div id="stripe-pe" style="margin-bottom:14px;"></div>
         <button class="webshop-btn webshop-btn--primary webshop-btn--full" id="stripe-pay">${(window.T && window.T.ui && window.T.ui.payNow) || "Pay Now"}</button>
         <p id="stripe-err" style="color:#c0392b;font-size:0.82rem;margin-top:8px;display:none;"></p>`;
@@ -157,25 +201,45 @@ const Payment = (() => {
       const btn = el.querySelector("#stripe-pay");
       const err = el.querySelector("#stripe-err");
       btn.addEventListener("click", async () => {
-        btn.disabled = true; btn.textContent = (window.T && window.T.ui && window.T.ui.processing) || "Processing…"; err.style.display = "none";
+        btn.disabled = true;
+        btn.textContent = (window.T && window.T.ui && window.T.ui.processing) || "Processing…";
+        err.style.display = "none";
+
         const { error } = await this._instance.confirmPayment({
           elements: this._elements,
-          confirmParams: { return_url: _resolveUrl(cfg.returnPath) + "?ref=" + orderRef },
+          confirmParams: {
+            return_url: _resolveUrl(cfg.returnPath) + "?ref=" + orderRef,
+            payment_method_data: formData ? {
+              billing_details: {
+                name: `${formData.first_name} ${formData.last_name}`.trim(),
+                email: formData.email,
+                phone: formData.phone || undefined,
+                address: {
+                  line1: formData.address,
+                  city: formData.city,
+                  postal_code: formData.postal,
+                  country: formData.country,
+                },
+              },
+            } : undefined,
+          },
         });
+
         if (error) {
-          err.textContent = error.message; err.style.display = "block";
-          btn.disabled = false; btn.textContent = (window.T && window.T.ui && window.T.ui.payNow) || "Pay Now";
+          err.textContent = error.message;
+          err.style.display = "block";
+          btn.disabled = false;
+          btn.textContent = (window.T && window.T.ui && window.T.ui.payNow) || "Pay Now";
           _dispatch("payment:error", { orderRef, processor: "stripe", error });
         }
-        // success: Stripe redirects to returnUrl
       });
     },
   };
 
   /* ── No-op adapter ───────────────────────────────────── */
   const _none = {
-    async init()               {},
-    async render(c, t, o, el) { el.innerHTML = ""; },
+    async init() {},
+    async render(c, t, o, el, f) { el.innerHTML = ""; },
   };
 
   const _adapters = { paypal: _paypal, stripe: _stripe, none: _none };
@@ -188,22 +252,20 @@ const Payment = (() => {
       await _adapters[name].init();
       _ready = true;
     } catch (e) {
-      // Don't mark ready — allow retry. Propagate so renderPayment can show fallback.
       throw e;
     }
   }
 
-  async function render(cart, totals, orderRef, mountEl) {
+  async function render(cart, totals, orderRef, mountEl, formData) {
     if (!_ready) await init();
     const el = typeof mountEl === "string" ? document.querySelector(mountEl) : mountEl;
     if (!el) return;
-    await _adapters[CONFIG.payment.activeProcessor || "none"].render(cart, totals, orderRef, el);
+    await _adapters[CONFIG.payment.activeProcessor || "none"].render(cart, totals, orderRef, el, formData);
   }
 
   async function switchProcessor(name) {
     if (!_adapters[name]) return;
     _ready = false;
-    // Reset Stripe state so it fully re-initialises if switched back
     if (_stripe._instance) {
       _stripe._instance = null;
       _stripe._elements = null;

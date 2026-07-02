@@ -76,22 +76,6 @@
       </div>
     </div>
     <h2 class="webshop-panel-title" data-i18n="shipping_info">Shipping Information</h2>
-    <label class="webshop-checkbox-group" style="margin-bottom:20px;">
-      <input type="checkbox" id="cart-is-business">
-      <span class="webshop-checkbox-label" data-i18n="business_order">This is a business order</span>
-    </label>
-    <div id="cart-business-fields" style="display:none;margin-bottom:20px;">
-      <div class="webshop-form-row">
-        <div class="webshop-form-group">
-          <label data-i18n="company">Company Name</label>
-          <input type="text" id="cart-company" name="company" autocomplete="organization">
-        </div>
-        <div class="webshop-form-group">
-          <label data-i18n="vat_number">VAT Number</label>
-          <input type="text" id="cart-vat-number" name="vat_number">
-        </div>
-      </div>
-    </div>
     <div class="webshop-form" id="cart-shipping-form">
       <div class="webshop-form-row">
         <div class="webshop-form-group">
@@ -521,18 +505,12 @@
   function restoreFormData() {
     var saved = getSavedForm();
     ['first-name','last-name','email','phone','address','city','postal','country',
-     'company','vat-number','billing-first-name','billing-last-name','billing-address',
+     'billing-first-name','billing-last-name','billing-address',
      'billing-city','billing-postal','billing-country'].forEach(function(id) {
       var el = document.getElementById('cart-' + id);
       var key = id.replace(/-/g,'_');
       if (el && saved[key]) el.value = saved[key];
     });
-    if (saved._isBusiness) {
-      var cb = document.getElementById('cart-is-business');
-      if (cb) { cb.checked = true; isBusiness = true; }
-      var bf = document.getElementById('cart-business-fields');
-      if (bf) bf.style.display = 'block';
-    }
     if (saved._billingChoice === 'different') setBillingChoice('different');
   }
 
@@ -571,15 +549,6 @@
     if (btnTo2) btnTo2.addEventListener('click', function() {
       if (!Shop.getCart().length) return;
       goToStep(2);
-    });
-
-    var bizCb = document.getElementById('cart-is-business');
-    if (bizCb) bizCb.addEventListener('change', function() {
-      isBusiness = bizCb.checked;
-      var bf = document.getElementById('cart-business-fields');
-      if (bf) bf.style.display = isBusiness ? 'block' : 'none';
-      saveField('_isBusiness', isBusiness);
-      renderCartTotals();
     });
 
     document.querySelectorAll('input[name="cart_billing_choice"]').forEach(function(radio) {
@@ -649,9 +618,6 @@
         city:               document.getElementById('cart-city').value.trim(),
         postal:             document.getElementById('cart-postal').value.trim(),
         country:            document.getElementById('cart-country').value,
-        company:            (document.getElementById('cart-company')||{}).value || '',
-        vat_number:         (document.getElementById('cart-vat-number')||{}).value || '',
-        isBusiness:         isBusiness,
         billingChoice:      billingChoice,
         billing_first_name: billingChoice==='different'?(document.getElementById('cart-billing-first-name')||{}).value||'':null,
         billing_last_name:  billingChoice==='different'?(document.getElementById('cart-billing-last-name')||{}).value||'':null,
@@ -674,7 +640,7 @@
       Shop.submitOrderDetails(orderRef, formData, Shop.getCart(), document.getElementById('cart-captcha-container')).catch(function(err) {
         if (typeof Shop.toast === 'function') Shop.toast(err.message || 'Order submission failed', 4000);
       });
-      renderPayment(Shop.getCart());
+      renderPayment(Shop.getCart(), formData);
     });
 
     document.addEventListener('payment:success', async function() {
@@ -698,11 +664,11 @@
     });
   }
 
-  async function renderPayment(cart) {
+  async function renderPayment(cart, custFormData) {
     var mount = document.getElementById('cart-payment-mount');
     if (!mount) return;
     mount.innerHTML = '<div style="padding:16px;text-align:center;opacity:.6;font-size:.85rem;">' + T('loading_payment', 'Loading payment…') + '</div>';
-    var t = Shop.calculateTotals(cart, isBusiness, formData.country);
+    var t = Shop.calculateTotals(cart, false, formData.country);
     try {
       // Render Turnstile in cart step 3
       var captchaEl = document.getElementById('cart-captcha-container');
@@ -725,7 +691,7 @@
         }
       }
       await Payment.init();
-      await Payment.render(cart, { subtotal: t.subtotal, shipping: t.isFreeShipping ? 0 : t.shipping, tax: t.tax, total: t.total }, orderRef, mount);
+      await Payment.render(cart, { subtotal: t.subtotal, shipping: t.isFreeShipping ? 0 : t.shipping, tax: t.tax, total: t.total }, orderRef, mount, custFormData);
     } catch(e) {
       var isCfg = e.message && (e.message.includes('Script load failed') || e.message.includes('client-id'));
       mount.innerHTML = '<div style="padding:20px;text-align:center;border:1px dashed var(--c-border,var(--border));border-radius:8px;opacity:.7;font-size:.85rem;line-height:1.6;">' +

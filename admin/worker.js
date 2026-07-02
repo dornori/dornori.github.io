@@ -30,6 +30,7 @@ function clearCache() {
   cache.emailConfigTimestamp = 0;
 }
 __name(clearCache, "clearCache");
+
 async function generateToken(email, env) {
   if (!env.JWT_SECRET) {
     throw new Error("JWT_SECRET not configured in environment variables");
@@ -57,6 +58,7 @@ async function generateToken(email, env) {
   return `${headerB64}.${payloadB64}.${signatureB64}`;
 }
 __name(generateToken, "generateToken");
+
 async function verifyToken(token, env) {
   if (!token || !env.JWT_SECRET) return null;
   try {
@@ -87,6 +89,7 @@ async function verifyToken(token, env) {
   }
 }
 __name(verifyToken, "verifyToken");
+
 async function getEmailConfig(env) {
   if (cache.emailConfig !== null && isCacheValid(cache.emailConfigTimestamp)) {
     console.log("\u{1F4E7} EMAIL_CONFIG retrieved from cache");
@@ -110,19 +113,92 @@ async function getEmailConfig(env) {
   }
 }
 __name(getEmailConfig, "getEmailConfig");
+
 async function sha256(m) {
   const b = new TextEncoder().encode(m);
   const h = await crypto.subtle.digest("SHA-256", b);
   return [...new Uint8Array(h)].map((b2) => b2.toString(16).padStart(2, "0")).join("");
 }
 __name(sha256, "sha256");
-var ROLE_PERMISSIONS = {
-  admin: ["tickets.view", "tickets.view_all", "tickets.update", "tickets.assign", "tickets.comment", "tickets.reply", "tickets.delete", "users.view_all", "users.edit_all", "users.manage_permissions", "users.delete", "settings.view", "settings.edit", "newsletter.view", "newsletter.send", "reports.view", "reports.view_all"],
-  manager: ["tickets.view", "tickets.view_all", "tickets.update", "tickets.assign", "tickets.comment", "tickets.reply", "users.view_all", "users.edit", "users.manage_permissions", "newsletter.view", "reports.view", "reports.view_all"],
-  tl: ["tickets.view", "tickets.update", "tickets.assign", "tickets.comment", "tickets.reply", "users.view_team", "users.edit", "newsletter.view", "reports.view"],
-  agent: ["tickets.view", "tickets.update", "tickets.comment", "tickets.reply"]
+
+// ─── UNIFIED PERMISSION SYSTEM ──────────────────────────────
+// Map worker action names to UI permission names
+const ACTION_MAP = {
+  'view': 'view',
+  'update': 'edit',
+  'edit': 'edit',
+  'create': 'create',
+  'delete': 'delete',
+  'comment': 'edit',
+  'reply': 'edit',
+  'assign': 'edit',
+  'send': 'create',
+  'view_all': 'view',
+  'manage_permissions': 'edit'
 };
+
+// Fallback role-based permissions (legacy support)
+const ROLE_PERMISSIONS = {
+  admin: [
+    "tickets.view", "tickets.view_all", "tickets.update", "tickets.assign", 
+    "tickets.comment", "tickets.reply", "tickets.delete", 
+    "users.view_all", "users.edit_all", "users.manage_permissions", "users.delete", 
+    "settings.view", "settings.edit", 
+    "newsletter.view", "newsletter.send", 
+    "reports.view", "reports.view_all"
+  ],
+  manager: [
+    "tickets.view", "tickets.view_all", "tickets.update", "tickets.assign", 
+    "tickets.comment", "tickets.reply", 
+    "users.view_all", "users.edit", "users.manage_permissions", 
+    "newsletter.view", 
+    "reports.view", "reports.view_all"
+  ],
+  tl: [
+    "tickets.view", "tickets.update", "tickets.assign", 
+    "tickets.comment", "tickets.reply", 
+    "users.view_team", "users.edit", 
+    "newsletter.view", 
+    "reports.view"
+  ],
+  agent: [
+    "tickets.view", "tickets.update", "tickets.comment", "tickets.reply"
+  ]
+};
+
+// Permission map for role fallback
+const PERM_MAP = {
+  'tickets': {
+    'view': 'tickets.view',
+    'update': 'tickets.update',
+    'delete': 'tickets.delete',
+    'comment': 'tickets.comment',
+    'reply': 'tickets.reply',
+    'assign': 'tickets.assign'
+  },
+  'users': {
+    'view': 'users.view',
+    'edit': 'users.edit',
+    'delete': 'users.delete',
+    'view_all': 'users.view_all',
+    'manage_permissions': 'users.manage_permissions'
+  },
+  'settings': {
+    'view': 'settings.view',
+    'edit': 'settings.edit'
+  },
+  'newsletter': {
+    'view': 'newsletter.view',
+    'send': 'newsletter.send'
+  },
+  'reports': {
+    'view': 'reports.view',
+    'view_all': 'reports.view_all'
+  }
+};
+
 var VALID_ROLES = Object.keys(ROLE_PERMISSIONS);
+
 async function getUser(email, env) {
   const normalizedEmail = (email || "").toLowerCase().trim();
   if (cache.users.has(normalizedEmail) && isCacheValid(cache.usersTimestamp)) {
@@ -139,13 +215,11 @@ async function getUser(email, env) {
         console.error(`Invalid role in database for ${row.email}: ${role}`);
         return null;
       }
-      const permissions = ROLE_PERMISSIONS[role];
       const user = {
         email: row.email,
         name: row.name,
         role,
         password_hash: row.password_hash,
-        permissions,
         allowed_languages: row.allowed_languages ? JSON.parse(row.allowed_languages) : [],
         allowed_emails: row.allowed_emails ? JSON.parse(row.allowed_emails) : [],
         allowed_categories: row.allowed_categories ? JSON.parse(row.allowed_categories) : [],
@@ -163,36 +237,58 @@ async function getUser(email, env) {
   return null;
 }
 __name(getUser, "getUser");
+
+// ─── UNIFIED CHECK ACCESS ─────────────────────────────────────
 async function checkAccess(email, page, action, env) {
   const user = await getUser(email, env);
   if (!user) return false;
+  
+  // Admin has full access to everything
+  if (user.role === 'admin') return true;
+  
+  // 1. Check page_permissions first (UI-style permissions)
   const pagePerms = user.page_permissions || {};
   const perms = pagePerms[page] || {};
+  
+  // If page_permissions exist for this page, use them exclusively
   if (Object.keys(perms).length > 0) {
-    return perms[action] === true;
+    // Map worker action to UI action
+    const uiAction = ACTION_MAP[action] || action;
+    return perms[uiAction] === true;
   }
-  if (user.role === "admin") return true;
+  
+  // 2. Fallback to role-based permissions (legacy support)
+  const permKey = PERM_MAP[page]?.[action];
+  if (permKey) {
+    return user.permissions?.includes(permKey) || false;
+  }
+  
+  // 3. If role has permissions array but no specific mapping, check directly
   const fullPermission = `${page}.${action}`;
-  return user.permissions.includes(fullPermission);
+  return user.permissions?.includes(fullPermission) || false;
 }
 __name(checkAccess, "checkAccess");
+
 function sanitizeSubject(text) {
   if (!text) return "";
   let cleaned = text.replace(/\p{Emoji}/gu, "").replace(/[\x00-\x1F\x7F]/g, " ");
   return cleaned.replace(/\s+/g, " ").trim();
 }
 __name(sanitizeSubject, "sanitizeSubject");
+
 function sanitizeName(text) {
   if (!text) return "";
   let cleaned = text.replace(/\p{Emoji}/gu, "").replace(/[^\p{L}\p{N}\s\.\-']/gu, "");
   return cleaned.trim();
 }
 __name(sanitizeName, "sanitizeName");
+
 function normalizeCategory(c) {
   if (!c) return "unclassified";
   return String(c).trim().toLowerCase().replace(/\s+/g, "-");
 }
 __name(normalizeCategory, "normalizeCategory");
+
 async function getDefaultLanguage(env) {
   const lang = await getSetting(env, "general", "default_language");
   if (!lang) {
@@ -201,6 +297,7 @@ async function getDefaultLanguage(env) {
   return lang;
 }
 __name(getDefaultLanguage, "getDefaultLanguage");
+
 async function getDefaultFrom(env) {
   const from = await getSetting(env, "email", "default_from");
   if (!from) {
@@ -209,6 +306,7 @@ async function getDefaultFrom(env) {
   return from;
 }
 __name(getDefaultFrom, "getDefaultFrom");
+
 async function getSetting(env, category, key) {
   const cacheKey = `${category}:${key}`;
   if (cache.settings.has(cacheKey) && isCacheValid(cache.settingsTimestamp)) {
@@ -225,6 +323,7 @@ async function getSetting(env, category, key) {
   }
 }
 __name(getSetting, "getSetting");
+
 async function getAllSettings(env) {
   try {
     const r = await env.DB.prepare("SELECT * FROM settings ORDER BY category, key").all();
@@ -234,6 +333,7 @@ async function getAllSettings(env) {
   }
 }
 __name(getAllSettings, "getAllSettings");
+
 async function updateSetting(env, category, key, value) {
   const existing = await env.DB.prepare("SELECT id FROM settings WHERE category = ? AND key = ?").bind(category, key).first();
   if (existing) {
@@ -248,6 +348,7 @@ async function updateSetting(env, category, key, value) {
   cache.autoReplies = null;
 }
 __name(updateSetting, "updateSetting");
+
 async function getKnownCategories(env) {
   if (cache.categories !== null && isCacheValid(cache.settingsTimestamp)) {
     return cache.categories;
@@ -268,6 +369,7 @@ async function getKnownCategories(env) {
   return cache.categories;
 }
 __name(getKnownCategories, "getKnownCategories");
+
 async function getKnownLanguages(env) {
   if (cache.languages !== null && isCacheValid(cache.settingsTimestamp)) {
     return cache.languages;
@@ -285,6 +387,7 @@ async function getKnownLanguages(env) {
   throw new Error("No languages configured. Please configure languages in settings.");
 }
 __name(getKnownLanguages, "getKnownLanguages");
+
 async function validateLanguage(language, env) {
   if (!language || language === "") {
     return await getDefaultLanguage(env);
@@ -297,6 +400,7 @@ async function validateLanguage(language, env) {
   return normalized;
 }
 __name(validateLanguage, "validateLanguage");
+
 async function validateCategory(category, env) {
   if (!category || category === "") {
     return "unclassified";
@@ -310,6 +414,7 @@ async function validateCategory(category, env) {
   return normalized;
 }
 __name(validateCategory, "validateCategory");
+
 async function pushTicketNotification(ticket, env, eventType = "updated") {
   const notification = JSON.stringify({
     type: eventType === "created" ? "new_ticket" : "ticket_updated",
@@ -341,6 +446,7 @@ async function pushTicketNotification(ticket, env, eventType = "updated") {
   }
 }
 __name(pushTicketNotification, "pushTicketNotification");
+
 async function getTicketSnapshot(ticketId, env) {
   try {
     const ticket = await env.DB.prepare(`
@@ -354,6 +460,7 @@ async function getTicketSnapshot(ticketId, env) {
   }
 }
 __name(getTicketSnapshot, "getTicketSnapshot");
+
 async function getAutoReply(env, category, language) {
   const cat = await validateCategory(category, env);
   const lang = await validateLanguage(language, env);
@@ -441,6 +548,7 @@ async function getAutoReply(env, category, language) {
   throw new Error(`Auto-reply not configured for category: ${cat}, language: ${lang}`);
 }
 __name(getAutoReply, "getAutoReply");
+
 async function saveAutoReply(env, category, language, enabled, subject, body, from) {
   const cat = await validateCategory(category, env);
   const lang = await validateLanguage(language, env);
@@ -462,6 +570,7 @@ async function saveAutoReply(env, category, language, enabled, subject, body, fr
   cache.autoReplies = null;
 }
 __name(saveAutoReply, "saveAutoReply");
+
 async function deleteAutoReply(env, category, language) {
   const cat = await validateCategory(category, env);
   const lang = await validateLanguage(language, env);
@@ -474,6 +583,7 @@ async function deleteAutoReply(env, category, language) {
   cache.autoReplies = null;
 }
 __name(deleteAutoReply, "deleteAutoReply");
+
 async function getAllAutoReplies(env) {
   if (cache.autoReplies !== null && isCacheValid(cache.settingsTimestamp)) {
     return cache.autoReplies;
@@ -537,6 +647,7 @@ async function getAllAutoReplies(env) {
   }
 }
 __name(getAllAutoReplies, "getAllAutoReplies");
+
 async function getEmailAddresses(env, activeOnly = false) {
   try {
     const q = activeOnly ? "SELECT * FROM email_addresses WHERE is_active = 1 ORDER BY label" : "SELECT * FROM email_addresses ORDER BY label";
@@ -547,6 +658,7 @@ async function getEmailAddresses(env, activeOnly = false) {
   }
 }
 __name(getEmailAddresses, "getEmailAddresses");
+
 async function addEmailAddress(env, email, label, action, language) {
   if (!language) {
     throw new Error("Language is required for email address configuration");
@@ -555,6 +667,7 @@ async function addEmailAddress(env, email, label, action, language) {
   await env.DB.prepare("INSERT INTO email_addresses (email, label, action, language) VALUES (?, ?, ?, ?)").bind(email, label, action, language).run();
 }
 __name(addEmailAddress, "addEmailAddress");
+
 async function updateEmailAddress(env, id, email, label, action, language, is_active) {
   if (language) {
     await validateLanguage(language, env);
@@ -562,10 +675,12 @@ async function updateEmailAddress(env, id, email, label, action, language, is_ac
   await env.DB.prepare('UPDATE email_addresses SET email = ?, label = ?, action = ?, language = ?, is_active = ?, updated_at = datetime("now") WHERE id = ?').bind(email, label, action, language, is_active, id).run();
 }
 __name(updateEmailAddress, "updateEmailAddress");
+
 async function deleteEmailAddress(env, id) {
   await env.DB.prepare("DELETE FROM email_addresses WHERE id = ?").bind(id).run();
 }
 __name(deleteEmailAddress, "deleteEmailAddress");
+
 async function getEmailAddressConfig(env, toAddress) {
   if (!toAddress) {
     return { category: "unclassified", language: await getDefaultLanguage(env) };
@@ -599,6 +714,7 @@ async function getEmailAddressConfig(env, toAddress) {
   };
 }
 __name(getEmailAddressConfig, "getEmailAddressConfig");
+
 async function addSubscriber(email, name, language, env) {
   let lang;
   try {
@@ -622,6 +738,7 @@ async function addSubscriber(email, name, language, env) {
   return { subscriber, token };
 }
 __name(addSubscriber, "addSubscriber");
+
 async function unsubscribe(token, env) {
   const result = await env.DB.prepare('SELECT subscriber_id FROM unsubscribe_tokens WHERE token = ? AND expires_at > datetime("now")').bind(token).first();
   if (!result) return { success: false, message: "Invalid or expired token" };
@@ -629,6 +746,7 @@ async function unsubscribe(token, env) {
   return { success: true };
 }
 __name(unsubscribe, "unsubscribe");
+
 async function unsubscribeByEmail(email, env) {
   const clean = (email || "").toLowerCase().trim();
   if (!clean) return { success: false, message: "Email required" };
@@ -638,6 +756,7 @@ async function unsubscribeByEmail(email, env) {
   return { success: true };
 }
 __name(unsubscribeByEmail, "unsubscribeByEmail");
+
 async function getSubscribers(env) {
   try {
     const r = await env.DB.prepare("SELECT id, email, name, language, status, subscribed_at, unsubscribed_at FROM newsletter_subscribers ORDER BY subscribed_at DESC").all();
@@ -647,11 +766,13 @@ async function getSubscribers(env) {
   }
 }
 __name(getSubscribers, "getSubscribers");
+
 async function deleteSubscriber(id, env) {
   await env.DB.prepare("DELETE FROM unsubscribe_tokens WHERE subscriber_id = ?").bind(id).run();
   await env.DB.prepare("DELETE FROM newsletter_subscribers WHERE id = ?").bind(id).run();
 }
 __name(deleteSubscriber, "deleteSubscriber");
+
 async function buildUnsubscribeLink(env, token, language) {
   const domain = await getSetting(env, "general", "domain");
   if (!domain) {
@@ -673,6 +794,7 @@ async function buildUnsubscribeLink(env, token, language) {
   return `https://${cleanDomain}/${cleanPath}?token=${token}`;
 }
 __name(buildUnsubscribeLink, "buildUnsubscribeLink");
+
 async function createNewsletter(env, subject, body, language, status = "draft") {
   const lang = language === "all" ? "all" : await validateLanguage(language, env);
   const result = await env.DB.prepare(
@@ -683,15 +805,18 @@ async function createNewsletter(env, subject, body, language, status = "draft") 
   return row;
 }
 __name(createNewsletter, "createNewsletter");
+
 async function getNewsletters(env) {
   const r = await env.DB.prepare("SELECT * FROM newsletters ORDER BY created_at DESC").all();
   return r.results || [];
 }
 __name(getNewsletters, "getNewsletters");
+
 async function deleteNewsletter(id, env) {
   await env.DB.prepare("DELETE FROM newsletters WHERE id = ?").bind(id).run();
 }
 __name(deleteNewsletter, "deleteNewsletter");
+
 async function sendNewsletter(env, subject, body, language) {
   const lang = language === "all" ? null : await validateLanguage(language, env);
   let query = `SELECT ns.id, ns.email, ns.name, ns.language, ut.token FROM newsletter_subscribers ns
@@ -729,12 +854,14 @@ async function sendNewsletter(env, subject, body, language) {
   return { newsletter, sent };
 }
 __name(sendNewsletter, "sendNewsletter");
+
 function generateTicketNumber() {
   const now = /* @__PURE__ */ new Date();
   const random = Math.floor(Math.random() * 1e5).toString().padStart(5, "0");
   return `TKT-${now.getFullYear()}-${random}`;
 }
 __name(generateTicketNumber, "generateTicketNumber");
+
 function computeSlaStatus(ticket) {
   if (!ticket) return "on_track";
   if (ticket.status === "resolved" || ticket.status === "closed") return ticket.sla_status || "on_track";
@@ -746,6 +873,7 @@ function computeSlaStatus(ticket) {
   return "on_track";
 }
 __name(computeSlaStatus, "computeSlaStatus");
+
 async function getSLA(env, category) {
   const cat = await validateCategory(category, env);
   const resp = await getSetting(env, "sla", cat + "_response");
@@ -764,6 +892,7 @@ async function getSLA(env, category) {
   };
 }
 __name(getSLA, "getSLA");
+
 async function createTicket(data, env) {
   const ticketNumber = generateTicketNumber();
   const now = (/* @__PURE__ */ new Date()).toISOString();
@@ -813,6 +942,7 @@ async function createTicket(data, env) {
   return ticket;
 }
 __name(createTicket, "createTicket");
+
 async function getTicket(id, env) {
   const ticket = await env.DB.prepare(`
         SELECT id, ticket_number, category, language, status, priority, 
@@ -829,6 +959,7 @@ async function getTicket(id, env) {
   return { ...ticket, comments: comments.results || [] };
 }
 __name(getTicket, "getTicket");
+
 async function updateTicket(id, data, env) {
   const updates = [], values = [];
   if (data.status) {
@@ -852,6 +983,7 @@ async function updateTicket(id, data, env) {
   return ticket;
 }
 __name(updateTicket, "updateTicket");
+
 async function addComment(ticketId, data, env) {
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const result = await env.DB.prepare(`
@@ -864,10 +996,12 @@ async function addComment(ticketId, data, env) {
   return { id: result.meta?.last_row_id || result.lastInsertRowid };
 }
 __name(addComment, "addComment");
+
 async function getTicketByNumber(ticketNumber, env) {
   return await env.DB.prepare("SELECT * FROM tickets WHERE ticket_number = ?").bind(ticketNumber).first();
 }
 __name(getTicketByNumber, "getTicketByNumber");
+
 async function getTickets(filters, env, user) {
   let query = `SELECT id, id AS ticket_id, ticket_number, category, language, status, priority,
         sender_name, sender_email, sender_phone, order_number, subject, created_at, updated_at,
@@ -923,6 +1057,7 @@ async function getTickets(filters, env, user) {
   return rows;
 }
 __name(getTickets, "getTickets");
+
 async function getTotalTicketCount(filters, env, user) {
   let query = "SELECT COUNT(*) as total FROM tickets WHERE 1=1";
   const params = [];
@@ -956,6 +1091,7 @@ async function getTotalTicketCount(filters, env, user) {
   return r ? r.total : 0;
 }
 __name(getTotalTicketCount, "getTotalTicketCount");
+
 async function getStats(env, user) {
   let query = "SELECT status, COUNT(*) as count FROM tickets WHERE 1=1";
   const params = [];
@@ -980,6 +1116,7 @@ async function getStats(env, user) {
   return stats;
 }
 __name(getStats, "getStats");
+
 async function getReports(env) {
   const result = {
     status: { new: 0, open: 0, in_progress: 0, pending: 0, resolved: 0, closed: 0 },
@@ -1033,6 +1170,7 @@ async function getReports(env) {
   return result;
 }
 __name(getReports, "getReports");
+
 function formatEmailBody(text) {
   if (!text) return "";
   const blockTagRegex = /<(?:p|div|h[1-6]|ul|ol|blockquote)[\s>]/i;
@@ -1043,6 +1181,7 @@ function formatEmailBody(text) {
   return html;
 }
 __name(formatEmailBody, "formatEmailBody");
+
 async function sendEmail(env, to, subject, body, from) {
   if (!env.SCRIPT_URL) return { success: false, error: "SCRIPT_URL missing" };
   if (!from || from === "") return { success: false, error: "From address is required" };
@@ -1066,6 +1205,7 @@ async function sendEmail(env, to, subject, body, from) {
   }
 }
 __name(sendEmail, "sendEmail");
+
 async function sendTicketConfirmation(ticket, env, emailOverride) {
   const email = emailOverride || ticket.sender_email;
   if (!email) return { success: false, error: "No email" };
@@ -1084,6 +1224,7 @@ async function sendTicketConfirmation(ticket, env, emailOverride) {
   return await sendEmail(env, email, subject, formattedBody, from);
 }
 __name(sendTicketConfirmation, "sendTicketConfirmation");
+
 async function sendNewsletterConfirmation(env, email, token, language) {
   const lang = await validateLanguage(language, env);
   const ar = await getAutoReply(env, "newsletter", lang);
@@ -1100,6 +1241,7 @@ async function sendNewsletterConfirmation(env, email, token, language) {
   return await sendEmail(env, email, subject, formattedBody, from);
 }
 __name(sendNewsletterConfirmation, "sendNewsletterConfirmation");
+
 function decodeQuotedPrintable(str) {
   str = str.replace(/=\r\n/g, "").replace(/=\n/g, "");
   const bytes = [];
@@ -1114,6 +1256,7 @@ function decodeQuotedPrintable(str) {
   return new TextDecoder("utf-8").decode(new Uint8Array(bytes));
 }
 __name(decodeQuotedPrintable, "decodeQuotedPrintable");
+
 function decodeBase64Body(str) {
   try {
     const clean = str.replace(/[^A-Za-z0-9+/=]/g, "");
@@ -1126,11 +1269,13 @@ function decodeBase64Body(str) {
   }
 }
 __name(decodeBase64Body, "decodeBase64Body");
+
 function looksLikeBase64(str) {
   const clean = str.replace(/\s+/g, "");
   return clean.length > 20 && clean.length % 4 === 0 && /^[A-Za-z0-9+/]+=*$/.test(clean);
 }
 __name(looksLikeBase64, "looksLikeBase64");
+
 function decodePartBody(headerBlock, rawBody) {
   const encMatch = (headerBlock || "").match(/Content-Transfer-Encoding:\s*([^\r\n]+)/i);
   const encoding = encMatch ? encMatch[1].trim().toLowerCase() : "";
@@ -1140,10 +1285,12 @@ function decodePartBody(headerBlock, rawBody) {
   return rawBody;
 }
 __name(decodePartBody, "decodePartBody");
+
 function cleanupBody(text) {
   return text.replace(/\r\n/g, "\n").replace(/[ \t]+/g, " ").replace(/\n[ \t]+/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 __name(cleanupBody, "cleanupBody");
+
 async function parseEmail(rawStream) {
   try {
     const rawText = await new Response(rawStream).text();
@@ -1179,6 +1326,7 @@ async function parseEmail(rawStream) {
   }
 }
 __name(parseEmail, "parseEmail");
+
 async function deleteCategoryData(env, cat) {
   if (!cat || !/^[a-z0-9\-_]+$/.test(cat)) throw new Error("Invalid category slug");
   const exactKeys = [
@@ -1204,6 +1352,8 @@ async function deleteCategoryData(env, cat) {
   cache.autoReplies = null;
 }
 __name(deleteCategoryData, "deleteCategoryData");
+
+// ─── WORKER HANDLER ────────────────────────────────────────────
 var worker_default = {
   async fetch(request, env, ctx) {
     const corsHeaders = {
@@ -1217,6 +1367,7 @@ var worker_default = {
     const path = url.pathname;
     const method = request.method;
     try {
+      // ─── WEBSOCKET ──────────────────────────────────────────
       if (path === "/api/admin/ws") {
         const token = url.searchParams.get("token");
         const email = await verifyToken(token, env);
@@ -1237,6 +1388,8 @@ var worker_default = {
         const hubRequest = new Request(hubUrl.toString(), request);
         return stub.fetch(hubRequest);
       }
+
+      // ─── TICKET LOCKING ────────────────────────────────────
       if (path.startsWith("/api/admin/ticket/") && path.includes("/lock") && method === "POST") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const userEmail = await verifyToken(token, env);
@@ -1254,6 +1407,7 @@ var worker_default = {
         });
         return json(await res.json());
       }
+
       if (path.startsWith("/api/admin/ticket/") && path.includes("/unlock") && method === "POST") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const userEmail = await verifyToken(token, env);
@@ -1269,6 +1423,8 @@ var worker_default = {
         });
         return json(await res.json());
       }
+
+      // ─── TEST PUSH ─────────────────────────────────────────
       if (path === "/api/admin/test-push" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1285,6 +1441,8 @@ var worker_default = {
         }, env, "created");
         return json({ success: true, message: "Test ticket sent via TICKET_HUB" });
       }
+
+      // ─── REPORTS ───────────────────────────────────────────
       if (path === "/api/admin/reports" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1292,6 +1450,8 @@ var worker_default = {
         if (!await checkAccess(email, "reports", "view", env)) return json({ error: "Permission denied" }, 403);
         return json({ success: true, data: await getReports(env) });
       }
+
+      // ─── STATS ─────────────────────────────────────────────
       if (path === "/api/admin/stats" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1300,6 +1460,8 @@ var worker_default = {
         const user = await getUser(email, env);
         return json({ success: true, stats: await getStats(env, user) });
       }
+
+      // ─── AUTO-REPLY ───────────────────────────────────────
       if (path === "/api/admin/auto-reply" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1307,11 +1469,12 @@ var worker_default = {
         if (!await checkAccess(email, "settings", "view", env)) return json({ error: "Permission denied" }, 403);
         return json({ success: true, data: await getAllAutoReplies(env) });
       }
+
       if (path === "/api/admin/auto-reply" && method === "PUT") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
-        if (!await checkAccess(email, "settings", "create", env) && !await checkAccess(email, "settings", "edit", env)) return json({ error: "Permission denied" }, 403);
+        if (!await checkAccess(email, "settings", "edit", env)) return json({ error: "Permission denied" }, 403);
         const { category, language, enabled, subject, body, from } = await request.json();
         if (!category || !language) return json({ error: "Category and language required" }, 400);
         try {
@@ -1321,6 +1484,7 @@ var worker_default = {
           return json({ error: e.message }, 400);
         }
       }
+
       if (path === "/api/admin/auto-reply" && method === "DELETE") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1335,6 +1499,8 @@ var worker_default = {
           return json({ error: e.message }, 400);
         }
       }
+
+      // ─── EMAIL ADDRESSES ──────────────────────────────────
       if (path === "/api/admin/email-addresses" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1343,6 +1509,7 @@ var worker_default = {
         const activeOnly = url.searchParams.get("active_only") === "true";
         return json({ success: true, addresses: await getEmailAddresses(env, activeOnly) });
       }
+
       if (path === "/api/admin/email-addresses" && method === "POST") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1357,6 +1524,7 @@ var worker_default = {
           return json({ error: e.message }, 400);
         }
       }
+
       if (path.match(/^\/api\/admin\/email-addresses\/\d+$/) && method === "PUT") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1371,6 +1539,7 @@ var worker_default = {
           return json({ error: e.message }, 400);
         }
       }
+
       if (path.match(/^\/api\/admin\/email-addresses\/\d+$/) && method === "DELETE") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1379,6 +1548,8 @@ var worker_default = {
         await deleteEmailAddress(env, parseInt(path.split("/")[4]));
         return json({ success: true });
       }
+
+      // ─── SETTINGS ──────────────────────────────────────────
       if (path === "/api/admin/settings" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1392,6 +1563,7 @@ var worker_default = {
         }
         return json({ success: true, data: grouped, settings: settingsArray });
       }
+
       if (path === "/api/admin/settings" && method === "PUT") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1401,6 +1573,8 @@ var worker_default = {
         for (const s of settings) await updateSetting(env, s.category, s.key, s.value);
         return json({ success: true });
       }
+
+      // ─── NEWSLETTERS ──────────────────────────────────────
       if (path === "/api/admin/newsletters" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1408,11 +1582,12 @@ var worker_default = {
         if (!await checkAccess(email, "newsletter", "view", env)) return json({ error: "Permission denied" }, 403);
         return json({ success: true, data: await getNewsletters(env) });
       }
+
       if (path === "/api/admin/newsletters" && method === "POST") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
-        if (!await checkAccess(email, "newsletter", "send", env)) return json({ error: "Permission denied" }, 403);
+        if (!await checkAccess(email, "newsletter", "create", env)) return json({ error: "Permission denied" }, 403);
         const { subject, body, language, status } = await request.json();
         if (!subject || !body || !language) return json({ error: "Subject, body and language required" }, 400);
         try {
@@ -1426,14 +1601,17 @@ var worker_default = {
           return json({ error: e.message }, 400);
         }
       }
+
       if (path.match(/^\/api\/admin\/newsletters\/\d+$/) && method === "DELETE") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
-        if (!await checkAccess(email, "newsletter", "send", env)) return json({ error: "Permission denied" }, 403);
+        if (!await checkAccess(email, "newsletter", "delete", env)) return json({ error: "Permission denied" }, 403);
         await deleteNewsletter(parseInt(path.split("/")[4]), env);
         return json({ success: true });
       }
+
+      // ─── SUBSCRIBERS ──────────────────────────────────────
       if (path === "/api/admin/subscribers" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1441,14 +1619,17 @@ var worker_default = {
         if (!await checkAccess(email, "newsletter", "view", env)) return json({ error: "Permission denied" }, 403);
         return json({ success: true, data: await getSubscribers(env) });
       }
+
       if (path.match(/^\/api\/admin\/subscribers\/\d+$/) && method === "DELETE") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
-        if (!await checkAccess(email, "newsletter", "send", env)) return json({ error: "Permission denied" }, 403);
+        if (!await checkAccess(email, "newsletter", "delete", env)) return json({ error: "Permission denied" }, 403);
         await deleteSubscriber(parseInt(path.split("/")[4]), env);
         return json({ success: true });
       }
+
+      // ─── PUBLIC SUBSCRIBE ────────────────────────────────
       if (path === "/api/subscribe" && method === "POST") {
         const { email, name, language } = await request.json();
         if (!email) return json({ error: "Email required" }, 400);
@@ -1467,16 +1648,20 @@ var worker_default = {
           return json({ error: e.message }, 400);
         }
       }
+
       if (path.startsWith("/api/unsubscribe/") && method === "GET") {
         const token = path.replace("/api/unsubscribe/", "");
         const result = await unsubscribe(token, env);
         return new Response(result.success ? "\u2705 Unsubscribed successfully" : "\u274C Invalid or expired token", { status: result.success ? 200 : 400, headers: { ...corsHeaders, "Content-Type": "text/plain" } });
       }
+
       if (path === "/api/unsubscribe-email" && method === "POST") {
         const { email } = await request.json();
         const result = await unsubscribeByEmail(email, env);
         return json(result, result.success ? 200 : 400);
       }
+
+      // ─── PUBLIC MESSAGE ────────────────────────────────────
       if (path === "/api/message" && method === "POST") {
         const data = await request.json();
         try {
@@ -1489,6 +1674,8 @@ var worker_default = {
           return json({ error: e.message }, 400);
         }
       }
+
+      // ─── USER PROFILE ──────────────────────────────────────
       if (path === "/api/admin/me" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1496,13 +1683,7 @@ var worker_default = {
         const user = await getUser(email, env);
         return json({ success: true, user: { email: user.email, name: user.name, role: user.role, page_permissions: user.page_permissions, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id } });
       }
-      if (path === "/api/admin/login" && method === "POST") {
-        const { email, password } = await request.json();
-        const user = await getUser((email || "").toLowerCase().trim(), env);
-        if (!user || await sha256(password) !== user.password_hash) return json({ error: "Invalid credentials" }, 401);
-        const token = await generateToken(user.email, env);
-        return json({ success: true, token, user: { email: user.email, name: user.name, role: user.role, page_permissions: user.page_permissions, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id } });
-      }
+
       if (path === "/api/admin/user-profile" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1510,19 +1691,31 @@ var worker_default = {
         const user = await getUser(email, env);
         return json({ success: true, user: { email: user.email, name: user.name, role: user.role, page_permissions: user.page_permissions, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id } });
       }
+
+      // ─── LOGIN ─────────────────────────────────────────────
+      if (path === "/api/admin/login" && method === "POST") {
+        const { email, password } = await request.json();
+        const user = await getUser((email || "").toLowerCase().trim(), env);
+        if (!user || await sha256(password) !== user.password_hash) return json({ error: "Invalid credentials" }, 401);
+        const token = await generateToken(user.email, env);
+        return json({ success: true, token, user: { email: user.email, name: user.name, role: user.role, page_permissions: user.page_permissions, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id } });
+      }
+
+      // ─── USERS MANAGEMENT ──────────────────────────────────
       if (path === "/api/admin/users" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
-        if (!await checkAccess(email, "users", "view_all", env)) return json({ error: "Permission denied" }, 403);
+        if (!await checkAccess(email, "users", "view", env)) return json({ error: "Permission denied" }, 403);
         const users = await env.DB.prepare("SELECT email, name, role, allowed_languages, allowed_emails, allowed_categories, team_id, page_permissions FROM users ORDER BY email").all();
         return json({ success: true, users: (users.results || []).map((u) => ({ email: u.email, name: u.name, role: u.role, allowed_languages: JSON.parse(u.allowed_languages || "[]"), allowed_emails: JSON.parse(u.allowed_emails || "[]"), allowed_categories: JSON.parse(u.allowed_categories || "[]"), team_id: u.team_id, page_permissions: JSON.parse(u.page_permissions || "{}") })) });
       }
+
       if (path === "/api/admin/users" && method === "POST") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
-        if (!await checkAccess(email, "users", "manage_permissions", env)) return json({ error: "Permission denied" }, 403);
+        if (!await checkAccess(email, "users", "create", env)) return json({ error: "Permission denied" }, 403);
         const { email: newEmail, name, password, role, allowed_languages, allowed_emails, allowed_categories, team_id, page_permissions } = await request.json();
         if (!newEmail || !name || !password) return json({ error: "Missing required fields" }, 400);
         try {
@@ -1533,6 +1726,7 @@ var worker_default = {
           return json({ error: e.message.includes("UNIQUE") ? "Email already exists" : e.message }, 400);
         }
       }
+
       if (path.startsWith("/api/admin/users/") && method === "PUT") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1544,6 +1738,7 @@ var worker_default = {
         clearCache();
         return json({ success: true });
       }
+
       if (path.startsWith("/api/admin/users/") && method === "DELETE") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1553,6 +1748,8 @@ var worker_default = {
         clearCache();
         return json({ success: true });
       }
+
+      // ─── TICKETS ───────────────────────────────────────────
       if (path === "/api/admin/tickets" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1567,6 +1764,7 @@ var worker_default = {
         const total = await getTotalTicketCount(filters, env, user);
         return json({ success: true, tickets, pagination: { limit: filters.limit, offset: filters.offset, total } });
       }
+
       if (path.startsWith("/api/admin/ticket/") && !path.includes("/status") && !path.includes("/comment") && !path.includes("/reply") && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1575,6 +1773,7 @@ var worker_default = {
         const ticket = await getTicket(parseInt(path.split("/")[4]), env);
         return ticket ? json({ success: true, data: ticket }) : json({ error: "Not found" }, 404);
       }
+
       if (path.startsWith("/api/admin/ticket/") && path.includes("/status") && method === "PUT") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const userEmail = await verifyToken(token, env);
@@ -1591,6 +1790,7 @@ var worker_default = {
         }
         return json({ success: true, data: newTicket });
       }
+
       if (path.startsWith("/api/admin/ticket/") && path.includes("/comment") && method === "POST") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const userEmail = await verifyToken(token, env);
@@ -1600,6 +1800,7 @@ var worker_default = {
         const comment = await addComment(parseInt(path.split("/")[4]), { type: type || "internal", authorEmail: userEmail, content }, env);
         return json({ success: true, data: comment });
       }
+
       if (path.startsWith("/api/admin/ticket/") && path.includes("/reply") && method === "POST") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const userEmail = await verifyToken(token, env);
@@ -1616,6 +1817,8 @@ var worker_default = {
         }
         return json({ success: false, error: result.error }, 500);
       }
+
+      // ─── DELETE CATEGORY ──────────────────────────────────
       if (path.startsWith("/api/admin/category/") && method === "DELETE") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -1626,12 +1829,14 @@ var worker_default = {
         await deleteCategoryData(env, cat);
         return json({ success: true });
       }
+
       return json({ error: "Not found" }, 404);
     } catch (err) {
       console.error("Error:", err);
       return json({ error: err.message || "Internal server error" }, 500);
     }
   },
+
   // ─── EMAIL HANDLER ──────────────────────────────────────────
   async email(message, env) {
     try {
@@ -1662,6 +1867,8 @@ var worker_default = {
     }
   }
 };
+
+// ─── TICKET HUB ───────────────────────────────────────────────
 var TicketHub = class {
   static {
     __name(this, "TicketHub");
@@ -1671,6 +1878,7 @@ var TicketHub = class {
     this.env = env;
     this.locks = /* @__PURE__ */ new Map();
   }
+
   broadcastAll(notification) {
     for (const ws of this.state.getWebSockets()) {
       try {
@@ -1679,6 +1887,7 @@ var TicketHub = class {
       }
     }
   }
+
   async fetch(request) {
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/broadcast") {
@@ -1714,6 +1923,7 @@ var TicketHub = class {
       }
       return new Response("ok");
     }
+
     if (request.method === "POST" && url.pathname === "/lock") {
       const LOCK_STALE_MS = 9e4;
       let body = {};
@@ -1733,6 +1943,7 @@ var TicketHub = class {
       this.broadcastAll(JSON.stringify({ type: "ticket_locked", ticket_id: ticketId, locked_by: { email, name } }));
       return new Response(JSON.stringify({ success: true }));
     }
+
     if (request.method === "POST" && url.pathname === "/unlock") {
       let body = {};
       try {
@@ -1748,6 +1959,7 @@ var TicketHub = class {
       }
       return new Response(JSON.stringify({ success: true }));
     }
+
     if (url.pathname === "/connect" && request.headers.get("Upgrade") === "websocket") {
       const role = url.searchParams.get("role") || "agent";
       const email = url.searchParams.get("email") || "";
@@ -1770,6 +1982,7 @@ var TicketHub = class {
     }
     return new Response("Not found", { status: 404 });
   }
+
   async webSocketMessage(ws, message) {
     try {
       const data = JSON.parse(message);
@@ -1777,6 +1990,7 @@ var TicketHub = class {
     } catch (e) {
     }
   }
+
   releaseLocksFor(email) {
     if (!email) return;
     for (const [ticketId, lock] of this.locks.entries()) {
@@ -1786,6 +2000,7 @@ var TicketHub = class {
       }
     }
   }
+
   async webSocketClose(ws, code, reason, wasClean) {
     try {
       let meta = {};
@@ -1801,6 +2016,7 @@ var TicketHub = class {
     } catch (e) {
     }
   }
+
   async webSocketError(ws, error) {
     try {
       ws.close(1011, "error");
@@ -1808,8 +2024,8 @@ var TicketHub = class {
     }
   }
 };
+
 export {
   TicketHub,
   worker_default as default
 };
-//# sourceMappingURL=worker.js.map
