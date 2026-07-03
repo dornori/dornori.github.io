@@ -113,8 +113,13 @@ const Payment = (() => {
       const taxValue       = Math.round((totals.tax + Number.EPSILON) * 100) / 100;
       const grandTotal     = Math.round((itemTotalValue + shippingValue + taxValue + Number.EPSILON) * 100) / 100;
 
-      // Build purchase units with individual item details
-      const purchaseUnits = [{
+      console.log('📊 Price Debug:');
+      console.log('  itemLines:', itemLines);
+      console.log('  itemTotalValue:', itemTotalValue);
+      console.log('  shippingValue:', shippingValue);
+      console.log('  taxValue:', taxValue);
+      console.log('  grandTotal:', grandTotal);
+      console.log('  totals object:', totals);
         reference_id: orderRef,
         description: `${CONFIG.shopName} – ${orderRef}`,
         amount: {
