@@ -88,11 +88,12 @@ const Payment = (() => {
       el.innerHTML = "";
       const cfg = CONFIG.payment.paypal;
 
-      // Get conversion rate: if not EUR, get rate from Currency module
+      // Get conversion rate using Currency module
       const getConversionRate = () => {
         if (activeCurrency === 'EUR') return 1;
-        if (typeof Currency !== 'undefined' && Currency.getRate) {
-          return Currency.getRate('EUR', activeCurrency) || 1;
+        if (typeof Currency !== 'undefined' && Currency.convert) {
+          // Convert 1 EUR to active currency to get rate
+          return Currency.convert(1, activeCurrency);
         }
         return 1;
       };
