@@ -1,3 +1,4 @@
+
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
@@ -1338,9 +1339,7 @@ async function parseEmail(rawStream) {
     const parts = rawText.split(/\r\n\r\n|\n\n/);
     for (let i = 0; i < parts.length; i++) {
       if (parts[i].includes("Content-Type: text/plain") && i + 1 < parts.length) {
-        let next = parts[i + 1];
-        // Only strip actual email boundaries and minimal headers, preserve all message content
-        next = next.replace(/^--[A-Za-z0-9_\-]+.*$/gm, "").trim();
+        let next = parts[i + 1].replace(/^[A-Za-z-]+: .*\n/gm, "").replace(/^--.*/gm, "").trim();
         let decoded = cleanupBody(decodePartBody(parts[i], next));
         if (decoded.length > 5) {
           body = decoded;
@@ -1349,13 +1348,11 @@ async function parseEmail(rawStream) {
       }
     }
     if (!body && parts.length > 1) {
-      let last = parts[parts.length - 1];
-      // Only strip actual email boundaries and minimal headers, preserve all message content
-      last = last.replace(/^--[A-Za-z0-9_\-]+.*$/gm, "").trim();
+      let last = parts[parts.length - 1].replace(/^[A-Za-z-]+: .*\n/gm, "").replace(/^--.*/gm, "").trim();
       let decoded = cleanupBody(decodePartBody(parts[parts.length - 2], last));
       if (decoded.length > 5) body = decoded;
     }
-    // Removed the aggressive 5000 character truncation - preserve full email content
+    if (body && body.length > 5e3) body = body.substring(0, 5e3);
     return { from, subject, body };
   } catch {
     return { from: "unknown@example.com", subject: "No subject", body: "" };
