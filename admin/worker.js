@@ -92,23 +92,23 @@ __name(verifyToken, "verifyToken");
 
 async function getEmailConfig(env) {
   if (cache.emailConfig !== null && isCacheValid(cache.emailConfigTimestamp)) {
-    console.log("\u{1F4E7} EMAIL_CONFIG retrieved from cache");
+    console.log("📧 EMAIL_CONFIG retrieved from cache");
     return cache.emailConfig;
   }
   try {
-    console.log("\u{1F4E7} Attempting to retrieve EMAIL_CONFIG from KV...");
+    console.log("📧 Attempting to retrieve EMAIL_CONFIG from KV...");
     const config = await env.KV.get("EMAIL_CONFIG", "json");
     if (config) {
-      console.log("\u2705 EMAIL_CONFIG retrieved from KV");
+      console.log("✅ EMAIL_CONFIG retrieved from KV");
       cache.emailConfig = config;
       cache.emailConfigTimestamp = Date.now();
       return config;
     } else {
-      console.error("\u274C EMAIL_CONFIG not found in KV");
+      console.error("❌ EMAIL_CONFIG not found in KV");
       throw new Error("EMAIL_CONFIG is required but not configured in KV");
     }
   } catch (e) {
-    console.error("\u274C getEmailConfig error:", e.message);
+    console.error("❌ getEmailConfig error:", e.message);
     throw new Error(`EMAIL_CONFIG required: ${e.message}`);
   }
 }
@@ -122,7 +122,6 @@ async function sha256(m) {
 __name(sha256, "sha256");
 
 // ─── UNIFIED PERMISSION SYSTEM ──────────────────────────────
-// Map worker action names to UI permission names
 const ACTION_MAP = {
   'view': 'view',
   'update': 'edit',
@@ -137,7 +136,6 @@ const ACTION_MAP = {
   'manage_permissions': 'edit'
 };
 
-// Fallback role-based permissions (legacy support)
 const ROLE_PERMISSIONS = {
   admin: [
     "tickets.view", "tickets.view_all", "tickets.update", "tickets.assign", 
@@ -166,7 +164,6 @@ const ROLE_PERMISSIONS = {
   ]
 };
 
-// Permission map for role fallback
 const PERM_MAP = {
   'tickets': {
     'view': 'tickets.view',
@@ -243,42 +240,49 @@ async function checkAccess(email, page, action, env) {
   const user = await getUser(email, env);
   if (!user) return false;
   
-  // Admin has full access to everything
   if (user.role === 'admin') return true;
   
-  // 1. Check page_permissions first (UI-style permissions)
   const pagePerms = user.page_permissions || {};
   const perms = pagePerms[page] || {};
   
-  // If page_permissions exist for this page, use them exclusively
   if (Object.keys(perms).length > 0) {
-    // Map worker action to UI action
     const uiAction = ACTION_MAP[action] || action;
     return perms[uiAction] === true;
   }
   
-  // 2. Fallback to role-based permissions (legacy support)
   const permKey = PERM_MAP[page]?.[action];
   if (permKey) {
     return user.permissions?.includes(permKey) || false;
   }
   
-  // 3. If role has permissions array but no specific mapping, check directly
   const fullPermission = `${page}.${action}`;
   return user.permissions?.includes(fullPermission) || false;
 }
 __name(checkAccess, "checkAccess");
 
+// ─── SANITIZATION FUNCTIONS ─────────────────────────────────
 function sanitizeSubject(text) {
   if (!text) return "";
-  let cleaned = text.replace(/\p{Emoji}/gu, "").replace(/[\x00-\x1F\x7F]/g, " ");
+  let cleaned = text.replace(/[\x00-\x1F\x7F]/g, " ");
+  cleaned = cleaned.replace(/<[^>]*>/g, "");
   return cleaned.replace(/\s+/g, " ").trim();
 }
 __name(sanitizeSubject, "sanitizeSubject");
 
+// ─── FIXED: Extract DOR- order numbers ONLY ─────────────────
+function extractOrderNumber(text) {
+  if (!text) return null;
+  // Match only DOR-YYYYMMDD-XXXXXX pattern (e.g., DOR-20260703-1ANPYO)
+  const orderRegex = /\b(DOR-\d{8}-[A-Z0-9]+)\b/i;
+  const m = text.match(orderRegex);
+  return m ? m[0].toUpperCase() : null;
+}
+__name(extractOrderNumber, "extractOrderNumber");
+
 function sanitizeName(text) {
   if (!text) return "";
-  let cleaned = text.replace(/\p{Emoji}/gu, "").replace(/[^\p{L}\p{N}\s\.\-']/gu, "");
+  let cleaned = text.replace(/[\x00-\x1F\x7F]/g, "");
+  cleaned = cleaned.replace(/[^\p{L}\p{N}\p{Emoji}\s\.\-']/gu, "");
   return cleaned.trim();
 }
 __name(sanitizeName, "sanitizeName");
@@ -460,6 +464,13 @@ async function getTicketSnapshot(ticketId, env) {
   }
 }
 __name(getTicketSnapshot, "getTicketSnapshot");
+
+// ─── FIXED: Find ticket by order number ─────────────────────
+async function getTicketByOrderNumber(orderNumber, env) {
+  if (!orderNumber) return null;
+  return await env.DB.prepare("SELECT * FROM tickets WHERE order_number = ? LIMIT 1").bind(orderNumber).first();
+}
+__name(getTicketByOrderNumber, "getTicketByOrderNumber");
 
 async function getAutoReply(env, category, language) {
   const cat = await validateCategory(category, env);
@@ -899,6 +910,7 @@ async function createTicket(data, env) {
   const category = await validateCategory(data.category, env);
   const language = await validateLanguage(data.language, env);
   const sla = await getSLA(env, category);
+  const orderNumber = data.orderNumber || extractOrderNumber(data.subject || "") || extractOrderNumber(data.message || "");
   const subject = sanitizeSubject(data.subject || "");
   const senderName = sanitizeName(data.senderName || "");
   const result = await env.DB.prepare(`
@@ -912,7 +924,7 @@ async function createTicket(data, env) {
     senderName,
     data.senderEmail || "",
     data.senderPhone || "",
-    data.orderNumber || "",
+    orderNumber,
     subject,
     data.message || "",
     now,
@@ -1326,7 +1338,9 @@ async function parseEmail(rawStream) {
     const parts = rawText.split(/\r\n\r\n|\n\n/);
     for (let i = 0; i < parts.length; i++) {
       if (parts[i].includes("Content-Type: text/plain") && i + 1 < parts.length) {
-        let next = parts[i + 1].replace(/^[A-Za-z-]+: .*\n/gm, "").replace(/^--.*/gm, "").trim();
+        let next = parts[i + 1];
+        // Only strip actual email boundaries and minimal headers, preserve all message content
+        next = next.replace(/^--[A-Za-z0-9_\-]+.*$/gm, "").trim();
         let decoded = cleanupBody(decodePartBody(parts[i], next));
         if (decoded.length > 5) {
           body = decoded;
@@ -1335,11 +1349,13 @@ async function parseEmail(rawStream) {
       }
     }
     if (!body && parts.length > 1) {
-      let last = parts[parts.length - 1].replace(/^[A-Za-z-]+: .*\n/gm, "").replace(/^--.*/gm, "").trim();
+      let last = parts[parts.length - 1];
+      // Only strip actual email boundaries and minimal headers, preserve all message content
+      last = last.replace(/^--[A-Za-z0-9_\-]+.*$/gm, "").trim();
       let decoded = cleanupBody(decodePartBody(parts[parts.length - 2], last));
       if (decoded.length > 5) body = decoded;
     }
-    if (body && body.length > 5e3) body = body.substring(0, 5e3);
+    // Removed the aggressive 5000 character truncation - preserve full email content
     return { from, subject, body };
   } catch {
     return { from: "unknown@example.com", subject: "No subject", body: "" };
@@ -1672,7 +1688,7 @@ var worker_default = {
       if (path.startsWith("/api/unsubscribe/") && method === "GET") {
         const token = path.replace("/api/unsubscribe/", "");
         const result = await unsubscribe(token, env);
-        return new Response(result.success ? "\u2705 Unsubscribed successfully" : "\u274C Invalid or expired token", { status: result.success ? 200 : 400, headers: { ...corsHeaders, "Content-Type": "text/plain" } });
+        return new Response(result.success ? "✅ Unsubscribed successfully" : "❌ Invalid or expired token", { status: result.success ? 200 : 400, headers: { ...corsHeaders, "Content-Type": "text/plain" } });
       }
 
       if (path === "/api/unsubscribe-email" && method === "POST") {
@@ -1681,13 +1697,54 @@ var worker_default = {
         return json(result, result.success ? 200 : 400);
       }
 
-      // ─── PUBLIC MESSAGE ────────────────────────────────────
+      // ─── FIXED: PUBLIC MESSAGE - Check for DOR- order number first ──
       if (path === "/api/message" && method === "POST") {
         const data = await request.json();
         try {
+          // Check for DOR- order number in subject and message
+          const orderNumber = extractOrderNumber(data.subject || "") || extractOrderNumber(data.message || "");
+          
+          if (orderNumber) {
+            // Find existing ticket with this order number
+            const existingTicket = await getTicketByOrderNumber(orderNumber, env);
+            if (existingTicket) {
+              // Add message as comment to existing ticket
+              const commentContent = `Subject: ${data.subject || "No subject"}\n\nMessage: ${data.message || ""}\n\nFrom: ${data.name || "Unknown"} (${data.email || "No email"})`;
+              await addComment(existingTicket.id, { 
+                type: "incoming", 
+                authorEmail: data.email || "unknown@example.com", 
+                content: commentContent
+              }, env);
+              
+              // Re-open if closed/resolved
+              if (["resolved", "closed"].includes(existingTicket.status)) {
+                await updateTicket(existingTicket.id, { status: "open" }, env);
+              }
+              
+              return json({ 
+                success: true, 
+                message: "Message attached to existing ticket",
+                ticketNumber: existingTicket.ticket_number, 
+                ticketId: existingTicket.id,
+                orderNumber: orderNumber
+              });
+            }
+          }
+          
+          // No DOR- number found or no existing ticket - create new ticket
           const category = await validateCategory(data.category || "support", env);
           const language = await validateLanguage(data.language, env);
-          const ticket = await createTicket({ category, senderName: data.name || "", senderEmail: data.email || "", senderPhone: data.phone || "", subject: data.subject || "Website Inquiry", message: data.message || "", language, metadata: { source: "website", company: data.company || "", ...(data.metadata || {}) } }, env);
+          const ticket = await createTicket({ 
+            category, 
+            senderName: data.name || "", 
+            senderEmail: data.email || "", 
+            senderPhone: data.phone || "", 
+            subject: data.subject || "Website Inquiry", 
+            message: data.message || "", 
+            language, 
+            orderNumber: data.orderNumber || orderNumber, 
+            metadata: { source: "website", company: data.company || "", ...(data.metadata || {}) } 
+          }, env);
           if (data.email) await sendTicketConfirmation(ticket, env);
           return json({ success: true, ticketNumber: ticket.ticket_number, ticketId: ticket.id });
         } catch (e) {
@@ -1857,10 +1914,12 @@ var worker_default = {
     }
   },
 
-  // ─── EMAIL HANDLER ──────────────────────────────────────────
+  // ─── FIXED: EMAIL HANDLER - Check for DOR- order number first ──
   async email(message, env) {
     try {
       const { from, subject, body } = await parseEmail(message.raw);
+      
+      // 1. First check for ticket number (TKT- pattern) in subject/body
       const ticketRegex = /TKT-\d{4,}-\d{3,}/g;
       let ticketNumber = null;
       if (subject) {
@@ -1871,6 +1930,8 @@ var worker_default = {
         const m = body.match(ticketRegex);
         if (m) ticketNumber = m[0];
       }
+      
+      // If ticket number found, add comment to that ticket
       if (ticketNumber) {
         const ticket2 = await getTicketByNumber(ticketNumber, env);
         if (ticket2) {
@@ -1879,11 +1940,44 @@ var worker_default = {
           return;
         }
       }
+      
+      // 2. Check for DOR- order number in subject/body
+      const orderNumber = extractOrderNumber(subject || "") || extractOrderNumber(body || "");
+      
+      if (orderNumber) {
+        // Find existing ticket with this order number
+        const orderTicket = await getTicketByOrderNumber(orderNumber, env);
+        if (orderTicket) {
+          // Add email as comment to existing ticket
+          await addComment(orderTicket.id, { 
+            type: "incoming", 
+            authorEmail: from, 
+            content: body || "(No content)" 
+          }, env);
+          
+          // Re-open if closed/resolved
+          if (["resolved", "closed"].includes(orderTicket.status)) {
+            await updateTicket(orderTicket.id, { status: "open" }, env);
+          }
+          return;
+        }
+      }
+      
+      // 3. No existing ticket found - create new ticket
       const config = await getEmailAddressConfig(env, message.to);
-      const ticket = await createTicket({ category: config.category, senderName: from.split("@")[0] || "Unknown", senderEmail: from, subject: subject || "No subject", message: body || "(No content)", language: config.language, metadata: { source: "email", to: message.to } }, env);
+      const ticket = await createTicket({ 
+        category: config.category, 
+        senderName: from.split("@")[0] || "Unknown", 
+        senderEmail: from, 
+        subject: subject || "No subject", 
+        message: body || "(No content)", 
+        language: config.language, 
+        orderNumber, 
+        metadata: { source: "email", to: message.to } 
+      }, env);
       if (from) await sendTicketConfirmation(ticket, env);
     } catch (err) {
-      console.log("\u274C Email error:", err.message);
+      console.log("❌ Email error:", err.message);
     }
   }
 };
