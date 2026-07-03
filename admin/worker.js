@@ -1242,6 +1242,26 @@ async function sendNewsletterConfirmation(env, email, token, language) {
 }
 __name(sendNewsletterConfirmation, "sendNewsletterConfirmation");
 
+function decodeRFC2047(text) {
+  if (!text) return text;
+  return text.replace(/=\?([^?]+)\?([BQ])\?([^?]+)\?=/gi, (match, charset, encoding, data) => {
+    try {
+      if (encoding.toUpperCase() === "B") {
+        const binary = atob(data);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return new TextDecoder(charset || "utf-8").decode(bytes);
+      } else {
+        const decoded = data.replace(/=([0-9A-F]{2})/gi, (m, hex) => String.fromCharCode(parseInt(hex, 16)));
+        return new TextDecoder(charset || "utf-8").decode(new TextEncoder().encode(decoded));
+      }
+    } catch {
+      return match;
+    }
+  });
+}
+__name(decodeRFC2047, "decodeRFC2047");
+
 function decodeQuotedPrintable(str) {
   str = str.replace(/=\r\n/g, "").replace(/=\n/g, "");
   const bytes = [];
@@ -1296,7 +1316,7 @@ async function parseEmail(rawStream) {
     const rawText = await new Response(rawStream).text();
     let subject = "No subject", from = "unknown@example.com", body = "";
     const sMatch = rawText.match(/^Subject:\s*([^\r\n]+)/im);
-    if (sMatch) subject = sMatch[1].trim();
+    if (sMatch) subject = decodeRFC2047(sMatch[1].trim());
     const fMatch = rawText.match(/^From:\s*([^\r\n]+)/im);
     if (fMatch) {
       from = fMatch[1].trim();
