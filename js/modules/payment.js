@@ -133,6 +133,9 @@ const Payment = (() => {
       console.log('  taxValue:', taxValue);
       console.log('  grandTotal:', grandTotal);
       console.log('  totals object:', totals);
+
+      // Build purchase units with individual item details
+      const purchaseUnits = [{
         reference_id: orderRef,
         description: `${CONFIG.shopName} – ${orderRef}`,
         amount: {
