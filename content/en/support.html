@@ -49,9 +49,13 @@
                 </div>
             </div>
 
+            <!-- UPDATED: Order number field with DOR- prefix and alphanumeric format -->
             <div class="sf-field">
                 <label class="sf-label" for="sf-order" id="label-order"></label>
-                <input id="sf-order" type="text" class="sf-input" maxlength="50" inputmode="numeric" pattern="[0-9]*" aria-describedby="sf-order-err">
+                <div style="position:relative;display:flex;align-items:center;border:1px solid var(--border);border-radius:.875rem;background:var(--bg);overflow:hidden;">
+                    <span style="padding:0.75rem 0 0.75rem 1rem;font-weight:600;color:var(--text);background:color-mix(in srgb, var(--accent) 8%, transparent);border-right:1px solid var(--border);white-space:nowrap;user-select:none;">DOR-</span>
+                    <input id="sf-order" type="text" class="sf-input" style="border:none;border-radius:0;flex:1;padding:0.75rem 1rem;" maxlength="50" aria-describedby="sf-order-err" placeholder="20260703-DY67SZ">
+                </div>
                 <span class="sf-field-error" id="sf-order-err" role="alert"></span>
                 <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;" id="order-help-text"></small>
             </div>
@@ -157,6 +161,10 @@
 .sf-submit-loading {
     opacity: 0.7;
     cursor: wait;
+}
+/* Fix for the input inside the DOR- wrapper */
+.sf-field .sf-input:focus {
+    outline: none;
 }
 </style>
 
@@ -313,7 +321,7 @@
         if (dom['label-name']) dom['label-name'].innerHTML = (formData.fullName || 'Full name') + ' <span style="color:#ef4444">*</span>';
         if (dom['label-email']) dom['label-email'].innerHTML = (formData.email || 'Email address') + ' <span style="color:#ef4444">*</span>';
         if (dom['label-order']) dom['label-order'].innerHTML = (formData.orderNumber || 'Order number') + ' <span style="color:#ef4444">*</span>';
-        if (dom['order-help-text']) dom['order-help-text'].textContent = formData.orderHelpText || 'You can find this in your order confirmation email';
+        if (dom['order-help-text']) dom['order-help-text'].textContent = formData.orderHelpText || 'Format: DOR-20260703-DY67SZ (shown as example)';
         if (dom['label-summary-table']) dom['label-summary-table'].textContent = formData.summaryLabel || 'Issue Summary';
 
         var maxChars = formData.maxCommentsChars || 2000;
@@ -542,6 +550,7 @@
         }
     }
 
+    // UPDATED: validateForm to accept alphanumeric for order number
     function validateForm() {
         var hasError = false;
         var nameInput = dom['sf-name']?.value || '';
@@ -568,11 +577,12 @@
             hasError = true;
         }
 
+        // UPDATED: Order number validation - now accepts letters, numbers, and hyphens
         if (!orderInput.trim()) {
             setFieldError('sf-order', 'sf-order-err', formData.orderNumberRequired || 'Order number is required.');
             hasError = true;
-        } else if (!/^\d+$/.test(orderInput.trim())) {
-            setFieldError('sf-order', 'sf-order-err', formData.orderDigitsOnly || 'Order number must contain digits only.');
+        } else if (!/^[A-Za-z0-9-]+$/.test(orderInput.trim())) {
+            setFieldError('sf-order', 'sf-order-err', 'Order number contains invalid characters. Use letters, numbers, and hyphens only.');
             hasError = true;
         }
 
@@ -639,13 +649,16 @@
             }
         }
 
+        // UPDATED: Prepend DOR- to the order number before sending
+        var fullOrderNumber = 'DOR-' + sanitised.order;
+
         var payload = {
             referenceNumber: referenceNumber,
             category: "support-request",
             originalCategory: currentCategory?.title || 'General',
             name: sanitised.name,
             email: sanitised.email,
-            orderNumber: sanitised.order || 'NA',
+            orderNumber: fullOrderNumber,
             language: lang,
             troubleshooting: troubleshootingSummaries,
             additionalComments: additionalComments,
@@ -785,17 +798,12 @@
             }
         };
 
-        var orderInputHandler = function(e) {
-            if (e.target.id === 'sf-order') {
-                e.target.value = e.target.value.replace(/[^0-9]/g, '');
-            }
-        };
+        // UPDATED: Removed the digit-only filter for order number
+        // No input filtering - users can type alphanumeric characters
 
         document.addEventListener('click', submitHandler);
-        document.addEventListener('input', orderInputHandler);
 
         eventListeners.push({element: document, type: 'click', handler: submitHandler});
-        eventListeners.push({element: document, type: 'input', handler: orderInputHandler});
     }
 
     function init() {
