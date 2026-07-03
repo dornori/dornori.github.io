@@ -1,5 +1,5 @@
 <div class="container">
-<!-- content/en/success.html — UI strings loaded from lang/en/common.json via window.T -->
+<!-- content/en/success.html — sends order data to CF worker for ticketing -->
 <style>
   .success-wrap { min-height:60vh; display:flex; align-items:center; justify-content:center; padding:3rem 1rem; }
   .webshop-confetti { position:fixed; top:0; left:0; right:0; pointer-events:none; z-index:9999; }
@@ -14,34 +14,146 @@
 
 <script>
 (function () {
+  'use strict';
+  
+  var WORKER_URL = 'https://dornori-ticketing.dornori-info.workers.dev/api/message';
+  
   var params = new URLSearchParams(window.location.search);
-  var ref    = params.get('ref') || localStorage.getItem('webshop_last_order') || '—';
+  var ref    = params.get('ref') || '';
   var status = params.get('status') || 'success';
   var lang   = window.LANG || localStorage.getItem('dornori-lang') || 'en';
+  var ticketNumber = null;
+  var paypalOrderID = localStorage.getItem('webshop_paypal_order_id') || null;
 
-  // T(): resolve from window.T (set by i18n.js from lang/<lang>/common.json), then Shop.t(), then fallback
   function T(key, fallback) {
     if (window.T && window.T[key]) return window.T[key];
     if (typeof Shop !== 'undefined' && Shop.t) return Shop.t(key, fallback);
     return fallback || key;
   }
 
+  function fmt(n) { return (Math.round((n||0)*100)/100).toFixed(2); }
+
+  function sendOrderToWorker() {
+    if (status !== 'success') {
+      console.log('⏭️  Skipping worker notification (status=' + status + ')');
+      return;
+    }
+
+    try {
+      var raw = localStorage.getItem('webshop_order_snapshot');
+      if (!raw) {
+        console.warn('⚠️  No order snapshot in localStorage');
+        return;
+      }
+
+      var snap = JSON.parse(raw);
+      if (!snap || !snap.orderRef || snap.orderRef !== ref) {
+        console.warn('⚠️  Snapshot mismatch or missing orderRef');
+        return;
+      }
+
+      var fd = snap.formData || {};
+      var currency = (snap.totals && snap.totals.currency) || 'EUR';
+      
+      var addressLines = [
+        fd.address, fd.city, fd.postal, fd.country
+      ].filter(Boolean).join(', ');
+
+      var productLines = (snap.items || []).map(function(i) {
+        return i.qty + '× ' + i.name + ' (' + i.sku + ') @ ' + fmt(i.price) + ' ' + currency + ' each';
+      }).join('\n');
+
+      var t = snap.totals || {};
+      var messageBody =
+        'Order: ' + snap.orderRef + '\n' +
+        (paypalOrderID ? 'PayPal Transaction ID: ' + paypalOrderID + '\n' : '') +
+        '\n' +
+        'Shipping address:\n' + addressLines + '\n\n' +
+        'Products:\n' + productLines + '\n\n' +
+        'Subtotal: ' + fmt(t.subtotal) + ' ' + currency + '\n' +
+        'Shipping: ' + fmt(t.shipping) + ' ' + currency + '\n' +
+        'Tax: ' + fmt(t.tax) + ' ' + currency + '\n' +
+        'Total: ' + fmt(t.total) + ' ' + currency;
+
+      var payload = {
+        category: 'payment',
+        name: ((fd.first_name || '') + ' ' + (fd.last_name || '')).trim(),
+        email: fd.email || '',
+        phone: fd.phone || '',
+        company: '',
+        subject: 'Order ' + snap.orderRef,
+        language: lang,
+        message: messageBody,
+        metadata: {
+          source: 'checkout-success',
+          orderRef: snap.orderRef,
+          paypalOrderID: paypalOrderID || '',
+          firstName: fd.first_name || '',
+          lastName: fd.last_name || '',
+          language: lang,
+        },
+      };
+
+      console.log('📤 Sending order to worker:');
+      console.log('  - Endpoint:', WORKER_URL);
+      console.log('  - Order Ref:', snap.orderRef);
+      console.log('  - Customer:', payload.name, '<' + payload.email + '>');
+      console.log('  - Total:', fmt(t.total), currency);
+      console.log('  - Full payload:', payload);
+
+      fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      .then(function(res) {
+        if (!res.ok) {
+          return res.text().then(function(text) {
+            throw new Error('HTTP ' + res.status + ': ' + text);
+          });
+        }
+        return res.json();
+      })
+      .then(function(result) {
+        console.log('📥 Worker response:', result);
+        if (result.success) {
+          ticketNumber = result.ticketNumber;
+          console.log('✅ Order notification sent successfully, ticket:', ticketNumber);
+          localStorage.removeItem('webshop_order_snapshot');
+          localStorage.removeItem('webshop_paypal_order_id');
+          // Re-render to show ticket number instead of order ref
+          render();
+        } else {
+          console.warn('⚠️  Worker returned error:', result.error);
+        }
+      })
+      .catch(function(err) {
+        console.error('❌ Failed to send order notification:', err.message);
+      });
+    } catch (e) {
+      console.error('❌ sendOrderToWorker exception:', e);
+    }
+  }
+
   function render() {
     var page = document.getElementById('result-page');
     if (!page) return;
+    
     if (status === 'success') {
       var kitSlug = (window.T && window.T.url_slugs && window.T.url_slugs.kit) || 'kit';
+      var displayRef = ticketNumber || paypalOrderID || ref || '—';
       page.innerHTML =
         '<div class="webshop-result-icon webshop-result-icon--success">✓</div>' +
         '<h1>' + T('success_title', 'Order Confirmed!') + '</h1>' +
         '<p>' + T('success_message', 'Thank you for your purchase. You will receive a confirmation email shortly.') + '</p>' +
         '<p>' + T('success_ref', 'Your order reference is') + ':</p>' +
-        '<div class="webshop-ref-badge">' + ref + '</div>' +
+        '<div class="webshop-ref-badge">' + displayRef + '</div>' +
         '<p style="font-size:0.82rem;color:var(--c-text-muted);">' + T('success_ref_note', 'Please save this reference in case you need to contact support.') + '</p>' +
         '<a href="/' + lang + '/" class="webshop-btn webshop-btn--primary" style="margin-top:8px;">' +
           T('continue_shopping', 'Continue Shopping') +
         '</a>';
       launchConfetti();
+      sendOrderToWorker();
     } else {
       var cartSlug = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || 'cart';
       page.innerHTML =
@@ -77,12 +189,27 @@
   }
 
   function doRender() {
-    // window.T may already be loaded; if not, wait for Shop.loadLang
-    if (typeof Shop !== 'undefined') {
-      Shop.loadLang().then(render);
+    // Wait for Shop to be ready, then load lang, then render
+    if (typeof Shop !== 'undefined' && Shop.loadLang) {
+      Shop.loadLang().then(function() {
+        render();
+        // Give a small delay to ensure snapshot is written before sending
+        setTimeout(sendOrderToWorker, 500);
+      }).catch(function(err) {
+        console.warn('Failed to load language:', err);
+        render();
+        setTimeout(sendOrderToWorker, 500);
+      });
     } else {
       document.addEventListener('webshop:ready', function() {
-        Shop.loadLang().then(render);
+        Shop.loadLang().then(function() {
+          render();
+          setTimeout(sendOrderToWorker, 500);
+        }).catch(function(err) {
+          console.warn('Failed to load language:', err);
+          render();
+          setTimeout(sendOrderToWorker, 500);
+        });
       });
     }
   }

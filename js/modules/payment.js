@@ -88,6 +88,11 @@ const Payment = (() => {
       el.innerHTML = "";
       const cfg = CONFIG.payment.paypal;
 
+      // Wrap payment mount in styled container
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'max-width:480px;margin:0 auto;background:var(--c-surface);padding:24px;border-radius:var(--radius,8px);border:1px solid var(--c-border);';
+      el.appendChild(wrapper);
+
       // Round each line item first, then sum the *rounded* lines for item_total.
       // PayPal requires item_total to exactly equal Σ(unit_amount × quantity) in cents —
       // deriving it from a separately-rounded cart subtotal can be a cent off and the
@@ -192,7 +197,7 @@ const Payment = (() => {
           console.error("[Payment/PayPal]", err);
           _dispatch("payment:error", { orderRef, processor: "paypal", error: err });
         },
-      }).render(el);
+      }).render(wrapper);
     },
   };
 
