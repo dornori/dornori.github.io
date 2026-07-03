@@ -1,3 +1,366 @@
+<div class="container">
+<div id="sf-toast" class="sf-toast" role="status" aria-live="polite"></div>
+<div class="sf-wrap">
+    <div class="sf-header">
+        <i class="fas fa-headset"></i>
+        <div>
+            <div id="sf-title" style="font-size:1.4rem;font-weight:700;"></div>
+            <div id="sf-subtitle" style="opacity:.8;font-size:.9rem;margin-top:.2rem;"></div>
+        </div>
+    </div>
+
+    <div class="sf-body" id="sf-body">
+        <div class="sf-progress-row">
+            <span class="sf-progress-note"><i class="far fa-clock"></i> <span id="avg-resolution"></span></span>
+            <span id="sf-step-label" class="sf-progress-step"></span>
+        </div>
+        <div class="sf-progress-track"><div id="sf-prog" class="sf-progress-fill" style="width:5%"></div></div>
+
+        <div id="sf-loading" class="sf-loading">
+            <i class="fas fa-spinner fa-spin" style="font-size:1.75rem;color:var(--accent)"></i>
+            <p style="margin-top:.75rem" id="loading-text"></p>
+        </div>
+
+        <div id="sf-s1" class="sf-hidden">
+            <div style="font-size:1.1rem;font-weight:600;margin-bottom:1rem;" id="select-issue"></div>
+            <div id="sf-cats" class="sf-cat-grid"></div>
+            <p class="sf-note"><i class="fas fa-shield-alt"></i> <span id="most-issues"></span></p>
+        </div>
+
+        <div id="sf-s2" class="sf-hidden"></div>
+
+        <div id="sf-s3" class="sf-hidden">
+            <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;">
+                <i class="fas fa-headset" style="font-size:1.4rem;color:var(--accent)"></i>
+                <span style="font-size:1.25rem;font-weight:700;" id="need-help"></span>
+            </div>
+            <p style="color:var(--text-muted);font-size:.9rem;margin-bottom:1.5rem;" id="response-time"></p>
+
+            <div class="sf-grid2">
+                <div class="sf-field">
+                    <label class="sf-label" for="sf-name" id="label-name"></label>
+                    <input id="sf-name" type="text" class="sf-input" autocomplete="name" maxlength="120" aria-describedby="sf-name-err">
+                    <span class="sf-field-error" id="sf-name-err" role="alert"></span>
+                </div>
+                <div class="sf-field">
+                    <label class="sf-label" for="sf-email" id="label-email"></label>
+                    <input id="sf-email" type="email" class="sf-input" autocomplete="email" maxlength="254" aria-describedby="sf-email-err">
+                    <span class="sf-field-error" id="sf-email-err" role="alert"></span>
+                </div>
+            </div>
+
+            <div class="sf-field">
+                <label class="sf-label" for="sf-order" id="label-order"></label>
+                <div style="position:relative;display:flex;align-items:center;border:1px solid var(--border);border-radius:.875rem;background:var(--bg);overflow:hidden;">
+                    <span style="padding:0.75rem 0 0.75rem 1rem;font-weight:600;color:var(--text);background:color-mix(in srgb, var(--accent) 8%, transparent);border-right:1px solid var(--border);white-space:nowrap;user-select:none;">DOR-</span>
+                    <input id="sf-order" type="text" class="sf-input" style="border:none;border-radius:0;flex:1;padding:0.75rem 1rem;" maxlength="50" aria-describedby="sf-order-err" placeholder="20260703-DY67SZ">
+                </div>
+                <span class="sf-field-error" id="sf-order-err" role="alert"></span>
+                <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;" id="order-help-text"></small>
+            </div>
+
+            <div class="sf-field" id="sf-summary-container" style="display:none;">
+                <label class="sf-label" id="label-summary-table"></label>
+                <div id="sf-summary-table" style="width:100%;margin-top:8px;"></div>
+            </div>
+
+            <div class="sf-field">
+                <label class="sf-label" id="label-comments"></label>
+                <textarea id="sf-desc" rows="6" class="sf-input" style="resize:vertical;font-family:monospace;font-size:0.85rem;line-height:1.5;" maxlength="2000" aria-describedby="comments-help-text"></textarea>
+                <div id="sf-char-counter" class="sf-char-counter">0 / 2000</div>
+                <small style="color:var(--text-muted);font-size:0.7rem;margin-top:4px;display:block;" id="comments-help-text"></small>
+            </div>
+
+            <div class="sf-turnstile-wrap">
+                <div id="sf-turnstile-container"></div>
+                <span class="sf-turnstile-error sf-hidden" id="sf-turnstile-err" role="alert"></span>
+            </div>
+
+            <button id="sf-submit" class="sf-submit"></button>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+.sf-submit {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #000000 30%));
+    color: var(--bg);
+    font-weight: 700;
+    padding: .875rem;
+    border-radius: .875rem;
+    border: none;
+    font-size: 1rem;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 1rem;
+}
+.sf-submit:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.sf-submit:active {
+    transform: translateY(0);
+}
+.sf-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+.sf-input-error {
+    border-color: #ef4444 !important;
+}
+.sf-field-error {
+    font-size: 0.75rem;
+    color: #ef4444;
+    margin-top: 4px;
+    display: block;
+}
+.sf-turnstile-error {
+    font-size: 0.75rem;
+    color: #ef4444;
+    margin-top: 4px;
+    display: block;
+}
+.sf-char-counter.warning {
+    color: #eab308;
+}
+.sf-char-counter.danger {
+    color: #ef4444;
+}
+.sf-char-counter {
+    font-size: 0.7rem;
+    text-align: right;
+    margin-top: 4px;
+    color: var(--text-muted);
+}
+.summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.summary-table td {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+.summary-table .step-number {
+    width: 50px;
+    text-align: center;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.sf-hidden {
+    display: none !important;
+}
+.sf-submit-loading {
+    opacity: 0.7;
+    cursor: wait;
+}
+.sf-field .sf-input:focus {
+    outline: none;
+}
+.sf-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 18px;
+    background: var(--input-bg, #1a2230);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    font-family: var(--font-sans);
+    margin-bottom: 8px;
+}
+.sf-btn:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+.sf-btn i {
+    color: var(--accent);
+    font-size: 1.2rem;
+    width: 24px;
+    text-align: center;
+}
+.sf-cat-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.sf-grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+@media (max-width: 600px) {
+    .sf-grid2 {
+        grid-template-columns: 1fr;
+    }
+}
+.sf-field {
+    margin-bottom: 16px;
+}
+.sf-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+.sf-input {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--input-bg, #1a2230);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: var(--font-sans);
+    box-sizing: border-box;
+}
+.sf-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+.sf-input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+.sf-note {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+.sf-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 20px;
+    border-radius: 40px;
+    font-size: .88rem;
+    font-weight: 500;
+    background: var(--header-bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    opacity: 0;
+    transition: opacity .3s ease;
+    z-index: 9999;
+    max-width: 90%;
+}
+.sf-wrap {
+    max-width: 700px;
+    margin: 0 auto;
+    background: var(--header-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 30px 32px;
+}
+.sf-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+}
+.sf-header i {
+    font-size: 2rem;
+    color: var(--accent);
+}
+.sf-progress-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: .85rem;
+    color: var(--text-muted);
+}
+.sf-progress-step {
+    color: var(--accent);
+    font-weight: 500;
+}
+.sf-progress-track {
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 4px;
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+.sf-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width .4s ease;
+}
+.sf-loading {
+    text-align: center;
+    padding: 40px 20px;
+}
+.sf-opt {
+    width: 100%;
+    text-align: left;
+    padding: .9rem 1.2rem;
+    border: 1px solid var(--border);
+    border-radius: .875rem;
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: .95rem;
+    margin-bottom: .6rem;
+    font-family: var(--font-sans);
+}
+.sf-opt:hover {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+.sf-opt i {
+    color: var(--accent);
+    flex-shrink: 0;
+}
+.sf-reset {
+    font-size: .82rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: 9999px;
+    padding: .35rem .9rem;
+    cursor: pointer;
+    font-family: var(--font-sans);
+}
+.sf-reset:hover {
+    border-color: var(--text-muted);
+}
+.sf-q-label {
+    font-size: .8rem;
+    color: var(--accent);
+    margin-bottom: .5rem;
+}
+.sf-q-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 1.25rem;
+}
+.sf-turnstile-wrap {
+    margin: 18px 0 12px;
+    min-height: 65px;
+}
+</style>
+
 <script>
 (function() {
     'use strict';
@@ -7,6 +370,7 @@
 
     var lang = document.documentElement.lang || 'en';
     var formJsonPath = '/lang/' + lang + '/form.json';
+    var redirectUrl = null;
 
     var dom = {};
     var turnstileWidgetId = null;
@@ -73,17 +437,9 @@
         if (!t) return;
         t.textContent = msg;
         t.style.opacity = '1';
-        t.style.position = 'fixed';
-        t.style.bottom = '20px';
-        t.style.right = '20px';
-        t.style.zIndex = '9999';
         t.style.background = isError ? '#ef4444' : 'var(--header-bg)';
         t.style.color = isError ? '#fff' : 'var(--text)';
         t.style.border = isError ? 'none' : '1px solid var(--border)';
-        t.style.padding = '10px 18px';
-        t.style.borderRadius = '40px';
-        t.style.fontSize = '.88rem';
-        t.style.fontWeight = isError ? '600' : 'normal';
         setTimeout(function() { t.style.opacity = '0'; }, ms);
     }
 
@@ -100,9 +456,6 @@
             '<p style="font-size: 0.85rem; margin-top: 1rem;color:var(--text-muted);">' + escapeHtml(saveReferenceText) + '</p>' +
             '</div>';
         body.innerHTML = successHtml;
-
-        var successBox = body.querySelector('.sf-success-box');
-        if (successBox) successBox.focus();
     }
 
     async function loadFormDataWithRetry() {
@@ -215,16 +568,16 @@
         if (!question) { showContactForm(); return; }
 
         var troubleshootingLabel = formData.troubleshootingLabel || 'Troubleshooting';
-        var html = '<div class="sf-q-label" style="font-size:.8rem;color:var(--accent);margin-bottom:.5rem;"><i class="fas fa-question-circle"></i> ' + troubleshootingLabel + '</div>';
-        html += '<div class="sf-q-text" style="font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:1.25rem;">' + escapeHtml(question.text) + '</div>';
+        var html = '<div class="sf-q-label"><i class="fas fa-question-circle"></i> ' + troubleshootingLabel + '</div>';
+        html += '<div class="sf-q-text">' + escapeHtml(question.text) + '</div>';
 
         for (var i = 0; i < question.options.length; i++) {
             var opt = question.options[i];
-            html += '<button class="sf-opt" style="width:100%;text-align:left;padding:.9rem 1.2rem;border:1px solid var(--border);border-radius:.875rem;background:transparent;color:var(--text);cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:.95rem;margin-bottom:.6rem;" onclick="window.selectAnswerExternal(\'' + questionId + '\', ' + i + ')"><span>' + escapeHtml(opt.text) + '</span><i class="fas fa-arrow-right" style="color:var(--accent);flex-shrink:0;"></i></button>';
+            html += '<button class="sf-opt" onclick="window.selectAnswerExternal(\'' + questionId + '\', ' + i + ')"><span>' + escapeHtml(opt.text) + '</span><i class="fas fa-arrow-right"></i></button>';
         }
 
         var startOverLabel = formData.startOverLabel || 'Start over';
-        html += '<div style="margin-top:1rem"><button class="sf-reset" style="font-size:.82rem;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:9999px;padding:.35rem .9rem;cursor:pointer;" onclick="window.sfResetExternal()"><i class="fas fa-undo-alt"></i> ' + startOverLabel + '</button></div>';
+        html += '<div style="margin-top:1rem"><button class="sf-reset" onclick="window.sfResetExternal()"><i class="fas fa-undo-alt"></i> ' + startOverLabel + '</button></div>';
 
         if (dom['sf-s2']) dom['sf-s2'].innerHTML = html;
         if (dom['sf-s1']) dom['sf-s1'].classList.add('sf-hidden');
@@ -265,9 +618,7 @@
                 if (typeof turnstile !== 'undefined' && turnstile.remove) {
                     turnstile.remove(turnstileWidgetId);
                 }
-            } catch(e) {
-                console.warn('Turnstile remove error:', e);
-            }
+            } catch(e) {}
             turnstileWidgetId = null;
         }
         turnstileToken = null;
@@ -294,14 +645,12 @@
         }
 
         destroyTurnstile();
-
         container.style.display = 'block';
 
         try {
             turnstileWidgetId = turnstile.render(container, {
                 sitekey: TURNSTILE_KEY,
                 theme: 'light',
-                'render': 'explicit',
                 callback: function(token) {
                     turnstileToken = token;
                     var err = dom['sf-turnstile-err'];
@@ -320,12 +669,11 @@
                     }
                     if (container) container.classList.add('sf-input-error');
                 },
-                'error-callback': function(errorCode) {
+                'error-callback': function() {
                     turnstileToken = null;
                     var err = dom['sf-turnstile-err'];
-                    var errorMsg = formData.turnstileFailedError || 'Security verification failed. Please disable private browsing mode or refresh the page.';
                     if (err) {
-                        err.textContent = errorMsg;
+                        err.textContent = formData.turnstileFailedError || 'Security verification failed.';
                         err.classList.remove('sf-hidden');
                     }
                     if (container) container.classList.add('sf-input-error');
@@ -430,7 +778,6 @@
         };
     }
 
-    // THE KEY CHANGE - This now matches contact.html format EXACTLY
     async function sendSupportRequest() {
         if (isSubmitting) {
             showToast(formData.alreadySubmittingText || 'Submission already in progress...', 2000, false);
@@ -453,7 +800,6 @@
         // Build the message - combine troubleshooting steps and comments
         var fullMessage = '';
         
-        // Add troubleshooting steps
         if (answers.length > 0) {
             fullMessage += '=== TROUBLESHOOTING STEPS ===\n\n';
             for (var i = 0; i < answers.length; i++) {
@@ -463,47 +809,46 @@
             fullMessage += '\n';
         }
         
-        // Add additional comments
         if (sanitised.comments) {
             fullMessage += '=== ADDITIONAL COMMENTS ===\n\n';
             fullMessage += sanitised.comments + '\n\n';
         }
         
-        // Add order number
         fullMessage += '=== ORDER INFORMATION ===\n';
         fullMessage += 'Order Number: DOR-' + sanitised.order + '\n';
 
-        // Determine category - use current category ID or default
         var categoryId = currentCategory?.id || 'support';
 
-        // Build payload EXACTLY like contact.html
         var payload = {
             category: categoryId,
             name: sanitised.name,
             email: sanitised.email,
             phone: '',
             company: '',
-            subject: 'Support Request: ' + (currentCategory?.title || 'General') + ' (Order: DOR-' + sanitised.order + ')',
+            subject: 'Support: ' + (currentCategory?.title || 'General') + ' (Order: DOR-' + sanitised.order + ')',
             language: lang,
             message: fullMessage,
             orderNumber: 'DOR-' + sanitised.order,
             metadata: {
                 source: 'support-form',
+                userAgent: navigator.userAgent,
                 category: categoryId,
                 categoryLabel: currentCategory?.title || 'General',
                 orderNumber: 'DOR-' + sanitised.order,
                 troubleshootingSteps: answers.length,
-                hasComments: !!sanitised.comments
+                hasComments: !!sanitised.comments,
+                troubleshooting: answers.map(function(a) {
+                    return { question: a.question, answer: a.answer, summary: a.summary };
+                }),
+                additionalComments: sanitised.comments || ''
             }
         };
 
-        console.log('📤 Sending support request (same format as contact.html):');
+        console.log('📤 Sending support request:');
         console.log('  Category:', payload.category);
         console.log('  Name:', payload.name);
         console.log('  Email:', payload.email);
         console.log('  Order:', payload.orderNumber);
-        console.log('  Subject:', payload.subject);
-        console.log('  Message length:', payload.message.length);
 
         if (abortController) abortController.abort();
         abortController = new AbortController();
@@ -537,7 +882,6 @@
                 throw new Error(result.error || 'Server rejected the request');
             }
 
-            // Success!
             if (redirectUrl && redirectUrl.trim()) {
                 window.location.href = redirectUrl;
             } else {
@@ -651,3 +995,4 @@
     init();
 })();
 </script>
+</div>
