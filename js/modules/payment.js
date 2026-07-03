@@ -88,6 +88,17 @@ const Payment = (() => {
       el.innerHTML = "";
       const cfg = CONFIG.payment.paypal;
 
+      // Convert prices from EUR to active currency if needed
+      const convertPrice = (eurPrice) => {
+        if (activeCurrency === 'EUR') return eurPrice;
+        // Get conversion rate from totals if available
+        if (totals && totals.total && totals.subtotal) {
+          const rate = totals.total / (totals.subtotal + (totals.shipping || 0) + (totals.tax || 0));
+          return eurPrice * rate;
+        }
+        return eurPrice;
+      };
+
       // Wrap payment mount in styled container
       const wrapper = document.createElement('div');
       wrapper.style.cssText = 'max-width:480px;margin:0 auto;background:var(--c-surface);padding:24px;border-radius:var(--radius,8px);border:1px solid var(--c-border);';
@@ -98,7 +109,9 @@ const Payment = (() => {
       // deriving it from a separately-rounded cart subtotal can be a cent off and the
       // whole order (including all item/shipping/address detail) gets rejected.
       const itemLines = cart.map(i => {
-        const unit = Math.round((i.price + Number.EPSILON) * 100) / 100;
+        const eurPrice = i.price;
+        const convertedPrice = convertPrice(eurPrice);
+        const unit = Math.round((convertedPrice + Number.EPSILON) * 100) / 100;
         return {
           name: i.name + (i.selectedColor ? ` (${i.selectedColor})` : ""),
           unit_amount: { currency_code: activeCurrency, value: unit.toFixed(2) },
@@ -109,8 +122,8 @@ const Payment = (() => {
         };
       });
       const itemTotalValue = itemLines.reduce((a, l) => a + l._lineTotal, 0);
-      const shippingValue  = Math.round((totals.shipping + Number.EPSILON) * 100) / 100;
-      const taxValue       = Math.round((totals.tax + Number.EPSILON) * 100) / 100;
+      const shippingValue  = Math.round((convertPrice(totals.shipping) + Number.EPSILON) * 100) / 100;
+      const taxValue       = Math.round((convertPrice(totals.tax) + Number.EPSILON) * 100) / 100;
       const grandTotal     = Math.round((itemTotalValue + shippingValue + taxValue + Number.EPSILON) * 100) / 100;
 
       console.log('📊 Price Debug:');
