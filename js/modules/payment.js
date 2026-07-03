@@ -181,7 +181,11 @@ const Payment = (() => {
         }),
         onApprove: async (data, actions) => {
           const d = await actions.order.capture();
-          _dispatch("payment:success", { orderRef, processor: "paypal", details: d });
+          // Store PayPal orderID in localStorage for success page
+          if (data.orderID) {
+            localStorage.setItem('webshop_paypal_order_id', data.orderID);
+          }
+          _dispatch("payment:success", { orderRef, processor: "paypal", details: d, paypalOrderID: data.orderID });
         },
         onCancel: () => _dispatch("payment:cancel", { orderRef, processor: "paypal" }),
         onError: err => {
