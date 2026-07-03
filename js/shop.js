@@ -351,7 +351,14 @@ var Shop = (() => {
     if (Object.keys(_products).length === 0) await loadProducts();
     return _products[id] || null;
   }
-  function generateOrderRef() { return "LM-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(36).substr(2,5).toUpperCase(); }
+  function generateOrderRef() {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const rand = Math.random().toString(36).substr(2, 6).toUpperCase();
+    return 'DOR-' + yyyy + mm + dd + '-' + rand;
+  }
 
   /* ─── TOAST ─────────────────────────────────────────── */
   function toast(text, duration = 2800) {

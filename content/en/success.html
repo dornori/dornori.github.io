@@ -19,7 +19,7 @@
   var WORKER_URL = 'https://dornori-ticketing.dornori-info.workers.dev/api/message';
   
   var params = new URLSearchParams(window.location.search);
-  var ref    = params.get('ref') || localStorage.getItem('webshop_last_order') || '—';
+  var ref    = params.get('ref') || '';
   var status = params.get('status') || 'success';
   var lang   = window.LANG || localStorage.getItem('dornori-lang') || 'en';
   var ticketNumber = null;
@@ -59,15 +59,25 @@
         fd.address, fd.city, fd.postal, fd.country
       ].filter(Boolean).join(', ');
 
+      var billingLines = '';
+      if (fd.billingChoice === 'different' && fd.billing_address) {
+        billingLines = [
+          fd.billing_address, fd.billing_city, fd.billing_postal, fd.billing_country
+        ].filter(Boolean).join(', ');
+      }
+
       var productLines = (snap.items || []).map(function(i) {
         return i.qty + '× ' + i.name + ' (' + i.sku + ') @ ' + fmt(i.price) + ' ' + currency + ' each';
       }).join('\n');
 
       var t = snap.totals || {};
       var messageBody =
-        'Order: ' + snap.orderRef + '\n\n' +
-        'Shipping address:\n' + addressLines + '\n\n' +
-        'Products:\n' + productLines + '\n\n' +
+        'Order: ' + snap.orderRef + '\n' +
+        (paypalOrderID ? 'PayPal Transaction: ' + paypalOrderID + '\n' : '') +
+        '\n' +
+        'Shipping address:\n' + addressLines + '\n' +
+        (billingLines ? '\nBilling address:\n' + billingLines + '\n' : '') +
+        '\nProducts:\n' + productLines + '\n\n' +
         'Subtotal: ' + fmt(t.subtotal) + ' ' + currency + '\n' +
         'Shipping: ' + fmt(t.shipping) + ' ' + currency + '\n' +
         'Tax: ' + fmt(t.tax) + ' ' + currency + '\n' +
@@ -139,14 +149,14 @@
     
     if (status === 'success') {
       var kitSlug = (window.T && window.T.url_slugs && window.T.url_slugs.kit) || 'kit';
-      var displayRef = ticketNumber || ref;
       page.innerHTML =
         '<div class="webshop-result-icon webshop-result-icon--success">✓</div>' +
         '<h1>' + T('success_title', 'Order Confirmed!') + '</h1>' +
         '<p>' + T('success_message', 'Thank you for your purchase. You will receive a confirmation email shortly.') + '</p>' +
         '<p>' + T('success_ref', 'Your order reference is') + ':</p>' +
-        '<div class="webshop-ref-badge">' + displayRef + '</div>' +
-        '<p style="font-size:0.82rem;color:var(--c-text-muted);">' + T('success_ref_note', 'Please save this reference in case you need to contact support.') + '</p>' +
+        '<div class="webshop-ref-badge">' + (ref || '—') + '</div>' +
+        (ticketNumber ? '<p style="margin-top:20px;font-size:0.9rem;color:var(--c-text-muted);">Support ticket:</p><div class="webshop-ref-badge">' + ticketNumber + '</div>' : '') +
+        '<p style="margin-top:20px;font-size:0.82rem;color:var(--c-text-muted);line-height:1.6;">' + T('success_ref_note', 'Please save these references for your records. Use either your order reference or ticket number when contacting support.') + '</p>' +
         '<a href="/' + lang + '/" class="webshop-btn webshop-btn--primary" style="margin-top:8px;">' +
           T('continue_shopping', 'Continue Shopping') +
         '</a>';
