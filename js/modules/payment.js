@@ -91,12 +91,10 @@ const Payment = (() => {
       // Convert prices from EUR to active currency if needed
       const convertPrice = (eurPrice) => {
         if (activeCurrency === 'EUR') return eurPrice;
-        // Get conversion rate from totals if available
-        if (totals && totals.total && totals.subtotal) {
-          const rate = totals.total / (totals.subtotal + (totals.shipping || 0) + (totals.tax || 0));
-          return eurPrice * rate;
-        }
-        return eurPrice;
+        // Calculate rate from totals breakdown
+        const eurTotal = (totals.subtotal || 0) + (totals.shipping || 0) + (totals.tax || 0);
+        const rate = eurTotal > 0 ? (totals.total || eurTotal) / eurTotal : 1;
+        return eurPrice * rate;
       };
 
       // Wrap payment mount in styled container
