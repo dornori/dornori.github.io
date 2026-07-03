@@ -124,7 +124,7 @@ const Payment = (() => {
       const itemTotalValue = itemLines.reduce((a, l) => a + l._lineTotal, 0);
       const shippingValue  = Math.round((convertPrice(totals.shipping) + Number.EPSILON) * 100) / 100;
       const taxValue       = Math.round((convertPrice(totals.tax) + Number.EPSILON) * 100) / 100;
-      const grandTotal     = Math.round((itemTotalValue + shippingValue + taxValue + Number.EPSILON) * 100) / 100;
+      const grandTotal     = Math.round((convertPrice(totals.total) + Number.EPSILON) * 100) / 100;
 
       console.log('📊 Price Debug:');
       console.log('  itemLines:', itemLines);

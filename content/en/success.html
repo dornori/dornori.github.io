@@ -73,21 +73,24 @@
       }
 
       var productLines = (snap.items || []).map(function(i) {
-        return i.qty + '× ' + i.name + ' (' + i.sku + ') @ ' + fmt(i.price) + ' ' + currency + ' each';
+        return i.qty + '\t' + i.name + ' (' + i.sku + ')\t' + fmt(i.price) + ' ' + currency + '\t' + fmt(i.qty * i.price) + ' ' + currency;
       }).join('\n');
 
       var t = snap.totals || {};
       var messageBody =
         'Order: ' + orderRef + '\n' +
-        (paypalOrderID ? 'PayPal Transaction: ' + paypalOrderID + '\n' : '') +
+        (paypalOrderID ? 'PayPal: ' + paypalOrderID + '\n' : '') +
         '\n' +
-        'Shipping address:\n' + addressLines + '\n' +
-        (billingLines ? '\nBilling address:\n' + billingLines + '\n' : '') +
-        '\nProducts:\n' + productLines + '\n\n' +
-        'Subtotal: ' + fmt(t.subtotal) + ' ' + currency + '\n' +
-        'Shipping: ' + fmt(t.shipping) + ' ' + currency + '\n' +
-        'Tax: ' + fmt(t.tax) + ' ' + currency + '\n' +
-        'Total: ' + fmt(t.total) + ' ' + currency;
+        'SHIPPING ADDRESS\n' + addressLines + '\n' +
+        (billingLines ? '\nBILLING ADDRESS\n' + billingLines + '\n' : '') +
+        '\nPRODUCTS\n' +
+        'Qty\tProduct\tPrice\tTotal\n' +
+        productLines + '\n' +
+        '\nTOTALS\n' +
+        'Subtotal:\t' + fmt(t.subtotal) + ' ' + currency + '\n' +
+        'Shipping:\t' + fmt(t.shipping) + ' ' + currency + '\n' +
+        'Tax:\t' + fmt(t.tax) + ' ' + currency + '\n' +
+        'TOTAL:\t' + fmt(t.total) + ' ' + currency;
 
       var payload = {
         category: 'payment',
@@ -167,7 +170,7 @@
           T('continue_shopping', 'Continue Shopping') +
         '</a>';
       launchConfetti();
-      sendOrderToWorker();
+      setTimeout(sendOrderToWorker, 500);
     } else {
       var cartSlug = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || 'cart';
       page.innerHTML =
@@ -207,22 +210,17 @@
     if (typeof Shop !== 'undefined' && Shop.loadLang) {
       Shop.loadLang().then(function() {
         render();
-        // Give a small delay to ensure snapshot is written before sending
-        setTimeout(sendOrderToWorker, 500);
       }).catch(function(err) {
         console.warn('Failed to load language:', err);
         render();
-        setTimeout(sendOrderToWorker, 500);
       });
     } else {
       document.addEventListener('webshop:ready', function() {
         Shop.loadLang().then(function() {
           render();
-          setTimeout(sendOrderToWorker, 500);
         }).catch(function(err) {
           console.warn('Failed to load language:', err);
           render();
-          setTimeout(sendOrderToWorker, 500);
         });
       });
     }
