@@ -341,7 +341,20 @@ var Shop = (() => {
       }
     }
     
-    all.forEach(p => { _products[p.id] = p; });
+    all.forEach(p => { 
+      if (p.price) p.price = Math.round((p.price + Number.EPSILON) * 100) / 100;
+      if (p.originalPrice) p.originalPrice = Math.round((p.originalPrice + Number.EPSILON) * 100) / 100;
+      if (p.variants && Array.isArray(p.variants)) {
+        p.variants.forEach(vid => {
+          const vp = _products[vid];
+          if (vp) {
+            if (vp.price) vp.price = Math.round((vp.price + Number.EPSILON) * 100) / 100;
+            if (vp.originalPrice) vp.originalPrice = Math.round((vp.originalPrice + Number.EPSILON) * 100) / 100;
+          }
+        });
+      }
+      _products[p.id] = p;
+    });
     return all;
   }
   

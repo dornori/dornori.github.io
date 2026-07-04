@@ -104,17 +104,19 @@ const Payment = (() => {
       wrapper.style.cssText = 'max-width:480px;margin:0 auto;background:var(--c-surface);padding:24px;border-radius:var(--radius,8px);border:1px solid var(--c-border);';
       el.appendChild(wrapper);
 
-      // Round each line item first, then sum the *rounded* lines for item_total.
-      // PayPal requires item_total to exactly equal Σ(unit_amount × quantity) in cents —
-      // deriving it from a separately-rounded cart subtotal can be a cent off and the
-      // whole order (including all item/shipping/address detail) gets rejected.
+      // Get decimals for this currency
+      const currencyInfo = (typeof Currency !== 'undefined' && Currency.getRates) ? Currency.getRates()[activeCurrency] : { decimals: 2 };
+      const decimals = currencyInfo ? currencyInfo.decimals : 2;
+      const decimalMultiplier = Math.pow(10, decimals);
+
+      // Convert and round each line item to currency decimals
       const itemLines = cart.map(i => {
         const eurPrice = i.price;
         const convertedPrice = eurPrice * conversionRate;
-        const unit = Math.round((convertedPrice + Number.EPSILON) * 100) / 100;
+        const unit = Math.round((convertedPrice + Number.EPSILON) * decimalMultiplier) / decimalMultiplier;
         return {
           name: i.name + (i.selectedColor ? ` (${i.selectedColor})` : ""),
-          unit_amount: { currency_code: activeCurrency, value: unit.toFixed(2) },
+          unit_amount: { currency_code: activeCurrency, value: unit.toFixed(decimals) },
           quantity: String(i.qty),
           sku: i.sku || i.id || "",
           description: i.description || "",
@@ -122,17 +124,10 @@ const Payment = (() => {
         };
       });
       const itemTotalValue = itemLines.reduce((a, l) => a + l._lineTotal, 0);
-      const shippingValue  = Math.round((totals.shipping * conversionRate + Number.EPSILON) * 100) / 100;
-      const taxValue       = Math.round((totals.tax * conversionRate + Number.EPSILON) * 100) / 100;
-      const grandTotal     = Math.round((totals.total * conversionRate + Number.EPSILON) * 100) / 100;
-
-      console.log('📊 Price Debug:');
-      console.log('  itemLines:', itemLines);
-      console.log('  itemTotalValue:', itemTotalValue);
-      console.log('  shippingValue:', shippingValue);
-      console.log('  taxValue:', taxValue);
-      console.log('  grandTotal:', grandTotal);
-      console.log('  totals object:', totals);
+      const shippingValue  = Math.round((totals.shipping * conversionRate + Number.EPSILON) * decimalMultiplier) / decimalMultiplier;
+      const taxValue       = totals.tax * conversionRate; // Don't round tax
+      const grandTotal     = itemTotalValue + shippingValue + taxValue;
+      const grandTotalRounded = Math.round((grandTotal + Number.EPSILON) * decimalMultiplier) / decimalMultiplier;
 
       // Build purchase units with individual item details
       const purchaseUnits = [{
@@ -140,11 +135,11 @@ const Payment = (() => {
         description: `${CONFIG.shopName} – ${orderRef}`,
         amount: {
           currency_code: activeCurrency,
-          value: grandTotal.toFixed(2),
+          value: grandTotalRounded.toFixed(decimals),
           breakdown: {
-            item_total: { currency_code: activeCurrency, value: itemTotalValue.toFixed(2) },
-            shipping: { currency_code: activeCurrency, value: shippingValue.toFixed(2) },
-            tax_total: { currency_code: activeCurrency, value: taxValue.toFixed(2) },
+            item_total: { currency_code: activeCurrency, value: itemTotalValue.toFixed(decimals) },
+            shipping: { currency_code: activeCurrency, value: shippingValue.toFixed(decimals) },
+            tax_total: { currency_code: activeCurrency, value: taxValue.toFixed(decimals) },
           },
         },
         items: itemLines.map(({ _lineTotal, ...line }) => line),
