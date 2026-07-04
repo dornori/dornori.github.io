@@ -1,4 +1,3 @@
-
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
@@ -1324,37 +1323,100 @@ function cleanupBody(text) {
 }
 __name(cleanupBody, "cleanupBody");
 
+function htmlToPlainText(html) {
+  if (!html) return "";
+  let text = html;
+  text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
+  text = text.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
+  text = text.replace(/<br\s*\/?>/gi, "\n");
+  text = text.replace(/<\/p>/gi, "\n");
+  text = text.replace(/<\/div>/gi, "\n");
+  text = text.replace(/<\/li>/gi, "\n");
+  text = text.replace(/<[^>]+>/g, "");
+  text = text.replace(/&nbsp;/g, " ");
+  text = text.replace(/&lt;/g, "<");
+  text = text.replace(/&gt;/g, ">");
+  text = text.replace(/&amp;/g, "&");
+  text = text.replace(/&quot;/g, '"');
+  text = text.replace(/&#39;/g, "'");
+  text = cleanupBody(text);
+  return text;
+}
+__name(htmlToPlainText, "htmlToPlainText");
+
 async function parseEmail(rawStream) {
   try {
     const rawText = await new Response(rawStream).text();
     let subject = "No subject", from = "unknown@example.com", body = "";
+    
     const sMatch = rawText.match(/^Subject:\s*([^\r\n]+)/im);
     if (sMatch) subject = decodeRFC2047(sMatch[1].trim());
+    
     const fMatch = rawText.match(/^From:\s*([^\r\n]+)/im);
     if (fMatch) {
       from = fMatch[1].trim();
       const emailMatch = from.match(/<([^>]+)>/);
       if (emailMatch) from = emailMatch[1];
     }
-    const parts = rawText.split(/\r\n\r\n|\n\n/);
-    for (let i = 0; i < parts.length; i++) {
-      if (parts[i].includes("Content-Type: text/plain") && i + 1 < parts.length) {
-        let next = parts[i + 1].replace(/^[A-Za-z-]+: .*\n/gm, "").replace(/^--.*/gm, "").trim();
-        let decoded = cleanupBody(decodePartBody(parts[i], next));
-        if (decoded.length > 5) {
-          body = decoded;
-          break;
+    
+    // Extract boundary if multipart
+    const boundaryMatch = rawText.match(/boundary="?([^"\r\n;]+)"?/i);
+    const boundary = boundaryMatch ? boundaryMatch[1] : null;
+    
+    let plainTextBody = "";
+    let htmlBody = "";
+    
+    if (boundary) {
+      // Split by boundary
+      const parts = rawText.split(`--${boundary}`);
+      
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        if (!part || part.includes("--")) continue; // Skip end boundary
+        
+        if (!plainTextBody && part.includes("Content-Type: text/plain")) {
+          // Find first blank line after headers, everything after that is content
+          const blankLineIdx = part.indexOf("\r\n\r\n");
+          if (blankLineIdx !== -1) {
+            let content = part.substring(blankLineIdx + 4);
+            let decoded = decodePartBody(part, content);
+            decoded = cleanupBody(decoded);
+            if (decoded.length > 5) plainTextBody = decoded;
+          }
+        }
+        
+        if (!plainTextBody && !htmlBody && part.includes("Content-Type: text/html")) {
+          const blankLineIdx = part.indexOf("\r\n\r\n");
+          if (blankLineIdx !== -1) {
+            let content = part.substring(blankLineIdx + 4);
+            let decoded = decodePartBody(part, content);
+            if (decoded.length > 5) htmlBody = decoded;
+          }
         }
       }
+    } else {
+      // No multipart - just get everything after headers
+      const blankLineIdx = rawText.indexOf("\r\n\r\n");
+      if (blankLineIdx !== -1) {
+        body = rawText.substring(blankLineIdx + 4).trim();
+      }
     }
-    if (!body && parts.length > 1) {
-      let last = parts[parts.length - 1].replace(/^[A-Za-z-]+: .*\n/gm, "").replace(/^--.*/gm, "").trim();
-      let decoded = cleanupBody(decodePartBody(parts[parts.length - 2], last));
-      if (decoded.length > 5) body = decoded;
+    
+    // Use plain text if available, otherwise convert HTML
+    if (plainTextBody) {
+      body = plainTextBody;
+    } else if (htmlBody) {
+      body = htmlToPlainText(htmlBody);
+    } else if (!body) {
+      body = "";
     }
-    if (body && body.length > 5e3) body = body.substring(0, 5e3);
+    
+    // Preserve more content - 15KB limit
+    if (body && body.length > 15e3) body = body.substring(0, 15e3);
+    
     return { from, subject, body };
-  } catch {
+  } catch (e) {
+    console.error("Email parsing error:", e);
     return { from: "unknown@example.com", subject: "No subject", body: "" };
   }
 }
