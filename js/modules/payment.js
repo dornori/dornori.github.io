@@ -124,8 +124,8 @@ const Payment = (() => {
         };
       });
       const itemTotalValue = itemLines.reduce((a, l) => a + l._lineTotal, 0);
-      const shippingValue  = Math.round((totals.shipping * conversionRate + Number.EPSILON) * decimalMultiplier) / decimalMultiplier;
-      const taxValue       = totals.tax * conversionRate; // Don't round tax
+      const shippingValue  = totals.shipping * conversionRate;
+      const taxValue       = totals.tax * conversionRate;
       const grandTotal     = itemTotalValue + shippingValue + taxValue;
       const grandTotalRounded = Math.round((grandTotal + Number.EPSILON) * decimalMultiplier) / decimalMultiplier;
 
