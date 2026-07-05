@@ -13,6 +13,56 @@ var cache = {
   usersTimestamp: 0,
   emailConfigTimestamp: 0
 };
+var TICKET_CACHE_URL = "https://cache/ticket-list";
+async function getTicketCache() {
+  try {
+    const res = await caches.default.match(TICKET_CACHE_URL);
+    if (!res) return null;
+    const data = await res.json();
+    return data.tickets || null;
+  } catch (e) {
+    return null;
+  }
+}
+__name(getTicketCache, "getTicketCache");
+async function setTicketCache(tickets) {
+  try {
+    const res = new Response(JSON.stringify({ tickets }), {
+      headers: { "Content-Type": "application/json", "Cache-Control": "private, max-age=86400" }
+    });
+    await caches.default.put(TICKET_CACHE_URL, res);
+  } catch (e) {
+  }
+}
+__name(setTicketCache, "setTicketCache");
+async function purgeTicketCache() {
+  try {
+    await caches.default.delete(TICKET_CACHE_URL);
+  } catch (e) {
+  }
+}
+__name(purgeTicketCache, "purgeTicketCache");
+async function injectTicketIntoCache(updatedTicket, env) {
+  const cacheRequest = new Request(TICKET_CACHE_URL);
+  let response = await caches.default.match(cacheRequest);
+  if (!response) return;
+  try {
+    const data = await response.json();
+    const tickets = data.tickets || [];
+    const index = tickets.findIndex((t) => t.id === updatedTicket.id || t.ticket_id === updatedTicket.id);
+    if (index !== -1) {
+      tickets[index] = { ...tickets[index], ...updatedTicket };
+      tickets[index].sla_status = computeSlaStatus(tickets[index]);
+    } else {
+      updatedTicket.sla_status = updatedTicket.sla_status || computeSlaStatus(updatedTicket);
+      tickets.unshift(updatedTicket);
+    }
+    const newResponse = new Response(JSON.stringify({ ...data, tickets }), response);
+    await caches.default.put(cacheRequest, newResponse);
+  } catch (e) {
+  }
+}
+__name(injectTicketIntoCache, "injectTicketIntoCache");
 var CACHE_TTL = 3e5;
 function isCacheValid(timestamp) {
   return Date.now() - timestamp < CACHE_TTL;
@@ -28,6 +78,7 @@ function clearCache() {
   cache.settingsTimestamp = 0;
   cache.usersTimestamp = 0;
   cache.emailConfigTimestamp = 0;
+  // NOTE: ticket cache NOT cleared - persists for day
 }
 __name(clearCache, "clearCache");
 
@@ -350,6 +401,7 @@ async function updateSetting(env, category, key, value) {
   cache.categories = null;
   cache.languages = null;
   cache.autoReplies = null;
+  // NOTE: ticket cache NOT cleared - persists for day
 }
 __name(updateSetting, "updateSetting");
 
@@ -450,6 +502,55 @@ async function pushTicketNotification(ticket, env, eventType = "updated") {
   }
 }
 __name(pushTicketNotification, "pushTicketNotification");
+
+async function getAgentsOnlineCount(env) {
+  const row = await env.DB.prepare("SELECT count FROM agents_online WHERE id = 1").first();
+  return row ? row.count : 0;
+}
+__name(getAgentsOnlineCount, "getAgentsOnlineCount");
+
+async function setAgentsOnlineCount(env, n) {
+  const value = Math.max(0, n);
+  await env.DB.prepare("INSERT INTO agents_online (id, count) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET count = ?").bind(value, value).run();
+  return value;
+}
+__name(setAgentsOnlineCount, "setAgentsOnlineCount");
+
+function applyTicketFilters(tickets, filters, user) {
+  let rows = tickets;
+  if (user && user.role !== "admin") {
+    const allowedLanguages = user.allowed_languages || [];
+    const allowedCategories = user.allowed_categories || [];
+    if (allowedLanguages.length === 0 || allowedCategories.length === 0) return [];
+    rows = rows.filter((t) => allowedLanguages.includes(t.language) && allowedCategories.includes(t.category));
+  }
+  if (filters.statuses && Array.isArray(filters.statuses) && filters.statuses.length > 0) {
+    rows = rows.filter((t) => filters.statuses.includes(t.status));
+  } else if (filters.status) {
+    rows = rows.filter((t) => t.status === filters.status);
+  }
+  if (filters.category) rows = rows.filter((t) => t.category === filters.category);
+  if (filters.language) rows = rows.filter((t) => t.language === filters.language);
+  const sort = filters.sort || "last_updated";
+  const rank = /* @__PURE__ */ __name((t) => {
+    if (["resolved", "closed"].includes(t.status)) return 3;
+    if (t.sla_resolution_due && new Date(t.sla_resolution_due) < /* @__PURE__ */ new Date()) return 0;
+    if (t.sla_response_due && new Date(t.sla_response_due) < /* @__PURE__ */ new Date()) return 1;
+    return 2;
+  }, "rank");
+  rows = rows.slice().sort((a, b) => {
+    if (sort === "sla") {
+      const ra = rank(a), rb = rank(b);
+      if (ra !== rb) return ra - rb;
+      return new Date(b.last_action || 0) - new Date(a.last_action || 0);
+    }
+    if (sort === "created") return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    return new Date(b.last_action || 0) - new Date(a.last_action || 0);
+  });
+  for (const row of rows) row.sla_status = computeSlaStatus(row);
+  return rows;
+}
+__name(applyTicketFilters, "applyTicketFilters");
 
 async function getTicketSnapshot(ticketId, env) {
   try {
@@ -937,6 +1038,7 @@ async function createTicket(data, env) {
   const id = result.meta?.last_row_id || result.lastInsertRowid;
   const ticket = {
     id,
+    ticket_id: id,
     ticket_number: ticketNumber,
     category,
     language,
@@ -946,11 +1048,13 @@ async function createTicket(data, env) {
     subject,
     created_at: now,
     updated_at: now,
+    last_action: now,
     sla_status: "on_track",
     message: data.message || "",
     last_updated_by: data.senderEmail || ""
   };
   await pushTicketNotification(ticket, env, "created");
+  await injectTicketIntoCache(ticket, env);
   return ticket;
 }
 __name(createTicket, "createTicket");
@@ -992,6 +1096,7 @@ async function updateTicket(id, data, env) {
   await env.DB.prepare(`UPDATE tickets SET ${updates.join(", ")} WHERE id = ?`).bind(...values).run();
   const ticket = await getTicket(id, env);
   await pushTicketNotification(ticket, env);
+  await injectTicketIntoCache(ticket, env);
   return ticket;
 }
 __name(updateTicket, "updateTicket");
@@ -1004,7 +1109,10 @@ async function addComment(ticketId, data, env) {
     `).bind(ticketId, data.type || "public", data.authorEmail || "", data.content, now, data.oldStatus || null, data.newStatus || null).run();
   await env.DB.prepare("UPDATE tickets SET last_action = ?, updated_at = ?, last_updated_by = ? WHERE id = ?").bind(now, now, data.authorEmail || null, ticketId).run();
   const ticket = await getTicketSnapshot(ticketId, env);
-  if (ticket) await pushTicketNotification(ticket, env);
+  if (ticket) {
+    await pushTicketNotification(ticket, env);
+    await injectTicketIntoCache(ticket, env);
+  }
   return { id: result.meta?.last_row_id || result.lastInsertRowid };
 }
 __name(addComment, "addComment");
@@ -1509,12 +1617,14 @@ var worker_default = {
         if (!userEmail) return json({ error: "Unauthorized" }, 401);
         if (!env.TICKET_HUB) return json({ success: true });
         const id = parseInt(path.split("/")[4]);
+        const requester = await getUser(userEmail, env);
+        const force = requester?.role === "admin";
         const hubId = env.TICKET_HUB.idFromName("global");
         const stub = env.TICKET_HUB.get(hubId);
         const res = await stub.fetch("https://ticket-hub/unlock", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ticketId: id, email: userEmail })
+          body: JSON.stringify({ ticketId: id, email: userEmail, force })
         });
         return json(await res.json());
       }
@@ -1834,7 +1944,29 @@ var worker_default = {
         const user = await getUser((email || "").toLowerCase().trim(), env);
         if (!user || await sha256(password) !== user.password_hash) return json({ error: "Invalid credentials" }, 401);
         const token = await generateToken(user.email, env);
+        const online = await getAgentsOnlineCount(env);
+        if (online === 0) {
+          const allTickets = await getTickets({ limit: 5e3 }, env, { role: "admin" });
+          await setTicketCache(allTickets);
+        }
+        await setAgentsOnlineCount(env, online + 1);
         return json({ success: true, token, user: { email: user.email, name: user.name, role: user.role, page_permissions: user.page_permissions, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id } });
+      }
+
+      // ─── LOGOUT ────────────────────────────────────────────
+      if (path === "/api/admin/logout" && method === "POST") {
+        return json({ success: true });
+      }
+
+      // ─── CACHE PURGE (manual) ───────────────────────────────
+      if (path === "/api/admin/cache/purge" && method === "POST") {
+        const token2 = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const purgeEmail = await verifyToken(token2, env);
+        if (!purgeEmail) return json({ error: "Unauthorized" }, 401);
+        if (!await checkAccess(purgeEmail, "settings", "edit", env)) return json({ error: "Permission denied" }, 403);
+        await purgeTicketCache();
+        await setAgentsOnlineCount(env, 0);
+        return json({ success: true });
       }
 
       // ─── USERS MANAGEMENT ──────────────────────────────────
@@ -1896,8 +2028,17 @@ var worker_default = {
         const statuses = url.searchParams.get("statuses");
         if (statuses) filters.statuses = statuses.split(",").map((s) => s.trim());
         else filters.status = url.searchParams.get("status");
-        const tickets = await getTickets(filters, env, user);
-        const total = await getTotalTicketCount(filters, env, user);
+        let tickets, total;
+        let snap = await getTicketCache();
+        if (!snap) {
+          snap = await getTickets({ limit: 5e3 }, env, { role: "admin" });
+          await setTicketCache(snap);
+          const online = await getAgentsOnlineCount(env);
+          if (online === 0) await setAgentsOnlineCount(env, 1);
+        }
+        const filtered = applyTicketFilters(snap, filters, user);
+        total = filtered.length;
+        tickets = filtered.slice(filters.offset, filters.offset + filters.limit);
         return json({ success: true, tickets, pagination: { limit: filters.limit, offset: filters.offset, total } });
       }
 
@@ -1923,6 +2064,7 @@ var worker_default = {
         if (status && oldStatus && oldStatus !== status) {
           await addComment(id, { type: "status_change", authorEmail: userEmail, content: "", oldStatus, newStatus: status }, env);
           newTicket = await getTicket(id, env);
+          await injectTicketIntoCache(newTicket || existingTicket, env);
         }
         return json({ success: true, data: newTicket });
       }
@@ -1995,7 +2137,10 @@ var worker_default = {
         const ticket2 = await getTicketByNumber(ticketNumber, env);
         if (ticket2) {
           await addComment(ticket2.id, { type: "incoming", authorEmail: from, content: body || "(No content)" }, env);
-          if (["resolved", "closed"].includes(ticket2.status)) await updateTicket(ticket2.id, { status: "open" }, env);
+          if (["resolved", "closed"].includes(ticket2.status)) {
+            const updated = await updateTicket(ticket2.id, { status: "open" }, env);
+            await injectTicketIntoCache(updated || ticket2, env);
+          }
           return;
         }
       }
@@ -2016,7 +2161,8 @@ var worker_default = {
           
           // Re-open if closed/resolved
           if (["resolved", "closed"].includes(orderTicket.status)) {
-            await updateTicket(orderTicket.id, { status: "open" }, env);
+            const updated = await updateTicket(orderTicket.id, { status: "open" }, env);
+            await injectTicketIntoCache(updated || orderTicket, env);
           }
           return;
         }
@@ -2098,7 +2244,7 @@ var TicketHub = class {
     }
 
     if (request.method === "POST" && url.pathname === "/lock") {
-      const LOCK_STALE_MS = 9e4;
+      const LOCK_STALE_MS = 12e4;
       let body = {};
       try {
         body = await request.json();
@@ -2125,8 +2271,9 @@ var TicketHub = class {
       }
       const ticketId = body.ticketId;
       const email = body.email;
+      const force = !!body.force;
       const existing = this.locks.get(ticketId);
-      if (existing && (existing.email === email || !email)) {
+      if (existing && (existing.email === email || !email || force)) {
         this.locks.delete(ticketId);
         this.broadcastAll(JSON.stringify({ type: "ticket_unlocked", ticket_id: ticketId }));
       }
@@ -2150,7 +2297,9 @@ var TicketHub = class {
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
       this.state.acceptWebSocket(server);
-      server.serializeAttachment({ role, allowed_languages, allowed_categories, email, name });
+      server.serializeAttachment({ role, allowed_languages, allowed_categories, email, name, lastPing: Date.now() });
+      const existingAlarm = await this.state.storage.getAlarm();
+      if (!existingAlarm) await this.state.storage.setAlarm(Date.now() + 5 * 60 * 1e3);
       return new Response(null, { status: 101, webSocket: client });
     }
     return new Response("Not found", { status: 404 });
@@ -2159,8 +2308,37 @@ var TicketHub = class {
   async webSocketMessage(ws, message) {
     try {
       const data = JSON.parse(message);
-      if (data.type === "ping") ws.send(JSON.stringify({ type: "pong" }));
+      if (data.type === "ping") {
+        ws.send(JSON.stringify({ type: "pong" }));
+        try {
+          const meta = ws.deserializeAttachment() || {};
+          meta.lastPing = Date.now();
+          ws.serializeAttachment(meta);
+        } catch (e) {
+        }
+      }
     } catch (e) {
+    }
+  }
+
+  async alarm() {
+    const IDLE_MS = 20 * 60 * 1e3;
+    const now = Date.now();
+    for (const ws of this.state.getWebSockets()) {
+      let meta = {};
+      try {
+        meta = ws.deserializeAttachment() || {};
+      } catch (e) {
+      }
+      if (now - (meta.lastPing || 0) > IDLE_MS) {
+        try {
+          ws.close(4000, "idle timeout");
+        } catch (e) {
+        }
+      }
+    }
+    if (this.state.getWebSockets().length > 0) {
+      await this.state.storage.setAlarm(Date.now() + 5 * 60 * 1e3);
     }
   }
 
@@ -2182,6 +2360,11 @@ var TicketHub = class {
       } catch (e) {
       }
       this.releaseLocksFor(meta.email);
+      if (this.env.DB) {
+        const row = await this.env.DB.prepare("SELECT count FROM agents_online WHERE id = 1").first();
+        const next = Math.max(0, (row ? row.count : 0) - 1);
+        await this.env.DB.prepare("INSERT INTO agents_online (id, count) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET count = ?").bind(next, next).run();
+      }
     } catch (e) {
     }
     try {

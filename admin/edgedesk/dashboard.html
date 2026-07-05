@@ -26,6 +26,7 @@
                 <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 Newsletter</a>
                 <a id="nav-settings" href="settings.html" style="display:none;">⚙️ Settings</a>
                 <a id="nav-users" href="users.html" style="display:none;">👥 Users</a>
+                <button id="purgeCacheBtn" onclick="purgeTicketCacheClick()" style="display:none;">🗑️ Purge Cache</button>
                 <div id="userDisplay"></div>
                 <button onclick="logout()">Logout</button>
             </div>
@@ -278,6 +279,8 @@
                     el.style.display = this.hasPageAccess(nav.page) ? '' : 'none';
                 }
             }
+            const purgeBtn = document.getElementById('purgeCacheBtn');
+            if (purgeBtn) purgeBtn.style.display = (currentUser && currentUser.role === 'admin') ? '' : 'none';
         }
     };
 
@@ -621,6 +624,27 @@
 
     function updateUserDisplay() {
         renderUserBadge();
+    }
+
+    async function purgeTicketCacheClick() {
+        if (!currentUser || currentUser.role !== 'admin') return;
+        if (!confirm('Purge the ticket cache? This will force a fresh database read on next load.')) return;
+        try {
+            var res = await fetch(API_BASE + "/api/admin/cache/purge", {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (res.status === 401) { logout(); return; }
+            var data = await res.json();
+            if (data.success) {
+                showToast('🗑️ Cache Purged', 'Ticket cache cleared', 'success');
+                resetAndLoad();
+            } else {
+                showToast('❌ Error', data.error || 'Failed to purge cache', 'error');
+            }
+        } catch (e) {
+            showToast('❌ Network Error', e.message, 'error');
+        }
     }
 
     function logout() {
@@ -1006,6 +1030,16 @@
                     ticketLockedByOther = true;
                     ticketLockedByInfo = lockData.locked_by;
                     currentModalTicketId = null;
+                    if (currentUser && currentUser.role === 'admin') {
+                        var proceedForce = confirm('This ticket is locked by ' + (lockData.locked_by.name || lockData.locked_by.email) + '. Force unlock and open it?');
+                        if (proceedForce) {
+                            await fetch(API_BASE + "/api/admin/ticket/" + id + "/unlock", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token }
+                            }).catch(function(){});
+                            return openTicketModal(id, isRefresh);
+                        }
+                    }
                     showToast('🔒 Ticket Locked', 'This ticket is being edited by ' + (lockData.locked_by.name || lockData.locked_by.email), 'warning');
                     return;
                 }
