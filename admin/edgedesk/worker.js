@@ -78,7 +78,6 @@ function clearCache() {
   cache.settingsTimestamp = 0;
   cache.usersTimestamp = 0;
   cache.emailConfigTimestamp = 0;
-  // NOTE: ticket cache NOT cleared - persists for day
 }
 __name(clearCache, "clearCache");
 
@@ -401,7 +400,6 @@ async function updateSetting(env, category, key, value) {
   cache.categories = null;
   cache.languages = null;
   cache.autoReplies = null;
-  // NOTE: ticket cache NOT cleared - persists for day
 }
 __name(updateSetting, "updateSetting");
 
@@ -2064,7 +2062,7 @@ var worker_default = {
         if (status && oldStatus && oldStatus !== status) {
           await addComment(id, { type: "status_change", authorEmail: userEmail, content: "", oldStatus, newStatus: status }, env);
           newTicket = await getTicket(id, env);
-          await injectTicketIntoCache(newTicket || existingTicket, env);
+          await injectTicketIntoCache(newTicket, env);
         }
         return json({ success: true, data: newTicket });
       }
@@ -2139,7 +2137,7 @@ var worker_default = {
           await addComment(ticket2.id, { type: "incoming", authorEmail: from, content: body || "(No content)" }, env);
           if (["resolved", "closed"].includes(ticket2.status)) {
             const updated = await updateTicket(ticket2.id, { status: "open" }, env);
-            await injectTicketIntoCache(updated || ticket2, env);
+            await injectTicketIntoCache(updated, env);
           }
           return;
         }
@@ -2162,7 +2160,7 @@ var worker_default = {
           // Re-open if closed/resolved
           if (["resolved", "closed"].includes(orderTicket.status)) {
             const updated = await updateTicket(orderTicket.id, { status: "open" }, env);
-            await injectTicketIntoCache(updated || orderTicket, env);
+            await injectTicketIntoCache(updated, env);
           }
           return;
         }
