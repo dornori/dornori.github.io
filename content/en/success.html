@@ -1,5 +1,4 @@
 <div class="container">
-<!-- content/en/success.html — sends order data to CF worker for ticketing -->
 <style>
   .success-wrap { min-height:60vh; display:flex; align-items:center; justify-content:center; padding:3rem 1rem; }
   .webshop-confetti { position:fixed; top:0; left:0; right:0; pointer-events:none; z-index:9999; }
@@ -16,15 +15,17 @@
 (function () {
   'use strict';
   
-  var WORKER_URL = 'https://dornori-ticketing.dornori-info.workers.dev/api/message';
+  const WORKER_URL = 'https://pay.dornori-info.workers.dev';
+  const TICKETING_URL = 'https://dornori-ticketing.dornori-info.workers.dev/api/message';
   
-  var params = new URLSearchParams(window.location.search);
-  var ref    = params.get('ref') || '';
-  var status = params.get('status') || 'success';
-  var lang   = window.LANG || localStorage.getItem('dornori-lang') || 'en';
-  var ticketNumber = null;
-  var paypalOrderID = localStorage.getItem('webshop_paypal_order_id') || null;
-  var orderRef = localStorage.getItem('webshop_order_ref') || '';
+  const params = new URLSearchParams(window.location.search);
+  const ref = params.get('ref') || '';
+  const status = params.get('status') || 'success';
+  const lang = window.LANG || localStorage.getItem('dornori-lang') || 'en';
+  
+  let paypalOrderID = null;
+  let paypalData = null;
+  let orderSnapshot = null;
 
   function T(key, fallback) {
     if (window.T && window.T[key]) return window.T[key];
@@ -34,55 +35,36 @@
 
   function fmt(n) { return (Math.round((n||0)*100)/100).toFixed(2); }
 
-  function sendOrderToWorker() {
-    if (status !== 'success') {
-      console.log('⏭️  Skipping worker notification (status=' + status + ')');
-      return;
-    }
-
-    if (!orderRef) {
-      console.log('⏭️  No orderRef, skipping worker notification');
+  async function sendToTicketing() {
+    if (status !== 'success' || !ref) {
+      console.log('Skipping ticketing notification');
       return;
     }
 
     try {
-      var raw = localStorage.getItem('webshop_order_snapshot');
-      if (!raw) {
-        console.warn('⚠️  No order snapshot in localStorage');
-        return;
-      }
+      orderSnapshot = JSON.parse(localStorage.getItem('webshop_order_snapshot') || '{}');
+      const paypalRaw = localStorage.getItem('webshop_paypal_result');
+      paypalData = paypalRaw ? JSON.parse(paypalRaw) : null;
+      paypalOrderID = localStorage.getItem('webshop_paypal_order_id');
 
-      var snap = JSON.parse(raw);
-      if (!snap || !snap.orderRef || snap.orderRef !== orderRef) {
-        console.warn('⚠️  Snapshot mismatch or missing orderRef');
-        return;
-      }
-
-      var fd = snap.formData || {};
-      var currency = (snap.totals && snap.totals.currency) || 'EUR';
+      const fd = orderSnapshot.formData || {};
+      const currency = (orderSnapshot.totals && orderSnapshot.totals.currency) || 'EUR';
       
-      var addressLines = [
+      const addressLines = [
         fd.address, fd.city, fd.postal, fd.country
       ].filter(Boolean).join(', ');
 
-      var billingLines = '';
-      if (fd.billingChoice === 'different' && fd.billing_address) {
-        billingLines = [
-          fd.billing_address, fd.billing_city, fd.billing_postal, fd.billing_country
-        ].filter(Boolean).join(', ');
-      }
-
-      var productLines = (snap.items || []).map(function(i) {
+      const productLines = (orderSnapshot.items || []).map(i => {
         return i.qty + '\t' + i.name + ' (' + i.sku + ')\t' + fmt(i.price) + ' ' + currency + '\t' + fmt(i.qty * i.price) + ' ' + currency;
       }).join('\n');
 
-      var t = snap.totals || {};
-      var messageBody =
-        'Order: ' + orderRef + '\n' +
-        (paypalOrderID ? 'PayPal: ' + paypalOrderID + '\n' : '') +
+      const t = orderSnapshot.totals || {};
+      const messageBody =
+        'Order: ' + ref + '\n' +
+        (paypalOrderID ? 'PayPal Order ID: ' + paypalOrderID + '\n' : '') +
+        (paypalData?.status ? 'PayPal Status: ' + paypalData.status + '\n' : '') +
         '\n' +
         'SHIPPING ADDRESS\n' + addressLines + '\n' +
-        (billingLines ? '\nBILLING ADDRESS\n' + billingLines + '\n' : '') +
         '\nPRODUCTS\n' +
         'Qty\tProduct\tPrice\tTotal\n' +
         productLines + '\n' +
@@ -92,105 +74,86 @@
         'Tax:\t' + fmt(t.tax) + ' ' + currency + '\n' +
         'TOTAL:\t' + fmt(t.total) + ' ' + currency;
 
-      var payload = {
+      const payload = {
         category: 'payment',
         name: ((fd.first_name || '') + ' ' + (fd.last_name || '')).trim(),
         email: fd.email || '',
         phone: fd.phone || '',
-        company: '',
-        subject: 'Order ' + orderRef,
+        subject: 'Order ' + ref,
         language: lang,
         message: messageBody,
-        orderNumber: orderRef,  // <-- ONLY CHANGE: added this line
+        orderNumber: ref,
         metadata: {
           source: 'checkout-success',
-          orderRef: orderRef,
-          paypalOrderID: paypalOrderID || '',
-          firstName: fd.first_name || '',
-          lastName: fd.last_name || '',
-          language: lang,
-        },
+          orderRef: ref,
+          paypalOrderId: paypalOrderID || '',
+          paypalStatus: paypalData?.status || '',
+          currency: currency,
+          subtotal: t.subtotal,
+          shipping: t.shipping,
+          tax: t.tax,
+          total: t.total
+        }
       };
 
-      console.log('📤 Sending order to worker:');
-      console.log('  - Endpoint:', WORKER_URL);
-      console.log('  - Order Ref:', orderRef);
-      console.log('  - Customer:', payload.name, '<' + payload.email + '>');
-      console.log('  - Total:', fmt(t.total), currency);
-      console.log('  - Full payload:', payload);
+      console.log('📤 Sending to ticketing with cross-reference:');
+      console.log('  Order Ref:', ref);
+      console.log('  PayPal Order ID:', paypalOrderID);
+      console.log('  PayPal Status:', paypalData?.status);
 
-      fetch(WORKER_URL, {
+      const res = await fetch(TICKETING_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      .then(function(res) {
-        if (!res.ok) {
-          return res.text().then(function(text) {
-            throw new Error('HTTP ' + res.status + ': ' + text);
-          });
-        }
-        return res.json();
-      })
-      .then(function(result) {
-        console.log('📥 Worker response:', result);
-        if (result.success) {
-          ticketNumber = result.ticketNumber;
-          console.log('✅ Order notification sent successfully, ticket:', ticketNumber);
-          localStorage.removeItem('webshop_order_snapshot');
-          localStorage.removeItem('webshop_paypal_order_id');
-          // Re-render to show ticket number instead of order ref
-          render();
-        } else {
-          console.warn('⚠️  Worker returned error:', result.error);
-        }
-      })
-      .catch(function(err) {
-        console.error('❌ Failed to send order notification:', err.message);
+        body: JSON.stringify(payload)
       });
-    } catch (e) {
-      console.error('❌ sendOrderToWorker exception:', e);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const result = await res.json();
+      console.log('✅ Ticketing created:', result.ticketNumber);
+      
+      localStorage.removeItem('webshop_order_snapshot');
+      localStorage.removeItem('webshop_paypal_order_id');
+      localStorage.removeItem('webshop_paypal_result');
+      
+      return result.ticketNumber;
+    } catch (err) {
+      console.error('❌ Ticketing failed:', err.message);
     }
   }
 
-  function render() {
-    var page = document.getElementById('result-page');
+  function render(ticketNumber) {
+    const page = document.getElementById('result-page');
     if (!page) return;
     
     if (status === 'success') {
-      var kitSlug = (window.T && window.T.url_slugs && window.T.url_slugs.kit) || 'kit';
       page.innerHTML =
         '<div class="webshop-result-icon webshop-result-icon--success">✓</div>' +
         '<h1>' + T('success_title', 'Order Confirmed!') + '</h1>' +
-        '<p>' + T('success_message', 'Thank you for your purchase. You will receive a confirmation email shortly.') + '</p>' +
+        '<p>' + T('success_message', 'Thank you for your purchase.') + '</p>' +
         '<p>' + T('success_ref', 'Your order reference is') + ':</p>' +
-        '<div class="webshop-ref-badge">' + (ref || '—') + '</div>' +
-        (ticketNumber ? '<p style="margin-top:20px;font-size:0.9rem;color:var(--c-text-muted);">Support ticket:</p><div class="webshop-ref-badge">' + ticketNumber + '</div>' : '') +
-        '<p style="margin-top:20px;font-size:0.82rem;color:var(--c-text-muted);line-height:1.6;">' + T('success_ref_note', 'Please save these references for your records. Use either your order reference or ticket number when contacting support.') + '</p>' +
-        '<a href="/' + lang + '/" class="webshop-btn webshop-btn--primary" style="margin-top:8px;">' +
-          T('continue_shopping', 'Continue Shopping') +
-        '</a>';
+        '<div class="webshop-ref-badge">' + ref + '</div>' +
+        (paypalOrderID ? '<p style="margin-top:20px;font-size:0.9rem;color:var(--c-text-muted);">PayPal Order:</p><div class="webshop-ref-badge">' + paypalOrderID + '</div>' : '') +
+        (ticketNumber ? '<p style="margin-top:20px;font-size:0.9rem;color:var(--c-text-muted);">Support Ticket:</p><div class="webshop-ref-badge">' + ticketNumber + '</div>' : '') +
+        '<a href="/' + lang + '/" class="webshop-btn webshop-btn--primary" style="margin-top:20px;">' + T('continue_shopping', 'Continue Shopping') + '</a>';
       launchConfetti();
-      setTimeout(sendOrderToWorker, 500);
     } else {
-      var cartSlug = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || 'cart';
       page.innerHTML =
         '<div class="webshop-result-icon webshop-result-icon--cancel">⚠</div>' +
         '<h1>' + T('cancel_title', 'Payment Cancelled') + '</h1>' +
-        '<p>' + T('cancel_message', 'Your order has not been processed. Your cart has been saved.') + '</p>' +
-        '<div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap;">' +
-          '<a href="/' + lang + '/' + cartSlug + '/" class="webshop-btn webshop-btn--primary">' + T('return_to_cart', 'Return to Cart') + '</a>' +
-          '<a href="/' + lang + '/" class="webshop-btn webshop-btn--outline">' + T('continue_shopping', 'Continue Shopping') + '</a>' +
-        '</div>';
+        '<p>' + T('cancel_message', 'Your order has not been processed.') + '</p>' +
+        '<a href="/' + lang + '/cart/" class="webshop-btn webshop-btn--primary" style="margin-top:20px;">' + T('return_to_cart', 'Return to Cart') + '</a>';
     }
   }
 
   function launchConfetti() {
-    var container = document.getElementById('confetti-container');
+    const container = document.getElementById('confetti-container');
     if (!container) return;
-    var colors = ['#c8a96e','#1a1714','#f0e4cc','#4a7c59','#9b3a3a','#ede9e3'];
-    for (var i = 0; i < 80; i++) {
-      var el = document.createElement('div');
+    const colors = ['#c8a96e','#1a1714','#f0e4cc','#4a7c59','#9b3a3a','#ede9e3'];
+    for (let i = 0; i < 80; i++) {
+      const el = document.createElement('div');
       el.className = 'confetti-piece';
       el.style.cssText =
         'left:' + (Math.random()*100) + '%;' +
@@ -198,36 +161,22 @@
         'background:' + colors[Math.floor(Math.random()*colors.length)] + ';' +
         'width:' + (4+Math.random()*8) + 'px;' +
         'height:' + (4+Math.random()*8) + 'px;' +
-        'border-radius:' + (Math.random()>.5?'50%':'2px') + ';' +
         'animation-duration:' + (2+Math.random()*3) + 's;' +
         'animation-delay:' + (Math.random()*1.5) + 's;';
       container.appendChild(el);
-      el.addEventListener('animationend', function() { this.remove(); });
+      el.addEventListener('animationend', () => el.remove());
     }
   }
 
-  function doRender() {
-    // Wait for Shop to be ready, then load lang, then render
+  async function init() {
     if (typeof Shop !== 'undefined' && Shop.loadLang) {
-      Shop.loadLang().then(function() {
-        render();
-      }).catch(function(err) {
-        console.warn('Failed to load language:', err);
-        render();
-      });
-    } else {
-      document.addEventListener('webshop:ready', function() {
-        Shop.loadLang().then(function() {
-          render();
-        }).catch(function(err) {
-          console.warn('Failed to load language:', err);
-          render();
-        });
-      });
+      await Shop.loadLang().catch(() => {});
     }
+    const ticketNumber = await sendToTicketing();
+    render(ticketNumber);
   }
 
-  doRender();
+  init();
 })();
 </script>
-</div><!-- /.container -->
+</div>
