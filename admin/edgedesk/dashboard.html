@@ -137,6 +137,23 @@
                         return;
                     }
 
+                    if (data.type === 'lock_sync') {
+                        var newLocks = data.locks || {};
+                        if (currentModalTicketId !== null) {
+                            var stillLocked = newLocks[currentModalTicketId];
+                            if (stillLocked && stillLocked.email !== (currentUser && currentUser.email)) {
+                                ticketLockedByOther = true;
+                                ticketLockedByInfo = stillLocked;
+                            } else {
+                                ticketLockedByOther = false;
+                                ticketLockedByInfo = null;
+                            }
+                        }
+                        ticketLocks = newLocks;
+                        renderTickets(loadedTickets);
+                        return;
+                    }
+
                     if (data.type === 'ticket_unlocked' && data.ticket_id) {
                         delete ticketLocks[data.ticket_id];
                         if (currentModalTicketId === data.ticket_id) {
@@ -834,6 +851,7 @@
         
         var html = '<div class="ticket-header-row">' +
             '<span>SLA</span>' +
+            '<span>#</span>' +
             '<span>Status</span>' +
             '<span>Category</span>' +
             '<span>Requester</span>' +
@@ -857,6 +875,7 @@
             var onClickHandler = 'openTicketModal(' + t.ticket_id + ')';
             html += '<div class="ticket-item" onclick="' + onClickHandler + '" style="' + rowStyle + 'position:relative;cursor:pointer;">' +
                 '<span class="sla-cell" style="padding:0;display:flex;align-items:center;"><span class="sla-dot" style="background:' + getSlaColor(slaInfo.cls) + ';"></span></span>' +
+                '<span class="ticket-num">' + escapeHtml(t.ticket_number || '') + '</span>' +
                 '<span class="status ' + statusClass + '">' + t.status.replace('_', ' ') + '</span>' +
                 '<span class="cat-cell"><span class="cat-dot" style="background:' + catColor + ';"></span><span class="cat-name">' + escapeHtml(catLabel) + '</span></span>' +
                 '<span class="email" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;">' + (t.sender_email || "") + '</span>' +
@@ -882,18 +901,26 @@
         return true;
     }
 
+    function parseTicketDate(dateStr) {
+        if (!dateStr) return 0;
+        var cleaned = ('' + dateStr).replace(' ', 'T');
+        if (!cleaned.includes('Z') && !cleaned.includes('+')) { cleaned += 'Z'; }
+        var d = new Date(cleaned);
+        return isNaN(d.getTime()) ? 0 : d.getTime();
+    }
+
     var SLA_SORT_RANK = { breached: 0, critical: 1, at_risk: 2, paused: 3, on_track: 4 };
     function compareTickets(a, b, sort) {
         if (sort === 'sla') {
             var ra = SLA_SORT_RANK.hasOwnProperty(a.sla_status) ? SLA_SORT_RANK[a.sla_status] : 5;
             var rb = SLA_SORT_RANK.hasOwnProperty(b.sla_status) ? SLA_SORT_RANK[b.sla_status] : 5;
             if (ra !== rb) return ra - rb;
-            return new Date(b.last_action || b.created_at) - new Date(a.last_action || a.created_at);
+            return parseTicketDate(b.last_action || b.created_at) - parseTicketDate(a.last_action || a.created_at);
         }
         if (sort === 'created') {
-            return new Date(b.created_at) - new Date(a.created_at);
+            return parseTicketDate(b.created_at) - parseTicketDate(a.created_at);
         }
-        return new Date(b.last_action || b.created_at) - new Date(a.last_action || a.created_at);
+        return parseTicketDate(b.last_action || b.created_at) - parseTicketDate(a.last_action || a.created_at);
     }
 
     function upsertTicketInList(ticket, isNew) {

@@ -1085,7 +1085,9 @@ async function updateTicket(id, data, env) {
     values.push(data.priority);
   }
   if (updates.length === 0) return null;
-  updates.push('last_action = datetime("now")', 'updated_at = datetime("now")');
+  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+  updates.push("last_action = ?", "updated_at = ?");
+  values.push(nowIso, nowIso);
   values.push(id);
   await env.DB.prepare(`UPDATE tickets SET ${updates.join(", ")} WHERE id = ?`).bind(...values).run();
   const updatedTicket = await getTicket(id, env);
@@ -2241,6 +2243,14 @@ var TicketHub = class {
     this.locks = /* @__PURE__ */ new Map();
   }
 
+  locksSnapshot() {
+    const out = {};
+    for (const [ticketId, lock] of this.locks.entries()) {
+      out[ticketId] = { email: lock.email, name: lock.name };
+    }
+    return out;
+  }
+
   broadcastAll(notification) {
     for (const ws of this.state.getWebSockets()) {
       try {
@@ -2303,6 +2313,7 @@ var TicketHub = class {
       }
       this.locks.set(ticketId, { email, name, ts: Date.now() });
       this.broadcastAll(JSON.stringify({ type: "ticket_locked", ticket_id: ticketId, locked_by: { email, name } }));
+      this.broadcastAll(JSON.stringify({ type: "lock_sync", locks: this.locksSnapshot() }));
       const nextAlarm = await this.state.storage.getAlarm();
       if (!nextAlarm || nextAlarm > Date.now() + LOCK_STALE_MS) {
         await this.state.storage.setAlarm(Date.now() + LOCK_STALE_MS);
@@ -2323,6 +2334,7 @@ var TicketHub = class {
       if (existing && (existing.email === email || !email || force)) {
         this.locks.delete(ticketId);
         this.broadcastAll(JSON.stringify({ type: "ticket_unlocked", ticket_id: ticketId }));
+        this.broadcastAll(JSON.stringify({ type: "lock_sync", locks: this.locksSnapshot() }));
       }
       return new Response(JSON.stringify({ success: true }));
     }
@@ -2347,6 +2359,10 @@ var TicketHub = class {
       server.serializeAttachment({ role, allowed_languages, allowed_categories, email, name, lastPing: Date.now() });
       const existingAlarm = await this.state.storage.getAlarm();
       if (!existingAlarm) await this.state.storage.setAlarm(Date.now() + 5 * 60 * 1e3);
+      try {
+        server.send(JSON.stringify({ type: "lock_sync", locks: this.locksSnapshot() }));
+      } catch (e) {
+      }
       return new Response(null, { status: 101, webSocket: client });
     }
     return new Response("Not found", { status: 404 });
@@ -2372,11 +2388,16 @@ var TicketHub = class {
     const IDLE_MS = 20 * 60 * 1e3;
     const LOCK_STALE_MS = 45e3;
     const now = Date.now();
+    let expiredAny = false;
     for (const [ticketId, lock] of this.locks.entries()) {
       if (now - lock.ts > LOCK_STALE_MS) {
         this.locks.delete(ticketId);
         this.broadcastAll(JSON.stringify({ type: "ticket_unlocked", ticket_id: ticketId }));
+        expiredAny = true;
       }
+    }
+    if (expiredAny) {
+      this.broadcastAll(JSON.stringify({ type: "lock_sync", locks: this.locksSnapshot() }));
     }
     for (const ws of this.state.getWebSockets()) {
       let meta = {};
@@ -2400,11 +2421,16 @@ var TicketHub = class {
 
   releaseLocksFor(email) {
     if (!email) return;
+    let releasedAny = false;
     for (const [ticketId, lock] of this.locks.entries()) {
       if (lock.email === email) {
         this.locks.delete(ticketId);
         this.broadcastAll(JSON.stringify({ type: "ticket_unlocked", ticket_id: ticketId }));
+        releasedAny = true;
       }
+    }
+    if (releasedAny) {
+      this.broadcastAll(JSON.stringify({ type: "lock_sync", locks: this.locksSnapshot() }));
     }
   }
 
