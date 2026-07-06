@@ -46,6 +46,7 @@
         </div>
 
         <div class="filters">
+            <input type="text" id="filterSearch" placeholder="Search # / sender / subject..." onkeydown="if(event.key==='Enter') resetAndLoad()" style="flex:1;min-width:180px;" />
             <select id="filterLanguage" onchange="resetAndLoad()">
                 <option value="">All Languages</option>
             </select>
@@ -57,11 +58,16 @@
                 <option value="created">Sort: Created Date</option>
                 <option value="sla">Sort: SLA Status</option>
             </select>
+            <select id="filterPageSize" onchange="currentLimit=parseInt(this.value);resetAndLoad()">
+                <option value="25">25 / page</option>
+                <option value="50">50 / page</option>
+                <option value="100">100 / page</option>
+            </select>
             <button class="btn-refresh" onclick="resetAndLoad()">⟳ Refresh</button>
         </div>
 
         <div id="ticketList" class="ticket-list"></div>
-        <div id="loadMoreWrap" class="load-more-wrap"></div>
+        <div id="paginationWrap" class="load-more-wrap"></div>
     </div>
 
     <!-- TICKET MODAL -->
@@ -82,7 +88,8 @@
     let currentUser = null;
     let currentTab = 'active';
     let currentLimit = 25;
-    let currentOffset = 0;
+    let currentPage = 1;
+    let currentTotalPages = 1;
     let currentTotal = 0;
     let loadedTickets = [];
     let emailSenders = [];
@@ -789,31 +796,30 @@
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  LOAD TICKETS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function loadTickets(loadMore = false) {
+    async function loadTickets(goToPage) {
         var list = document.getElementById("ticketList");
-        var loadWrap = document.getElementById("loadMoreWrap");
+        var pagWrap = document.getElementById("paginationWrap");
 
-        if (!loadMore) {
-            list.innerHTML = '<div class="loading">Loading...</div>';
-            loadWrap.innerHTML = '';
-            currentOffset = 0;
-            loadedTickets = [];
-        } else {
-            loadWrap.innerHTML = '<div class="loading-more">Loading more...</div>';
-        }
+        if (goToPage) currentPage = goToPage;
+        else currentPage = 1;
+
+        list.innerHTML = '<div class="loading">Loading...</div>';
+        pagWrap.innerHTML = '';
 
         var category = document.getElementById("filterCategory").value;
         var language = document.getElementById("filterLanguage").value;
         var sort = document.getElementById("filterSort").value;
+        var search = document.getElementById("filterSearch").value.trim();
         var statuses = getStatusesForTab(currentTab);
 
-        var url = API_BASE + "/api/admin/tickets?limit=" + currentLimit + "&offset=" + currentOffset + "&useCache=true";
+        var url = API_BASE + "/api/admin/tickets?page=" + currentPage + "&limit=" + currentLimit;
         if (statuses.length > 0) {
             url += "&statuses=" + statuses.join(',');
         }
         if (category) url += "&category=" + encodeURIComponent(category);
         if (language) url += "&language=" + encodeURIComponent(language);
         if (sort) url += "&sort=" + encodeURIComponent(sort);
+        if (search) url += "&search=" + encodeURIComponent(search);
 
         try {
             var res = await fetch(url, { headers: { "Authorization": "Bearer " + token } });
@@ -821,18 +827,15 @@
             var data = await res.json();
             if (data.success) {
                 var tickets = data.tickets || [];
-                var pagination = data.pagination || { total: 0 };
+                var pagination = data.pagination || { total: 0, page: 1, totalPages: 1 };
                 currentTotal = pagination.total;
+                currentPage = pagination.page;
+                currentTotalPages = pagination.totalPages;
 
-                if (loadMore) {
-                    loadedTickets = loadedTickets.concat(tickets);
-                } else {
-                    loadedTickets = tickets;
-                }
-                currentOffset = loadedTickets.length;
+                loadedTickets = tickets;
 
                 renderTickets(loadedTickets);
-                updateLoadMoreButton();
+                updatePagination();
             } else {
                 list.innerHTML = '<div class="loading">Error loading tickets</div>';
             }
@@ -870,8 +873,8 @@
             var updatedBy = t.last_updated_by ? (t.last_updated_by === t.sender_email ? '👤 ' + t.last_updated_by : t.last_updated_by) : '-';
             var rowStyle = isLocked ? 'opacity:0.6;background:var(--bg-secondary);cursor:not-allowed;' : '';
             var lockBadge = isLocked ? '<span style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:11px;background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:4px;font-weight:600;white-space:nowrap;">🔒 ' + escapeHtml(isLocked.name || isLocked.email) + '</span>' : '';
-            var onClickHandler = isLocked ? '' : 'openTicketModal(' + t.ticket_id + ')';
-            html += '<div class="ticket-item" onclick="' + onClickHandler + '" style="' + rowStyle + 'position:relative;">' +
+            var onClickHandler = 'openTicketModal(' + t.ticket_id + ')';
+            html += '<div class="ticket-item" onclick="' + onClickHandler + '" style="' + rowStyle + 'position:relative;cursor:pointer;">' +
                 '<span class="sla-cell" style="padding:0;display:flex;align-items:center;"><span class="sla-dot" style="background:' + getSlaColor(slaInfo.cls) + ';"></span></span>' +
                 '<span class="status ' + statusClass + '">' + t.status.replace('_', ' ') + '</span>' +
                 '<span class="cat-cell"><span class="cat-dot" style="background:' + catColor + ';"></span><span class="cat-name">' + escapeHtml(catLabel) + '</span></span>' +
@@ -932,16 +935,20 @@
         loadedTickets.splice(insertAt, 0, ticket);
         if (isNew && existingIdx === -1) { currentTotal += 1; }
         renderTickets(loadedTickets);
-        updateLoadMoreButton();
+        updatePagination();
     }
 
-    function updateLoadMoreButton() {
-        const loadWrap = document.getElementById('loadMoreWrap');
-        if (loadedTickets.length < currentTotal) {
-            loadWrap.innerHTML = '<button onclick="loadTickets(true)">Load More (' + (currentTotal - loadedTickets.length) + ' remaining)</button>';
-        } else {
-            loadWrap.innerHTML = loadedTickets.length > 0 ? '<span style="color:var(--text-muted);font-size:13px;">All ' + loadedTickets.length + ' tickets loaded</span>' : '';
-        }
+    function updatePagination() {
+        const pagWrap = document.getElementById('paginationWrap');
+        if (currentTotal === 0) { pagWrap.innerHTML = ''; return; }
+        var prevDisabled = currentPage <= 1 ? 'disabled' : '';
+        var nextDisabled = currentPage >= currentTotalPages ? 'disabled' : '';
+        pagWrap.innerHTML =
+            '<div style="display:flex;align-items:center;justify-content:center;gap:12px;">' +
+            '<button ' + prevDisabled + ' onclick="loadTickets(currentPage-1)">‹ Previous</button>' +
+            '<span style="color:var(--text-muted);font-size:13px;">Page ' + currentPage + ' of ' + currentTotalPages + ' (' + currentTotal + ' tickets)</span>' +
+            '<button ' + nextDisabled + ' onclick="loadTickets(currentPage+1)">Next ›</button>' +
+            '</div>';
     }
 
     var CAT_COLORS = ["#5aa9ff","#ffb347","#a78bfa","#34d399","#f87171","#fbbf24","#60a5fa","#4ade80","#fb923c","#c084fc"];
@@ -977,12 +984,20 @@
         document.body.style.overflow = "hidden";
     }
 
-    function releaseTicketLock(id) {
+    function releaseTicketLock(id, useBeacon) {
         if (!id) return;
+        var url = API_BASE + "/api/admin/ticket/" + id + "/unlock";
+        if (useBeacon && navigator.sendBeacon) {
+            try {
+                navigator.sendBeacon(url, new Blob([JSON.stringify({ token: token })], { type: "text/plain" }));
+                return;
+            } catch (e) {}
+        }
         try {
-            fetch(API_BASE + "/api/admin/ticket/" + id + "/unlock", {
+            fetch(url, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token }
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                keepalive: true
             }).catch(function(){});
         } catch (e) {}
     }
@@ -991,7 +1006,7 @@
         document.getElementById("ticketModal").classList.remove("active");
         document.body.style.overflow = "";
         if (currentModalTicketId) {
-            releaseTicketLock(currentModalTicketId);
+            releaseTicketLock(currentModalTicketId, true);
         }
         currentModalTicketId = null;
         ticketLockedByOther = false;
@@ -1005,7 +1020,7 @@
         if (e.key === "Escape") { closeModal(); }
     });
     window.addEventListener("beforeunload", function() {
-        if (currentModalTicketId) releaseTicketLock(currentModalTicketId);
+        if (currentModalTicketId) releaseTicketLock(currentModalTicketId, true);
     });
 
     function applyLockStateToModal() {
@@ -1363,7 +1378,7 @@
     function resetAndLoad() {
         if (!isRefreshing) {
             isRefreshing = true;
-            loadTickets(false).finally(() => {
+            loadTickets(1).finally(() => {
                 isRefreshing = false;
             });
         }

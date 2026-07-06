@@ -1034,26 +1034,12 @@ async function createTicket(data, env) {
     data.senderEmail || ""
   ).run();
   const id = result.meta?.last_row_id || result.lastInsertRowid;
-  const ticket = {
-    id,
-    ticket_id: id,
-    ticket_number: ticketNumber,
-    category,
-    language,
-    status: "new",
-    sender_name: senderName,
-    sender_email: data.senderEmail || "",
-    subject,
-    created_at: now,
-    updated_at: now,
-    last_action: now,
-    sla_status: "on_track",
-    message: data.message || "",
-    last_updated_by: data.senderEmail || ""
-  };
-  await pushTicketNotification(ticket, env, "created");
-  await injectTicketIntoCache(ticket, env);
-  return ticket;
+  const newTicket = await getTicket(id, env);
+  if (newTicket) {
+    await injectTicketIntoCache(newTicket, env);
+  }
+  await pushTicketNotification(newTicket || { id, ticket_number: ticketNumber, category, language, status: "new", subject }, env, "created");
+  return newTicket;
 }
 __name(createTicket, "createTicket");
 
@@ -1092,10 +1078,12 @@ async function updateTicket(id, data, env) {
   updates.push('last_action = datetime("now")', 'updated_at = datetime("now")');
   values.push(id);
   await env.DB.prepare(`UPDATE tickets SET ${updates.join(", ")} WHERE id = ?`).bind(...values).run();
-  const ticket = await getTicket(id, env);
-  await pushTicketNotification(ticket, env);
-  await injectTicketIntoCache(ticket, env);
-  return ticket;
+  const updatedTicket = await getTicket(id, env);
+  if (updatedTicket) {
+    await pushTicketNotification(updatedTicket, env);
+    await injectTicketIntoCache(updatedTicket, env);
+  }
+  return updatedTicket;
 }
 __name(updateTicket, "updateTicket");
 
@@ -1152,6 +1140,11 @@ async function getTickets(filters, env, user) {
     query += " AND language = ?";
     params.push(filters.language);
   }
+  if (filters.search) {
+    const term = "%" + filters.search + "%";
+    query += " AND (ticket_number LIKE ? OR sender_email LIKE ? OR sender_name LIKE ? OR subject LIKE ?)";
+    params.push(term, term, term, term);
+  }
   const sortMap = {
     "sla": `CASE WHEN status IN ('resolved','closed') THEN 3
                      WHEN sla_resolution_due IS NOT NULL AND datetime(sla_resolution_due) < datetime('now') THEN 0
@@ -1204,6 +1197,11 @@ async function getTotalTicketCount(filters, env, user) {
   if (filters.language) {
     query += " AND language = ?";
     params.push(filters.language);
+  }
+  if (filters.search) {
+    const term = "%" + filters.search + "%";
+    query += " AND (ticket_number LIKE ? OR sender_email LIKE ? OR sender_name LIKE ? OR subject LIKE ?)";
+    params.push(term, term, term, term);
   }
   const r = await env.DB.prepare(query).bind(...params).first();
   return r ? r.total : 0;
@@ -1610,7 +1608,13 @@ var worker_default = {
       }
 
       if (path.startsWith("/api/admin/ticket/") && path.includes("/unlock") && method === "POST") {
-        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        let token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        if (!token) {
+          try {
+            const beaconBody = await request.clone().json();
+            token = beaconBody.token || "";
+          } catch (e) {}
+        }
         const userEmail = await verifyToken(token, env);
         if (!userEmail) return json({ error: "Unauthorized" }, 401);
         if (!env.TICKET_HUB) return json({ success: true });
@@ -1944,7 +1948,7 @@ var worker_default = {
         const token = await generateToken(user.email, env);
         const online = await getAgentsOnlineCount(env);
         if (online === 0) {
-          const allTickets = await getTickets({ limit: 5e3 }, env, { role: "admin" });
+          const allTickets = await getTickets({ limit: 50, statuses: ["new", "open", "in_progress", "pending"] }, env, { role: "admin" });
           await setTicketCache(allTickets);
         }
         await setAgentsOnlineCount(env, online + 1);
@@ -2022,22 +2026,36 @@ var worker_default = {
         if (!email) return json({ error: "Unauthorized" }, 401);
         if (!await checkAccess(email, "tickets", "view", env)) return json({ error: "Permission denied" }, 403);
         const user = await getUser(email, env);
-        const filters = { category: url.searchParams.get("category"), language: url.searchParams.get("language"), sort: url.searchParams.get("sort") || "last_updated", limit: Math.min(parseInt(url.searchParams.get("limit") || "50"), 100), offset: parseInt(url.searchParams.get("offset") || "0") };
+        const ACTIVE_STATUSES = ["new", "open", "in_progress", "pending"];
+        const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
+        const limit = Math.min(parseInt(url.searchParams.get("limit") || "25"), 100);
+        const search = (url.searchParams.get("search") || "").trim();
+        const offset = (page - 1) * limit;
+        const filters = { category: url.searchParams.get("category"), language: url.searchParams.get("language"), sort: url.searchParams.get("sort") || "last_updated", limit, offset };
+        if (search) filters.search = search;
         const statuses = url.searchParams.get("statuses");
         if (statuses) filters.statuses = statuses.split(",").map((s) => s.trim());
         else filters.status = url.searchParams.get("status");
+        const statusesOk = filters.statuses ? filters.statuses.every((s) => ACTIVE_STATUSES.includes(s)) : !filters.status || ACTIVE_STATUSES.includes(filters.status);
+        const useCache = !search && page === 1 && statusesOk;
         let tickets, total;
-        let snap = await getTicketCache();
-        if (!snap) {
-          snap = await getTickets({ limit: 5e3 }, env, { role: "admin" });
-          await setTicketCache(snap);
-          const online = await getAgentsOnlineCount(env);
-          if (online === 0) await setAgentsOnlineCount(env, 1);
+        if (useCache) {
+          let snap = await getTicketCache();
+          if (!snap) {
+            snap = await getTickets({ limit: 50, statuses: ACTIVE_STATUSES }, env, { role: "admin" });
+            await setTicketCache(snap);
+            const online = await getAgentsOnlineCount(env);
+            if (online === 0) await setAgentsOnlineCount(env, 1);
+          }
+          const filtered = applyTicketFilters(snap, filters, user);
+          total = filtered.length;
+          tickets = filtered.slice(0, limit);
+        } else {
+          tickets = await getTickets(filters, env, user);
+          total = await getTotalTicketCount(filters, env, user);
         }
-        const filtered = applyTicketFilters(snap, filters, user);
-        total = filtered.length;
-        tickets = filtered.slice(filters.offset, filters.offset + filters.limit);
-        return json({ success: true, tickets, pagination: { limit: filters.limit, offset: filters.offset, total } });
+        const totalPages = Math.max(1, Math.ceil(total / limit));
+        return json({ success: true, tickets, pagination: { page, limit, total, totalPages } });
       }
 
       if (path.startsWith("/api/admin/ticket/") && !path.includes("/status") && !path.includes("/comment") && !path.includes("/reply") && method === "GET") {
@@ -2062,7 +2080,7 @@ var worker_default = {
         if (status && oldStatus && oldStatus !== status) {
           await addComment(id, { type: "status_change", authorEmail: userEmail, content: "", oldStatus, newStatus: status }, env);
           newTicket = await getTicket(id, env);
-          await injectTicketIntoCache(newTicket, env);
+          if (newTicket) await injectTicketIntoCache(newTicket, env);
         }
         return json({ success: true, data: newTicket });
       }
@@ -2072,8 +2090,11 @@ var worker_default = {
         const userEmail = await verifyToken(token, env);
         if (!userEmail) return json({ error: "Unauthorized" }, 401);
         if (!await checkAccess(userEmail, "tickets", "comment", env)) return json({ error: "Permission denied" }, 403);
+        const ticketId = parseInt(path.split("/")[4]);
         const { content, type } = await request.json();
-        const comment = await addComment(parseInt(path.split("/")[4]), { type: type || "internal", authorEmail: userEmail, content }, env);
+        const comment = await addComment(ticketId, { type: type || "internal", authorEmail: userEmail, content }, env);
+        const ticket = await getTicket(ticketId, env);
+        if (ticket) await injectTicketIntoCache(ticket, env);
         return json({ success: true, data: comment });
       }
 
@@ -2089,6 +2110,8 @@ var worker_default = {
         const result = await sendEmail(env, ticket.sender_email, `Re: [${ticket.ticket_number}] ${ticket.subject}`, body, from);
         if (result.success) {
           await addComment(id, { type: "public", authorEmail: userEmail, content: "\u0001" + from + "\u0001" + body }, env);
+          const updated = await getTicket(id, env);
+          if (updated) await injectTicketIntoCache(updated, env);
           return json({ success: true });
         }
         return json({ success: false, error: result.error }, 500);
@@ -2137,7 +2160,7 @@ var worker_default = {
           await addComment(ticket2.id, { type: "incoming", authorEmail: from, content: body || "(No content)" }, env);
           if (["resolved", "closed"].includes(ticket2.status)) {
             const updated = await updateTicket(ticket2.id, { status: "open" }, env);
-            await injectTicketIntoCache(updated, env);
+            if (updated) await injectTicketIntoCache(updated, env);
           }
           return;
         }
@@ -2160,7 +2183,7 @@ var worker_default = {
           // Re-open if closed/resolved
           if (["resolved", "closed"].includes(orderTicket.status)) {
             const updated = await updateTicket(orderTicket.id, { status: "open" }, env);
-            await injectTicketIntoCache(updated, env);
+            if (updated) await injectTicketIntoCache(updated, env);
           }
           return;
         }
@@ -2242,7 +2265,7 @@ var TicketHub = class {
     }
 
     if (request.method === "POST" && url.pathname === "/lock") {
-      const LOCK_STALE_MS = 12e4;
+      const LOCK_STALE_MS = 45e3;
       let body = {};
       try {
         body = await request.json();
@@ -2258,6 +2281,10 @@ var TicketHub = class {
       }
       this.locks.set(ticketId, { email, name, ts: Date.now() });
       this.broadcastAll(JSON.stringify({ type: "ticket_locked", ticket_id: ticketId, locked_by: { email, name } }));
+      const nextAlarm = await this.state.storage.getAlarm();
+      if (!nextAlarm || nextAlarm > Date.now() + LOCK_STALE_MS) {
+        await this.state.storage.setAlarm(Date.now() + LOCK_STALE_MS);
+      }
       return new Response(JSON.stringify({ success: true }));
     }
 
@@ -2321,7 +2348,14 @@ var TicketHub = class {
 
   async alarm() {
     const IDLE_MS = 20 * 60 * 1e3;
+    const LOCK_STALE_MS = 45e3;
     const now = Date.now();
+    for (const [ticketId, lock] of this.locks.entries()) {
+      if (now - lock.ts > LOCK_STALE_MS) {
+        this.locks.delete(ticketId);
+        this.broadcastAll(JSON.stringify({ type: "ticket_unlocked", ticket_id: ticketId }));
+      }
+    }
     for (const ws of this.state.getWebSockets()) {
       let meta = {};
       try {
@@ -2335,7 +2369,9 @@ var TicketHub = class {
         }
       }
     }
-    if (this.state.getWebSockets().length > 0) {
+    if (this.locks.size > 0) {
+      await this.state.storage.setAlarm(Date.now() + LOCK_STALE_MS);
+    } else if (this.state.getWebSockets().length > 0) {
       await this.state.storage.setAlarm(Date.now() + 5 * 60 * 1e3);
     }
   }
