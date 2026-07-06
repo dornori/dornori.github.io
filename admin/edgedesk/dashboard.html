@@ -1214,6 +1214,7 @@
             var metaObj = typeof ticket.metadata === 'string' ? JSON.parse(ticket.metadata) : (ticket.metadata || {});
             if (metaObj && metaObj.company) ticketCompany = metaObj.company;
         } catch (e) {}
+        var sourceLabel = getSourceLabel(metaObj);
 
         var actionsHtml = '';
         if (!isClosed) {
@@ -1258,6 +1259,7 @@
                     <div class="meta-item"><span class="meta-label">Email</span><span class="meta-value">${ticket.sender_email || "Unknown"}</span></div>
                     <div class="meta-item"><span class="meta-label">Phone</span><span class="meta-value">${escapeHtml(ticket.sender_phone || '—')}</span></div>
                     <div class="meta-item"><span class="meta-label">Company</span><span class="meta-value">${escapeHtml(ticketCompany)}</span></div>
+                    <div class="meta-item"><span class="meta-label">Source</span><span class="meta-value">${sourceLabel}</span></div>
                     <div class="meta-item"><span class="meta-label">Order Number</span><span class="meta-value">${orderNum}</span></div>
                     <div class="meta-item"><span class="meta-label">Created</span><span class="meta-value">${formatDate(ticket.created_at)}</span></div>
                     <div class="meta-item"><span class="meta-label">Updated By</span><span class="meta-value">${ticket.last_updated_by ? (ticket.last_updated_by === ticket.sender_email ? '👤 Customer (' + escapeHtml(ticket.last_updated_by) + ')' : escapeHtml(ticket.last_updated_by)) : '—'}</span></div>
@@ -1265,7 +1267,7 @@
                 </div>
             </div>
             <div class="detail-section">
-                <h3>💬 Message</h3>
+                <h3>💬 Message <span style="font-size:12px;font-weight:500;color:var(--text-muted);">${sourceLabel}</span></h3>
                 <div class="ticket-body">${escapeHtml(ticket.message || "No message")}</div>
             </div>
             <div class="detail-section activity-log-section">
@@ -1417,6 +1419,14 @@
                 timeZone: userTimezone || "UTC"
             });
         } catch (e) { return dateStr; }
+    }
+
+    function getSourceLabel(metaObj) {
+        var source = metaObj && metaObj.source;
+        if (source === 'website') return '🌐 Web Form';
+        if (source === 'email') return '📧 Email';
+        if (source === 'newsletter') return '📧 Newsletter';
+        return '📧 Email';
     }
 
     function getSlaDisplay(status) {
