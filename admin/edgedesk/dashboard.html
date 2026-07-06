@@ -105,7 +105,7 @@
     let currentModalTicketId = null;
     let ticketLockedByOther = false;
     let ticketLockedByInfo = null;
-    let ticketLocks = {}; // Track all locked tickets: { ticketId: { email, name } }
+    let ticketLocks = {};
     
     // ─── WEBSOCKET ──────────────────────────────────────────
     let ws = null;
@@ -255,60 +255,6 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  CLEAR STALE LOCKS ON DASHBOARD LOAD (FIXES BRAVE/CHROME)
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function clearUserLocks() {
-        try {
-            if (!token) return;
-            
-            const response = await fetch(API_BASE + '/api/admin/user-locks', {
-                headers: {
-                    'Authorization': 'Bearer ' + token
-                }
-            });
-            
-            if (!response.ok) {
-                console.log('🔒 Could not check locks (status:', response.status, ')');
-                return;
-            }
-            
-            const data = await response.json();
-            const lockedTickets = data.lockedTickets || [];
-            
-            if (lockedTickets.length === 0) return;
-            
-            console.log('🔓 Found', lockedTickets.length, 'stale locks, clearing...');
-            
-            // Unlock each ticket - CHANGED /unlock to /release
-            let unlocked = 0;
-            for (const ticketId of lockedTickets) {
-                try {
-                    const unlockRes = await fetch(API_BASE + '/api/admin/ticket/' + ticketId + '/release', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + token
-                        },
-                        body: JSON.stringify({ force: true })
-                    });
-                    if (unlockRes.ok) unlocked++;
-                } catch (e) {
-                    console.warn('Could not unlock ticket', ticketId, e.message);
-                }
-            }
-            
-            if (unlocked > 0) {
-                console.log('🧹 Cleared', unlocked, 'stale locks');
-                showToast('🧹 Locks Cleared', 'Cleared ' + unlocked + ' stale ticket locks', 'info');
-                // Refresh the ticket list to show updated lock state
-                renderTickets(loadedTickets);
-            }
-        } catch (e) {
-            console.log('Lock cleanup error:', e.message);
-        }
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PERMISSION SERVICE - UNIFIED
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     const PermissionService = {
@@ -320,7 +266,6 @@
             if (!currentUser) return false;
             if (currentUser.role === 'admin') return true;
             
-            // Map UI actions to permission keys
             const actionMap = {
                 'view': 'view',
                 'edit': 'edit',
@@ -365,36 +310,11 @@
         }
     };
 
-    // ─── PERMISSION HELPERS ──────────────────────────────────
     function canEdit() {
         if (!currentUser) return false;
         if (currentUser.role === 'admin') return true;
         const perms = currentUser.page_permissions?.tickets || {};
         return perms.edit === true;
-    }
-
-    function canCreate() {
-        if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const perms = currentUser.page_permissions?.tickets || {};
-        return perms.create === true;
-    }
-
-    function canDelete() {
-        if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const perms = currentUser.page_permissions?.tickets || {};
-        return perms.delete === true;
-    }
-
-    function disableIfNoPermission(button, canDo) {
-        if (!canDo) {
-            button.disabled = true;
-            button.title = 'Permission denied';
-            button.style.opacity = '0.5';
-            button.style.cursor = 'not-allowed';
-        }
-        return button;
     }
 
     function showToast(title, message, type = 'info') {
@@ -485,7 +405,7 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD LANGUAGES FROM SETTINGS
+    //  LOAD LANGUAGES
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadLanguagesFromSettings() {
         try {
@@ -509,7 +429,7 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD CATEGORIES FROM USER PROFILE
+    //  LOAD CATEGORIES
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadCategoriesFromSettings() {
         try {
@@ -563,9 +483,6 @@
                     PermissionService.updateUI();
                     updateUserDisplay();
                     
-                    // ─── CLEAR STALE LOCKS ON LOAD ────────────
-                    await clearUserLocks();
-                    
                     loadEmailSenders();
                     
                     Promise.all([
@@ -586,11 +503,11 @@
         }
     });
 
-    // ─── VISIBILITY CHANGE: Clear locks when user returns to tab ──
+    // ─── VISIBILITY CHANGE: Release lock when user leaves tab ──
     document.addEventListener('visibilitychange', function() {
-        if (document.visibilityState === 'visible' && token && currentUser) {
-            console.log('👁️ Tab became visible, checking for stale locks...');
-            clearUserLocks();
+        if (document.visibilityState === 'hidden' && currentModalTicketId) {
+            console.log('👁️ Tab hidden, releasing lock...');
+            releaseTicketLock(currentModalTicketId, false);
         }
     });
 
@@ -675,9 +592,6 @@
                 updateUserDisplay();
                 document.getElementById("login").style.display = "none";
                 document.getElementById("dashboard").style.display = "block";
-                
-                // ─── CLEAR STALE LOCKS ON LOGIN ──────────────────
-                await clearUserLocks();
                 
                 await loadEmailSenders();
                 await Promise.all([
@@ -1143,7 +1057,6 @@
                     if (currentUser && currentUser.role === 'admin') {
                         var proceedForce = confirm('This ticket is locked by ' + (lockData.locked_by.name || lockData.locked_by.email) + '. Force unlock and open it?');
                         if (proceedForce) {
-                            // ─── FIXED: /unlock → /release ───
                             await fetch(API_BASE + "/api/admin/ticket/" + id + "/release", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token }
