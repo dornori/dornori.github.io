@@ -220,7 +220,7 @@
                 document.getElementById('wsIndicator').textContent = '🔴 Offline';
                 document.getElementById('wsIndicator').style.color = '#ef4444';
                 ws = null;
-                if (currentModalTicketId) releaseTicketLock(currentModalTicketId, true);
+                if (currentModalTicketId) releaseTicketLock(currentModalTicketId, false);
 
                 if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
                 wsReconnectTimer = setTimeout(connectWebSocket, 5000);
@@ -300,7 +300,6 @@
             if (unlocked > 0) {
                 console.log('🧹 Cleared', unlocked, 'stale locks');
                 showToast('🧹 Locks Cleared', 'Cleared ' + unlocked + ' stale ticket locks', 'info');
-                // Refresh the ticket list to show updated lock state
                 renderTickets(loadedTickets);
             }
         } catch (e) {
@@ -320,7 +319,6 @@
             if (!currentUser) return false;
             if (currentUser.role === 'admin') return true;
             
-            // Map UI actions to permission keys
             const actionMap = {
                 'view': 'view',
                 'edit': 'edit',
@@ -385,16 +383,6 @@
         if (currentUser.role === 'admin') return true;
         const perms = currentUser.page_permissions?.tickets || {};
         return perms.delete === true;
-    }
-
-    function disableIfNoPermission(button, canDo) {
-        if (!canDo) {
-            button.disabled = true;
-            button.title = 'Permission denied';
-            button.style.opacity = '0.5';
-            button.style.cursor = 'not-allowed';
-        }
-        return button;
     }
 
     function showToast(title, message, type = 'info') {
@@ -563,7 +551,6 @@
                     PermissionService.updateUI();
                     updateUserDisplay();
                     
-                    // ─── CLEAR STALE LOCKS ON LOAD ────────────
                     await clearUserLocks();
                     
                     loadEmailSenders();
@@ -586,7 +573,6 @@
         }
     });
 
-    // ─── VISIBILITY CHANGE: Clear locks when user returns to tab ──
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'visible' && token && currentUser) {
             console.log('👁️ Tab became visible, checking for stale locks...');
@@ -594,9 +580,9 @@
         }
     });
 
-    // ─── BEFORE UNLOAD: Release current modal lock ──────────────
+    // ─── FIXED: BEFORE UNLOAD - Use fetch with keepalive, not sendBeacon ──
     window.addEventListener('beforeunload', function() {
-        if (currentModalTicketId) releaseTicketLock(currentModalTicketId, true);
+        if (currentModalTicketId) releaseTicketLock(currentModalTicketId, false);
     });
 
     async function refreshCurrentUser() {
@@ -676,7 +662,6 @@
                 document.getElementById("login").style.display = "none";
                 document.getElementById("dashboard").style.display = "block";
                 
-                // ─── CLEAR STALE LOCKS ON LOGIN ──────────────────
                 await clearUserLocks();
                 
                 await loadEmailSenders();
@@ -739,7 +724,7 @@
     }
 
     function logout() {
-        if (currentModalTicketId) releaseTicketLock(currentModalTicketId, true);
+        if (currentModalTicketId) releaseTicketLock(currentModalTicketId, false);
         disconnectWebSocket();
         token = null;
         currentUser = { email: null, name: null, role: null, page_permissions: {} };
@@ -1081,21 +1066,23 @@
         document.body.style.overflow = "hidden";
     }
 
+    // ─── FIXED: No sendBeacon - use fetch with keepalive ──────────
     function releaseTicketLock(id, useBeacon) {
         if (!id) return;
         var url = API_BASE + "/api/admin/ticket/" + id + "/unlock";
-        if (useBeacon && navigator.sendBeacon) {
-            try {
-                navigator.sendBeacon(url, new Blob([JSON.stringify({ token: token })], { type: "text/plain" }));
-                return;
-            } catch (e) {}
-        }
+        
+        // Don't use sendBeacon with text/plain - it gets blocked by Brave/Chrome
+        // Use fetch with keepalive instead
         try {
             fetch(url, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token 
+                },
+                body: JSON.stringify({ token: token, force: true }),
                 keepalive: true
-            }).catch(function(){});
+            }).catch(function() {});
         } catch (e) {}
     }
 
@@ -1103,7 +1090,7 @@
         document.getElementById("ticketModal").classList.remove("active");
         document.body.style.overflow = "";
         if (currentModalTicketId) {
-            releaseTicketLock(currentModalTicketId, true);
+            releaseTicketLock(currentModalTicketId, false);
         }
         currentModalTicketId = null;
         ticketLockedByOther = false;
