@@ -80,6 +80,8 @@
     </div>
 </div>
 
+<div id="barToast" class="toast"></div>
+
 <script>
     const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
     const WS_URL = 'wss://dornori-ticketing.dornori-info.workers.dev/api/admin/ws';
@@ -361,6 +363,15 @@
         }, 8000);
     }
 
+    let barToastTimer;
+    function barToast(msg, type = 'success') {
+        const el = document.getElementById('barToast');
+        el.innerHTML = msg;
+        el.className = 'toast show ' + type;
+        clearTimeout(barToastTimer);
+        barToastTimer = setTimeout(() => el.classList.remove('show'), type === 'warning' ? 8000 : 3500);
+    }
+
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  SHARED CONFIG VERSION CACHE
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -393,7 +404,7 @@
         const config = {
             languages: extractLanguages(res),
             categories: extractCategories(res),
-            version: (res.data && res.data.system && res.data.system.config_version) || Date.now().toString()
+            version: (res.data && res.data.system && res.data.system.config_version) || '0'
         };
         localStorage.setItem('appConfig', JSON.stringify(config));
         localStorage.setItem('appConfigVersion', config.version);
@@ -405,7 +416,8 @@
                 headers: { "Authorization": "Bearer " + token }
             }).then(r => r.json());
             if (res.version && res.version !== cachedVersion) {
-                showToast('⚠️ Config Updated', "Configuration was updated by admin. Please <a href='#' onclick='logout()'>re-login</a> to see changes.", 'warning');
+                barToast("Configuration was updated by admin. Please <a href='#' onclick='logout()'>re-login</a> to see changes.", "warning");
+                localStorage.setItem('appConfigVersion', res.version);
             }
         } catch (e) {}
     }
@@ -658,6 +670,8 @@
         currentUser = { email: null, name: null, role: null, page_permissions: {} };
         localStorage.removeItem("token");
         localStorage.removeItem("user");
+        localStorage.removeItem("appConfig");
+        localStorage.removeItem("appConfigVersion");
         emailSenders = [];
         document.getElementById("login").style.display = "block";
         document.getElementById("dashboard").style.display = "none";
