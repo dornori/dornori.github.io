@@ -81,6 +81,16 @@ function clearCache() {
 }
 __name(clearCache, "clearCache");
 
+async function bumpConfigVersion(env) {
+  const version = Date.now().toString();
+  await env.DB.prepare(
+    `INSERT OR REPLACE INTO settings (category, key, value, updated_at) VALUES ('system', 'config_version', ?, datetime('now'))`
+  ).bind(version).run();
+  clearCache();
+  return version;
+}
+__name(bumpConfigVersion, "bumpConfigVersion");
+
 async function generateToken(email, env) {
   if (!env.JWT_SECRET) {
     throw new Error("JWT_SECRET not configured in environment variables");
@@ -1686,6 +1696,7 @@ var worker_default = {
         if (!category || !language) return json({ error: "Category and language required" }, 400);
         try {
           await saveAutoReply(env, category, language, enabled, subject, body, from);
+          await bumpConfigVersion(env);
           return json({ success: true });
         } catch (e) {
           return json({ error: e.message }, 400);
@@ -1701,6 +1712,7 @@ var worker_default = {
         if (!category || !language) return json({ error: "Category and language required" }, 400);
         try {
           await deleteAutoReply(env, category, language);
+          await bumpConfigVersion(env);
           return json({ success: true });
         } catch (e) {
           return json({ error: e.message }, 400);
@@ -1726,6 +1738,7 @@ var worker_default = {
         if (!newEmail || !label || !language) return json({ error: "Email, label and language required" }, 400);
         try {
           await addEmailAddress(env, newEmail, label, await validateCategory(action || label, env), language);
+          await bumpConfigVersion(env);
           return json({ success: true });
         } catch (e) {
           return json({ error: e.message }, 400);
@@ -1741,6 +1754,7 @@ var worker_default = {
         const body = await request.json();
         try {
           await updateEmailAddress(env, id, body.email, body.label, await validateCategory(body.action || body.label, env), body.language, body.is_active);
+          await bumpConfigVersion(env);
           return json({ success: true });
         } catch (e) {
           return json({ error: e.message }, 400);
@@ -1753,6 +1767,7 @@ var worker_default = {
         if (!email) return json({ error: "Unauthorized" }, 401);
         if (!await checkAccess(email, "settings", "delete", env)) return json({ error: "Permission denied" }, 403);
         await deleteEmailAddress(env, parseInt(path.split("/")[4]));
+        await bumpConfigVersion(env);
         return json({ success: true });
       }
 
@@ -1778,6 +1793,7 @@ var worker_default = {
         if (!await checkAccess(email, "settings", "edit", env)) return json({ error: "Permission denied" }, 403);
         const { settings } = await request.json();
         for (const s of settings) await updateSetting(env, s.category, s.key, s.value);
+        await bumpConfigVersion(env);
         return json({ success: true });
       }
 
@@ -2126,7 +2142,13 @@ var worker_default = {
         const cat = decodeURIComponent(path.split("/")[4]);
         if (!cat || cat === "unclassified") return json({ error: "Cannot delete unclassified category" }, 400);
         await deleteCategoryData(env, cat);
+        await bumpConfigVersion(env);
         return json({ success: true });
+      }
+
+      if (path === "/api/admin/config-version") {
+        const row = await env.DB.prepare("SELECT value FROM settings WHERE category='system' AND key='config_version'").first();
+        return json({ version: row ? row.value : "0" });
       }
 
       return json({ error: "Not found" }, 404);

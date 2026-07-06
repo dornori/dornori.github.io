@@ -320,6 +320,8 @@
         .toast.show { opacity: 1; transform: translateY(0); }
         .toast.success { background: var(--bg-secondary); color: var(--success); border-left: 4px solid var(--success); box-shadow: 0 4px 20px var(--shadow); }
         .toast.error   { background: var(--bg-secondary); color: var(--error);   border-left: 4px solid var(--error);   box-shadow: 0 4px 20px var(--shadow); }
+        .toast.warning { background: var(--bg-secondary); color: #92400e; border-left: 4px solid #f59e0b; box-shadow: 0 4px 20px var(--shadow); pointer-events: auto; }
+        .toast.warning a { color: inherit; text-decoration: underline; }
 
         /* Empty state */
         .empty-state { text-align: center; padding: 32px; color: var(--text-muted); font-size: 14px; }
@@ -447,10 +449,50 @@ async function api(path, opts = {}) {
 let toastTimer;
 function toast(msg, type = 'success') {
     const el = document.getElementById('toast');
-    el.textContent = msg;
+    el.innerHTML = msg;
     el.className = 'toast show ' + type;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+    toastTimer = setTimeout(() => el.classList.remove('show'), type === 'warning' ? 8000 : 3500);
+}
+
+// ── Shared config version cache ──
+function extractLanguages(res) {
+    try { return JSON.parse((res.data && res.data.languages && res.data.languages.list) || '[]'); }
+    catch (e) { return []; }
+}
+function extractCategories(res) {
+    const cats = new Set();
+    Object.keys((res.data && res.data.category) || {}).forEach(k => {
+        if (k.endsWith('_description') && res.data.category[k] !== '__deleted__') cats.add(k.replace('_description', ''));
+    });
+    return Array.from(cats);
+}
+async function loadAppConfig(forceFresh = false) {
+    if (!forceFresh) {
+        const cached = localStorage.getItem('appConfig');
+        const cachedVersion = localStorage.getItem('appConfigVersion');
+        if (cached && cachedVersion) {
+            checkForConfigUpdate(cachedVersion);
+            return JSON.parse(cached);
+        }
+    }
+    const res = await api('/api/admin/settings');
+    const config = {
+        languages: extractLanguages(res),
+        categories: extractCategories(res),
+        version: (res.data && res.data.system && res.data.system.config_version) || Date.now().toString()
+    };
+    localStorage.setItem('appConfig', JSON.stringify(config));
+    localStorage.setItem('appConfigVersion', config.version);
+    return config;
+}
+async function checkForConfigUpdate(cachedVersion) {
+    try {
+        const res = await api('/api/admin/config-version');
+        if (res.version && res.version !== cachedVersion) {
+            toast("Configuration was updated by admin. Please <a href='#' onclick='logout()'>re-login</a> to see changes.", "warning");
+        }
+    } catch (e) {}
 }
 
 // ── State ──
@@ -489,6 +531,7 @@ async function load() {
         emailAddresses = ed.addresses || [];
         renderAll();
         switchTab(currentTab);
+        loadAppConfig();
     } catch(e) {
         document.getElementById('tabContent').innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
     }
@@ -532,6 +575,7 @@ function disableElements(selector, disabled) {
 // ── Save helper ──
 async function saveSettings(updates) {
     const d = await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ settings: updates }) });
+    if (d.success) loadAppConfig(true).catch(() => {});
     return d.success;
 }
 

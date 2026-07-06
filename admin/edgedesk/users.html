@@ -74,10 +74,17 @@
         .section-divider { border-top: 1px solid var(--border); margin: 20px 0; padding-top: 15px; }
         .section-title { font-weight: 700; font-size: 13px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; }
         .category-tag { display: inline-block; background: var(--bg-input); padding: 4px 10px; border-radius: 3px; font-size: 12px; margin-right: 4px; margin-bottom: 4px; border: 1px solid var(--border); }
+        .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; z-index: 9999; opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; pointer-events: none; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background: var(--bg-secondary); color: var(--success); border-left: 4px solid var(--success); box-shadow: 0 4px 20px var(--shadow); }
+        .toast.error   { background: var(--bg-secondary); color: var(--error);   border-left: 4px solid var(--error);   box-shadow: 0 4px 20px var(--shadow); }
+        .toast.warning { background: var(--bg-secondary); color: #92400e; border-left: 4px solid #f59e0b; box-shadow: 0 4px 20px var(--shadow); pointer-events: auto; }
+        .toast.warning a { color: inherit; text-decoration: underline; }
     </style>
 </head>
 <body>
 <div class="container">
+    <div id="toast" class="toast"></div>
     <div class="header">
         <h1>👥 User Management</h1>
         <div class="header-right">
@@ -421,27 +428,9 @@
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadSettings() {
         try {
-            const res = await fetch(API_BASE + '/api/admin/settings', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            if (!res.ok) throw new Error('Failed to load settings');
-            const data = await res.json();
-            if (!data.success) throw new Error(data.error || 'Failed to load settings');
+            const config = await getSharedConfig();
 
-            const settings = data.settings || [];
-            
-            // Load languages
-            let langList = [];
-            for (const setting of settings) {
-                if (setting.category === 'languages' && setting.key === 'list') {
-                    try {
-                        langList = JSON.parse(setting.value || '[]');
-                    } catch (e) {
-                        langList = [];
-                    }
-                    break;
-                }
-            }
+            let langList = config.languages || [];
             if (!langList || langList.length === 0) {
                 langList = [
                     { code: 'en', name: 'English' },
@@ -461,23 +450,7 @@
             }
             languagesLoaded = true;
 
-            // Load categories
-            const cats = new Set();
-            for (const setting of settings) {
-                if (setting.category === 'category' && setting.key && setting.key.endsWith('_description')) {
-                    const catName = setting.key.replace('_description', '');
-                    if (setting.value !== '__deleted__' && setting.value && setting.value.trim() !== '') {
-                        cats.add(catName);
-                    }
-                }
-                if (setting.category === 'category' && setting.key && setting.key.endsWith('_color')) {
-                    const catName = setting.key.replace('_color', '');
-                    if (setting.value !== '__deleted__') {
-                        cats.add(catName);
-                    }
-                }
-            }
-            allCategories = Array.from(cats).sort();
+            allCategories = (config.categories && config.categories.length) ? config.categories.sort() : ['general', 'support', 'billing', 'technical'];
             categoriesLoaded = true;
 
             renderLanguageCheckboxes('newLanguages');
@@ -660,6 +633,70 @@
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  LOAD DATA
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function api(path, opts = {}) {
+        opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+        const res = await fetch(API_BASE + path, opts);
+        if (res.status === 401) { localStorage.removeItem('token'); throw new Error('Unauthorized'); }
+        if (res.status === 403) { throw new Error('Permission denied'); }
+        return res.json();
+    }
+
+    let toastTimer;
+    function toast(msg, type = 'success') {
+        const el = document.getElementById('toast');
+        el.innerHTML = msg;
+        el.className = 'toast show ' + type;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove('show'), type === 'warning' ? 8000 : 3500);
+    }
+
+    // ── Shared config version cache ──
+    function extractLanguages(res) {
+        try { return JSON.parse((res.data && res.data.languages && res.data.languages.list) || '[]'); }
+        catch (e) { return []; }
+    }
+    function extractCategories(res) {
+        const cats = new Set();
+        Object.keys((res.data && res.data.category) || {}).forEach(k => {
+            if (k.endsWith('_description') && res.data.category[k] !== '__deleted__') cats.add(k.replace('_description', ''));
+        });
+        return Array.from(cats);
+    }
+    async function loadAppConfig(forceFresh = false) {
+        if (!forceFresh) {
+            const cached = localStorage.getItem('appConfig');
+            const cachedVersion = localStorage.getItem('appConfigVersion');
+            if (cached && cachedVersion) {
+                checkForConfigUpdate(cachedVersion);
+                return JSON.parse(cached);
+            }
+        }
+        const res = await api('/api/admin/settings');
+        const config = {
+            languages: extractLanguages(res),
+            categories: extractCategories(res),
+            version: (res.data && res.data.system && res.data.system.config_version) || Date.now().toString()
+        };
+        localStorage.setItem('appConfig', JSON.stringify(config));
+        localStorage.setItem('appConfigVersion', config.version);
+        return config;
+    }
+    async function checkForConfigUpdate(cachedVersion) {
+        try {
+            const res = await api('/api/admin/config-version');
+            if (res.version && res.version !== cachedVersion) {
+                toast("Configuration was updated by admin. Please <a href='#' onclick='logout()'>re-login</a> to see changes.", "warning");
+            }
+        } catch (e) {}
+    }
+    let _configPromise = null;
+    function getSharedConfig(forceFresh) {
+        if (forceFresh || !_configPromise) {
+            _configPromise = loadAppConfig(forceFresh).finally(() => { _configPromise = null; });
+        }
+        return _configPromise;
+    }
+
     async function loadData() {
         if (!checkPermission()) return;
 
@@ -681,16 +718,6 @@
                 allUsers = usersData.users || [];
             }
 
-            const settingsRes = await fetch(API_BASE + '/api/admin/settings', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            if (settingsRes.ok) {
-                const settingsData = await settingsRes.json();
-                if (settingsData.success) {
-                    teams = settingsData.teams || [];
-                }
-            }
-
             const emailsRes = await fetch(API_BASE + '/api/admin/email-addresses?active_only=true', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -703,6 +730,7 @@
 
             renderUI();
             renderUsers();
+            loadAppConfig();
         } catch (e) {
             document.getElementById('usersTableContainer').innerHTML = '<div class="error">Error loading data: ' + e.message + '</div>';
         }

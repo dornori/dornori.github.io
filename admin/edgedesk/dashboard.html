@@ -345,67 +345,80 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  SHARED CONFIG VERSION CACHE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function extractLanguages(res) {
+        try {
+            return JSON.parse((res.settings && res.settings.find(s => s.category === 'languages' && s.key === 'list')?.value) || '[]');
+        } catch (e) { return []; }
+    }
+    function extractCategories(res) {
+        const cats = new Set();
+        (res.settings || []).forEach(s => {
+            if (s.category === 'category' && s.key.endsWith('_description') && s.value !== '__deleted__') {
+                cats.add(s.key.replace('_description', ''));
+            }
+        });
+        return Array.from(cats);
+    }
+    async function loadAppConfig(forceFresh = false) {
+        if (!forceFresh) {
+            const cached = localStorage.getItem('appConfig');
+            const cachedVersion = localStorage.getItem('appConfigVersion');
+            if (cached && cachedVersion) {
+                checkForConfigUpdate(cachedVersion);
+                return JSON.parse(cached);
+            }
+        }
+        const res = await fetch(API_BASE + "/api/admin/settings", {
+            headers: { "Authorization": "Bearer " + token }
+        }).then(r => r.json());
+        const config = {
+            languages: extractLanguages(res),
+            categories: extractCategories(res),
+            version: (res.data && res.data.system && res.data.system.config_version) || Date.now().toString()
+        };
+        localStorage.setItem('appConfig', JSON.stringify(config));
+        localStorage.setItem('appConfigVersion', config.version);
+        return config;
+    }
+    async function checkForConfigUpdate(cachedVersion) {
+        try {
+            const res = await fetch(API_BASE + "/api/admin/config-version", {
+                headers: { "Authorization": "Bearer " + token }
+            }).then(r => r.json());
+            if (res.version && res.version !== cachedVersion) {
+                showToast('⚠️ Config Updated', "Configuration was updated by admin. Please <a href='#' onclick='logout()'>re-login</a> to see changes.", 'warning');
+            }
+        } catch (e) {}
+    }
+    let _configPromise = null;
+    function getSharedConfig(forceFresh) {
+        if (forceFresh || !_configPromise) {
+            _configPromise = loadAppConfig(forceFresh).finally(() => { _configPromise = null; });
+        }
+        return _configPromise;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  LOAD LANGUAGES FROM SETTINGS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadLanguagesFromSettings() {
-        if (currentUser.role !== 'admin') {
-            console.log('👤 Non-admin user - using languages from profile');
-            const userLangs = currentUser.allowed_languages || [];
-            if (userLangs.length === 0) {
-                allLanguages = [];
-                languagesLoaded = true;
-                applyUserLanguageFilter();
-                return;
-            }
-            allLanguages = userLangs.map(code => ({ code, name: LANG_NAMES[code] || code }));
-            languagesLoaded = true;
-            applyUserLanguageFilter();
-            return;
-        }
-
         try {
-            const res = await fetch(API_BASE + "/api/admin/settings", {
-                headers: { "Authorization": "Bearer " + token }
-            });
-            if (!res.ok) throw new Error('Failed to load settings');
-            const data = await res.json();
-            if (!data.success) throw new Error(data.error || 'Failed to load settings');
-
-            const settings = data.settings || [];
-            let langList = [];
-            
-            for (const setting of settings) {
-                if (setting.category === 'languages' && setting.key === 'list') {
-                    try {
-                        langList = JSON.parse(setting.value || '[]');
-                    } catch (e) {
-                        langList = [];
-                    }
-                    break;
-                }
-            }
-
-            if (!langList || langList.length === 0) {
-                allLanguages = [];
+            if (currentUser.role !== 'admin') {
+                const userLangs = currentUser.allowed_languages || [];
+                allLanguages = userLangs.length ? userLangs.map(code => ({ code, name: LANG_NAMES[code] || code })) : [];
+            } else {
+                const config = await getSharedConfig();
+                allLanguages = config.languages || [];
                 LANG_NAMES = {};
-                languagesLoaded = true;
-                applyUserLanguageFilter();
-                return;
-            }
-
-            allLanguages = langList;
-            LANG_NAMES = {};
-            for (const lang of langList) {
-                LANG_NAMES[lang.code] = lang.name;
+                allLanguages.forEach(lang => { LANG_NAMES[lang.code] = lang.name; });
             }
             languagesLoaded = true;
             applyUserLanguageFilter();
-
-            console.log('✅ Languages loaded:', Object.keys(LANG_NAMES).length, 'languages');
         } catch (e) {
             console.error('Failed to load languages:', e);
             allLanguages = [];
-            LANG_NAMES = {};
             languagesLoaded = true;
             applyUserLanguageFilter();
         }
@@ -415,49 +428,17 @@
     //  LOAD CATEGORIES FROM USER PROFILE
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function loadCategoriesFromSettings() {
-        if (currentUser.role !== 'admin') {
-            console.log('👤 Non-admin user - loading categories from profile');
-            const userCategories = currentUser.allowed_categories || [];
-            allCategories = userCategories.sort();
-            categoriesLoaded = true;
-            updateCategoryDropdown();
-            console.log('✅ Categories loaded from user profile:', allCategories.length, 'categories:', allCategories);
-            return;
-        }
-
         try {
-            const res = await fetch(API_BASE + "/api/admin/settings", {
-                headers: { "Authorization": "Bearer " + token }
-            });
-            if (!res.ok) throw new Error('Failed to load settings');
-            const data = await res.json();
-            if (!data.success) throw new Error(data.error || 'Failed to load settings');
-
-            const settings = data.settings || [];
-            const cats = new Set();
-            
-            for (const setting of settings) {
-                if (setting.category === 'category' && setting.key && setting.key.endsWith('_description')) {
-                    const catName = setting.key.replace('_description', '');
-                    if (setting.value !== '__deleted__' && setting.value && setting.value.trim() !== '') {
-                        cats.add(catName);
-                    }
-                }
-                if (setting.category === 'category' && setting.key && setting.key.endsWith('_color')) {
-                    const catName = setting.key.replace('_color', '');
-                    if (setting.value !== '__deleted__') {
-                        cats.add(catName);
-                    }
-                }
+            if (currentUser.role !== 'admin') {
+                allCategories = (currentUser.allowed_categories || []).sort();
+            } else {
+                const config = await getSharedConfig();
+                allCategories = (config.categories || []).sort();
             }
-
-            allCategories = Array.from(cats).sort();
             categoriesLoaded = true;
             updateCategoryDropdown();
-            console.log('✅ Categories loaded from settings:', allCategories.length, 'categories');
-            
         } catch (e) {
-            console.error('Failed to load categories from settings:', e);
+            console.error('Failed to load categories:', e);
             allCategories = [];
             categoriesLoaded = true;
             updateCategoryDropdown();
