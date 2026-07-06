@@ -255,6 +255,60 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  CLEAR STALE LOCKS ON DASHBOARD LOAD (FIXES BRAVE/CHROME)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function clearUserLocks() {
+        try {
+            if (!token) return;
+            
+            const response = await fetch(API_BASE + '/api/admin/user-locks', {
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            });
+            
+            if (!response.ok) {
+                console.log('🔒 Could not check locks (status:', response.status, ')');
+                return;
+            }
+            
+            const data = await response.json();
+            const lockedTickets = data.lockedTickets || [];
+            
+            if (lockedTickets.length === 0) return;
+            
+            console.log('🔓 Found', lockedTickets.length, 'stale locks, clearing...');
+            
+            // Unlock each ticket
+            let unlocked = 0;
+            for (const ticketId of lockedTickets) {
+                try {
+                    const unlockRes = await fetch(API_BASE + '/api/admin/ticket/' + ticketId + '/unlock', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({ force: true })
+                    });
+                    if (unlockRes.ok) unlocked++;
+                } catch (e) {
+                    console.warn('Could not unlock ticket', ticketId, e.message);
+                }
+            }
+            
+            if (unlocked > 0) {
+                console.log('🧹 Cleared', unlocked, 'stale locks');
+                showToast('🧹 Locks Cleared', 'Cleared ' + unlocked + ' stale ticket locks', 'info');
+                // Refresh the ticket list to show updated lock state
+                renderTickets(loadedTickets);
+            }
+        } catch (e) {
+            console.log('Lock cleanup error:', e.message);
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PERMISSION SERVICE - UNIFIED
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     const PermissionService = {
@@ -509,6 +563,9 @@
                     PermissionService.updateUI();
                     updateUserDisplay();
                     
+                    // ─── CLEAR STALE LOCKS ON LOAD ────────────
+                    await clearUserLocks();
+                    
                     loadEmailSenders();
                     
                     Promise.all([
@@ -527,6 +584,19 @@
                 localStorage.removeItem('user');
             }
         }
+    });
+
+    // ─── VISIBILITY CHANGE: Clear locks when user returns to tab ──
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible' && token && currentUser) {
+            console.log('👁️ Tab became visible, checking for stale locks...');
+            clearUserLocks();
+        }
+    });
+
+    // ─── BEFORE UNLOAD: Release current modal lock ──────────────
+    window.addEventListener('beforeunload', function() {
+        if (currentModalTicketId) releaseTicketLock(currentModalTicketId, true);
     });
 
     async function refreshCurrentUser() {
@@ -605,6 +675,9 @@
                 updateUserDisplay();
                 document.getElementById("login").style.display = "none";
                 document.getElementById("dashboard").style.display = "block";
+                
+                // ─── CLEAR STALE LOCKS ON LOGIN ──────────────────
+                await clearUserLocks();
                 
                 await loadEmailSenders();
                 await Promise.all([
@@ -1042,9 +1115,6 @@
     });
     document.addEventListener("keydown", function(e) {
         if (e.key === "Escape") { closeModal(); }
-    });
-    window.addEventListener("beforeunload", function() {
-        if (currentModalTicketId) releaseTicketLock(currentModalTicketId, true);
     });
 
     function applyLockStateToModal() {
