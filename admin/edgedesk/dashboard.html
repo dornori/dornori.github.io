@@ -93,6 +93,7 @@
     let currentPage = 1;
     let currentTotalPages = 1;
     let currentTotal = 0;
+    let lastStatsData = null;
     let loadedTickets = [];
     let emailSenders = [];
     let allLanguages = [];
@@ -488,8 +489,8 @@
                     Promise.all([
                         loadLanguagesFromSettings(),
                         loadCategoriesFromSettings()
-                    ]).then(() => {
-                        loadStats();
+                    ]).then(async () => {
+                        await loadStats();
                         resetAndLoad();
                         connectWebSocket();
                         checkNotificationBanner();
@@ -590,7 +591,7 @@
                     loadLanguagesFromSettings(),
                     loadCategoriesFromSettings()
                 ]);
-                loadStats();
+                await loadStats();
                 resetAndLoad();
                 connectWebSocket();
                 checkNotificationBanner();
@@ -782,8 +783,19 @@
                     }
                 }
                 document.getElementById("stats").innerHTML = html;
+                lastStatsData = stats;
             }
         } catch (e) { console.error("Failed to load stats", e); }
+    }
+
+    function getTotalForTab(tab) {
+        if (!lastStatsData) return null;
+        var statuses = getStatusesForTab(tab);
+        var total = 0;
+        for (var i = 0; i < statuses.length; i++) {
+            total += (lastStatsData[statuses[i]] || 0);
+        }
+        return total;
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -821,9 +833,16 @@
             if (data.success) {
                 var tickets = data.tickets || [];
                 var pagination = data.pagination || { total: 0, page: 1, totalPages: 1 };
-                currentTotal = pagination.total;
                 currentPage = pagination.page;
-                currentTotalPages = pagination.totalPages;
+
+                var tabTotal = (!search && !category && !language) ? getTotalForTab(currentTab) : null;
+                if (tabTotal !== null) {
+                    currentTotal = tabTotal;
+                    currentTotalPages = Math.max(1, Math.ceil(tabTotal / currentLimit));
+                } else {
+                    currentTotal = pagination.total;
+                    currentTotalPages = pagination.totalPages;
+                }
 
                 loadedTickets = tickets;
 
