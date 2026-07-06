@@ -279,7 +279,7 @@
             
             console.log('🔓 Found', lockedTickets.length, 'stale locks, clearing...');
             
-            // Unlock each ticket
+            // Unlock each ticket - CHANGED /unlock to /release
             let unlocked = 0;
             for (const ticketId of lockedTickets) {
                 try {
@@ -1081,20 +1081,22 @@
         document.body.style.overflow = "hidden";
     }
 
-    // ─── FIXED: Use /release instead of /unlock ────────────────
+    // ─── FIXED: /unlock → /release ──────────────────────────────
     function releaseTicketLock(id, useBeacon) {
         if (!id) return;
         var url = API_BASE + "/api/admin/ticket/" + id + "/release";
+        if (useBeacon && navigator.sendBeacon) {
+            try {
+                navigator.sendBeacon(url, new Blob([JSON.stringify({ token: token })], { type: "text/plain" }));
+                return;
+            } catch (e) {}
+        }
         try {
             fetch(url, {
                 method: "POST",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "Authorization": "Bearer " + token 
-                },
-                body: JSON.stringify({ token: token, force: true }),
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
                 keepalive: true
-            }).catch(function() {});
+            }).catch(function(){});
         } catch (e) {}
     }
 
@@ -1141,6 +1143,7 @@
                     if (currentUser && currentUser.role === 'admin') {
                         var proceedForce = confirm('This ticket is locked by ' + (lockData.locked_by.name || lockData.locked_by.email) + '. Force unlock and open it?');
                         if (proceedForce) {
+                            // ─── FIXED: /unlock → /release ───
                             await fetch(API_BASE + "/api/admin/ticket/" + id + "/release", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token }
