@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dornori Ticketing</title>
     <link rel="stylesheet" href="style.css" />
+    <script src="edgedeskconfig.js"></script>
 </head>
 <body>
 <div class="container">
@@ -21,14 +22,17 @@
         <div class="header">
             <h1>🎫 Dornori Ticketing <span id="wsIndicator" style="font-size:12px;font-weight:400;color:var(--text-muted);"></span></h1>
             <div class="header-right">
-                <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
-                <a id="nav-reports" href="reports.html" style="display:none;">📊 Reports</a>
-                <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 Newsletter</a>
-                <a id="nav-settings" href="settings.html" style="display:none;">⚙️ Settings</a>
-                <a id="nav-users" href="users.html" style="display:none;">👥 Users</a>
-                <button id="purgeCacheBtn" onclick="purgeTicketCacheClick()" style="display:none;">🗑️ Purge Cache</button>
-                <div id="userDisplay"></div>
-                <button onclick="logout()">Logout</button>
+                <div class="nav-links">
+                    <a id="nav-reports" href="reports.html" style="display:none;">📊 <span>Reports</span></a>
+                    <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 <span>Newsletter</span></a>
+                    <a id="nav-settings" href="settings.html" style="display:none;">⚙️ <span>Settings</span></a>
+                    <a id="nav-users" href="users.html" style="display:none;">👥 <span>Users</span></a>
+                </div>
+                <div class="nav-actions">
+                    <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+                    <div id="userDisplay"></div>
+                    <button class="btn-logout" onclick="logout()">Logout</button>
+                </div>
             </div>
         </div>
 
@@ -83,7 +87,7 @@
 <div id="barToast" class="toast"></div>
 
 <script>
-    const API_BASE = 'https://dornori-ticketing.dornori-info.workers.dev';
+    const API_BASE = window.EDGEDESK_CONFIG ? window.EDGEDESK_CONFIG.API_BASE : 'https://dornori-ticketing.dornori-info.workers.dev';
     const WS_URL = 'wss://dornori-ticketing.dornori-info.workers.dev/api/admin/ws';
     
     let token = null;
@@ -306,8 +310,6 @@
                     el.style.display = this.hasPageAccess(nav.page) ? '' : 'none';
                 }
             }
-            const purgeBtn = document.getElementById('purgeCacheBtn');
-            if (purgeBtn) purgeBtn.style.display = (currentUser && currentUser.role === 'admin') ? '' : 'none';
         }
     };
 
@@ -622,27 +624,6 @@
 
     function updateUserDisplay() {
         renderUserBadge();
-    }
-
-    async function purgeTicketCacheClick() {
-        if (!currentUser || currentUser.role !== 'admin') return;
-        if (!confirm('Purge the ticket cache? This will force a fresh database read on next load.')) return;
-        try {
-            var res = await fetch(API_BASE + "/api/admin/cache/purge", {
-                method: "POST",
-                headers: { "Authorization": "Bearer " + token }
-            });
-            if (res.status === 401) { logout(); return; }
-            var data = await res.json();
-            if (data.success) {
-                showToast('🗑️ Cache Purged', 'Ticket cache cleared', 'success');
-                resetAndLoad();
-            } else {
-                showToast('❌ Error', data.error || 'Failed to purge cache', 'error');
-            }
-        } catch (e) {
-            showToast('❌ Network Error', e.message, 'error');
-        }
     }
 
     function logout() {

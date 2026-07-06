@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Settings – EdgeDesk</title>
     <link rel="stylesheet" href="style.css" />
+    <script src="edgedeskconfig.js"></script>
     <style>
         /* ── Settings-specific overrides ── */
         .s-page { max-width: 1200px; margin: 0 auto; }
@@ -341,14 +342,19 @@
     <div class="header">
         <h1>⚙️ Settings</h1>
         <div class="header-right">
-            <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
-            <a id="nav-dashboard" href="dashboard.html">🎫 Dashboard</a>
-                <a id="nav-reports" href="reports.html" style="display:none;">📊 Reports</a>
-                <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 Newsletter</a>
-                <a id="nav-settings" href="settings.html" style="display:none;">⚙️ Settings</a>
-                <a id="nav-users" href="users.html" style="display:none;">👥 Users</a>
-            <div id="userDisplay"></div>
-            <button onclick="logout()">Logout</button>
+            <div class="nav-links">
+                <a id="nav-dashboard" href="dashboard.html">🎫 <span>Dashboard</span></a>
+                <a id="nav-reports" href="reports.html" style="display:none;">📊 <span>Reports</span></a>
+                <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 <span>Newsletter</span></a>
+                <a id="nav-settings" href="settings.html" style="display:none;">⚙️ <span>Settings</span></a>
+                <a id="nav-users" href="users.html" style="display:none;">👥 <span>Users</span></a>
+            </div>
+            <div class="nav-actions">
+                <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+                <div id="userDisplay"></div>
+                <button id="purgeCacheBtn" class="btn-purge" onclick="purgeTicketCacheClick()" style="display:none;">🗑️ Purge Cache</button>
+                <button class="btn-logout" onclick="logout()">Logout</button>
+            </div>
         </div>
     </div>
 
@@ -435,6 +441,7 @@ function canDeleteSettings() {
 if (hasPageAccess('reports'))    document.getElementById('nav-reports').style.display = '';
 if (hasPageAccess('newsletter'))  document.getElementById('nav-newsletter').style.display = '';
 if (hasPageAccess('users'))      document.getElementById('nav-users').style.display = '';
+if (canEditSettings())           document.getElementById('purgeCacheBtn').style.display = '';
 
 // ── API ──
 async function api(path, opts = {}) {
@@ -1310,6 +1317,18 @@ function logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     window.location.href = 'dashboard.html';
+}
+
+async function purgeTicketCacheClick() {
+    if (!canEditSettings()) return;
+    if (!confirm('Purge the ticket cache? This will force a fresh database read on next load.')) return;
+    try {
+        const res = await api((window.EDGEDESK_CONFIG && window.EDGEDESK_CONFIG.ENDPOINTS.CACHE_PURGE) || '/api/admin/cache/purge', { method: 'POST' });
+        if (res.success) toast('🗑️ Ticket cache cleared', 'success');
+        else toast(res.error || 'Failed to purge cache', 'error');
+    } catch (e) {
+        toast(e.message || 'Failed to purge cache', 'error');
+    }
 }
 </script>
 </body>
