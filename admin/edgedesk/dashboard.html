@@ -283,7 +283,7 @@
             let unlocked = 0;
             for (const ticketId of lockedTickets) {
                 try {
-                    const unlockRes = await fetch(API_BASE + '/api/admin/ticket/' + ticketId + '/unlock', {
+                    const unlockRes = await fetch(API_BASE + '/api/admin/ticket/' + ticketId + '/release', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -300,6 +300,7 @@
             if (unlocked > 0) {
                 console.log('🧹 Cleared', unlocked, 'stale locks');
                 showToast('🧹 Locks Cleared', 'Cleared ' + unlocked + ' stale ticket locks', 'info');
+                // Refresh the ticket list to show updated lock state
                 renderTickets(loadedTickets);
             }
         } catch (e) {
@@ -319,6 +320,7 @@
             if (!currentUser) return false;
             if (currentUser.role === 'admin') return true;
             
+            // Map UI actions to permission keys
             const actionMap = {
                 'view': 'view',
                 'edit': 'edit',
@@ -383,6 +385,16 @@
         if (currentUser.role === 'admin') return true;
         const perms = currentUser.page_permissions?.tickets || {};
         return perms.delete === true;
+    }
+
+    function disableIfNoPermission(button, canDo) {
+        if (!canDo) {
+            button.disabled = true;
+            button.title = 'Permission denied';
+            button.style.opacity = '0.5';
+            button.style.cursor = 'not-allowed';
+        }
+        return button;
     }
 
     function showToast(title, message, type = 'info') {
@@ -551,6 +563,7 @@
                     PermissionService.updateUI();
                     updateUserDisplay();
                     
+                    // ─── CLEAR STALE LOCKS ON LOAD ────────────
                     await clearUserLocks();
                     
                     loadEmailSenders();
@@ -573,6 +586,7 @@
         }
     });
 
+    // ─── VISIBILITY CHANGE: Clear locks when user returns to tab ──
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'visible' && token && currentUser) {
             console.log('👁️ Tab became visible, checking for stale locks...');
@@ -580,7 +594,7 @@
         }
     });
 
-    // ─── FIXED: BEFORE UNLOAD - Use fetch with keepalive, not sendBeacon ──
+    // ─── BEFORE UNLOAD: Release current modal lock ──────────────
     window.addEventListener('beforeunload', function() {
         if (currentModalTicketId) releaseTicketLock(currentModalTicketId, false);
     });
@@ -662,6 +676,7 @@
                 document.getElementById("login").style.display = "none";
                 document.getElementById("dashboard").style.display = "block";
                 
+                // ─── CLEAR STALE LOCKS ON LOGIN ──────────────────
                 await clearUserLocks();
                 
                 await loadEmailSenders();
@@ -1066,13 +1081,10 @@
         document.body.style.overflow = "hidden";
     }
 
-    // ─── FIXED: No sendBeacon - use fetch with keepalive ──────────
+    // ─── FIXED: Use /release instead of /unlock ────────────────
     function releaseTicketLock(id, useBeacon) {
         if (!id) return;
-        var url = API_BASE + "/api/admin/ticket/" + id + "/unlock";
-        
-        // Don't use sendBeacon with text/plain - it gets blocked by Brave/Chrome
-        // Use fetch with keepalive instead
+        var url = API_BASE + "/api/admin/ticket/" + id + "/release";
         try {
             fetch(url, {
                 method: "POST",
@@ -1129,7 +1141,7 @@
                     if (currentUser && currentUser.role === 'admin') {
                         var proceedForce = confirm('This ticket is locked by ' + (lockData.locked_by.name || lockData.locked_by.email) + '. Force unlock and open it?');
                         if (proceedForce) {
-                            await fetch(API_BASE + "/api/admin/ticket/" + id + "/unlock", {
+                            await fetch(API_BASE + "/api/admin/ticket/" + id + "/release", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token }
                             }).catch(function(){});
