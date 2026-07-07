@@ -92,6 +92,7 @@
     
     let token = null;
     let currentUser = null;
+    let agentsListCache = null;
     let currentTab = 'active';
     let currentLimit = 25;
     let currentPage = 1;
@@ -1198,9 +1199,17 @@
         var sourceLabel = getSourceLabel(metaObj);
 
         var actionsHtml = '';
+        var canEditTicket = canEdit();
+        var canAssignTicket = currentUser && ['tl', 'manager', 'admin'].includes(currentUser.role);
+        var assignHtml = canAssignTicket ? `
+            <div class="detail-section action-section">
+                <h4>🧑‍💼 Assign Ticket</h4>
+                <select id="detailAssignSelect"><option value="">Loading agents...</option></select>
+                <div class="actions"><button class="btn-primary" onclick="assignTicket(${ticket.id})">Assign</button></div>
+            </div>` : '';
         if (!isClosed) {
-            var canEditTicket = canEdit();
             actionsHtml = `
+            ${assignHtml}
             <div class="detail-section action-section">
                 <h4>✏️ Update Status</h4>
                 ${statusDropdown}
@@ -1220,10 +1229,11 @@
             </div>`;
         } else {
             actionsHtml = `
+            ${assignHtml}
             <div class="detail-section action-section">
                 <h4>✏️ Reopen Ticket</h4>
                 ${statusDropdown}
-                <div class="actions"><button class="btn-primary" onclick="updateStatus(${ticket.id})" ${!canEdit() ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Update Status</button></div>
+                <div class="actions"><button class="btn-primary" onclick="updateStatus(${ticket.id})" ${!canEditTicket ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Update Status</button></div>
             </div>`;
         }
 
@@ -1257,6 +1267,47 @@
             </div>
             ${actionsHtml}
         `;
+
+        if (canAssignTicket) populateAssignDropdown(ticket.assigned_to);
+    }
+
+    async function populateAssignDropdown(currentAssignee) {
+        const select = document.getElementById('detailAssignSelect');
+        if (!select) return;
+        if (!agentsListCache) {
+            try {
+                const res = await fetch(API_BASE + '/api/admin/users', { headers: { Authorization: 'Bearer ' + token } });
+                const data = await res.json();
+                agentsListCache = data.success ? data.users.filter(u => ['agent', 'tl', 'manager', 'admin'].includes(u.role)) : [];
+            } catch (e) {
+                agentsListCache = [];
+            }
+        }
+        select.innerHTML = '<option value="">Unassigned</option>' + agentsListCache.map(u =>
+            `<option value="${escapeHtml(u.email)}" ${u.email === currentAssignee ? 'selected' : ''}>${escapeHtml(u.name || u.email)}</option>`
+        ).join('');
+    }
+
+    async function assignTicket(ticketId) {
+        const select = document.getElementById('detailAssignSelect');
+        if (!select) return;
+        const assigned_to = select.value || null;
+        try {
+            const res = await fetch(API_BASE + '/api/admin/ticket/' + ticketId + '/assign', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                body: JSON.stringify({ assigned_to })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast('Assigned', assigned_to ? 'Ticket assigned.' : 'Ticket unassigned.', 'success');
+                openTicketModal(ticketId, true);
+            } else {
+                showToast('Error', data.error || 'Could not assign ticket', 'error');
+            }
+        } catch (e) {
+            showToast('Error', e.message, 'error');
+        }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

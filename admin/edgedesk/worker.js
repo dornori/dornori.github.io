@@ -11,7 +11,8 @@ var cache = {
   emailConfig: null,
   settingsTimestamp: 0,
   usersTimestamp: 0,
-  emailConfigTimestamp: 0
+  emailConfigTimestamp: 0,
+  loginAttempts: /* @__PURE__ */ new Map()
 };
 var TICKET_CACHE_URL = "https://cache/ticket-list";
 async function getTicketCache() {
@@ -334,6 +335,36 @@ async function checkAccess(email, resource, action, env) {
   return await hasPermission(email, resource, action, env);
 }
 __name(checkAccess, "checkAccess");
+
+// ─── BASIC LOGIN RATE LIMITING (in-memory, per isolate) ─────
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS = 5 * 60 * 1000;
+
+function isLoginRateLimited(key) {
+  const entry = cache.loginAttempts.get(key);
+  if (!entry) return false;
+  if (Date.now() - entry.first > LOGIN_WINDOW_MS) {
+    cache.loginAttempts.delete(key);
+    return false;
+  }
+  return entry.count >= LOGIN_MAX_ATTEMPTS;
+}
+__name(isLoginRateLimited, "isLoginRateLimited");
+
+function recordFailedLogin(key) {
+  const entry = cache.loginAttempts.get(key);
+  if (!entry || Date.now() - entry.first > LOGIN_WINDOW_MS) {
+    cache.loginAttempts.set(key, { count: 1, first: Date.now() });
+  } else {
+    entry.count += 1;
+  }
+}
+__name(recordFailedLogin, "recordFailedLogin");
+
+function clearFailedLogins(key) {
+  cache.loginAttempts.delete(key);
+}
+__name(clearFailedLogins, "clearFailedLogins");
 
 // ─── SANITIZATION FUNCTIONS ─────────────────────────────────
 function sanitizeSubject(text) {
@@ -2031,11 +2062,17 @@ var worker_default = {
         return json({ success: true, user: { email: user.email, name: user.name, role: user.role, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id, page_permissions: user.page_permissions || {}, effective_permissions: buildEffectivePermissions(user) } });
       }
 
-      // ─── LOGIN ─────────────────────────────────────────────
+// ─── LOGIN ─────────────────────────────────────────────
       if (path === "/api/admin/login" && method === "POST") {
         const { email, password } = await request.json();
-        const user = await getUser((email || "").toLowerCase().trim(), env);
-        if (!user || await sha256(password) !== user.password_hash) return json({ error: "Invalid credentials" }, 401);
+        const rateLimitKey = (email || "").toLowerCase().trim();
+        if (isLoginRateLimited(rateLimitKey)) return json({ error: "Too many login attempts. Try again later." }, 429);
+        const user = await getUser(rateLimitKey, env);
+        if (!user || await sha256(password) !== user.password_hash) {
+          recordFailedLogin(rateLimitKey);
+          return json({ error: "Invalid credentials" }, 401);
+        }
+        clearFailedLogins(rateLimitKey);
         
         const token = await generateToken(user.email, env);
         const online = await getAgentsOnlineCount(env);
@@ -2211,6 +2248,26 @@ var worker_default = {
         if (!await checkAccess(email, "tickets", "view", env)) return json({ error: "Permission denied" }, 403);
         const ticket = await getTicket(parseInt(path.split("/")[4]), env);
         return ticket ? json({ success: true, data: ticket }) : json({ error: "Not found" }, 404);
+      }
+
+      if (path.startsWith("/api/admin/ticket/") && path.includes("/assign") && method === "PUT") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const userEmail = await verifyToken(token, env);
+        if (!userEmail) return json({ error: "Unauthorized" }, 401);
+        const requester = await getUser(userEmail, env);
+        if (!requester || !["tl", "manager", "admin"].includes(requester.role)) return json({ error: "Permission denied" }, 403);
+        if (!await checkAccess(userEmail, "tickets", "update", env)) return json({ error: "Permission denied" }, 403);
+        const id = parseInt(path.split("/")[4]);
+        const { assigned_to } = await request.json();
+        const existingTicket = await getTicket(id, env);
+        const oldAssignee = existingTicket ? existingTicket.assigned_to : null;
+        let newTicket = await updateTicket(id, { assigned_to }, env);
+        if (assigned_to !== oldAssignee) {
+          await addComment(id, { type: "assignment", authorEmail: userEmail, content: assigned_to ? `Assigned to ${assigned_to}` : "Unassigned" }, env);
+          newTicket = await getTicket(id, env);
+          if (newTicket) await injectTicketIntoCache(newTicket, env);
+        }
+        return json({ success: true, data: newTicket });
       }
 
       if (path.startsWith("/api/admin/ticket/") && path.includes("/status") && method === "PUT") {
