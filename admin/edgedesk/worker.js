@@ -232,6 +232,10 @@ async function hasPermission(email, resource, action, env) {
   const user = await getUser(email, env);
   if (!user) return false;
 
+  // Admins always have full access, matching buildEffectivePermissions().
+  // Per-user overrides must never be able to lock an admin out.
+  if (user.role === 'admin') return true;
+
   const fineAction = Object.keys(PERM_ACTION_MAP).includes(action) ? action : null;
   const coarseAction = PERM_ACTION_MAP[action] || (['read', 'write'].includes(action) ? action : null);
   if (!coarseAction) return false;
