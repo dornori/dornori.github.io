@@ -593,6 +593,7 @@ function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
 // RENDER
 // ─────────────────────────────────────────────────────────────
 const TABS = [
+    { id: 'system',        icon: '🔧',  label: 'System Config' },
     { id: 'general',       icon: '⚙️',  label: 'General' },
     { id: 'sla',           icon: '⏱️',  label: 'SLA' },
     { id: 'categories',    icon: '📂',  label: 'Categories' },
@@ -674,6 +675,7 @@ function switchTab(id) {
 
 function buildPanel(id) {
     switch(id) {
+        case 'system':        return buildSystem();
         case 'general':       return buildGeneral();
         case 'sla':           return buildSla();
         case 'categories':    return buildCategories();
@@ -683,6 +685,63 @@ function buildPanel(id) {
         case 'outgoing':      return buildOutgoing();
     }
     return '';
+}
+
+// ─────────────────────────────────────────────────────────────
+// SYSTEM CONFIG - CORS, timeouts, auth settings
+// ─────────────────────────────────────────────────────────────
+function buildSystem() {
+    const corsOrigins = S('system', 'cors_origins', 'https://dornori.com,https://www.dornori.com,https://dornori.github.io,https://dornori-ticketing.dornori-info.workers.dev');
+    const loginTimeout = S('system', 'login_timeout_minutes', '30');
+    const sessionTimeout = S('system', 'session_timeout_minutes', '60');
+    const maxFailedLogins = S('system', 'max_failed_logins', '5');
+    const lockoutMinutes = S('system', 'lockout_minutes', '15');
+    
+    return `<div class="s-card">
+        <div class="s-card-head"><div><h3>System Configuration</h3><p>Core backend settings (stored in settings table)</p></div></div>
+        
+        <div class="f-row">
+            <label>CORS Allowed Origins <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;">(comma-separated)</span></label>
+            <textarea id="sys_cors" style="min-height:100px;font-family:monospace;font-size:12px;">${esc(corsOrigins)}</textarea>
+        </div>
+        
+        <div class="f-row" style="max-width:200px;">
+            <label>Login Rate Limit Window (minutes)</label>
+            <input type="number" id="sys_login_timeout" value="${esc(loginTimeout)}" min="1" max="120" />
+        </div>
+        
+        <div class="f-row" style="max-width:200px;">
+            <label>Session Timeout (minutes)</label>
+            <input type="number" id="sys_session_timeout" value="${esc(sessionTimeout)}" min="5" max="1440" />
+        </div>
+        
+        <div class="f-row" style="max-width:200px;">
+            <label>Max Failed Logins</label>
+            <input type="number" id="sys_max_failed" value="${esc(maxFailedLogins)}" min="1" max="20" />
+        </div>
+        
+        <div class="f-row" style="max-width:200px;">
+            <label>Account Lockout Duration (minutes)</label>
+            <input type="number" id="sys_lockout" value="${esc(lockoutMinutes)}" min="1" max="60" />
+        </div>
+        
+        <button onclick="saveSystem()" class="btn-primary" style="margin-top:16px;">Save System Config</button>
+    </div>`;
+}
+
+function saveSystem() {
+    const updates = {
+        'system.cors_origins': document.getElementById('sys_cors').value.trim(),
+        'system.login_timeout_minutes': document.getElementById('sys_login_timeout').value,
+        'system.session_timeout_minutes': document.getElementById('sys_session_timeout').value,
+        'system.max_failed_logins': document.getElementById('sys_max_failed').value,
+        'system.lockout_minutes': document.getElementById('sys_lockout').value
+    };
+    
+    saveSettings(updates).then(ok => {
+        if (ok) showToast('✅ Saved', 'System configuration updated', 'success');
+        else showToast('❌ Error', 'Failed to save', 'error');
+    });
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -197,19 +197,7 @@
             </div>
 
             <div class="section-divider"></div>
-            <div class="form-group">
-                <label>Page Permissions</label>
-                <div class="perm-matrix" id="newPermissions">
-                    <div style="display: grid; grid-template-columns: 150px 80px 80px 80px 80px; gap: 10px; margin-bottom: 15px;">
-                        <div style="font-weight: 600; font-size: 12px;">Page</div>
-                        <div style="font-weight: 600; font-size: 12px; text-align: center;">View</div>
-                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Edit</div>
-                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Create</div>
-                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Delete</div>
-                    </div>
-                    <div id="newPermsGrid"></div>
-                </div>
-            </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 15px;">Permissions are determined by role. Admins can read and write all resources. Managers manage tickets/newsletter. Team leads manage their team's tickets. Agents can read/update tickets.</p>
 
             <div id="addUserError" class="error"></div>
             <div class="form-footer">
@@ -293,19 +281,7 @@
             </div>
 
             <div class="section-divider"></div>
-            <div class="form-group">
-                <label>Page Permissions</label>
-                <div class="perm-matrix" id="editPermissions">
-                    <div style="display: grid; grid-template-columns: 150px 80px 80px 80px 80px; gap: 10px; margin-bottom: 15px;">
-                        <div style="font-weight: 600; font-size: 12px;">Page</div>
-                        <div style="font-weight: 600; font-size: 12px; text-align: center;">View</div>
-                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Edit</div>
-                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Create</div>
-                        <div style="font-weight: 600; font-size: 12px; text-align: center;">Delete</div>
-                    </div>
-                    <div id="editPermsGrid"></div>
-                </div>
-            </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 15px;">Permissions are determined by role.</p>
 
             <div id="editUserError" class="error"></div>
             <div class="form-footer">
@@ -318,6 +294,16 @@
 
 <script>
     const API_BASE = window.EDGEDESK_CONFIG ? window.EDGEDESK_CONFIG.API_BASE : 'https://dornori-ticketing.dornori-info.workers.dev';
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  SECURITY: HTML ESCAPING
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
     
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  DYNAMIC LANGUAGES & CATEGORIES - loaded from settings
@@ -335,58 +321,36 @@
         agent: 'View &amp; update assigned tickets. Add comments &amp; replies.'
     };
     
-    const PAGE_PERMISSIONS = {
-        tickets: { label: 'Tickets', actions: ['view', 'edit', 'create', 'delete'] },
-        reports: { label: 'Reports', actions: ['view', 'edit', 'create', 'delete'] },
-        users: { label: 'Users', actions: ['view', 'edit', 'create', 'delete'] },
-        settings: { label: 'Settings', actions: ['view', 'edit', 'create', 'delete'] },
-        newsletter: { label: 'Newsletter', actions: ['view', 'edit', 'create', 'delete'] }
-    };
-
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     let currentUser = storedUser ? JSON.parse(storedUser) : null;
     
-    // ─── UNIFIED PERMISSION CHECKS ──────────────────────────────
-    function hasPageAccess(page) {
-        if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const perms = currentUser.page_permissions?.[page] || {};
-        return perms.view === true;
-    }
+    // ─── ROLE-BASED PERMISSION CHECKS ────────────────────────────
+    // Resources: tickets, users, settings, newsletter, reports
+    // Actions: read, write (edit/create/delete)
+    const ROLE_RESOURCES = {
+        admin: { tickets: ['read', 'write'], users: ['read', 'write'], settings: ['read', 'write'], newsletter: ['read', 'write'], reports: ['read', 'write'] },
+        manager: { tickets: ['read', 'write'], users: ['read'], newsletter: ['read', 'write'], reports: ['read', 'write'] },
+        tl: { tickets: ['read', 'write'], users: ['read'] },
+        agent: { tickets: ['read', 'write'] }
+    };
 
-    function canCreateUser() {
+    function hasPermission(resource, action) {
         if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const perms = currentUser.page_permissions?.users || {};
-        return perms.create === true;
-    }
-
-    function canEditUserAction() {
-        if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const perms = currentUser.page_permissions?.users || {};
-        return perms.edit === true;
-    }
-
-    function canDeleteUserAction() {
-        if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const perms = currentUser.page_permissions?.users || {};
-        return perms.delete === true;
+        const resources = ROLE_RESOURCES[currentUser.role] || {};
+        const allowed = resources[resource] || [];
+        return allowed.includes(action);
     }
 
     const isAdmin = currentUser && currentUser.role === 'admin';
-    const hasUsersPermission = isAdmin || (currentUser && currentUser.page_permissions && currentUser.page_permissions.users && currentUser.page_permissions.users.view);
+    const canManageUsers = isAdmin || hasPermission('users', 'write');
     
-    if (!token || !currentUser || (!isAdmin && !hasUsersPermission)) {
+    if (!token || !currentUser || (!isAdmin && !hasPermission('users', 'read'))) {
         document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to manage users.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
         throw new Error('Users access required');
     }
 
-    const pagePerms = (currentUser && currentUser.page_permissions) || {};
-
-    // Refresh permissions from the server
+    // Refresh user role from the server
     (async function refreshCurrentUser() {
         try {
             const res = await fetch(API_BASE + '/api/admin/me', { headers: { Authorization: 'Bearer ' + token } });
@@ -394,26 +358,23 @@
             const data = await res.json();
             if (data.success && data.user) {
                 currentUser.role = data.user.role;
-                currentUser.page_permissions = data.user.page_permissions || {};
                 currentUser.allowed_languages = data.user.allowed_languages || [];
                 currentUser.allowed_emails = data.user.allowed_emails || [];
                 currentUser.allowed_categories = data.user.allowed_categories || [];
                 currentUser.team_id = data.user.team_id || null;
-                Object.keys(pagePerms).forEach(k => delete pagePerms[k]);
-                Object.assign(pagePerms, currentUser.page_permissions);
-                if (currentUser.role !== 'admin' && !(pagePerms.users && pagePerms.users.view)) {
+                if (currentUser.role !== 'admin' && !hasPermission('users', 'read')) {
                     window.location.href = 'dashboard.html';
                     return;
                 }
                 if (typeof loadData === 'function') loadData();
             }
-        } catch (e) { /* keep last-known permissions on failure */ }
+        } catch (e) { /* keep last-known role on failure */ }
     })();
     
-    // Show all nav buttons except current page (users)
-    if (hasPageAccess('reports')) document.getElementById('nav-reports').style.display = '';
-    if (hasPageAccess('newsletter')) document.getElementById('nav-newsletter').style.display = '';
-    if (hasPageAccess('settings')) document.getElementById('nav-settings').style.display = '';
+    // Show nav buttons based on role
+    if (hasPermission('reports', 'read')) document.getElementById('nav-reports').style.display = '';
+    if (hasPermission('newsletter', 'read')) document.getElementById('nav-newsletter').style.display = '';
+    if (hasPermission('settings', 'read')) document.getElementById('nav-settings').style.display = '';
 
     let allUsers = [];
     let supportEmails = [];
@@ -423,8 +384,6 @@
     let newEmails = [];
     let editTeams = [];
     let editEmails = [];
-    let newPagePerms = {};
-    let editPagePerms = {};
     let newSelectedCategories = [];
     let editSelectedCategories = [];
 
@@ -601,8 +560,8 @@
     function canEditUser(targetUser) {
         if (!currentUser) return false;
         if (targetUser.email === 'admin@dornori.com' && currentUser.role !== 'admin') return false;
+        if (!hasPermission('users', 'write')) return false;
         if (currentUser.role === 'admin') return true;
-        if (!canEditUserAction()) return false;
         if (currentUser.role === 'manager') return targetUser.role !== 'admin';
         if (currentUser.role === 'tl') return currentUser.team_id && targetUser.team_id === currentUser.team_id && targetUser.role === 'agent';
         return false;
@@ -612,7 +571,7 @@
         if (!currentUser) return false;
         if (targetUser.email === 'admin@dornori.com') return false;
         if (currentUser.role === 'admin') return true;
-        if (!canDeleteUserAction()) return false;
+        if (!hasPermission('users', 'write')) return false;
         return false;
     }
 
@@ -769,21 +728,19 @@
             );
 
             html += '<tr>';
-            html += `<td><strong>${u.email}</strong></td>`;
-            html += `<td>${u.name || '-'}</td>`;
-            html += `<td><span class="role-badge ${u.role}">${u.role.toUpperCase()}</span></td>`;
-            html += `<td><span class="langs-cell">${langNames.join(', ')}</span></td>`;
-            html += `<td><span class="langs-cell">${categoryNames.length > 0 ? categoryNames.join(', ') : 'All'}</span></td>`;
-            if (['admin', 'manager'].includes(currentUser.role)) html += `<td><span class="langs-cell">${teamName}</span></td>`;
+            html += `<td><strong>${escapeHtml(u.email)}</strong></td>`;
+            html += `<td>${escapeHtml(u.name || '-')}</td>`;
+            html += `<td><span class="role-badge ${escapeHtml(u.role)}">${escapeHtml(u.role.toUpperCase())}</span></td>`;
+            html += `<td><span class="langs-cell">${escapeHtml(langNames.join(', '))}</span></td>`;
+            html += `<td><span class="langs-cell">${escapeHtml(categoryNames.length > 0 ? categoryNames.join(', ') : 'All')}</span></td>`;
+            if (['admin', 'manager'].includes(currentUser.role)) html += `<td><span class="langs-cell">${escapeHtml(teamName)}</span></td>`;
             if (supportEmails.length > 0) {
                 const userEmails = u.allowed_emails || [];
-                html += `<td><span class="langs-cell">${userEmails.length > 0 ? userEmails.length + ' email(s)' : '-'}</span></td>`;
+                html += `<td><span class="langs-cell">${escapeHtml(userEmails.length > 0 ? userEmails.length + ' email(s)' : '-')}</span></td>`;
             }
             html += '<td>';
-            const pagePermsEdit = pagePerms.users?.edit;
-            const pagePermsDel = pagePerms.users?.delete;
-            if (canEditUser(u)) html += `<button class="action-btn" onclick="openEditUserModal('${u.email}')" ${!pagePermsEdit ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Edit</button>`;
-            if (canDeleteUser(u)) html += `<button class="action-btn delete" onclick="deleteUser('${u.email}')" ${!pagePermsDel ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Delete</button>`;
+            if (canEditUser(u)) html += `<button class="action-btn" onclick="openEditUserModal('${escapeHtml(u.email)}')")>Edit</button>`;
+            if (canDeleteUser(u)) html += `<button class="action-btn delete" onclick="deleteUser('${escapeHtml(u.email)}')")>Delete</button>`;
             html += '</td></tr>';
         });
 
@@ -889,45 +846,7 @@
     function removeNewEmail(email) { newEmails = newEmails.filter(e => e !== email); renderNewEmailsList(); }
     function removeEditEmail(email) { editEmails = editEmails.filter(e => e !== email); renderEditEmailsList(); }
 
-    function renderNewPermsGrid() {
-        const container = document.getElementById('newPermsGrid');
-        let html = '';
-        for (const [pageKey, pageData] of Object.entries(PAGE_PERMISSIONS)) {
-            if (!newPagePerms[pageKey]) newPagePerms[pageKey] = {};
-            html += `<div style="display: grid; grid-template-columns: 150px 80px 80px 80px 80px; gap: 10px; margin-bottom: 8px; align-items: center;">
-                <div style="font-size: 14px; font-weight: 500;">${pageData.label}</div>`;
-            for (const action of pageData.actions) {
-                const checked = newPagePerms[pageKey][action] || false;
-                html += `<label style="text-align: center; margin: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-                    <input type="checkbox" ${checked ? 'checked' : ''} 
-                        onchange="newPagePerms['${pageKey}']['${action}'] = this.checked" 
-                        style="cursor: pointer;">
-                </label>`;
-            }
-            html += `</div>`;
-        }
-        container.innerHTML = html;
-    }
-
-    function renderEditPermsGrid() {
-        const container = document.getElementById('editPermsGrid');
-        let html = '';
-        for (const [pageKey, pageData] of Object.entries(PAGE_PERMISSIONS)) {
-            if (!editPagePerms[pageKey]) editPagePerms[pageKey] = {};
-            html += `<div style="display: grid; grid-template-columns: 150px 80px 80px 80px 80px; gap: 10px; margin-bottom: 8px; align-items: center;">
-                <div style="font-size: 14px; font-weight: 500;">${pageData.label}</div>`;
-            for (const action of pageData.actions) {
-                const checked = editPagePerms[pageKey][action] || false;
-                html += `<label style="text-align: center; margin: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-                    <input type="checkbox" ${checked ? 'checked' : ''} 
-                        onchange="editPagePerms['${pageKey}']['${action}'] = this.checked" 
-                        style="cursor: pointer;">
-                </label>`;
-            }
-            html += `</div>`;
-        }
-        container.innerHTML = html;
-    }
+    // Permissions are now role-based only (removed per-user granular permissions)
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  OPEN / CLOSE MODALS
@@ -953,7 +872,6 @@
         document.querySelectorAll('#newCategories input').forEach(i => i.checked = false);
         renderNewTeamsList();
         renderNewEmailsList();
-        renderNewPermsGrid();
         updateRoleInfo();
         document.getElementById('addUserModal').classList.add('show');
     }
@@ -993,14 +911,9 @@
         editEmails = [...(user.allowed_emails || [])];
         document.getElementById('editEmailSelect').value = '';
         renderEditEmailsList();
-        
-        if (user.page_permissions) {
-            editPagePerms = JSON.parse(JSON.stringify(user.page_permissions));
-        }
 
         renderEditTeamsList();
         renderEditEmailsList();
-        renderEditPermsGrid();
         updateEditRoleInfo();
         document.getElementById('editUserModal').classList.add('show');
         disableEditFormIfReadOnly();
@@ -1052,38 +965,6 @@
                 return;
             }
         }
-        
-        let finalPagePerms = newPagePerms;
-        if (role === 'admin') {
-            finalPagePerms = {
-                tickets: { view: true, edit: true, create: true, delete: true },
-                users: { view: true, edit: true, create: true, delete: true },
-                settings: { view: true, edit: true, create: true, delete: true },
-                newsletter: { view: true, edit: true, create: true, delete: true },
-                reports: { view: true, edit: true, create: true, delete: true }
-            };
-        } else if (role === 'manager') {
-            finalPagePerms = {
-                tickets: { view: true, edit: true, create: true, delete: true },
-                users: { view: true, edit: true, create: true, delete: false },
-                settings: { view: true, edit: true, create: true, delete: false },
-                newsletter: { view: true, edit: true, create: true, delete: false },
-                reports: { view: true, edit: true, create: true, delete: false }
-            };
-        }
-
-        for (const [page, perms] of Object.entries(finalPagePerms)) {
-            if (typeof perms !== 'object') {
-                errorEl.textContent = `Invalid permissions for page: ${page}`;
-                return;
-            }
-            for (const [action, val] of Object.entries(perms)) {
-                if (typeof val !== 'boolean') {
-                    errorEl.textContent = `Invalid permission value for ${page}.${action}`;
-                    return;
-                }
-            }
-        }
 
         try {
             const res = await fetch(API_BASE + '/api/admin/users', {
@@ -1094,8 +975,7 @@
                     allowed_languages: langs,
                     allowed_categories: categories,
                     allowed_emails: emails,
-                    team_id: teamId,
-                    page_permissions: finalPagePerms
+                    team_id: teamId
                 })
             });
 
@@ -1150,38 +1030,6 @@
             }
         }
         
-        let finalPagePerms = editPagePerms;
-        if (role === 'admin') {
-            finalPagePerms = {
-                tickets: { view: true, edit: true, create: true, delete: true },
-                users: { view: true, edit: true, create: true, delete: true },
-                settings: { view: true, edit: true, create: true, delete: true },
-                newsletter: { view: true, edit: true, create: true, delete: true },
-                reports: { view: true, edit: true, create: true, delete: true }
-            };
-        } else if (role === 'manager') {
-            finalPagePerms = {
-                tickets: { view: true, edit: true, create: true, delete: true },
-                users: { view: true, edit: true, create: true, delete: false },
-                settings: { view: true, edit: true, create: true, delete: false },
-                newsletter: { view: true, edit: true, create: true, delete: false },
-                reports: { view: true, edit: true, create: true, delete: false }
-            };
-        }
-
-        for (const [page, perms] of Object.entries(finalPagePerms)) {
-            if (typeof perms !== 'object') {
-                errorEl.textContent = `Invalid permissions for page: ${page}`;
-                return;
-            }
-            for (const [action, val] of Object.entries(perms)) {
-                if (typeof val !== 'boolean') {
-                    errorEl.textContent = `Invalid permission value for ${page}.${action}`;
-                    return;
-                }
-            }
-        }
-
         try {
             const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(editingEmail)}`, {
                 method: 'PUT',
@@ -1191,8 +1039,7 @@
                     allowed_languages: langs,
                     allowed_categories: categories,
                     allowed_emails: emails,
-                    team_id: teamId,
-                    page_permissions: finalPagePerms
+                    team_id: teamId
                 })
             });
 

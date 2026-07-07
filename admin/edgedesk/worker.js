@@ -63,11 +63,6 @@ async function injectTicketIntoCache(updatedTicket, env) {
   }
 }
 __name(injectTicketIntoCache, "injectTicketIntoCache");
-var CACHE_TTL = 3e5;
-function isCacheValid(timestamp) {
-  return Date.now() - timestamp < CACHE_TTL;
-}
-__name(isCacheValid, "isCacheValid");
 function clearCache() {
   cache.settings.clear();
   cache.users.clear();
@@ -75,9 +70,6 @@ function clearCache() {
   cache.languages = null;
   cache.autoReplies = null;
   cache.emailConfig = null;
-  cache.settingsTimestamp = 0;
-  cache.usersTimestamp = 0;
-  cache.emailConfigTimestamp = 0;
 }
 __name(clearCache, "clearCache");
 
@@ -151,7 +143,7 @@ async function verifyToken(token, env) {
 __name(verifyToken, "verifyToken");
 
 async function getEmailConfig(env) {
-  if (cache.emailConfig !== null && isCacheValid(cache.emailConfigTimestamp)) {
+  if (cache.emailConfig !== null) {
     console.log("📧 EMAIL_CONFIG retrieved from cache");
     return cache.emailConfig;
   }
@@ -174,6 +166,7 @@ async function getEmailConfig(env) {
 }
 __name(getEmailConfig, "getEmailConfig");
 
+// ─── SECURE PASSWORD HASHING ────────────────────────────────
 async function sha256(m) {
   const b = new TextEncoder().encode(m);
   const h = await crypto.subtle.digest("SHA-256", b);
@@ -181,89 +174,117 @@ async function sha256(m) {
 }
 __name(sha256, "sha256");
 
-// ─── UNIFIED PERMISSION SYSTEM ──────────────────────────────
-const ACTION_MAP = {
-  'view': 'view',
-  'update': 'edit',
-  'edit': 'edit',
-  'create': 'create',
-  'delete': 'delete',
-  'comment': 'edit',
-  'reply': 'edit',
-  'assign': 'edit',
-  'send': 'create',
-  'view_all': 'view',
-  'manage_permissions': 'edit'
-};
+// Generate random salt for PBKDF2
+function generateSalt() {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  return [...salt].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+__name(generateSalt, "generateSalt");
 
-const ROLE_PERMISSIONS = {
-  admin: [
-    "tickets.view", "tickets.view_all", "tickets.update", "tickets.assign", 
-    "tickets.comment", "tickets.reply", "tickets.delete", 
-    "users.view_all", "users.edit_all", "users.manage_permissions", "users.delete", 
-    "settings.view", "settings.edit", 
-    "newsletter.view", "newsletter.send", 
-    "reports.view", "reports.view_all"
-  ],
-  manager: [
-    "tickets.view", "tickets.view_all", "tickets.update", "tickets.assign", 
-    "tickets.comment", "tickets.reply", 
-    "users.view_all", "users.edit", "users.manage_permissions", 
-    "newsletter.view", 
-    "reports.view", "reports.view_all"
-  ],
-  tl: [
-    "tickets.view", "tickets.update", "tickets.assign", 
-    "tickets.comment", "tickets.reply", 
-    "users.view_team", "users.edit", 
-    "newsletter.view", 
-    "reports.view"
-  ],
-  agent: [
-    "tickets.view", "tickets.update", "tickets.comment", "tickets.reply"
-  ]
-};
+// PBKDF2-SHA256 with salt: returns "salt$hash"
+async function hashPassword(password) {
+  const salt = generateSalt();
+  const saltBytes = new Uint8Array(salt.match(/.{1,2}/g).map(x => parseInt(x, 16)));
+  const passwordBytes = new TextEncoder().encode(password);
+  
+  const key = await crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: saltBytes, iterations: 100000, hash: "SHA-256" },
+    await crypto.subtle.importKey("raw", passwordBytes, "PBKDF2", false, ["deriveKey"]),
+    { name: "HMAC", hash: "SHA-256" },
+    true,
+    ["sign"]
+  );
+  
+  const exportedKey = await crypto.subtle.exportKey("raw", key);
+  const hashHex = [...new Uint8Array(exportedKey)].map(b => b.toString(16).padStart(2, "0")).join("");
+  return salt + "$" + hashHex;
+}
+__name(hashPassword, "hashPassword");
 
-const PERM_MAP = {
-  'tickets': {
-    'view': 'tickets.view',
-    'update': 'tickets.update',
-    'delete': 'tickets.delete',
-    'comment': 'tickets.comment',
-    'reply': 'tickets.reply',
-    'assign': 'tickets.assign'
+// Verify password against salted hash
+async function verifyPassword(password, hash) {
+  // Handle legacy sha256 hashes for migration
+  if (!hash.includes("$")) {
+    return await sha256(password) === hash;
+  }
+  
+  const [salt, storedHash] = hash.split("$");
+  if (!salt || !storedHash) return false;
+  
+  const saltBytes = new Uint8Array(salt.match(/.{1,2}/g).map(x => parseInt(x, 16)));
+  const passwordBytes = new TextEncoder().encode(password);
+  
+  try {
+    const key = await crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt: saltBytes, iterations: 100000, hash: "SHA-256" },
+      await crypto.subtle.importKey("raw", passwordBytes, "PBKDF2", false, ["deriveKey"]),
+      { name: "HMAC", hash: "SHA-256" },
+      true,
+      ["sign"]
+    );
+    
+    const exportedKey = await crypto.subtle.exportKey("raw", key);
+    const computedHash = [...new Uint8Array(exportedKey)].map(b => b.toString(16).padStart(2, "0")).join("");
+    return computedHash === storedHash;
+  } catch (e) {
+    return false;
+  }
+}
+__name(verifyPassword, "verifyPassword");
+
+// ─── SIMPLIFIED ROLE-BASED ACCESS CONTROL ──────────────────
+// Resources: tickets, users, settings, newsletter, reports
+// Actions: read (view), write (edit/create/delete)
+
+const ROLE_RESOURCES = {
+  admin: {
+    tickets: ['read', 'write'],
+    users: ['read', 'write'],
+    settings: ['read', 'write'],
+    newsletter: ['read', 'write'],
+    reports: ['read', 'write']
   },
-  'users': {
-    'view': 'users.view',
-    'edit': 'users.edit',
-    'delete': 'users.delete',
-    'view_all': 'users.view_all',
-    'manage_permissions': 'users.manage_permissions'
+  manager: {
+    tickets: ['read', 'write'],
+    users: ['read'],
+    settings: ['read'],
+    newsletter: ['read', 'write'],
+    reports: ['read', 'write']
   },
-  'settings': {
-    'view': 'settings.view',
-    'edit': 'settings.edit'
+  tl: {
+    tickets: ['read', 'write'],
+    users: ['read'],
+    newsletter: ['read'],
+    reports: ['read']
   },
-  'newsletter': {
-    'view': 'newsletter.view',
-    'send': 'newsletter.send'
-  },
-  'reports': {
-    'view': 'reports.view',
-    'view_all': 'reports.view_all'
+  agent: {
+    tickets: ['read', 'write'],
+    newsletter: [],
+    reports: [],
+    users: [],
+    settings: []
   }
 };
 
-var VALID_ROLES = Object.keys(ROLE_PERMISSIONS);
+async function hasPermission(email, resource, action, env) {
+  const user = await getUser(email, env);
+  if (!user) return false;
+  if (!['read', 'write'].includes(action)) return false;
+  
+  const resources = ROLE_RESOURCES[user.role] || {};
+  const allowed = resources[resource] || [];
+  return allowed.includes(action);
+}
+__name(hasPermission, "hasPermission");
 
 async function getUser(email, env) {
   const normalizedEmail = (email || "").toLowerCase().trim();
-  if (cache.users.has(normalizedEmail) && isCacheValid(cache.usersTimestamp)) {
+  if (cache.users.has(normalizedEmail)) {
     return cache.users.get(normalizedEmail);
   }
   try {
     const row = await env.DB.prepare(`
-            SELECT email, name, role, password_hash, allowed_languages, allowed_emails, allowed_categories, team_id, page_permissions 
+            SELECT email, name, role, password_hash, allowed_languages, allowed_emails, allowed_categories, team_id
             FROM users WHERE LOWER(email) = ?
         `).bind(normalizedEmail).first();
     if (row) {
@@ -280,9 +301,7 @@ async function getUser(email, env) {
         allowed_languages: row.allowed_languages ? JSON.parse(row.allowed_languages) : [],
         allowed_emails: row.allowed_emails ? JSON.parse(row.allowed_emails) : [],
         allowed_categories: row.allowed_categories ? JSON.parse(row.allowed_categories) : [],
-        page_permissions: row.page_permissions ? JSON.parse(row.page_permissions) : {},
-        team_id: row.team_id,
-        session_version: `v${Date.now()}`
+        team_id: row.team_id
       };
       cache.users.set(normalizedEmail, user);
       cache.usersTimestamp = Date.now();
@@ -295,28 +314,18 @@ async function getUser(email, env) {
 }
 __name(getUser, "getUser");
 
-// ─── UNIFIED CHECK ACCESS ─────────────────────────────────────
-async function checkAccess(email, page, action, env) {
-  const user = await getUser(email, env);
-  if (!user) return false;
+// ─── CHECK ACCESS (backward compatible wrapper) ──────────────
+async function checkAccess(email, resource, action, env) {
+  // Map common action names to read/write
+  const actionMap = {
+    'view': 'read', 'read': 'read',
+    'edit': 'write', 'create': 'write', 'delete': 'write',
+    'update': 'write', 'comment': 'write', 'reply': 'write',
+    'assign': 'write', 'send': 'write'
+  };
   
-  if (user.role === 'admin') return true;
-  
-  const pagePerms = user.page_permissions || {};
-  const perms = pagePerms[page] || {};
-  
-  if (Object.keys(perms).length > 0) {
-    const uiAction = ACTION_MAP[action] || action;
-    return perms[uiAction] === true;
-  }
-  
-  const permKey = PERM_MAP[page]?.[action];
-  if (permKey) {
-    return user.permissions?.includes(permKey) || false;
-  }
-  
-  const fullPermission = `${page}.${action}`;
-  return user.permissions?.includes(fullPermission) || false;
+  const mappedAction = actionMap[action] || 'read';
+  return await hasPermission(email, resource, mappedAction, env);
 }
 __name(checkAccess, "checkAccess");
 
@@ -371,7 +380,7 @@ __name(getDefaultFrom, "getDefaultFrom");
 
 async function getSetting(env, category, key) {
   const cacheKey = `${category}:${key}`;
-  if (cache.settings.has(cacheKey) && isCacheValid(cache.settingsTimestamp)) {
+  if (cache.settings.has(cacheKey)) {
     return cache.settings.get(cacheKey);
   }
   try {
@@ -412,7 +421,7 @@ async function updateSetting(env, category, key, value) {
 __name(updateSetting, "updateSetting");
 
 async function getKnownCategories(env) {
-  if (cache.categories !== null && isCacheValid(cache.settingsTimestamp)) {
+  if (cache.categories !== null) {
     return cache.categories;
   }
   const cats = /* @__PURE__ */ new Set(["unclassified"]);
@@ -433,7 +442,7 @@ async function getKnownCategories(env) {
 __name(getKnownCategories, "getKnownCategories");
 
 async function getKnownLanguages(env) {
-  if (cache.languages !== null && isCacheValid(cache.settingsTimestamp)) {
+  if (cache.languages !== null) {
     return cache.languages;
   }
   try {
@@ -702,7 +711,7 @@ async function deleteAutoReply(env, category, language) {
 __name(deleteAutoReply, "deleteAutoReply");
 
 async function getAllAutoReplies(env) {
-  if (cache.autoReplies !== null && isCacheValid(cache.settingsTimestamp)) {
+  if (cache.autoReplies !== null) {
     return cache.autoReplies;
   }
   try {
@@ -1555,14 +1564,42 @@ async function deleteCategoryData(env, cat) {
 }
 __name(deleteCategoryData, "deleteCategoryData");
 
+// ─── CORS CONFIGURATION ───────────────────────────────────────────
+async function getAllowedOrigins(env) {
+  try {
+    const origins = await getSetting(env, "system", "cors_origins");
+    if (origins) {
+      return origins.split(',').map(o => o.trim()).filter(Boolean);
+    }
+  } catch (e) {
+    console.error("Failed to load CORS origins:", e.message);
+  }
+  // Fallback defaults
+  return [
+    "https://dornori.com",
+    "https://www.dornori.com",
+    "https://dornori.github.io",
+    "https://dornori-ticketing.dornori-info.workers.dev"
+  ];
+}
+__name(getAllowedOrigins, "getAllowedOrigins");
+
+function getCorsHeaders(origin, allowedOrigins) {
+  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization"
+  };
+}
+__name(getCorsHeaders, "getCorsHeaders");
+
 // ─── WORKER HANDLER ────────────────────────────────────────────
 var worker_default = {
   async fetch(request, env, ctx) {
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization"
-    };
+    const origin = request.headers.get("Origin") || "";
+    const allowedOrigins = await getAllowedOrigins(env);
+    const corsHeaders = getCorsHeaders(origin, allowedOrigins);
     if (request.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
     const json = /* @__PURE__ */ __name((data, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }), "json");
     const url = new URL(request.url);
@@ -1977,7 +2014,7 @@ var worker_default = {
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
         const user = await getUser(email, env);
-        return json({ success: true, user: { email: user.email, name: user.name, role: user.role, page_permissions: user.page_permissions, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id } });
+        return json({ success: true, user: { email: user.email, name: user.name, role: user.role, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id } });
       }
 
       if (path === "/api/admin/user-profile" && method === "GET") {
@@ -1985,14 +2022,22 @@ var worker_default = {
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
         const user = await getUser(email, env);
-        return json({ success: true, user: { email: user.email, name: user.name, role: user.role, page_permissions: user.page_permissions, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id } });
+        return json({ success: true, user: { email: user.email, name: user.name, role: user.role, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id } });
       }
 
       // ─── LOGIN ─────────────────────────────────────────────
       if (path === "/api/admin/login" && method === "POST") {
         const { email, password } = await request.json();
         const user = await getUser((email || "").toLowerCase().trim(), env);
-        if (!user || await sha256(password) !== user.password_hash) return json({ error: "Invalid credentials" }, 401);
+        if (!user || !await verifyPassword(password, user.password_hash)) return json({ error: "Invalid credentials" }, 401);
+        
+        // Migrate legacy sha256 hashes to PBKDF2 on successful login
+        if (!user.password_hash.includes("$")) {
+          const newHash = await hashPassword(password);
+          await env.DB.prepare("UPDATE users SET password_hash = ? WHERE email = ?")
+            .bind(newHash, user.email).run();
+        }
+        
         const token = await generateToken(user.email, env);
         const online = await getAgentsOnlineCount(env);
         if (online === 0) {
@@ -2000,7 +2045,7 @@ var worker_default = {
           await setTicketCache(allTickets);
         }
         await setAgentsOnlineCount(env, online + 1);
-        return json({ success: true, token, user: { email: user.email, name: user.name, role: user.role, page_permissions: user.page_permissions, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id } });
+        return json({ success: true, token, user: { email: user.email, name: user.name, role: user.role, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id } });
       }
 
       // ─── LOGOUT ────────────────────────────────────────────
@@ -2024,20 +2069,22 @@ var worker_default = {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
-        if (!await checkAccess(email, "users", "view", env)) return json({ error: "Permission denied" }, 403);
-        const users = await env.DB.prepare("SELECT email, name, role, allowed_languages, allowed_emails, allowed_categories, team_id, page_permissions FROM users ORDER BY email").all();
-        return json({ success: true, users: (users.results || []).map((u) => ({ email: u.email, name: u.name, role: u.role, allowed_languages: JSON.parse(u.allowed_languages || "[]"), allowed_emails: JSON.parse(u.allowed_emails || "[]"), allowed_categories: JSON.parse(u.allowed_categories || "[]"), team_id: u.team_id, page_permissions: JSON.parse(u.page_permissions || "{}") })) });
+        if (!await checkAccess(email, "users", "read", env)) return json({ error: "Permission denied" }, 403);
+        const users = await env.DB.prepare("SELECT email, name, role, allowed_languages, allowed_emails, allowed_categories, team_id FROM users ORDER BY email").all();
+        return json({ success: true, users: (users.results || []).map((u) => ({ email: u.email, name: u.name, role: u.role, allowed_languages: JSON.parse(u.allowed_languages || "[]"), allowed_emails: JSON.parse(u.allowed_emails || "[]"), allowed_categories: JSON.parse(u.allowed_categories || "[]"), team_id: u.team_id })) });
       }
 
       if (path === "/api/admin/users" && method === "POST") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
-        if (!await checkAccess(email, "users", "create", env)) return json({ error: "Permission denied" }, 403);
-        const { email: newEmail, name, password, role, allowed_languages, allowed_emails, allowed_categories, team_id, page_permissions } = await request.json();
-        if (!newEmail || !name || !password) return json({ error: "Missing required fields" }, 400);
+        if (!await checkAccess(email, "users", "write", env)) return json({ error: "Permission denied" }, 403);
+        const { email: newEmail, name, password, role, allowed_languages, allowed_emails, allowed_categories, team_id } = await request.json();
+        if (!newEmail || !name || !password || !role) return json({ error: "Missing required fields" }, 400);
+        if (!VALID_ROLES.includes(role)) return json({ error: "Invalid role" }, 400);
         try {
-          await env.DB.prepare("INSERT INTO users (email, name, role, password_hash, allowed_languages, allowed_emails, allowed_categories, team_id, page_permissions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(newEmail.toLowerCase().trim(), name, role || "agent", await sha256(password), JSON.stringify(allowed_languages || []), JSON.stringify(allowed_emails || []), JSON.stringify(allowed_categories || []), team_id || null, JSON.stringify(page_permissions || {})).run();
+          const passwordHash = await hashPassword(password);
+          await env.DB.prepare("INSERT INTO users (email, name, role, password_hash, allowed_languages, allowed_emails, allowed_categories, team_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(newEmail.toLowerCase().trim(), name, role, passwordHash, JSON.stringify(allowed_languages || []), JSON.stringify(allowed_emails || []), JSON.stringify(allowed_categories || []), team_id || null).run();
           clearCache();
           return json({ success: true });
         } catch (e) {
@@ -2049,10 +2096,11 @@ var worker_default = {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
-        if (!await checkAccess(email, "users", "edit", env)) return json({ error: "Permission denied" }, 403);
+        if (!await checkAccess(email, "users", "write", env)) return json({ error: "Permission denied" }, 403);
         const userEmail = decodeURIComponent(path.split("/")[4]);
-        const { name, role, allowed_languages, allowed_emails, allowed_categories, team_id, page_permissions } = await request.json();
-        await env.DB.prepare("UPDATE users SET name = ?, role = ?, allowed_languages = ?, allowed_emails = ?, allowed_categories = ?, team_id = ?, page_permissions = ? WHERE email = ?").bind(name, role, JSON.stringify(allowed_languages || []), JSON.stringify(allowed_emails || []), JSON.stringify(allowed_categories || []), team_id || null, JSON.stringify(page_permissions || {}), userEmail).run();
+        const { name, role, allowed_languages, allowed_emails, allowed_categories, team_id } = await request.json();
+        if (role && !VALID_ROLES.includes(role)) return json({ error: "Invalid role" }, 400);
+        await env.DB.prepare("UPDATE users SET name = ?, role = ?, allowed_languages = ?, allowed_emails = ?, allowed_categories = ?, team_id = ? WHERE email = ?").bind(name, role, JSON.stringify(allowed_languages || []), JSON.stringify(allowed_emails || []), JSON.stringify(allowed_categories || []), team_id || null, userEmail).run();
         clearCache();
         return json({ success: true });
       }
@@ -2061,7 +2109,7 @@ var worker_default = {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
-        if (!await checkAccess(email, "users", "delete", env)) return json({ error: "Permission denied" }, 403);
+        if (!await checkAccess(email, "users", "write", env)) return json({ error: "Permission denied" }, 403);
         await env.DB.prepare("DELETE FROM users WHERE email = ?").bind(decodeURIComponent(path.split("/")[4])).run();
         clearCache();
         return json({ success: true });
