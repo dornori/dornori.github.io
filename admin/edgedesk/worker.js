@@ -337,6 +337,58 @@ async function checkAccess(email, resource, action, env) {
 }
 __name(checkAccess, "checkAccess");
 
+// ─── LOGIN RATE LIMITING (persisted in KV, survives isolate restarts) ─────
+const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS = 5 * 60 * 1000;
+
+async function isLoginRateLimited(key, env) {
+  if (!env.KV) {
+    const entry = cache.loginAttempts.get(key);
+    if (!entry) return false;
+    if (Date.now() - entry.first > LOGIN_WINDOW_MS) {
+      cache.loginAttempts.delete(key);
+      return false;
+    }
+    return entry.count >= LOGIN_MAX_ATTEMPTS;
+  }
+  const raw = await env.KV.get(`login_rl_${key}`);
+  if (!raw) return false;
+  const entry = JSON.parse(raw);
+  if (Date.now() - entry.first > LOGIN_WINDOW_MS) return false;
+  return entry.count >= LOGIN_MAX_ATTEMPTS;
+}
+__name(isLoginRateLimited, "isLoginRateLimited");
+
+async function recordFailedLogin(key, env) {
+  if (!env.KV) {
+    const entry = cache.loginAttempts.get(key);
+    if (!entry || Date.now() - entry.first > LOGIN_WINDOW_MS) {
+      cache.loginAttempts.set(key, { count: 1, first: Date.now() });
+    } else {
+      entry.count += 1;
+    }
+    return;
+  }
+  const raw = await env.KV.get(`login_rl_${key}`);
+  let entry = raw ? JSON.parse(raw) : null;
+  if (!entry || Date.now() - entry.first > LOGIN_WINDOW_MS) {
+    entry = { count: 1, first: Date.now() };
+  } else {
+    entry.count += 1;
+  }
+  await env.KV.put(`login_rl_${key}`, JSON.stringify(entry), { expirationTtl: Math.ceil(LOGIN_WINDOW_MS / 1000) });
+}
+__name(recordFailedLogin, "recordFailedLogin");
+
+async function clearFailedLogins(key, env) {
+  if (!env.KV) {
+    cache.loginAttempts.delete(key);
+    return;
+  }
+  await env.KV.delete(`login_rl_${key}`);
+}
+__name(clearFailedLogins, "clearFailedLogins");
+
 // ─── SANITIZATION FUNCTIONS ─────────────────────────────────
 function sanitizeSubject(text) {
   if (!text) return "";
@@ -998,35 +1050,33 @@ function generateTicketNumber() {
 }
 __name(generateTicketNumber, "generateTicketNumber");
 
-// ─── FIXED: computeSlaStatus with proper grace periods ──────────
 function computeSlaStatus(ticket, graceMap = {}) {
   if (!ticket) return "on_track";
   if (!ticket.sla_response_due || !ticket.sla_resolution_due) return "on_track";
-  
-  const now = new Date();
-  const rd = new Date(ticket.sla_response_due);
-  const rld = new Date(ticket.sla_resolution_due);
-  
+  const now = /* @__PURE__ */ new Date();
+  const rd = new Date(ticket.sla_response_due), rld = new Date(ticket.sla_resolution_due);
+
   const cat = ticket.category || "unclassified";
   const grace = graceMap[cat] || { resolvedGraceHours: 0, closedGraceHours: 0 };
-  const resolvedGraceMs = (grace.resolvedGraceHours || 0) * 60 * 60 * 1000;
-  const closedGraceMs = (grace.closedGraceHours || 0) * 60 * 60 * 1000;
-  
-  // For resolved tickets, check if within grace period
+  const resolvedGracePeriod = (grace.resolvedGraceHours || 0) * 60 * 60 * 1000;
+  const closedGracePeriod = (grace.closedGraceHours || 0) * 60 * 60 * 1000;
+
+  // Grace periods apply from when the ticket entered the resolved/closed
+  // state (updated_at), not from the original resolution due date.
+  const transitionedAt = ticket.updated_at ? new Date(ticket.updated_at) : rld;
+
   if (ticket.status === "resolved") {
-    const resolvedAt = ticket.updated_at ? new Date(ticket.updated_at) : rld;
-    const graceEnd = new Date(resolvedAt.getTime() + resolvedGraceMs);
-    return now > graceEnd ? "breached" : "on_track";
+    const resolutionGrace = new Date(transitionedAt.getTime() + resolvedGracePeriod);
+    if (now > resolutionGrace) return "breached";
+    return "on_track";
   }
-  
-  // For closed tickets, check if within grace period
+
   if (ticket.status === "closed") {
-    const closedAt = ticket.updated_at ? new Date(ticket.updated_at) : rld;
-    const graceEnd = new Date(closedAt.getTime() + closedGraceMs);
-    return now > graceEnd ? "breached" : "on_track";
+    const closureGrace = new Date(transitionedAt.getTime() + closedGracePeriod);
+    if (now > closureGrace) return "breached";
+    return "on_track";
   }
-  
-  // For active tickets
+
   if (now > rld) return "breached";
   if (now > rd) return "at_risk";
   return "on_track";
@@ -1734,7 +1784,7 @@ var worker_default = {
         return json(await res.json());
       }
 
-      // ─── RELEASE LOCK ──────────────────────────────────────
+      // ─── RELEASE LOCK (was /unlock - renamed to avoid adblockers) ──
       if (path.startsWith("/api/admin/ticket/") && path.includes("/release") && method === "POST") {
         let token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         if (!token) {
@@ -2088,44 +2138,17 @@ var worker_default = {
         return json({ success: true, user: { email: user.email, name: user.name, role: user.role, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id, page_permissions: user.page_permissions || {}, effective_permissions: buildEffectivePermissions(user) } });
       }
 
-      // ─── FIXED: LOGIN with DO rate limiting ─────────────────────────────────────────────
+// ─── LOGIN ─────────────────────────────────────────────
       if (path === "/api/admin/login" && method === "POST") {
         const { email, password } = await request.json();
-        const normalizedEmail = (email || "").toLowerCase().trim();
-        
-        // Get DO stub for rate limiting
-        const hubId = env.TICKET_HUB.idFromName("global");
-        const stub = env.TICKET_HUB.get(hubId);
-        
-        // Check rate limit via DO
-        const rateLimitCheck = await stub.fetch("https://ticket-hub/rate-limit-check", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: normalizedEmail })
-        });
-        const rateLimitData = await rateLimitCheck.json();
-        
-        if (rateLimitData.limited) {
-          return json({ error: "Too many login attempts. Try again later." }, 429);
-        }
-        
-        const user = await getUser(normalizedEmail, env);
+        const rateLimitKey = (email || "").toLowerCase().trim();
+        if (await isLoginRateLimited(rateLimitKey, env)) return json({ error: "Too many login attempts. Try again later." }, 429);
+        const user = await getUser(rateLimitKey, env);
         if (!user || await sha256(password) !== user.password_hash) {
-          // Record failed attempt via DO
-          await stub.fetch("https://ticket-hub/rate-limit-record", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: normalizedEmail })
-          });
+          await recordFailedLogin(rateLimitKey, env);
           return json({ error: "Invalid credentials" }, 401);
         }
-        
-        // Clear attempts on success
-        await stub.fetch("https://ticket-hub/rate-limit-clear", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: normalizedEmail })
-        });
+        await clearFailedLogins(rateLimitKey, env);
         
         const token = await generateToken(user.email, env);
         const online = await getAgentsOnlineCount(env);
@@ -2134,21 +2157,7 @@ var worker_default = {
           await setTicketCache(allTickets);
         }
         await setAgentsOnlineCount(env, online + 1);
-        return json({ 
-          success: true, 
-          token, 
-          user: { 
-            email: user.email, 
-            name: user.name, 
-            role: user.role, 
-            allowed_languages: user.allowed_languages, 
-            allowed_emails: user.allowed_emails, 
-            allowed_categories: user.allowed_categories, 
-            team_id: user.team_id, 
-            page_permissions: user.page_permissions || {}, 
-            effective_permissions: buildEffectivePermissions(user) 
-          } 
-        });
+        return json({ success: true, token, user: { email: user.email, name: user.name, role: user.role, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id, page_permissions: user.page_permissions || {}, effective_permissions: buildEffectivePermissions(user) } });
       }
 
       // ─── LOGOUT ────────────────────────────────────────────
@@ -2326,6 +2335,8 @@ var worker_default = {
         const { assigned_to } = await request.json();
         const existingTicket = await getTicket(id, env);
         const oldAssignee = existingTicket ? existingTicket.assigned_to : null;
+        // Any agent may self-assign an unassigned ticket by opening it;
+        // reassigning to someone else still requires tl/manager/admin.
         const isSelfAssign = assigned_to === userEmail && !oldAssignee;
         const isPrivileged = requester && ["tl", "manager", "admin"].includes(requester.role);
         if (!requester || !(isPrivileged || isSelfAssign)) return json({ error: "Permission denied" }, 403);
@@ -2534,55 +2545,8 @@ var TicketHub = class {
     }
   }
 
-  // ─── RATE LIMITING METHODS ──────────────────────────────────
-  async isLoginRateLimited(email) {
-    const key = `login_rl_${email}`;
-    const entry = await this.state.storage.get(key);
-    if (!entry) return false;
-    if (Date.now() - entry.first > 5 * 60 * 1000) {
-      await this.state.storage.delete(key);
-      return false;
-    }
-    return entry.count >= 5;
-  }
-
-  async recordFailedLogin(email) {
-    const key = `login_rl_${email}`;
-    const raw = await this.state.storage.get(key);
-    let entry = raw ? JSON.parse(raw) : null;
-    if (!entry || Date.now() - entry.first > 5 * 60 * 1000) {
-      entry = { count: 1, first: Date.now() };
-    } else {
-      entry.count += 1;
-    }
-    await this.state.storage.put(key, JSON.stringify(entry), { expirationTtl: 300 });
-  }
-
-  async clearFailedLogins(email) {
-    await this.state.storage.delete(`login_rl_${email}`);
-  }
-
   async fetch(request) {
     const url = new URL(request.url);
-    
-    // ─── RATE LIMITING HANDLERS ─────────────────────────────
-    if (request.method === "POST" && url.pathname === "/rate-limit-check") {
-      const body = await request.json();
-      const limited = await this.isLoginRateLimited(body.email);
-      return new Response(JSON.stringify({ limited }));
-    }
-    if (request.method === "POST" && url.pathname === "/rate-limit-record") {
-      const body = await request.json();
-      await this.recordFailedLogin(body.email);
-      return new Response(JSON.stringify({ success: true }));
-    }
-    if (request.method === "POST" && url.pathname === "/rate-limit-clear") {
-      const body = await request.json();
-      await this.clearFailedLogins(body.email);
-      return new Response(JSON.stringify({ success: true }));
-    }
-
-    // ─── BROADCAST ───────────────────────────────────────────
     if (request.method === "POST" && url.pathname === "/broadcast") {
       const notification = await request.text();
       let ticket = {};
@@ -2629,7 +2593,7 @@ var TicketHub = class {
       return new Response(JSON.stringify({ lockedTickets }));
     }
 
-    // ─── CHECK LOCK ──────────────────────────────────────────────
+    // ─── CHECK LOCK (was /lock-check - renamed to avoid adblockers) ──
     if (request.method === "POST" && url.pathname === "/check-lock") {
       let body = {};
       try {
@@ -2694,7 +2658,7 @@ var TicketHub = class {
       return new Response(JSON.stringify({ success: true }));
     }
 
-    // ─── RELEASE ──────────────────────────────────────────────
+    // ─── RELEASE (was /unlock - renamed to avoid adblockers) ──
     if (request.method === "POST" && url.pathname === "/release") {
       let body = {};
       try {
@@ -2721,7 +2685,6 @@ var TicketHub = class {
       return new Response(JSON.stringify({ success: true }));
     }
 
-    // ─── WEBSOCKET CONNECT ────────────────────────────────────
     if (url.pathname === "/connect" && request.headers.get("Upgrade") === "websocket") {
       const role = url.searchParams.get("role") || "agent";
       const email = url.searchParams.get("email") || "";
