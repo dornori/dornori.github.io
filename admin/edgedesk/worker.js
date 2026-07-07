@@ -201,34 +201,9 @@ async function hashPassword(password) {
 }
 __name(hashPassword, "hashPassword");
 
-// Verify password against salted hash
+// Verify password - SHA256 only
 async function verifyPassword(password, hash) {
-  // Handle legacy sha256 hashes for migration
-  if (!hash.includes("$")) {
-    return await sha256(password) === hash;
-  }
-  
-  const [salt, storedHash] = hash.split("$");
-  if (!salt || !storedHash) return false;
-  
-  const saltBytes = new Uint8Array(salt.match(/.{1,2}/g).map(x => parseInt(x, 16)));
-  const passwordBytes = new TextEncoder().encode(password);
-  
-  try {
-    const key = await crypto.subtle.deriveKey(
-      { name: "PBKDF2", salt: saltBytes, iterations: 100000, hash: "SHA-256" },
-      await crypto.subtle.importKey("raw", passwordBytes, "PBKDF2", false, ["deriveKey"]),
-      { name: "HMAC", hash: "SHA-256" },
-      true,
-      ["sign"]
-    );
-    
-    const exportedKey = await crypto.subtle.exportKey("raw", key);
-    const computedHash = [...new Uint8Array(exportedKey)].map(b => b.toString(16).padStart(2, "0")).join("");
-    return computedHash === storedHash;
-  } catch (e) {
-    return false;
-  }
+  return await sha256(password) === hash;
 }
 __name(verifyPassword, "verifyPassword");
 
@@ -2029,14 +2004,7 @@ var worker_default = {
       if (path === "/api/admin/login" && method === "POST") {
         const { email, password } = await request.json();
         const user = await getUser((email || "").toLowerCase().trim(), env);
-        if (!user || !await verifyPassword(password, user.password_hash)) return json({ error: "Invalid credentials" }, 401);
-        
-        // Migrate legacy sha256 hashes to PBKDF2 on successful login
-        if (!user.password_hash.includes("$")) {
-          const newHash = await hashPassword(password);
-          await env.DB.prepare("UPDATE users SET password_hash = ? WHERE email = ?")
-            .bind(newHash, user.email).run();
-        }
+        if (!user || await sha256(password) !== user.password_hash) return json({ error: "Invalid credentials" }, 401);
         
         const token = await generateToken(user.email, env);
         const online = await getAgentsOnlineCount(env);
@@ -2083,7 +2051,7 @@ var worker_default = {
         if (!newEmail || !name || !password || !role) return json({ error: "Missing required fields" }, 400);
         if (!VALID_ROLES.includes(role)) return json({ error: "Invalid role" }, 400);
         try {
-          const passwordHash = await hashPassword(password);
+          const passwordHash = await sha256(password);
           await env.DB.prepare("INSERT INTO users (email, name, role, password_hash, allowed_languages, allowed_emails, allowed_categories, team_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(newEmail.toLowerCase().trim(), name, role, passwordHash, JSON.stringify(allowed_languages || []), JSON.stringify(allowed_emails || []), JSON.stringify(allowed_categories || []), team_id || null).run();
           clearCache();
           return json({ success: true });
