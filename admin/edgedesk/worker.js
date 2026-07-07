@@ -1027,8 +1027,8 @@ __name(generateTicketNumber, "generateTicketNumber");
 
 function computeSlaStatus(ticket) {
   if (!ticket) return "on_track";
-  if (ticket.status === "resolved" || ticket.status === "closed") return ticket.sla_status || "on_track";
-  if (!ticket.sla_response_due || !ticket.sla_resolution_due) return ticket.sla_status || "on_track";
+  if (["resolved", "closed"].includes(ticket.status)) return "paused";
+  if (!ticket.sla_response_due || !ticket.sla_resolution_due) return "on_track";
   const now = /* @__PURE__ */ new Date();
   const rd = new Date(ticket.sla_response_due), rld = new Date(ticket.sla_resolution_due);
   if (now > rld) return "breached";

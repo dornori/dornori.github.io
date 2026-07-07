@@ -20,7 +20,7 @@
 
     <div id="dashboard" style="display:none;">
         <div class="header">
-            <h1>🎫 Dornori Ticketing <span id="wsIndicator" style="font-size:12px;font-weight:400;color:var(--text-muted);"></span></h1>
+            <h1>🎫 Dornori Ticketing</h1>
             <div class="header-right">
                 <div class="nav-links">
                     <a id="nav-reports" href="reports.html">📊 <span>Reports</span></a>
@@ -29,7 +29,8 @@
                     <a id="nav-users" href="users.html">👥 <span>Users</span></a>
                 </div>
                 <div class="nav-actions">
-                    <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+                    <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+                    <span id="wsIndicator" style="font-size:12px;font-weight:400;color:var(--text-muted);min-width:50px;text-align:center;"></span>
                     <div id="userDisplay"></div>
                     <button class="btn-logout" onclick="logout()">Logout</button>
                 </div>
@@ -67,6 +68,10 @@
                 <option value="50">50 / page</option>
                 <option value="100">100 / page</option>
             </select>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;white-space:nowrap;">
+                <input type="checkbox" id="filterAssignedToMe" onchange="resetAndLoad()" style="cursor:pointer;" />
+                <span style="font-size:13px;">Assigned to Me</span>
+            </label>
             <button class="btn-refresh" onclick="resetAndLoad()">⟳ Refresh</button>
         </div>
 
@@ -457,6 +462,7 @@
     window.addEventListener('load', async function() {
         const savedTheme = localStorage.getItem('theme') || 'light';
         document.documentElement.setAttribute('data-theme', savedTheme);
+        updateThemeButtonIcon(savedTheme);
         
         const savedToken = localStorage.getItem('token');
         const savedUser = localStorage.getItem('user');
@@ -531,7 +537,16 @@
 
     function toggleTheme() {
         const current = document.documentElement.getAttribute('data-theme') || 'light';
-        setTheme(current === 'light' ? 'dark' : 'light');
+        const newTheme = current === 'light' ? 'dark' : 'light';
+        setTheme(newTheme);
+        updateThemeButtonIcon(newTheme);
+    }
+    
+    function updateThemeButtonIcon(theme) {
+        const btn = document.querySelector('.theme-toggle');
+        if (btn) {
+            btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -785,6 +800,7 @@
         var language = document.getElementById("filterLanguage").value;
         var sort = document.getElementById("filterSort").value;
         var search = document.getElementById("filterSearch").value.trim();
+        var assignedToMe = document.getElementById("filterAssignedToMe").checked;
         var statuses = getStatusesForTab(currentTab);
 
         var url = API_BASE + "/api/admin/tickets?page=" + currentPage + "&limit=" + currentLimit;
@@ -795,6 +811,7 @@
         if (language) url += "&language=" + encodeURIComponent(language);
         if (sort) url += "&sort=" + encodeURIComponent(sort);
         if (search) url += "&search=" + encodeURIComponent(search);
+        if (assignedToMe && currentUser && currentUser.email) url += "&assigned_to=" + encodeURIComponent(currentUser.email);
 
         try {
             var res = await fetch(url, { headers: { "Authorization": "Bearer " + token } });
@@ -840,6 +857,7 @@
             '<span>Category</span>' +
             '<span>Requester</span>' +
             '<span>Subject</span>' +
+            '<span>Assigned To</span>' +
             '<span>Last Updated</span>' +
             '<span>Updated By</span>' +
             '</div>';
@@ -864,6 +882,7 @@
                 '<span class="cat-cell"><span class="cat-dot" style="background:' + catColor + ';"></span><span class="cat-name">' + escapeHtml(catLabel) + '</span></span>' +
                 '<span class="email" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;">' + (t.sender_email || "") + '</span>' +
                 '<span class="subject" title="' + escapeHtml(subjectText) + '">' + escapeHtml(truncatedSubject) + '</span>' +
+                '<span style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(t.assigned_to || '—') + '</span>' +
                 '<span style="font-size:12px;color:var(--text-muted);">' + formatDate(actionDate) + '</span>' +
                 '<span style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(updatedBy) + '</span>' +
                 lockBadge +
@@ -1252,6 +1271,7 @@
                     <div class="meta-item"><span class="meta-label">Company</span><span class="meta-value">${escapeHtml(ticketCompany)}</span></div>
                     <div class="meta-item"><span class="meta-label">Source</span><span class="meta-value">${sourceLabel}</span></div>
                     <div class="meta-item"><span class="meta-label">Order Number</span><span class="meta-value">${orderNum}</span></div>
+                    <div class="meta-item"><span class="meta-label">Assigned To</span><span class="meta-value">${escapeHtml(ticket.assigned_to || '—')}</span></div>
                     <div class="meta-item"><span class="meta-label">Created</span><span class="meta-value">${formatDate(ticket.created_at)}</span></div>
                     <div class="meta-item"><span class="meta-label">Updated By</span><span class="meta-value">${ticket.last_updated_by ? (ticket.last_updated_by === ticket.sender_email ? '👤 Customer (' + escapeHtml(ticket.last_updated_by) + ')' : escapeHtml(ticket.last_updated_by)) : '—'}</span></div>
                     <div class="meta-item"><span class="meta-label">Last Updated</span><span class="meta-value">${formatDate(ticket.updated_at || ticket.last_action || ticket.created_at)}</span></div>
