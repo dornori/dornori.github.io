@@ -91,9 +91,9 @@
         <div class="header-right">
                 <div class="nav-links">
                     <a id="nav-dashboard" href="dashboard.html">🎫 <span>Dashboard</span></a>
-                    <a id="nav-reports" href="reports.html" style="display:none;">📊 <span>Reports</span></a>
-                    <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 <span>Newsletter</span></a>
-                    <a id="nav-settings" href="settings.html" style="display:none;">⚙️ <span>Settings</span></a>
+                    <a id="nav-reports" href="reports.html">📊 <span>Reports</span></a>
+                    <a id="nav-newsletter" href="newsletter.html">📧 <span>Newsletter</span></a>
+                    <a id="nav-settings" href="settings.html">⚙️ <span>Settings</span></a>
                     <a id="nav-users" href="users.html" style="display:none;">👥 <span>Users</span></a>
                 </div>
                 <div class="nav-actions">
@@ -324,33 +324,39 @@
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     let currentUser = storedUser ? JSON.parse(storedUser) : null;
-    
-    // ─── ROLE-BASED PERMISSION CHECKS ────────────────────────────
+
+    // ─── PERMISSION CHECKS (role default + per-user page_permissions override) ───
     // Resources: tickets, users, settings, newsletter, reports
-    // Actions: read, write (edit/create/delete)
     const ROLE_RESOURCES = {
         admin: { tickets: ['read', 'write'], users: ['read', 'write'], settings: ['read', 'write'], newsletter: ['read', 'write'], reports: ['read', 'write'] },
         manager: { tickets: ['read', 'write'], users: ['read'], newsletter: ['read', 'write'], reports: ['read', 'write'] },
         tl: { tickets: ['read', 'write'], users: ['read'] },
         agent: { tickets: ['read', 'write'] }
     };
+    const FINE_TO_COARSE = { view: 'read', read: 'read', edit: 'write', create: 'write', delete: 'write', write: 'write' };
 
     function hasPermission(resource, action) {
         if (!currentUser) return false;
+        if (currentUser.role === 'admin') return true;
+        const override = currentUser.page_permissions?.[resource];
+        if (override && typeof override[action] === 'boolean') return override[action];
+        const coarse = FINE_TO_COARSE[action] || action;
         const resources = ROLE_RESOURCES[currentUser.role] || {};
         const allowed = resources[resource] || [];
-        return allowed.includes(action);
+        return allowed.includes(coarse);
     }
 
+    function hasPageAccess(page) { return hasPermission(page, 'view') || hasPermission(page, 'read'); }
+
     const isAdmin = currentUser && currentUser.role === 'admin';
-    const canManageUsers = isAdmin || hasPermission('users', 'write');
-    
-    if (!token || !currentUser || (!isAdmin && !hasPermission('users', 'read'))) {
+    const hasUsersAccess = isAdmin || hasPermission('users', 'read');
+
+    if (!token || !currentUser || !hasUsersAccess) {
         document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to manage users.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
         throw new Error('Users access required');
     }
 
-    // Refresh user role from the server
+    // Refresh user role & permissions from the server
     (async function refreshCurrentUser() {
         try {
             const res = await fetch(API_BASE + '/api/admin/me', { headers: { Authorization: 'Bearer ' + token } });
@@ -358,23 +364,34 @@
             const data = await res.json();
             if (data.success && data.user) {
                 currentUser.role = data.user.role;
+                currentUser.page_permissions = data.user.page_permissions || {};
                 currentUser.allowed_languages = data.user.allowed_languages || [];
                 currentUser.allowed_emails = data.user.allowed_emails || [];
                 currentUser.allowed_categories = data.user.allowed_categories || [];
                 currentUser.team_id = data.user.team_id || null;
+                localStorage.setItem('user', JSON.stringify(currentUser));
                 if (currentUser.role !== 'admin' && !hasPermission('users', 'read')) {
                     window.location.href = 'dashboard.html';
                     return;
                 }
+                updateNav();
                 if (typeof loadData === 'function') loadData();
             }
         } catch (e) { /* keep last-known role on failure */ }
     })();
-    
-    // Show nav buttons based on role
-    if (hasPermission('reports', 'read')) document.getElementById('nav-reports').style.display = '';
-    if (hasPermission('newsletter', 'read')) document.getElementById('nav-newsletter').style.display = '';
-    if (hasPermission('settings', 'read')) document.getElementById('nav-settings').style.display = '';
+
+    // Grey out (don't hide) nav items the user can't access
+    function updateNav() {
+        ['nav-reports', 'nav-newsletter', 'nav-settings'].forEach(id => {
+            const page = id.replace('nav-', '');
+            const el = document.getElementById(id);
+            if (!el) return;
+            const allowed = hasPageAccess(page);
+            el.classList.toggle('nav-disabled', !allowed);
+            if (!allowed) el.addEventListener('click', e => e.preventDefault());
+        });
+    }
+    updateNav();
 
     let allUsers = [];
     let supportEmails = [];
@@ -537,7 +554,9 @@
     }
 
     function renderUI() {
-        document.getElementById('addUserBtn').style.display = canCreateUser() ? 'block' : 'none';
+        const addBtn = document.getElementById('addUserBtn');
+        addBtn.disabled = !canCreateUser();
+        addBtn.classList.toggle('action-disabled', !canCreateUser());
         populateEmailSelect('newEmailSelect');
         populateEmailSelect('editEmailSelect');
         renderTeamSelect('newTeamId');
@@ -547,22 +566,16 @@
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PERMISSION CHECKS
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function canManageUsers() {
-        if (!currentUser) return false;
-        if (['admin', 'manager', 'tl'].includes(currentUser.role)) return true;
-        return hasPageAccess('users');
-    }
-
-    function canCreateUsers() {
-        if (!currentUser) return false;
-        return ['admin', 'manager'].includes(currentUser.role) || canCreateUser();
-    }
+    function canManageUsers() { return hasPageAccess('users'); }
+    function canCreateUser() { return hasPermission('users', 'create') || hasPermission('users', 'write'); }
+    function canEditUserAction() { return hasPermission('users', 'edit') || hasPermission('users', 'write'); }
+    function canDeleteUserAction() { return hasPermission('users', 'delete') || hasPermission('users', 'write'); }
 
     function canEditUser(targetUser) {
         if (!currentUser) return false;
         if (targetUser.email === 'admin@dornori.com' && currentUser.role !== 'admin') return false;
-        if (!hasPermission('users', 'write')) return false;
         if (currentUser.role === 'admin') return true;
+        if (!canEditUserAction()) return false;
         if (currentUser.role === 'manager') return targetUser.role !== 'admin';
         if (currentUser.role === 'tl') return currentUser.team_id && targetUser.team_id === currentUser.team_id && targetUser.role === 'agent';
         return false;
@@ -571,8 +584,8 @@
     function canDeleteUser(targetUser) {
         if (!currentUser) return false;
         if (targetUser.email === 'admin@dornori.com') return false;
+        if (targetUser.email === currentUser.email) return false;
         if (currentUser.role === 'admin') return true;
-        if (!hasPermission('users', 'write')) return false;
         return false;
     }
 
@@ -740,8 +753,10 @@
                 html += `<td><span class="langs-cell">${escapeHtml(userEmails.length > 0 ? userEmails.length + ' email(s)' : '-')}</span></td>`;
             }
             html += '<td>';
-            if (canEditUser(u)) html += `<button class="action-btn" onclick="openEditUserModal('${escapeHtml(u.email)}')")>Edit</button>`;
-            if (canDeleteUser(u)) html += `<button class="action-btn delete" onclick="deleteUser('${escapeHtml(u.email)}')")>Delete</button>`;
+            const editAllowed = canEditUser(u);
+            const deleteAllowed = canDeleteUser(u);
+            html += `<button class="action-btn${editAllowed ? '' : ' action-disabled'}" ${editAllowed ? '' : 'disabled'} onclick="openEditUserModal('${escapeHtml(u.email)}')">Edit</button>`;
+            html += `<button class="action-btn delete${deleteAllowed ? '' : ' action-disabled'}" ${deleteAllowed ? '' : 'disabled'} onclick="deleteUser('${escapeHtml(u.email)}')">Delete</button>`;
             html += '</td></tr>';
         });
 

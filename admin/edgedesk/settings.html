@@ -344,15 +344,15 @@
         <div class="header-right">
             <div class="nav-links">
                 <a id="nav-dashboard" href="dashboard.html">🎫 <span>Dashboard</span></a>
-                <a id="nav-reports" href="reports.html" style="display:none;">📊 <span>Reports</span></a>
-                <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 <span>Newsletter</span></a>
+                <a id="nav-reports" href="reports.html">📊 <span>Reports</span></a>
+                <a id="nav-newsletter" href="newsletter.html">📧 <span>Newsletter</span></a>
                 <a id="nav-settings" href="settings.html" style="display:none;">⚙️ <span>Settings</span></a>
-                <a id="nav-users" href="users.html" style="display:none;">👥 <span>Users</span></a>
+                <a id="nav-users" href="users.html">👥 <span>Users</span></a>
             </div>
             <div class="nav-actions">
                 <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
                 <div id="userDisplay"></div>
-                <button id="purgeCacheBtn" class="btn-purge" onclick="purgeTicketCacheClick()" style="display:none;">🗑️ Purge Cache</button>
+                <button id="purgeCacheBtn" class="btn-purge" onclick="purgeTicketCacheClick()">🗑️ Purge Cache</button>
                 <button class="btn-logout" onclick="logout()">Logout</button>
             </div>
         </div>
@@ -437,11 +437,17 @@ function canDeleteSettings() {
     return pagePerms.settings?.delete === true;
 }
 
-// Show all nav buttons except current page (settings)
-if (hasPageAccess('reports'))    document.getElementById('nav-reports').style.display = '';
-if (hasPageAccess('newsletter'))  document.getElementById('nav-newsletter').style.display = '';
-if (hasPageAccess('users'))      document.getElementById('nav-users').style.display = '';
-if (canEditSettings())           document.getElementById('purgeCacheBtn').style.display = '';
+// Show all nav buttons except current page (settings); grey out ones without access
+['nav-reports','nav-newsletter','nav-users'].forEach(id => {
+    const page = id.replace('nav-', '');
+    const el = document.getElementById(id);
+    if (!el) return;
+    const allowed = hasPageAccess(page);
+    el.classList.toggle('nav-disabled', !allowed);
+    if (!allowed) el.addEventListener('click', e => e.preventDefault());
+});
+const purgeBtn = document.getElementById('purgeCacheBtn');
+if (purgeBtn) purgeBtn.disabled = !canEditSettings();
 
 // ── API ──
 async function api(path, opts = {}) {

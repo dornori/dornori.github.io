@@ -198,10 +198,10 @@
         <div class="header-right">
                 <div class="nav-links">
                     <a id="nav-dashboard" href="dashboard.html">🎫 <span>Dashboard</span></a>
-                    <a id="nav-reports" href="reports.html" style="display:none;">📊 <span>Reports</span></a>
+                    <a id="nav-reports" href="reports.html">📊 <span>Reports</span></a>
                     <a id="nav-newsletter" href="newsletter.html" style="display:none;">📧 <span>Newsletter</span></a>
-                    <a id="nav-settings" href="settings.html" style="display:none;">⚙️ <span>Settings</span></a>
-                    <a id="nav-users" href="users.html" style="display:none;">👥 <span>Users</span></a>
+                    <a id="nav-settings" href="settings.html">⚙️ <span>Settings</span></a>
+                    <a id="nav-users" href="users.html">👥 <span>Users</span></a>
                 </div>
                 <div class="nav-actions">
                     <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
@@ -298,11 +298,15 @@ function canDeleteNewsletter() {
     return pagePerms.newsletter?.delete === true;
 }
 
-// Show all nav buttons except current page (newsletter)
-if (hasPageAccess('reports'))   document.getElementById('nav-reports').style.display = '';
-if (hasPageAccess('newsletter')) document.getElementById('nav-newsletter').style.display = 'none';
-if (hasPageAccess('settings'))  document.getElementById('nav-settings').style.display = '';
-if (hasPageAccess('users'))     document.getElementById('nav-users').style.display = '';
+// Show all nav buttons except current page (newsletter); grey out ones without access
+['nav-reports','nav-settings','nav-users'].forEach(id => {
+    const page = id.replace('nav-', '');
+    const el = document.getElementById(id);
+    if (!el) return;
+    const allowed = hasPageAccess(page);
+    el.classList.toggle('nav-disabled', !allowed);
+    if (!allowed) el.addEventListener('click', e => e.preventDefault());
+});
 
 function disableForm(selector, disable) {
     if (typeof selector === 'string') {
