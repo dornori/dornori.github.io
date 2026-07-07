@@ -11,8 +11,7 @@ var cache = {
   emailConfig: null,
   settingsTimestamp: 0,
   usersTimestamp: 0,
-  emailConfigTimestamp: 0,
-  loginAttempts: /* @__PURE__ */ new Map()
+  emailConfigTimestamp: 0
 };
 var TICKET_CACHE_URL = "https://cache/ticket-list";
 async function getTicketCache() {
@@ -337,55 +336,66 @@ async function checkAccess(email, resource, action, env) {
 }
 __name(checkAccess, "checkAccess");
 
-// ─── LOGIN RATE LIMITING (persisted in KV, survives isolate restarts) ─────
+// ─── LOGIN RATE LIMITING (persisted in the TicketHub Durable Object) ──────
+// DO storage is strongly consistent and single-threaded per instance, so
+// unlike KV (eventually consistent, ~60s propagation) or per-isolate memory
+// (reset on every cold start / lost across isolates), counts here are exact
+// and shared globally in real time.
 const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_WINDOW_MS = 5 * 60 * 1000;
 
+function getHubStub(env) {
+  if (!env.TICKET_HUB) return null;
+  const id = env.TICKET_HUB.idFromName("global");
+  return env.TICKET_HUB.get(id);
+}
+__name(getHubStub, "getHubStub");
+
 async function isLoginRateLimited(key, env) {
-  if (!env.KV) {
-    const entry = cache.loginAttempts.get(key);
-    if (!entry) return false;
-    if (Date.now() - entry.first > LOGIN_WINDOW_MS) {
-      cache.loginAttempts.delete(key);
-      return false;
-    }
-    return entry.count >= LOGIN_MAX_ATTEMPTS;
+  const stub = getHubStub(env);
+  if (!stub) return false;
+  try {
+    const res = await stub.fetch("https://ticket-hub/rl-check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key })
+    });
+    const data = await res.json();
+    return !!data.limited;
+  } catch (e) {
+    console.error("isLoginRateLimited error:", e.message);
+    return false;
   }
-  const raw = await env.KV.get(`login_rl_${key}`);
-  if (!raw) return false;
-  const entry = JSON.parse(raw);
-  if (Date.now() - entry.first > LOGIN_WINDOW_MS) return false;
-  return entry.count >= LOGIN_MAX_ATTEMPTS;
 }
 __name(isLoginRateLimited, "isLoginRateLimited");
 
 async function recordFailedLogin(key, env) {
-  if (!env.KV) {
-    const entry = cache.loginAttempts.get(key);
-    if (!entry || Date.now() - entry.first > LOGIN_WINDOW_MS) {
-      cache.loginAttempts.set(key, { count: 1, first: Date.now() });
-    } else {
-      entry.count += 1;
-    }
-    return;
+  const stub = getHubStub(env);
+  if (!stub) return;
+  try {
+    await stub.fetch("https://ticket-hub/rl-fail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key })
+    });
+  } catch (e) {
+    console.error("recordFailedLogin error:", e.message);
   }
-  const raw = await env.KV.get(`login_rl_${key}`);
-  let entry = raw ? JSON.parse(raw) : null;
-  if (!entry || Date.now() - entry.first > LOGIN_WINDOW_MS) {
-    entry = { count: 1, first: Date.now() };
-  } else {
-    entry.count += 1;
-  }
-  await env.KV.put(`login_rl_${key}`, JSON.stringify(entry), { expirationTtl: Math.ceil(LOGIN_WINDOW_MS / 1000) });
 }
 __name(recordFailedLogin, "recordFailedLogin");
 
 async function clearFailedLogins(key, env) {
-  if (!env.KV) {
-    cache.loginAttempts.delete(key);
-    return;
+  const stub = getHubStub(env);
+  if (!stub) return;
+  try {
+    await stub.fetch("https://ticket-hub/rl-clear", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key })
+    });
+  } catch (e) {
+    console.error("clearFailedLogins error:", e.message);
   }
-  await env.KV.delete(`login_rl_${key}`);
 }
 __name(clearFailedLogins, "clearFailedLogins");
 
@@ -1194,9 +1204,9 @@ async function updateTicket(id, data, env) {
     updates.push("status = ?");
     values.push(data.status);
   }
-  if (data.assigned_to) {
+  if ("assigned_to" in data) {
     updates.push("assigned_to = ?");
-    values.push(data.assigned_to);
+    values.push(data.assigned_to || null);
   }
   if (data.priority) {
     updates.push("priority = ?");
@@ -2503,6 +2513,7 @@ var TicketHub = class {
     this.env = env;
     this.locks = /* @__PURE__ */ new Map();
     this.userLocks = /* @__PURE__ */ new Map();
+    this.loginAttempts = /* @__PURE__ */ new Map();
   }
 
   locksSnapshot() {
@@ -2579,6 +2590,53 @@ var TicketHub = class {
         }
       }
       return new Response("ok");
+    }
+
+    // ─── LOGIN RATE LIMIT: CHECK ───────────────────────────────────
+    if (request.method === "POST" && url.pathname === "/rl-check") {
+      const RL_MAX = 5;
+      const RL_WINDOW_MS = 5 * 60 * 1000;
+      let body = {};
+      try {
+        body = await request.json();
+      } catch (e) {}
+      const key = body.key || "";
+      const entry = this.loginAttempts.get(key);
+      if (!entry || Date.now() - entry.first > RL_WINDOW_MS) {
+        if (entry) this.loginAttempts.delete(key);
+        return new Response(JSON.stringify({ limited: false }));
+      }
+      const limited = entry.count >= RL_MAX;
+      const retryAfterMs = limited ? Math.max(0, entry.first + RL_WINDOW_MS - Date.now()) : 0;
+      return new Response(JSON.stringify({ limited, retryAfterMs }));
+    }
+
+    // ─── LOGIN RATE LIMIT: RECORD FAILURE ──────────────────────────
+    if (request.method === "POST" && url.pathname === "/rl-fail") {
+      const RL_WINDOW_MS = 5 * 60 * 1000;
+      let body = {};
+      try {
+        body = await request.json();
+      } catch (e) {}
+      const key = body.key || "";
+      const entry = this.loginAttempts.get(key);
+      if (!entry || Date.now() - entry.first > RL_WINDOW_MS) {
+        this.loginAttempts.set(key, { count: 1, first: Date.now() });
+      } else {
+        entry.count += 1;
+      }
+      return new Response(JSON.stringify({ success: true }));
+    }
+
+    // ─── LOGIN RATE LIMIT: CLEAR ────────────────────────────────────
+    if (request.method === "POST" && url.pathname === "/rl-clear") {
+      let body = {};
+      try {
+        body = await request.json();
+      } catch (e) {}
+      const key = body.key || "";
+      this.loginAttempts.delete(key);
+      return new Response(JSON.stringify({ success: true }));
     }
 
     // ─── GET USER LOCKS ──────────────────────────────────────────
@@ -2733,8 +2791,15 @@ var TicketHub = class {
   async alarm() {
     const IDLE_MS = 20 * 60 * 1000;
     const LOCK_STALE_MS = 30000;
+    const RL_WINDOW_MS = 5 * 60 * 1000;
     const now = Date.now();
     let expiredAny = false;
+
+    for (const [key, entry] of this.loginAttempts.entries()) {
+      if (now - entry.first > RL_WINDOW_MS) {
+        this.loginAttempts.delete(key);
+      }
+    }
     
     for (const [ticketId, lock] of this.locks.entries()) {
       if (now - lock.ts > LOCK_STALE_MS) {
