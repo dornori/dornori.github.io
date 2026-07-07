@@ -1025,12 +1025,27 @@ function generateTicketNumber() {
 }
 __name(generateTicketNumber, "generateTicketNumber");
 
-function computeSlaStatus(ticket) {
+function computeSlaStatus(ticket, resolvedGraceHours = 0, closedGraceHours = 0) {
   if (!ticket) return "on_track";
-  if (["resolved", "closed"].includes(ticket.status)) return "paused";
   if (!ticket.sla_response_due || !ticket.sla_resolution_due) return "on_track";
   const now = /* @__PURE__ */ new Date();
   const rd = new Date(ticket.sla_response_due), rld = new Date(ticket.sla_resolution_due);
+  
+  const resolvedGracePeriod = resolvedGraceHours * 60 * 60 * 1000;
+  const closedGracePeriod = closedGraceHours * 60 * 60 * 1000;
+  
+  if (ticket.status === "resolved") {
+    const resolutionGrace = new Date(rld.getTime() + resolvedGracePeriod);
+    if (now > resolutionGrace) return "breached";
+    return "on_track";
+  }
+  
+  if (ticket.status === "closed") {
+    const closureGrace = new Date(rld.getTime() + closedGracePeriod);
+    if (now > closureGrace) return "breached";
+    return "on_track";
+  }
+  
   if (now > rld) return "breached";
   if (now > rd) return "at_risk";
   return "on_track";
@@ -1041,17 +1056,23 @@ async function getSLA(env, category) {
   const cat = await validateCategory(category, env);
   const resp = await getSetting(env, "sla", cat + "_response");
   const resol = await getSetting(env, "sla", cat + "_resolution");
+  const resolvedGrace = await getSetting(env, "sla", cat + "_resolved_grace") || "0";
+  const closedGrace = await getSetting(env, "sla", cat + "_closed_grace") || "0";
   if (!resp || !resol) {
     throw new Error(`SLA response and resolution times must be configured for category: ${cat}`);
   }
   const respHours = parseInt(resp);
   const resolHours = parseInt(resol);
+  const resolvedGraceHours = parseInt(resolvedGrace);
+  const closedGraceHours = parseInt(closedGrace);
   if (isNaN(respHours) || isNaN(resolHours)) {
     throw new Error(`SLA times must be valid numbers for category: ${cat}`);
   }
   return {
     responseDue: new Date(Date.now() + respHours * 36e5).toISOString(),
-    resolutionDue: new Date(Date.now() + resolHours * 36e5).toISOString()
+    resolutionDue: new Date(Date.now() + resolHours * 36e5).toISOString(),
+    resolvedGraceHours: resolvedGraceHours,
+    closedGraceHours: closedGraceHours
   };
 }
 __name(getSLA, "getSLA");
