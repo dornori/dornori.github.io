@@ -262,38 +262,36 @@
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PERMISSION SERVICE - UNIFIED
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const ROLE_RESOURCES = {
+        admin: { tickets: ['read', 'write'], users: ['read', 'write'], settings: ['read', 'write'], newsletter: ['read', 'write'], reports: ['read', 'write'] },
+        manager: { tickets: ['read', 'write'], users: ['read'], newsletter: ['read', 'write'], reports: ['read', 'write'] },
+        tl: { tickets: ['read', 'write'], users: ['read'] },
+        agent: { tickets: ['read', 'write'] }
+    };
+    const FINE_TO_COARSE = { view: 'read', read: 'read', edit: 'write', update: 'write', create: 'write', delete: 'write', comment: 'write', reply: 'write', assign: 'write', write: 'write' };
+
+    function hasPermission(resource, action) {
+        if (!currentUser) return false;
+        if (currentUser.role === 'admin') return true;
+        const override = currentUser.page_permissions?.[resource];
+        if (override && typeof override[action] === 'boolean') return override[action];
+        const coarse = FINE_TO_COARSE[action] || action;
+        const resources = ROLE_RESOURCES[currentUser.role] || {};
+        const allowed = resources[resource] || [];
+        return allowed.includes(coarse);
+    }
+
     const PermissionService = {
         updateUI() {
             this.updateNavigation();
         },
 
         can(action, page = 'tickets') {
-            if (!currentUser) return false;
-            if (currentUser.role === 'admin') return true;
-            
-            const actionMap = {
-                'view': 'view',
-                'edit': 'edit',
-                'update': 'edit',
-                'create': 'create',
-                'delete': 'delete',
-                'comment': 'edit',
-                'reply': 'edit',
-                'assign': 'edit'
-            };
-            
-            const pagePerms = currentUser.page_permissions || {};
-            const perms = pagePerms[page] || {};
-            const mappedAction = actionMap[action] || action;
-            return perms[mappedAction] === true;
+            return hasPermission(page, action);
         },
 
         hasPageAccess(page) {
-            if (!currentUser) return false;
-            if (currentUser.role === 'admin') return true;
-            const pagePerms = currentUser.page_permissions || {};
-            const perms = pagePerms[page] || {};
-            return perms.view === true;
+            return hasPermission(page, 'view') || hasPermission(page, 'read');
         },
 
         updateNavigation() {
@@ -316,10 +314,7 @@
     };
 
     function canEdit() {
-        if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const perms = currentUser.page_permissions?.tickets || {};
-        return perms.edit === true;
+        return hasPermission('tickets', 'edit');
     }
 
     function showToast(title, message, type = 'info') {
