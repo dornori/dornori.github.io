@@ -6,6 +6,7 @@
     <title>Reports – Dornori</title>
     <link rel="stylesheet" href="style.css" />
     <script src="edgedeskconfig.js"></script>
+    <script src="permissions.js"></script>
 </head>
 <body>
 <div class="container reports-container">
@@ -45,32 +46,15 @@
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PERMISSION SERVICE
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    const ROLE_RESOURCES = {
-        admin: { tickets: ['read', 'write'], users: ['read', 'write'], settings: ['read', 'write'], newsletter: ['read', 'write'], reports: ['read', 'write'] },
-        manager: { tickets: ['read', 'write'], users: ['read'], newsletter: ['read', 'write'], reports: ['read', 'write'] },
-        tl: { tickets: ['read', 'write'], users: ['read'] },
-        agent: { tickets: ['read', 'write'] }
-    };
-    const FINE_TO_COARSE = { view: 'read', read: 'read', edit: 'write', update: 'write', create: 'write', delete: 'write', comment: 'write', reply: 'write', assign: 'write', write: 'write' };
-
-    function hasPermission(resource, action) {
-        if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const override = currentUser.page_permissions?.[resource];
-        if (override && typeof override[action] === 'boolean') return override[action];
-        const coarse = FINE_TO_COARSE[action] || action;
-        const resources = ROLE_RESOURCES[currentUser.role] || {};
-        const allowed = resources[resource] || [];
-        return allowed.includes(coarse);
-    }
-
     const PermissionService = {
         can(action, subject = 'reports') {
-            return hasPermission(subject, action);
+            if (!currentUser) return false;
+            return resolvePermission(currentUser.effective_permissions, subject, action);
         },
 
         hasPageAccess(page) {
-            return hasPermission(page, 'view') || hasPermission(page, 'read');
+            if (!currentUser) return false;
+            return resolvePageAccess(currentUser.effective_permissions, page);
         }
     };
 
@@ -163,6 +147,7 @@
                     name: data.user.name,
                     role: data.user.role,
                     page_permissions: data.user.page_permissions || {},
+                    effective_permissions: data.user.effective_permissions || {},
                     allowed_languages: data.user.allowed_languages || [],
                     allowed_emails: data.user.allowed_emails || [],
                     allowed_categories: data.user.allowed_categories || [],

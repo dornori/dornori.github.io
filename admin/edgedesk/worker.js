@@ -270,6 +270,36 @@ async function hasPermission(email, resource, action, env) {
 }
 __name(hasPermission, "hasPermission");
 
+const PERMISSION_RESOURCES = ['tickets', 'users', 'settings', 'newsletter', 'reports'];
+
+// Resolves role defaults + per-user overrides into one flat object the
+// frontend can read directly without re-implementing any ACL logic.
+function buildEffectivePermissions(user) {
+  const result = {};
+  const roleRes = ROLE_RESOURCES[user.role] || {};
+  for (const resource of PERMISSION_RESOURCES) {
+    const allowed = roleRes[resource] || [];
+    const base = {
+      view: allowed.includes('read'),
+      edit: allowed.includes('write'),
+      create: allowed.includes('write'),
+      delete: allowed.includes('write')
+    };
+    const override = user.page_permissions?.[resource] || {};
+    result[resource] = {
+      view: typeof override.view === 'boolean' ? override.view : base.view,
+      edit: typeof override.edit === 'boolean' ? override.edit : base.edit,
+      create: typeof override.create === 'boolean' ? override.create : base.create,
+      delete: typeof override.delete === 'boolean' ? override.delete : base.delete
+    };
+  }
+  if (user.role === 'admin') {
+    for (const resource of PERMISSION_RESOURCES) result[resource] = { view: true, edit: true, create: true, delete: true };
+  }
+  return result;
+}
+__name(buildEffectivePermissions, "buildEffectivePermissions");
+
 async function getUser(email, env) {
   const normalizedEmail = (email || "").toLowerCase().trim();
   if (cache.users.has(normalizedEmail)) {
@@ -2013,7 +2043,7 @@ var worker_default = {
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
         const user = await getUser(email, env);
-        return json({ success: true, user: { email: user.email, name: user.name, role: user.role, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id } });
+        return json({ success: true, user: { email: user.email, name: user.name, role: user.role, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id, page_permissions: user.page_permissions || {}, effective_permissions: buildEffectivePermissions(user) } });
       }
 
       if (path === "/api/admin/user-profile" && method === "GET") {
@@ -2021,7 +2051,7 @@ var worker_default = {
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
         const user = await getUser(email, env);
-        return json({ success: true, user: { email: user.email, name: user.name, role: user.role, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id } });
+        return json({ success: true, user: { email: user.email, name: user.name, role: user.role, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id, page_permissions: user.page_permissions || {}, effective_permissions: buildEffectivePermissions(user) } });
       }
 
       // ─── LOGIN ─────────────────────────────────────────────
@@ -2037,7 +2067,7 @@ var worker_default = {
           await setTicketCache(allTickets);
         }
         await setAgentsOnlineCount(env, online + 1);
-        return json({ success: true, token, user: { email: user.email, name: user.name, role: user.role, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id } });
+        return json({ success: true, token, user: { email: user.email, name: user.name, role: user.role, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id, page_permissions: user.page_permissions || {}, effective_permissions: buildEffectivePermissions(user) } });
       }
 
       // ─── LOGOUT ────────────────────────────────────────────

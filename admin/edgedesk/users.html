@@ -6,6 +6,7 @@
     <title>Users – Dornori</title>
     <link rel="stylesheet" href="style.css" />
     <script src="edgedeskconfig.js"></script>
+    <script src="permissions.js"></script>
     <style>
         .container { max-width: 1400px !important; }
         .users-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -325,31 +326,14 @@
     const storedUser = localStorage.getItem('user');
     let currentUser = storedUser ? JSON.parse(storedUser) : null;
 
-    // ─── PERMISSION CHECKS (role default + per-user page_permissions override) ───
-    // Resources: tickets, users, settings, newsletter, reports
-    const ROLE_RESOURCES = {
-        admin: { tickets: ['read', 'write'], users: ['read', 'write'], settings: ['read', 'write'], newsletter: ['read', 'write'], reports: ['read', 'write'] },
-        manager: { tickets: ['read', 'write'], users: ['read'], newsletter: ['read', 'write'], reports: ['read', 'write'] },
-        tl: { tickets: ['read', 'write'], users: ['read'] },
-        agent: { tickets: ['read', 'write'] }
-    };
-    const FINE_TO_COARSE = { view: 'read', read: 'read', edit: 'write', create: 'write', delete: 'write', write: 'write' };
-
     function hasPermission(resource, action) {
         if (!currentUser) return false;
-        if (currentUser.role === 'admin') return true;
-        const override = currentUser.page_permissions?.[resource];
-        if (override && typeof override[action] === 'boolean') return override[action];
-        const coarse = FINE_TO_COARSE[action] || action;
-        const resources = ROLE_RESOURCES[currentUser.role] || {};
-        const allowed = resources[resource] || [];
-        return allowed.includes(coarse);
+        return resolvePermission(currentUser.effective_permissions, resource, action);
     }
 
     function hasPageAccess(page) { return hasPermission(page, 'view') || hasPermission(page, 'read'); }
 
-    const isAdmin = currentUser && currentUser.role === 'admin';
-    const hasUsersAccess = isAdmin || hasPermission('users', 'read');
+    const hasUsersAccess = hasPermission('users', 'read');
 
     if (!token || !currentUser || !hasUsersAccess) {
         document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to manage users.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
@@ -365,12 +349,13 @@
             if (data.success && data.user) {
                 currentUser.role = data.user.role;
                 currentUser.page_permissions = data.user.page_permissions || {};
+                currentUser.effective_permissions = data.user.effective_permissions || {};
                 currentUser.allowed_languages = data.user.allowed_languages || [];
                 currentUser.allowed_emails = data.user.allowed_emails || [];
                 currentUser.allowed_categories = data.user.allowed_categories || [];
                 currentUser.team_id = data.user.team_id || null;
                 localStorage.setItem('user', JSON.stringify(currentUser));
-                if (currentUser.role !== 'admin' && !hasPermission('users', 'read')) {
+                if (!hasPermission('users', 'read')) {
                     window.location.href = 'dashboard.html';
                     return;
                 }

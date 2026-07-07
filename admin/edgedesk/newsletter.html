@@ -7,6 +7,7 @@
     <title>Newsletter – Dornori</title>
     <link rel="stylesheet" href="style.css" />
     <script src="edgedeskconfig.js"></script>
+    <script src="permissions.js"></script>
     <style>
         .n-page { max-width: 1200px; margin: 0 auto; }
 
@@ -268,49 +269,26 @@ const token = localStorage.getItem('token');
 
 const storedUser = localStorage.getItem('user');
 const currentUser = storedUser ? JSON.parse(storedUser) : null;
-const isAdmin = currentUser && currentUser.role === 'admin';
-
-const ROLE_RESOURCES = {
-    admin: { tickets: ['read', 'write'], users: ['read', 'write'], settings: ['read', 'write'], newsletter: ['read', 'write'], reports: ['read', 'write'] },
-    manager: { tickets: ['read', 'write'], users: ['read'], newsletter: ['read', 'write'], reports: ['read', 'write'] },
-    tl: { tickets: ['read', 'write'], users: ['read'] },
-    agent: { tickets: ['read', 'write'] }
-};
-const FINE_TO_COARSE = { view: 'read', read: 'read', edit: 'write', update: 'write', create: 'write', delete: 'write', comment: 'write', reply: 'write', assign: 'write', write: 'write' };
-
-function hasPermission(resource, action) {
-    if (!currentUser) return false;
-    if (currentUser.role === 'admin') return true;
-    const override = currentUser.page_permissions?.[resource];
-    if (override && typeof override[action] === 'boolean') return override[action];
-    const coarse = FINE_TO_COARSE[action] || action;
-    const resources = ROLE_RESOURCES[currentUser.role] || {};
-    const allowed = resources[resource] || [];
-    return allowed.includes(coarse);
-}
-
-const hasNewsletterPermission = hasPermission('newsletter', 'view');
+const hasNewsletterPermission = currentUser && resolvePermission(currentUser.effective_permissions, 'newsletter', 'view');
 if (!token || !currentUser || !hasNewsletterPermission) {
     document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to access newsletter.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
     throw new Error('Newsletter access required');
 }
 
-const pagePerms = (currentUser && currentUser.page_permissions) || {};
-
 function hasPageAccess(page) {
-    return hasPermission(page, 'view') || hasPermission(page, 'read');
+    return resolvePageAccess(currentUser.effective_permissions, page);
 }
 
 function canEditNewsletter() {
-    return hasPermission('newsletter', 'edit');
+    return resolvePermission(currentUser.effective_permissions, 'newsletter', 'edit');
 }
 
 function canCreateNewsletter() {
-    return hasPermission('newsletter', 'create');
+    return resolvePermission(currentUser.effective_permissions, 'newsletter', 'create');
 }
 
 function canDeleteNewsletter() {
-    return hasPermission('newsletter', 'delete');
+    return resolvePermission(currentUser.effective_permissions, 'newsletter', 'delete');
 }
 
 // Show all nav buttons except current page (newsletter); grey out ones without access
