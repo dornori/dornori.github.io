@@ -51,11 +51,12 @@ async function injectTicketIntoCache(updatedTicket, env) {
     const data = await response.json();
     const tickets = data.tickets || [];
     const index = tickets.findIndex((t) => t.id === updatedTicket.id || t.ticket_id === updatedTicket.id);
+    const graceMap = await getAllSlaGrace(env);
     if (index !== -1) {
       tickets[index] = { ...tickets[index], ...updatedTicket };
-      tickets[index].sla_status = computeSlaStatus(tickets[index]);
+      tickets[index].sla_status = computeSlaStatus(tickets[index], graceMap);
     } else {
-      updatedTicket.sla_status = updatedTicket.sla_status || computeSlaStatus(updatedTicket);
+      updatedTicket.sla_status = updatedTicket.sla_status || computeSlaStatus(updatedTicket, graceMap);
       tickets.unshift(updatedTicket);
     }
     const newResponse = new Response(JSON.stringify({ ...data, tickets }), response);
@@ -336,33 +337,55 @@ async function checkAccess(email, resource, action, env) {
 }
 __name(checkAccess, "checkAccess");
 
-// ─── BASIC LOGIN RATE LIMITING (in-memory, per isolate) ─────
+// ─── LOGIN RATE LIMITING (persisted in KV, survives isolate restarts) ─────
 const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_WINDOW_MS = 5 * 60 * 1000;
 
-function isLoginRateLimited(key) {
-  const entry = cache.loginAttempts.get(key);
-  if (!entry) return false;
-  if (Date.now() - entry.first > LOGIN_WINDOW_MS) {
-    cache.loginAttempts.delete(key);
-    return false;
+async function isLoginRateLimited(key, env) {
+  if (!env.KV) {
+    const entry = cache.loginAttempts.get(key);
+    if (!entry) return false;
+    if (Date.now() - entry.first > LOGIN_WINDOW_MS) {
+      cache.loginAttempts.delete(key);
+      return false;
+    }
+    return entry.count >= LOGIN_MAX_ATTEMPTS;
   }
+  const raw = await env.KV.get(`login_rl_${key}`);
+  if (!raw) return false;
+  const entry = JSON.parse(raw);
+  if (Date.now() - entry.first > LOGIN_WINDOW_MS) return false;
   return entry.count >= LOGIN_MAX_ATTEMPTS;
 }
 __name(isLoginRateLimited, "isLoginRateLimited");
 
-function recordFailedLogin(key) {
-  const entry = cache.loginAttempts.get(key);
+async function recordFailedLogin(key, env) {
+  if (!env.KV) {
+    const entry = cache.loginAttempts.get(key);
+    if (!entry || Date.now() - entry.first > LOGIN_WINDOW_MS) {
+      cache.loginAttempts.set(key, { count: 1, first: Date.now() });
+    } else {
+      entry.count += 1;
+    }
+    return;
+  }
+  const raw = await env.KV.get(`login_rl_${key}`);
+  let entry = raw ? JSON.parse(raw) : null;
   if (!entry || Date.now() - entry.first > LOGIN_WINDOW_MS) {
-    cache.loginAttempts.set(key, { count: 1, first: Date.now() });
+    entry = { count: 1, first: Date.now() };
   } else {
     entry.count += 1;
   }
+  await env.KV.put(`login_rl_${key}`, JSON.stringify(entry), { expirationTtl: Math.ceil(LOGIN_WINDOW_MS / 1000) });
 }
 __name(recordFailedLogin, "recordFailedLogin");
 
-function clearFailedLogins(key) {
-  cache.loginAttempts.delete(key);
+async function clearFailedLogins(key, env) {
+  if (!env.KV) {
+    cache.loginAttempts.delete(key);
+    return;
+  }
+  await env.KV.delete(`login_rl_${key}`);
 }
 __name(clearFailedLogins, "clearFailedLogins");
 
@@ -531,11 +554,12 @@ async function pushTicketNotification(ticket, env, eventType = "updated") {
       ticket_number: ticket.ticket_number || "",
       category: ticket.category || "unclassified",
       language: ticket.language || "",
-      sla_status: ticket.sla_status || computeSlaStatus(ticket),
+      sla_status: ticket.sla_status || computeSlaStatus(ticket, await getAllSlaGrace(env)),
       status: ticket.status || "new",
       subject: ticket.subject || "",
       sender_name: ticket.sender_name || "Unknown",
       sender_email: ticket.sender_email || "",
+      assigned_to: ticket.assigned_to || null,
       last_updated_by: ticket.last_updated_by || "",
       last_updated: ticket.updated_at || ticket.created_at || (/* @__PURE__ */ new Date()).toISOString()
     }
@@ -568,7 +592,7 @@ async function setAgentsOnlineCount(env, n) {
 }
 __name(setAgentsOnlineCount, "setAgentsOnlineCount");
 
-function applyTicketFilters(tickets, filters, user) {
+async function applyTicketFilters(tickets, filters, user, env) {
   let rows = tickets;
   if (user && user.role !== "admin") {
     const allowedLanguages = user.allowed_languages || [];
@@ -599,7 +623,8 @@ function applyTicketFilters(tickets, filters, user) {
     if (sort === "created") return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
     return new Date(b.last_action || 0).getTime() - new Date(a.last_action || 0).getTime();
   });
-  for (const row of rows) row.sla_status = computeSlaStatus(row);
+  const graceMap = await getAllSlaGrace(env);
+  for (const row of rows) row.sla_status = computeSlaStatus(row, graceMap);
   return rows;
 }
 __name(applyTicketFilters, "applyTicketFilters");
@@ -1025,32 +1050,61 @@ function generateTicketNumber() {
 }
 __name(generateTicketNumber, "generateTicketNumber");
 
-function computeSlaStatus(ticket, resolvedGraceHours = 0, closedGraceHours = 0) {
+function computeSlaStatus(ticket, graceMap = {}) {
   if (!ticket) return "on_track";
   if (!ticket.sla_response_due || !ticket.sla_resolution_due) return "on_track";
   const now = /* @__PURE__ */ new Date();
   const rd = new Date(ticket.sla_response_due), rld = new Date(ticket.sla_resolution_due);
-  
-  const resolvedGracePeriod = resolvedGraceHours * 60 * 60 * 1000;
-  const closedGracePeriod = closedGraceHours * 60 * 60 * 1000;
-  
+
+  const cat = ticket.category || "unclassified";
+  const grace = graceMap[cat] || { resolvedGraceHours: 0, closedGraceHours: 0 };
+  const resolvedGracePeriod = (grace.resolvedGraceHours || 0) * 60 * 60 * 1000;
+  const closedGracePeriod = (grace.closedGraceHours || 0) * 60 * 60 * 1000;
+
+  // Grace periods apply from when the ticket entered the resolved/closed
+  // state (updated_at), not from the original resolution due date.
+  const transitionedAt = ticket.updated_at ? new Date(ticket.updated_at) : rld;
+
   if (ticket.status === "resolved") {
-    const resolutionGrace = new Date(rld.getTime() + resolvedGracePeriod);
+    const resolutionGrace = new Date(transitionedAt.getTime() + resolvedGracePeriod);
     if (now > resolutionGrace) return "breached";
     return "on_track";
   }
-  
+
   if (ticket.status === "closed") {
-    const closureGrace = new Date(rld.getTime() + closedGracePeriod);
+    const closureGrace = new Date(transitionedAt.getTime() + closedGracePeriod);
     if (now > closureGrace) return "breached";
     return "on_track";
   }
-  
+
   if (now > rld) return "breached";
   if (now > rd) return "at_risk";
   return "on_track";
 }
 __name(computeSlaStatus, "computeSlaStatus");
+
+// Fetch all configured SLA grace periods once, keyed by category, so
+// list endpoints don't do N+1 settings lookups per ticket.
+async function getAllSlaGrace(env) {
+  const list = await getAllSettings(env);
+  const map = {};
+  for (const s of list) {
+    if (s.category !== "sla") continue;
+    const respMatch = s.key.match(/^(.+)_resolved_grace$/);
+    const closMatch = s.key.match(/^(.+)_closed_grace$/);
+    if (respMatch) {
+      const cat = respMatch[1];
+      map[cat] = map[cat] || { resolvedGraceHours: 0, closedGraceHours: 0 };
+      map[cat].resolvedGraceHours = parseInt(s.value) || 0;
+    } else if (closMatch) {
+      const cat = closMatch[1];
+      map[cat] = map[cat] || { resolvedGraceHours: 0, closedGraceHours: 0 };
+      map[cat].closedGraceHours = parseInt(s.value) || 0;
+    }
+  }
+  return map;
+}
+__name(getAllSlaGrace, "getAllSlaGrace");
 
 async function getSLA(env, category) {
   const cat = await validateCategory(category, env);
@@ -1127,7 +1181,7 @@ async function getTicket(id, env) {
         FROM tickets WHERE id = ?
     `).bind(id).first();
   if (!ticket) return null;
-  ticket.sla_status = computeSlaStatus(ticket);
+  ticket.sla_status = computeSlaStatus(ticket, await getAllSlaGrace(env));
   const comments = await env.DB.prepare("SELECT * FROM ticket_comments WHERE ticket_id = ? ORDER BY created_at ASC").bind(id).all();
   ticket.ticket_id = ticket.id;
   return { ...ticket, comments: comments.results || [] };
@@ -1240,7 +1294,8 @@ async function getTickets(filters, env, user) {
   }
   const r = await env.DB.prepare(query).bind(...params).all();
   const rows = r.results || [];
-  for (const row of rows) row.sla_status = computeSlaStatus(row);
+  const graceMap = await getAllSlaGrace(env);
+  for (const row of rows) row.sla_status = computeSlaStatus(row, graceMap);
   return rows;
 }
 __name(getTickets, "getTickets");
@@ -2087,13 +2142,13 @@ var worker_default = {
       if (path === "/api/admin/login" && method === "POST") {
         const { email, password } = await request.json();
         const rateLimitKey = (email || "").toLowerCase().trim();
-        if (isLoginRateLimited(rateLimitKey)) return json({ error: "Too many login attempts. Try again later." }, 429);
+        if (await isLoginRateLimited(rateLimitKey, env)) return json({ error: "Too many login attempts. Try again later." }, 429);
         const user = await getUser(rateLimitKey, env);
         if (!user || await sha256(password) !== user.password_hash) {
-          recordFailedLogin(rateLimitKey);
+          await recordFailedLogin(rateLimitKey, env);
           return json({ error: "Invalid credentials" }, 401);
         }
-        clearFailedLogins(rateLimitKey);
+        await clearFailedLogins(rateLimitKey, env);
         
         const token = await generateToken(user.email, env);
         const online = await getAgentsOnlineCount(env);
@@ -2251,7 +2306,7 @@ var worker_default = {
             const online = await getAgentsOnlineCount(env);
             if (online === 0) await setAgentsOnlineCount(env, 1);
           }
-          const filtered = applyTicketFilters(snap, filters, user);
+          const filtered = await applyTicketFilters(snap, filters, user, env);
           total = filtered.length;
           tickets = filtered.slice(0, limit);
         } else {
@@ -2276,17 +2331,24 @@ var worker_default = {
         const userEmail = await verifyToken(token, env);
         if (!userEmail) return json({ error: "Unauthorized" }, 401);
         const requester = await getUser(userEmail, env);
-        if (!requester || !["tl", "manager", "admin"].includes(requester.role)) return json({ error: "Permission denied" }, 403);
-        if (!await checkAccess(userEmail, "tickets", "update", env)) return json({ error: "Permission denied" }, 403);
         const id = parseInt(path.split("/")[4]);
         const { assigned_to } = await request.json();
         const existingTicket = await getTicket(id, env);
         const oldAssignee = existingTicket ? existingTicket.assigned_to : null;
+        // Any agent may self-assign an unassigned ticket by opening it;
+        // reassigning to someone else still requires tl/manager/admin.
+        const isSelfAssign = assigned_to === userEmail && !oldAssignee;
+        const isPrivileged = requester && ["tl", "manager", "admin"].includes(requester.role);
+        if (!requester || !(isPrivileged || isSelfAssign)) return json({ error: "Permission denied" }, 403);
+        if (!await checkAccess(userEmail, "tickets", "update", env)) return json({ error: "Permission denied" }, 403);
         let newTicket = await updateTicket(id, { assigned_to }, env);
         if (assigned_to !== oldAssignee) {
           await addComment(id, { type: "assignment", authorEmail: userEmail, content: assigned_to ? `Assigned to ${assigned_to}` : "Unassigned" }, env);
           newTicket = await getTicket(id, env);
-          if (newTicket) await injectTicketIntoCache(newTicket, env);
+          if (newTicket) {
+            await injectTicketIntoCache(newTicket, env);
+            await pushTicketNotification({ ...newTicket, assigned_to }, env, "updated");
+          }
         }
         return json({ success: true, data: newTicket });
       }

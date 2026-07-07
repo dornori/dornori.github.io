@@ -1087,6 +1087,11 @@
             var ticket = data.ticket || data.data || data;
             if (ticket && ticket.id) {
                 if (!ticket.comments) ticket.comments = [];
+                if (!isRefresh && !ticket.assigned_to && currentUser && currentUser.email && canEdit()) {
+                    autoAssignSelf(ticket.id).then(function(updated) {
+                        if (updated) { ticket.assigned_to = currentUser.email; renderTicketDetailModal(ticket); applyLockStateToModal(); }
+                    });
+                }
                 renderTicketDetailModal(ticket);
                 applyLockStateToModal();
             } else if (!isRefresh) {
