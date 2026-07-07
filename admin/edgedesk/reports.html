@@ -6,7 +6,6 @@
     <title>Reports – Dornori</title>
     <link rel="stylesheet" href="style.css" />
     <script src="edgedeskconfig.js"></script>
-    <script src="permissions.js"></script>
 </head>
 <body>
 <div class="container reports-container">
@@ -46,15 +45,20 @@
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PERMISSION SERVICE
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function hasAccess(page, action = 'view') {
+        if (!currentUser?.effective_permissions) return false;
+        const perms = currentUser.effective_permissions[page];
+        if (!perms) return false;
+        return perms[action] === true;
+    }
+
     const PermissionService = {
         can(action, subject = 'reports') {
-            if (!currentUser) return false;
-            return resolvePermission(currentUser.effective_permissions, subject, action);
+            return hasAccess(subject, action);
         },
 
         hasPageAccess(page) {
-            if (!currentUser) return false;
-            return resolvePageAccess(currentUser.effective_permissions, page);
+            return hasAccess(page, 'view');
         }
     };
 

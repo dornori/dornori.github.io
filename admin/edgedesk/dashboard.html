@@ -6,7 +6,6 @@
     <title>Dornori Ticketing</title>
     <link rel="stylesheet" href="style.css" />
     <script src="edgedeskconfig.js"></script>
-    <script src="permissions.js"></script>
 </head>
 <body>
 <div class="container">
@@ -263,21 +262,25 @@
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PERMISSION SERVICE - UNIFIED
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function hasAccess(page, action = 'view') {
+        if (!currentUser?.effective_permissions) return false;
+        const perms = currentUser.effective_permissions[page];
+        if (!perms) return false;
+        return perms[action] === true;
+    }
+
     const PermissionService = {
         updateUI() {
             this.updateNavigation();
         },
 
         can(action, page = 'tickets') {
-            if (!currentUser) return false;
             const actionMap = { update: 'edit', comment: 'edit', reply: 'edit', assign: 'edit' };
-            const mappedAction = actionMap[action] || action;
-            return resolvePermission(currentUser.effective_permissions, page, mappedAction);
+            return hasAccess(page, actionMap[action] || action);
         },
 
         hasPageAccess(page) {
-            if (!currentUser) return false;
-            return resolvePageAccess(currentUser.effective_permissions, page);
+            return hasAccess(page, 'view');
         },
 
         updateNavigation() {
@@ -300,8 +303,7 @@
     };
 
     function canEdit() {
-        if (!currentUser) return false;
-        return resolvePermission(currentUser.effective_permissions, 'tickets', 'edit');
+        return hasAccess('tickets', 'edit');
     }
 
     function showToast(title, message, type = 'info') {

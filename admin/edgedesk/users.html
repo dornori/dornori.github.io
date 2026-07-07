@@ -6,7 +6,6 @@
     <title>Users – Dornori</title>
     <link rel="stylesheet" href="style.css" />
     <script src="edgedeskconfig.js"></script>
-    <script src="permissions.js"></script>
     <style>
         .container { max-width: 1400px !important; }
         .users-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -326,14 +325,22 @@
     const storedUser = localStorage.getItem('user');
     let currentUser = storedUser ? JSON.parse(storedUser) : null;
 
-    function hasPermission(resource, action) {
-        if (!currentUser) return false;
-        return resolvePermission(currentUser.effective_permissions, resource, action);
+    function hasAccess(page, action = 'view') {
+        if (!currentUser?.effective_permissions) return false;
+        const perms = currentUser.effective_permissions[page];
+        if (!perms) return false;
+        return perms[action] === true;
     }
 
-    function hasPageAccess(page) { return hasPermission(page, 'view') || hasPermission(page, 'read'); }
+    // Legacy alias: some call sites here use 'read'/'write' coarse actions
+    const ACTION_ALIAS = { read: 'view', write: 'edit' };
+    function hasPermission(resource, action) {
+        return hasAccess(resource, ACTION_ALIAS[action] || action);
+    }
 
-    const hasUsersAccess = hasPermission('users', 'read');
+    function hasPageAccess(page) { return hasAccess(page, 'view'); }
+
+    const hasUsersAccess = hasAccess('users', 'view');
 
     if (!token || !currentUser || !hasUsersAccess) {
         document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to manage users.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
@@ -355,7 +362,7 @@
                 currentUser.allowed_categories = data.user.allowed_categories || [];
                 currentUser.team_id = data.user.team_id || null;
                 localStorage.setItem('user', JSON.stringify(currentUser));
-                if (!hasPermission('users', 'read')) {
+                if (!hasAccess('users', 'view')) {
                     window.location.href = 'dashboard.html';
                     return;
                 }

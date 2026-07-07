@@ -7,7 +7,6 @@
     <title>Newsletter – Dornori</title>
     <link rel="stylesheet" href="style.css" />
     <script src="edgedeskconfig.js"></script>
-    <script src="permissions.js"></script>
     <style>
         .n-page { max-width: 1200px; margin: 0 auto; }
 
@@ -269,26 +268,33 @@ const token = localStorage.getItem('token');
 
 const storedUser = localStorage.getItem('user');
 const currentUser = storedUser ? JSON.parse(storedUser) : null;
-const hasNewsletterPermission = currentUser && resolvePermission(currentUser.effective_permissions, 'newsletter', 'view');
-if (!token || !currentUser || !hasNewsletterPermission) {
+
+function hasAccess(page, action = 'view') {
+    if (!currentUser?.effective_permissions) return false;
+    const perms = currentUser.effective_permissions[page];
+    if (!perms) return false;
+    return perms[action] === true;
+}
+
+if (!token || !currentUser || !hasAccess('newsletter', 'view')) {
     document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to access newsletter.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
     throw new Error('Newsletter access required');
 }
 
 function hasPageAccess(page) {
-    return resolvePageAccess(currentUser.effective_permissions, page);
+    return hasAccess(page, 'view');
 }
 
 function canEditNewsletter() {
-    return resolvePermission(currentUser.effective_permissions, 'newsletter', 'edit');
+    return hasAccess('newsletter', 'edit');
 }
 
 function canCreateNewsletter() {
-    return resolvePermission(currentUser.effective_permissions, 'newsletter', 'create');
+    return hasAccess('newsletter', 'create');
 }
 
 function canDeleteNewsletter() {
-    return resolvePermission(currentUser.effective_permissions, 'newsletter', 'delete');
+    return hasAccess('newsletter', 'delete');
 }
 
 // Show all nav buttons except current page (newsletter); grey out ones without access
