@@ -6,6 +6,7 @@
     <title>Settings - Dornori Ticketing</title>
     <link rel="stylesheet" href="style.css" />
     <script src="edgedeskconfig.js"></script>
+    <script src="shared.js"></script>
     <style>
         .settings-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .settings-section { background: var(--bg-secondary); border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border); }
@@ -15,7 +16,7 @@
         .sla-card h3 { margin: 0 0 15px 0; font-size: 14px; font-weight: 600; }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; font-weight: 500; }
-        .form-group input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; }
+        .form-group input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; background: var(--bg-input); color: var(--text); }
         .form-group input:focus { outline: none; border-color: var(--accent); background: var(--bg-secondary); }
         .form-help { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
         .btn-save { background: var(--accent); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; }
@@ -62,11 +63,15 @@
 </div>
 
 <script>
+    // ─── PAGE ACCESS CHECK ──────────────────────────────────────
+    (function() {
+        if (!checkPageAccess('settings')) return;
+    })();
+
     const API_BASE = window.EDGEDESK_CONFIG ? window.EDGEDESK_CONFIG.API_BASE : 'https://dornori-ticketing.dornori-info.workers.dev';
     let token = null;
     let currentUser = null;
     let allCategories = [];
-    let slaSettings = {};
 
     window.addEventListener('load', async function() {
         const savedToken = localStorage.getItem('token');
@@ -192,6 +197,7 @@
             const data = await res.json();
             if (data.success) {
                 showAlert('✅ Settings saved successfully', 'success');
+                showToast('✅ Settings saved successfully', 'success');
             } else {
                 showAlert('Error: ' + (data.error || 'Unknown error'), 'error');
             }

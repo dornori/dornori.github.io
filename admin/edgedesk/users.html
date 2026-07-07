@@ -6,6 +6,7 @@
     <title>Users – Dornori</title>
     <link rel="stylesheet" href="style.css" />
     <script src="edgedeskconfig.js"></script>
+    <script src="shared.js"></script>
     <style>
         .container { max-width: 1400px !important; }
         .users-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -89,19 +90,19 @@
     <div class="header">
         <h1>👥 User Management</h1>
         <div class="header-right">
-                <div class="nav-links">
-                    <a id="nav-dashboard" href="dashboard.html">🎫 <span>Dashboard</span></a>
-                    <a id="nav-reports" href="reports.html">📊 <span>Reports</span></a>
-                    <a id="nav-newsletter" href="newsletter.html">📧 <span>Newsletter</span></a>
-                    <a id="nav-settings" href="settings.html">⚙️ <span>Settings</span></a>
-                    <a id="nav-users" href="users.html" style="display:none;">👥 <span>Users</span></a>
-                </div>
-                <div class="nav-actions">
-                    <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
-                    <div id="userDisplay"></div>
-                    <button class="btn-logout" onclick="logout()">Logout</button>
-                </div>
+            <div class="nav-links">
+                <a id="nav-dashboard" href="dashboard.html">🎫 <span>Dashboard</span></a>
+                <a id="nav-reports" href="reports.html">📊 <span>Reports</span></a>
+                <a id="nav-newsletter" href="newsletter.html">📧 <span>Newsletter</span></a>
+                <a id="nav-settings" href="settings.html">⚙️ <span>Settings</span></a>
+                <a id="nav-users" href="users.html" style="display:none;">👥 <span>Users</span></a>
             </div>
+            <div class="nav-actions">
+                <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+                <div id="userDisplay"></div>
+                <button class="btn-logout" onclick="logout()">Logout</button>
+            </div>
+        </div>
     </div>
 
     <div id="permDenied" class="card perm-denied" style="display:none;">
@@ -293,27 +294,13 @@
 </div>
 
 <script>
+    // ─── PAGE ACCESS CHECK ──────────────────────────────────────
+    (function() {
+        if (!checkPageAccess('users')) return;
+    })();
+
     const API_BASE = window.EDGEDESK_CONFIG ? window.EDGEDESK_CONFIG.API_BASE : 'https://dornori-ticketing.dornori-info.workers.dev';
     
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  SECURITY: HTML ESCAPING
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function escapeHtml(str) {
-        if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
-    
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  DYNAMIC LANGUAGES & CATEGORIES - loaded from settings
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    let LANGUAGES = {};
-    let languageList = [];
-    let languagesLoaded = false;
-    let allCategories = [];
-    let categoriesLoaded = false;
-
     const ROLE_DESCRIPTIONS = {
         admin: 'Full system access. Can manage users, settings, and all data.',
         manager: 'Manage all agents &amp; team leaders. View all tickets and reports.',
@@ -325,20 +312,13 @@
     const storedUser = localStorage.getItem('user');
     let currentUser = storedUser ? JSON.parse(storedUser) : null;
 
-    function hasAccess(page, action = 'view') {
-        if (!currentUser?.effective_permissions) return false;
-        const perms = currentUser.effective_permissions[page];
-        if (!perms) return false;
-        return perms[action] === true;
-    }
-
-    // Legacy alias: some call sites here use 'read'/'write' coarse actions
-    const ACTION_ALIAS = { read: 'view', write: 'edit' };
-    function hasPermission(resource, action) {
-        return hasAccess(resource, ACTION_ALIAS[action] || action);
+    // Legacy permission helpers (using shared.js)
+    function hasAccess(page, action) {
+        return window.hasAccess(page, action);
     }
 
     function hasPageAccess(page) { return hasAccess(page, 'view'); }
+    function hasPermission(resource, action) { return hasAccess(resource, action); }
 
     const hasUsersAccess = hasAccess('users', 'view');
 
@@ -346,44 +326,6 @@
         document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to manage users.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
         throw new Error('Users access required');
     }
-
-    // Refresh user role & permissions from the server
-    (async function refreshCurrentUser() {
-        try {
-            const res = await fetch(API_BASE + '/api/admin/me', { headers: { Authorization: 'Bearer ' + token } });
-            if (!res.ok) return;
-            const data = await res.json();
-            if (data.success && data.user) {
-                currentUser.role = data.user.role;
-                currentUser.page_permissions = data.user.page_permissions || {};
-                currentUser.effective_permissions = data.user.effective_permissions || {};
-                currentUser.allowed_languages = data.user.allowed_languages || [];
-                currentUser.allowed_emails = data.user.allowed_emails || [];
-                currentUser.allowed_categories = data.user.allowed_categories || [];
-                currentUser.team_id = data.user.team_id || null;
-                localStorage.setItem('user', JSON.stringify(currentUser));
-                if (!hasAccess('users', 'view')) {
-                    window.location.href = 'dashboard.html';
-                    return;
-                }
-                updateNav();
-                if (typeof loadData === 'function') loadData();
-            }
-        } catch (e) { /* keep last-known role on failure */ }
-    })();
-
-    // Grey out (don't hide) nav items the user can't access
-    function updateNav() {
-        ['nav-reports', 'nav-newsletter', 'nav-settings'].forEach(id => {
-            const page = id.replace('nav-', '');
-            const el = document.getElementById(id);
-            if (!el) return;
-            const allowed = hasPageAccess(page);
-            el.classList.toggle('nav-disabled', !allowed);
-            if (!allowed) el.addEventListener('click', e => e.preventDefault());
-        });
-    }
-    updateNav();
 
     let allUsers = [];
     let supportEmails = [];
@@ -393,12 +335,14 @@
     let newEmails = [];
     let editTeams = [];
     let editEmails = [];
-    let newSelectedCategories = [];
     let editSelectedCategories = [];
+    let LANGUAGES = {};
+    let languageList = [];
+    let languagesLoaded = false;
+    let allCategories = [];
+    let categoriesLoaded = false;
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD LANGUAGES & CATEGORIES FROM SETTINGS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ─── LOAD SETTINGS ───────────────────────────────────────────
     async function loadSettings() {
         try {
             const config = await getSharedConfig();
@@ -462,25 +406,7 @@
         }
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  THEME
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function setTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('theme', theme);
-        document.querySelectorAll('.theme-toggle').forEach(t => t.textContent = theme === 'dark' ? '☀️' : '🌙');
-    }
-
-    function toggleTheme() {
-        const current = document.documentElement.getAttribute('data-theme') || 'light';
-        setTheme(current === 'light' ? 'dark' : 'light');
-    }
-
-    setTheme(localStorage.getItem('theme') || 'light');
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  RENDER HELPERS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ─── RENDER HELPERS ──────────────────────────────────────────
     function renderLanguageCheckboxes(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -531,20 +457,6 @@
             (selectId === 'newTeamId' ? newTeams : editTeams).map(t => `<option value="${t}" style="font-style:italic">[NEW] ${t}</option>`).join('');
     }
 
-    function disableEditFormIfReadOnly() {
-        if (!canEditUserAction()) {
-            document.querySelectorAll('#editUserModal input:not([type="hidden"]), #editUserModal select, #editUserModal textarea').forEach(el => {
-                el.disabled = true;
-                el.style.opacity = '0.6';
-            });
-            document.querySelectorAll('#editUserModal .category-checkbox input, #editUserModal .email-checkbox input, #editUserModal input[type="checkbox"]').forEach(el => {
-                el.disabled = true;
-            });
-            document.getElementById('saveUserBtn').disabled = true;
-            document.getElementById('saveUserBtn').style.opacity = '0.5';
-        }
-    }
-
     function renderUI() {
         const addBtn = document.getElementById('addUserBtn');
         addBtn.disabled = !canCreateUser();
@@ -555,13 +467,11 @@
         renderTeamSelect('editTeamId');
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  PERMISSION CHECKS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ─── PERMISSION CHECKS ──────────────────────────────────────
     function canManageUsers() { return hasPageAccess('users'); }
-    function canCreateUser() { return hasPermission('users', 'create') || hasPermission('users', 'write'); }
-    function canEditUserAction() { return hasPermission('users', 'edit') || hasPermission('users', 'write'); }
-    function canDeleteUserAction() { return hasPermission('users', 'delete') || hasPermission('users', 'write'); }
+    function canCreateUser() { return hasPermission('users', 'create'); }
+    function canEditUserAction() { return hasPermission('users', 'edit'); }
+    function canDeleteUserAction() { return hasPermission('users', 'delete'); }
 
     function canEditUser(targetUser) {
         if (!currentUser) return false;
@@ -589,21 +499,8 @@
         return [currentUser];
     }
 
-    function checkPermission() {
-        if (!canManageUsers()) {
-            document.getElementById('permDenied').style.display = 'block';
-            document.getElementById('usersApp').style.display = 'none';
-            return false;
-        }
-        document.getElementById('permDenied').style.display = 'none';
-        document.getElementById('usersApp').style.display = 'block';
-        return true;
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD DATA
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function api(path, opts = {}) {
+    // ─── LOAD DATA ───────────────────────────────────────────────
+    async function apiCall(path, opts = {}) {
         opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
         const res = await fetch(API_BASE + path, opts);
         if (res.status === 401) { localStorage.removeItem('token'); throw new Error('Unauthorized'); }
@@ -641,7 +538,7 @@
                 return JSON.parse(cached);
             }
         }
-        const res = await api('/api/admin/settings');
+        const res = await apiCall('/api/admin/settings');
         const config = {
             languages: extractLanguages(res),
             categories: extractCategories(res),
@@ -653,7 +550,7 @@
     }
     async function checkForConfigUpdate(cachedVersion) {
         try {
-            const res = await api('/api/admin/config-version');
+            const res = await apiCall('/api/admin/config-version');
             if (res.version && res.version !== cachedVersion) {
                 toast("Configuration was updated by admin. Please <a href='#' onclick='logout()'>re-login</a> to see changes.", "warning");
             }
@@ -706,9 +603,18 @@
         }
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  RENDER USERS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function checkPermission() {
+        if (!canManageUsers()) {
+            document.getElementById('permDenied').style.display = 'block';
+            document.getElementById('usersApp').style.display = 'none';
+            return false;
+        }
+        document.getElementById('permDenied').style.display = 'none';
+        document.getElementById('usersApp').style.display = 'block';
+        return true;
+    }
+
+    // ─── RENDER USERS ────────────────────────────────────────────
     function renderUsers() {
         const viewable = getViewableUsers();
         if (viewable.length === 0) {
@@ -745,10 +651,8 @@
                 html += `<td><span class="langs-cell">${escapeHtml(userEmails.length > 0 ? userEmails.length + ' email(s)' : '-')}</span></td>`;
             }
             html += '<td>';
-            const editAllowed = canEditUser(u);
-            const deleteAllowed = canDeleteUser(u);
-            html += `<button class="action-btn${editAllowed ? '' : ' action-disabled'}" ${editAllowed ? '' : 'disabled'} onclick="openEditUserModal('${escapeHtml(u.email)}')">Edit</button>`;
-            html += `<button class="action-btn delete${deleteAllowed ? '' : ' action-disabled'}" ${deleteAllowed ? '' : 'disabled'} onclick="deleteUser('${escapeHtml(u.email)}')">Delete</button>`;
+            html += `<button class="action-btn${canEdit ? '' : ' action-disabled'}" ${canEdit ? '' : 'disabled'} onclick="openEditUserModal('${escapeHtml(u.email)}')">Edit</button>`;
+            html += `<button class="action-btn delete${canDelete ? '' : ' action-disabled'}" ${canDelete ? '' : 'disabled'} onclick="deleteUser('${escapeHtml(u.email)}')">Delete</button>`;
             html += '</td></tr>';
         });
 
@@ -756,9 +660,7 @@
         document.getElementById('usersTableContainer').innerHTML = html;
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  MODAL HELPERS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ─── MODAL HELPERS ───────────────────────────────────────────
     function updateRoleInfo() {
         const role = document.getElementById('newRole').value;
         document.getElementById('roleInfo').textContent = ROLE_DESCRIPTIONS[role] || '';
@@ -854,11 +756,7 @@
     function removeNewEmail(email) { newEmails = newEmails.filter(e => e !== email); renderNewEmailsList(); }
     function removeEditEmail(email) { editEmails = editEmails.filter(e => e !== email); renderEditEmailsList(); }
 
-    // Permissions are now role-based only (removed per-user granular permissions)
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  OPEN / CLOSE MODALS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ─── OPEN / CLOSE MODALS ─────────────────────────────────────
     function openAddUserModal() {
         if (!canCreateUser()) {
             showErrorPopup('Permission Denied', 'You do not have permission to add users');
@@ -866,8 +764,6 @@
         }
         newTeams = [];
         newEmails = [];
-        newSelectedCategories = [];
-        newPagePerms = {};
         document.getElementById('newEmail').value = '';
         document.getElementById('newName').value = '';
         document.getElementById('newPassword').value = '';
@@ -900,7 +796,6 @@
         editTeams = [];
         editEmails = [];
         editSelectedCategories = user.allowed_categories || [];
-        editPagePerms = {};
         document.getElementById('editEmail').value = user.email;
         document.getElementById('editName').value = user.name || '';
         document.getElementById('editRole').value = user.role;
@@ -932,9 +827,21 @@
         editingEmail = null;
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  API ACTIONS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function disableEditFormIfReadOnly() {
+        if (!canEditUserAction()) {
+            document.querySelectorAll('#editUserModal input:not([type="hidden"]), #editUserModal select, #editUserModal textarea').forEach(el => {
+                el.disabled = true;
+                el.style.opacity = '0.6';
+            });
+            document.querySelectorAll('#editUserModal .category-checkbox input, #editUserModal .email-checkbox input, #editUserModal input[type="checkbox"]').forEach(el => {
+                el.disabled = true;
+            });
+            document.getElementById('saveUserBtn').disabled = true;
+            document.getElementById('saveUserBtn').style.opacity = '0.5';
+        }
+    }
+
+    // ─── API ACTIONS ─────────────────────────────────────────────
     async function addUser() {
         if (!canCreateUser()) {
             showErrorPopup('Permission Denied', 'You do not have permission to add users');
@@ -1091,15 +998,13 @@
         }
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  POPUP NOTIFICATIONS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ─── POPUP NOTIFICATIONS ─────────────────────────────────────
     function showSuccessPopup(title, message) {
         const popup = document.createElement('div');
         popup.style.cssText = `
             position: fixed; top: 20px; right: 20px; background: #22c55e; color: white;
             padding: 15px 20px; border-radius: 8px; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            font-weight: bold; max-width: 400px; animation: slideIn 0.3s ease;
+            font-weight: bold; max-width: 400px; animation: slideUp 0.3s ease;
         `;
         popup.innerHTML = `<div style="font-size: 16px;">${title}</div><div style="font-size: 13px; margin-top: 5px;">${message}</div>`;
         document.body.appendChild(popup);
@@ -1111,16 +1016,14 @@
         popup.style.cssText = `
             position: fixed; top: 20px; right: 20px; background: #ef4444; color: white;
             padding: 15px 20px; border-radius: 8px; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            font-weight: bold; max-width: 400px; animation: slideIn 0.3s ease;
+            font-weight: bold; max-width: 400px; animation: slideUp 0.3s ease;
         `;
         popup.innerHTML = `<div style="font-size: 16px;">${title}</div><div style="font-size: 13px; margin-top: 5px;">${message}</div>`;
         document.body.appendChild(popup);
         setTimeout(() => popup.remove(), 4000);
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  INIT
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ─── INIT ────────────────────────────────────────────────────
     loadData();
 
     window.setTheme = setTheme;
@@ -1142,21 +1045,7 @@
     window.removeEditTeam = removeEditTeam;
     window.removeNewEmail = removeNewEmail;
     window.removeEditEmail = removeEditEmail;
-
-    function renderUserBadge() {
-        const u = currentUser;
-        if (!u) return;
-        const initials = (u.name || u.email || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-        const meta = [u.role, u.team_id].filter(Boolean).join(' · ');
-        const el = document.getElementById('userDisplay');
-        if (el) el.innerHTML = `<div class="user-badge"><div class="user-badge-avatar">${initials}</div><div class="user-badge-info"><span class="user-badge-name">${u.name || u.email}</span><span class="user-badge-meta">${meta}</span></div></div>`;
-    }
-    renderUserBadge();
-    function logout() {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = 'dashboard.html';
-    }
+    window.logout = logout;
 </script>
 </body>
 </html>

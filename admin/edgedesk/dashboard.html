@@ -6,13 +6,14 @@
     <title>Dornori Ticketing</title>
     <link rel="stylesheet" href="style.css" />
     <script src="edgedeskconfig.js"></script>
+    <script src="shared.js"></script>
 </head>
 <body>
 <div class="container">
     <div id="login">
         <h1>🔐 Dornori Ticketing</h1>
         <input type="email" id="loginEmail" placeholder="Email" />
-        <input type="password" id="loginPassword" placeholder="Enter your password">
+        <input type="password" id="loginPassword" placeholder="Enter your password" />
         <button onclick="login()">Login</button>
         <div id="loginError" class="error"></div>
         <div id="loginLoading" class="loading">⏳ Logging in...</div>
@@ -38,7 +39,7 @@
         </div>
 
         <div id="notificationBanner" class="notification-permission-banner">
-            ⚠️ Notifications are blocked. 
+            ⚠️ Notifications are blocked.
             <button onclick="requestNotificationPermission()">Enable Notifications</button>
         </div>
 
@@ -137,7 +138,6 @@
             ws.onmessage = function(event) {
                 try {
                     const data = JSON.parse(event.data);
-                    
                     if (data.type === 'pong') return;
 
                     if (data.type === 'ticket_locked' && data.ticket_id) {
@@ -205,9 +205,9 @@
                         }
                         
                         if (isNew) {
-                            showToast('🎫 New Ticket', '#' + t.ticket_number + ' - ' + (t.subject || 'No subject'), 'success');
+                            showToast('🎫 New Ticket: #' + t.ticket_number, 'success');
                         } else {
-                            showToast('✏️ Ticket Updated', '#' + t.ticket_number + ' - ' + (t.subject || 'No subject'), 'info');
+                            showToast('✏️ Ticket Updated: #' + t.ticket_number, 'info');
                         }
                         
                         try {
@@ -265,91 +265,22 @@
         }
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  PERMISSION SERVICE - UNIFIED
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function hasAccess(page, action = 'view') {
-        if (!currentUser?.effective_permissions) return false;
-        const perms = currentUser.effective_permissions[page];
-        if (!perms) return false;
-        return perms[action] === true;
-    }
-
-    const PermissionService = {
-        updateUI() {
-            this.updateNavigation();
-        },
-
-        can(action, page = 'tickets') {
-            const actionMap = { update: 'edit', comment: 'edit', reply: 'edit', assign: 'edit' };
-            return hasAccess(page, actionMap[action] || action);
-        },
-
-        hasPageAccess(page) {
-            return hasAccess(page, 'view');
-        },
-
-        updateNavigation() {
-            const navs = [
-                { id: 'nav-reports', page: 'reports' },
-                { id: 'nav-newsletter', page: 'newsletter' },
-                { id: 'nav-settings', page: 'settings' },
-                { id: 'nav-users', page: 'users' }
-            ];
-            
-            for (const nav of navs) {
-                const el = document.getElementById(nav.id);
-                if (el) {
-                    el.classList.toggle('nav-disabled', !this.hasPageAccess(nav.page));
-                    el.setAttribute('aria-disabled', this.hasPageAccess(nav.page) ? 'false' : 'true');
-                    if (!this.hasPageAccess(nav.page)) el.addEventListener('click', (e) => e.preventDefault());
-                }
-            }
-        }
-    };
-
+    // ─── PERMISSION HELPERS ──────────────────────────────────────
     function canEdit() {
         return hasAccess('tickets', 'edit');
     }
 
-    function showToast(title, message, type = 'info') {
-        const toast = document.createElement('div');
-        toast.className = 'notification-toast';
-        const colors = {
-            info: 'var(--accent)',
-            success: '#22c55e',
-            error: '#ef4444',
-            warning: '#f59e0b'
-        };
-        toast.style.borderLeftColor = colors[type] || colors.info;
-        toast.innerHTML = `
-            <button class="close-toast" onclick="this.parentElement.remove()">×</button>
-            <h4>${title}</h4>
-            <p>${message}</p>
-        `;
-        document.body.appendChild(toast);
-        setTimeout(() => {
-            if (toast.parentElement) toast.remove();
-        }, 8000);
+    function canView() {
+        return hasAccess('tickets', 'view');
     }
 
-    let barToastTimer;
-    function barToast(msg, type = 'success') {
-        const el = document.getElementById('barToast');
-        el.innerHTML = msg;
-        el.className = 'toast show ' + type;
-        clearTimeout(barToastTimer);
-        barToastTimer = setTimeout(() => el.classList.remove('show'), type === 'warning' ? 8000 : 3500);
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  SHARED CONFIG VERSION CACHE
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ─── SHARED CONFIG ──────────────────────────────────────────
     function extractLanguages(res) {
         try {
             return JSON.parse((res.settings && res.settings.find(s => s.category === 'languages' && s.key === 'list')?.value) || '[]');
         } catch (e) { return []; }
     }
+    
     function extractCategories(res) {
         const cats = new Set();
         (res.settings || []).forEach(s => {
@@ -359,6 +290,7 @@
         });
         return Array.from(cats);
     }
+    
     async function loadAppConfig(forceFresh = false) {
         if (!forceFresh) {
             const cached = localStorage.getItem('appConfig');
@@ -380,17 +312,19 @@
         localStorage.setItem('appConfigVersion', config.version);
         return config;
     }
+    
     async function checkForConfigUpdate(cachedVersion) {
         try {
             const res = await fetch(API_BASE + "/api/admin/config-version", {
                 headers: { "Authorization": "Bearer " + token }
             }).then(r => r.json());
             if (res.version && res.version !== cachedVersion) {
-                barToast("Configuration was updated by admin. Please <a href='#' onclick='logout()'>re-login</a> to see changes.", "warning");
+                barToast("Configuration was updated. Please <a href='#' onclick='logout()'>re-login</a>", "warning");
                 localStorage.setItem('appConfigVersion', res.version);
             }
         } catch (e) {}
     }
+    
     let _configPromise = null;
     function getSharedConfig(forceFresh) {
         if (forceFresh || !_configPromise) {
@@ -399,9 +333,7 @@
         return _configPromise;
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD LANGUAGES
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ─── LOAD LANGUAGES ──────────────────────────────────────────
     async function loadLanguagesFromSettings() {
         try {
             if (currentUser.role !== 'admin') {
@@ -423,9 +355,7 @@
         }
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD CATEGORIES
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ─── LOAD CATEGORIES ─────────────────────────────────────────
     async function loadCategoriesFromSettings() {
         try {
             if (currentUser.role !== 'admin') {
@@ -456,221 +386,6 @@
         sel.innerHTML = opts;
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  INIT & STORAGE
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    window.addEventListener('load', async function() {
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        updateThemeButtonIcon(savedTheme);
-        
-        const savedToken = localStorage.getItem('token');
-        const savedUser = localStorage.getItem('user');
-        
-        if (savedToken && savedUser) {
-            try {
-                token = savedToken;
-                currentUser = JSON.parse(savedUser);
-                
-                if (currentUser) {
-                    document.getElementById('login').style.display = 'none';
-                    document.getElementById('dashboard').style.display = 'block';
-                    await refreshCurrentUser();
-                    PermissionService.updateUI();
-                    updateUserDisplay();
-                    
-                    loadEmailSenders();
-                    
-                    Promise.all([
-                        loadLanguagesFromSettings(),
-                        loadCategoriesFromSettings()
-                    ]).then(async () => {
-                        await loadStats();
-                        resetAndLoad();
-                        connectWebSocket();
-                        checkNotificationBanner();
-                    });
-                }
-            } catch (e) {
-                console.error('Failed to restore session:', e);
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-            }
-        }
-    });
-
-    // ─── BEFORE UNLOAD: Release current modal lock ──────────────
-    window.addEventListener('beforeunload', function() {
-        if (currentModalTicketId) releaseTicketLock(currentModalTicketId, false);
-    });
-
-    async function refreshCurrentUser() {
-        try {
-            const res = await fetch(API_BASE + "/api/admin/me", {
-                headers: { "Authorization": "Bearer " + token }
-            });
-            if (!res.ok) return;
-            const data = await res.json();
-            if (data.success && data.user) {
-                currentUser = {
-                    email: data.user.email,
-                    name: data.user.name,
-                    role: data.user.role,
-                    page_permissions: data.user.page_permissions || {},
-                    effective_permissions: data.user.effective_permissions || {},
-                    allowed_languages: data.user.allowed_languages || [],
-                    allowed_emails: data.user.allowed_emails || [],
-                    allowed_categories: data.user.allowed_categories || [],
-                    team_id: data.user.team_id || null
-                };
-                localStorage.setItem('user', JSON.stringify(currentUser));
-            }
-        } catch (e) {
-            console.warn('Could not refresh permissions:', e.message);
-        }
-    }
-
-    function setTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('theme', theme);
-    }
-
-    function toggleTheme() {
-        const current = document.documentElement.getAttribute('data-theme') || 'light';
-        const newTheme = current === 'light' ? 'dark' : 'light';
-        setTheme(newTheme);
-        updateThemeButtonIcon(newTheme);
-    }
-    
-    function updateThemeButtonIcon(theme) {
-        const btn = document.querySelector('.theme-toggle');
-        if (btn) {
-            btn.textContent = theme === 'dark' ? '☀️' : '🌙';
-        }
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  AUTHENTICATION
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function login() {
-        var email = document.getElementById("loginEmail").value;
-        var password = document.getElementById("loginPassword").value;
-        var errorEl = document.getElementById("loginError");
-        var loadingEl = document.getElementById("loginLoading");
-        var btn = document.querySelector("#login button");
-        errorEl.textContent = "";
-        loadingEl.classList.add("active");
-        btn.disabled = true;
-        btn.textContent = "🔐 Logging in...";
-        
-        try {
-            var res = await fetch(API_BASE + "/api/admin/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: email, password: password })
-            });
-            var data = await res.json();
-            if (data.success) {
-                token = data.token;
-                currentUser = {
-                    email: data.user.email,
-                    name: data.user.name,
-                    role: data.user.role,
-                    page_permissions: data.user.page_permissions || {},
-                    effective_permissions: data.user.effective_permissions || {},
-                    allowed_languages: data.user.allowed_languages || [],
-                    allowed_emails: data.user.allowed_emails || [],
-                    allowed_categories: data.user.allowed_categories || [],
-                    team_id: data.user.team_id || null
-                };
-                localStorage.setItem("token", token);
-                localStorage.setItem("user", JSON.stringify(currentUser));
-                console.log('✅ Login successful for:', email, 'Role:', currentUser.role);
-                
-                PermissionService.updateUI();
-                updateUserDisplay();
-                document.getElementById("login").style.display = "none";
-                document.getElementById("dashboard").style.display = "block";
-                
-                await loadEmailSenders();
-                await Promise.all([
-                    loadLanguagesFromSettings(),
-                    loadCategoriesFromSettings()
-                ]);
-                await loadStats();
-                resetAndLoad();
-                connectWebSocket();
-                checkNotificationBanner();
-                showToast('✅ Login Successful', 'Welcome to Dornori Ticketing', 'success');
-            } else {
-                errorEl.textContent = data.message || "Invalid credentials";
-                showToast('❌ Login Failed', data.message || 'Invalid credentials', 'error');
-            }
-        } catch (e) {
-            errorEl.textContent = "Network error – please try again.";
-            showToast('❌ Network Error', e.message, 'error');
-            console.error('Login error:', e);
-        } finally {
-            loadingEl.classList.remove("active");
-            btn.disabled = false;
-            btn.textContent = "Login";
-        }
-    }
-
-    function renderUserBadge() {
-        const u = currentUser;
-        if (!u) return;
-        const initials = (u.name || u.email || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-        const meta = [u.role, u.team_id].filter(Boolean).join(' · ');
-        const el = document.getElementById('userDisplay');
-        if (el) el.innerHTML = `<div class="user-badge"><div class="user-badge-avatar">${initials}</div><div class="user-badge-info"><span class="user-badge-name">${u.name || u.email}</span><span class="user-badge-meta">${meta}</span></div></div>`;
-    }
-
-    function updateUserDisplay() {
-        renderUserBadge();
-    }
-
-    function logout() {
-        if (currentModalTicketId) releaseTicketLock(currentModalTicketId, false);
-        disconnectWebSocket();
-        token = null;
-        currentUser = { email: null, name: null, role: null, page_permissions: {} };
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        localStorage.removeItem("appConfig");
-        localStorage.removeItem("appConfigVersion");
-        emailSenders = [];
-        document.getElementById("login").style.display = "block";
-        document.getElementById("dashboard").style.display = "none";
-        document.getElementById('wsIndicator').textContent = '';
-        showToast('👋 Logged Out', 'See you next time!', 'info');
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  NOTIFICATIONS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function checkNotificationBanner() {
-        const banner = document.getElementById('notificationBanner');
-        if (Notification.permission === 'denied') {
-            banner.style.display = 'block';
-        } else {
-            banner.style.display = 'none';
-        }
-    }
-
-    async function requestNotificationPermission() {
-        const result = await Notification.requestPermission();
-        if (result === 'granted') {
-            document.getElementById('notificationBanner').style.display = 'none';
-            showToast('✅ Notifications Enabled', 'You will now receive real-time updates', 'success');
-        } else {
-            showToast('❌ Permission Denied', 'Please enable notifications in your browser settings', 'error');
-        }
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  APPLY USER LANGUAGE FILTER
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function applyUserLanguageFilter() {
         var sel = document.getElementById('filterLanguage');
         if (!sel || !currentUser) return;
@@ -697,9 +412,7 @@
         sel.innerHTML = opts;
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD EMAIL SENDERS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ─── LOAD EMAIL SENDERS ──────────────────────────────────────
     async function loadEmailSenders() {
         try {
             try {
@@ -748,9 +461,119 @@
         }
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD STATS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ─── AUTHENTICATION ──────────────────────────────────────────
+    async function login() {
+        var email = document.getElementById("loginEmail").value;
+        var password = document.getElementById("loginPassword").value;
+        var errorEl = document.getElementById("loginError");
+        var loadingEl = document.getElementById("loginLoading");
+        var btn = document.querySelector("#login button");
+        errorEl.textContent = "";
+        loadingEl.classList.add("active");
+        btn.disabled = true;
+        btn.textContent = "🔐 Logging in...";
+        
+        try {
+            var res = await fetch(API_BASE + "/api/admin/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: email, password: password })
+            });
+            var data = await res.json();
+            if (data.success) {
+                token = data.token;
+                currentUser = {
+                    email: data.user.email,
+                    name: data.user.name,
+                    role: data.user.role,
+                    page_permissions: data.user.page_permissions || {},
+                    effective_permissions: data.user.effective_permissions || {},
+                    allowed_languages: data.user.allowed_languages || [],
+                    allowed_emails: data.user.allowed_emails || [],
+                    allowed_categories: data.user.allowed_categories || [],
+                    team_id: data.user.team_id || null
+                };
+                localStorage.setItem("token", token);
+                localStorage.setItem("user", JSON.stringify(currentUser));
+                console.log('✅ Login successful for:', email, 'Role:', currentUser.role);
+                
+                setupNavigation();
+                renderUserBadge();
+                document.getElementById("login").style.display = "none";
+                document.getElementById("dashboard").style.display = "block";
+                
+                await loadEmailSenders();
+                await Promise.all([
+                    loadLanguagesFromSettings(),
+                    loadCategoriesFromSettings()
+                ]);
+                await loadStats();
+                resetAndLoad();
+                connectWebSocket();
+                checkNotificationBanner();
+                showToast('✅ Login Successful', 'success');
+            } else {
+                errorEl.textContent = data.message || "Invalid credentials";
+                showToast('❌ Login Failed: ' + (data.message || 'Invalid credentials'), 'error');
+            }
+        } catch (e) {
+            errorEl.textContent = "Network error – please try again.";
+            showToast('❌ Network Error: ' + e.message, 'error');
+            console.error('Login error:', e);
+        } finally {
+            loadingEl.classList.remove("active");
+            btn.disabled = false;
+            btn.textContent = "Login";
+        }
+    }
+
+    async function refreshCurrentUser() {
+        try {
+            const res = await fetch(API_BASE + "/api/admin/me", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.success && data.user) {
+                currentUser = {
+                    email: data.user.email,
+                    name: data.user.name,
+                    role: data.user.role,
+                    page_permissions: data.user.page_permissions || {},
+                    effective_permissions: data.user.effective_permissions || {},
+                    allowed_languages: data.user.allowed_languages || [],
+                    allowed_emails: data.user.allowed_emails || [],
+                    allowed_categories: data.user.allowed_categories || [],
+                    team_id: data.user.team_id || null
+                };
+                localStorage.setItem('user', JSON.stringify(currentUser));
+            }
+        } catch (e) {
+            console.warn('Could not refresh permissions:', e.message);
+        }
+    }
+
+    // ─── NOTIFICATIONS ───────────────────────────────────────────
+    function checkNotificationBanner() {
+        const banner = document.getElementById('notificationBanner');
+        if (Notification.permission === 'denied') {
+            banner.style.display = 'block';
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+
+    async function requestNotificationPermission() {
+        const result = await Notification.requestPermission();
+        if (result === 'granted') {
+            document.getElementById('notificationBanner').style.display = 'none';
+            showToast('✅ Notifications Enabled', 'success');
+        } else {
+            showToast('❌ Permission Denied', 'error');
+        }
+    }
+
+    // ─── LOAD STATS ──────────────────────────────────────────────
     async function loadStats() {
         try {
             var res = await fetch(API_BASE + "/api/admin/stats", {
@@ -783,9 +606,7 @@
         return total;
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD TICKETS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ─── LOAD TICKETS ─────────────────────────────────────────────
     async function loadTickets(goToPage) {
         var list = document.getElementById("ticketList");
         var pagWrap = document.getElementById("paginationWrap");
@@ -832,7 +653,6 @@
                 }
 
                 loadedTickets = tickets;
-
                 renderTickets(loadedTickets);
                 updatePagination();
             } else {
@@ -861,6 +681,7 @@
             '<span>Last Updated</span>' +
             '<span>Updated By</span>' +
             '</div>';
+        
         for (var i = 0; i < tickets.length; i++) {
             var t = tickets[i];
             var isLocked = ticketLocks[t.ticket_id];
@@ -869,7 +690,7 @@
             var actionDate = t.last_action || t.created_at;
             var subjectText = t.subject || "No subject";
             var truncatedSubject = subjectText.length > 80 ? subjectText.substring(0, 80) + "…" : subjectText;
-            var catColor = getCatColor(t.category);
+            var catColor = getCategoryColor(t.category);
             var catLabel = t.category ? t.category.charAt(0).toUpperCase() + t.category.slice(1) : 'Other';
             var updatedBy = t.last_updated_by ? (t.last_updated_by === t.sender_email ? '👤 ' + t.last_updated_by : t.last_updated_by) : '-';
             var rowStyle = isLocked ? 'opacity:0.6;background:var(--bg-secondary);cursor:not-allowed;' : '';
@@ -891,9 +712,19 @@
         list.innerHTML = html;
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  TARGETED TICKET INJECTION
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function updatePagination() {
+        const pagWrap = document.getElementById('paginationWrap');
+        if (currentTotal === 0) { pagWrap.innerHTML = ''; return; }
+        var prevDisabled = currentPage <= 1 ? 'disabled' : '';
+        var nextDisabled = currentPage >= currentTotalPages ? 'disabled' : '';
+        pagWrap.innerHTML =
+            '<div style="display:flex;align-items:center;justify-content:center;gap:12px;">' +
+            '<button ' + prevDisabled + ' onclick="loadTickets(currentPage-1)">‹ Previous</button>' +
+            '<span style="color:var(--text-muted);font-size:13px;">Page ' + currentPage + ' of ' + currentTotalPages + ' (' + currentTotal + ' tickets)</span>' +
+            '<button ' + nextDisabled + ' onclick="loadTickets(currentPage+1)">Next ›</button>' +
+            '</div>';
+    }
+
     function ticketMatchesCurrentFilters(t) {
         var statuses = getStatusesForTab(currentTab);
         if (statuses.length > 0 && statuses.indexOf(t.status) === -1) return false;
@@ -949,53 +780,57 @@
         updatePagination();
     }
 
-    function updatePagination() {
-        const pagWrap = document.getElementById('paginationWrap');
-        if (currentTotal === 0) { pagWrap.innerHTML = ''; return; }
-        var prevDisabled = currentPage <= 1 ? 'disabled' : '';
-        var nextDisabled = currentPage >= currentTotalPages ? 'disabled' : '';
-        pagWrap.innerHTML =
-            '<div style="display:flex;align-items:center;justify-content:center;gap:12px;">' +
-            '<button ' + prevDisabled + ' onclick="loadTickets(currentPage-1)">‹ Previous</button>' +
-            '<span style="color:var(--text-muted);font-size:13px;">Page ' + currentPage + ' of ' + currentTotalPages + ' (' + currentTotal + ' tickets)</span>' +
-            '<button ' + nextDisabled + ' onclick="loadTickets(currentPage+1)">Next ›</button>' +
-            '</div>';
-    }
-
-    var CAT_COLORS = ["#5aa9ff","#ffb347","#a78bfa","#34d399","#f87171","#fbbf24","#60a5fa","#4ade80","#fb923c","#c084fc"];
-    var catColorMap = {};
-    var catColorIdx = 0;
-    function getCatColor(cat) {
-        if (!cat || cat.trim() === '') return "#8892b0";
-        if (!catColorMap[cat]) { catColorMap[cat] = CAT_COLORS[catColorIdx % CAT_COLORS.length]; catColorIdx++; }
-        return catColorMap[cat];
-    }
-    function getSlaColor(cls) {
+    function getStatusesForTab(tab) {
         var map = {
-            'sla-on-track': '#22c55e',
-            'sla-at-risk':  '#eab308',
-            'sla-critical': '#f97316',
-            'sla-breached': '#ef4444',
-            'sla-paused':   '#8892b0'
+            'active': ['new', 'open', 'in_progress', 'pending'],
+            'resolved': ['resolved'],
+            'closed': ['closed']
         };
-        return map[cls] || '#8892b0';
+        return map[tab] || [];
     }
 
-    function escapeHtml(str) {
-        if (!str) return "";
-        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    function switchTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll('.ticket-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
+        resetAndLoad();
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  MODAL
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function resetAndLoad() {
+        if (!isRefreshing) {
+            isRefreshing = true;
+            loadTickets(1).finally(() => {
+                isRefreshing = false;
+            });
+        }
+    }
+
+    function barToast(msg, type = 'success') {
+        const el = document.getElementById('barToast');
+        el.innerHTML = msg;
+        el.className = 'toast show ' + type;
+        clearTimeout(barToastTimer);
+        barToastTimer = setTimeout(() => el.classList.remove('show'), type === 'warning' ? 8000 : 3500);
+    }
+    let barToastTimer;
+
+    // ─── TICKET MODAL ─────────────────────────────────────────────
     function openModal() {
         document.getElementById("ticketModal").classList.add("active");
         document.body.style.overflow = "hidden";
     }
 
-    // ─── FIXED: /unlock → /release ──────────────────────────────
+    function closeModal() {
+        document.getElementById("ticketModal").classList.remove("active");
+        document.body.style.overflow = "";
+        if (currentModalTicketId) {
+            releaseTicketLock(currentModalTicketId, false);
+        }
+        currentModalTicketId = null;
+        ticketLockedByOther = false;
+        ticketLockedByInfo = null;
+    }
+
     function releaseTicketLock(id, useBeacon) {
         if (!id) return;
         var url = API_BASE + "/api/admin/ticket/" + id + "/release";
@@ -1014,26 +849,26 @@
         } catch (e) {}
     }
 
-    function closeModal() {
-        document.getElementById("ticketModal").classList.remove("active");
-        document.body.style.overflow = "";
-        if (currentModalTicketId) {
-            releaseTicketLock(currentModalTicketId, false);
+    async function autoAssignSelf(ticketId) {
+        if (!currentUser || !currentUser.email) return false;
+        
+        try {
+            const res = await fetch(API_BASE + "/api/admin/ticket/" + ticketId + "/assign", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                },
+                body: JSON.stringify({ assigned_to: currentUser.email })
+            });
+            
+            if (res.status === 401) { logout(); return false; }
+            const data = await res.json();
+            return data.success;
+        } catch (e) {
+            console.error('Auto-assign failed:', e);
+            return false;
         }
-        currentModalTicketId = null;
-        ticketLockedByOther = false;
-        ticketLockedByInfo = null;
-    }
-
-    document.getElementById("ticketModal").addEventListener("click", function(e) {
-        if (e.target === this) { closeModal(); }
-    });
-    document.addEventListener("keydown", function(e) {
-        if (e.key === "Escape") { closeModal(); }
-    });
-
-    function applyLockStateToModal() {
-        return;
     }
 
     async function openTicketModal(id, isRefresh) {
@@ -1064,11 +899,11 @@
                             return openTicketModal(id, isRefresh);
                         }
                     }
-                    showToast('🔒 Ticket Locked', 'This ticket is being edited by ' + (lockData.locked_by.name || lockData.locked_by.email), 'warning');
+                    showToast('🔒 Ticket locked by ' + (lockData.locked_by.name || lockData.locked_by.email), 'warning');
                     return;
                 }
             } catch (e) {
-                showToast('❌ Error', 'Failed to lock ticket', 'error');
+                showToast('❌ Failed to lock ticket', 'error');
                 return;
             }
             
@@ -1089,11 +924,10 @@
                 if (!ticket.comments) ticket.comments = [];
                 if (!isRefresh && !ticket.assigned_to && currentUser && currentUser.email && canEdit()) {
                     autoAssignSelf(ticket.id).then(function(updated) {
-                        if (updated) { ticket.assigned_to = currentUser.email; renderTicketDetailModal(ticket); applyLockStateToModal(); }
+                        if (updated) { ticket.assigned_to = currentUser.email; renderTicketDetailModal(ticket); }
                     });
                 }
                 renderTicketDetailModal(ticket);
-                applyLockStateToModal();
             } else if (!isRefresh) {
                 content.innerHTML = '<div class="loading">Error loading ticket</div>';
             }
@@ -1210,7 +1044,7 @@
 
         var slaLabel = getSlaDisplay(ticket.sla_status || 'on_track').label;
         var slaClass = getSlaDisplay(ticket.sla_status || 'on_track').cls;
-        var catColor = getCatColor(ticket.category);
+        var catColor = getCategoryColor(ticket.category);
         var isClosed = ticket.status === 'closed';
 
         var fullName = [ticket.sender_name, ticket.sender_last_name].filter(Boolean).join(' ') || 'Unknown';
@@ -1313,6 +1147,18 @@
         ).join('');
     }
 
+    function getSourceLabel(metaObj) {
+        var source = metaObj && metaObj.source;
+        if (source === 'email') return '📧 Email';
+        if (source === 'newsletter') return '📧 Newsletter';
+        if (source === 'website') return '🌐 Web Form';
+        if (source === 'contact-form') return '🌐 Web Form (Contact)';
+        if (source === 'support-form') return '🌐 Web Form (Support)';
+        if (source) return '🌐 Web Form';
+        return '📧 Email';
+    }
+
+    // ─── TICKET ACTIONS ───────────────────────────────────────────
     async function assignTicket(ticketId) {
         const select = document.getElementById('detailAssignSelect');
         if (!select) return;
@@ -1325,22 +1171,19 @@
             });
             const data = await res.json();
             if (data.success) {
-                showToast('Assigned', assigned_to ? 'Ticket assigned.' : 'Ticket unassigned.', 'success');
+                showToast(assigned_to ? '✅ Ticket assigned' : '✅ Ticket unassigned', 'success');
                 openTicketModal(ticketId, true);
             } else {
-                showToast('Error', data.error || 'Could not assign ticket', 'error');
+                showToast('❌ ' + (data.error || 'Could not assign ticket'), 'error');
             }
         } catch (e) {
-            showToast('Error', e.message, 'error');
+            showToast('❌ ' + e.message, 'error');
         }
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  ACTIONS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     async function updateStatus(id) {
         if (!canEdit()) {
-            showToast('❌ Permission Denied', 'You do not have edit permission for tickets', 'error');
+            showToast('❌ Permission Denied', 'error');
             return;
         }
         var status = document.getElementById("detailStatus").value;
@@ -1353,25 +1196,25 @@
             if (res.status === 401) { logout(); closeModal(); return; }
             var data = await res.json();
             if (data.success) { 
-                openTicketModal(id); 
+                openTicketModal(id, true); 
                 loadStats(); 
                 resetAndLoad();
             } else {
-                showToast('❌ Update Failed', data.error || 'Unknown error', 'error');
+                showToast('❌ Update Failed: ' + (data.error || 'Unknown error'), 'error');
             }
         } catch (e) { 
-            showToast('❌ Error', e.message, 'error');
+            showToast('❌ Error: ' + e.message, 'error');
         }
     }
 
     async function addComment(id) {
         if (!canEdit()) {
-            showToast('❌ Permission Denied', 'You do not have edit permission for tickets', 'error');
+            showToast('❌ Permission Denied', 'error');
             return;
         }
         var content = document.getElementById("detailComment").value;
         if (!content) {
-            showToast('⚠️ Please enter a comment', 'Comment is required', 'warning');
+            showToast('⚠️ Please enter a comment', 'warning');
             return;
         }
         try {
@@ -1384,26 +1227,26 @@
             var data = await res.json();
             if (data.success) { 
                 document.getElementById("detailComment").value = ""; 
-                openTicketModal(id); 
+                openTicketModal(id, true); 
                 loadStats(); 
                 resetAndLoad();
             } else {
-                showToast('❌ Failed', 'Failed to add comment', 'error');
+                showToast('❌ Failed to add comment', 'error');
             }
         } catch (e) { 
-            showToast('❌ Error', e.message, 'error');
+            showToast('❌ Error: ' + e.message, 'error');
         }
     }
 
     async function sendReply(id) {
         if (!canEdit()) {
-            showToast('❌ Permission Denied', 'You do not have edit permission for tickets', 'error');
+            showToast('❌ Permission Denied', 'error');
             return;
         }
         var from = document.getElementById("detailReplyFrom").value;
         var rawBody = document.getElementById("detailReplyBody").value;
         if (!rawBody) {
-            showToast('⚠️ Please enter a reply', 'Reply content is required', 'warning');
+            showToast('⚠️ Please enter a reply', 'warning');
             return;
         }
         var body = '<p>' + rawBody
@@ -1420,85 +1263,77 @@
             var data = await res.json();
             if (data.success) { 
                 document.getElementById("detailReplyBody").value = ""; 
-                openTicketModal(id); 
+                openTicketModal(id, true); 
                 loadStats(); 
                 resetAndLoad();
-                showToast('✅ Reply Sent', 'Your reply has been sent to the customer', 'success');
+                showToast('✅ Reply Sent', 'success');
             } else {
-                showToast('❌ Failed', 'Failed to send reply', 'error');
+                showToast('❌ Failed to send reply', 'error');
             }
         } catch (e) { 
-            showToast('❌ Error', e.message, 'error');
+            showToast('❌ Error: ' + e.message, 'error');
         }
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  TABS & FILTERING
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function switchTab(tab) {
-        currentTab = tab;
-        document.querySelectorAll('.ticket-tab').forEach(t => t.classList.remove('active'));
-        document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
-        resetAndLoad();
-    }
-
-    function resetAndLoad() {
-        if (!isRefreshing) {
-            isRefreshing = true;
-            loadTickets(1).finally(() => {
-                isRefreshing = false;
-            });
+    // ─── WINDOW INIT ─────────────────────────────────────────────
+    window.addEventListener('load', async function() {
+        initTheme();
+        renderUserBadge();
+        setupNavigation();
+        
+        const savedToken = localStorage.getItem('token');
+        const savedUser = localStorage.getItem('user');
+        
+        if (savedToken && savedUser) {
+            try {
+                token = savedToken;
+                currentUser = JSON.parse(savedUser);
+                
+                if (currentUser) {
+                    document.getElementById('login').style.display = 'none';
+                    document.getElementById('dashboard').style.display = 'block';
+                    await refreshCurrentUser();
+                    setupNavigation();
+                    renderUserBadge();
+                    
+                    loadEmailSenders();
+                    
+                    Promise.all([
+                        loadLanguagesFromSettings(),
+                        loadCategoriesFromSettings()
+                    ]).then(async () => {
+                        await loadStats();
+                        resetAndLoad();
+                        connectWebSocket();
+                        checkNotificationBanner();
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to restore session:', e);
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+            }
         }
-    }
+    });
 
-    function getStatusesForTab(tab) {
-        var map = {
-            'active': ['new', 'open', 'in_progress', 'pending'],
-            'resolved': ['resolved'],
-            'closed': ['closed']
-        };
-        return map[tab] || [];
-    }
+    window.addEventListener('beforeunload', function() {
+        if (currentModalTicketId) releaseTicketLock(currentModalTicketId, false);
+    });
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  UTILITIES
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function formatDate(dateStr) {
-        if (!dateStr) return "Invalid Date";
-        try {
-            var cleaned = dateStr.replace(" ", "T");
-            if (!cleaned.includes("Z") && !cleaned.includes("+")) { cleaned += "Z"; }
-            var d = new Date(cleaned);
-            if (isNaN(d.getTime())) { return dateStr; }
-            return d.toLocaleString(undefined, {
-                year: "numeric", month: "short", day: "numeric",
-                hour: "2-digit", minute: "2-digit",
-                timeZone: userTimezone || "UTC"
-            });
-        } catch (e) { return dateStr; }
-    }
-
-    function getSourceLabel(metaObj) {
-        var source = metaObj && metaObj.source;
-        if (source === 'email') return '📧 Email';
-        if (source === 'newsletter') return '📧 Newsletter';
-        if (source === 'website') return '🌐 Web Form';
-        if (source === 'contact-form') return '🌐 Web Form (Contact)';
-        if (source === 'support-form') return '🌐 Web Form (Support)';
-        if (source) return '🌐 Web Form';
-        return '📧 Email';
-    }
-
-    function getSlaDisplay(status) {
-        var map = {
-            'on_track': { cls: 'sla-on-track', label: '✅ On Track' },
-            'at_risk': { cls: 'sla-at-risk', label: '⚠️ At Risk' },
-            'critical': { cls: 'sla-critical', label: '🔴 Critical' },
-            'breached': { cls: 'sla-breached', label: '❌ Breached' },
-            'paused': { cls: 'sla-paused', label: '⏸️ Paused' }
-        };
-        return map[status] || map['on_track'];
-    }
+    // Expose functions globally
+    window.login = login;
+    window.logout = logout;
+    window.toggleTheme = toggleTheme;
+    window.switchTab = switchTab;
+    window.resetAndLoad = resetAndLoad;
+    window.loadTickets = loadTickets;
+    window.openTicketModal = openTicketModal;
+    window.closeModal = closeModal;
+    window.updateStatus = updateStatus;
+    window.addComment = addComment;
+    window.sendReply = sendReply;
+    window.assignTicket = assignTicket;
+    window.requestNotificationPermission = requestNotificationPermission;
 </script>
 </body>
 </html>
