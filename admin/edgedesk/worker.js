@@ -617,6 +617,7 @@ async function applyTicketFilters(tickets, filters, user, env) {
   }
   if (filters.category) rows = rows.filter((t) => t.category === filters.category);
   if (filters.language) rows = rows.filter((t) => t.language === filters.language);
+  if (filters.assigned_to) rows = rows.filter((t) => t.assigned_to === filters.assigned_to);
   const sort = filters.sort || "last_updated";
   const rank = /* @__PURE__ */ __name((t) => {
     if (["resolved", "closed"].includes(t.status)) return 3;
@@ -1280,6 +1281,10 @@ async function getTickets(filters, env, user) {
     query += " AND language = ?";
     params.push(filters.language);
   }
+  if (filters.assigned_to) {
+    query += " AND assigned_to = ?";
+    params.push(filters.assigned_to);
+  }
   if (filters.search) {
     const term = "%" + filters.search + "%";
     query += " AND (ticket_number LIKE ? OR sender_email LIKE ? OR sender_name LIKE ? OR subject LIKE ?)";
@@ -1338,6 +1343,10 @@ async function getTotalTicketCount(filters, env, user) {
   if (filters.language) {
     query += " AND language = ?";
     params.push(filters.language);
+  }
+  if (filters.assigned_to) {
+    query += " AND assigned_to = ?";
+    params.push(filters.assigned_to);
   }
   if (filters.search) {
     const term = "%" + filters.search + "%";
@@ -2182,6 +2191,8 @@ var worker_default = {
         if (!purgeEmail) return json({ error: "Unauthorized" }, 401);
         if (!await checkAccess(purgeEmail, "settings", "edit", env)) return json({ error: "Permission denied" }, 403);
         await purgeTicketCache();
+        clearCache();
+        await bumpConfigVersion(env);
         await setAgentsOnlineCount(env, 0);
         return json({ success: true });
       }
@@ -2300,13 +2311,13 @@ var worker_default = {
         const limit = Math.min(parseInt(url.searchParams.get("limit") || "25"), 100);
         const search = (url.searchParams.get("search") || "").trim();
         const offset = (page - 1) * limit;
-        const filters = { category: url.searchParams.get("category"), language: url.searchParams.get("language"), sort: url.searchParams.get("sort") || "last_updated", limit, offset };
+        const filters = { category: url.searchParams.get("category"), language: url.searchParams.get("language"), sort: url.searchParams.get("sort") || "last_updated", limit, offset, assigned_to: url.searchParams.get("assigned_to") };
         if (search) filters.search = search;
         const statuses = url.searchParams.get("statuses");
         if (statuses) filters.statuses = statuses.split(",").map((s) => s.trim());
         else filters.status = url.searchParams.get("status");
         const statusesOk = filters.statuses ? filters.statuses.every((s) => ACTIVE_STATUSES.includes(s)) : !filters.status || ACTIVE_STATUSES.includes(filters.status);
-        const useCache = !search && page === 1 && statusesOk && !filters.category && !filters.language;
+        const useCache = !search && page === 1 && statusesOk && !filters.category && !filters.language && !filters.assigned_to;
         let tickets, total;
         if (useCache) {
           let snap = await getTicketCache();
