@@ -29,8 +29,8 @@
                     <a id="nav-users" href="users.html">👥 <span>Users</span></a>
                 </div>
                 <div class="nav-actions">
-                    <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
                     <span id="wsIndicator" style="font-size:12px;font-weight:400;color:var(--text-muted);min-width:50px;text-align:center;"></span>
+                    <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
                     <div id="userDisplay"></div>
                     <button class="btn-logout" onclick="logout()">Logout</button>
                 </div>
@@ -145,6 +145,7 @@
                         if (currentModalTicketId === data.ticket_id && data.locked_by && data.locked_by.email !== (currentUser && currentUser.email)) {
                             ticketLockedByOther = true;
                             ticketLockedByInfo = data.locked_by;
+                            applyLockStateToModal();
                         }
                         renderTickets(loadedTickets);
                         return;
@@ -161,6 +162,7 @@
                                 ticketLockedByOther = false;
                                 ticketLockedByInfo = null;
                             }
+                            applyLockStateToModal();
                         }
                         ticketLocks = newLocks;
                         renderTickets(loadedTickets);
@@ -172,6 +174,7 @@
                         if (currentModalTicketId === data.ticket_id) {
                             ticketLockedByOther = false;
                             ticketLockedByInfo = null;
+                            applyLockStateToModal();
                         }
                         renderTickets(loadedTickets);
                         return;
@@ -822,7 +825,7 @@
                 var pagination = data.pagination || { total: 0, page: 1, totalPages: 1 };
                 currentPage = pagination.page;
 
-                var tabTotal = (!search && !category && !language) ? getTotalForTab(currentTab) : null;
+                var tabTotal = (!search && !category && !language && !assignedToMe) ? getTotalForTab(currentTab) : null;
                 if (tabTotal !== null) {
                     currentTotal = tabTotal;
                     currentTotalPages = Math.max(1, Math.ceil(tabTotal / currentLimit));
@@ -1033,7 +1036,29 @@
     });
 
     function applyLockStateToModal() {
-        return;
+        var banner = document.getElementById('lockBanner');
+        if (!banner) return;
+        var controlIds = ['detailStatus', 'detailComment', 'detailReplyBody', 'detailReplyFrom', 'detailAssignSelect'];
+        var controls = controlIds.map(function(id) { return document.getElementById(id); }).filter(Boolean);
+        var buttons = document.querySelectorAll('#modalContent .action-section .btn-primary');
+        var canEditTicket = canEdit();
+
+        if (ticketLockedByOther) {
+            var who = (ticketLockedByInfo && (ticketLockedByInfo.name || ticketLockedByInfo.email)) || 'another agent';
+            banner.textContent = '🔒 Locked by ' + who + ' — read-only until released.';
+            banner.style.display = 'block';
+            controls.forEach(function(el) { el.disabled = true; });
+            buttons.forEach(function(btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; });
+        } else {
+            banner.style.display = 'none';
+            banner.textContent = '';
+            controls.forEach(function(el) { el.disabled = !canEditTicket; });
+            buttons.forEach(function(btn) {
+                btn.disabled = !canEditTicket;
+                btn.style.opacity = canEditTicket ? '' : '0.5';
+                btn.style.cursor = canEditTicket ? '' : 'not-allowed';
+            });
+        }
     }
 
     async function openTicketModal(id, isRefresh) {
