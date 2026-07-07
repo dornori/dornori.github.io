@@ -1,289 +1,895 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Reports – Dornori</title>
     <link rel="stylesheet" href="style.css" />
     <script src="edgedeskconfig.js"></script>
+    <script src="shared.js"></script>
+    <style>
+        .reports-container { max-width: 1400px !important; margin: 0 auto; }
+
+        .report-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .report-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px var(--shadow);
+            transition: box-shadow 0.2s ease;
+        }
+        .report-card:hover {
+            box-shadow: 0 4px 16px var(--shadow);
+        }
+        .report-card h3 {
+            color: var(--accent);
+            font-size: 15px;
+            font-weight: 700;
+            margin: 0 0 16px 0;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .report-card h3 .badge {
+            font-size: 11px;
+            font-weight: 600;
+            background: var(--bg-input);
+            color: var(--text-muted);
+            padding: 2px 10px;
+            border-radius: 12px;
+            margin-left: auto;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+        .stat-row .label {
+            color: var(--text-muted);
+        }
+        .stat-row .value {
+            font-weight: 600;
+            color: var(--text);
+        }
+        .stat-row .value.highlight {
+            color: var(--accent);
+        }
+
+        .pie-container {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 10px 0;
+        }
+        .pie-svg {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            transform: rotate(-90deg);
+        }
+        .pie-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 13px;
+            min-width: 120px;
+        }
+        .pie-legend .item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text);
+        }
+        .pie-legend .color-box {
+            width: 14px;
+            height: 14px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        .pie-legend .percent {
+            color: var(--text-muted);
+            font-size: 12px;
+            margin-left: auto;
+        }
+
+        .bar-chart-wrap {
+            padding: 10px 0;
+            overflow-x: auto;
+        }
+        .bar-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+            height: 160px;
+            padding-top: 20px;
+            min-width: 280px;
+        }
+        .bar-chart .bar-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100%;
+            justify-content: flex-end;
+            min-width: 20px;
+        }
+        .bar-chart .bar {
+            width: 100%;
+            max-width: 40px;
+            min-width: 12px;
+            background: var(--accent);
+            border-radius: 4px 4px 0 0;
+            position: relative;
+            transition: height 0.4s ease;
+            min-height: 2px;
+        }
+        .bar-chart .bar .value {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .bar-chart .bar .day-label {
+            position: absolute;
+            bottom: -22px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 9px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+        .bar-chart .bar .bar-tooltip {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-secondary);
+            color: var(--text);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 8px var(--shadow);
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .bar-chart .bar:hover .bar-tooltip {
+            display: block;
+        }
+
+        .sla-status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 12px;
+            margin-top: 8px;
+        }
+        .sla-status-item {
+            text-align: center;
+            padding: 12px 8px;
+            background: var(--bg-input);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .sla-status-item .number {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .sla-status-item .label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        .sla-status-item.on-track .number { color: #22c55e; }
+        .sla-status-item.at-risk .number { color: #eab308; }
+        .sla-status-item.breached .number { color: #ef4444; }
+
+        .top-senders-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .top-senders-list .sender-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            align-items: center;
+        }
+        .top-senders-list .sender-row:last-child {
+            border-bottom: none;
+        }
+        .top-senders-list .sender-row .email {
+            color: var(--text);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            margin-right: 12px;
+        }
+        .top-senders-list .sender-row .count {
+            font-weight: 600;
+            color: var(--accent);
+            background: var(--accent-light);
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .category-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 10px;
+            background: var(--bg-input);
+            border-radius: 6px;
+            font-size: 13px;
+            align-items: center;
+        }
+        .category-item .cat-name {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .category-item .cat-count {
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .report-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        .report-actions .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+        .report-actions .btn:hover {
+            opacity: 0.85;
+        }
+        .report-actions .btn-primary {
+            background: var(--accent);
+            color: var(--text-inverse);
+        }
+        .report-actions .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .report-actions .btn-secondary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading-spinner {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+        .loading-spinner .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--bg-input);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error-state {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .error-state h3 {
+            color: var(--error);
+            margin-bottom: 10px;
+        }
+        .error-state p {
+            color: var(--text-muted);
+        }
+
+        .report-timestamp {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 8px;
+            text-align: right;
+        }
+
+        @media (max-width: 768px) {
+            .report-grid {
+                grid-template-columns: 1fr;
+            }
+            .pie-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            .pie-legend {
+                width: 100%;
+            }
+            .sla-status-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
 <div class="container reports-container">
     <div class="header">
         <h1>📊 Reports</h1>
         <div class="header-right">
-                <div class="nav-links">
-                    <a id="nav-dashboard" href="dashboard.html">🎫 <span>Dashboard</span></a>
-                    <a id="nav-reports" href="reports.html" style="display:none;">📊 <span>Reports</span></a>
-                    <a id="nav-newsletter" href="newsletter.html">📧 <span>Newsletter</span></a>
-                    <a id="nav-settings" href="settings.html">⚙️ <span>Settings</span></a>
-                    <a id="nav-users" href="users.html">👥 <span>Users</span></a>
-                </div>
-                <div class="nav-actions">
-                    <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
-                    <div id="userDisplay"></div>
-                    <button class="btn-logout" onclick="logout()">Logout</button>
-                </div>
+            <div class="nav-links">
+                <a id="nav-dashboard" href="dashboard.html">🎫 <span>Dashboard</span></a>
+                <a id="nav-reports" href="reports.html" style="display:none;">📊 <span>Reports</span></a>
+                <a id="nav-newsletter" href="newsletter.html">📧 <span>Newsletter</span></a>
+                <a id="nav-settings" href="settings.html">⚙️ <span>Settings</span></a>
+                <a id="nav-users" href="users.html">👥 <span>Users</span></a>
             </div>
+            <div class="nav-actions">
+                <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+                <div id="userDisplay"></div>
+                <button class="btn-logout" onclick="logout()">Logout</button>
+            </div>
+        </div>
     </div>
 
-    <div id="permDenied" class="card perm-denied" style="display:none;">
-        <h2>⛔ Permission Denied</h2>
-        <p>You don't have permission to view reports.</p>
-        <a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a>
+    <div id="reportsContent">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p style="margin-top: 16px;">Loading reports...</p>
+        </div>
     </div>
-
-    <div id="reportContent" style="display:none;"><div class="loading">Loading reports...</div></div>
 </div>
 
 <script>
+    // ─── PAGE ACCESS CHECK ──────────────────────────────────────
+    (function() {
+        if (!checkPageAccess('reports')) return;
+    })();
+
     const API_BASE = window.EDGEDESK_CONFIG ? window.EDGEDESK_CONFIG.API_BASE : 'https://dornori-ticketing.dornori-info.workers.dev';
 
-    let token = null;
-    let currentUser = null;
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  PERMISSION SERVICE
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function hasAccess(page, action = 'view') {
-        if (!currentUser?.effective_permissions) return false;
-        const perms = currentUser.effective_permissions[page];
-        if (!perms) return false;
-        return perms[action] === true;
-    }
-
-    const PermissionService = {
-        can(action, subject = 'reports') {
-            return hasAccess(subject, action);
-        },
-
-        hasPageAccess(page) {
-            return hasAccess(page, 'view');
-        }
-    };
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  SECURITY: HTML ESCAPING
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function escapeHtml(str) {
-        if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  TOAST NOTIFICATIONS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function showToast(title, message, type = 'info') {
-        const toast = document.createElement('div');
-        toast.className = 'notification-toast';
-        const colors = {
-            info: 'var(--accent)',
-            success: '#22c55e',
-            error: '#ef4444',
-            warning: '#f59e0b'
-        };
-        toast.style.borderLeftColor = colors[type] || colors.info;
-        toast.innerHTML = `
-            <button class="close-toast" onclick="this.parentElement.remove()">×</button>
-            <h4>${title}</h4>
-            <p>${message}</p>
-        `;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 5000);
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  THEME TOGGLE
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function setTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('theme', theme);
-        document.querySelectorAll('.theme-toggle').forEach(t => t.textContent = theme === 'dark' ? '☀️' : '🌙');
-    }
-    function toggleTheme() {
-        const current = document.documentElement.getAttribute('data-theme') || 'light';
-        setTheme(current === 'light' ? 'dark' : 'light');
-    }
+    // ─── THEME ────────────────────────────────────────────────────
     setTheme(localStorage.getItem('theme') || 'light');
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  AUTH CHECK & INIT
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function initPage() {
-        token = localStorage.getItem('token');
-        const storedUser = localStorage.getItem('user');
-        currentUser = storedUser ? JSON.parse(storedUser) : null;
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    const currentUser = storedUser ? JSON.parse(storedUser) : null;
 
-        if (!token || !currentUser) {
-            window.location.href = 'dashboard.html';
+    // ─── PERMISSION HELPERS ──────────────────────────────────────
+    function hasAccess(page, action) {
+        return window.hasAccess(page, action);
+    }
+
+    function canViewReports() {
+        return hasAccess('reports', 'view');
+    }
+
+    // ─── PERMISSION CHECK ──────────────────────────────────────
+    if (!token || !currentUser || !canViewReports()) {
+        document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to view reports.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
+        throw new Error('Reports access required');
+    }
+
+    // ─── NAVIGATION SETUP ───────────────────────────────────────
+    setupNavigation();
+
+    // ─── API WRAPPER ─────────────────────────────────────────────
+    async function api(path, opts = {}) {
+        opts.headers = {
+            ...(opts.headers || {}),
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json'
+        };
+        const res = await fetch(API_BASE + path, opts);
+        if (res.status === 401) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            throw new Error('Unauthorized');
+        }
+        if (res.status === 403) {
+            throw new Error('Permission denied');
+        }
+        return res.json();
+    }
+
+    // ─── TOAST SYSTEM ────────────────────────────────────────────
+    let toastTimer;
+
+    function toast(msg, type = 'success') {
+        const el = document.getElementById('barToast');
+        if (!el) {
+            // Create toast if not exists
+            const toastEl = document.createElement('div');
+            toastEl.id = 'barToast';
+            toastEl.className = 'toast';
+            document.body.appendChild(toastEl);
+        }
+        const toastEl = document.getElementById('barToast');
+        toastEl.innerHTML = msg;
+        toastEl.className = 'toast show ' + type;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove('show'), type === 'warning' ? 8000 : 3500);
+    }
+
+    // ─── ESCAPE HTML ─────────────────────────────────────────────
+    function esc(s) {
+        return s ? String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : '';
+    }
+
+    // ─── COLORS ──────────────────────────────────────────────────
+    const STATUS_COLORS = {
+        'new': '#5aa9ff',
+        'open': '#34d399',
+        'in_progress': '#fbbf24',
+        'pending': '#f87171',
+        'resolved': '#60a5fa',
+        'closed': '#8892b0'
+    };
+
+    const CATEGORY_COLORS = [
+        '#5aa9ff', '#ffb347', '#a78bfa', '#34d399', '#f87171',
+        '#fbbf24', '#60a5fa', '#4ade80', '#fb923c', '#c084fc',
+        '#f472b6', '#2dd4bf', '#a3a3a3', '#fde68a', '#93c5fd'
+    ];
+
+    function getCategoryColor(cat, index) {
+        return CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+    }
+
+    // ─── RENDER HELPERS ──────────────────────────────────────────
+
+    // Render pie chart using SVG
+    function renderPieChart(containerId, data, colors, labelKey, valueKey) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const total = Object.values(data).reduce((sum, v) => sum + v, 0);
+        if (total === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">No data to display</div>';
             return;
         }
 
-        await refreshCurrentUser();
-
-        if (!PermissionService.can('view', 'reports')) {
-            document.getElementById('permDenied').style.display = 'block';
-            document.getElementById('reportContent').style.display = 'none';
+        const entries = Object.entries(data).filter(([_, v]) => v > 0);
+        if (entries.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">No data to display</div>';
             return;
         }
 
-        document.getElementById('permDenied').style.display = 'none';
-        document.getElementById('reportContent').style.display = 'block';
-        
-        updateNavigation();
-        renderUserBadge();
+        const radius = 70;
+        const circumference = 2 * Math.PI * radius;
+        let currentAngle = 0;
+
+        let svg = `<svg viewBox="0 0 160 160" class="pie-svg">`;
+        svg += `<circle cx="80" cy="80" r="${radius}" fill="var(--bg-input)" />`;
+
+        for (let i = 0; i < entries.length; i++) {
+            const [key, value] = entries[i];
+            const percentage = value / total;
+            const angle = percentage * 2 * Math.PI;
+            const startAngle = currentAngle;
+            const endAngle = currentAngle + angle;
+            currentAngle = endAngle;
+
+            const x1 = 80 + radius * Math.cos(startAngle);
+            const y1 = 80 + radius * Math.sin(startAngle);
+            const x2 = 80 + radius * Math.cos(endAngle);
+            const y2 = 80 + radius * Math.sin(endAngle);
+            const largeArc = percentage > 0.5 ? 1 : 0;
+
+            const color = colors[key] || getCategoryColor(key, i);
+
+            svg += `<path d="M 80 80 L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z" fill="${color}" stroke="var(--bg-secondary)" stroke-width="2" />`;
+        }
+
+        svg += `<circle cx="80" cy="80" r="32" fill="var(--bg-secondary)" stroke="var(--border)" stroke-width="1.5" />`;
+        svg += `<text x="80" y="76" text-anchor="middle" font-size="16" font-weight="700" fill="var(--text)">${total}</text>`;
+        svg += `<text x="80" y="92" text-anchor="middle" font-size="8" fill="var(--text-muted)">Total</text>`;
+        svg += `</svg>`;
+
+        let legend = '<div class="pie-legend">';
+        for (let i = 0; i < entries.length; i++) {
+            const [key, value] = entries[i];
+            const percentage = ((value / total) * 100).toFixed(1);
+            const label = labelKey ? key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ') : key;
+            const color = colors[key] || getCategoryColor(key, i);
+            legend += `
+                <div class="item">
+                    <span class="color-box" style="background:${color}"></span>
+                    <span>${esc(label)}</span>
+                    <span class="percent">${value} (${percentage}%)</span>
+                </div>
+            `;
+        }
+        legend += '</div>';
+
+        container.innerHTML = `<div class="pie-container">${svg}${legend}</div>`;
+    }
+
+    // ─── RENDER REPORTS ──────────────────────────────────────────
+    function renderReports(data) {
+        const container = document.getElementById('reportsContent');
+
+        // Calculate totals
+        const statusTotal = Object.values(data.status).reduce((sum, v) => sum + v, 0);
+        const slaTotal = data.sla.on_track + data.sla.at_risk + data.sla.breached;
+
+        // Format date range
+        const now = new Date();
+        const fromDate = new Date(now);
+        fromDate.setDate(fromDate.getDate() - 30);
+        const dateRange = `${fromDate.toLocaleDateString()} - ${now.toLocaleDateString()}`;
+
+        let html = `
+            <div class="report-actions">
+                <span style="font-size:13px;color:var(--text-muted);">📅 Last 30 days</span>
+                <button class="btn btn-primary" onclick="refreshReports()">⟳ Refresh</button>
+                <button class="btn btn-secondary" onclick="exportReports()">📥 Export CSV</button>
+                <span style="font-size:12px;color:var(--text-muted);margin-left:auto;">${dateRange}</span>
+            </div>
+
+            <div class="report-grid">
+                <!-- Status Distribution -->
+                <div class="report-card">
+                    <h3>📊 Status Distribution <span class="badge">${statusTotal} tickets</span></h3>
+                    <div id="statusPie"></div>
+                </div>
+
+                <!-- SLA Status -->
+                <div class="report-card">
+                    <h3>⏱️ SLA Status <span class="badge">${slaTotal} active tickets</span></h3>
+                    <div class="sla-status-grid">
+                        <div class="sla-status-item on-track">
+                            <div class="number">${data.sla.on_track}</div>
+                            <div class="label">✅ On Track</div>
+                        </div>
+                        <div class="sla-status-item at-risk">
+                            <div class="number">${data.sla.at_risk}</div>
+                            <div class="label">⚠️ At Risk</div>
+                        </div>
+                        <div class="sla-status-item breached">
+                            <div class="number">${data.sla.breached}</div>
+                            <div class="label">❌ Breached</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="report-grid">
+                <!-- Daily Trend -->
+                <div class="report-card">
+                    <h3>📈 Daily Ticket Volume <span class="badge">${data.daily.length} days</span></h3>
+                    <div class="bar-chart-wrap">
+                        <div class="bar-chart" id="dailyChart">
+                            ${data.daily.length > 0 ? renderDailyBars(data.daily) : '<div style="text-align:center;padding:40px;color:var(--text-muted);width:100%;">No daily data available</div>'}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Categories -->
+                <div class="report-card">
+                    <h3>🏷️ Categories <span class="badge">${Object.keys(data.categories).length} categories</span></h3>
+                    <div class="category-grid">
+                        ${renderCategories(data.categories)}
+                    </div>
+                </div>
+            </div>
+
+            <div class="report-grid">
+                <!-- Top Senders -->
+                <div class="report-card">
+                    <h3>📧 Top Senders <span class="badge">${data.top_senders.length}</span></h3>
+                    <div class="top-senders-list">
+                        ${renderTopSenders(data.top_senders)}
+                    </div>
+                </div>
+
+                <!-- Status Summary (detailed) -->
+                <div class="report-card">
+                    <h3>📋 Status Summary</h3>
+                    ${renderStatusSummary(data.status)}
+                </div>
+            </div>
+
+            <div class="report-timestamp">
+                Last updated: ${new Date().toLocaleString()}
+            </div>
+        `;
+
+        container.innerHTML = html;
+
+        // Render pie chart
+        renderPieChart('statusPie', data.status, STATUS_COLORS);
+    }
+
+    function renderDailyBars(dailyData) {
+        if (!dailyData || dailyData.length === 0) return '';
+
+        const maxCount = Math.max(...dailyData.map(d => d.count), 1);
+
+        // Take last 30 days or all if less
+        const data = dailyData.slice(-30);
+
+        return data.map(d => {
+            const height = Math.max(2, (d.count / maxCount) * 130);
+            const day = new Date(d.day);
+            const label = day.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            return `
+                <div class="bar-group">
+                    <div class="bar" style="height:${height}px;">
+                        <span class="value">${d.count}</span>
+                        <span class="day-label">${esc(label)}</span>
+                        <span class="bar-tooltip">${esc(label)}: ${d.count} tickets</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderCategories(categories) {
+        const entries = Object.entries(categories).sort((a, b) => b[1] - a[1]);
+        if (entries.length === 0) {
+            return '<div style="text-align:center;padding:20px;color:var(--text-muted);grid-column:1/-1;">No categories data</div>';
+        }
+
+        const total = entries.reduce((sum, [_, v]) => sum + v, 0);
+
+        return entries.map(([cat, count], index) => {
+            const color = getCategoryColor(cat, index);
+            const label = cat.charAt(0).toUpperCase() + cat.slice(1);
+            const pct = total > 0 ? ((count / total) * 100).toFixed(0) : 0;
+            return `
+                <div class="category-item">
+                    <span class="cat-name">
+                        <span class="color-dot" style="background:${color};"></span>
+                        ${esc(label)}
+                    </span>
+                    <span class="cat-count">${count} (${pct}%)</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderTopSenders(senders) {
+        if (!senders || senders.length === 0) {
+            return '<div style="text-align:center;padding:20px;color:var(--text-muted);">No sender data available</div>';
+        }
+
+        return senders.map((s, index) => `
+            <div class="sender-row">
+                <span class="email">${index + 1}. ${esc(s.sender_email)}</span>
+                <span class="count">${s.count}</span>
+            </div>
+        `).join('');
+    }
+
+    function renderStatusSummary(status) {
+        const labels = {
+            'new': '🆕 New',
+            'open': '📂 Open',
+            'in_progress': '🔄 In Progress',
+            'pending': '⏳ Pending',
+            'resolved': '✅ Resolved',
+            'closed': '🔒 Closed'
+        };
+
+        const entries = Object.entries(status);
+        if (entries.every(([_, v]) => v === 0)) {
+            return '<div style="text-align:center;padding:20px;color:var(--text-muted);">No status data available</div>';
+        }
+
+        const total = entries.reduce((sum, [_, v]) => sum + v, 0);
+
+        return entries.map(([key, value]) => {
+            const label = labels[key] || key.charAt(0).toUpperCase() + key.slice(1);
+            const pct = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+            const color = STATUS_COLORS[key] || '#8892b0';
+            return `
+                <div class="stat-row">
+                    <span class="label"><span class="color-dot" style="background:${color};"></span> ${esc(label)}</span>
+                    <span class="value highlight">${value} (${pct}%)</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // ─── LOAD REPORTS ────────────────────────────────────────────
+    async function loadReports() {
+        const container = document.getElementById('reportsContent');
+        container.innerHTML = `
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p style="margin-top: 16px;">Loading reports...</p>
+            </div>
+        `;
+
+        try {
+            const res = await api('/api/admin/reports');
+            if (res.success && res.data) {
+                renderReports(res.data);
+                toast('✅ Reports loaded', 'success');
+            } else {
+                container.innerHTML = `
+                    <div class="error-state">
+                        <h3>❌ Failed to load reports</h3>
+                        <p>${res.error || 'Unknown error occurred'}</p>
+                        <button class="btn btn-primary" onclick="refreshReports()" style="margin-top:16px;">Try Again</button>
+                    </div>
+                `;
+                toast('❌ Failed to load reports', 'error');
+            }
+        } catch (e) {
+            container.innerHTML = `
+                <div class="error-state">
+                    <h3>❌ Error loading reports</h3>
+                    <p>${e.message}</p>
+                    <button class="btn btn-primary" onclick="refreshReports()" style="margin-top:16px;">Try Again</button>
+                </div>
+            `;
+            toast('❌ ' + e.message, 'error');
+        }
+    }
+
+    function refreshReports() {
         loadReports();
     }
 
-    // Refresh permissions from the server: localStorage only reflects what
-    // was true at login, so without this an admin permission change
-    // wouldn't take effect until the user logs out and back in.
-    async function refreshCurrentUser() {
+    // ─── EXPORT REPORTS ──────────────────────────────────────────
+    async function exportReports() {
         try {
-            const res = await fetch(API_BASE + '/api/admin/me', { headers: { Authorization: 'Bearer ' + token } });
-            if (!res.ok) return;
-            const data = await res.json();
-            if (data.success && data.user) {
-                currentUser = {
-                    email: data.user.email,
-                    name: data.user.name,
-                    role: data.user.role,
-                    page_permissions: data.user.page_permissions || {},
-                    effective_permissions: data.user.effective_permissions || {},
-                    allowed_languages: data.user.allowed_languages || [],
-                    allowed_emails: data.user.allowed_emails || [],
-                    allowed_categories: data.user.allowed_categories || [],
-                    team_id: data.user.team_id || null
-                };
-                localStorage.setItem('user', JSON.stringify(currentUser));
-            }
-        } catch (e) { /* keep last-known permissions on failure */ }
-    }
-
-    function updateNavigation() {
-        const navItems = {
-            'nav-dashboard': 'dashboard',
-            'nav-reports': 'reports',
-            'nav-newsletter': 'newsletter',
-            'nav-settings': 'settings',
-            'nav-users': 'users'
-        };
-
-        for (const [id, page] of Object.entries(navItems)) {
-            const el = document.getElementById(id);
-            if (!el) continue;
-            
-            if (page === 'dashboard') {
-                el.style.display = '';
-            } else if (page === 'reports') {
-                el.style.display = 'none'; // Hide current page
-            } else {
-                const allowed = PermissionService.hasPageAccess(page);
-                el.classList.toggle('nav-disabled', !allowed);
-                if (!allowed) el.addEventListener('click', e => e.preventDefault());
-            }
-        }
-    }
-
-    function logout() {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = 'dashboard.html';
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  LOAD & RENDER
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async function loadReports() {
-        var content = document.getElementById("reportContent");
-        try {
-            var res = await fetch(API_BASE + "/api/admin/reports", {
-                headers: { "Authorization": "Bearer " + token }
-            });
-            if (res.status === 401 || res.status === 403) {
-                logout();
+            toast('⏳ Generating export...', 'info');
+            const res = await api('/api/admin/reports');
+            if (!res.success || !res.data) {
+                toast('❌ Failed to export', 'error');
                 return;
             }
-            var data = await res.json();
-            if (data.success) {
-                renderReports(data.data);
-            } else {
-                content.innerHTML = '<div class="error">Error loading reports: ' + (data.error || 'Unknown error') + '</div>';
-            }
+
+            const data = res.data;
+            const rows = [];
+
+            // Header
+            rows.push(['Report generated:', new Date().toLocaleString()]);
+            rows.push([]);
+
+            // Status summary
+            rows.push(['STATUS SUMMARY']);
+            rows.push(['Status', 'Count']);
+            Object.entries(data.status).forEach(([key, value]) => {
+                rows.push([key, value]);
+            });
+            rows.push([]);
+
+            // SLA summary
+            rows.push(['SLA STATUS']);
+            rows.push(['Status', 'Count']);
+            Object.entries(data.sla).forEach(([key, value]) => {
+                rows.push([key, value]);
+            });
+            rows.push([]);
+
+            // Categories
+            rows.push(['CATEGORIES']);
+            rows.push(['Category', 'Count']);
+            Object.entries(data.categories).forEach(([cat, count]) => {
+                rows.push([cat, count]);
+            });
+            rows.push([]);
+
+            // Top senders
+            rows.push(['TOP SENDERS']);
+            rows.push(['Email', 'Ticket Count']);
+            data.top_senders.forEach(s => {
+                rows.push([s.sender_email, s.count]);
+            });
+            rows.push([]);
+
+            // Daily trend
+            rows.push(['DAILY TREND (Last 30 days)']);
+            rows.push(['Date', 'Tickets']);
+            data.daily.slice(-30).forEach(d => {
+                rows.push([d.day, d.count]);
+            });
+
+            // Build CSV
+            const csv = rows.map(row => {
+                if (row.length === 0) return '';
+                return row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+            }).join('\n');
+
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `dornori-report-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            toast('✅ Report exported', 'success');
         } catch (e) {
-            content.innerHTML = '<div class="error">Error: ' + e.message + '</div>';
+            toast('❌ Export failed: ' + e.message, 'error');
         }
     }
 
-    function renderReports(data) {
-        var total = 0;
-        for (var key in data.status) { total += data.status[key]; }
-
-        var html = '<div class="stats-grid">';
-        html += '<div class="stat-card"><div class="number">' + total + '</div><div class="label">Total Tickets</div></div>';
-        html += '<div class="stat-card"><div class="number">' + data.sla.on_track + '</div><div class="label">On Track</div><div class="sub">SLA</div></div>';
-        html += '<div class="stat-card"><div class="number">' + data.sla.at_risk + '</div><div class="label">At Risk</div><div class="sub">SLA</div></div>';
-        html += '<div class="stat-card"><div class="number">' + data.sla.breached + '</div><div class="label">Breached</div><div class="sub">SLA</div></div>';
-        html += '</div>';
-
-        var statusColors = { new: "#5aa9ff", open: "#5ae05a", in_progress: "#ffb347", pending: "#ff6b6b", resolved: "#4ae0e0", closed: "#8892b0" };
-        var pieData = [];
-        for (var key in data.status) {
-            if (data.status[key] > 0) pieData.push({ label: key, value: data.status[key], color: statusColors[key] || "#888" });
-        }
-        var totalPie = pieData.reduce(function(s, d) { return s + d.value; }, 0);
-        var conicParts = "", cum = 0;
-        for (var i = 0; i < pieData.length; i++) {
-            var d = pieData[i];
-            var percent = d.value / totalPie * 100;
-            conicParts += d.color + " " + cum + "% " + (cum + percent) + "%";
-            if (i < pieData.length - 1) conicParts += ", ";
-            cum += percent;
-        }
-        var pieHtml = '<div class="pie-container"><div class="pie-svg" style="background:conic-gradient(' + conicParts + ')"></div><div class="pie-legend">';
-        for (var i = 0; i < pieData.length; i++) {
-            pieHtml += '<div class="item"><span class="color-box" style="background:' + pieData[i].color + '"></span>' + pieData[i].label + ' (' + pieData[i].value + ')</div>';
-        }
-        pieHtml += '</div></div>';
-
-        var dailyData = data.daily, maxDaily = 0;
-        for (var i = 0; i < dailyData.length; i++) { if (dailyData[i].count > maxDaily) maxDaily = dailyData[i].count; }
-        var barHtml = '<div class="bar-chart">';
-        for (var i = 0; i < dailyData.length; i++) {
-            var day = dailyData[i];
-            var heightPercent = maxDaily > 0 ? (day.count / maxDaily * 100) : 0;
-            barHtml += '<div class="bar" style="height:' + Math.max(2, heightPercent) + '%;"><span class="value">' + day.count + '</span><span class="day-label">' + day.day.slice(5) + '</span></div>';
-        }
-        barHtml += '</div>';
-
-        var catHtml = '<table><tr><th>Category</th><th>Count</th></tr>';
-        for (var key in data.categories) { catHtml += '<tr><td>' + escapeHtml(key) + '</td><td>' + escapeHtml(String(data.categories[key])) + '</td></tr>'; }
-        catHtml += '</table>';
-
-        var senderHtml = '<table><tr><th>Email</th><th>Tickets</th></tr>';
-        for (var i = 0; i < data.top_senders.length; i++) {
-            senderHtml += '<tr><td>' + escapeHtml(data.top_senders[i].sender_email) + '</td><td>' + escapeHtml(String(data.top_senders[i].count)) + '</td></tr>';
-        }
-        senderHtml += '</table>';
-
-        html += '<div class="report-row"><div class="report-box"><h3>📊 Status Breakdown</h3>' + pieHtml + '</div><div class="report-box"><h3>📈 Daily Volume (last 30 days)</h3>' + barHtml + '</div></div>';
-        html += '<div class="report-row"><div class="report-box"><h3>📂 Categories</h3>' + catHtml + '</div><div class="report-box"><h3>🏆 Top Senders</h3>' + senderHtml + '</div></div>';
-        document.getElementById("reportContent").innerHTML = html;
-    }
-
+    // ─── USER BADGE ──────────────────────────────────────────────
     function renderUserBadge() {
         const u = currentUser;
         if (!u) return;
         const initials = (u.name || u.email || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
         const meta = [u.role, u.team_id].filter(Boolean).join(' · ');
         const el = document.getElementById('userDisplay');
-        if (el) el.innerHTML = `<div class="user-badge"><div class="user-badge-avatar">${initials}</div><div class="user-badge-info"><span class="user-badge-name">${u.name || u.email}</span><span class="user-badge-meta">${meta}</span></div></div>`;
+        if (el) el.innerHTML =
+            `<div class="user-badge"><div class="user-badge-avatar">${initials}</div><div class="user-badge-info"><span class="user-badge-name">${u.name || u.email}</span><span class="user-badge-meta">${meta}</span></div></div>`;
     }
+    renderUserBadge();
 
-    // Initialize on page load
-    initPage();
+    // ─── INIT ────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function() {
+        // Create toast element
+        const toastEl = document.createElement('div');
+        toastEl.id = 'barToast';
+        toastEl.className = 'toast';
+        document.body.appendChild(toastEl);
+
+        loadReports();
+    });
+
+    // ─── AUTO-REFRESH ────────────────────────────────────────────
+    // Refresh reports every 5 minutes
+    let refreshInterval = setInterval(() => {
+        if (document.hidden) return; // Don't refresh if tab is hidden
+        loadReports();
+    }, 5 * 60 * 1000);
+
+    // Clean up interval on page unload
+    window.addEventListener('beforeunload', function() {
+        if (refreshInterval) clearInterval(refreshInterval);
+    });
+
+    // ─── EXPOSE FUNCTIONS GLOBALLY ──────────────────────────────
+    window.refreshReports = refreshReports;
+    window.exportReports = exportReports;
+    window.logout = logout;
+    window.toggleTheme = toggleTheme;
 </script>
 </body>
 </html>
