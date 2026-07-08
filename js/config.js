@@ -71,8 +71,6 @@ const CONFIG = {
         perKg:         1.20,
         maxFreeWeight: 20,
         estimatedDays: "3–5",
-        // Volumetric (dimensional) weight divisor in cm³/kg — standard courier value.
-        // billable weight per item = max(actual weight, (l*w*h)/volumetricDivisor)
         volumetricDivisor: 5000,
     },
 
@@ -123,6 +121,16 @@ const CONFIG = {
                 },
             },
         },
+        googlePay: {
+            merchantId: "BCR2DN4TQIZPLAVW",
+            merchantName: "Dornori",
+            environment: "TEST"
+        },
+        applePay: {
+            merchantId: "merchant.dornori.com",
+            merchantName: "Dornori",
+            environment: "TEST"
+        }
     },
 
     // ── Turnstile ─────────────────────────────────────────────────────────────
@@ -235,9 +243,6 @@ const CONFIG = {
 };
 
 // ── Global Exposure ──────────────────────────────────────────────────────────
-// Expose globally for both ES modules and plain scripts.
-// Backward-compatible: export as both CONFIG and SITE_CONFIG.
-
 window.CONFIG = CONFIG;
 const SITE_CONFIG = CONFIG;
 window.SITE_CONFIG = SITE_CONFIG;

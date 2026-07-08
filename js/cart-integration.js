@@ -69,20 +69,19 @@ const CartWorker = (() => {
     return res.json();
   }
 
-  async function getApplePaySession(validationUrl, total, currency, countryCode) {
-    const res = await fetch(`${WORKER_URL}/api/apple-pay-session`, {
+  async function processApplePay(paymentData, orderData, orderRef) {
+    const res = await fetch(`${WORKER_URL}/api/process-apple-pay`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        validationUrl, 
-        total,
-        currency,
-        countryCode
+        paymentData, 
+        orderData,
+        orderRef
       })
     });
     if (!res.ok) {
       const err = await res.json();
-      throw new Error(err.error || 'Apple Pay session failed');
+      throw new Error(err.error || 'Apple Pay processing failed');
     }
     return res.json();
   }
@@ -91,8 +90,8 @@ const CartWorker = (() => {
     validateCart, 
     createOrder, 
     captureOrder, 
-    processGooglePay, 
-    getApplePaySession 
+    processGooglePay,
+    processApplePay
   };
 })();
 window.CartWorker = CartWorker;

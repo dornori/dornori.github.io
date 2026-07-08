@@ -21,12 +21,6 @@ const Payment = (() => {
     });
   }
 
-  function _resolveUrl(path) {
-    const base = (window.__BASE_PATH__ && window.__BASE_PATH__ !== '/') ? window.__BASE_PATH__ : '';
-    const resolved = (base && !path.startsWith(base)) ? base + path.replace(/^\//, '') : path;
-    return window.location.origin + resolved;
-  }
-
   const _paypal = {
     _loadedCurrency: null,
     async init(forceCurrency) {
@@ -57,12 +51,12 @@ const Payment = (() => {
       }
 
       el.innerHTML = "";
-      const cfg = CONFIG.payment.paypal;
 
       const wrapper = document.createElement('div');
       wrapper.style.cssText = 'max-width:480px;margin:0 auto;background:var(--c-surface);padding:24px;border-radius:var(--radius,8px);border:1px solid var(--c-border);';
       el.appendChild(wrapper);
 
+      // Tabs
       const tabs = document.createElement('div');
       tabs.style.cssText = 'display:flex;gap:0;border-bottom:1px solid var(--c-border);margin-bottom:16px;';
       tabs.innerHTML = `
@@ -71,16 +65,19 @@ const Payment = (() => {
       `;
       wrapper.appendChild(tabs);
 
+      // PayPal container
       const paypalContainer = document.createElement('div');
       paypalContainer.id = 'paypal-login-container';
       paypalContainer.style.cssText = 'min-height:120px;';
       wrapper.appendChild(paypalContainer);
 
+      // Card container
       const cardContainer = document.createElement('div');
       cardContainer.id = 'paypal-card-container';
       cardContainer.style.cssText = 'display:none;min-height:200px;';
       wrapper.appendChild(cardContainer);
 
+      // Tab switching
       tabs.querySelectorAll('.paypal-tab-btn').forEach(btn => {
         btn.addEventListener('click', function() {
           tabs.querySelectorAll('.paypal-tab-btn').forEach(b => {
@@ -103,6 +100,7 @@ const Payment = (() => {
         });
       });
 
+      // Render PayPal button
       await window.paypal.Buttons({
         style: { layout: "vertical", color: "black", shape: "rect", label: "pay", height: 48 },
         createOrder: async (data, actions) => {
@@ -173,6 +171,7 @@ const Payment = (() => {
         },
       }).render(paypalContainer);
 
+      // Render card fields
       await this._renderCardFields(cardContainer, cart, totals, orderRef, formData, activeCurrency);
 
       return wrapper;
@@ -241,7 +240,6 @@ const Payment = (() => {
           submitBtn.textContent = 'Processing...';
 
           try {
-            // Get card data from fields
             const cardNumber = document.querySelector('#card-number-field iframe')?.contentDocument?.querySelector('input')?.value || '';
             const expiry = document.querySelector('#expiry-field iframe')?.contentDocument?.querySelector('input')?.value || '';
             const cvv = document.querySelector('#cvv-field iframe')?.contentDocument?.querySelector('input')?.value || '';
@@ -357,57 +355,76 @@ const Payment = (() => {
     await init();
   }
 
-  // Google Pay helper
+  // Google Pay
   async function initGooglePay(cart, formData) {
     return new Promise((resolve, reject) => {
       if (typeof google === 'undefined' || !google.payments || !google.payments.api) {
-        reject(new Error('Google Pay not available'));
-        return;
-      }
-
-      const paymentsClient = new google.payments.api.PaymentsClient({
-        environment: 'TEST'
-      });
-
-      const t = typeof Shop !== 'undefined' ? Shop.calculateTotals(cart, false, formData?.country) : { total: 0 };
-      const currency = (typeof Currency !== 'undefined' && Currency.getActive) ? Currency.getActive() : 'EUR';
-
-      const paymentDataRequest = {
-        apiVersion: 2,
-        apiVersionMinor: 0,
-        allowedPaymentMethods: [{
-          type: 'CARD',
-          parameters: {
-            allowedAuthMethods: ['PAN_ONLY', 'CRYPTOGRAM_3DS'],
-            allowedCardNetworks: ['AMEX', 'DISCOVER', 'MASTERCARD', 'VISA']
-          },
-          tokenizationSpecification: {
-            type: 'PAYMENT_GATEWAY',
-            parameters: {
-              'gateway': 'paypal',
-              'gatewayMerchantId': CONFIG.payment.paypal.clientId
-            }
+        const script = document.createElement('script');
+        script.src = 'https://pay.google.com/gp/p/js/pay.js';
+        script.onload = () => {
+          try {
+            const result = _createGooglePayClient(cart, formData);
+            resolve(result);
+          } catch (e) {
+            reject(e);
           }
-        }],
-        merchantInfo: {
-          merchantId: 'BCR2DN4TQIZPLAVW',
-          merchantName: 'Dornori'
-        },
-        transactionInfo: {
-          totalPriceStatus: 'FINAL',
-          totalPrice: (t.total || 0).toFixed(2),
-          currencyCode: currency,
-          countryCode: formData?.country || 'NL'
+        };
+        script.onerror = () => reject(new Error('Failed to load Google Pay'));
+        document.head.appendChild(script);
+      } else {
+        try {
+          const result = _createGooglePayClient(cart, formData);
+          resolve(result);
+        } catch (e) {
+          reject(e);
         }
-      };
-
-      resolve({ paymentsClient, paymentDataRequest });
+      }
     });
   }
 
-  // Apple Pay helper
+  function _createGooglePayClient(cart, formData) {
+    const paymentsClient = new google.payments.api.PaymentsClient({
+      environment: window.CONFIG?.payment?.googlePay?.environment || 'TEST'
+    });
+
+    const currency = (typeof Currency !== 'undefined' && Currency.getActive) ? Currency.getActive() : 'EUR';
+    const t = typeof Shop !== 'undefined' ? Shop.calculateTotals(cart, false, formData?.country) : { total: 0 };
+
+    const paymentDataRequest = {
+      apiVersion: 2,
+      apiVersionMinor: 0,
+      allowedPaymentMethods: [{
+        type: 'CARD',
+        parameters: {
+          allowedAuthMethods: ['PAN_ONLY', 'CRYPTOGRAM_3DS'],
+          allowedCardNetworks: ['AMEX', 'DISCOVER', 'MASTERCARD', 'VISA']
+        },
+        tokenizationSpecification: {
+          type: 'PAYMENT_GATEWAY',
+          parameters: {
+            'gateway': 'paypal',
+            'gatewayMerchantId': window.CONFIG?.payment?.paypal?.clientId || ''
+          }
+        }
+      }],
+      merchantInfo: {
+        merchantId: window.CONFIG?.payment?.googlePay?.merchantId || 'BCR2DN4TQIZPLAVW',
+        merchantName: window.CONFIG?.payment?.googlePay?.merchantName || 'Dornori'
+      },
+      transactionInfo: {
+        totalPriceStatus: 'FINAL',
+        totalPrice: (t.total || 0).toFixed(2),
+        currencyCode: currency,
+        countryCode: formData?.country || 'NL'
+      }
+    };
+
+    return { paymentsClient, paymentDataRequest };
+  }
+
   function isApplePayAvailable() {
-    return typeof window.ApplePaySession !== 'undefined' && ApplePaySession.canMakePayments();
+    return typeof window.ApplePaySession !== 'undefined' && 
+           ApplePaySession.canMakePayments();
   }
 
   return { 
