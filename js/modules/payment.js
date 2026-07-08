@@ -23,18 +23,38 @@ const Payment = (() => {
 
   const _paypal = {
     _loadedCurrency: null,
+    _cardFieldsInstance: null,
+
     async init(forceCurrency) {
       const { clientId, intent } = CONFIG.payment.paypal;
       if (!clientId) return;
       const targetCurrency = forceCurrency ||
         ((typeof Currency !== 'undefined' && Currency.getActive) ? Currency.getActive() : CONFIG.payment.paypal.currency);
       if (window.paypal && this._loadedCurrency === targetCurrency) return;
+      
+      // Remove existing PayPal scripts
       document.querySelectorAll('script[src*="paypal.com/sdk/js"]').forEach(s => s.remove());
       delete window.paypal;
+      
+      // Load PayPal SDK with card-fields component
       await _loadScript(
         `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${targetCurrency}&intent=${intent || "capture"}&components=buttons,card-fields`
       );
+      
       this._loadedCurrency = targetCurrency;
+      this._cardFieldsInstance = null;
+      
+      // Wait for PayPal to be ready
+      return new Promise((resolve) => {
+        const checkPayPal = () => {
+          if (window.paypal && window.paypal.CardFields) {
+            resolve();
+          } else {
+            setTimeout(checkPayPal, 200);
+          }
+        };
+        checkPayPal();
+      });
     },
 
     async render(cart, totals, orderRef, el, formData) {
@@ -57,23 +77,23 @@ const Payment = (() => {
       wrapper.style.cssText = 'max-width:480px;margin:0 auto;background:var(--c-surface);padding:24px;border-radius:var(--radius,8px);border:1px solid var(--c-border);';
       el.appendChild(wrapper);
 
-      // ── Credit Card Section (default, always visible) ──
+      // ── Credit Card Section ──
       const cardSection = document.createElement('div');
       cardSection.id = 'paypal-card-section';
       cardSection.style.cssText = 'margin-bottom:20px;';
       cardSection.innerHTML = `
         <div style="margin-bottom:12px;">
           <label style="display:block;font-size:0.78rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--c-text-3);margin-bottom:4px;">Card Number</label>
-          <div id="card-number-field" style="border:1.5px solid var(--c-border);border-radius:var(--radius);padding:8px 12px;background:var(--c-surface);"></div>
+          <div id="card-number-field" style="border:1.5px solid var(--c-border);border-radius:var(--radius);padding:8px 12px;background:var(--c-surface);min-height:44px;"></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
           <div>
             <label style="display:block;font-size:0.78rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--c-text-3);margin-bottom:4px;">Expiration</label>
-            <div id="expiry-field" style="border:1.5px solid var(--c-border);border-radius:var(--radius);padding:8px 12px;background:var(--c-surface);"></div>
+            <div id="expiry-field" style="border:1.5px solid var(--c-border);border-radius:var(--radius);padding:8px 12px;background:var(--c-surface);min-height:44px;"></div>
           </div>
           <div>
             <label style="display:block;font-size:0.78rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--c-text-3);margin-bottom:4px;">CVV</label>
-            <div id="cvv-field" style="border:1.5px solid var(--c-border);border-radius:var(--radius);padding:8px 12px;background:var(--c-surface);"></div>
+            <div id="cvv-field" style="border:1.5px solid var(--c-border);border-radius:var(--radius);padding:8px 12px;background:var(--c-surface);min-height:44px;"></div>
           </div>
         </div>
         <button id="paypal-card-submit" style="width:100%;padding:14px;background:var(--c-btn-bg);color:var(--c-btn-text);border:none;border-radius:var(--radius);font-size:1rem;font-weight:600;cursor:pointer;transition:all var(--transition);">Pay Now</button>
@@ -97,48 +117,58 @@ const Payment = (() => {
       paypalSection.style.cssText = 'margin-top:4px;';
       wrapper.appendChild(paypalSection);
 
-      // Render card fields
+      // Render Card Fields
       await this._renderCardFields(cardSection, cart, totals, orderRef, formData, activeCurrency);
 
-      // Render PayPal button
+      // Render PayPal Button
       await this._renderPayPalButton(paypalSection, cart, formData, activeCurrency, orderRef);
 
       return wrapper;
     },
 
     async _renderCardFields(container, cart, totals, orderRef, formData, currency) {
-      if (!window.paypal) return;
+      if (!window.paypal || !window.paypal.CardFields) {
+        console.warn('PayPal CardFields not available');
+        const numField = container.querySelector('#card-number-field');
+        if (numField) numField.innerHTML = '<div style="padding:10px;color:var(--c-text-3);font-size:0.85rem;">Card payments not available. Please use PayPal.</div>';
+        const submitBtn = container.querySelector('#paypal-card-submit');
+        if (submitBtn) submitBtn.style.display = 'none';
+        return;
+      }
 
       try {
-        const cardFields = window.paypal.CardFields ? await window.paypal.CardFields({
-          style: {
-            input: {
-              'font-size': '16px',
-              'font-family': 'system-ui, sans-serif',
-              'color': '#1a1714',
+        // Create card fields instance
+        if (!this._cardFieldsInstance) {
+          this._cardFieldsInstance = await window.paypal.CardFields({
+            style: {
+              input: {
+                'font-size': '16px',
+                'font-family': 'system-ui, sans-serif',
+                'color': '#1a1714',
+                'background-color': 'transparent',
+                'padding': '8px 0',
+              },
+              '.valid': { 'border-color': '#4a7c59' },
+              '.invalid': { 'border-color': '#9b3a3a' }
             }
-          }
-        }) : null;
-
-        if (cardFields) {
-          const cardNumberField = cardFields.NumberField({ 
-            placeholder: '1234 5678 9012 3456',
-            style: { input: { 'font-size': '16px' } }
           });
-          cardNumberField.render('#card-number-field');
-
-          const expiryField = cardFields.ExpiryField({ 
-            placeholder: 'MM/YY',
-            style: { input: { 'font-size': '16px' } }
-          });
-          expiryField.render('#expiry-field');
-
-          const cvvField = cardFields.CVVField({ 
-            placeholder: '123',
-            style: { input: { 'font-size': '16px' } }
-          });
-          cvvField.render('#cvv-field');
         }
+
+        // Render fields
+        const numberField = this._cardFieldsInstance.NumberField({ 
+          placeholder: '1234 5678 9012 3456',
+        });
+        numberField.render('#card-number-field');
+
+        const expiryField = this._cardFieldsInstance.ExpiryField({ 
+          placeholder: 'MM/YY',
+        });
+        expiryField.render('#expiry-field');
+
+        const cvvField = this._cardFieldsInstance.CVVField({ 
+          placeholder: '123',
+        });
+        cvvField.render('#cvv-field');
 
         const submitBtn = container.querySelector('#paypal-card-submit');
         const errorMsg = container.querySelector('#card-error-message');
@@ -149,12 +179,19 @@ const Payment = (() => {
           submitBtn.textContent = 'Processing...';
 
           try {
-            const cardNumber = document.querySelector('#card-number-field iframe')?.contentDocument?.querySelector('input')?.value || '';
-            const expiry = document.querySelector('#expiry-field iframe')?.contentDocument?.querySelector('input')?.value || '';
-            const cvv = document.querySelector('#cvv-field iframe')?.contentDocument?.querySelector('input')?.value || '';
+            const fields = _cardFieldsInstance.getFields();
+            
+            const numberVal = fields.numberField ? fields.numberField.getValue() : '';
+            const expiryVal = fields.expiryField ? fields.expiryField.getValue() : '';
+            const cvvVal = fields.cvvField ? fields.cvvField.getValue() : '';
 
-            if (!cardNumber || !expiry || !cvv) {
+            if (!numberVal || !expiryVal || !cvvVal) {
               throw new Error('Please fill in all card fields');
+            }
+
+            const cardNum = numberVal.replace(/\s/g, '');
+            if (cardNum.length < 13) {
+              throw new Error('Invalid card number');
             }
 
             const res = await fetch('https://pay.dornori-info.workers.dev/api/create-order', {
@@ -167,9 +204,9 @@ const Payment = (() => {
                 formData: formData,
                 paymentMethod: 'card',
                 cardData: {
-                  number: cardNumber.replace(/\s/g, ''),
-                  expiry: expiry,
-                  cvv: cvv
+                  number: cardNum,
+                  expiry: expiryVal.replace(/\s/g, ''),
+                  cvv: cvvVal
                 }
               })
             });
@@ -212,10 +249,9 @@ const Payment = (() => {
           }
         });
       } catch (e) {
-        console.warn('Card fields not supported:', e);
-        container.querySelector('#card-number-field').innerHTML = '<div style="padding:10px;color:var(--c-text-3);font-size:0.85rem;">Card payments not available. Please use PayPal.</div>';
-        container.querySelector('#expiry-field').innerHTML = '';
-        container.querySelector('#cvv-field').innerHTML = '';
+        console.warn('Card fields error:', e);
+        const numField = container.querySelector('#card-number-field');
+        if (numField) numField.innerHTML = '<div style="padding:10px;color:var(--c-text-3);font-size:0.85rem;">Card payments not available. Please use PayPal.</div>';
         const submitBtn = container.querySelector('#paypal-card-submit');
         if (submitBtn) submitBtn.style.display = 'none';
       }
