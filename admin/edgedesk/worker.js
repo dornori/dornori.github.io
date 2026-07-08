@@ -13,7 +13,13 @@ var cache = {
   usersTimestamp: 0,
   emailConfigTimestamp: 0
 };
+// Durable Object service binding URL (not a real HTTP endpoint)
+// Intercepted by the worker runtime for local service communication
 var TICKET_CACHE_URL = "https://cache/ticket-list";
+var TOKEN_EXPIRY_SECONDS = 86400; // 24 hours
+var LOCK_STALE_WRITE_MS = 45000;  // Write operation lock timeout
+var LOCK_STALE_READ_MS = 30000;   // Read operation lock timeout
+var LOCK_CLEANUP_THRESHOLD_MS = 15000; // Check for stale locks interval
 async function getTicketCache() {
   try {
     const res = await caches.default.match(TICKET_CACHE_URL);
@@ -100,7 +106,7 @@ async function generateToken(email, env) {
   const header = { alg: "HS256", typ: "JWT" };
   const payload = {
     email,
-    exp: Math.floor(Date.now() / 1e3) + 86400,
+    exp: Math.floor(Date.now() / 1e3) + TOKEN_EXPIRY_SECONDS,
     iat: Math.floor(Date.now() / 1e3)
   };
   const headerB64 = btoa(JSON.stringify(header)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
@@ -1710,7 +1716,7 @@ async function getAllowedOrigins(env) {
   } catch (e) {
     console.error("Failed to load CORS origins:", e.message);
   }
-  // Fallback defaults
+  // Fallback defaults (from config)
   return [
     "https://dornori.com",
     "https://www.dornori.com",
@@ -1721,9 +1727,18 @@ async function getAllowedOrigins(env) {
 __name(getAllowedOrigins, "getAllowedOrigins");
 
 function getCorsHeaders(origin, allowedOrigins) {
-  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+  // STRICT: Only allow if origin is in allowlist. Do NOT silently fallback.
+  if (!origin || !allowedOrigins.includes(origin)) {
+    // Origin not allowed; return permissive CORS for error response only
+    return {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization"
+    };
+  }
+  
   return {
-    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization"
   };
@@ -2682,7 +2697,7 @@ var TicketHub = class {
 
     // ─── LOCK ─────────────────────────────────────────────────────
     if (request.method === "POST" && url.pathname === "/lock") {
-      const LOCK_STALE_MS = 45000;
+      const LOCK_STALE_MS = LOCK_STALE_WRITE_MS; // Use global constant (45s for write operations)
       let body = {};
       try {
         body = await request.json();
@@ -2804,9 +2819,9 @@ var TicketHub = class {
   }
 
   async alarm() {
-    const IDLE_MS = 20 * 60 * 1000;
-    const LOCK_STALE_MS = 30000;
-    const RL_WINDOW_MS = 5 * 60 * 1000;
+    const IDLE_MS = 20 * 60 * 1000;                // Clean up idle connections after 20 minutes
+    const LOCK_STALE_MS = LOCK_STALE_READ_MS;     // Use global constant (30s for read operations)
+    const RL_WINDOW_MS = 5 * 60 * 1000;            // Rate limit window: 5 minutes
     const now = Date.now();
     let expiredAny = false;
 
@@ -2882,7 +2897,7 @@ var TicketHub = class {
       const now = Date.now();
       let staleFound = false;
       for (const [ticketId, lock] of this.locks.entries()) {
-        if (now - lock.ts > 15000) {
+        if (now - lock.ts > LOCK_CLEANUP_THRESHOLD_MS) {
           this.locks.delete(ticketId);
           if (lock.email && this.userLocks.has(lock.email)) {
             this.userLocks.get(lock.email).delete(ticketId);

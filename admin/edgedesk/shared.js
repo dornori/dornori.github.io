@@ -1,5 +1,6 @@
 // shared.js - Common functions for all pages
-const API_BASE = window.EDGEDESK_CONFIG ? window.EDGEDESK_CONFIG.API_BASE : 'https://dornori-ticketing.dornori-info.workers.dev';
+// REQUIRES: config.js must be loaded first
+const API_BASE = getConfigValue('API_BASE', 'https://dornori-ticketing.dornori-info.workers.dev');
 
 // ─── PERMISSION SERVICE ──────────────────────────────────────────
 function hasAccess(page, action = 'view') {
@@ -56,9 +57,20 @@ async function apiCall(path, options = {}) {
 // ─── TOAST SYSTEM ───────────────────────────────────────────────
 let toastTimer;
 
-function showToast(message, type = 'success', duration = 3500) {
+// Default durations from config
+const TOAST_DEFAULTS = {
+    success: () => getConfigValue('TOAST_DURATION_MS', 3500),
+    error: () => getConfigValue('TOAST_DURATION_MS', 3500),
+    warning: () => getConfigValue('TOAST_WARNING_DURATION_MS', 8000),
+    info: () => getConfigValue('TOAST_DURATION_MS', 3500)
+};
+
+function showToast(message, type = 'success', duration = null) {
     const existing = document.querySelector('.toast-notification');
     if (existing) existing.remove();
+    
+    // Use default duration for type if not specified
+    const finalDuration = duration ?? (TOAST_DEFAULTS[type] ? TOAST_DEFAULTS[type]() : TOAST_DEFAULTS.success());
     
     const toast = document.createElement('div');
     toast.className = 'toast-notification';
@@ -100,14 +112,13 @@ function showToast(message, type = 'success', duration = 3500) {
         `;
         closeBtn.onclick = () => toast.remove();
         toast.appendChild(closeBtn);
-        duration = 8000;
     }
     
     document.body.appendChild(toast);
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
         if (toast.parentElement) toast.remove();
-    }, duration);
+    }, finalDuration);
 }
 
 // ─── DATE FORMATTING ────────────────────────────────────────────
@@ -120,13 +131,16 @@ function formatDate(dateStr) {
         }
         const d = new Date(cleaned);
         if (isNaN(d.getTime())) return dateStr;
-        return d.toLocaleString(undefined, {
+        
+        const options = getConfigValue('DATE_FORMAT_OPTIONS', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
         });
+        
+        return d.toLocaleString(undefined, options);
     } catch { return dateStr; }
 }
 
@@ -154,10 +168,10 @@ function getSlaColor(cls) {
 }
 
 // ─── CATEGORY COLORS ────────────────────────────────────────────
-const CAT_COLORS = [
+const CAT_COLORS = getConfigValue('CATEGORY_COLORS', [
     '#5aa9ff', '#ffb347', '#a78bfa', '#34d399', '#f87171',
     '#fbbf24', '#60a5fa', '#4ade80', '#fb923c', '#c084fc'
-];
+]);
 const catColorMap = {};
 let catColorIdx = 0;
 

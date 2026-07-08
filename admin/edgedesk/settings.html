@@ -366,7 +366,8 @@
 
 <script>
 // ── Get API_BASE from config ──
-const API_BASE = window.EDGEDESK_CONFIG ? window.EDGEDESK_CONFIG.API_BASE : 'https://dornori-ticketing.dornori-info.workers.dev';
+// Get API_BASE from config (loaded via shared.js)
+const API_BASE = typeof getConfigValue === 'function' ? getConfigValue('API_BASE', 'https://dornori-ticketing.dornori-info.workers.dev') : 'https://dornori-ticketing.dornori-info.workers.dev';
 
 // ── Theme ──
 function setTheme(t) {
@@ -695,11 +696,13 @@ function buildPanel(id) {
 // SYSTEM CONFIG - CORS, timeouts, auth settings
 // ─────────────────────────────────────────────────────────────
 function buildSystem() {
-    const corsOrigins = S('system', 'cors_origins', 'https://dornori.com,https://www.dornori.com,https://dornori.github.io,https://dornori-ticketing.dornori-info.workers.dev');
-    const loginTimeout = S('system', 'login_timeout_minutes', '30');
-    const sessionTimeout = S('system', 'session_timeout_minutes', '60');
-    const maxFailedLogins = S('system', 'max_failed_logins', '5');
-    const lockoutMinutes = S('system', 'lockout_minutes', '15');
+    // Get defaults from config
+    const corsDefaults = (typeof getConfigValue === 'function' ? getConfigValue('CORS_ORIGINS', []) : []).join(',');
+    const corsOrigins = S('system', 'cors_origins', corsDefaults || 'https://dornori.com,https://www.dornori.com,https://dornori.github.io,https://dornori-ticketing.dornori-info.workers.dev');
+    const loginTimeout = S('system', 'login_timeout_minutes', String(typeof getConfigValue === 'function' ? getConfigValue('LOGIN_TIMEOUT_MINUTES', 30) : 30));
+    const sessionTimeout = S('system', 'session_timeout_minutes', String(typeof getConfigValue === 'function' ? getConfigValue('SESSION_TIMEOUT_MINUTES', 60) : 60));
+    const maxFailedLogins = S('system', 'max_failed_logins', String(typeof getConfigValue === 'function' ? getConfigValue('MAX_FAILED_LOGINS', 5) : 5));
+    const lockoutMinutes = S('system', 'lockout_minutes', String(typeof getConfigValue === 'function' ? getConfigValue('LOGIN_LOCKOUT_MINUTES', 15) : 15));
     
     return `<div class="s-card">
         <div class="s-card-head"><div><h3>System Configuration</h3><p>Core backend settings (stored in settings table)</p></div></div>

@@ -1,4 +1,8 @@
 // edgedeskconfig.js
+// DEPRECATED: Use config.js for constants instead.
+// This file is kept for backward compatibility with nav items only.
+// Primary configuration is now in config.js
+
 window.EDGEDESK_CONFIG = {
     API_BASE: 'https://dornori-ticketing.dornori-info.workers.dev',
     APP_NAME: 'EdgeDesk',

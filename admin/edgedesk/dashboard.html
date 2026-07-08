@@ -92,8 +92,8 @@
 <div id="barToast" class="toast"></div>
 
 <script>
-    const API_BASE = window.EDGEDESK_CONFIG ? window.EDGEDESK_CONFIG.API_BASE : 'https://dornori-ticketing.dornori-info.workers.dev';
-    const WS_URL = 'wss://dornori-ticketing.dornori-info.workers.dev/api/admin/ws';
+    // Get API_BASE and WS_URL from config (API_BASE will be available from shared.js)
+    const WS_URL = getConfigValue('API_BASE', 'https://dornori-ticketing.dornori-info.workers.dev').replace('https://', 'wss://') + '/api/admin/ws';
     
     let token = null;
     let currentUser = null;
@@ -237,7 +237,8 @@
                 if (currentModalTicketId) releaseTicketLock(currentModalTicketId, false);
 
                 if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
-                wsReconnectTimer = setTimeout(connectWebSocket, 5000);
+                const reconnectDelay = getConfigValue('WS_RECONNECT_DELAY_MS', 5000);
+                wsReconnectTimer = setTimeout(connectWebSocket, reconnectDelay);
             };
             
             ws.onerror = function(error) {
@@ -250,12 +251,13 @@
                 } else {
                     clearInterval(pingInterval);
                 }
-            }, 30000);
+            }, getConfigValue('WS_PING_INTERVAL_MS', 30000));
             
         } catch(e) {
             console.error('WebSocket connection failed:', e.message);
             if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
-            wsReconnectTimer = setTimeout(connectWebSocket, 5000);
+            const reconnectDelay = getConfigValue('WS_RECONNECT_DELAY_MS', 5000);
+            wsReconnectTimer = setTimeout(connectWebSocket, reconnectDelay);
         }
     }
 
@@ -1112,11 +1114,10 @@
             var ticket = data.ticket || data.data || data;
             if (ticket && ticket.id) {
                 if (!ticket.comments) ticket.comments = [];
-                if (!isRefresh && !ticket.assigned_to && currentUser && currentUser.email && canEdit()) {
-                    autoAssignSelf(ticket.id).then(function(updated) {
-                        if (updated) { ticket.assigned_to = currentUser.email; renderTicketDetailModal(ticket); applyLockStateToModal(); }
-                    });
-                }
+                // NOTE: Auto-assignment removed from view.
+                // Agents should ONLY be auto-assigned when they MODIFY a ticket (add comment, send email, etc.)
+                // Not on mere viewing. See ticketAction() for assignment on actual changes.
+                // Manual assignment only via assignTicket() UI button or TL/Manager action.
                 renderTicketDetailModal(ticket);
                 applyLockStateToModal();
             } else if (!isRefresh) {
