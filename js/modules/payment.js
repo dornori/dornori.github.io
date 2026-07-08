@@ -120,8 +120,9 @@ const Payment = (() => {
             // Store PayPal result for success page
             localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
             
-            const orderRef = localStorage.getItem('webshop_order_ref');
-            window.location.href = `/en/success/?ref=${orderRef}&status=success`;
+            // Dispatch instead of redirecting directly — cart.html's payment:success
+            // listener clears the cart, saves the order snapshot, then redirects itself.
+            _dispatch("payment:success", { orderRef, processor: "paypal", result: captureResult });
           } catch (err) {
             console.error('Capture error:', err);
             _dispatch("payment:error", { orderRef, processor: "paypal", error: err });
