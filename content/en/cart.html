@@ -509,7 +509,7 @@
     if (s2) s2.style.display = n === 2 ? 'block' : 'none';
     if (n === 2) {
       renderOrderSummary();
-      renderPayment(Shop.getCart(), formData);
+      renderPayment(Shop.getCart(), getFormData);
       loadAlternativePayments();
     }
     requestAnimationFrame(function() {
@@ -517,6 +517,12 @@
       document.body.scrollTop = 0;
     });
   }
+
+  // Always reads the CURRENT formData object. Pass this function reference
+  // (not formData itself) into anything that fires later than render time —
+  // e.g. PayPal/Card/GPay/Apple Pay createOrder callbacks — or the payment
+  // will ship with whatever was in formData at step-2 render (often empty).
+  function getFormData() { return formData; }
 
   function getSavedForm() { try { return JSON.parse(localStorage.getItem(FORM_KEY)||'{}'); } catch { return {}; } }
   function saveField(key, val) { var d = getSavedForm(); d[key] = val; localStorage.setItem(FORM_KEY, JSON.stringify(d)); }
@@ -572,28 +578,23 @@
     checkLayout();
   }
 
-  function loadAlternativePayments() {
-    // Google Pay
-    if (typeof google !== 'undefined' && google.payments && google.payments.api) {
-      initGooglePayButton();
-    } else {
-      var script = document.createElement('script');
-      script.src = 'https://pay.google.com/gp/p/js/pay.js';
-      script.onload = initGooglePayButton;
-      script.onerror = function() {
-        var btn = document.getElementById('google-pay-button');
-        if (btn) btn.style.display = 'none';
-      };
-      document.head.appendChild(script);
-    }
+  function beforePay() {
+    // Runs immediately before a Google/Apple Pay sheet opens: validates the
+    // form and, on success, refreshes the live formData object.
+    return new Promise(function(resolve) {
+      validateFormBeforePayment(function(valid) { resolve(valid); });
+    });
+  }
 
-    // Apple Pay
-    if (window.ApplePaySession && ApplePaySession.canMakePayments()) {
-      initApplePayButton();
-    } else {
-      var appleBtn = document.getElementById('apple-pay-button');
-      if (appleBtn) appleBtn.style.display = 'none';
-    }
+  function loadAlternativePayments() {
+    Payment.init().then(function() {
+      Payment.renderGooglePay('#google-pay-button', Shop.getCart(), getFormData, beforePay);
+      Payment.renderApplePay('#apple-pay-button', Shop.getCart(), getFormData, beforePay);
+    }).catch(function(e) {
+      console.warn('Alternative payments unavailable:', e);
+      var g = document.getElementById('google-pay-button'); if (g) g.style.display = 'none';
+      var a = document.getElementById('apple-pay-button'); if (a) a.style.display = 'none';
+    });
   }
 
   function validateFormBeforePayment(callback) {
@@ -644,185 +645,6 @@
       billing_postal:     billingChoice==='different'?(document.getElementById('cart-billing-postal')||{}).value||'':null,
       billing_country:    billingChoice==='different'?(document.getElementById('cart-billing-country')||{}).value||'':null,
     };
-  }
-
-  function initGooglePayButton() {
-    if (typeof google === 'undefined' || !google.payments || !google.payments.api) return;
-    
-    var btn = document.getElementById('google-pay-button');
-    if (!btn) return;
-    btn.innerHTML = '';
-    
-    try {
-      Payment.initGooglePay(Shop.getCart(), formData).then(function(result) {
-        var button = result.paymentsClient.createButton({
-          onClick: function() {
-            validateFormBeforePayment(function(valid) {
-              if (valid) {
-                result.paymentsClient.loadPaymentData(result.paymentDataRequest)
-                  .then(function(paymentData) {
-                    var cart = Shop.getCart();
-                    var t = Shop.calculateTotals(cart, false, formData.country);
-                    var ref = Shop.generateOrderRef();
-                    
-                    var token = paymentData.paymentMethodData.tokenizationData.token;
-                    
-                    CartWorker.processGooglePay(token, {
-                      items: cart,
-                      formData: formData,
-                      totals: t,
-                      currency: Shop.getCurrency()
-                    }, ref).then(function(result) {
-                      if (result.success) {
-                        handlePaymentSuccess(ref);
-                      } else {
-                        throw new Error(result.error || 'Payment failed');
-                      }
-                    }).catch(function(err) {
-                      console.error('Google Pay error:', err);
-                      if (typeof Shop.toast === 'function') {
-                        Shop.toast('Payment failed: ' + err.message, 4000);
-                      }
-                    });
-                  })
-                  .catch(function(err) {
-                    console.error('Google Pay load error:', err);
-                    if (err.statusCode === 'CANCELED') return;
-                    if (typeof Shop.toast === 'function') {
-                      Shop.toast('Google Pay failed: ' + (err.statusMessage || err.message), 4000);
-                    }
-                  });
-              }
-            });
-          },
-          buttonColor: 'white',
-          buttonType: 'pay',
-          buttonLocale: 'en'
-        });
-        btn.appendChild(button);
-      }).catch(function(e) {
-        console.warn('Google Pay not available:', e);
-        btn.style.display = 'none';
-      });
-    } catch(e) {
-      console.warn('Google Pay init error:', e);
-      btn.style.display = 'none';
-    }
-  }
-
-  function initApplePayButton() {
-    var btn = document.getElementById('apple-pay-button');
-    if (!btn) return;
-    btn.innerHTML = '';
-    
-    var appleBtn = document.createElement('button');
-    appleBtn.className = 'apple-pay-button';
-    appleBtn.style.cssText = 'width:100%;height:48px;background:#000;color:#fff;border-radius:8px;border:none;font-size:16px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;';
-    appleBtn.innerHTML = 'Apple Pay';
-    btn.appendChild(appleBtn);
-    
-    appleBtn.addEventListener('click', function() {
-      validateFormBeforePayment(function(valid) {
-        if (!valid) return;
-        
-        var cart = Shop.getCart();
-        var t = Shop.calculateTotals(cart, false, formData.country);
-        var ref = Shop.generateOrderRef();
-        
-        if (!window.ApplePaySession) {
-          if (typeof Shop.toast === 'function') {
-            Shop.toast('Apple Pay not available', 4000);
-          }
-          return;
-        }
-        
-        var paymentRequest = {
-          countryCode: formData.country || 'NL',
-          currencyCode: Shop.getCurrency(),
-          supportedNetworks: ['visa', 'masterCard', 'amex', 'discover'],
-          merchantCapabilities: ['supports3DS'],
-          total: {
-            label: 'Dornori',
-            amount: t.total.toFixed(2)
-          },
-          requiredShippingContactFields: ['postalAddress', 'name', 'email', 'phone'],
-          requiredBillingContactFields: ['postalAddress', 'name', 'email', 'phone']
-        };
-        
-        var session = new ApplePaySession(4, paymentRequest);
-        
-        session.onvalidatemerchant = function(event) {
-          fetch('https://pay.dornori-info.workers.dev/api/apple-pay-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              validationUrl: event.validationURL,
-              total: t.total,
-              currency: Shop.getCurrency(),
-              countryCode: formData.country || 'NL'
-            })
-          }).then(function(res) { return res.json(); })
-            .then(function(data) {
-              if (data.success) {
-                session.completeMerchantValidation(data.session);
-              } else {
-                session.abort();
-                throw new Error(data.error || 'Merchant validation failed');
-              }
-            }).catch(function(err) {
-              console.error('Apple Pay validation error:', err);
-              session.abort();
-              if (typeof Shop.toast === 'function') {
-                Shop.toast('Apple Pay validation failed', 4000);
-              }
-            });
-        };
-        
-        session.onpaymentauthorized = function(event) {
-          var paymentData = {
-            token: event.payment.token,
-            billingContact: event.payment.billingContact,
-            shippingContact: event.payment.shippingContact
-          };
-          
-          fetch('https://pay.dornori-info.workers.dev/api/process-apple-pay', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              paymentData: paymentData,
-              orderData: {
-                items: cart,
-                formData: formData,
-                totals: t,
-                currency: Shop.getCurrency()
-              },
-              orderRef: ref
-            })
-          }).then(function(res) { return res.json(); })
-            .then(function(result) {
-              if (result.success) {
-                session.completePayment(ApplePaySession.STATUS_SUCCESS);
-                handlePaymentSuccess(ref);
-              } else {
-                session.completePayment(ApplePaySession.STATUS_FAILURE);
-                throw new Error(result.error || 'Payment failed');
-              }
-            }).catch(function(err) {
-              console.error('Apple Pay error:', err);
-              session.completePayment(ApplePaySession.STATUS_FAILURE);
-              if (typeof Shop.toast === 'function') {
-                Shop.toast('Payment failed: ' + err.message, 4000);
-              }
-            });
-        };
-        
-        session.oncancel = function() {
-          console.log('Apple Pay cancelled');
-        };
-        
-        session.begin();
-      });
-    });
   }
 
   function handlePaymentSuccess(ref) {

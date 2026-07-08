@@ -1,6 +1,8 @@
 const Payment = (() => {
   let _ready = false;
-  let _cardFieldsInstance = null;  // Moved to outer scope
+  let _cardFieldsInstance = null;
+
+  const WORKER = 'https://pay.dornori-info.workers.dev';
 
   function _dispatch(event, detail) {
     document.dispatchEvent(new CustomEvent(event, { detail }));
@@ -22,41 +24,86 @@ const Payment = (() => {
     });
   }
 
+  function _getActiveCurrency() {
+    return (typeof Currency !== 'undefined' && Currency.getActive) ? Currency.getActive() : CONFIG.payment.paypal.currency;
+  }
+
+  // formData may be a plain object (legacy) or a getter function that always
+  // returns the live, current form state. Normalize to a function so every
+  // consumer reads fresh data instead of a stale snapshot taken at render time.
+  function _normalizeFormData(formData) {
+    return typeof formData === 'function' ? formData : () => formData;
+  }
+
+  async function _createStandardOrder(cart, formData, currency, paymentMethod) {
+    const res = await fetch(`${WORKER}/api/create-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: cart,
+        countryCode: formData?.country || 'US',
+        currency: currency,
+        formData: formData,
+        paymentMethod: paymentMethod || 'paypal'
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Order creation failed');
+    }
+    const result = await res.json();
+    localStorage.setItem('webshop_order_ref', result.orderRef);
+    localStorage.setItem('webshop_paypal_order_id', result.orderId);
+    localStorage.setItem('webshop_order_snapshot', JSON.stringify({
+      items: cart,
+      formData: formData,
+      totals: result.totals
+    }));
+    return result;
+  }
+
+  async function _captureOrder(orderId) {
+    const res = await fetch(`${WORKER}/api/capture-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Capture failed');
+    }
+    return res.json();
+  }
+
   const _paypal = {
     _loadedCurrency: null,
 
     async init(forceCurrency) {
       const { clientId, intent } = CONFIG.payment.paypal;
       if (!clientId) return;
-      const targetCurrency = forceCurrency ||
-        ((typeof Currency !== 'undefined' && Currency.getActive) ? Currency.getActive() : CONFIG.payment.paypal.currency);
+      const targetCurrency = forceCurrency || _getActiveCurrency();
       if (window.paypal && this._loadedCurrency === targetCurrency) return;
-      
+
       document.querySelectorAll('script[src*="paypal.com/sdk/js"]').forEach(s => s.remove());
       delete window.paypal;
-      
+
       await _loadScript(
-        `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${targetCurrency}&intent=${intent || "capture"}&components=buttons,card-fields`
+        `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${targetCurrency}&intent=${intent || "capture"}&components=buttons,card-fields,googlepay,applepay`
       );
-      
+
       this._loadedCurrency = targetCurrency;
-      
+
       return new Promise((resolve) => {
         const checkPayPal = () => {
-          if (window.paypal) {
-            resolve();
-          } else {
-            setTimeout(checkPayPal, 200);
-          }
+          if (window.paypal) resolve();
+          else setTimeout(checkPayPal, 200);
         };
         checkPayPal();
       });
     },
 
     async render(cart, totals, orderRef, el, formData) {
-      const activeCurrency = (typeof Currency !== 'undefined' && Currency.getActive)
-        ? Currency.getActive()
-        : CONFIG.payment.paypal.currency;
+      const activeCurrency = _getActiveCurrency();
 
       if (!window.paypal || this._loadedCurrency !== activeCurrency) {
         await this.init(activeCurrency);
@@ -67,10 +114,13 @@ const Payment = (() => {
         return;
       }
 
+      const getFormData = _normalizeFormData(formData);
+
       el.innerHTML = "";
 
+      // Flat, inline layout — no boxed/modal wrapper. Matches the surrounding form.
       const wrapper = document.createElement('div');
-      wrapper.style.cssText = 'max-width:480px;margin:0 auto;background:var(--c-surface);padding:24px;border-radius:var(--radius,8px);border:1px solid var(--c-border);';
+      wrapper.style.cssText = 'max-width:480px;margin:0 auto;';
       el.appendChild(wrapper);
 
       // ── Credit Card Section ──
@@ -113,22 +163,15 @@ const Payment = (() => {
       paypalSection.style.cssText = 'margin-top:4px;';
       wrapper.appendChild(paypalSection);
 
-      // Render Card Fields
-      await this._renderCardFields(cardSection, cart, totals, orderRef, formData, activeCurrency);
-
-      // Render PayPal Button
-      await this._renderPayPalButton(paypalSection, cart, formData, activeCurrency, orderRef);
+      await this._renderCardFields(cardSection, cart, orderRef, getFormData, activeCurrency);
+      await this._renderPayPalButton(paypalSection, cart, getFormData, activeCurrency, orderRef);
 
       return wrapper;
     },
 
-    async _renderCardFields(container, cart, totals, orderRef, formData, currency) {
-      if (!window.paypal) {
-        console.warn('PayPal not available');
-        return;
-      }
+    async _renderCardFields(container, cart, orderRef, getFormData, currency) {
+      if (!window.paypal) { console.warn('PayPal not available'); return; }
 
-      // Wait for CardFields to be available
       let attempts = 0;
       while (!window.paypal.CardFields && attempts < 20) {
         await new Promise(r => setTimeout(r, 300));
@@ -145,7 +188,10 @@ const Payment = (() => {
       }
 
       try {
-        // Create card fields WITH createOrder function
+        // Standard PayPal Advanced Card Payments flow: createOrder returns an
+        // orderId, hosted fields collect card data inside PayPal's own iframes
+        // (raw PAN never touches our code), .submit() tokenizes + authorizes,
+        // and onApprove fires once PayPal has approved the order.
         _cardFieldsInstance = await window.paypal.CardFields({
           style: {
             input: {
@@ -155,66 +201,52 @@ const Payment = (() => {
               'background-color': 'transparent',
               'padding': '8px 0',
             },
-            '.valid': { 'border-color': '#4a7c59' },
+            '.valid':   { 'border-color': '#4a7c59' },
             '.invalid': { 'border-color': '#9b3a3a' }
           },
           createOrder: async () => {
+            const result = await _createStandardOrder(cart, getFormData(), currency, 'card');
+            return result.orderId;
+          },
+          onApprove: async (data) => {
+            const submitBtn = container.querySelector('#paypal-card-submit');
             try {
-              const res = await fetch('https://pay.dornori-info.workers.dev/api/create-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  items: cart,
-                  countryCode: formData?.country || 'US',
-                  currency: currency,
-                  formData: formData,
-                  paymentMethod: 'card'
-                })
+              const captureResult = await _captureOrder(data.orderID);
+              localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
+              _dispatch('payment:success', {
+                orderRef: localStorage.getItem('webshop_order_ref') || orderRef,
+                processor: 'card',
+                result: captureResult
               });
-
-              if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || 'Order creation failed');
-              }
-
-              const result = await res.json();
-              localStorage.setItem('webshop_order_ref', result.orderRef);
-              localStorage.setItem('webshop_paypal_order_id', result.orderId);
-              localStorage.setItem('webshop_order_snapshot', JSON.stringify({
-                items: cart,
-                formData: formData,
-                totals: result.totals
-              }));
-
-              return result.orderId;
             } catch (err) {
-              console.error('Order creation error:', err);
-              throw err;
+              console.error('Card capture error:', err);
+              const errorMsg = container.querySelector('#card-error-message');
+              if (errorMsg) { errorMsg.textContent = err.message || 'Payment failed. Please try again.'; errorMsg.style.display = 'block'; }
+              if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Pay Now'; }
+              _dispatch('payment:error', { orderRef, processor: 'card', error: err });
             }
+          },
+          onError: (err) => {
+            console.error('Card fields error:', err);
+            const errorMsg = container.querySelector('#card-error-message');
+            if (errorMsg) { errorMsg.textContent = 'Payment failed. Please check your card details.'; errorMsg.style.display = 'block'; }
+            const submitBtn = container.querySelector('#paypal-card-submit');
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Pay Now'; }
+            _dispatch('payment:error', { orderRef, processor: 'card', error: err });
           }
         });
 
-        // Render fields
-        const numberField = _cardFieldsInstance.NumberField({ 
-          placeholder: '1234 5678 9012 3456',
-        });
+        const numberField = _cardFieldsInstance.NumberField({ placeholder: '1234 5678 9012 3456' });
         numberField.render('#card-number-field');
 
-        const expiryField = _cardFieldsInstance.ExpiryField({ 
-          placeholder: 'MM/YY',
-        });
+        const expiryField = _cardFieldsInstance.ExpiryField({ placeholder: 'MM/YY' });
         expiryField.render('#expiry-field');
 
-        const cvvField = _cardFieldsInstance.CVVField({ 
-          placeholder: '123',
-        });
+        const cvvField = _cardFieldsInstance.CVVField({ placeholder: '123' });
         cvvField.render('#cvv-field');
 
-        // Submit button handler
         const submitBtn = container.querySelector('#paypal-card-submit');
         const errorMsg = container.querySelector('#card-error-message');
-
-        // Remove old listeners
         const newSubmitBtn = submitBtn.cloneNode(true);
         submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
 
@@ -222,55 +254,14 @@ const Payment = (() => {
           errorMsg.style.display = 'none';
           this.disabled = true;
           this.textContent = 'Processing...';
-
           try {
-            // Use the outer scope variable _cardFieldsInstance
-            if (!_cardFieldsInstance) {
-              throw new Error('Card fields not initialized');
-            }
-
-            const fields = _cardFieldsInstance.getFields();
-            
-            const numberVal = fields.numberField ? fields.numberField.getValue() : '';
-            const expiryVal = fields.expiryField ? fields.expiryField.getValue() : '';
-            const cvvVal = fields.cvvField ? fields.cvvField.getValue() : '';
-
-            if (!numberVal || !expiryVal || !cvvVal) {
-              throw new Error('Please fill in all card fields');
-            }
-
-            const cardNum = numberVal.replace(/\s/g, '');
-            if (cardNum.length < 13) {
-              throw new Error('Invalid card number');
-            }
-
-            // Get the order ID from localStorage (set by createOrder)
-            const orderId = localStorage.getItem('webshop_paypal_order_id');
-            
-            if (!orderId) {
-              throw new Error('No order found. Please try again.');
-            }
-
-            const captureRes = await fetch('https://pay.dornori-info.workers.dev/api/capture-order', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ orderId: orderId })
-            });
-
-            if (!captureRes.ok) {
-              const err = await captureRes.json();
-              throw new Error(err.error || 'Capture failed');
-            }
-
-            const captureResult = await captureRes.json();
-            _dispatch("payment:success", { 
-              orderRef: localStorage.getItem('webshop_order_ref'), 
-              processor: "card", 
-              result: captureResult 
-            });
+            if (!_cardFieldsInstance) throw new Error('Card fields not initialized');
+            // .submit() triggers createOrder -> PayPal tokenization/3DS -> onApprove.
+            // Do NOT read raw field values ourselves; hosted fields never expose the PAN.
+            await _cardFieldsInstance.submit();
           } catch (err) {
-            console.error('Card payment error:', err);
-            errorMsg.textContent = err.message || 'Payment failed. Please try again.';
+            console.error('Card submit error:', err);
+            errorMsg.textContent = err.message || 'Please check your card details and try again.';
             errorMsg.style.display = 'block';
             this.disabled = false;
             this.textContent = 'Pay Now';
@@ -285,68 +276,26 @@ const Payment = (() => {
       }
     },
 
-    async _renderPayPalButton(container, cart, formData, currency, orderRef) {
+    async _renderPayPalButton(container, cart, getFormData, currency, orderRef) {
       if (!window.paypal) return;
 
       await window.paypal.Buttons({
-        style: { 
-          layout: "vertical", 
-          color: "gold", 
-          shape: "rect", 
-          label: "paypal", 
-          height: 48 
+        style: {
+          layout: "vertical",
+          color: "gold",
+          shape: "rect",
+          label: "paypal",
+          height: 48
         },
-        createOrder: async (data, actions) => {
-          try {
-            const workerRes = await fetch('https://pay.dornori-info.workers.dev/api/create-order', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                items: cart,
-                countryCode: formData?.country || 'US',
-                currency: currency,
-                formData: formData,
-                paymentMethod: 'paypal'
-              })
-            });
-            
-            if (!workerRes.ok) {
-              const err = await workerRes.json();
-              throw new Error(err.error || 'Order creation failed');
-            }
-
-            const result = await workerRes.json();
-            
-            localStorage.setItem('webshop_order_ref', result.orderRef);
-            localStorage.setItem('webshop_paypal_order_id', result.orderId);
-            localStorage.setItem('webshop_order_snapshot', JSON.stringify({
-              items: cart,
-              formData: formData,
-              totals: result.totals
-            }));
-
-            return result.orderId;
-          } catch (err) {
-            console.error('Order creation error:', err);
-            throw err;
-          }
+        createOrder: async () => {
+          const result = await _createStandardOrder(cart, getFormData(), currency, 'paypal');
+          return result.orderId;
         },
-        onApprove: async (data, actions) => {
+        onApprove: async (data) => {
           try {
-            const captureRes = await fetch('https://pay.dornori-info.workers.dev/api/capture-order', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ orderId: data.orderID })
-            });
-
-            if (!captureRes.ok) {
-              const err = await captureRes.json();
-              throw new Error(err.error || 'Capture failed');
-            }
-
-            const captureResult = await captureRes.json();
+            const captureResult = await _captureOrder(data.orderID);
             localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
-            _dispatch("payment:success", { orderRef, processor: "paypal", result: captureResult });
+            _dispatch("payment:success", { orderRef: localStorage.getItem('webshop_order_ref') || orderRef, processor: "paypal", result: captureResult });
           } catch (err) {
             console.error('Capture error:', err);
             _dispatch("payment:error", { orderRef, processor: "paypal", error: err });
@@ -363,6 +312,179 @@ const Payment = (() => {
           _dispatch("payment:error", { orderRef, processor: "paypal", error: err });
         },
       }).render(container);
+    }
+  };
+
+  // ── Google Pay — via PayPal's own Googlepay() SDK component. ──
+  // This reuses the same create-order / capture-order endpoints as the PayPal
+  // button. No raw card data is ever extracted from the Google Pay token; the
+  // token is handed straight to paypal.Googlepay().confirmOrder().
+  const _googlepay = {
+    async isAvailable() {
+      return typeof window.paypal !== 'undefined' && typeof window.paypal.Googlepay === 'function';
+    },
+    async render(container, cart, formData, onBeforePay) {
+      if (!container) return;
+      container.innerHTML = '';
+      const getFormData = _normalizeFormData(formData);
+      if (!_ready) await init();
+      if (!(await this.isAvailable())) { container.style.display = 'none'; return; }
+
+      try {
+        if (typeof google === 'undefined' || !google.payments || !google.payments.api) {
+          await _loadScript('https://pay.google.com/gp/p/js/pay.js');
+        }
+        const gpayConfig = await window.paypal.Googlepay().config();
+        const paymentsClient = new google.payments.api.PaymentsClient({ environment: gpayConfig.environment || 'TEST' });
+
+        const readyRes = await paymentsClient.isReadyToPay({
+          apiVersion: 2, apiVersionMinor: 0,
+          allowedPaymentMethods: gpayConfig.allowedPaymentMethods
+        });
+        if (!readyRes.result) { container.style.display = 'none'; return; }
+
+        const button = paymentsClient.createButton({
+          buttonColor: 'black',
+          buttonType: 'pay',
+          buttonSizeMode: 'fill',
+          onClick: async () => {
+            if (onBeforePay) {
+              const ok = await onBeforePay();
+              if (!ok) return;
+            }
+            try {
+              const currency = _getActiveCurrency();
+              const order = await _createStandardOrder(cart, getFormData(), currency, 'paypal');
+              const paymentDataRequest = {
+                apiVersion: 2, apiVersionMinor: 0,
+                allowedPaymentMethods: gpayConfig.allowedPaymentMethods,
+                merchantInfo: gpayConfig.merchantInfo,
+                transactionInfo: {
+                  totalPriceStatus: 'FINAL',
+                  totalPrice: Number(order.totals.total).toFixed(2),
+                  currencyCode: currency,
+                  countryCode: gpayConfig.countryCode || 'NL'
+                }
+              };
+              const paymentData = await paymentsClient.loadPaymentData(paymentDataRequest);
+              const confirmResult = await window.paypal.Googlepay().confirmOrder({
+                orderId: order.orderId,
+                paymentMethodData: paymentData.paymentMethodData
+              });
+              if (confirmResult.status === 'DECLINED') throw new Error('Payment declined');
+
+              const captureResult = await _captureOrder(order.orderId);
+              localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
+              _dispatch('payment:success', { orderRef: order.orderRef, processor: 'googlepay', result: captureResult });
+            } catch (err) {
+              if (err && err.statusCode === 'CANCELED') return;
+              console.error('Google Pay error:', err);
+              _dispatch('payment:error', { processor: 'googlepay', error: err });
+            }
+          }
+        });
+        container.appendChild(button);
+      } catch (e) {
+        console.warn('Google Pay unavailable:', e);
+        container.style.display = 'none';
+      }
+    }
+  };
+
+  // ── Apple Pay — via PayPal's own Applepay() SDK component. ──
+  const _applepay = {
+    async isAvailable() {
+      return typeof window.ApplePaySession !== 'undefined' &&
+             ApplePaySession.canMakePayments() &&
+             typeof window.paypal !== 'undefined' &&
+             typeof window.paypal.Applepay === 'function';
+    },
+    async render(container, cart, formData, onBeforePay) {
+      if (!container) return;
+      container.innerHTML = '';
+      const getFormData = _normalizeFormData(formData);
+      if (!_ready) await init();
+      if (!(await this.isAvailable())) { container.style.display = 'none'; return; }
+
+      let applepay, config;
+      try {
+        applepay = window.paypal.Applepay();
+        config = await applepay.config();
+      } catch (e) {
+        console.warn('Apple Pay unavailable:', e);
+        container.style.display = 'none';
+        return;
+      }
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.setAttribute('aria-label', 'Pay with Apple Pay');
+      btn.style.cssText = '-webkit-appearance:-apple-pay-button;-apple-pay-button-type:pay;-apple-pay-button-style:black;width:100%;height:48px;border-radius:8px;border:none;cursor:pointer;';
+
+      btn.addEventListener('click', async () => {
+        if (onBeforePay) {
+          const ok = await onBeforePay();
+          if (!ok) return;
+        }
+        try {
+          const currency = _getActiveCurrency();
+          const order = await _createStandardOrder(cart, getFormData(), currency, 'paypal');
+
+          const paymentRequest = {
+            countryCode: config.countryCode,
+            currencyCode: currency,
+            merchantCapabilities: config.merchantCapabilities,
+            supportedNetworks: config.supportedNetworks,
+            requiredBillingContactFields: ['postalAddress', 'name', 'email'],
+            requiredShippingContactFields: [],
+            total: { label: 'Dornori', amount: Number(order.totals.total).toFixed(2) }
+          };
+
+          const session = new ApplePaySession(4, paymentRequest);
+
+          session.onvalidatemerchant = (event) => {
+            applepay.validateMerchant({ validationUrl: event.validationURL })
+              .then((payload) => session.completeMerchantValidation(payload.merchantSession))
+              .catch((err) => {
+                console.error('Apple Pay merchant validation failed:', err);
+                session.abort();
+                _dispatch('payment:error', { processor: 'applepay', error: err });
+              });
+          };
+
+          session.onpaymentauthorized = async (event) => {
+            try {
+              const confirmResult = await applepay.confirmOrder({
+                orderId: order.orderId,
+                token: event.payment.token,
+                billingContact: event.payment.billingContact,
+                shippingContact: event.payment.shippingContact
+              });
+              if (confirmResult.approveApplePayPayment) {
+                const captureResult = await _captureOrder(order.orderId);
+                localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
+                session.completePayment(ApplePaySession.STATUS_SUCCESS);
+                _dispatch('payment:success', { orderRef: order.orderRef, processor: 'applepay', result: captureResult });
+              } else {
+                session.completePayment(ApplePaySession.STATUS_FAILURE);
+                _dispatch('payment:error', { processor: 'applepay', error: new Error('Payment not approved') });
+              }
+            } catch (err) {
+              console.error('Apple Pay confirm error:', err);
+              session.completePayment(ApplePaySession.STATUS_FAILURE);
+              _dispatch('payment:error', { processor: 'applepay', error: err });
+            }
+          };
+
+          session.oncancel = () => {};
+          session.begin();
+        } catch (err) {
+          console.error('Apple Pay init error:', err);
+          _dispatch('payment:error', { processor: 'applepay', error: err });
+        }
+      });
+
+      container.appendChild(btn);
     }
   };
 
@@ -416,85 +538,32 @@ const Payment = (() => {
     await init();
   }
 
-  // Google Pay
-  async function initGooglePay(cart, formData) {
-    return new Promise((resolve, reject) => {
-      if (typeof google === 'undefined' || !google.payments || !google.payments.api) {
-        const script = document.createElement('script');
-        script.src = 'https://pay.google.com/gp/p/js/pay.js';
-        script.onload = () => {
-          try {
-            const result = _createGooglePayClient(cart, formData);
-            resolve(result);
-          } catch (e) {
-            reject(e);
-          }
-        };
-        script.onerror = () => reject(new Error('Failed to load Google Pay'));
-        document.head.appendChild(script);
-      } else {
-        try {
-          const result = _createGooglePayClient(cart, formData);
-          resolve(result);
-        } catch (e) {
-          reject(e);
-        }
-      }
-    });
+  // container: DOM element or selector string.
+  // cart: cart items array.
+  // formData: object OR getter function returning the live form state.
+  // onBeforePay: optional async () => boolean, run (e.g. form validation) before charging.
+  async function renderGooglePay(container, cart, formData, onBeforePay) {
+    const el = typeof container === "string" ? document.querySelector(container) : container;
+    await _googlepay.render(el, cart, formData, onBeforePay);
   }
 
-  function _createGooglePayClient(cart, formData) {
-    const paymentsClient = new google.payments.api.PaymentsClient({
-      environment: window.CONFIG?.payment?.googlePay?.environment || 'TEST'
-    });
-
-    const currency = (typeof Currency !== 'undefined' && Currency.getActive) ? Currency.getActive() : 'EUR';
-    const t = typeof Shop !== 'undefined' ? Shop.calculateTotals(cart, false, formData?.country) : { total: 0 };
-
-    const paymentDataRequest = {
-      apiVersion: 2,
-      apiVersionMinor: 0,
-      allowedPaymentMethods: [{
-        type: 'CARD',
-        parameters: {
-          allowedAuthMethods: ['PAN_ONLY', 'CRYPTOGRAM_3DS'],
-          allowedCardNetworks: ['AMEX', 'DISCOVER', 'MASTERCARD', 'VISA']
-        },
-        tokenizationSpecification: {
-          type: 'PAYMENT_GATEWAY',
-          parameters: {
-            'gateway': 'paypal',
-            'gatewayMerchantId': window.CONFIG?.payment?.paypal?.clientId || ''
-          }
-        }
-      }],
-      merchantInfo: {
-        merchantId: window.CONFIG?.payment?.googlePay?.merchantId || 'BCR2DN4TQIZPLAVW',
-        merchantName: window.CONFIG?.payment?.googlePay?.merchantName || 'Dornori'
-      },
-      transactionInfo: {
-        totalPriceStatus: 'FINAL',
-        totalPrice: (t.total || 0).toFixed(2),
-        currencyCode: currency,
-        countryCode: formData?.country || 'NL'
-      }
-    };
-
-    return { paymentsClient, paymentDataRequest };
+  async function renderApplePay(container, cart, formData, onBeforePay) {
+    const el = typeof container === "string" ? document.querySelector(container) : container;
+    await _applepay.render(el, cart, formData, onBeforePay);
   }
 
   function isApplePayAvailable() {
-    return typeof window.ApplePaySession !== 'undefined' && 
-           ApplePaySession.canMakePayments();
+    return typeof window.ApplePaySession !== 'undefined' && ApplePaySession.canMakePayments();
   }
 
-  return { 
-    init, 
-    render, 
-    switchProcessor, 
-    getActive: () => CONFIG.payment.activeProcessor, 
+  return {
+    init,
+    render,
+    switchProcessor,
+    getActive: () => CONFIG.payment.activeProcessor,
     adapters: _adapters,
-    initGooglePay,
+    renderGooglePay,
+    renderApplePay,
     isApplePayAvailable
   };
 })();
