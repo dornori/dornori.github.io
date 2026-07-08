@@ -38,7 +38,7 @@ const Payment = (() => {
       document.querySelectorAll('script[src*="paypal.com/sdk/js"]').forEach(s => s.remove());
       delete window.paypal;
       await _loadScript(
-        `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${targetCurrency}&intent=${intent || "capture"}`
+        `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${targetCurrency}&intent=${intent || "capture"}&components=buttons,card-fields`
       );
       this._loadedCurrency = targetCurrency;
     },
@@ -63,11 +63,50 @@ const Payment = (() => {
       wrapper.style.cssText = 'max-width:480px;margin:0 auto;background:var(--c-surface);padding:24px;border-radius:var(--radius,8px);border:1px solid var(--c-border);';
       el.appendChild(wrapper);
 
+      const tabs = document.createElement('div');
+      tabs.style.cssText = 'display:flex;gap:0;border-bottom:1px solid var(--c-border);margin-bottom:16px;';
+      tabs.innerHTML = `
+        <button class="paypal-tab-btn" data-tab="paypal" style="flex:1;padding:10px 16px;background:none;border:none;border-bottom:2px solid var(--c-accent);cursor:pointer;font-weight:600;color:var(--c-text);font-size:0.85rem;">PayPal</button>
+        <button class="paypal-tab-btn" data-tab="card" style="flex:1;padding:10px 16px;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-weight:400;color:var(--c-text-3);font-size:0.85rem;">Credit Card</button>
+      `;
+      wrapper.appendChild(tabs);
+
+      const paypalContainer = document.createElement('div');
+      paypalContainer.id = 'paypal-login-container';
+      paypalContainer.style.cssText = 'min-height:120px;';
+      wrapper.appendChild(paypalContainer);
+
+      const cardContainer = document.createElement('div');
+      cardContainer.id = 'paypal-card-container';
+      cardContainer.style.cssText = 'display:none;min-height:200px;';
+      wrapper.appendChild(cardContainer);
+
+      tabs.querySelectorAll('.paypal-tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          tabs.querySelectorAll('.paypal-tab-btn').forEach(b => {
+            b.style.borderBottom = '2px solid transparent';
+            b.style.fontWeight = '400';
+            b.style.color = 'var(--c-text-3)';
+          });
+          this.style.borderBottom = '2px solid var(--c-accent)';
+          this.style.fontWeight = '600';
+          this.style.color = 'var(--c-text)';
+          
+          const tab = this.dataset.tab;
+          if (tab === 'paypal') {
+            paypalContainer.style.display = 'block';
+            cardContainer.style.display = 'none';
+          } else {
+            paypalContainer.style.display = 'none';
+            cardContainer.style.display = 'block';
+          }
+        });
+      });
+
       await window.paypal.Buttons({
         style: { layout: "vertical", color: "black", shape: "rect", label: "pay", height: 48 },
         createOrder: async (data, actions) => {
           try {
-            // Call Worker to create order (validates prices server-side)
             const workerRes = await fetch('https://pay.dornori-info.workers.dev/api/create-order', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -75,7 +114,8 @@ const Payment = (() => {
                 items: cart,
                 countryCode: formData?.country || 'US',
                 currency: activeCurrency,
-                formData: formData
+                formData: formData,
+                paymentMethod: 'paypal'
               })
             });
             
@@ -86,7 +126,6 @@ const Payment = (() => {
 
             const result = await workerRes.json();
             
-            // Store order snapshot for success page
             localStorage.setItem('webshop_order_ref', result.orderRef);
             localStorage.setItem('webshop_paypal_order_id', result.orderId);
             localStorage.setItem('webshop_order_snapshot', JSON.stringify({
@@ -103,7 +142,6 @@ const Payment = (() => {
         },
         onApprove: async (data, actions) => {
           try {
-            // Capture via Worker
             const captureRes = await fetch('https://pay.dornori-info.workers.dev/api/capture-order', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -116,12 +154,7 @@ const Payment = (() => {
             }
 
             const captureResult = await captureRes.json();
-            
-            // Store PayPal result for success page
             localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
-            
-            // Dispatch instead of redirecting directly — cart.html's payment:success
-            // listener clears the cart, saves the order snapshot, then redirects itself.
             _dispatch("payment:success", { orderRef, processor: "paypal", result: captureResult });
           } catch (err) {
             console.error('Capture error:', err);
@@ -138,8 +171,140 @@ const Payment = (() => {
           console.error("[Payment/PayPal]", err);
           _dispatch("payment:error", { orderRef, processor: "paypal", error: err });
         },
-      }).render(wrapper);
+      }).render(paypalContainer);
+
+      await this._renderCardFields(cardContainer, cart, totals, orderRef, formData, activeCurrency);
+
+      return wrapper;
     },
+
+    async _renderCardFields(container, cart, totals, orderRef, formData, currency) {
+      if (!window.paypal) return;
+
+      const fieldsHtml = `
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:0.78rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--c-text-3);margin-bottom:4px;">Card Number</label>
+          <div id="card-number-field" style="border:1.5px solid var(--c-border);border-radius:var(--radius);padding:8px 12px;background:var(--c-surface);"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div>
+            <label style="display:block;font-size:0.78rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--c-text-3);margin-bottom:4px;">Expiration</label>
+            <div id="expiry-field" style="border:1.5px solid var(--c-border);border-radius:var(--radius);padding:8px 12px;background:var(--c-surface);"></div>
+          </div>
+          <div>
+            <label style="display:block;font-size:0.78rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--c-text-3);margin-bottom:4px;">CVV</label>
+            <div id="cvv-field" style="border:1.5px solid var(--c-border);border-radius:var(--radius);padding:8px 12px;background:var(--c-surface);"></div>
+          </div>
+        </div>
+        <button id="paypal-card-submit" style="width:100%;padding:14px;background:var(--c-btn-bg);color:var(--c-btn-text);border:none;border-radius:var(--radius);font-size:1rem;font-weight:600;cursor:pointer;transition:all var(--transition);">Pay Now</button>
+        <div id="card-error-message" style="color:var(--c-error);font-size:0.82rem;margin-top:8px;display:none;"></div>
+      `;
+      container.innerHTML = fieldsHtml;
+
+      try {
+        const cardFields = window.paypal.CardFields ? await window.paypal.CardFields({
+          style: {
+            input: {
+              'font-size': '16px',
+              'font-family': 'system-ui, sans-serif',
+              'color': '#1a1714',
+            }
+          }
+        }) : null;
+
+        if (cardFields) {
+          const cardNumberField = cardFields.NumberField({ 
+            placeholder: '1234 5678 9012 3456',
+            style: { input: { 'font-size': '16px' } }
+          });
+          cardNumberField.render('#card-number-field');
+
+          const expiryField = cardFields.ExpiryField({ 
+            placeholder: 'MM/YY',
+            style: { input: { 'font-size': '16px' } }
+          });
+          expiryField.render('#expiry-field');
+
+          const cvvField = cardFields.CVVField({ 
+            placeholder: '123',
+            style: { input: { 'font-size': '16px' } }
+          });
+          cvvField.render('#cvv-field');
+        }
+
+        const submitBtn = container.querySelector('#paypal-card-submit');
+        const errorMsg = container.querySelector('#card-error-message');
+
+        submitBtn.addEventListener('click', async function() {
+          errorMsg.style.display = 'none';
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Processing...';
+
+          try {
+            // Get card data from fields
+            const cardNumber = document.querySelector('#card-number-field iframe')?.contentDocument?.querySelector('input')?.value || '';
+            const expiry = document.querySelector('#expiry-field iframe')?.contentDocument?.querySelector('input')?.value || '';
+            const cvv = document.querySelector('#cvv-field iframe')?.contentDocument?.querySelector('input')?.value || '';
+
+            const res = await fetch('https://pay.dornori-info.workers.dev/api/create-order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                items: cart,
+                countryCode: formData?.country || 'US',
+                currency: currency,
+                formData: formData,
+                paymentMethod: 'card',
+                cardData: {
+                  number: cardNumber.replace(/\s/g, ''),
+                  expiry: expiry,
+                  cvv: cvv
+                }
+              })
+            });
+
+            if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.error || 'Payment failed');
+            }
+
+            const result = await res.json();
+            
+            if (result.orderId) {
+              const captureRes = await fetch('https://pay.dornori-info.workers.dev/api/capture-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: result.orderId })
+              });
+
+              if (!captureRes.ok) {
+                const err = await captureRes.json();
+                throw new Error(err.error || 'Capture failed');
+              }
+
+              const captureResult = await captureRes.json();
+              localStorage.setItem('webshop_order_ref', result.orderRef);
+              localStorage.setItem('webshop_paypal_order_id', result.orderId);
+              localStorage.setItem('webshop_order_snapshot', JSON.stringify({
+                items: cart,
+                formData: formData,
+                totals: totals
+              }));
+              _dispatch("payment:success", { orderRef: result.orderRef, processor: "card", result: captureResult });
+            }
+          } catch (err) {
+            console.error('Card payment error:', err);
+            errorMsg.textContent = err.message || 'Payment failed. Please try again.';
+            errorMsg.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Pay Now';
+          }
+        });
+      } catch (e) {
+        console.warn('Card fields not supported:', e);
+        container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--c-text-3);font-size:0.85rem;">Card payments not available. Please use PayPal.</div>`;
+      }
+    }
   };
 
   const _stripe = {
@@ -151,7 +316,7 @@ const Payment = (() => {
     },
     async render(cart, totals, orderRef, el, formData) {
       if (!this._instance) throw new Error("[Payment/Stripe] Not initialized");
-      el.innerHTML = `<div style="padding:20px;text-align:center;color:var(--c-text-3);font-size:0.85rem;">Stripe not yet integrated with Worker</div>`;
+      el.innerHTML = `<div style="padding:20px;text-align:center;color:var(--c-text-3);font-size:0.85rem;">Stripe integration coming soon</div>`;
     },
   };
 
@@ -192,5 +357,67 @@ const Payment = (() => {
     await init();
   }
 
-  return { init, render, switchProcessor, getActive: () => CONFIG.payment.activeProcessor, adapters: _adapters };
+  // Google Pay helper
+  async function initGooglePay(cart, formData) {
+    return new Promise((resolve, reject) => {
+      if (typeof google === 'undefined' || !google.payments || !google.payments.api) {
+        reject(new Error('Google Pay not available'));
+        return;
+      }
+
+      const paymentsClient = new google.payments.api.PaymentsClient({
+        environment: 'TEST'
+      });
+
+      const t = typeof Shop !== 'undefined' ? Shop.calculateTotals(cart, false, formData?.country) : { total: 0 };
+      const currency = (typeof Currency !== 'undefined' && Currency.getActive) ? Currency.getActive() : 'EUR';
+
+      const paymentDataRequest = {
+        apiVersion: 2,
+        apiVersionMinor: 0,
+        allowedPaymentMethods: [{
+          type: 'CARD',
+          parameters: {
+            allowedAuthMethods: ['PAN_ONLY', 'CRYPTOGRAM_3DS'],
+            allowedCardNetworks: ['AMEX', 'DISCOVER', 'MASTERCARD', 'VISA']
+          },
+          tokenizationSpecification: {
+            type: 'PAYMENT_GATEWAY',
+            parameters: {
+              'gateway': 'paypal',
+              'gatewayMerchantId': CONFIG.payment.paypal.clientId
+            }
+          }
+        }],
+        merchantInfo: {
+          merchantId: 'BCR2DN4TQIZPLAVW',
+          merchantName: 'Dornori'
+        },
+        transactionInfo: {
+          totalPriceStatus: 'FINAL',
+          totalPrice: (t.total || 0).toFixed(2),
+          currencyCode: currency,
+          countryCode: formData?.country || 'NL'
+        }
+      };
+
+      resolve({ paymentsClient, paymentDataRequest });
+    });
+  }
+
+  // Apple Pay helper
+  function isApplePayAvailable() {
+    return typeof window.ApplePaySession !== 'undefined' && ApplePaySession.canMakePayments();
+  }
+
+  return { 
+    init, 
+    render, 
+    switchProcessor, 
+    getActive: () => CONFIG.payment.activeProcessor, 
+    adapters: _adapters,
+    initGooglePay,
+    isApplePayAvailable
+  };
 })();
+window.Payment = Payment;

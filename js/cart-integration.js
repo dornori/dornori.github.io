@@ -14,11 +14,23 @@ const CartWorker = (() => {
     return res.json();
   }
 
-  async function createOrder(items, countryCode, currency, formData) {
+  async function createOrder(items, countryCode, currency, formData, paymentMethod = 'paypal', cardData = null) {
+    const body = { 
+      items, 
+      countryCode, 
+      currency, 
+      formData,
+      paymentMethod 
+    };
+    
+    if (paymentMethod === 'card' && cardData) {
+      body.cardData = cardData;
+    }
+    
     const res = await fetch(`${WORKER_URL}/api/create-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items, countryCode, currency, formData })
+      body: JSON.stringify(body)
     });
     if (!res.ok) {
       const err = await res.json();
@@ -40,5 +52,47 @@ const CartWorker = (() => {
     return res.json();
   }
 
-  return { validateCart, createOrder, captureOrder };
+  async function processGooglePay(paymentToken, orderData, orderRef) {
+    const res = await fetch(`${WORKER_URL}/api/process-google-pay`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        paymentToken, 
+        orderData,
+        orderRef
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Google Pay processing failed');
+    }
+    return res.json();
+  }
+
+  async function getApplePaySession(validationUrl, total, currency, countryCode) {
+    const res = await fetch(`${WORKER_URL}/api/apple-pay-session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        validationUrl, 
+        total,
+        currency,
+        countryCode
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Apple Pay session failed');
+    }
+    return res.json();
+  }
+
+  return { 
+    validateCart, 
+    createOrder, 
+    captureOrder, 
+    processGooglePay, 
+    getApplePaySession 
+  };
 })();
+window.CartWorker = CartWorker;
