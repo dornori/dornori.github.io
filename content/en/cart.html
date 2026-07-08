@@ -52,7 +52,7 @@
     <div id="checkout-layout" style="display:grid;grid-template-columns:2fr 1fr;gap:32px;align-items:start;">
       <!-- Left Column -->
       <div>
-        <!-- Google Pay & Apple Pay - TOP -->
+        <!-- Google Pay & Apple Pay - TOP (moved from original position) -->
         <div id="alternative-payment-methods" style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;">
           <div id="google-pay-button" style="min-width:200px;min-height:48px;flex:1;"></div>
           <div id="apple-pay-button" style="min-width:200px;min-height:48px;flex:1;"></div>
@@ -159,7 +159,7 @@
           </div>
         </div>
 
-        <!-- Payment Section - BOTTOM -->
+        <!-- Payment Section - BOTTOM (UNCHANGED FROM ORIGINAL) -->
         <div style="margin-top:32px;padding-top:24px;border-top:2px solid var(--c-border);">
           <div class="webshop-ship-chip">
             🚚 <span data-i18n="estimated_delivery">Estimated delivery</span>: <strong id="cart-delivery-estimate">3–5 business days</strong>
@@ -249,8 +249,6 @@
   var billingChoice = 'same';
   var formData = {};
   var orderRef = null;
-  var _googlePayLoaded = false;
-  var _applePayLoaded = false;
 
   var L = {
     days:           T('days', 'business days'),
@@ -298,6 +296,7 @@
     renderCartTotals();
     wireButtons();
     setupMobileAccordion();
+    loadAlternativePayments();
   });
 
   function renderCartTable() {
@@ -511,7 +510,6 @@
     if (n === 2) {
       renderOrderSummary();
       renderPayment(Shop.getCart(), formData);
-      // Load Google/Apple Pay buttons immediately
       loadAlternativePayments();
     }
     requestAnimationFrame(function() {
@@ -575,108 +573,146 @@
   }
 
   function loadAlternativePayments() {
-    loadGooglePay();
-    loadApplePay();
-  }
-
-  function loadGooglePay() {
-    var btn = document.getElementById('google-pay-button');
-    if (!btn) return;
-    
-    // Check if Google Pay is available
+    // Google Pay
     if (typeof google !== 'undefined' && google.payments && google.payments.api) {
-      renderGooglePayButton(btn);
-      return;
-    }
-    
-    // Load Google Pay script
-    var script = document.getElementById('google-pay-script');
-    if (!script) {
-      script = document.createElement('script');
-      script.id = 'google-pay-script';
+      initGooglePayButton();
+    } else {
+      var script = document.createElement('script');
       script.src = 'https://pay.google.com/gp/p/js/pay.js';
-      script.onload = function() {
-        renderGooglePayButton(btn);
-      };
+      script.onload = initGooglePayButton;
       script.onerror = function() {
-        btn.style.display = 'none';
+        var btn = document.getElementById('google-pay-button');
+        if (btn) btn.style.display = 'none';
       };
       document.head.appendChild(script);
     }
+
+    // Apple Pay
+    if (window.ApplePaySession && ApplePaySession.canMakePayments()) {
+      initApplePayButton();
+    } else {
+      var appleBtn = document.getElementById('apple-pay-button');
+      if (appleBtn) appleBtn.style.display = 'none';
+    }
   }
 
-  function renderGooglePayButton(btn) {
-    if (typeof google === 'undefined' || !google.payments || !google.payments.api) {
-      btn.style.display = 'none';
-      return;
+  function validateFormBeforePayment(callback) {
+    var required = ['cart-first-name','cart-last-name','cart-email','cart-address','cart-city','cart-postal','cart-country'];
+    var valid = true;
+    required.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.classList.remove('error');
+      var err = el.nextElementSibling;
+      if (err && err.classList.contains('webshop-form-error')) err.remove();
+      if (!el.value.trim()) {
+        valid = false; el.classList.add('error');
+        var e = document.createElement('p'); e.className = 'webshop-form-error'; e.textContent = L.required;
+        el.after(e);
+      }
+      if (id === 'cart-email' && el.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(el.value)) {
+        valid = false; el.classList.add('error');
+        var e2 = document.createElement('p'); e2.className = 'webshop-form-error'; e2.textContent = L.invalidEmail;
+        el.after(e2);
+      }
+    });
+    if (!valid) {
+      var fe = document.querySelector('#cart-shipping-form .error');
+      if (fe) fe.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      callback(false);
+    } else {
+      collectFormData();
+      callback(true);
     }
+  }
+
+  function collectFormData() {
+    formData = {
+      first_name:         document.getElementById('cart-first-name').value.trim(),
+      last_name:          document.getElementById('cart-last-name').value.trim(),
+      email:              document.getElementById('cart-email').value.trim(),
+      phone:              (document.getElementById('cart-phone')||{}).value || '',
+      address:            document.getElementById('cart-address').value.trim(),
+      city:               document.getElementById('cart-city').value.trim(),
+      postal:             document.getElementById('cart-postal').value.trim(),
+      country:            document.getElementById('cart-country').value,
+      billingChoice:      billingChoice,
+      billing_first_name: billingChoice==='different'?(document.getElementById('cart-billing-first-name')||{}).value||'':null,
+      billing_last_name:  billingChoice==='different'?(document.getElementById('cart-billing-last-name')||{}).value||'':null,
+      billing_address:    billingChoice==='different'?(document.getElementById('cart-billing-address')||{}).value||'':null,
+      billing_city:       billingChoice==='different'?(document.getElementById('cart-billing-city')||{}).value||'':null,
+      billing_postal:     billingChoice==='different'?(document.getElementById('cart-billing-postal')||{}).value||'':null,
+      billing_country:    billingChoice==='different'?(document.getElementById('cart-billing-country')||{}).value||'':null,
+    };
+  }
+
+  function initGooglePayButton() {
+    if (typeof google === 'undefined' || !google.payments || !google.payments.api) return;
     
+    var btn = document.getElementById('google-pay-button');
+    if (!btn) return;
     btn.innerHTML = '';
     
-    Payment.initGooglePay(Shop.getCart(), formData).then(function(result) {
-      var button = result.paymentsClient.createButton({
-        onClick: function() {
-          validateFormBeforePayment(function(valid) {
-            if (valid) {
-              result.paymentsClient.loadPaymentData(result.paymentDataRequest)
-                .then(function(paymentData) {
-                  var cart = Shop.getCart();
-                  var t = Shop.calculateTotals(cart, false, formData.country);
-                  var ref = Shop.generateOrderRef();
-                  
-                  var token = paymentData.paymentMethodData.tokenizationData.token;
-                  
-                  CartWorker.processGooglePay(token, {
-                    items: cart,
-                    formData: formData,
-                    totals: t,
-                    currency: Shop.getCurrency()
-                  }, ref).then(function(result) {
-                    if (result.success) {
-                      handlePaymentSuccess(ref);
-                    } else {
-                      throw new Error(result.error || 'Payment failed');
-                    }
-                  }).catch(function(err) {
-                    console.error('Google Pay error:', err);
+    try {
+      Payment.initGooglePay(Shop.getCart(), formData).then(function(result) {
+        var button = result.paymentsClient.createButton({
+          onClick: function() {
+            validateFormBeforePayment(function(valid) {
+              if (valid) {
+                result.paymentsClient.loadPaymentData(result.paymentDataRequest)
+                  .then(function(paymentData) {
+                    var cart = Shop.getCart();
+                    var t = Shop.calculateTotals(cart, false, formData.country);
+                    var ref = Shop.generateOrderRef();
+                    
+                    var token = paymentData.paymentMethodData.tokenizationData.token;
+                    
+                    CartWorker.processGooglePay(token, {
+                      items: cart,
+                      formData: formData,
+                      totals: t,
+                      currency: Shop.getCurrency()
+                    }, ref).then(function(result) {
+                      if (result.success) {
+                        handlePaymentSuccess(ref);
+                      } else {
+                        throw new Error(result.error || 'Payment failed');
+                      }
+                    }).catch(function(err) {
+                      console.error('Google Pay error:', err);
+                      if (typeof Shop.toast === 'function') {
+                        Shop.toast('Payment failed: ' + err.message, 4000);
+                      }
+                    });
+                  })
+                  .catch(function(err) {
+                    console.error('Google Pay load error:', err);
+                    if (err.statusCode === 'CANCELED') return;
                     if (typeof Shop.toast === 'function') {
-                      Shop.toast('Payment failed: ' + err.message, 4000);
+                      Shop.toast('Google Pay failed: ' + (err.statusMessage || err.message), 4000);
                     }
                   });
-                })
-                .catch(function(err) {
-                  console.error('Google Pay load error:', err);
-                  if (err.statusCode === 'CANCELED') return;
-                  if (typeof Shop.toast === 'function') {
-                    Shop.toast('Google Pay failed: ' + (err.statusMessage || err.message), 4000);
-                  }
-                });
-            }
-          });
-        },
-        buttonColor: 'white',
-        buttonType: 'pay',
-        buttonLocale: 'en'
+              }
+            });
+          },
+          buttonColor: 'white',
+          buttonType: 'pay',
+          buttonLocale: 'en'
+        });
+        btn.appendChild(button);
+      }).catch(function(e) {
+        console.warn('Google Pay not available:', e);
+        btn.style.display = 'none';
       });
-      btn.appendChild(button);
-    }).catch(function(e) {
-      console.warn('Google Pay not available:', e);
-      btn.style.display = 'none';
-    });
-  }
-
-  function loadApplePay() {
-    var btn = document.getElementById('apple-pay-button');
-    if (!btn) return;
-    
-    if (window.ApplePaySession && ApplePaySession.canMakePayments()) {
-      renderApplePayButton(btn);
-    } else {
+    } catch(e) {
+      console.warn('Google Pay init error:', e);
       btn.style.display = 'none';
     }
   }
 
-  function renderApplePayButton(btn) {
+  function initApplePayButton() {
+    var btn = document.getElementById('apple-pay-button');
+    if (!btn) return;
     btn.innerHTML = '';
     
     var appleBtn = document.createElement('button');
@@ -787,56 +823,6 @@
         session.begin();
       });
     });
-  }
-
-  function validateFormBeforePayment(callback) {
-    var required = ['cart-first-name','cart-last-name','cart-email','cart-address','cart-city','cart-postal','cart-country'];
-    var valid = true;
-    required.forEach(function(id) {
-      var el = document.getElementById(id);
-      if (!el) return;
-      el.classList.remove('error');
-      var err = el.nextElementSibling;
-      if (err && err.classList.contains('webshop-form-error')) err.remove();
-      if (!el.value.trim()) {
-        valid = false; el.classList.add('error');
-        var e = document.createElement('p'); e.className = 'webshop-form-error'; e.textContent = L.required;
-        el.after(e);
-      }
-      if (id === 'cart-email' && el.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(el.value)) {
-        valid = false; el.classList.add('error');
-        var e2 = document.createElement('p'); e2.className = 'webshop-form-error'; e2.textContent = L.invalidEmail;
-        el.after(e2);
-      }
-    });
-    if (!valid) {
-      var fe = document.querySelector('#cart-shipping-form .error');
-      if (fe) fe.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      callback(false);
-    } else {
-      collectFormData();
-      callback(true);
-    }
-  }
-
-  function collectFormData() {
-    formData = {
-      first_name:         document.getElementById('cart-first-name').value.trim(),
-      last_name:          document.getElementById('cart-last-name').value.trim(),
-      email:              document.getElementById('cart-email').value.trim(),
-      phone:              (document.getElementById('cart-phone')||{}).value || '',
-      address:            document.getElementById('cart-address').value.trim(),
-      city:               document.getElementById('cart-city').value.trim(),
-      postal:             document.getElementById('cart-postal').value.trim(),
-      country:            document.getElementById('cart-country').value,
-      billingChoice:      billingChoice,
-      billing_first_name: billingChoice==='different'?(document.getElementById('cart-billing-first-name')||{}).value||'':null,
-      billing_last_name:  billingChoice==='different'?(document.getElementById('cart-billing-last-name')||{}).value||'':null,
-      billing_address:    billingChoice==='different'?(document.getElementById('cart-billing-address')||{}).value||'':null,
-      billing_city:       billingChoice==='different'?(document.getElementById('cart-billing-city')||{}).value||'':null,
-      billing_postal:     billingChoice==='different'?(document.getElementById('cart-billing-postal')||{}).value||'':null,
-      billing_country:    billingChoice==='different'?(document.getElementById('cart-billing-country')||{}).value||'':null,
-    };
   }
 
   function handlePaymentSuccess(ref) {
