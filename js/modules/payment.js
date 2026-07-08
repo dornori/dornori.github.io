@@ -1,5 +1,6 @@
 const Payment = (() => {
   let _ready = false;
+  let _cardFieldsInstance = null;  // Moved to outer scope
 
   function _dispatch(event, detail) {
     document.dispatchEvent(new CustomEvent(event, { detail }));
@@ -23,7 +24,6 @@ const Payment = (() => {
 
   const _paypal = {
     _loadedCurrency: null,
-    _cardFieldsInstance: null,
 
     async init(forceCurrency) {
       const { clientId, intent } = CONFIG.payment.paypal;
@@ -32,22 +32,18 @@ const Payment = (() => {
         ((typeof Currency !== 'undefined' && Currency.getActive) ? Currency.getActive() : CONFIG.payment.paypal.currency);
       if (window.paypal && this._loadedCurrency === targetCurrency) return;
       
-      // Remove existing PayPal scripts
       document.querySelectorAll('script[src*="paypal.com/sdk/js"]').forEach(s => s.remove());
       delete window.paypal;
       
-      // Load PayPal SDK with card-fields component
       await _loadScript(
         `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${targetCurrency}&intent=${intent || "capture"}&components=buttons,card-fields`
       );
       
       this._loadedCurrency = targetCurrency;
-      this._cardFieldsInstance = null;
       
-      // Wait for PayPal to be ready
       return new Promise((resolve) => {
         const checkPayPal = () => {
-          if (window.paypal && window.paypal.CardFields) {
+          if (window.paypal) {
             resolve();
           } else {
             setTimeout(checkPayPal, 200);
@@ -127,7 +123,19 @@ const Payment = (() => {
     },
 
     async _renderCardFields(container, cart, totals, orderRef, formData, currency) {
-      if (!window.paypal || !window.paypal.CardFields) {
+      if (!window.paypal) {
+        console.warn('PayPal not available');
+        return;
+      }
+
+      // Wait for CardFields to be available
+      let attempts = 0;
+      while (!window.paypal.CardFields && attempts < 20) {
+        await new Promise(r => setTimeout(r, 300));
+        attempts++;
+      }
+
+      if (!window.paypal.CardFields) {
         console.warn('PayPal CardFields not available');
         const numField = container.querySelector('#card-number-field');
         if (numField) numField.innerHTML = '<div style="padding:10px;color:var(--c-text-3);font-size:0.85rem;">Card payments not available. Please use PayPal.</div>';
@@ -137,48 +145,90 @@ const Payment = (() => {
       }
 
       try {
-        // Create card fields instance
-        if (!this._cardFieldsInstance) {
-          this._cardFieldsInstance = await window.paypal.CardFields({
-            style: {
-              input: {
-                'font-size': '16px',
-                'font-family': 'system-ui, sans-serif',
-                'color': '#1a1714',
-                'background-color': 'transparent',
-                'padding': '8px 0',
-              },
-              '.valid': { 'border-color': '#4a7c59' },
-              '.invalid': { 'border-color': '#9b3a3a' }
+        // Create card fields WITH createOrder function
+        _cardFieldsInstance = await window.paypal.CardFields({
+          style: {
+            input: {
+              'font-size': '16px',
+              'font-family': 'system-ui, sans-serif',
+              'color': '#1a1714',
+              'background-color': 'transparent',
+              'padding': '8px 0',
+            },
+            '.valid': { 'border-color': '#4a7c59' },
+            '.invalid': { 'border-color': '#9b3a3a' }
+          },
+          createOrder: async () => {
+            try {
+              const res = await fetch('https://pay.dornori-info.workers.dev/api/create-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  items: cart,
+                  countryCode: formData?.country || 'US',
+                  currency: currency,
+                  formData: formData,
+                  paymentMethod: 'card'
+                })
+              });
+
+              if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Order creation failed');
+              }
+
+              const result = await res.json();
+              localStorage.setItem('webshop_order_ref', result.orderRef);
+              localStorage.setItem('webshop_paypal_order_id', result.orderId);
+              localStorage.setItem('webshop_order_snapshot', JSON.stringify({
+                items: cart,
+                formData: formData,
+                totals: result.totals
+              }));
+
+              return result.orderId;
+            } catch (err) {
+              console.error('Order creation error:', err);
+              throw err;
             }
-          });
-        }
+          }
+        });
 
         // Render fields
-        const numberField = this._cardFieldsInstance.NumberField({ 
+        const numberField = _cardFieldsInstance.NumberField({ 
           placeholder: '1234 5678 9012 3456',
         });
         numberField.render('#card-number-field');
 
-        const expiryField = this._cardFieldsInstance.ExpiryField({ 
+        const expiryField = _cardFieldsInstance.ExpiryField({ 
           placeholder: 'MM/YY',
         });
         expiryField.render('#expiry-field');
 
-        const cvvField = this._cardFieldsInstance.CVVField({ 
+        const cvvField = _cardFieldsInstance.CVVField({ 
           placeholder: '123',
         });
         cvvField.render('#cvv-field');
 
+        // Submit button handler
         const submitBtn = container.querySelector('#paypal-card-submit');
         const errorMsg = container.querySelector('#card-error-message');
 
-        submitBtn.addEventListener('click', async function() {
+        // Remove old listeners
+        const newSubmitBtn = submitBtn.cloneNode(true);
+        submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
+
+        newSubmitBtn.addEventListener('click', async function() {
           errorMsg.style.display = 'none';
-          submitBtn.disabled = true;
-          submitBtn.textContent = 'Processing...';
+          this.disabled = true;
+          this.textContent = 'Processing...';
 
           try {
+            // Use the outer scope variable _cardFieldsInstance
+            if (!_cardFieldsInstance) {
+              throw new Error('Card fields not initialized');
+            }
+
             const fields = _cardFieldsInstance.getFields();
             
             const numberVal = fields.numberField ? fields.numberField.getValue() : '';
@@ -194,58 +244,36 @@ const Payment = (() => {
               throw new Error('Invalid card number');
             }
 
-            const res = await fetch('https://pay.dornori-info.workers.dev/api/create-order', {
+            // Get the order ID from localStorage (set by createOrder)
+            const orderId = localStorage.getItem('webshop_paypal_order_id');
+            
+            if (!orderId) {
+              throw new Error('No order found. Please try again.');
+            }
+
+            const captureRes = await fetch('https://pay.dornori-info.workers.dev/api/capture-order', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                items: cart,
-                countryCode: formData?.country || 'US',
-                currency: currency,
-                formData: formData,
-                paymentMethod: 'card',
-                cardData: {
-                  number: cardNum,
-                  expiry: expiryVal.replace(/\s/g, ''),
-                  cvv: cvvVal
-                }
-              })
+              body: JSON.stringify({ orderId: orderId })
             });
 
-            if (!res.ok) {
-              const err = await res.json();
-              throw new Error(err.error || 'Payment failed');
+            if (!captureRes.ok) {
+              const err = await captureRes.json();
+              throw new Error(err.error || 'Capture failed');
             }
 
-            const result = await res.json();
-            
-            if (result.orderId) {
-              const captureRes = await fetch('https://pay.dornori-info.workers.dev/api/capture-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId: result.orderId })
-              });
-
-              if (!captureRes.ok) {
-                const err = await captureRes.json();
-                throw new Error(err.error || 'Capture failed');
-              }
-
-              const captureResult = await captureRes.json();
-              localStorage.setItem('webshop_order_ref', result.orderRef);
-              localStorage.setItem('webshop_paypal_order_id', result.orderId);
-              localStorage.setItem('webshop_order_snapshot', JSON.stringify({
-                items: cart,
-                formData: formData,
-                totals: totals
-              }));
-              _dispatch("payment:success", { orderRef: result.orderRef, processor: "card", result: captureResult });
-            }
+            const captureResult = await captureRes.json();
+            _dispatch("payment:success", { 
+              orderRef: localStorage.getItem('webshop_order_ref'), 
+              processor: "card", 
+              result: captureResult 
+            });
           } catch (err) {
             console.error('Card payment error:', err);
             errorMsg.textContent = err.message || 'Payment failed. Please try again.';
             errorMsg.style.display = 'block';
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Pay Now';
+            this.disabled = false;
+            this.textContent = 'Pay Now';
           }
         });
       } catch (e) {
