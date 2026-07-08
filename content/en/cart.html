@@ -230,7 +230,6 @@
 
 <script>
 (function() {
-  // ── Resolve all UI strings from window.T ──
   function T(key, fallback) {
     return (window.T && window.T[key]) || fallback || key;
   }
@@ -250,6 +249,8 @@
   var billingChoice = 'same';
   var formData = {};
   var orderRef = null;
+  var _googlePayLoaded = false;
+  var _applePayLoaded = false;
 
   var L = {
     days:           T('days', 'business days'),
@@ -297,10 +298,6 @@
     renderCartTotals();
     wireButtons();
     setupMobileAccordion();
-    // Load alternative payments AFTER payment is rendered
-    setTimeout(function() {
-      loadAlternativePayments();
-    }, 1000);
   });
 
   function renderCartTable() {
@@ -514,10 +511,8 @@
     if (n === 2) {
       renderOrderSummary();
       renderPayment(Shop.getCart(), formData);
-      // Load alternative payments after payment renders
-      setTimeout(function() {
-        loadAlternativePayments();
-      }, 1500);
+      // Load Google/Apple Pay buttons immediately
+      loadAlternativePayments();
     }
     requestAnimationFrame(function() {
       document.documentElement.scrollTop = 0;
@@ -580,86 +575,42 @@
   }
 
   function loadAlternativePayments() {
-    var gpBtn = document.getElementById('google-pay-button');
-    var apBtn = document.getElementById('apple-pay-button');
+    loadGooglePay();
+    loadApplePay();
+  }
+
+  function loadGooglePay() {
+    var btn = document.getElementById('google-pay-button');
+    if (!btn) return;
     
-    // Google Pay
+    // Check if Google Pay is available
     if (typeof google !== 'undefined' && google.payments && google.payments.api) {
-      initGooglePayButton();
-    } else if (gpBtn) {
-      // Load Google Pay script
-      var script = document.createElement('script');
+      renderGooglePayButton(btn);
+      return;
+    }
+    
+    // Load Google Pay script
+    var script = document.getElementById('google-pay-script');
+    if (!script) {
+      script = document.createElement('script');
+      script.id = 'google-pay-script';
       script.src = 'https://pay.google.com/gp/p/js/pay.js';
       script.onload = function() {
-        initGooglePayButton();
+        renderGooglePayButton(btn);
       };
       script.onerror = function() {
-        if (gpBtn) gpBtn.style.display = 'none';
+        btn.style.display = 'none';
       };
       document.head.appendChild(script);
     }
+  }
 
-    // Apple Pay
-    if (window.ApplePaySession && ApplePaySession.canMakePayments()) {
-      initApplePayButton();
-    } else if (apBtn) {
-      apBtn.style.display = 'none';
+  function renderGooglePayButton(btn) {
+    if (typeof google === 'undefined' || !google.payments || !google.payments.api) {
+      btn.style.display = 'none';
+      return;
     }
-  }
-
-  function validateFormBeforePayment(callback) {
-    var required = ['cart-first-name','cart-last-name','cart-email','cart-address','cart-city','cart-postal','cart-country'];
-    var valid = true;
-    required.forEach(function(id) {
-      var el = document.getElementById(id);
-      if (!el) return;
-      el.classList.remove('error');
-      var err = el.nextElementSibling;
-      if (err && err.classList.contains('webshop-form-error')) err.remove();
-      if (!el.value.trim()) {
-        valid = false; el.classList.add('error');
-        var e = document.createElement('p'); e.className = 'webshop-form-error'; e.textContent = L.required;
-        el.after(e);
-      }
-      if (id === 'cart-email' && el.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(el.value)) {
-        valid = false; el.classList.add('error');
-        var e2 = document.createElement('p'); e2.className = 'webshop-form-error'; e2.textContent = L.invalidEmail;
-        el.after(e2);
-      }
-    });
-    if (!valid) {
-      var fe = document.querySelector('#cart-shipping-form .error');
-      if (fe) fe.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      callback(false);
-    } else {
-      collectFormData();
-      callback(true);
-    }
-  }
-
-  function collectFormData() {
-    formData = {
-      first_name:         document.getElementById('cart-first-name').value.trim(),
-      last_name:          document.getElementById('cart-last-name').value.trim(),
-      email:              document.getElementById('cart-email').value.trim(),
-      phone:              (document.getElementById('cart-phone')||{}).value || '',
-      address:            document.getElementById('cart-address').value.trim(),
-      city:               document.getElementById('cart-city').value.trim(),
-      postal:             document.getElementById('cart-postal').value.trim(),
-      country:            document.getElementById('cart-country').value,
-      billingChoice:      billingChoice,
-      billing_first_name: billingChoice==='different'?(document.getElementById('cart-billing-first-name')||{}).value||'':null,
-      billing_last_name:  billingChoice==='different'?(document.getElementById('cart-billing-last-name')||{}).value||'':null,
-      billing_address:    billingChoice==='different'?(document.getElementById('cart-billing-address')||{}).value||'':null,
-      billing_city:       billingChoice==='different'?(document.getElementById('cart-billing-city')||{}).value||'':null,
-      billing_postal:     billingChoice==='different'?(document.getElementById('cart-billing-postal')||{}).value||'':null,
-      billing_country:    billingChoice==='different'?(document.getElementById('cart-billing-country')||{}).value||'':null,
-    };
-  }
-
-  function initGooglePayButton() {
-    var btn = document.getElementById('google-pay-button');
-    if (!btn) return;
+    
     btn.innerHTML = '';
     
     Payment.initGooglePay(Shop.getCart(), formData).then(function(result) {
@@ -714,9 +665,18 @@
     });
   }
 
-  function initApplePayButton() {
+  function loadApplePay() {
     var btn = document.getElementById('apple-pay-button');
     if (!btn) return;
+    
+    if (window.ApplePaySession && ApplePaySession.canMakePayments()) {
+      renderApplePayButton(btn);
+    } else {
+      btn.style.display = 'none';
+    }
+  }
+
+  function renderApplePayButton(btn) {
     btn.innerHTML = '';
     
     var appleBtn = document.createElement('button');
@@ -827,6 +787,56 @@
         session.begin();
       });
     });
+  }
+
+  function validateFormBeforePayment(callback) {
+    var required = ['cart-first-name','cart-last-name','cart-email','cart-address','cart-city','cart-postal','cart-country'];
+    var valid = true;
+    required.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.classList.remove('error');
+      var err = el.nextElementSibling;
+      if (err && err.classList.contains('webshop-form-error')) err.remove();
+      if (!el.value.trim()) {
+        valid = false; el.classList.add('error');
+        var e = document.createElement('p'); e.className = 'webshop-form-error'; e.textContent = L.required;
+        el.after(e);
+      }
+      if (id === 'cart-email' && el.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(el.value)) {
+        valid = false; el.classList.add('error');
+        var e2 = document.createElement('p'); e2.className = 'webshop-form-error'; e2.textContent = L.invalidEmail;
+        el.after(e2);
+      }
+    });
+    if (!valid) {
+      var fe = document.querySelector('#cart-shipping-form .error');
+      if (fe) fe.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      callback(false);
+    } else {
+      collectFormData();
+      callback(true);
+    }
+  }
+
+  function collectFormData() {
+    formData = {
+      first_name:         document.getElementById('cart-first-name').value.trim(),
+      last_name:          document.getElementById('cart-last-name').value.trim(),
+      email:              document.getElementById('cart-email').value.trim(),
+      phone:              (document.getElementById('cart-phone')||{}).value || '',
+      address:            document.getElementById('cart-address').value.trim(),
+      city:               document.getElementById('cart-city').value.trim(),
+      postal:             document.getElementById('cart-postal').value.trim(),
+      country:            document.getElementById('cart-country').value,
+      billingChoice:      billingChoice,
+      billing_first_name: billingChoice==='different'?(document.getElementById('cart-billing-first-name')||{}).value||'':null,
+      billing_last_name:  billingChoice==='different'?(document.getElementById('cart-billing-last-name')||{}).value||'':null,
+      billing_address:    billingChoice==='different'?(document.getElementById('cart-billing-address')||{}).value||'':null,
+      billing_city:       billingChoice==='different'?(document.getElementById('cart-billing-city')||{}).value||'':null,
+      billing_postal:     billingChoice==='different'?(document.getElementById('cart-billing-postal')||{}).value||'':null,
+      billing_country:    billingChoice==='different'?(document.getElementById('cart-billing-country')||{}).value||'':null,
+    };
   }
 
   function handlePaymentSuccess(ref) {
