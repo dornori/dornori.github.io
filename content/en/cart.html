@@ -230,6 +230,7 @@
 
 <script>
 (function() {
+  // ── Resolve all UI strings from window.T ──
   function T(key, fallback) {
     return (window.T && window.T[key]) || fallback || key;
   }
@@ -296,7 +297,10 @@
     renderCartTotals();
     wireButtons();
     setupMobileAccordion();
-    loadAlternativePayments();
+    // Load alternative payments AFTER payment is rendered
+    setTimeout(function() {
+      loadAlternativePayments();
+    }, 1000);
   });
 
   function renderCartTable() {
@@ -510,7 +514,10 @@
     if (n === 2) {
       renderOrderSummary();
       renderPayment(Shop.getCart(), formData);
-      loadAlternativePayments();
+      // Load alternative payments after payment renders
+      setTimeout(function() {
+        loadAlternativePayments();
+      }, 1500);
     }
     requestAnimationFrame(function() {
       document.documentElement.scrollTop = 0;
@@ -573,16 +580,21 @@
   }
 
   function loadAlternativePayments() {
+    var gpBtn = document.getElementById('google-pay-button');
+    var apBtn = document.getElementById('apple-pay-button');
+    
     // Google Pay
     if (typeof google !== 'undefined' && google.payments && google.payments.api) {
       initGooglePayButton();
-    } else {
+    } else if (gpBtn) {
+      // Load Google Pay script
       var script = document.createElement('script');
       script.src = 'https://pay.google.com/gp/p/js/pay.js';
-      script.onload = initGooglePayButton;
+      script.onload = function() {
+        initGooglePayButton();
+      };
       script.onerror = function() {
-        var btn = document.getElementById('google-pay-button');
-        if (btn) btn.style.display = 'none';
+        if (gpBtn) gpBtn.style.display = 'none';
       };
       document.head.appendChild(script);
     }
@@ -590,9 +602,8 @@
     // Apple Pay
     if (window.ApplePaySession && ApplePaySession.canMakePayments()) {
       initApplePayButton();
-    } else {
-      var appleBtn = document.getElementById('apple-pay-button');
-      if (appleBtn) appleBtn.style.display = 'none';
+    } else if (apBtn) {
+      apBtn.style.display = 'none';
     }
   }
 
@@ -647,67 +658,60 @@
   }
 
   function initGooglePayButton() {
-    if (typeof google === 'undefined' || !google.payments || !google.payments.api) return;
-    
     var btn = document.getElementById('google-pay-button');
     if (!btn) return;
     btn.innerHTML = '';
     
-    try {
-      Payment.initGooglePay(Shop.getCart(), formData).then(function(result) {
-        var button = result.paymentsClient.createButton({
-          onClick: function() {
-            validateFormBeforePayment(function(valid) {
-              if (valid) {
-                result.paymentsClient.loadPaymentData(result.paymentDataRequest)
-                  .then(function(paymentData) {
-                    var cart = Shop.getCart();
-                    var t = Shop.calculateTotals(cart, false, formData.country);
-                    var ref = Shop.generateOrderRef();
-                    
-                    var token = paymentData.paymentMethodData.tokenizationData.token;
-                    
-                    CartWorker.processGooglePay(token, {
-                      items: cart,
-                      formData: formData,
-                      totals: t,
-                      currency: Shop.getCurrency()
-                    }, ref).then(function(result) {
-                      if (result.success) {
-                        handlePaymentSuccess(ref);
-                      } else {
-                        throw new Error(result.error || 'Payment failed');
-                      }
-                    }).catch(function(err) {
-                      console.error('Google Pay error:', err);
-                      if (typeof Shop.toast === 'function') {
-                        Shop.toast('Payment failed: ' + err.message, 4000);
-                      }
-                    });
-                  })
-                  .catch(function(err) {
-                    console.error('Google Pay load error:', err);
-                    if (err.statusCode === 'CANCELED') return;
+    Payment.initGooglePay(Shop.getCart(), formData).then(function(result) {
+      var button = result.paymentsClient.createButton({
+        onClick: function() {
+          validateFormBeforePayment(function(valid) {
+            if (valid) {
+              result.paymentsClient.loadPaymentData(result.paymentDataRequest)
+                .then(function(paymentData) {
+                  var cart = Shop.getCart();
+                  var t = Shop.calculateTotals(cart, false, formData.country);
+                  var ref = Shop.generateOrderRef();
+                  
+                  var token = paymentData.paymentMethodData.tokenizationData.token;
+                  
+                  CartWorker.processGooglePay(token, {
+                    items: cart,
+                    formData: formData,
+                    totals: t,
+                    currency: Shop.getCurrency()
+                  }, ref).then(function(result) {
+                    if (result.success) {
+                      handlePaymentSuccess(ref);
+                    } else {
+                      throw new Error(result.error || 'Payment failed');
+                    }
+                  }).catch(function(err) {
+                    console.error('Google Pay error:', err);
                     if (typeof Shop.toast === 'function') {
-                      Shop.toast('Google Pay failed: ' + (err.statusMessage || err.message), 4000);
+                      Shop.toast('Payment failed: ' + err.message, 4000);
                     }
                   });
-              }
-            });
-          },
-          buttonColor: 'white',
-          buttonType: 'pay',
-          buttonLocale: 'en'
-        });
-        btn.appendChild(button);
-      }).catch(function(e) {
-        console.warn('Google Pay not available:', e);
-        btn.style.display = 'none';
+                })
+                .catch(function(err) {
+                  console.error('Google Pay load error:', err);
+                  if (err.statusCode === 'CANCELED') return;
+                  if (typeof Shop.toast === 'function') {
+                    Shop.toast('Google Pay failed: ' + (err.statusMessage || err.message), 4000);
+                  }
+                });
+            }
+          });
+        },
+        buttonColor: 'white',
+        buttonType: 'pay',
+        buttonLocale: 'en'
       });
-    } catch(e) {
-      console.warn('Google Pay init error:', e);
+      btn.appendChild(button);
+    }).catch(function(e) {
+      console.warn('Google Pay not available:', e);
       btn.style.display = 'none';
-    }
+    });
   }
 
   function initApplePayButton() {
