@@ -36,6 +36,7 @@ const Payment = (() => {
       );
       this._loadedCurrency = targetCurrency;
     },
+
     async render(cart, totals, orderRef, el, formData) {
       const activeCurrency = (typeof Currency !== 'undefined' && Currency.getActive)
         ? Currency.getActive()
@@ -56,131 +57,11 @@ const Payment = (() => {
       wrapper.style.cssText = 'max-width:480px;margin:0 auto;background:var(--c-surface);padding:24px;border-radius:var(--radius,8px);border:1px solid var(--c-border);';
       el.appendChild(wrapper);
 
-      // Tabs
-      const tabs = document.createElement('div');
-      tabs.style.cssText = 'display:flex;gap:0;border-bottom:1px solid var(--c-border);margin-bottom:16px;';
-      tabs.innerHTML = `
-        <button class="paypal-tab-btn" data-tab="paypal" style="flex:1;padding:10px 16px;background:none;border:none;border-bottom:2px solid var(--c-accent);cursor:pointer;font-weight:600;color:var(--c-text);font-size:0.85rem;">PayPal</button>
-        <button class="paypal-tab-btn" data-tab="card" style="flex:1;padding:10px 16px;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-weight:400;color:var(--c-text-3);font-size:0.85rem;">Credit Card</button>
-      `;
-      wrapper.appendChild(tabs);
-
-      // PayPal container
-      const paypalContainer = document.createElement('div');
-      paypalContainer.id = 'paypal-login-container';
-      paypalContainer.style.cssText = 'min-height:120px;';
-      wrapper.appendChild(paypalContainer);
-
-      // Card container
-      const cardContainer = document.createElement('div');
-      cardContainer.id = 'paypal-card-container';
-      cardContainer.style.cssText = 'display:none;min-height:200px;';
-      wrapper.appendChild(cardContainer);
-
-      // Tab switching
-      tabs.querySelectorAll('.paypal-tab-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-          tabs.querySelectorAll('.paypal-tab-btn').forEach(b => {
-            b.style.borderBottom = '2px solid transparent';
-            b.style.fontWeight = '400';
-            b.style.color = 'var(--c-text-3)';
-          });
-          this.style.borderBottom = '2px solid var(--c-accent)';
-          this.style.fontWeight = '600';
-          this.style.color = 'var(--c-text)';
-          
-          const tab = this.dataset.tab;
-          if (tab === 'paypal') {
-            paypalContainer.style.display = 'block';
-            cardContainer.style.display = 'none';
-          } else {
-            paypalContainer.style.display = 'none';
-            cardContainer.style.display = 'block';
-          }
-        });
-      });
-
-      // Render PayPal button
-      await window.paypal.Buttons({
-        style: { layout: "vertical", color: "black", shape: "rect", label: "pay", height: 48 },
-        createOrder: async (data, actions) => {
-          try {
-            const workerRes = await fetch('https://pay.dornori-info.workers.dev/api/create-order', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                items: cart,
-                countryCode: formData?.country || 'US',
-                currency: activeCurrency,
-                formData: formData,
-                paymentMethod: 'paypal'
-              })
-            });
-            
-            if (!workerRes.ok) {
-              const err = await workerRes.json();
-              throw new Error(err.error || 'Order creation failed');
-            }
-
-            const result = await workerRes.json();
-            
-            localStorage.setItem('webshop_order_ref', result.orderRef);
-            localStorage.setItem('webshop_paypal_order_id', result.orderId);
-            localStorage.setItem('webshop_order_snapshot', JSON.stringify({
-              items: cart,
-              formData: formData,
-              totals: result.totals
-            }));
-
-            return result.orderId;
-          } catch (err) {
-            console.error('Order creation error:', err);
-            throw err;
-          }
-        },
-        onApprove: async (data, actions) => {
-          try {
-            const captureRes = await fetch('https://pay.dornori-info.workers.dev/api/capture-order', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ orderId: data.orderID })
-            });
-
-            if (!captureRes.ok) {
-              const err = await captureRes.json();
-              throw new Error(err.error || 'Capture failed');
-            }
-
-            const captureResult = await captureRes.json();
-            localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
-            _dispatch("payment:success", { orderRef, processor: "paypal", result: captureResult });
-          } catch (err) {
-            console.error('Capture error:', err);
-            _dispatch("payment:error", { orderRef, processor: "paypal", error: err });
-          }
-        },
-        onCancel: () => {
-          localStorage.removeItem('webshop_order_ref');
-          localStorage.removeItem('webshop_paypal_order_id');
-          localStorage.removeItem('webshop_order_snapshot');
-          _dispatch("payment:cancel", { orderRef, processor: "paypal" });
-        },
-        onError: err => {
-          console.error("[Payment/PayPal]", err);
-          _dispatch("payment:error", { orderRef, processor: "paypal", error: err });
-        },
-      }).render(paypalContainer);
-
-      // Render card fields
-      await this._renderCardFields(cardContainer, cart, totals, orderRef, formData, activeCurrency);
-
-      return wrapper;
-    },
-
-    async _renderCardFields(container, cart, totals, orderRef, formData, currency) {
-      if (!window.paypal) return;
-
-      const fieldsHtml = `
+      // ── Credit Card Section (default, always visible) ──
+      const cardSection = document.createElement('div');
+      cardSection.id = 'paypal-card-section';
+      cardSection.style.cssText = 'margin-bottom:20px;';
+      cardSection.innerHTML = `
         <div style="margin-bottom:12px;">
           <label style="display:block;font-size:0.78rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--c-text-3);margin-bottom:4px;">Card Number</label>
           <div id="card-number-field" style="border:1.5px solid var(--c-border);border-radius:var(--radius);padding:8px 12px;background:var(--c-surface);"></div>
@@ -198,7 +79,35 @@ const Payment = (() => {
         <button id="paypal-card-submit" style="width:100%;padding:14px;background:var(--c-btn-bg);color:var(--c-btn-text);border:none;border-radius:var(--radius);font-size:1rem;font-weight:600;cursor:pointer;transition:all var(--transition);">Pay Now</button>
         <div id="card-error-message" style="color:var(--c-error);font-size:0.82rem;margin-top:8px;display:none;"></div>
       `;
-      container.innerHTML = fieldsHtml;
+      wrapper.appendChild(cardSection);
+
+      // ── Divider ──
+      const divider = document.createElement('div');
+      divider.style.cssText = 'display:flex;align-items:center;gap:12px;margin:16px 0;';
+      divider.innerHTML = `
+        <hr style="flex:1;border:none;border-top:1px solid var(--c-border);">
+        <span style="font-size:0.78rem;color:var(--c-text-3);font-weight:500;">Or</span>
+        <hr style="flex:1;border:none;border-top:1px solid var(--c-border);">
+      `;
+      wrapper.appendChild(divider);
+
+      // ── PayPal Button Section ──
+      const paypalSection = document.createElement('div');
+      paypalSection.id = 'paypal-button-section';
+      paypalSection.style.cssText = 'margin-top:4px;';
+      wrapper.appendChild(paypalSection);
+
+      // Render card fields
+      await this._renderCardFields(cardSection, cart, totals, orderRef, formData, activeCurrency);
+
+      // Render PayPal button
+      await this._renderPayPalButton(paypalSection, cart, formData, activeCurrency, orderRef);
+
+      return wrapper;
+    },
+
+    async _renderCardFields(container, cart, totals, orderRef, formData, currency) {
+      if (!window.paypal) return;
 
       try {
         const cardFields = window.paypal.CardFields ? await window.paypal.CardFields({
@@ -243,6 +152,10 @@ const Payment = (() => {
             const cardNumber = document.querySelector('#card-number-field iframe')?.contentDocument?.querySelector('input')?.value || '';
             const expiry = document.querySelector('#expiry-field iframe')?.contentDocument?.querySelector('input')?.value || '';
             const cvv = document.querySelector('#cvv-field iframe')?.contentDocument?.querySelector('input')?.value || '';
+
+            if (!cardNumber || !expiry || !cvv) {
+              throw new Error('Please fill in all card fields');
+            }
 
             const res = await fetch('https://pay.dornori-info.workers.dev/api/create-order', {
               method: 'POST',
@@ -300,8 +213,92 @@ const Payment = (() => {
         });
       } catch (e) {
         console.warn('Card fields not supported:', e);
-        container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--c-text-3);font-size:0.85rem;">Card payments not available. Please use PayPal.</div>`;
+        container.querySelector('#card-number-field').innerHTML = '<div style="padding:10px;color:var(--c-text-3);font-size:0.85rem;">Card payments not available. Please use PayPal.</div>';
+        container.querySelector('#expiry-field').innerHTML = '';
+        container.querySelector('#cvv-field').innerHTML = '';
+        const submitBtn = container.querySelector('#paypal-card-submit');
+        if (submitBtn) submitBtn.style.display = 'none';
       }
+    },
+
+    async _renderPayPalButton(container, cart, formData, currency, orderRef) {
+      if (!window.paypal) return;
+
+      await window.paypal.Buttons({
+        style: { 
+          layout: "vertical", 
+          color: "gold", 
+          shape: "rect", 
+          label: "paypal", 
+          height: 48 
+        },
+        createOrder: async (data, actions) => {
+          try {
+            const workerRes = await fetch('https://pay.dornori-info.workers.dev/api/create-order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                items: cart,
+                countryCode: formData?.country || 'US',
+                currency: currency,
+                formData: formData,
+                paymentMethod: 'paypal'
+              })
+            });
+            
+            if (!workerRes.ok) {
+              const err = await workerRes.json();
+              throw new Error(err.error || 'Order creation failed');
+            }
+
+            const result = await workerRes.json();
+            
+            localStorage.setItem('webshop_order_ref', result.orderRef);
+            localStorage.setItem('webshop_paypal_order_id', result.orderId);
+            localStorage.setItem('webshop_order_snapshot', JSON.stringify({
+              items: cart,
+              formData: formData,
+              totals: result.totals
+            }));
+
+            return result.orderId;
+          } catch (err) {
+            console.error('Order creation error:', err);
+            throw err;
+          }
+        },
+        onApprove: async (data, actions) => {
+          try {
+            const captureRes = await fetch('https://pay.dornori-info.workers.dev/api/capture-order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ orderId: data.orderID })
+            });
+
+            if (!captureRes.ok) {
+              const err = await captureRes.json();
+              throw new Error(err.error || 'Capture failed');
+            }
+
+            const captureResult = await captureRes.json();
+            localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
+            _dispatch("payment:success", { orderRef, processor: "paypal", result: captureResult });
+          } catch (err) {
+            console.error('Capture error:', err);
+            _dispatch("payment:error", { orderRef, processor: "paypal", error: err });
+          }
+        },
+        onCancel: () => {
+          localStorage.removeItem('webshop_order_ref');
+          localStorage.removeItem('webshop_paypal_order_id');
+          localStorage.removeItem('webshop_order_snapshot');
+          _dispatch("payment:cancel", { orderRef, processor: "paypal" });
+        },
+        onError: err => {
+          console.error("[Payment/PayPal]", err);
+          _dispatch("payment:error", { orderRef, processor: "paypal", error: err });
+        },
+      }).render(container);
     }
   };
 
