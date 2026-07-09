@@ -185,15 +185,20 @@ const Payment = (() => {
               const gpayName = paymentData.paymentMethodData?.info?.billingAddress?.name ||
                        paymentData.shippingAddress?.name || '';
               const [gpayFirst, ...gpayLastParts] = gpayName.split(' ').filter(Boolean);
+              const gpayAddr = paymentData.shippingAddress || paymentData.paymentMethodData?.info?.billingAddress || {};
 
               // Create the real order now that we have the wallet's contact info,
-              // so PayPal's payer object is populated (payer can only be set at
-              // order creation, not patched in afterward).
+              // so it can be attached to the order (email/phone can only be set
+              // at order creation, not patched in afterward).
               const realOrder = await _createStandardOrder(cart, {
                 email: gpayEmail || '',
                 phone: gpayPhone || '',
                 first_name: gpayFirst || '',
-                last_name: gpayLastParts.join(' ') || ''
+                last_name: gpayLastParts.join(' ') || '',
+                address: gpayAddr.address1 || '',
+                city: gpayAddr.locality || '',
+                postal: gpayAddr.postalCode || '',
+                country: gpayAddr.countryCode || ''
               }, currency, 'paypal');
 
               const confirmResult = await window.paypal.Googlepay().confirmOrder({
@@ -323,13 +328,17 @@ const Payment = (() => {
               const apayPhone = billing.phoneNumber || shipping.phoneNumber || '';
 
               // Create the real order now that we have the wallet's contact info,
-              // so PayPal's payer object is populated (payer can only be set at
-              // order creation, not patched in afterward).
+              // so it can be attached to the order (email/phone can only be set
+              // at order creation, not patched in afterward).
               const realOrder = await _createStandardOrder(cart, {
                 email: apayEmail,
                 phone: apayPhone,
                 first_name: billing.givenName || shipping.givenName || '',
-                last_name: billing.familyName || shipping.familyName || ''
+                last_name: billing.familyName || shipping.familyName || '',
+                address: (shipping.addressLines || billing.addressLines || [])[0] || '',
+                city: shipping.locality || billing.locality || '',
+                postal: shipping.postalCode || billing.postalCode || '',
+                country: shipping.countryCode || billing.countryCode || ''
               }, currency, 'paypal');
 
               const confirmResult = await applepay.confirmOrder({
