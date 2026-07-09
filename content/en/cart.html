@@ -52,7 +52,7 @@
     <div id="checkout-layout" style="display:grid;grid-template-columns:2fr 1fr;gap:32px;align-items:start;">
       <!-- Left Column -->
       <div>
-        <!-- Google Pay & Apple Pay - TOP (moved from original position) -->
+        <!-- Google Pay & Apple Pay - TOP -->
         <div id="alternative-payment-methods" style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;">
           <div id="google-pay-button" style="min-width:200px;min-height:48px;flex:1;"></div>
           <div id="apple-pay-button" style="min-width:200px;min-height:48px;flex:1;"></div>
@@ -159,7 +159,7 @@
           </div>
         </div>
 
-        <!-- Payment Section - BOTTOM (UNCHANGED FROM ORIGINAL) -->
+        <!-- Payment Section -->
         <div style="margin-top:32px;padding-top:24px;border-top:2px solid var(--c-border);">
           <div class="webshop-ship-chip">
             🚚 <span data-i18n="estimated_delivery">Estimated delivery</span>: <strong id="cart-delivery-estimate">3–5 business days</strong>
@@ -227,6 +227,98 @@
     </div>
   </div>
 </div>
+
+<style>
+/* ============================================================
+   PAYPAL CARD FORM - INLINE STYLES FOR QUICK TESTING
+   ============================================================ */
+
+/* Hosted field container - matches .webshop-form-input */
+.paypal-hosted-field {
+  border: 1.5px solid #3a4a3f;
+  border-radius: 8px;
+  padding: 0 14px;
+  background: #ffffff;
+  height: 44px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+}
+
+.paypal-hosted-field:focus-within {
+  border-color: #a8cbb0;
+  box-shadow: 0 0 0 3px rgba(168, 203, 176, 0.2);
+}
+
+.paypal-hosted-field iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.paypal-card-section {
+  margin-bottom: 16px;
+}
+
+/* Form label style */
+.webshop-form-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a8f87;
+  margin-bottom: 6px;
+}
+
+/* Fix for form row spacing */
+.webshop-form-row {
+  display: flex;
+  gap: 14px;
+  margin: 0 -6px;
+}
+
+.webshop-form-row .webshop-form-group {
+  flex: 1;
+  padding: 0 6px;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .paypal-hosted-field {
+    height: 40px;
+    padding: 0 12px;
+  }
+  .webshop-form-row {
+    flex-direction: column;
+    gap: 14px;
+  }
+}
+
+/* Error message styling */
+.webshop-form-error {
+  color: #c0392b;
+  font-size: 0.82rem;
+  margin-top: 4px;
+}
+
+/* Secure badge */
+.webshop-secure-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: #8a8f87;
+  margin-top: 12px;
+}
+
+.webshop-secure-badge svg {
+  width: 16px;
+  height: 16px;
+}
+</style>
 
 <script>
 (function() {
@@ -517,10 +609,6 @@
     });
   }
 
-  // Always reads the CURRENT formData object. Pass this function reference
-  // (not formData itself) into anything that fires later than render time —
-  // e.g. PayPal/Card/GPay/Apple Pay createOrder callbacks — or the payment
-  // will ship with whatever was in formData at step-2 render (often empty).
   function getFormData() { return formData; }
 
   function getSavedForm() { try { return JSON.parse(localStorage.getItem(FORM_KEY)||'{}'); } catch { return {}; } }
@@ -577,17 +665,24 @@
     checkLayout();
   }
 
+  // ============================================================
+  // BEFORE PAY - Only validates for PayPal button and Card
+  // Google/Apple Pay get address from wallet
+  // ============================================================
   function beforePay() {
-    // Gate for Card / PayPal-button flows only — they rely on the on-page
-    // form for shipping info. Google/Apple Pay collect their own address
-    // from the wallet, so they don't need this.
     return new Promise(function(resolve) {
       validateFormBeforePayment(function(valid) { resolve(valid); });
     });
   }
 
+  // ============================================================
+  // LOAD ALTERNATIVE PAYMENTS - NO FORM VALIDATION NEEDED
+  // Wallet provides the address
+  // ============================================================
   function loadAlternativePayments() {
     Payment.init().then(function() {
+      // Google Pay and Apple Pay DO NOT need form validation
+      // They get address from the wallet
       Payment.renderGooglePay('#google-pay-button', Shop.getCart(), getFormData);
       Payment.renderApplePay('#apple-pay-button', Shop.getCart(), getFormData);
     }).catch(function(e) {
