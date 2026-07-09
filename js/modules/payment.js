@@ -83,16 +83,19 @@ const Payment = (() => {
     localStorage.setItem('webshop_order_snapshot', JSON.stringify({
       items: cart,
       formData: cleanFormData,
-      totals: result.totals
+      totals: result.totals,
+      currency: currency
     }));
+    // Attach formData to result so callers can pass it to capture
+    result._formData = cleanFormData;
     return result;
   }
 
-  async function _captureOrder(orderId, orderRef, language, fallback) {
+  async function _captureOrder(orderId, orderRef, language, fallback, savedForm) {
     const res = await fetch(`${WORKER}/api/capture-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, orderRef, language, fallback: fallback || {} })
+      body: JSON.stringify({ orderId, orderRef, language, fallback: fallback || {}, formData: savedForm || {} })
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -508,6 +511,7 @@ const Payment = (() => {
             
             const result = await _createStandardOrder(cart, formData, currency, 'card');
             _lastOrder = { orderRef: result.orderRef, items: cart, formData: formData, totals: result.totals, currency };
+            _lastOrder._savedForm = result._formData || formData;
             return result.orderId;
           },
           onApprove: async (data) => {
@@ -515,12 +519,10 @@ const Payment = (() => {
             try {
               const language = _getActiveLanguage();
               const cardFallback = {
-                email: _lastOrder?.formData?.email || null,
-                phone: _lastOrder?.formData?.phone || null,
                 amount: _lastOrder?.totals?.total != null ? Number(_lastOrder.totals.total).toFixed(2) : null,
                 currency: _lastOrder?.currency || null
               };
-              const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language, cardFallback);
+              const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language, cardFallback, _lastOrder?._savedForm || _lastOrder?.formData);
               
               if (captureResult.success && captureResult.customer) {
                 localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
@@ -653,18 +655,17 @@ const Payment = (() => {
           
           const result = await _createStandardOrder(cart, formData, currency, 'paypal');
           _lastOrder = { orderRef: result.orderRef, items: cart, formData: formData, totals: result.totals, currency };
+          _lastOrder._savedForm = result._formData || formData;
           return result.orderId;
         },
         onApprove: async (data) => {
           try {
             const language = _getActiveLanguage();
             const paypalFallback = {
-              email: _lastOrder?.formData?.email || null,
-              phone: _lastOrder?.formData?.phone || null,
               amount: _lastOrder?.totals?.total != null ? Number(_lastOrder.totals.total).toFixed(2) : null,
               currency: _lastOrder?.currency || null
             };
-            const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language, paypalFallback);
+            const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language, paypalFallback, _lastOrder?._savedForm || _lastOrder?.formData);
             
             if (captureResult.success && captureResult.customer) {
               localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));

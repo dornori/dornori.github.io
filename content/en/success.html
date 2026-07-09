@@ -42,26 +42,41 @@
   function getPayPalData() {
     try {
       const customerRaw = localStorage.getItem('webshop_paypal_customer');
+      const snapshotRaw = localStorage.getItem('webshop_order_snapshot');
       const orderId = localStorage.getItem('webshop_paypal_order_id');
       const txId = localStorage.getItem('webshop_paypal_transaction_id');
       const dorRef = localStorage.getItem('webshop_dor_reference');
-      
+
       const customer = customerRaw ? JSON.parse(customerRaw) : {};
-      
+      const snapshot = snapshotRaw ? JSON.parse(snapshotRaw) : {};
+      const fd = snapshot.formData || {};
+      const totals = snapshot.totals || {};
+
+      if (!customer.email && fd.email) customer.email = fd.email;
+      if (!customer.phone && fd.phone) customer.phone = fd.phone;
+      if (!customer.first_name && fd.first_name) customer.first_name = fd.first_name;
+      if (!customer.last_name && fd.last_name) customer.last_name = fd.last_name;
+      if (!customer.full_name && (fd.first_name || fd.last_name))
+        customer.full_name = [fd.first_name, fd.last_name].filter(Boolean).join(' ');
+      if (!customer.shipping_address_line1 && fd.address) customer.shipping_address_line1 = fd.address;
+      if (!customer.shipping_city && fd.city) customer.shipping_city = fd.city;
+      if (!customer.shipping_postal && fd.postal) customer.shipping_postal = fd.postal;
+      if (!customer.shipping_country && fd.country) customer.shipping_country = fd.country;
+      if (!customer.amount && totals.total != null) customer.amount = Number(totals.total).toFixed(2);
+      if (!customer.currency) customer.currency = snapshot.currency || 'EUR';
+
+      customer._items = snapshot.items || [];
+      customer._totals = totals;
+
       return {
-        customer: customer,
+        customer,
         orderId: orderId || 'N/A',
         transactionId: txId || 'N/A',
         dorReference: dorRef || ref || 'N/A'
       };
     } catch (e) {
       console.error('Error reading localStorage:', e);
-      return {
-        customer: {},
-        orderId: 'N/A',
-        transactionId: 'N/A',
-        dorReference: ref || 'N/A'
-      };
+      return { customer: {}, orderId: 'N/A', transactionId: 'N/A', dorReference: ref || 'N/A' };
     }
   }
 
@@ -98,7 +113,7 @@
       const shippingAddress = shippingLines.join(', ') || 'Not provided';
       
       const message = [
-        `Order Reference: ${dorReference}`,
+        `Order Reference: ${dorReference} | Email: ${email} | Phone: ${phone}`,
         `PayPal Order ID: ${orderId}`,
         `Transaction ID: ${transactionId}`,
         `Status: ${customer.status || 'completed'}`,
@@ -213,6 +228,14 @@
             <span class="label">Customer</span>
             <span class="value">${fullName}</span>
           </div>
+          ${customer.email ? `<div class="detail-row">
+            <span class="label">Email</span>
+            <span class="value">${customer.email}</span>
+          </div>` : ''}
+          ${customer.phone ? `<div class="detail-row">
+            <span class="label">Phone</span>
+            <span class="value">${customer.phone}</span>
+          </div>` : ''}
           <div class="detail-row">
             <span class="label">Amount</span>
             <span class="value">${amount} ${currency}</span>
