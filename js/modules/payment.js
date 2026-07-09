@@ -129,46 +129,51 @@ const Payment = (() => {
       el.appendChild(wrapper);
 
       // ── Credit Card Section ──
+      // Fully self-contained styling (no dependency on .webshop-form /
+      // .webshop-form-group — those already render their own bordered box
+      // on this site, which combined with our field border produced a
+      // "box inside a box" look).
       const cardSection = document.createElement('div');
       cardSection.id = 'paypal-card-section';
-      cardSection.className = 'webshop-form';
       cardSection.style.cssText = 'margin-bottom:20px;';
       cardSection.innerHTML = `
-        <div class="webshop-form-group">
-          <label>Card Number</label>
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:0.75rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--c-text-3,#8a8f87);margin-bottom:6px;">Card Number</label>
           <div id="card-number-field" class="webshop-hosted-field"></div>
         </div>
-        <div class="webshop-form-row">
-          <div class="webshop-form-group">
-            <label>Expiration</label>
+        <div style="display:flex;gap:14px;margin-bottom:14px;">
+          <div style="flex:1;">
+            <label style="display:block;font-size:0.75rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--c-text-3,#8a8f87);margin-bottom:6px;">Expiration</label>
             <div id="expiry-field" class="webshop-hosted-field"></div>
           </div>
-          <div class="webshop-form-group">
-            <label>CVV</label>
+          <div style="flex:1;">
+            <label style="display:block;font-size:0.75rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--c-text-3,#8a8f87);margin-bottom:6px;">CVV</label>
             <div id="cvv-field" class="webshop-hosted-field"></div>
           </div>
         </div>
-        <button id="paypal-card-submit" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;margin-top:8px;">Pay Now</button>
+        <button id="paypal-card-submit" type="button" style="width:100%;padding:14px;border:none;border-radius:var(--radius,8px);background:var(--c-btn-bg,#a8cbb0);color:var(--c-btn-text,#1a1714);font-size:1rem;font-weight:600;cursor:pointer;">Pay Now</button>
         <div id="card-error-message" style="color:var(--c-error,#c0392b);font-size:0.82rem;margin-top:8px;display:none;"></div>
       `;
       wrapper.appendChild(cardSection);
 
       // Hosted fields render inside plain <div>s (PayPal mounts an iframe into
-      // them), so they need a one-off style rule to look like the surrounding
-      // <input> fields instead of default unstyled boxes. Injected once.
+      // them), so they need a one-off style rule to look like a normal
+      // <input> — single border, nothing nested inside it. Injected once.
       if (!document.getElementById('webshop-hosted-field-style')) {
         const style = document.createElement('style');
         style.id = 'webshop-hosted-field-style';
         style.textContent = `
           .webshop-hosted-field {
-            border: 1.5px solid var(--c-border, #ddd);
+            border: 1.5px solid var(--c-border, #3a4a3f);
             border-radius: var(--radius, 8px);
-            padding: 8px 12px;
-            background: var(--c-surface, #fff);
-            min-height: 44px;
+            padding: 0 12px;
+            background: var(--c-surface, #ffffff);
+            height: 44px;
             box-sizing: border-box;
+            display: flex;
+            align-items: center;
           }
-          .webshop-hosted-field.webshop-hosted-field--focus { border-color: var(--c-accent, #1a1714); }
+          .webshop-hosted-field iframe { display: block; }
         `;
         document.head.appendChild(style);
       }
