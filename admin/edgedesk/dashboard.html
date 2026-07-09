@@ -307,9 +307,16 @@
             for (const nav of navs) {
                 const el = document.getElementById(nav.id);
                 if (el) {
-                    el.classList.toggle('nav-disabled', !this.hasPageAccess(nav.page));
-                    el.setAttribute('aria-disabled', this.hasPageAccess(nav.page) ? 'false' : 'true');
-                    if (!this.hasPageAccess(nav.page)) el.addEventListener('click', (e) => e.preventDefault());
+                    const allowed = this.hasPageAccess(nav.page);
+                    el.classList.toggle('nav-disabled', !allowed);
+                    el.setAttribute('aria-disabled', allowed ? 'false' : 'true');
+                    if (allowed) {
+                        el.href = nav.page + '.html';
+                        el.style.pointerEvents = '';
+                    } else {
+                        el.href = 'javascript:void(0)';
+                        el.style.pointerEvents = 'none';
+                    }
                 }
             }
         }
