@@ -88,11 +88,11 @@ const Payment = (() => {
     return result;
   }
 
-  async function _captureOrder(orderId, orderRef, language) {
+  async function _captureOrder(orderId, orderRef, language, fallback) {
     const res = await fetch(`${WORKER}/api/capture-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, orderRef, language })
+      body: JSON.stringify({ orderId, orderRef, language, fallback: fallback || {} })
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -183,7 +183,15 @@ const Payment = (() => {
               
               if (confirmResult.status === 'DECLINED') throw new Error('Payment declined');
 
-              const captureResult = await _captureOrder(order.orderId, order.orderRef, language);
+              const gpayFallback = {
+                email: paymentData.email || null,
+                phone: paymentData.shippingAddress?.phoneNumber ||
+                       paymentData.paymentMethodData?.info?.billingAddress?.phoneNumber || null,
+                amount: order.totals?.total != null ? Number(order.totals.total).toFixed(2) : null,
+                currency: currency
+              };
+
+              const captureResult = await _captureOrder(order.orderId, order.orderRef, language, gpayFallback);
               
               if (captureResult.success && captureResult.customer) {
                 localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
@@ -298,7 +306,15 @@ const Payment = (() => {
               });
               
               if (confirmResult.approveApplePayPayment) {
-                const captureResult = await _captureOrder(order.orderId, order.orderRef, language);
+                const billing = event.payment.billingContact || {};
+                const shipping = event.payment.shippingContact || {};
+                const apayFallback = {
+                  email: billing.emailAddress || shipping.emailAddress || null,
+                  phone: billing.phoneNumber || shipping.phoneNumber || null,
+                  amount: order.totals?.total != null ? Number(order.totals.total).toFixed(2) : null,
+                  currency: currency
+                };
+                const captureResult = await _captureOrder(order.orderId, order.orderRef, language, apayFallback);
                 
                 if (captureResult.success && captureResult.customer) {
                   localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
@@ -498,7 +514,13 @@ const Payment = (() => {
             const submitBtn = container.querySelector('#paypal-card-submit');
             try {
               const language = _getActiveLanguage();
-              const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language);
+              const cardFallback = {
+                email: _lastOrder?.formData?.email || null,
+                phone: _lastOrder?.formData?.phone || null,
+                amount: _lastOrder?.totals?.total != null ? Number(_lastOrder.totals.total).toFixed(2) : null,
+                currency: _lastOrder?.currency || null
+              };
+              const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language, cardFallback);
               
               if (captureResult.success && captureResult.customer) {
                 localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
@@ -636,7 +658,13 @@ const Payment = (() => {
         onApprove: async (data) => {
           try {
             const language = _getActiveLanguage();
-            const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language);
+            const paypalFallback = {
+              email: _lastOrder?.formData?.email || null,
+              phone: _lastOrder?.formData?.phone || null,
+              amount: _lastOrder?.totals?.total != null ? Number(_lastOrder.totals.total).toFixed(2) : null,
+              currency: _lastOrder?.currency || null
+            };
+            const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language, paypalFallback);
             
             if (captureResult.success && captureResult.customer) {
               localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
