@@ -35,15 +35,40 @@ const Payment = (() => {
     return typeof formData === 'function' ? formData : () => formData;
   }
 
+  // Helper to collect clean form data
+  function _collectFormData(formData) {
+    const fd = typeof formData === 'function' ? formData() : formData || {};
+    return {
+      first_name: fd.first_name || '',
+      last_name: fd.last_name || '',
+      email: fd.email || '',
+      phone: fd.phone || '',
+      address: fd.address || '',
+      city: fd.city || '',
+      postal: fd.postal || '',
+      country: fd.country || '',
+      billingChoice: fd.billingChoice || 'same',
+      billing_first_name: fd.billing_first_name || '',
+      billing_last_name: fd.billing_last_name || '',
+      billing_address: fd.billing_address || '',
+      billing_city: fd.billing_city || '',
+      billing_postal: fd.billing_postal || '',
+      billing_country: fd.billing_country || ''
+    };
+  }
+
   async function _createStandardOrder(cart, formData, currency, paymentMethod) {
+    // Clean and ensure all form fields are included
+    const cleanFormData = _collectFormData(formData);
+    
     const res = await fetch(`${WORKER}/api/create-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         items: cart,
-        countryCode: formData?.country || 'US',
+        countryCode: cleanFormData.country || 'US',
         currency: currency,
-        formData: formData,
+        formData: cleanFormData,
         paymentMethod: paymentMethod || 'paypal'
       })
     });
@@ -56,7 +81,7 @@ const Payment = (() => {
     localStorage.setItem('webshop_paypal_order_id', result.orderId);
     localStorage.setItem('webshop_order_snapshot', JSON.stringify({
       items: cart,
-      formData: formData,
+      formData: cleanFormData,
       totals: result.totals
     }));
     return result;
@@ -237,8 +262,10 @@ const Payment = (() => {
             '.invalid': { 'border-color': '#9b3a3a' }
           },
           createOrder: async () => {
-            const result = await _createStandardOrder(cart, getFormData(), currency, 'card');
-            _lastOrder = { orderRef: result.orderRef, items: cart, formData: getFormData(), totals: result.totals, currency };
+            // Ensure we have fresh form data before creating order
+            const freshFormData = typeof getFormData === 'function' ? getFormData() : getFormData || {};
+            const result = await _createStandardOrder(cart, freshFormData, currency, 'card');
+            _lastOrder = { orderRef: result.orderRef, items: cart, formData: freshFormData, totals: result.totals, currency };
             return result.orderId;
           },
           onApprove: async (data) => {
@@ -293,8 +320,6 @@ const Payment = (() => {
           this.textContent = 'Processing...';
           try {
             if (!_cardFieldsInstance) throw new Error('Card fields not initialized');
-            // .submit() triggers createOrder -> PayPal tokenization/3DS -> onApprove.
-            // Do NOT read raw field values ourselves; hosted fields never expose the PAN.
             await _cardFieldsInstance.submit();
           } catch (err) {
             console.error('Card submit error:', err);
@@ -333,8 +358,9 @@ const Payment = (() => {
           return actions.resolve();
         },
         createOrder: async () => {
-          const result = await _createStandardOrder(cart, getFormData(), currency, 'paypal');
-          _lastOrder = { orderRef: result.orderRef, items: cart, formData: getFormData(), totals: result.totals, currency };
+          const freshFormData = typeof getFormData === 'function' ? getFormData() : getFormData || {};
+          const result = await _createStandardOrder(cart, freshFormData, currency, 'paypal');
+          _lastOrder = { orderRef: result.orderRef, items: cart, formData: freshFormData, totals: result.totals, currency };
           return result.orderId;
         },
         onApprove: async (data) => {
@@ -403,16 +429,40 @@ const Payment = (() => {
           buttonType: 'pay',
           buttonSizeMode: 'fill',
           onClick: async () => {
+            // First, run the form validation (beforePay) to ensure shipping address is collected
             if (onBeforePay) {
               const ok = await onBeforePay();
               if (!ok) return;
             }
+            
             try {
               const currency = _getActiveCurrency();
-              const order = await _createStandardOrder(cart, getFormData(), currency, 'paypal');
-              // Ask Google Pay for the wallet's own billing/shipping contact,
-              // not just a payment token, so we don't have to rely solely on
-              // whatever is (or isn't) filled into the on-page form.
+              const formDataObj = typeof getFormData === 'function' ? getFormData() : getFormData || {};
+              
+              // CRITICAL FIX: Collect shipping address from the form BEFORE creating the order
+              // This ensures we have delivery details even if Google Pay doesn't provide them
+              const orderFormData = {
+                first_name: formDataObj.first_name || '',
+                last_name: formDataObj.last_name || '',
+                email: formDataObj.email || '',
+                phone: formDataObj.phone || '',
+                address: formDataObj.address || '',
+                city: formDataObj.city || '',
+                postal: formDataObj.postal || '',
+                country: formDataObj.country || '',
+                billingChoice: formDataObj.billingChoice || 'same',
+                billing_first_name: formDataObj.billing_first_name || '',
+                billing_last_name: formDataObj.billing_last_name || '',
+                billing_address: formDataObj.billing_address || '',
+                billing_city: formDataObj.billing_city || '',
+                billing_postal: formDataObj.billing_postal || '',
+                billing_country: formDataObj.billing_country || ''
+              };
+              
+              // Create order with form data (so shipping address is always included)
+              const order = await _createStandardOrder(cart, orderFormData, currency, 'paypal');
+              
+              // Ask Google Pay for the wallet's own billing/shipping contact
               const allowedPaymentMethods = (gpayConfig.allowedPaymentMethods || []).map(m => ({
                 ...m,
                 parameters: {
@@ -421,6 +471,7 @@ const Payment = (() => {
                   billingAddressParameters: { format: 'FULL', phoneNumberRequired: true }
                 }
               }));
+              
               const paymentDataRequest = {
                 apiVersion: 2, apiVersionMinor: 0,
                 allowedPaymentMethods,
@@ -435,23 +486,50 @@ const Payment = (() => {
                   countryCode: gpayConfig.countryCode || 'NL'
                 }
               };
+              
               const paymentData = await paymentsClient.loadPaymentData(paymentDataRequest);
               const confirmResult = await window.paypal.Googlepay().confirmOrder({
                 orderId: order.orderId,
                 paymentMethodData: paymentData.paymentMethodData
               });
+              
               if (confirmResult.status === 'DECLINED') throw new Error('Payment declined');
 
+              // Collect provider contact info from Google Pay
               const providerContact = {
-                email: paymentData.email || null,
+                email: paymentData.email || orderFormData.email || '',
                 billingAddress: paymentData.paymentMethodData?.info?.billingAddress || null,
                 shippingAddress: paymentData.shippingAddress || null
               };
+              
+              // Merge Google Pay's address with form data (prefer Google Pay's verified address)
+              const mergedFormData = {
+                ...orderFormData,
+                // Prefer Google Pay's shipping address if available
+                address: providerContact.shippingAddress?.address1 || providerContact.shippingAddress?.addressLine1 || orderFormData.address,
+                city: providerContact.shippingAddress?.locality || orderFormData.city,
+                postal: providerContact.shippingAddress?.postalCode || orderFormData.postal,
+                country: providerContact.shippingAddress?.countryCode || orderFormData.country,
+                // Prefer Google Pay's email/phone if available
+                email: providerContact.email || orderFormData.email,
+                phone: providerContact.shippingAddress?.phoneNumber || orderFormData.phone
+              };
+              
               const captureResult = await _captureOrder(order.orderId, {
-                orderRef: order.orderRef, items: cart, formData: getFormData(), totals: order.totals, currency, providerContact
+                orderRef: order.orderRef, 
+                items: cart, 
+                formData: mergedFormData, 
+                totals: order.totals, 
+                currency, 
+                providerContact
               });
+              
               localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
-              _dispatch('payment:success', { orderRef: order.orderRef, processor: 'googlepay', result: captureResult });
+              _dispatch('payment:success', { 
+                orderRef: order.orderRef, 
+                processor: 'googlepay', 
+                result: captureResult 
+              });
             } catch (err) {
               if (err && err.statusCode === 'CANCELED') return;
               console.error('Google Pay error:', err);
@@ -502,19 +580,43 @@ const Payment = (() => {
       btn.style.cssText = '-webkit-appearance:-apple-pay-button;-apple-pay-button-type:pay;-apple-pay-button-style:black;width:100%;height:48px;border-radius:8px;border:none;cursor:pointer;';
 
       btn.addEventListener('click', async () => {
+        // First, run the form validation (beforePay) to ensure shipping address is collected
         if (onBeforePay) {
           const ok = await onBeforePay();
           if (!ok) return;
         }
+        
         try {
           const currency = _getActiveCurrency();
-          const order = await _createStandardOrder(cart, getFormData(), currency, 'paypal');
+          const formDataObj = typeof getFormData === 'function' ? getFormData() : getFormData || {};
+          
+          // CRITICAL FIX: Collect shipping address from the form BEFORE creating the order
+          const orderFormData = {
+            first_name: formDataObj.first_name || '',
+            last_name: formDataObj.last_name || '',
+            email: formDataObj.email || '',
+            phone: formDataObj.phone || '',
+            address: formDataObj.address || '',
+            city: formDataObj.city || '',
+            postal: formDataObj.postal || '',
+            country: formDataObj.country || '',
+            billingChoice: formDataObj.billingChoice || 'same',
+            billing_first_name: formDataObj.billing_first_name || '',
+            billing_last_name: formDataObj.billing_last_name || '',
+            billing_address: formDataObj.billing_address || '',
+            billing_city: formDataObj.billing_city || '',
+            billing_postal: formDataObj.billing_postal || '',
+            billing_country: formDataObj.billing_country || ''
+          };
+          
+          // Create order with form data (so shipping address is always included)
+          const order = await _createStandardOrder(cart, orderFormData, currency, 'paypal');
 
           const paymentRequest = {
-            countryCode: config.countryCode,
+            countryCode: config.countryCode || 'NL',
             currencyCode: currency,
-            merchantCapabilities: config.merchantCapabilities,
-            supportedNetworks: config.supportedNetworks,
+            merchantCapabilities: config.merchantCapabilities || ['supports3DS'],
+            supportedNetworks: config.supportedNetworks || ['visa', 'masterCard', 'amex', 'discover'],
             requiredBillingContactFields: ['postalAddress', 'name', 'email', 'phone'],
             requiredShippingContactFields: ['postalAddress', 'name', 'email', 'phone'],
             total: { label: 'Dornori', amount: Number(order.totals.total).toFixed(2) }
@@ -540,19 +642,52 @@ const Payment = (() => {
                 billingContact: event.payment.billingContact,
                 shippingContact: event.payment.shippingContact
               });
+              
               if (confirmResult.approveApplePayPayment) {
-                // Apple's own wallet-confirmed contact — sent alongside the
-                // browser form so the ticket can prefer it as the source of truth.
+                // Apple's own wallet-confirmed contact
                 const providerContact = {
                   shippingContact: event.payment.shippingContact || null,
-                  billingContact: event.payment.billingContact || null
+                  billingContact: event.payment.billingContact || null,
+                  email: event.payment.billingContact?.emailAddress || event.payment.shippingContact?.emailAddress || orderFormData.email
                 };
+                
+                // Merge Apple Pay's address with form data (prefer Apple Pay's verified address)
+                const appleShipping = event.payment.shippingContact || {};
+                const appleBilling = event.payment.billingContact || {};
+                
+                const mergedFormData = {
+                  ...orderFormData,
+                  // Prefer Apple Pay's shipping address if available
+                  address: (appleShipping.addressLines || []).join(', ') || orderFormData.address,
+                  city: appleShipping.locality || orderFormData.city,
+                  postal: appleShipping.postalCode || orderFormData.postal,
+                  country: appleShipping.countryCode || orderFormData.country,
+                  // Prefer Apple Pay's email/phone if available
+                  email: providerContact.email || orderFormData.email,
+                  phone: appleShipping.phoneNumber || orderFormData.phone,
+                  // If billing is different, use Apple Pay's billing address
+                  billing_address: (appleBilling.addressLines || []).join(', ') || orderFormData.billing_address,
+                  billing_city: appleBilling.locality || orderFormData.billing_city,
+                  billing_postal: appleBilling.postalCode || orderFormData.billing_postal,
+                  billing_country: appleBilling.countryCode || orderFormData.billing_country
+                };
+                
                 const captureResult = await _captureOrder(order.orderId, {
-                  orderRef: order.orderRef, items: cart, formData: getFormData(), totals: order.totals, currency, providerContact
+                  orderRef: order.orderRef, 
+                  items: cart, 
+                  formData: mergedFormData, 
+                  totals: order.totals, 
+                  currency, 
+                  providerContact
                 });
+                
                 localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
                 session.completePayment(ApplePaySession.STATUS_SUCCESS);
-                _dispatch('payment:success', { orderRef: order.orderRef, processor: 'applepay', result: captureResult });
+                _dispatch('payment:success', { 
+                  orderRef: order.orderRef, 
+                  processor: 'applepay', 
+                  result: captureResult 
+                });
               } else {
                 session.completePayment(ApplePaySession.STATUS_FAILURE);
                 _dispatch('payment:error', { processor: 'applepay', error: new Error('Payment not approved') });
@@ -564,7 +699,10 @@ const Payment = (() => {
             }
           };
 
-          session.oncancel = () => {};
+          session.oncancel = () => {
+            _dispatch('payment:cancel', { processor: 'applepay' });
+          };
+          
           session.begin();
         } catch (err) {
           console.error('Apple Pay init error:', err);
