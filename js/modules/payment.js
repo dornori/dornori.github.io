@@ -62,11 +62,14 @@ const Payment = (() => {
     return result;
   }
 
-  async function _captureOrder(orderId) {
+  // meta = { orderRef, items, formData, totals, currency, providerContact }
+  // providerContact (Apple/Google wallet-confirmed address) takes priority
+  // over formData on the worker side — see worker.js sendOrderConfirmation.
+  async function _captureOrder(orderId, meta) {
     const res = await fetch(`${WORKER}/api/capture-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId })
+      body: JSON.stringify({ orderId, ...(meta || {}) })
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -102,7 +105,7 @@ const Payment = (() => {
       });
     },
 
-    async render(cart, totals, orderRef, el, formData) {
+    async render(cart, totals, orderRef, el, formData, onBeforePay) {
       const activeCurrency = _getActiveCurrency();
 
       if (!window.paypal || this._loadedCurrency !== activeCurrency) {
@@ -118,34 +121,57 @@ const Payment = (() => {
 
       el.innerHTML = "";
 
-      // Flat, inline layout — no boxed/modal wrapper. Matches the surrounding form.
+      // No separate boxed/centered panel — flows full-width as part of the
+      // surrounding checkout form, using the SAME form classes as the rest
+      // of the page (webshop-form / webshop-form-row / webshop-form-group)
+      // so it doesn't render as a visually distinct "form inside the form".
       const wrapper = document.createElement('div');
-      wrapper.style.cssText = 'max-width:480px;margin:0 auto;';
       el.appendChild(wrapper);
 
       // ── Credit Card Section ──
       const cardSection = document.createElement('div');
       cardSection.id = 'paypal-card-section';
+      cardSection.className = 'webshop-form';
       cardSection.style.cssText = 'margin-bottom:20px;';
       cardSection.innerHTML = `
-        <div style="margin-bottom:12px;">
-          <label style="display:block;font-size:0.78rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--c-text-3);margin-bottom:4px;">Card Number</label>
-          <div id="card-number-field" style="border:1.5px solid var(--c-border);border-radius:var(--radius);padding:8px 12px;background:var(--c-surface);min-height:44px;"></div>
+        <div class="webshop-form-group">
+          <label>Card Number</label>
+          <div id="card-number-field" class="webshop-hosted-field"></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-          <div>
-            <label style="display:block;font-size:0.78rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--c-text-3);margin-bottom:4px;">Expiration</label>
-            <div id="expiry-field" style="border:1.5px solid var(--c-border);border-radius:var(--radius);padding:8px 12px;background:var(--c-surface);min-height:44px;"></div>
+        <div class="webshop-form-row">
+          <div class="webshop-form-group">
+            <label>Expiration</label>
+            <div id="expiry-field" class="webshop-hosted-field"></div>
           </div>
-          <div>
-            <label style="display:block;font-size:0.78rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--c-text-3);margin-bottom:4px;">CVV</label>
-            <div id="cvv-field" style="border:1.5px solid var(--c-border);border-radius:var(--radius);padding:8px 12px;background:var(--c-surface);min-height:44px;"></div>
+          <div class="webshop-form-group">
+            <label>CVV</label>
+            <div id="cvv-field" class="webshop-hosted-field"></div>
           </div>
         </div>
-        <button id="paypal-card-submit" style="width:100%;padding:14px;background:var(--c-btn-bg);color:var(--c-btn-text);border:none;border-radius:var(--radius);font-size:1rem;font-weight:600;cursor:pointer;transition:all var(--transition);">Pay Now</button>
-        <div id="card-error-message" style="color:var(--c-error);font-size:0.82rem;margin-top:8px;display:none;"></div>
+        <button id="paypal-card-submit" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;margin-top:8px;">Pay Now</button>
+        <div id="card-error-message" style="color:var(--c-error,#c0392b);font-size:0.82rem;margin-top:8px;display:none;"></div>
       `;
       wrapper.appendChild(cardSection);
+
+      // Hosted fields render inside plain <div>s (PayPal mounts an iframe into
+      // them), so they need a one-off style rule to look like the surrounding
+      // <input> fields instead of default unstyled boxes. Injected once.
+      if (!document.getElementById('webshop-hosted-field-style')) {
+        const style = document.createElement('style');
+        style.id = 'webshop-hosted-field-style';
+        style.textContent = `
+          .webshop-hosted-field {
+            border: 1.5px solid var(--c-border, #ddd);
+            border-radius: var(--radius, 8px);
+            padding: 8px 12px;
+            background: var(--c-surface, #fff);
+            min-height: 44px;
+            box-sizing: border-box;
+          }
+          .webshop-hosted-field.webshop-hosted-field--focus { border-color: var(--c-accent, #1a1714); }
+        `;
+        document.head.appendChild(style);
+      }
 
       // ── Divider ──
       const divider = document.createElement('div');
@@ -163,13 +189,13 @@ const Payment = (() => {
       paypalSection.style.cssText = 'margin-top:4px;';
       wrapper.appendChild(paypalSection);
 
-      await this._renderCardFields(cardSection, cart, orderRef, getFormData, activeCurrency);
-      await this._renderPayPalButton(paypalSection, cart, getFormData, activeCurrency, orderRef);
+      await this._renderCardFields(cardSection, cart, orderRef, getFormData, activeCurrency, onBeforePay);
+      await this._renderPayPalButton(paypalSection, cart, getFormData, activeCurrency, orderRef, onBeforePay);
 
       return wrapper;
     },
 
-    async _renderCardFields(container, cart, orderRef, getFormData, currency) {
+    async _renderCardFields(container, cart, orderRef, getFormData, currency, onBeforePay) {
       if (!window.paypal) { console.warn('PayPal not available'); return; }
 
       let attempts = 0;
@@ -192,6 +218,7 @@ const Payment = (() => {
         // orderId, hosted fields collect card data inside PayPal's own iframes
         // (raw PAN never touches our code), .submit() tokenizes + authorizes,
         // and onApprove fires once PayPal has approved the order.
+        let _lastOrder = null;
         _cardFieldsInstance = await window.paypal.CardFields({
           style: {
             input: {
@@ -206,12 +233,13 @@ const Payment = (() => {
           },
           createOrder: async () => {
             const result = await _createStandardOrder(cart, getFormData(), currency, 'card');
+            _lastOrder = { orderRef: result.orderRef, items: cart, formData: getFormData(), totals: result.totals, currency };
             return result.orderId;
           },
           onApprove: async (data) => {
             const submitBtn = container.querySelector('#paypal-card-submit');
             try {
-              const captureResult = await _captureOrder(data.orderID);
+              const captureResult = await _captureOrder(data.orderID, _lastOrder);
               localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
               _dispatch('payment:success', {
                 orderRef: localStorage.getItem('webshop_order_ref') || orderRef,
@@ -252,6 +280,10 @@ const Payment = (() => {
 
         newSubmitBtn.addEventListener('click', async function() {
           errorMsg.style.display = 'none';
+          if (onBeforePay) {
+            const ok = await onBeforePay();
+            if (!ok) return;
+          }
           this.disabled = true;
           this.textContent = 'Processing...';
           try {
@@ -276,9 +308,10 @@ const Payment = (() => {
       }
     },
 
-    async _renderPayPalButton(container, cart, getFormData, currency, orderRef) {
+    async _renderPayPalButton(container, cart, getFormData, currency, orderRef, onBeforePay) {
       if (!window.paypal) return;
 
+      let _lastOrder = null;
       await window.paypal.Buttons({
         style: {
           layout: "vertical",
@@ -287,13 +320,21 @@ const Payment = (() => {
           label: "paypal",
           height: 48
         },
+        onClick: async (data, actions) => {
+          if (onBeforePay) {
+            const ok = await onBeforePay();
+            if (!ok) return actions.reject();
+          }
+          return actions.resolve();
+        },
         createOrder: async () => {
           const result = await _createStandardOrder(cart, getFormData(), currency, 'paypal');
+          _lastOrder = { orderRef: result.orderRef, items: cart, formData: getFormData(), totals: result.totals, currency };
           return result.orderId;
         },
         onApprove: async (data) => {
           try {
-            const captureResult = await _captureOrder(data.orderID);
+            const captureResult = await _captureOrder(data.orderID, _lastOrder);
             localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
             _dispatch("payment:success", { orderRef: localStorage.getItem('webshop_order_ref') || orderRef, processor: "paypal", result: captureResult });
           } catch (err) {
@@ -319,15 +360,23 @@ const Payment = (() => {
   // This reuses the same create-order / capture-order endpoints as the PayPal
   // button. No raw card data is ever extracted from the Google Pay token; the
   // token is handed straight to paypal.Googlepay().confirmOrder().
+  // Guards against overlapping render() calls on the same container (e.g. if
+  // loadAlternativePayments() were ever triggered twice in quick succession)
+  // appending two buttons — whichever render started last wins.
+  const _renderTokens = new WeakMap();
+
   const _googlepay = {
     async isAvailable() {
       return typeof window.paypal !== 'undefined' && typeof window.paypal.Googlepay === 'function';
     },
     async render(container, cart, formData, onBeforePay) {
       if (!container) return;
+      const myToken = (_renderTokens.get(container) || 0) + 1;
+      _renderTokens.set(container, myToken);
       container.innerHTML = '';
       const getFormData = _normalizeFormData(formData);
       if (!_ready) await init();
+      if (_renderTokens.get(container) !== myToken) return;
       if (!(await this.isAvailable())) { container.style.display = 'none'; return; }
 
       try {
@@ -342,6 +391,7 @@ const Payment = (() => {
           allowedPaymentMethods: gpayConfig.allowedPaymentMethods
         });
         if (!readyRes.result) { container.style.display = 'none'; return; }
+        if (_renderTokens.get(container) !== myToken) return;
 
         const button = paymentsClient.createButton({
           buttonColor: 'black',
@@ -355,10 +405,24 @@ const Payment = (() => {
             try {
               const currency = _getActiveCurrency();
               const order = await _createStandardOrder(cart, getFormData(), currency, 'paypal');
+              // Ask Google Pay for the wallet's own billing/shipping contact,
+              // not just a payment token, so we don't have to rely solely on
+              // whatever is (or isn't) filled into the on-page form.
+              const allowedPaymentMethods = (gpayConfig.allowedPaymentMethods || []).map(m => ({
+                ...m,
+                parameters: {
+                  ...m.parameters,
+                  billingAddressRequired: true,
+                  billingAddressParameters: { format: 'FULL', phoneNumberRequired: true }
+                }
+              }));
               const paymentDataRequest = {
                 apiVersion: 2, apiVersionMinor: 0,
-                allowedPaymentMethods: gpayConfig.allowedPaymentMethods,
+                allowedPaymentMethods,
                 merchantInfo: gpayConfig.merchantInfo,
+                emailRequired: true,
+                shippingAddressRequired: true,
+                shippingAddressParameters: { phoneNumberRequired: true },
                 transactionInfo: {
                   totalPriceStatus: 'FINAL',
                   totalPrice: Number(order.totals.total).toFixed(2),
@@ -373,7 +437,14 @@ const Payment = (() => {
               });
               if (confirmResult.status === 'DECLINED') throw new Error('Payment declined');
 
-              const captureResult = await _captureOrder(order.orderId);
+              const providerContact = {
+                email: paymentData.email || null,
+                billingAddress: paymentData.paymentMethodData?.info?.billingAddress || null,
+                shippingAddress: paymentData.shippingAddress || null
+              };
+              const captureResult = await _captureOrder(order.orderId, {
+                orderRef: order.orderRef, items: cart, formData: getFormData(), totals: order.totals, currency, providerContact
+              });
               localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
               _dispatch('payment:success', { orderRef: order.orderRef, processor: 'googlepay', result: captureResult });
             } catch (err) {
@@ -401,9 +472,12 @@ const Payment = (() => {
     },
     async render(container, cart, formData, onBeforePay) {
       if (!container) return;
+      const myToken = (_renderTokens.get(container) || 0) + 1;
+      _renderTokens.set(container, myToken);
       container.innerHTML = '';
       const getFormData = _normalizeFormData(formData);
       if (!_ready) await init();
+      if (_renderTokens.get(container) !== myToken) return;
       if (!(await this.isAvailable())) { container.style.display = 'none'; return; }
 
       let applepay, config;
@@ -415,6 +489,7 @@ const Payment = (() => {
         container.style.display = 'none';
         return;
       }
+      if (_renderTokens.get(container) !== myToken) return;
 
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -435,8 +510,8 @@ const Payment = (() => {
             currencyCode: currency,
             merchantCapabilities: config.merchantCapabilities,
             supportedNetworks: config.supportedNetworks,
-            requiredBillingContactFields: ['postalAddress', 'name', 'email'],
-            requiredShippingContactFields: [],
+            requiredBillingContactFields: ['postalAddress', 'name', 'email', 'phone'],
+            requiredShippingContactFields: ['postalAddress', 'name', 'email', 'phone'],
             total: { label: 'Dornori', amount: Number(order.totals.total).toFixed(2) }
           };
 
@@ -461,7 +536,15 @@ const Payment = (() => {
                 shippingContact: event.payment.shippingContact
               });
               if (confirmResult.approveApplePayPayment) {
-                const captureResult = await _captureOrder(order.orderId);
+                // Apple's own wallet-confirmed contact — sent alongside the
+                // browser form so the ticket can prefer it as the source of truth.
+                const providerContact = {
+                  shippingContact: event.payment.shippingContact || null,
+                  billingContact: event.payment.billingContact || null
+                };
+                const captureResult = await _captureOrder(order.orderId, {
+                  orderRef: order.orderRef, items: cart, formData: getFormData(), totals: order.totals, currency, providerContact
+                });
                 localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
                 session.completePayment(ApplePaySession.STATUS_SUCCESS);
                 _dispatch('payment:success', { orderRef: order.orderRef, processor: 'applepay', result: captureResult });
@@ -520,11 +603,11 @@ const Payment = (() => {
     }
   }
 
-  async function render(cart, totals, orderRef, mountEl, formData) {
+  async function render(cart, totals, orderRef, mountEl, formData, onBeforePay) {
     if (!_ready) await init();
     const el = typeof mountEl === "string" ? document.querySelector(mountEl) : mountEl;
     if (!el) return;
-    await _adapters[CONFIG.payment.activeProcessor || "none"].render(cart, totals, orderRef, el, formData);
+    await _adapters[CONFIG.payment.activeProcessor || "none"].render(cart, totals, orderRef, el, formData, onBeforePay);
   }
 
   async function switchProcessor(name) {

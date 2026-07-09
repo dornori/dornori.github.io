@@ -296,7 +296,6 @@
     renderCartTotals();
     wireButtons();
     setupMobileAccordion();
-    loadAlternativePayments();
   });
 
   function renderCartTable() {
@@ -509,7 +508,7 @@
     if (s2) s2.style.display = n === 2 ? 'block' : 'none';
     if (n === 2) {
       renderOrderSummary();
-      renderPayment(Shop.getCart(), getFormData);
+      renderPayment(Shop.getCart(), getFormData, beforePay);
       loadAlternativePayments();
     }
     requestAnimationFrame(function() {
@@ -579,8 +578,9 @@
   }
 
   function beforePay() {
-    // Runs immediately before a Google/Apple Pay sheet opens: validates the
-    // form and, on success, refreshes the live formData object.
+    // Gate for Card / PayPal-button flows only — they rely on the on-page
+    // form for shipping info. Google/Apple Pay collect their own address
+    // from the wallet, so they don't need this.
     return new Promise(function(resolve) {
       validateFormBeforePayment(function(valid) { resolve(valid); });
     });
@@ -588,8 +588,8 @@
 
   function loadAlternativePayments() {
     Payment.init().then(function() {
-      Payment.renderGooglePay('#google-pay-button', Shop.getCart(), getFormData, beforePay);
-      Payment.renderApplePay('#apple-pay-button', Shop.getCart(), getFormData, beforePay);
+      Payment.renderGooglePay('#google-pay-button', Shop.getCart(), getFormData);
+      Payment.renderApplePay('#apple-pay-button', Shop.getCart(), getFormData);
     }).catch(function(e) {
       console.warn('Alternative payments unavailable:', e);
       var g = document.getElementById('google-pay-button'); if (g) g.style.display = 'none';
@@ -740,7 +740,7 @@
     });
   }
 
-  async function renderPayment(cart, custFormData) {
+  async function renderPayment(cart, custFormData, onBeforePay) {
     var mount = document.getElementById('cart-payment-mount');
     if (!mount) return;
     mount.innerHTML = '<div style="padding:16px;text-align:center;opacity:.6;font-size:.85rem;">' + T('loading_payment', 'Loading payment…') + '</div>';
@@ -767,7 +767,7 @@
       }
       
       await Payment.init();
-      await Payment.render(cart, { subtotal: t.subtotal, shipping: t.isFreeShipping ? 0 : t.shipping, tax: t.tax, total: t.total }, orderRef, mount, custFormData);
+      await Payment.render(cart, { subtotal: t.subtotal, shipping: t.isFreeShipping ? 0 : t.shipping, tax: t.tax, total: t.total }, orderRef, mount, custFormData, onBeforePay);
     } catch(e) {
       var isCfg = e.message && (e.message.includes('Script load failed') || e.message.includes('client-id'));
       mount.innerHTML = '<div style="padding:20px;text-align:center;border:1px dashed var(--c-border,var(--border));border-radius:8px;opacity:.7;font-size:.85rem;line-height:1.6;">' +
