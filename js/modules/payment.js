@@ -178,23 +178,39 @@ const Payment = (() => {
               };
 
               const paymentData = await paymentsClient.loadPaymentData(paymentDataRequest);
-              
+
+              const gpayEmail = paymentData.email || null;
+              const gpayPhone = paymentData.shippingAddress?.phoneNumber ||
+                       paymentData.paymentMethodData?.info?.billingAddress?.phoneNumber || null;
+              const gpayName = paymentData.paymentMethodData?.info?.billingAddress?.name ||
+                       paymentData.shippingAddress?.name || '';
+              const [gpayFirst, ...gpayLastParts] = gpayName.split(' ').filter(Boolean);
+
+              // Create the real order now that we have the wallet's contact info,
+              // so PayPal's payer object is populated (payer can only be set at
+              // order creation, not patched in afterward).
+              const realOrder = await _createStandardOrder(cart, {
+                email: gpayEmail || '',
+                phone: gpayPhone || '',
+                first_name: gpayFirst || '',
+                last_name: gpayLastParts.join(' ') || ''
+              }, currency, 'paypal');
+
               const confirmResult = await window.paypal.Googlepay().confirmOrder({
-                orderId: order.orderId,
+                orderId: realOrder.orderId,
                 paymentMethodData: paymentData.paymentMethodData
               });
               
               if (confirmResult.status === 'DECLINED') throw new Error('Payment declined');
 
               const gpayFallback = {
-                email: paymentData.email || null,
-                phone: paymentData.shippingAddress?.phoneNumber ||
-                       paymentData.paymentMethodData?.info?.billingAddress?.phoneNumber || null,
-                amount: order.totals?.total != null ? Number(order.totals.total).toFixed(2) : null,
+                email: gpayEmail,
+                phone: gpayPhone,
+                amount: realOrder.totals?.total != null ? Number(realOrder.totals.total).toFixed(2) : null,
                 currency: currency
               };
 
-              const captureResult = await _captureOrder(order.orderId, order.orderRef, language, gpayFallback);
+              const captureResult = await _captureOrder(realOrder.orderId, realOrder.orderRef, language, gpayFallback);
               
               if (captureResult.success && captureResult.customer) {
                 localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
@@ -205,7 +221,7 @@ const Payment = (() => {
               }
               
               _dispatch('payment:success', { 
-                orderRef: order.orderRef, 
+                orderRef: realOrder.orderRef, 
                 processor: 'googlepay', 
                 result: captureResult
               });
@@ -301,23 +317,36 @@ const Payment = (() => {
 
           session.onpaymentauthorized = async (event) => {
             try {
+              const billing = event.payment.billingContact || {};
+              const shipping = event.payment.shippingContact || {};
+              const apayEmail = billing.emailAddress || shipping.emailAddress || '';
+              const apayPhone = billing.phoneNumber || shipping.phoneNumber || '';
+
+              // Create the real order now that we have the wallet's contact info,
+              // so PayPal's payer object is populated (payer can only be set at
+              // order creation, not patched in afterward).
+              const realOrder = await _createStandardOrder(cart, {
+                email: apayEmail,
+                phone: apayPhone,
+                first_name: billing.givenName || shipping.givenName || '',
+                last_name: billing.familyName || shipping.familyName || ''
+              }, currency, 'paypal');
+
               const confirmResult = await applepay.confirmOrder({
-                orderId: order.orderId,
+                orderId: realOrder.orderId,
                 token: event.payment.token,
                 billingContact: event.payment.billingContact,
                 shippingContact: event.payment.shippingContact
               });
               
               if (confirmResult.approveApplePayPayment) {
-                const billing = event.payment.billingContact || {};
-                const shipping = event.payment.shippingContact || {};
                 const apayFallback = {
-                  email: billing.emailAddress || shipping.emailAddress || null,
-                  phone: billing.phoneNumber || shipping.phoneNumber || null,
-                  amount: order.totals?.total != null ? Number(order.totals.total).toFixed(2) : null,
+                  email: apayEmail || null,
+                  phone: apayPhone || null,
+                  amount: realOrder.totals?.total != null ? Number(realOrder.totals.total).toFixed(2) : null,
                   currency: currency
                 };
-                const captureResult = await _captureOrder(order.orderId, order.orderRef, language, apayFallback);
+                const captureResult = await _captureOrder(realOrder.orderId, realOrder.orderRef, language, apayFallback);
                 
                 if (captureResult.success && captureResult.customer) {
                   localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
@@ -329,7 +358,7 @@ const Payment = (() => {
                 
                 session.completePayment(ApplePaySession.STATUS_SUCCESS);
                 _dispatch('payment:success', { 
-                  orderRef: order.orderRef, 
+                  orderRef: realOrder.orderRef, 
                   processor: 'applepay', 
                   result: captureResult
                 });
