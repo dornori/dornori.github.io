@@ -82,11 +82,15 @@ const Payment = (() => {
     return result;
   }
 
-  async function _captureOrder(orderId, meta) {
+  // ============================================================
+  // CAPTURE ORDER - ONLY PASS ORDER ID AND REF
+  // WORKER EXTRACTS EVERYTHING FROM PAYPAL
+  // ============================================================
+  async function _captureOrder(orderId, orderRef) {
     const res = await fetch(`${WORKER}/api/capture-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, ...(meta || {}) })
+      body: JSON.stringify({ orderId, orderRef })
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -126,7 +130,7 @@ const Payment = (() => {
         if (!readyRes.result) { container.style.display = 'none'; return; }
         if (_renderTokens.get(container) !== myToken) return;
 
-        const basePaymentMethods = (gpayConfig.allowedPaymentMethods || []).map(m => ({
+        const allowedPaymentMethods = (gpayConfig.allowedPaymentMethods || []).map(m => ({
           ...m,
           parameters: {
             ...m.parameters,
@@ -145,12 +149,14 @@ const Payment = (() => {
           onClick: async () => {
             try {
               const currency = _getActiveCurrency();
+              
+              // Create order with minimal data - PayPal will get address from wallet
               const order = await _createStandardOrder(cart, {}, currency, 'paypal');
               
               const paymentDataRequest = {
                 apiVersion: 2,
                 apiVersionMinor: 0,
-                allowedPaymentMethods: basePaymentMethods,
+                allowedPaymentMethods: allowedPaymentMethods,
                 merchantInfo: gpayConfig.merchantInfo,
                 emailRequired: true,
                 shippingAddressRequired: true,
@@ -175,55 +181,14 @@ const Payment = (() => {
               
               if (confirmResult.status === 'DECLINED') throw new Error('Payment declined');
 
-              const shippingAddress = paymentData.shippingAddress || {};
-              const billingAddress = paymentData.paymentMethodData?.info?.billingAddress || {};
-              
-              const walletFormData = {
-                first_name: shippingAddress.name || '',
-                last_name: '',
-                email: paymentData.email || '',
-                phone: shippingAddress.phoneNumber || '',
-                address: shippingAddress.address1 || shippingAddress.addressLine1 || '',
-                city: shippingAddress.locality || '',
-                postal: shippingAddress.postalCode || '',
-                country: shippingAddress.countryCode || '',
-                billingChoice: 'same',
-                billing_first_name: billingAddress.name || shippingAddress.name || '',
-                billing_last_name: '',
-                billing_address: billingAddress.address1 || billingAddress.addressLine1 || shippingAddress.address1 || '',
-                billing_city: billingAddress.locality || shippingAddress.locality || '',
-                billing_postal: billingAddress.postalCode || shippingAddress.postalCode || '',
-                billing_country: billingAddress.countryCode || shippingAddress.countryCode || ''
-              };
-
-              if (shippingAddress.address2) {
-                walletFormData.address += ', ' + shippingAddress.address2;
-              }
-              if (billingAddress.address2) {
-                walletFormData.billing_address += ', ' + billingAddress.address2;
-              }
-
-              const providerContact = {
-                email: paymentData.email || '',
-                billingAddress: billingAddress,
-                shippingAddress: shippingAddress
-              };
-              
-              const captureResult = await _captureOrder(order.orderId, {
-                orderRef: order.orderRef, 
-                items: cart, 
-                formData: walletFormData,
-                totals: order.totals, 
-                currency, 
-                providerContact
-              });
+              // CAPTURE - worker extracts all data from PayPal
+              const captureResult = await _captureOrder(order.orderId, order.orderRef);
               
               localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
               _dispatch('payment:success', { 
                 orderRef: order.orderRef, 
                 processor: 'googlepay', 
-                result: captureResult,
-                address: walletFormData
+                result: captureResult
               });
             } catch (err) {
               if (err && err.statusCode === 'CANCELED') {
@@ -281,6 +246,8 @@ const Payment = (() => {
       btn.addEventListener('click', async () => {
         try {
           const currency = _getActiveCurrency();
+          
+          // Create order with minimal data - PayPal will get address from wallet
           const order = await _createStandardOrder(cart, {}, currency, 'paypal');
 
           const paymentRequest = {
@@ -323,49 +290,15 @@ const Payment = (() => {
               });
               
               if (confirmResult.approveApplePayPayment) {
-                const shippingContact = event.payment.shippingContact || {};
-                const billingContact = event.payment.billingContact || {};
-                
-                const walletFormData = {
-                  first_name: shippingContact.givenName || shippingContact.name || '',
-                  last_name: shippingContact.familyName || '',
-                  email: shippingContact.emailAddress || billingContact.emailAddress || '',
-                  phone: shippingContact.phoneNumber || '',
-                  address: (shippingContact.addressLines || []).join(', ') || '',
-                  city: shippingContact.locality || '',
-                  postal: shippingContact.postalCode || '',
-                  country: shippingContact.countryCode || '',
-                  billingChoice: 'same',
-                  billing_first_name: billingContact.givenName || shippingContact.givenName || '',
-                  billing_last_name: billingContact.familyName || '',
-                  billing_address: (billingContact.addressLines || []).join(', ') || (shippingContact.addressLines || []).join(', ') || '',
-                  billing_city: billingContact.locality || shippingContact.locality || '',
-                  billing_postal: billingContact.postalCode || shippingContact.postalCode || '',
-                  billing_country: billingContact.countryCode || shippingContact.countryCode || ''
-                };
-
-                const providerContact = {
-                  shippingContact: shippingContact,
-                  billingContact: billingContact,
-                  email: walletFormData.email
-                };
-                
-                const captureResult = await _captureOrder(order.orderId, {
-                  orderRef: order.orderRef, 
-                  items: cart, 
-                  formData: walletFormData,
-                  totals: order.totals, 
-                  currency, 
-                  providerContact
-                });
+                // CAPTURE - worker extracts all data from PayPal
+                const captureResult = await _captureOrder(order.orderId, order.orderRef);
                 
                 localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
                 session.completePayment(ApplePaySession.STATUS_SUCCESS);
                 _dispatch('payment:success', { 
                   orderRef: order.orderRef, 
                   processor: 'applepay', 
-                  result: captureResult,
-                  address: walletFormData
+                  result: captureResult
                 });
               } else {
                 session.completePayment(ApplePaySession.STATUS_FAILURE);
@@ -429,7 +362,7 @@ const Payment = (() => {
       }
 
       if (!window.paypal) {
-        el.innerHTML = `<div class="webshop-payment-error">PayPal not loaded</div>`;
+        el.innerHTML = `<div class="webshop-text-muted" style="padding:20px;text-align:center;">PayPal not loaded</div>`;
         return;
       }
 
@@ -441,25 +374,24 @@ const Payment = (() => {
       cardSection.id = 'paypal-card-section';
       cardSection.className = 'paypal-card-section';
       
-      // Use existing webshop form classes
       cardSection.innerHTML = `
-        <div class="webshop-form">
+        <div class="webshop-form" style="padding:0;">
           <div class="webshop-form-group">
-            <label for="card-number-field" class="webshop-form-label">Card Number</label>
+            <label class="webshop-form-label" style="display:block;font-size:0.75rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--c-text-3,#8a8f87);margin-bottom:6px;">Card Number</label>
             <div id="card-number-field" class="webshop-form-input paypal-hosted-field"></div>
           </div>
-          <div class="webshop-form-row">
-            <div class="webshop-form-group">
-              <label for="expiry-field" class="webshop-form-label">Expiration</label>
+          <div class="webshop-form-row" style="display:flex;gap:14px;margin:0 -6px;">
+            <div class="webshop-form-group" style="flex:1;padding:0 6px;">
+              <label class="webshop-form-label" style="display:block;font-size:0.75rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--c-text-3,#8a8f87);margin-bottom:6px;">Expiration</label>
               <div id="expiry-field" class="webshop-form-input paypal-hosted-field"></div>
             </div>
-            <div class="webshop-form-group">
-              <label for="cvv-field" class="webshop-form-label">CVV</label>
+            <div class="webshop-form-group" style="flex:1;padding:0 6px;">
+              <label class="webshop-form-label" style="display:block;font-size:0.75rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--c-text-3,#8a8f87);margin-bottom:6px;">CVV</label>
               <div id="cvv-field" class="webshop-form-input paypal-hosted-field"></div>
             </div>
           </div>
         </div>
-        <button id="paypal-card-submit" type="button" class="webshop-btn webshop-btn--primary webshop-btn--full" style="margin-top: 8px;">
+        <button id="paypal-card-submit" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;margin-top:8px;">
           Pay Now
         </button>
         <div id="card-error-message" class="webshop-form-error" style="display:none;margin-top:8px;"></div>
@@ -470,17 +402,18 @@ const Payment = (() => {
       // ── Divider ──
       const divider = document.createElement('div');
       divider.className = 'paypal-divider';
+      divider.style.cssText = 'display:flex;align-items:center;gap:12px;margin:16px 0;';
       divider.innerHTML = `
-        <hr class="paypal-divider-line">
-        <span class="paypal-divider-text">Or</span>
-        <hr class="paypal-divider-line">
+        <hr style="flex:1;border:none;border-top:1px solid var(--c-border);">
+        <span style="font-size:0.78rem;color:var(--c-text-3);font-weight:500;text-transform:uppercase;letter-spacing:0.06em;">Or</span>
+        <hr style="flex:1;border:none;border-top:1px solid var(--c-border);">
       `;
       el.appendChild(divider);
 
       // ── PayPal Button Section ──
       const paypalSection = document.createElement('div');
       paypalSection.id = 'paypal-button-section';
-      paypalSection.className = 'paypal-button-section';
+      paypalSection.style.cssText = 'margin-top:4px;';
       el.appendChild(paypalSection);
 
       await this._renderCardFields(cardSection, cart, orderRef, getFormData, activeCurrency, onBeforePay);
@@ -501,7 +434,9 @@ const Payment = (() => {
       if (!window.paypal.CardFields) {
         console.warn('PayPal CardFields not available');
         const numField = container.querySelector('#card-number-field');
-        if (numField) numField.innerHTML = '<div class="webshop-text-muted">Card payments not available. Please use PayPal.</div>';
+        if (numField) {
+          numField.innerHTML = '<div class="webshop-text-muted" style="padding:10px;color:var(--c-text-3);">Card payments not available. Please use PayPal.</div>';
+        }
         const submitBtn = container.querySelector('#paypal-card-submit');
         if (submitBtn) submitBtn.style.display = 'none';
         return;
@@ -530,7 +465,8 @@ const Payment = (() => {
           onApprove: async (data) => {
             const submitBtn = container.querySelector('#paypal-card-submit');
             try {
-              const captureResult = await _captureOrder(data.orderID, _lastOrder);
+              // CAPTURE - worker extracts all data from PayPal
+              const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef);
               localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
               _dispatch('payment:success', {
                 orderRef: localStorage.getItem('webshop_order_ref') || orderRef,
@@ -540,17 +476,29 @@ const Payment = (() => {
             } catch (err) {
               console.error('Card capture error:', err);
               const errorMsg = container.querySelector('#card-error-message');
-              if (errorMsg) { errorMsg.textContent = err.message || 'Payment failed. Please try again.'; errorMsg.style.display = 'block'; }
-              if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Pay Now'; }
+              if (errorMsg) { 
+                errorMsg.textContent = err.message || 'Payment failed. Please try again.'; 
+                errorMsg.style.display = 'block'; 
+              }
+              if (submitBtn) { 
+                submitBtn.disabled = false; 
+                submitBtn.textContent = 'Pay Now'; 
+              }
               _dispatch('payment:error', { orderRef, processor: 'card', error: err });
             }
           },
           onError: (err) => {
             console.error('Card fields error:', err);
             const errorMsg = container.querySelector('#card-error-message');
-            if (errorMsg) { errorMsg.textContent = 'Payment failed. Please check your card details.'; errorMsg.style.display = 'block'; }
+            if (errorMsg) { 
+              errorMsg.textContent = 'Payment failed. Please check your card details.'; 
+              errorMsg.style.display = 'block'; 
+            }
             const submitBtn = container.querySelector('#paypal-card-submit');
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Pay Now'; }
+            if (submitBtn) { 
+              submitBtn.disabled = false; 
+              submitBtn.textContent = 'Pay Now'; 
+            }
             _dispatch('payment:error', { orderRef, processor: 'card', error: err });
           }
         });
@@ -591,7 +539,9 @@ const Payment = (() => {
       } catch (e) {
         console.warn('Card fields error:', e);
         const numField = container.querySelector('#card-number-field');
-        if (numField) numField.innerHTML = '<div class="webshop-text-muted">Card payments not available. Please use PayPal.</div>';
+        if (numField) {
+          numField.innerHTML = '<div class="webshop-text-muted" style="padding:10px;color:var(--c-text-3);">Card payments not available. Please use PayPal.</div>';
+        }
         const submitBtn = container.querySelector('#paypal-card-submit');
         if (submitBtn) submitBtn.style.display = 'none';
       }
@@ -624,7 +574,8 @@ const Payment = (() => {
         },
         onApprove: async (data) => {
           try {
-            const captureResult = await _captureOrder(data.orderID, _lastOrder);
+            // CAPTURE - worker extracts all data from PayPal
+            const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef);
             localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
             _dispatch("payment:success", { 
               orderRef: localStorage.getItem('webshop_order_ref') || orderRef, 
