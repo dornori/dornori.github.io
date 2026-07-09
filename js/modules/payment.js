@@ -183,10 +183,8 @@ const Payment = (() => {
               
               if (confirmResult.status === 'DECLINED') throw new Error('Payment declined');
 
-              // CAPTURE - worker returns PayPal data
               const captureResult = await _captureOrder(order.orderId, order.orderRef, language);
               
-              // STORE PayPal data in localStorage for success page
               if (captureResult.success && captureResult.customer) {
                 localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
                 localStorage.setItem('webshop_paypal_order_id', captureResult.paypalOrderId);
@@ -195,7 +193,6 @@ const Payment = (() => {
                 localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult));
               }
               
-              localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult));
               _dispatch('payment:success', { 
                 orderRef: order.orderRef, 
                 processor: 'googlepay', 
@@ -301,10 +298,8 @@ const Payment = (() => {
               });
               
               if (confirmResult.approveApplePayPayment) {
-                // CAPTURE - worker returns PayPal data
                 const captureResult = await _captureOrder(order.orderId, order.orderRef, language);
                 
-                // STORE PayPal data in localStorage for success page
                 if (captureResult.success && captureResult.customer) {
                   localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
                   localStorage.setItem('webshop_paypal_order_id', captureResult.paypalOrderId);
@@ -393,7 +388,6 @@ const Payment = (() => {
       cardSection.id = 'paypal-card-section';
       cardSection.className = 'paypal-card-section';
       
-      // FIXED: Clean credit card form - no double boxes
       cardSection.innerHTML = `
         <div class="webshop-form" style="padding:0;">
           <div class="webshop-form-group">
@@ -477,9 +471,27 @@ const Payment = (() => {
             '.invalid': { 'border-color': '#9b3a3a' }
           },
           createOrder: async () => {
-            const freshFormData = typeof getFormData === 'function' ? getFormData() : getFormData || {};
-            const result = await _createStandardOrder(cart, freshFormData, currency, 'card');
-            _lastOrder = { orderRef: result.orderRef, items: cart, formData: freshFormData, totals: result.totals, currency };
+            // Read form data DIRECTLY from DOM
+            const formData = {
+              first_name: document.getElementById('cart-first-name')?.value || '',
+              last_name: document.getElementById('cart-last-name')?.value || '',
+              email: document.getElementById('cart-email')?.value || '',
+              phone: document.getElementById('cart-phone')?.value || '',
+              address: document.getElementById('cart-address')?.value || '',
+              city: document.getElementById('cart-city')?.value || '',
+              postal: document.getElementById('cart-postal')?.value || '',
+              country: document.getElementById('cart-country')?.value || '',
+              billingChoice: document.querySelector('input[name="cart_billing_choice"]:checked')?.value || 'same',
+              billing_first_name: document.getElementById('cart-billing-first-name')?.value || '',
+              billing_last_name: document.getElementById('cart-billing-last-name')?.value || '',
+              billing_address: document.getElementById('cart-billing-address')?.value || '',
+              billing_city: document.getElementById('cart-billing-city')?.value || '',
+              billing_postal: document.getElementById('cart-billing-postal')?.value || '',
+              billing_country: document.getElementById('cart-billing-country')?.value || ''
+            };
+            
+            const result = await _createStandardOrder(cart, formData, currency, 'card');
+            _lastOrder = { orderRef: result.orderRef, items: cart, formData: formData, totals: result.totals, currency };
             return result.orderId;
           },
           onApprove: async (data) => {
@@ -488,7 +500,6 @@ const Payment = (() => {
               const language = _getActiveLanguage();
               const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language);
               
-              // STORE PayPal data in localStorage for success page
               if (captureResult.success && captureResult.customer) {
                 localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
                 localStorage.setItem('webshop_paypal_order_id', captureResult.paypalOrderId);
@@ -580,6 +591,7 @@ const Payment = (() => {
       if (!window.paypal) return;
 
       let _lastOrder = null;
+      
       await window.paypal.Buttons({
         style: {
           layout: "vertical",
@@ -596,9 +608,29 @@ const Payment = (() => {
           return actions.resolve();
         },
         createOrder: async () => {
-          const freshFormData = typeof getFormData === 'function' ? getFormData() : getFormData || {};
-          const result = await _createStandardOrder(cart, freshFormData, currency, 'paypal');
-          _lastOrder = { orderRef: result.orderRef, items: cart, formData: freshFormData, totals: result.totals, currency };
+          // Read form data DIRECTLY from DOM elements
+          const formData = {
+            first_name: document.getElementById('cart-first-name')?.value || '',
+            last_name: document.getElementById('cart-last-name')?.value || '',
+            email: document.getElementById('cart-email')?.value || '',
+            phone: document.getElementById('cart-phone')?.value || '',
+            address: document.getElementById('cart-address')?.value || '',
+            city: document.getElementById('cart-city')?.value || '',
+            postal: document.getElementById('cart-postal')?.value || '',
+            country: document.getElementById('cart-country')?.value || '',
+            billingChoice: document.querySelector('input[name="cart_billing_choice"]:checked')?.value || 'same',
+            billing_first_name: document.getElementById('cart-billing-first-name')?.value || '',
+            billing_last_name: document.getElementById('cart-billing-last-name')?.value || '',
+            billing_address: document.getElementById('cart-billing-address')?.value || '',
+            billing_city: document.getElementById('cart-billing-city')?.value || '',
+            billing_postal: document.getElementById('cart-billing-postal')?.value || '',
+            billing_country: document.getElementById('cart-billing-country')?.value || ''
+          };
+          
+          console.log('🔴 PayPal Button - Form Data:', formData);
+          
+          const result = await _createStandardOrder(cart, formData, currency, 'paypal');
+          _lastOrder = { orderRef: result.orderRef, items: cart, formData: formData, totals: result.totals, currency };
           return result.orderId;
         },
         onApprove: async (data) => {
@@ -606,7 +638,6 @@ const Payment = (() => {
             const language = _getActiveLanguage();
             const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language);
             
-            // STORE PayPal data in localStorage for success page
             if (captureResult.success && captureResult.customer) {
               localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
               localStorage.setItem('webshop_paypal_order_id', captureResult.paypalOrderId);
