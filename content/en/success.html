@@ -27,12 +27,6 @@
   const ref = params.get('ref') || '';
   const status = params.get('status') || 'success';
   const lang = window.LANG || localStorage.getItem('dornori-lang') || 'en';
-  
-  let paypalData = null;
-  let customerData = null;
-  let dorReference = null;
-  let transactionId = null;
-  let paypalOrderId = null;
 
   function T(key, fallback) {
     if (window.T && window.T[key]) return window.T[key];
@@ -43,73 +37,74 @@
   function fmt(n) { return (Math.round((n||0)*100)/100).toFixed(2); }
 
   // ============================================================
-  // SEND TICKET TO TICKETING SYSTEM
+  // READ DATA FROM LOCALSTORAGE
   // ============================================================
-  async function sendToTicketing() {
-    if (status !== 'success' || !ref) {
-      console.log('Skipping ticketing notification');
-      return;
-    }
-
+  function getPayPalData() {
     try {
-      // Read PayPal data from localStorage
       const customerRaw = localStorage.getItem('webshop_paypal_customer');
       const orderId = localStorage.getItem('webshop_paypal_order_id');
       const txId = localStorage.getItem('webshop_paypal_transaction_id');
       const dorRef = localStorage.getItem('webshop_dor_reference');
       
-      // Fallback to URL param
-      const finalRef = ref || dorRef || 'N/A';
-      const finalTxId = txId || 'N/A';
-      const finalOrderId = orderId || 'N/A';
+      const customer = customerRaw ? JSON.parse(customerRaw) : {};
       
-      customerData = customerRaw ? JSON.parse(customerRaw) : {};
-      transactionId = finalTxId;
-      dorReference = finalRef;
-      paypalOrderId = finalOrderId;
+      return {
+        customer: customer,
+        orderId: orderId || 'N/A',
+        transactionId: txId || 'N/A',
+        dorReference: dorRef || ref || 'N/A'
+      };
+    } catch (e) {
+      console.error('Error reading localStorage:', e);
+      return {
+        customer: {},
+        orderId: 'N/A',
+        transactionId: 'N/A',
+        dorReference: ref || 'N/A'
+      };
+    }
+  }
+
+  // ============================================================
+  // SEND TICKET TO TICKETING SYSTEM
+  // ============================================================
+  async function sendToTicketing(data) {
+    if (status !== 'success') {
+      console.log('Skipping ticketing - not success status');
+      return null;
+    }
+
+    try {
+      const { customer, orderId, transactionId, dorReference } = data;
       
-      // Build customer name from PayPal data
-      const fullName = customerData.full_name || 
-                       [customerData.first_name, customerData.last_name].filter(Boolean).join(' ') || 
+      const fullName = customer.full_name || 
+                       [customer.first_name, customer.last_name].filter(Boolean).join(' ') || 
+                       customer.shipping_name ||
                        'Customer';
       
-      const email = customerData.email || '';
-      const phone = customerData.phone || '';
-      const currency = customerData.currency || 'EUR';
+      const email = customer.email || '';
+      const phone = customer.phone || '';
+      const currency = customer.currency || 'EUR';
+      const amount = customer.amount || 'N/A';
       
       // Build shipping address
       const shippingLines = [];
-      if (customerData.shipping_name) shippingLines.push(customerData.shipping_name);
-      if (customerData.shipping_address_line1) shippingLines.push(customerData.shipping_address_line1);
-      if (customerData.shipping_address_line2) shippingLines.push(customerData.shipping_address_line2);
-      if (customerData.shipping_city) shippingLines.push(customerData.shipping_city);
-      if (customerData.shipping_postal) shippingLines.push(customerData.shipping_postal);
-      if (customerData.shipping_country) shippingLines.push(customerData.shipping_country);
+      if (customer.shipping_name) shippingLines.push(customer.shipping_name);
+      if (customer.shipping_address_line1) shippingLines.push(customer.shipping_address_line1);
+      if (customer.shipping_address_line2) shippingLines.push(customer.shipping_address_line2);
+      if (customer.shipping_city) shippingLines.push(customer.shipping_city);
+      if (customer.shipping_postal) shippingLines.push(customer.shipping_postal);
+      if (customer.shipping_country) shippingLines.push(customer.shipping_country);
       const shippingAddress = shippingLines.join(', ') || 'Not provided';
       
-      // Build billing address
-      const billingLines = [];
-      if (customerData.billing_address_line1) billingLines.push(customerData.billing_address_line1);
-      if (customerData.billing_address_line2) billingLines.push(customerData.billing_address_line2);
-      if (customerData.billing_city) billingLines.push(customerData.billing_city);
-      if (customerData.billing_postal) billingLines.push(customerData.billing_postal);
-      if (customerData.billing_country) billingLines.push(customerData.billing_country);
-      const billingAddress = billingLines.length > 0 ? billingLines.join(', ') : shippingAddress;
-      
-      // Build card info
-      const cardLast4 = customerData.card_last4 || 'N/A';
-      const cardBrand = customerData.card_brand || 'N/A';
-      const fundingSource = customerData.funding_source || 'N/A';
-      
-      // Build the message
       const message = [
-        `Order Reference: ${finalRef}`,
-        `PayPal Order ID: ${finalOrderId}`,
-        `Transaction ID: ${finalTxId}`,
-        `Status: ${customerData.status || 'completed'}`,
-        `Date: ${customerData.timestamp || new Date().toISOString()}`,
+        `Order Reference: ${dorReference}`,
+        `PayPal Order ID: ${orderId}`,
+        `Transaction ID: ${transactionId}`,
+        `Status: ${customer.status || 'completed'}`,
+        `Date: ${customer.timestamp || new Date().toISOString()}`,
         `Currency: ${currency}`,
-        `Amount: ${customerData.amount || 'N/A'}`,
+        `Amount: ${amount}`,
         '',
         '--- CUSTOMER INFORMATION ---',
         `Name: ${fullName}`,
@@ -119,49 +114,38 @@
         '--- SHIPPING ADDRESS ---',
         shippingAddress,
         '',
-        '--- BILLING ADDRESS ---',
-        billingAddress,
-        '',
         '--- PAYMENT DETAILS ---',
-        `Funding Source: ${fundingSource}`,
-        `Card Brand: ${cardBrand}`,
-        `Card Last 4: ${cardLast4}`,
-        `AVS Result: ${customerData.avs_code || 'N/A'}`,
-        `CVV Result: ${customerData.cvv_code || 'N/A'}`,
+        `AVS Result: ${customer.avs_code || 'N/A'}`,
+        `CVV Result: ${customer.cvv_code || 'N/A'}`,
       ].join('\n');
 
       const payload = {
         name: fullName,
         email: email,
         phone: phone,
-        subject: `Order Confirmation - ${finalRef} (TXN: ${finalTxId})`,
+        subject: `Order Confirmation - ${dorReference} (TXN: ${transactionId})`,
         message: message,
         category: 'payment',
         language: lang,
-        orderNumber: finalRef,
+        orderNumber: dorReference,
         metadata: {
           source: 'webshop-success',
-          orderId: finalOrderId,
-          orderRef: finalRef,
-          transactionId: finalTxId,
+          orderId: orderId,
+          orderRef: dorReference,
+          transactionId: transactionId,
           currency: currency,
-          amount: customerData.amount,
-          status: customerData.status,
+          amount: amount,
+          status: customer.status,
           customer: {
             name: fullName,
             email: email,
             phone: phone,
           },
           shipping: {
-            name: customerData.shipping_name,
-            address: customerData.shipping_address,
+            name: customer.shipping_name,
+            address: shippingAddress,
           },
-          payment: {
-            funding_source: fundingSource,
-            card_brand: cardBrand,
-            card_last4: cardLast4,
-          },
-          paypalData: customerData
+          paypalData: customer
         }
       };
 
@@ -193,25 +177,15 @@
   // ============================================================
   // RENDER THE SUCCESS PAGE
   // ============================================================
-  function render(ticketNumber) {
+  function render(data, ticketNumber) {
     const page = document.getElementById('result-page');
     if (!page) return;
     
-    // Read from localStorage if not already set
-    if (!dorReference) {
-      dorReference = localStorage.getItem('webshop_dor_reference') || ref || 'N/A';
-    }
-    if (!transactionId) {
-      transactionId = localStorage.getItem('webshop_paypal_transaction_id') || 'N/A';
-    }
-    if (!paypalOrderId) {
-      paypalOrderId = localStorage.getItem('webshop_paypal_order_id') || 'N/A';
-    }
+    const { customer, orderId, transactionId, dorReference } = data;
     
-    const customerRaw = localStorage.getItem('webshop_paypal_customer');
-    const customer = customerRaw ? JSON.parse(customerRaw) : {};
     const fullName = customer.full_name || 
                      [customer.first_name, customer.last_name].filter(Boolean).join(' ') || 
+                     customer.shipping_name ||
                      'Customer';
     const currency = customer.currency || 'EUR';
     const amount = customer.amount || 'N/A';
@@ -233,7 +207,7 @@
           </div>
           <div class="detail-row">
             <span class="label">PayPal Order ID</span>
-            <span class="value">${paypalOrderId}</span>
+            <span class="value">${orderId}</span>
           </div>
           <div class="detail-row">
             <span class="label">Customer</span>
@@ -243,6 +217,10 @@
             <span class="label">Amount</span>
             <span class="value">${amount} ${currency}</span>
           </div>
+          ${customer.shipping_address_line1 ? `<div class="detail-row">
+            <span class="label">Shipping Address</span>
+            <span class="value">${customer.shipping_address_line1}${customer.shipping_city ? ', ' + customer.shipping_city : ''}${customer.shipping_country ? ', ' + customer.shipping_country : ''}</span>
+          </div>` : ''}
           ${ticketNumber ? `<div class="detail-row">
             <span class="label">Ticket Number</span>
             <span class="value">${ticketNumber}</span>
@@ -302,11 +280,15 @@
       await Shop.loadLang().catch(() => {});
     }
     
+    // Read data from localStorage
+    const data = getPayPalData();
+    console.log('📦 Data from localStorage:', data);
+    
     // Send ticket to ticketing
-    const ticketNumber = await sendToTicketing();
+    const ticketNumber = await sendToTicketing(data);
     
     // Render the page
-    render(ticketNumber);
+    render(data, ticketNumber);
   }
 
   init();
