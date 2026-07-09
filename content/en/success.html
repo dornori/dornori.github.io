@@ -4,6 +4,12 @@
   .webshop-confetti { position:fixed; top:0; left:0; right:0; pointer-events:none; z-index:9999; }
   @keyframes fall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(100vh) rotate(720deg);opacity:0} }
   .confetti-piece { position:absolute; border-radius:2px; animation:fall linear forwards; }
+  .webshop-ref-badge { background:var(--c-surface,#f5f5f5); border:1px solid var(--c-border,#ddd); border-radius:8px; padding:12px 24px; font-family:monospace; font-size:1.1rem; display:inline-block; margin:8px 0; }
+  .webshop-order-details { margin:20px 0; text-align:left; max-width:500px; margin-left:auto; margin-right:auto; }
+  .webshop-order-details .detail-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--c-border,#eee); }
+  .webshop-order-details .detail-row .label { font-weight:600; color:var(--c-text-2,#666); }
+  .webshop-order-details .detail-row .value { font-family:monospace; }
+  .webshop-result-icon--success { background:#4a7c59; color:white; width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:32px; margin:0 auto 20px; }
 </style>
 
 <div class="webshop-confetti" id="confetti-container"></div>
@@ -15,17 +21,18 @@
 (function () {
   'use strict';
   
-  const WORKER_URL = 'https://pay.dornori-info.workers.dev';
-//  const TICKETING_URL = 'https://dornori-ticketing.dornori-info.workers.dev/api/message';
+  const TICKETING_URL = 'https://dornori-ticketing.dornori-info.workers.dev/api/message';
   
   const params = new URLSearchParams(window.location.search);
   const ref = params.get('ref') || '';
   const status = params.get('status') || 'success';
   const lang = window.LANG || localStorage.getItem('dornori-lang') || 'en';
   
-  let paypalOrderID = null;
   let paypalData = null;
-  let orderSnapshot = null;
+  let customerData = null;
+  let dorReference = null;
+  let transactionId = null;
+  let paypalOrderId = null;
 
   function T(key, fallback) {
     if (window.T && window.T[key]) return window.T[key];
@@ -35,6 +42,9 @@
 
   function fmt(n) { return (Math.round((n||0)*100)/100).toFixed(2); }
 
+  // ============================================================
+  // SEND TICKET TO TICKETING SYSTEM
+  // ============================================================
   async function sendToTicketing() {
     if (status !== 'success' || !ref) {
       console.log('Skipping ticketing notification');
@@ -42,64 +52,121 @@
     }
 
     try {
-      orderSnapshot = JSON.parse(localStorage.getItem('webshop_order_snapshot') || '{}');
-      const paypalRaw = localStorage.getItem('webshop_paypal_result');
-      paypalData = paypalRaw ? JSON.parse(paypalRaw) : null;
-      paypalOrderID = localStorage.getItem('webshop_paypal_order_id');
-
-      const fd = orderSnapshot.formData || {};
-      const currency = (orderSnapshot.totals && orderSnapshot.totals.currency) || 'EUR';
+      // Read PayPal data from localStorage
+      const customerRaw = localStorage.getItem('webshop_paypal_customer');
+      const orderId = localStorage.getItem('webshop_paypal_order_id');
+      const txId = localStorage.getItem('webshop_paypal_transaction_id');
+      const dorRef = localStorage.getItem('webshop_dor_reference');
       
-      const addressLines = [
-        fd.address, fd.city, fd.postal, fd.country
-      ].filter(Boolean).join(', ');
-
-      const productLines = (orderSnapshot.items || []).map(i => {
-        return i.qty + '\t' + i.name + ' (' + i.sku + ')\t' + fmt(i.price) + ' ' + currency + '\t' + fmt(i.qty * i.price) + ' ' + currency;
-      }).join('\n');
-
-      const t = orderSnapshot.totals || {};
-      const messageBody =
-        'Order: ' + ref + '\n' +
-        (paypalOrderID ? 'PayPal Order ID: ' + paypalOrderID + '\n' : '') +
-        (paypalData?.status ? 'PayPal Status: ' + paypalData.status + '\n' : '') +
-        '\n' +
-        'SHIPPING ADDRESS\n' + addressLines + '\n' +
-        '\nPRODUCTS\n' +
-        'Qty\tProduct\tPrice\tTotal\n' +
-        productLines + '\n' +
-        '\nTOTALS\n' +
-        'Subtotal:\t' + fmt(t.subtotal) + ' ' + currency + '\n' +
-        'Shipping:\t' + fmt(t.shipping) + ' ' + currency + '\n' +
-        'Tax:\t' + fmt(t.tax) + ' ' + currency + '\n' +
-        'TOTAL:\t' + fmt(t.total) + ' ' + currency;
+      // Fallback to URL param
+      const finalRef = ref || dorRef || 'N/A';
+      const finalTxId = txId || 'N/A';
+      const finalOrderId = orderId || 'N/A';
+      
+      customerData = customerRaw ? JSON.parse(customerRaw) : {};
+      transactionId = finalTxId;
+      dorReference = finalRef;
+      paypalOrderId = finalOrderId;
+      
+      // Build customer name from PayPal data
+      const fullName = customerData.full_name || 
+                       [customerData.first_name, customerData.last_name].filter(Boolean).join(' ') || 
+                       'Customer';
+      
+      const email = customerData.email || '';
+      const phone = customerData.phone || '';
+      const currency = customerData.currency || 'EUR';
+      
+      // Build shipping address
+      const shippingLines = [];
+      if (customerData.shipping_name) shippingLines.push(customerData.shipping_name);
+      if (customerData.shipping_address_line1) shippingLines.push(customerData.shipping_address_line1);
+      if (customerData.shipping_address_line2) shippingLines.push(customerData.shipping_address_line2);
+      if (customerData.shipping_city) shippingLines.push(customerData.shipping_city);
+      if (customerData.shipping_postal) shippingLines.push(customerData.shipping_postal);
+      if (customerData.shipping_country) shippingLines.push(customerData.shipping_country);
+      const shippingAddress = shippingLines.join(', ') || 'Not provided';
+      
+      // Build billing address
+      const billingLines = [];
+      if (customerData.billing_address_line1) billingLines.push(customerData.billing_address_line1);
+      if (customerData.billing_address_line2) billingLines.push(customerData.billing_address_line2);
+      if (customerData.billing_city) billingLines.push(customerData.billing_city);
+      if (customerData.billing_postal) billingLines.push(customerData.billing_postal);
+      if (customerData.billing_country) billingLines.push(customerData.billing_country);
+      const billingAddress = billingLines.length > 0 ? billingLines.join(', ') : shippingAddress;
+      
+      // Build card info
+      const cardLast4 = customerData.card_last4 || 'N/A';
+      const cardBrand = customerData.card_brand || 'N/A';
+      const fundingSource = customerData.funding_source || 'N/A';
+      
+      // Build the message
+      const message = [
+        `Order Reference: ${finalRef}`,
+        `PayPal Order ID: ${finalOrderId}`,
+        `Transaction ID: ${finalTxId}`,
+        `Status: ${customerData.status || 'completed'}`,
+        `Date: ${customerData.timestamp || new Date().toISOString()}`,
+        `Currency: ${currency}`,
+        `Amount: ${customerData.amount || 'N/A'}`,
+        '',
+        '--- CUSTOMER INFORMATION ---',
+        `Name: ${fullName}`,
+        `Email: ${email}`,
+        `Phone: ${phone}`,
+        '',
+        '--- SHIPPING ADDRESS ---',
+        shippingAddress,
+        '',
+        '--- BILLING ADDRESS ---',
+        billingAddress,
+        '',
+        '--- PAYMENT DETAILS ---',
+        `Funding Source: ${fundingSource}`,
+        `Card Brand: ${cardBrand}`,
+        `Card Last 4: ${cardLast4}`,
+        `AVS Result: ${customerData.avs_code || 'N/A'}`,
+        `CVV Result: ${customerData.cvv_code || 'N/A'}`,
+      ].join('\n');
 
       const payload = {
+        name: fullName,
+        email: email,
+        phone: phone,
+        subject: `Order Confirmation - ${finalRef} (TXN: ${finalTxId})`,
+        message: message,
         category: 'payment',
-        name: ((fd.first_name || '') + ' ' + (fd.last_name || '')).trim(),
-        email: fd.email || '',
-        phone: fd.phone || '',
-        subject: 'Order ' + ref,
         language: lang,
-        message: messageBody,
-        orderNumber: ref,
+        orderNumber: finalRef,
         metadata: {
-          source: 'checkout-success',
-          orderRef: ref,
-          paypalOrderId: paypalOrderID || '',
-          paypalStatus: paypalData?.status || '',
+          source: 'webshop-success',
+          orderId: finalOrderId,
+          orderRef: finalRef,
+          transactionId: finalTxId,
           currency: currency,
-          subtotal: t.subtotal,
-          shipping: t.shipping,
-          tax: t.tax,
-          total: t.total
+          amount: customerData.amount,
+          status: customerData.status,
+          customer: {
+            name: fullName,
+            email: email,
+            phone: phone,
+          },
+          shipping: {
+            name: customerData.shipping_name,
+            address: customerData.shipping_address,
+          },
+          payment: {
+            funding_source: fundingSource,
+            card_brand: cardBrand,
+            card_last4: cardLast4,
+          },
+          paypalData: customerData
         }
       };
 
-      console.log('📤 Sending to ticketing with cross-reference:');
-      console.log('  Order Ref:', ref);
-      console.log('  PayPal Order ID:', paypalOrderID);
-      console.log('  PayPal Status:', paypalData?.status);
+      console.log('📤 Sending ticket to:', TICKETING_URL);
+      console.log('📦 Payload:', payload);
 
       const res = await fetch(TICKETING_URL, {
         method: 'POST',
@@ -108,43 +175,102 @@
       });
 
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+        const errorText = await res.text();
+        console.error('❌ Ticket creation failed:', res.status, errorText);
+        return null;
       }
 
       const result = await res.json();
-      console.log('✅ Ticketing created:', result.ticketNumber);
-      
-      localStorage.removeItem('webshop_order_snapshot');
-      localStorage.removeItem('webshop_paypal_order_id');
-      localStorage.removeItem('webshop_paypal_result');
+      console.log('✅ Ticket created:', result);
       
       return result.ticketNumber;
     } catch (err) {
       console.error('❌ Ticketing failed:', err.message);
+      return null;
     }
   }
 
+  // ============================================================
+  // RENDER THE SUCCESS PAGE
+  // ============================================================
   function render(ticketNumber) {
     const page = document.getElementById('result-page');
     if (!page) return;
     
+    // Read from localStorage if not already set
+    if (!dorReference) {
+      dorReference = localStorage.getItem('webshop_dor_reference') || ref || 'N/A';
+    }
+    if (!transactionId) {
+      transactionId = localStorage.getItem('webshop_paypal_transaction_id') || 'N/A';
+    }
+    if (!paypalOrderId) {
+      paypalOrderId = localStorage.getItem('webshop_paypal_order_id') || 'N/A';
+    }
+    
+    const customerRaw = localStorage.getItem('webshop_paypal_customer');
+    const customer = customerRaw ? JSON.parse(customerRaw) : {};
+    const fullName = customer.full_name || 
+                     [customer.first_name, customer.last_name].filter(Boolean).join(' ') || 
+                     'Customer';
+    const currency = customer.currency || 'EUR';
+    const amount = customer.amount || 'N/A';
+    
     if (status === 'success') {
-      page.innerHTML =
-      '<div class="webshop-result-icon webshop-result-icon--success">✓</div>' +
-		'<h1>' + T('success_title', 'Order Confirmed!') + '</h1>' +
-		'<p>' + T('success_message', 'Thank you for your purchase.') + '</p>' +
-		'<p>' + T('success_ref', 'Your order reference is') + ':</p>' +
-		'<div class="webshop-ref-badge">' + ref + '</div>' +
-		(paypalOrderID ? '<p style="margin-top:20px;font-size:0.9rem;color:var(--c-text-muted);">Payment reference:</p><div class="webshop-ref-badge">' + paypalOrderID + '</div>' : '') +
-		'<div style="height:2.5rem;"></div>' + // Adds 2-3 lines of spacing (40px)
-		'<a href="/' + lang + '/" class="webshop-btn webshop-btn--primary">' + T('continue_shopping', 'Continue Shopping') + '</a>';
+      page.innerHTML = `
+        <div class="webshop-result-icon webshop-result-icon--success">✓</div>
+        <h1>${T('success_title', 'Order Confirmed!')}</h1>
+        <p>${T('success_message', 'Thank you for your purchase.')}</p>
+        
+        <div class="webshop-order-details">
+          <div class="detail-row">
+            <span class="label">Order Reference</span>
+            <span class="value">${dorReference}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Transaction ID</span>
+            <span class="value">${transactionId}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">PayPal Order ID</span>
+            <span class="value">${paypalOrderId}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Customer</span>
+            <span class="value">${fullName}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Amount</span>
+            <span class="value">${amount} ${currency}</span>
+          </div>
+          ${ticketNumber ? `<div class="detail-row">
+            <span class="label">Ticket Number</span>
+            <span class="value">${ticketNumber}</span>
+          </div>` : ''}
+        </div>
+        
+        <div style="height:2.5rem;"></div>
+        <a href="/${lang}/" class="webshop-btn webshop-btn--primary">${T('continue_shopping', 'Continue Shopping')}</a>
+      `;
       launchConfetti();
+      
+      // Clean up localStorage after showing the page
+      setTimeout(() => {
+        localStorage.removeItem('webshop_paypal_customer');
+        localStorage.removeItem('webshop_paypal_order_id');
+        localStorage.removeItem('webshop_paypal_transaction_id');
+        localStorage.removeItem('webshop_dor_reference');
+        localStorage.removeItem('webshop_paypal_result');
+        localStorage.removeItem('webshop_order_snapshot');
+        localStorage.removeItem('webshop_order_ref');
+      }, 5000);
     } else {
-      page.innerHTML =
-        '<div class="webshop-result-icon webshop-result-icon--cancel">⚠</div>' +
-        '<h1>' + T('cancel_title', 'Payment Cancelled') + '</h1>' +
-        '<p>' + T('cancel_message', 'Your order has not been processed.') + '</p>' +
-        '<a href="/' + lang + '/cart/" class="webshop-btn webshop-btn--primary" style="margin-top:20px;">' + T('return_to_cart', 'Return to Cart') + '</a>';
+      page.innerHTML = `
+        <div class="webshop-result-icon webshop-result-icon--cancel">⚠</div>
+        <h1>${T('cancel_title', 'Payment Cancelled')}</h1>
+        <p>${T('cancel_message', 'Your order has not been processed.')}</p>
+        <a href="/${lang}/cart/" class="webshop-btn webshop-btn--primary" style="margin-top:20px;">${T('return_to_cart', 'Return to Cart')}</a>
+      `;
     }
   }
 
@@ -168,11 +294,18 @@
     }
   }
 
+  // ============================================================
+  // INIT
+  // ============================================================
   async function init() {
     if (typeof Shop !== 'undefined' && Shop.loadLang) {
       await Shop.loadLang().catch(() => {});
     }
+    
+    // Send ticket to ticketing
     const ticketNumber = await sendToTicketing();
+    
+    // Render the page
     render(ticketNumber);
   }
 

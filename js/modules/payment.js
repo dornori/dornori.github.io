@@ -28,6 +28,12 @@ const Payment = (() => {
     return (typeof Currency !== 'undefined' && Currency.getActive) ? Currency.getActive() : CONFIG.payment.paypal.currency;
   }
 
+  function _getActiveLanguage() {
+    return (typeof window !== 'undefined' && window.LANG) || 
+           localStorage.getItem('dornori-lang') || 
+           'en';
+  }
+
   function _normalizeFormData(formData) {
     return typeof formData === 'function' ? formData : () => formData;
   }
@@ -82,15 +88,11 @@ const Payment = (() => {
     return result;
   }
 
-  // ============================================================
-  // CAPTURE ORDER - ONLY PASS ORDER ID AND REF
-  // WORKER EXTRACTS EVERYTHING FROM PAYPAL
-  // ============================================================
-  async function _captureOrder(orderId, orderRef) {
+  async function _captureOrder(orderId, orderRef, language) {
     const res = await fetch(`${WORKER}/api/capture-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, orderRef })
+      body: JSON.stringify({ orderId, orderRef, language })
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -149,8 +151,8 @@ const Payment = (() => {
           onClick: async () => {
             try {
               const currency = _getActiveCurrency();
+              const language = _getActiveLanguage();
               
-              // Create order with minimal data - PayPal will get address from wallet
               const order = await _createStandardOrder(cart, {}, currency, 'paypal');
               
               const paymentDataRequest = {
@@ -181,10 +183,19 @@ const Payment = (() => {
               
               if (confirmResult.status === 'DECLINED') throw new Error('Payment declined');
 
-              // CAPTURE - worker extracts all data from PayPal
-              const captureResult = await _captureOrder(order.orderId, order.orderRef);
+              // CAPTURE - worker returns PayPal data
+              const captureResult = await _captureOrder(order.orderId, order.orderRef, language);
               
-              localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
+              // STORE PayPal data in localStorage for success page
+              if (captureResult.success && captureResult.customer) {
+                localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
+                localStorage.setItem('webshop_paypal_order_id', captureResult.paypalOrderId);
+                localStorage.setItem('webshop_paypal_transaction_id', captureResult.transactionId);
+                localStorage.setItem('webshop_dor_reference', captureResult.dorReference);
+                localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult));
+              }
+              
+              localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult));
               _dispatch('payment:success', { 
                 orderRef: order.orderRef, 
                 processor: 'googlepay', 
@@ -246,8 +257,8 @@ const Payment = (() => {
       btn.addEventListener('click', async () => {
         try {
           const currency = _getActiveCurrency();
+          const language = _getActiveLanguage();
           
-          // Create order with minimal data - PayPal will get address from wallet
           const order = await _createStandardOrder(cart, {}, currency, 'paypal');
 
           const paymentRequest = {
@@ -290,10 +301,18 @@ const Payment = (() => {
               });
               
               if (confirmResult.approveApplePayPayment) {
-                // CAPTURE - worker extracts all data from PayPal
-                const captureResult = await _captureOrder(order.orderId, order.orderRef);
+                // CAPTURE - worker returns PayPal data
+                const captureResult = await _captureOrder(order.orderId, order.orderRef, language);
                 
-                localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
+                // STORE PayPal data in localStorage for success page
+                if (captureResult.success && captureResult.customer) {
+                  localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
+                  localStorage.setItem('webshop_paypal_order_id', captureResult.paypalOrderId);
+                  localStorage.setItem('webshop_paypal_transaction_id', captureResult.transactionId);
+                  localStorage.setItem('webshop_dor_reference', captureResult.dorReference);
+                  localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult));
+                }
+                
                 session.completePayment(ApplePaySession.STATUS_SUCCESS);
                 _dispatch('payment:success', { 
                   orderRef: order.orderRef, 
@@ -374,24 +393,25 @@ const Payment = (() => {
       cardSection.id = 'paypal-card-section';
       cardSection.className = 'paypal-card-section';
       
+      // FIXED: Clean credit card form - no double boxes
       cardSection.innerHTML = `
         <div class="webshop-form" style="padding:0;">
           <div class="webshop-form-group">
             <label class="webshop-form-label" style="display:block;font-size:0.75rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--c-text-3,#8a8f87);margin-bottom:6px;">Card Number</label>
-            <div id="card-number-field" class="webshop-form-input paypal-hosted-field"></div>
+            <div id="card-number-field" class="paypal-hosted-field"></div>
           </div>
           <div class="webshop-form-row" style="display:flex;gap:14px;margin:0 -6px;">
             <div class="webshop-form-group" style="flex:1;padding:0 6px;">
               <label class="webshop-form-label" style="display:block;font-size:0.75rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--c-text-3,#8a8f87);margin-bottom:6px;">Expiration</label>
-              <div id="expiry-field" class="webshop-form-input paypal-hosted-field"></div>
+              <div id="expiry-field" class="paypal-hosted-field"></div>
             </div>
             <div class="webshop-form-group" style="flex:1;padding:0 6px;">
               <label class="webshop-form-label" style="display:block;font-size:0.75rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--c-text-3,#8a8f87);margin-bottom:6px;">CVV</label>
-              <div id="cvv-field" class="webshop-form-input paypal-hosted-field"></div>
+              <div id="cvv-field" class="paypal-hosted-field"></div>
             </div>
           </div>
         </div>
-        <button id="paypal-card-submit" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;margin-top:8px;">
+        <button id="paypal-card-submit" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;margin-top:12px;">
           Pay Now
         </button>
         <div id="card-error-message" class="webshop-form-error" style="display:none;margin-top:8px;"></div>
@@ -465,9 +485,18 @@ const Payment = (() => {
           onApprove: async (data) => {
             const submitBtn = container.querySelector('#paypal-card-submit');
             try {
-              // CAPTURE - worker extracts all data from PayPal
-              const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef);
-              localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
+              const language = _getActiveLanguage();
+              const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language);
+              
+              // STORE PayPal data in localStorage for success page
+              if (captureResult.success && captureResult.customer) {
+                localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
+                localStorage.setItem('webshop_paypal_order_id', captureResult.paypalOrderId);
+                localStorage.setItem('webshop_paypal_transaction_id', captureResult.transactionId);
+                localStorage.setItem('webshop_dor_reference', captureResult.dorReference);
+                localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult));
+              }
+              
               _dispatch('payment:success', {
                 orderRef: localStorage.getItem('webshop_order_ref') || orderRef,
                 processor: 'card',
@@ -574,9 +603,18 @@ const Payment = (() => {
         },
         onApprove: async (data) => {
           try {
-            // CAPTURE - worker extracts all data from PayPal
-            const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef);
-            localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult.paypalData));
+            const language = _getActiveLanguage();
+            const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language);
+            
+            // STORE PayPal data in localStorage for success page
+            if (captureResult.success && captureResult.customer) {
+              localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
+              localStorage.setItem('webshop_paypal_order_id', captureResult.paypalOrderId);
+              localStorage.setItem('webshop_paypal_transaction_id', captureResult.transactionId);
+              localStorage.setItem('webshop_dor_reference', captureResult.dorReference);
+              localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult));
+            }
+            
             _dispatch("payment:success", { 
               orderRef: localStorage.getItem('webshop_order_ref') || orderRef, 
               processor: "paypal", 
@@ -591,6 +629,10 @@ const Payment = (() => {
           localStorage.removeItem('webshop_order_ref');
           localStorage.removeItem('webshop_paypal_order_id');
           localStorage.removeItem('webshop_order_snapshot');
+          localStorage.removeItem('webshop_paypal_customer');
+          localStorage.removeItem('webshop_paypal_transaction_id');
+          localStorage.removeItem('webshop_dor_reference');
+          localStorage.removeItem('webshop_paypal_result');
           _dispatch("payment:cancel", { orderRef, processor: "paypal" });
         },
         onError: err => {
