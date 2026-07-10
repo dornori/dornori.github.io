@@ -173,8 +173,7 @@ const Payment = (() => {
                   totalPrice: Number(order.totals.total).toFixed(2),
                   currencyCode: currency,
                   countryCode: gpayConfig.countryCode || 'NL'
-                },
-                callbackIntents: ['SHIPPING_ADDRESS', 'PAYMENT_AUTHORIZATION']
+                }
               };
 
               const paymentData = await paymentsClient.loadPaymentData(paymentDataRequest);
