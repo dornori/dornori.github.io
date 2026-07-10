@@ -342,17 +342,6 @@
   var formData = {};
   var orderRef = null;
 
-  // ============================================================
-  // BUILD SOURCE URL (language + everything up to language)
-  // ============================================================
-  function getSourceUrl() {
-    var origin = window.location.origin;
-    var pathname = window.location.pathname;
-    var parts = pathname.split('/');
-    var lang = parts[1] || 'en';
-    return origin + '/' + lang + '/';
-  }
-
   var L = {
     days:           T('days', 'business days'),
     b2b:            T('b2b', '(B2B)'),
@@ -734,10 +723,6 @@
   }
 
   function collectFormData() {
-    // Get language and source URL
-    var lang = window.LANG || localStorage.getItem('dornori-lang') || 'en';
-    var sourceUrl = getSourceUrl();
-    
     formData = {
       first_name:         document.getElementById('cart-first-name').value.trim(),
       last_name:          document.getElementById('cart-last-name').value.trim(),
@@ -754,9 +739,7 @@
       billing_city:       billingChoice==='different'?(document.getElementById('cart-billing-city')||{}).value||'':null,
       billing_postal:     billingChoice==='different'?(document.getElementById('cart-billing-postal')||{}).value||'':null,
       billing_country:    billingChoice==='different'?(document.getElementById('cart-billing-country')||{}).value||'':null,
-      // NEW: Send language and source URL to worker
-      language:           lang,
-      sourceUrl:          sourceUrl
+      language:           _lang
     };
   }
 
@@ -777,10 +760,7 @@
     localStorage.removeItem(FORM_KEY);
     Shop.submitOrderStatus(ref, 'PAYMENT_SUCCESS').catch(function() {});
     
-    // Use language from formData for redirect
-    var lang = formData.language || window.LANG || localStorage.getItem('dornori-lang') || 'en';
-    var _slug = (window.T && window.T.url_slugs && window.T.url_slugs.success) || 'success';
-    window.location.href = '/' + lang + '/' + _slug + '/?ref=' + encodeURIComponent(ref) + '&status=success';
+    window.location.href = '/success/?ref=' + encodeURIComponent(ref) + '&status=success';
   }
 
   function wireButtons() {
