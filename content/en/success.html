@@ -65,8 +65,9 @@
       if (!customer.amount && totals.total != null) customer.amount = Number(totals.total).toFixed(2);
       if (!customer.currency) customer.currency = snapshot.currency || 'EUR';
 
-      customer._items = snapshot.items || [];
-      customer._totals = totals;
+      // Use items from snapshot if available, otherwise from customer._items
+      customer._items = customer._items || snapshot.items || [];
+      customer._totals = customer._totals || totals;
 
       return {
         customer,
@@ -112,15 +113,27 @@
       if (customer.shipping_country) shippingLines.push(customer.shipping_country);
       const shippingAddress = shippingLines.join(', ') || 'Not provided';
 
-      // Build product/order lines
+      // Build product/order lines - use customer._items or snapshot items
       const items = customer._items || [];
       const totals = customer._totals || {};
+      
+      // Use breakdown values if available from PayPal capture
+      const subtotal = totals.subtotal != null ? totals.subtotal : 
+                       (customer._subtotal != null ? customer._subtotal : null);
+      const shippingTotal = totals.shipping != null ? totals.shipping : 
+                           (customer._shipping != null ? customer._shipping : null);
+      const taxTotal = totals.tax != null ? totals.tax : 
+                      (customer._tax != null ? customer._tax : null);
+      const grandTotal = totals.total != null ? totals.total : 
+                        (customer._total != null ? customer._total : null);
+
       const itemLines = items.length
         ? items.map(i => {
-            const qty = i.qty || 1;
+            const qty = i.qty || i.quantity || 1;
             const price = i.price != null ? fmt(i.price) : '?';
             const lineTotal = i.price != null ? fmt(i.price * qty) : '?';
-            return `- ${i.name || i.id || 'Product'} x${qty} @ ${price} ${currency} = ${lineTotal} ${currency}`;
+            const name = i.name || i.product_name || 'Product';
+            return `- ${name} x${qty} @ ${price} ${currency} = ${lineTotal} ${currency}`;
           }).join('\n')
         : '(no items recorded)';
 
@@ -135,10 +148,10 @@
         '',
         '--- PRODUCTS ---',
         itemLines,
-        totals.subtotal != null ? `Subtotal: ${fmt(totals.subtotal)} ${currency}` : '',
-        totals.shipping != null ? `Shipping: ${fmt(totals.shipping)} ${currency}` : '',
-        totals.tax != null ? `Tax: ${fmt(totals.tax)} ${currency}` : '',
-        totals.total != null ? `Total: ${fmt(totals.total)} ${currency}` : '',
+        subtotal != null ? `Subtotal: ${fmt(subtotal)} ${currency}` : '',
+        shippingTotal != null ? `Shipping: ${fmt(shippingTotal)} ${currency}` : '',
+        taxTotal != null ? `Tax: ${fmt(taxTotal)} ${currency}` : '',
+        grandTotal != null ? `Total: ${fmt(grandTotal)} ${currency}` : '',
         '',
         '--- CUSTOMER INFORMATION ---',
         `Name: ${fullName}`,
@@ -174,13 +187,16 @@
             name: fullName,
             email: email,
             phone: phone,
-          },
-          shipping: {
-            name: customer.shipping_name,
-            address: shippingAddress,
+            shipping_name: customer.shipping_name,
+            shipping_address: shippingAddress,
           },
           items: items,
-          totals: totals,
+          totals: {
+            subtotal: subtotal,
+            shipping: shippingTotal,
+            tax: taxTotal,
+            total: grandTotal
+          },
           paypalData: customer
         }
       };
@@ -218,13 +234,6 @@
     if (!page) return;
     
     const { customer, orderId, transactionId, dorReference } = data;
-    
-    const fullName = customer.full_name || 
-                     [customer.first_name, customer.last_name].filter(Boolean).join(' ') || 
-                     customer.shipping_name ||
-                     'Customer';
-    const currency = customer.currency || 'EUR';
-    const amount = customer.amount || 'N/A';
     
     if (status === 'success') {
       page.innerHTML = `
