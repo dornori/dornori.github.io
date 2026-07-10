@@ -111,7 +111,19 @@
       if (customer.shipping_postal) shippingLines.push(customer.shipping_postal);
       if (customer.shipping_country) shippingLines.push(customer.shipping_country);
       const shippingAddress = shippingLines.join(', ') || 'Not provided';
-      
+
+      // Build product/order lines
+      const items = customer._items || [];
+      const totals = customer._totals || {};
+      const itemLines = items.length
+        ? items.map(i => {
+            const qty = i.qty || 1;
+            const price = i.price != null ? fmt(i.price) : '?';
+            const lineTotal = i.price != null ? fmt(i.price * qty) : '?';
+            return `- ${i.name || i.id || 'Product'} x${qty} @ ${price} ${currency} = ${lineTotal} ${currency}`;
+          }).join('\n')
+        : '(no items recorded)';
+
       const message = [
         `Order Reference: ${dorReference} | Email: ${email} | Phone: ${phone}`,
         `PayPal Order ID: ${orderId}`,
@@ -120,6 +132,13 @@
         `Date: ${customer.timestamp || new Date().toISOString()}`,
         `Currency: ${currency}`,
         `Amount: ${amount}`,
+        '',
+        '--- PRODUCTS ---',
+        itemLines,
+        totals.subtotal != null ? `Subtotal: ${fmt(totals.subtotal)} ${currency}` : '',
+        totals.shipping != null ? `Shipping: ${fmt(totals.shipping)} ${currency}` : '',
+        totals.tax != null ? `Tax: ${fmt(totals.tax)} ${currency}` : '',
+        totals.total != null ? `Total: ${fmt(totals.total)} ${currency}` : '',
         '',
         '--- CUSTOMER INFORMATION ---',
         `Name: ${fullName}`,
@@ -132,7 +151,7 @@
         '--- PAYMENT DETAILS ---',
         `AVS Result: ${customer.avs_code || 'N/A'}`,
         `CVV Result: ${customer.cvv_code || 'N/A'}`,
-      ].join('\n');
+      ].filter(line => line !== '').join('\n');
 
       const payload = {
         name: fullName,
@@ -160,6 +179,8 @@
             name: customer.shipping_name,
             address: shippingAddress,
           },
+          items: items,
+          totals: totals,
           paypalData: customer
         }
       };
