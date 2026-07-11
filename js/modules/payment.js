@@ -442,73 +442,22 @@ const Payment = (() => {
       }
 
       const getFormData = _normalizeFormData(formData);
+      el.innerHTML = "";
+      if (_renderTokens.get(el) !== myToken) return;
+
       const uid = 'pf' + myToken + '_' + Date.now();
 
-      // ── Render payment method buttons in #payment-primary-methods ──
-      const primaryMethodsEl = document.getElementById('payment-primary-methods');
-      if (primaryMethodsEl) {
-        primaryMethodsEl.innerHTML = '';
-        
-        // Google Pay Button
-        const googleBtn = document.createElement('button');
-        googleBtn.type = 'button';
-        googleBtn.className = 'webshop-btn';
-        googleBtn.style.cssText = 'width:100%;padding:14px 16px;background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);';
-        googleBtn.textContent = 'Google Pay';
-        googleBtn.addEventListener('click', () => console.log('Google Pay clicked'));
-        primaryMethodsEl.appendChild(googleBtn);
+      // ── One white rounded card holding everything: fields, Pay Now, divider, PayPal ──
+      const paymentBox = document.createElement('div');
+      paymentBox.className = 'payment-card-box';
+      el.appendChild(paymentBox);
 
-        // Apple Pay Button
-        const appleBtn = document.createElement('button');
-        appleBtn.type = 'button';
-        appleBtn.className = 'webshop-btn';
-        appleBtn.style.cssText = 'width:100%;padding:14px 16px;background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);';
-        appleBtn.textContent = 'Apple Pay';
-        appleBtn.addEventListener('click', () => console.log('Apple Pay clicked'));
-        primaryMethodsEl.appendChild(appleBtn);
-
-        // Credit Card Button
-        const cardBtn = document.createElement('button');
-        cardBtn.type = 'button';
-        cardBtn.className = 'webshop-btn webshop-btn--primary';
-        cardBtn.style.cssText = 'width:100%;padding:14px 16px;';
-        cardBtn.textContent = '💳 Credit Card';
-        cardBtn.addEventListener('click', () => {
-          // Show shipping and payment forms
-          document.getElementById('shipping-form-section').style.display = 'block';
-          document.getElementById('payment-form-section').style.display = 'block';
-          primaryMethodsEl.style.display = 'none';
-          document.getElementById('payment-alt-methods').style.display = 'none';
-          
-          // Render card fields if not already rendered
-          this._renderCardFieldsIfNeeded(cart, orderRef, getFormData, activeCurrency, onBeforePay, uid);
-        });
-        primaryMethodsEl.appendChild(cardBtn);
-
-        // PayPal Button Container
-        const paypalBtnContainer = document.createElement('div');
-        paypalBtnContainer.id = 'paypal-button-container-' + uid;
-        primaryMethodsEl.appendChild(paypalBtnContainer);
-
-        // Render PayPal button
-        await this._renderPayPalButton(paypalBtnContainer, cart, getFormData, activeCurrency, orderRef, onBeforePay, el, myToken);
-      }
-
-      // ── Render alternative payment methods ──
-      const altMethodsEl = document.getElementById('payment-alt-methods');
-      if (altMethodsEl) {
-        this._renderAltPaymentMethods(altMethodsEl, getFormData, uid);
-      }
-    },
-
-    _renderCardFieldsIfNeeded(cart, orderRef, getFormData, currency, onBeforePay, uid) {
-      const paymentFormSection = document.getElementById('payment-form-section');
-      if (!paymentFormSection || paymentFormSection.querySelector('[data-card-fields-init]')) return;
-
-      this._renderCardFields(paymentFormSection, cart, orderRef, getFormData, currency, onBeforePay, uid);
-    },
-
-    async _renderCardFields(container, cart, orderRef, getFormData, currency, onBeforePay, el, myToken, uid) {
+      // ── Credit Card Section ──
+      const cardSection = document.createElement('div');
+      cardSection.id = 'paypal-card-section';
+      cardSection.className = 'paypal-card-section';
+      
+      cardSection.innerHTML = `
         <div class="card-fields-box">
           <div id="card-number-field-${uid}" class="paypal-hosted-field"></div>
           <div class="card-fields-divider-h"></div>
@@ -798,44 +747,6 @@ const Payment = (() => {
           _dispatch("payment:error", { orderRef, processor: "paypal", error: err });
         },
       }).render(container);
-    },
-
-    _renderAltPaymentMethods(container, getFormData, uid) {
-      try {
-        const formData = getFormData ? getFormData() : {};
-        const country = formData.country || '';
-
-        const altMethods = {
-          'DE': [{ name: 'SEPA', label: 'SEPA Direct Debit' }],
-          'NL': [{ name: 'iDEAL', label: 'iDEAL' }],
-          'BE': [{ name: 'Bancontact', label: 'Bancontact' }],
-          'AT': [{ name: 'eps', label: 'eps' }],
-          'FR': [{ name: 'Giropay', label: 'Giropay' }],
-          'IT': [{ name: 'Sofort', label: 'Sofortüberweisung' }],
-          'ES': [{ name: 'Sofort', label: 'Sofortüberweisung' }]
-        };
-
-        const methods = altMethods[country] || [];
-        if (methods.length === 0) {
-          container.style.display = 'none';
-          return;
-        }
-
-        container.style.display = 'grid';
-        container.innerHTML = '';
-        
-        methods.forEach(method => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'webshop-btn';
-          btn.style.cssText = 'width:100%;padding:14px 16px;background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);';
-          btn.textContent = method.label;
-          btn.addEventListener('click', () => console.log(method.name + ' selected'));
-          container.appendChild(btn);
-        });
-      } catch (e) {
-        console.error('Alt payment methods error:', e);
-      }
     }
   };
 
@@ -876,6 +787,31 @@ const Payment = (() => {
     const el = typeof mountEl === "string" ? document.querySelector(mountEl) : mountEl;
     if (!el) return;
     await _adapters[CONFIG.payment.activeProcessor || "none"].render(cart, totals, orderRef, el, formData, onBeforePay);
+    
+    // ── Post-render: Hide forms and add Credit Card button ──
+    setTimeout(() => {
+      document.getElementById("shipping-form-section").style.display = "none";
+      document.getElementById("payment-form-section").style.display = "none";
+      document.getElementById("payment-alt-methods").style.display = "none";
+      
+      const primaryMethods = document.getElementById("payment-primary-methods");
+      const mount = document.getElementById("cart-payment-mount");
+      
+      if (primaryMethods && mount && !document.getElementById("credit-card-btn")) {
+        const cardBtn = document.createElement("button");
+        cardBtn.id = "credit-card-btn";
+        cardBtn.type = "button";
+        cardBtn.className = "webshop-btn webshop-btn--primary";
+        cardBtn.style.cssText = "width:100%;padding:14px 16px;";
+        cardBtn.textContent = "💳 Credit Card";
+        cardBtn.addEventListener("click", () => {
+          document.getElementById("shipping-form-section").style.display = "block";
+          document.getElementById("payment-form-section").style.display = "block";
+          primaryMethods.style.display = "none";
+        });
+        primaryMethods.insertBefore(cardBtn, mount);
+      }
+    }, 100);
   }
 
   async function switchProcessor(name) {
