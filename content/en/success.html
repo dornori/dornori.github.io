@@ -1,31 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order confirmed · Dornori</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      background: #f8f6f2;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      padding: 2rem 1rem;
+      color: #1a1714;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      max-width: 820px;
+      width: 100%;
+      background: white;
+      border-radius: 28px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.06);
+      padding: 2.5rem 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .webshop-confetti {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      pointer-events: none;
+      z-index: 9999;
+      height: 100vh;
+      overflow: hidden;
+    }
+    @keyframes fall {
+      0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+    .confetti-piece {
+      position: absolute;
+      border-radius: 2px;
+      animation: fall linear forwards;
+    }
+    .success-wrap {
+      min-height: 60vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem 0;
+    }
+    .webshop-result-page {
+      width: 100%;
+    }
+    .webshop-result-icon--success {
+      background: #4a7c59;
+      color: white;
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 34px;
+      font-weight: 500;
+      margin: 0 auto 18px;
+      box-shadow: 0 8px 16px rgba(74,124,89,0.15);
+    }
+    h1 {
+      font-size: 1.9rem;
+      font-weight: 600;
+      text-align: center;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.25rem;
+    }
+    .subhead {
+      text-align: center;
+      color: #4a4a4a;
+      font-size: 1rem;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid #eae6de;
+      padding-bottom: 1.2rem;
+    }
+    .order-summary {
+      background: #fcfaf7;
+      border-radius: 20px;
+      padding: 1.5rem 1.2rem;
+      margin: 1.2rem 0 1.8rem 0;
+      border: 1px solid #ece7df;
+    }
+    .order-summary h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: #3d3d3d;
+      margin-bottom: 1rem;
+      border-bottom: 1px dashed #d9d2c7;
+      padding-bottom: 0.6rem;
+    }
+    .order-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    .order-table th {
+      text-align: left;
+      font-weight: 600;
+      color: #3d3d3d;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #ddd6cb;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .order-table td {
+      padding: 0.6rem 0.2rem 0.6rem 0;
+      border-bottom: 1px solid #ede8df;
+      vertical-align: middle;
+    }
+    .order-table .product-cell { font-weight: 500; }
+    .order-table .id-cell { color: #6b655b; font-family: monospace; font-size: 0.8rem; }
+    .order-table .qty-cell { text-align: center; }
+    .order-table .price-cell { text-align: right; font-family: monospace; }
+    .order-table .total-cell { text-align: right; font-weight: 600; font-family: monospace; }
+    .order-table .totals-row td {
+      border-bottom: none;
+      padding-top: 0.7rem;
+    }
+    .order-table .totals-row .label {
+      font-weight: 600;
+      color: #2c2a27;
+    }
+    .order-table .totals-row .value {
+      font-weight: 600;
+      font-family: monospace;
+      text-align: right;
+    }
+    .order-table .grand-total td {
+      border-top: 2px solid #c6bdb0;
+      padding-top: 0.9rem;
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+    .order-table .grand-total .value {
+      font-weight: 700;
+    }
+    .ref-block {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      background: #f3f0ea;
+      border-radius: 14px;
+      padding: 0.9rem 1.4rem;
+      margin: 1.8rem 0 1.2rem 0;
+      font-size: 0.9rem;
+      border: 1px solid #e2dad0;
+    }
+    .ref-block span {
+      font-weight: 500;
+    }
+    .ref-block .ref-value {
+      font-family: monospace;
+      background: white;
+      padding: 0.1rem 0.8rem;
+      border-radius: 30px;
+      font-size: 0.9rem;
+    }
+    .customer-card {
+      background: #f9f7f3;
+      border-radius: 18px;
+      padding: 1.2rem 1.5rem;
+      margin: 1.4rem 0 0.8rem 0;
+      border: 1px solid #e7e0d6;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem 2rem;
+    }
+    .customer-card .info-line {
+      display: flex;
+      align-items: baseline;
+      gap: 0.4rem;
+      font-size: 0.95rem;
+      flex-wrap: wrap;
+    }
+    .customer-card .info-line strong {
+      font-weight: 600;
+      color: #3d3530;
+      min-width: 70px;
+    }
+    .customer-card .info-line .value {
+      font-weight: 450;
+      color: #1f1b18;
+    }
+    .btn-continue {
+      display: inline-block;
+      background: #1a1714;
+      color: white;
+      text-decoration: none;
+      padding: 0.85rem 2.2rem;
+      border-radius: 60px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+      transition: background 0.15s;
+      margin-top: 1.6rem;
+      border: none;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .btn-continue:hover {
+      background: #2f2a26;
+    }
+    .btn-wrap {
+      text-align: center;
+    }
+    .ticket-note {
+      background: #f0ede8;
+      border-radius: 40px;
+      padding: 0.3rem 1.2rem;
+      display: inline-block;
+      font-size: 0.8rem;
+      font-family: monospace;
+      color: #3d3732;
+      margin: 0.2rem 0 0.4rem 0;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #e3dbd0;
+      margin: 1.4rem 0 1rem 0;
+    }
+    @media (max-width: 600px) {
+      .container { padding: 1.5rem 1rem; }
+      .order-table { font-size: 0.85rem; }
+      .customer-card { flex-direction: column; gap: 0.3rem; }
+      .ref-block { flex-direction: column; gap: 0.4rem; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
 <div class="container">
-<style>
-  .success-wrap { min-height:60vh; display:flex; align-items:center; justify-content:center; padding:3rem 1rem; }
-  .webshop-confetti { position:fixed; top:0; left:0; right:0; pointer-events:none; z-index:9999; }
-  @keyframes fall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(100vh) rotate(720deg);opacity:0} }
-  .confetti-piece { position:absolute; border-radius:2px; animation:fall linear forwards; }
-  .webshop-ref-badge { background:var(--c-surface,#f5f5f5); border:1px solid var(--c-border,#ddd); border-radius:8px; padding:12px 24px; font-family:monospace; font-size:1.1rem; display:inline-block; margin:8px 0; }
-  .webshop-order-details { margin:20px 0; text-align:left; max-width:500px; margin-left:auto; margin-right:auto; }
-  .webshop-order-details .detail-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--c-border,#eee); }
-  .webshop-order-details .detail-row .label { font-weight:600; color:var(--c-text-2,#666); }
-  .webshop-order-details .detail-row .value { font-family:monospace; }
-  .webshop-result-icon--success { background:#4a7c59; color:white; width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:32px; margin:0 auto 20px; }
-</style>
-
-<div class="webshop-confetti" id="confetti-container"></div>
-<div class="success-wrap">
-  <div class="webshop-result-page webshop-fade-in" id="result-page"></div>
+  <div class="webshop-confetti" id="confetti-container"></div>
+  <div class="success-wrap">
+    <div class="webshop-result-page" id="result-page"></div>
+  </div>
 </div>
 
 <script>
 (function () {
   'use strict';
-  
+
+  // ----- configuration -----
   const TICKETING_URL = 'https://dornori-ticketing.dornori-info.workers.dev/api/message';
-  
-  const params = new URLSearchParams(window.location.search);
-  const ref = params.get('ref') || '';
-  const status = params.get('status') || 'success';
+
+  // ----- helpers -----
+  function getParam(key) {
+    const p = new URLSearchParams(window.location.search);
+    return p.get(key) || '';
+  }
+  const ref = getParam('ref');
+  const statusParam = getParam('status') || 'success';
   const lang = window.LANG || localStorage.getItem('dornori-lang') || 'en';
 
   function T(key, fallback) {
@@ -34,11 +265,12 @@
     return fallback || key;
   }
 
-  function fmt(n) { return (Math.round((n||0)*100)/100).toFixed(2); }
+  function fmt(n) {
+    if (n === undefined || n === null) return '0.00';
+    return (Math.round((Number(n) || 0) * 100) / 100).toFixed(2);
+  }
 
-  // ============================================================
-  // READ DATA FROM LOCALSTORAGE
-  // ============================================================
+  // ----- read localStorage (recalculate totals properly) -----
   function getPayPalData() {
     try {
       const customerRaw = localStorage.getItem('webshop_paypal_customer');
@@ -52,28 +284,94 @@
       const fd = snapshot.formData || {};
       const totals = snapshot.totals || {};
 
+      // fill missing customer fields
       if (!customer.email && fd.email) customer.email = fd.email;
       if (!customer.phone && fd.phone) customer.phone = fd.phone;
       if (!customer.first_name && fd.first_name) customer.first_name = fd.first_name;
       if (!customer.last_name && fd.last_name) customer.last_name = fd.last_name;
-      if (!customer.full_name && (fd.first_name || fd.last_name))
-        customer.full_name = [fd.first_name, fd.last_name].filter(Boolean).join(' ');
+      if (!customer.full_name && (customer.first_name || customer.last_name))
+        customer.full_name = [customer.first_name, customer.last_name].filter(Boolean).join(' ');
       if (!customer.shipping_address_line1 && fd.address) customer.shipping_address_line1 = fd.address;
       if (!customer.shipping_city && fd.city) customer.shipping_city = fd.city;
       if (!customer.shipping_postal && fd.postal) customer.shipping_postal = fd.postal;
       if (!customer.shipping_country && fd.country) customer.shipping_country = fd.country;
-      if (!customer.amount && totals.total != null) customer.amount = Number(totals.total).toFixed(2);
-      if (!customer.currency) customer.currency = snapshot.currency || 'EUR';
+      
+      customer.currency = customer.currency || snapshot.currency || 'EUR';
 
-      // Use items from snapshot if available, otherwise from customer._items
-      customer._items = customer._items || snapshot.items || [];
-      customer._totals = customer._totals || totals;
+      // Items: prefer snapshot.items, then customer._items
+      let items = [];
+      if (snapshot.items && Array.isArray(snapshot.items)) {
+        items = snapshot.items;
+      } else if (customer._items && Array.isArray(customer._items)) {
+        items = customer._items;
+      } else if (fd.items && Array.isArray(fd.items)) {
+        items = fd.items;
+      }
+
+      // Ensure each item has proper fields
+      items = items.map(it => ({
+        name: it.name || it.product_name || it.title || 'Product',
+        id: it.sku || it.id || it.productId || it.variantId || it.item_id || 'N/A',
+        qty: Number(it.qty || it.quantity || 1),
+        price: Number(it.price || it.unit_price || it.amount || 0)
+      }));
+
+      // Calculate totals from items (THIS FIXES THE 0 SUBTOTAL ISSUE)
+      const subtotal = items.reduce((sum, it) => sum + (it.price * it.qty), 0);
+      
+      // Get shipping and tax from totals or fallback
+      let shipping = 0;
+      let tax = 0;
+      
+      // Try to get shipping from various sources
+      if (totals.shipping !== undefined && totals.shipping !== null) {
+        shipping = Number(totals.shipping);
+      } else if (customer._shipping !== undefined && customer._shipping !== null) {
+        shipping = Number(customer._shipping);
+      } else if (customer.shipping_cost !== undefined && customer.shipping_cost !== null) {
+        shipping = Number(customer.shipping_cost);
+      } else if (fd.shipping !== undefined && fd.shipping !== null) {
+        shipping = Number(fd.shipping);
+      }
+      
+      // Try to get tax from various sources
+      if (totals.tax !== undefined && totals.tax !== null) {
+        tax = Number(totals.tax);
+      } else if (customer._tax !== undefined && customer._tax !== null) {
+        tax = Number(customer._tax);
+      } else if (fd.tax !== undefined && fd.tax !== null) {
+        tax = Number(fd.tax);
+      }
+      
+      const total = subtotal + shipping + tax;
+
+      // Update totals
+      const recalcTotals = {
+        subtotal: subtotal,
+        shipping: shipping,
+        tax: tax,
+        total: total
+      };
+
+      customer._totals = recalcTotals;
+      customer._items = items;
+      customer.amount = total.toFixed(2);
+
+      // shipping address display
+      const shippingLines = [];
+      if (customer.shipping_name) shippingLines.push(`name: ${customer.shipping_name}`);
+      if (customer.shipping_address_line1) shippingLines.push(`Address: ${customer.shipping_address_line1}`);
+      if (customer.shipping_address_line2) shippingLines.push(customer.shipping_address_line2);
+      if (customer.shipping_city) shippingLines.push(`City: ${customer.shipping_city}`);
+      if (customer.shipping_postal) shippingLines.push(`Postcode: ${customer.shipping_postal}`);
+      if (customer.shipping_country) shippingLines.push(`Country: ${customer.shipping_country}`);
+      customer._shippingDisplay = shippingLines.join(', ') || 'Not provided';
 
       return {
         customer,
         orderId: orderId || 'N/A',
         transactionId: txId || 'N/A',
-        dorReference: dorRef || ref || 'N/A'
+        dorReference: dorRef || ref || 'DOR-' + Date.now().toString(36).toUpperCase()
       };
     } catch (e) {
       console.error('Error reading localStorage:', e);
@@ -81,78 +379,79 @@
     }
   }
 
-  // ============================================================
-  // SEND TICKET TO TICKETING SYSTEM
-  // ============================================================
+  // ----- send ticket with EXACT format you requested -----
   async function sendToTicketing(data) {
-    if (status !== 'success') {
-      console.log('Skipping ticketing - not success status');
+    if (statusParam !== 'success') {
+      console.log('Skipping ticketing - not success');
       return null;
     }
-
     try {
       const { customer, orderId, transactionId, dorReference } = data;
-      
       const fullName = customer.full_name || 
                        [customer.first_name, customer.last_name].filter(Boolean).join(' ') || 
-                       customer.shipping_name ||
-                       'Customer';
-      
+                       customer.shipping_name || 'Customer';
       const email = customer.email || '';
       const phone = customer.phone || '';
       const currency = customer.currency || 'EUR';
-      const amount = customer.amount || 'N/A';
-      
-      // Build shipping address
-      const shippingLines = [];
-      if (customer.shipping_name) shippingLines.push(customer.shipping_name);
-      if (customer.shipping_address_line1) shippingLines.push(customer.shipping_address_line1);
-      if (customer.shipping_address_line2) shippingLines.push(customer.shipping_address_line2);
-      if (customer.shipping_city) shippingLines.push(customer.shipping_city);
-      if (customer.shipping_postal) shippingLines.push(customer.shipping_postal);
-      if (customer.shipping_country) shippingLines.push(customer.shipping_country);
-      const shippingAddress = shippingLines.join(', ') || 'Not provided';
 
-      // Build product/order lines - use customer._items or snapshot items
+      // items and totals
       const items = customer._items || [];
-      const totals = customer._totals || {};
-      
-      // Use breakdown values if available from PayPal capture
-      const subtotal = totals.subtotal != null ? totals.subtotal : 
-                       (customer._subtotal != null ? customer._subtotal : null);
-      const shippingTotal = totals.shipping != null ? totals.shipping : 
-                           (customer._shipping != null ? customer._shipping : null);
-      const taxTotal = totals.tax != null ? totals.tax : 
-                      (customer._tax != null ? customer._tax : null);
-      const grandTotal = totals.total != null ? totals.total : 
-                        (customer._total != null ? customer._total : null);
+      const totals = customer._totals || { subtotal: 0, shipping: 0, tax: 0, total: 0 };
 
-      const itemLines = items.length
-        ? items.map(i => {
-            const qty = i.qty || i.quantity || 1;
-            const price = i.price != null ? fmt(i.price) : '?';
-            const lineTotal = i.price != null ? fmt(i.price * qty) : '?';
-            const name = i.name || i.product_name || i.title || 'Product';
-            const id = i.sku || i.id || i.productId || i.variantId || 'N/A';
-            return `- ${name} (ID: ${id}) x${qty} @ ${price} ${currency} = ${lineTotal} ${currency}`;
-          }).join('\n')
-        : '(no items recorded)';
+      // Build order table with proper formatting (EXACT format from your example)
+      const maxNameLen = Math.max(18, ...items.map(i => (i.name || '').length), 0);
+      const maxIdLen = Math.max(15, ...items.map(i => (i.id || '').length), 0);
+      
+      let orderLines = [];
+      
+      // Header
+      orderLines.push('Product' + ' '.repeat(Math.max(0, maxNameLen - 7)) + '  ID' + ' '.repeat(Math.max(0, maxIdLen - 2)) + '  Qty  Unit Price  Total');
+      orderLines.push('-'.repeat(maxNameLen+2) + '  ' + '-'.repeat(maxIdLen+2) + '  ---  ----------  -------');
+      
+      // Items
+      items.forEach(it => {
+        const name = (it.name || 'Product').padEnd(maxNameLen);
+        const id = (it.id || 'N/A').padEnd(maxIdLen);
+        const qty = String(it.qty || 1).padStart(3);
+        const unitPrice = fmt(it.price || 0);
+        const lineTotal = fmt((it.price || 0) * (it.qty || 1));
+        orderLines.push(`${name}  ${id}  ${qty}  ${currency}${unitPrice.padStart(9)}  ${currency}${lineTotal.padStart(7)}`);
+      });
+      
+      // Separator
+      orderLines.push('-'.repeat(maxNameLen+2) + '  ' + '-'.repeat(maxIdLen+2) + '  ---  ----------  -------');
+      
+      // Totals (EXACT format from your example)
+      const subtotalStr = fmt(totals.subtotal);
+      const shippingStr = fmt(totals.shipping);
+      const taxStr = fmt(totals.tax);
+      const totalStr = fmt(totals.total);
+      
+      // Calculate spacing to align the numbers
+      const labelWidth = maxNameLen + maxIdLen + 8; // approximate
+      
+      orderLines.push(`Subtotal${' '.repeat(Math.max(1, labelWidth - 8))}${currency}${subtotalStr.padStart(10)}`);
+      orderLines.push(`Shipping${' '.repeat(Math.max(1, labelWidth - 8))}${currency}${shippingStr.padStart(10)}`);
+      orderLines.push(`Tax${' '.repeat(Math.max(1, labelWidth - 3))}${currency}${taxStr.padStart(10)}`);
+      orderLines.push(`TOTAL${' '.repeat(Math.max(1, labelWidth - 5))}${currency}${totalStr.padStart(10)}`);
+
+      // Shipping address lines (matching your format)
+      const shippingLines = [];
+      if (customer.shipping_name) shippingLines.push(`name: ${customer.shipping_name}`);
+      if (customer.shipping_address_line1) shippingLines.push(`Address: ${customer.shipping_address_line1}`);
+      if (customer.shipping_city) shippingLines.push(`City: ${customer.shipping_city}`);
+      if (customer.shipping_postal) shippingLines.push(`Postcode: ${customer.shipping_postal}`);
+      if (customer.shipping_country) shippingLines.push(`Country: ${customer.shipping_country}`);
+      const shippingDisplay = shippingLines.length ? shippingLines.join('\n') : 'Not provided';
 
       const message = [
-        `Order Reference: ${dorReference} | Email: ${email} | Phone: ${phone}`,
-        `PayPal Order ID: ${orderId}`,
-        `Transaction ID: ${transactionId}`,
-        `Status: ${customer.status || 'completed'}`,
-        `Date: ${customer.timestamp || new Date().toISOString()}`,
-        `Currency: ${currency}`,
-        `Amount: ${amount}`,
+        `Date: ${new Date().toISOString()}`,
+        `Order Reference: ${dorReference}`,
+        `PayPal Transaction ID: ${transactionId}`,
+        `Status: COMPLETED`,
         '',
-        '--- PRODUCTS ---',
-        itemLines,
-        subtotal != null ? `Subtotal: ${fmt(subtotal)} ${currency}` : '',
-        shippingTotal != null ? `Shipping: ${fmt(shippingTotal)} ${currency}` : '',
-        taxTotal != null ? `Tax: ${fmt(taxTotal)} ${currency}` : '',
-        grandTotal != null ? `Total: ${fmt(grandTotal)} ${currency}` : '',
+        '--- ORDER ---',
+        ...orderLines,
         '',
         '--- CUSTOMER INFORMATION ---',
         `Name: ${fullName}`,
@@ -160,12 +459,12 @@
         `Phone: ${phone}`,
         '',
         '--- SHIPPING ADDRESS ---',
-        shippingAddress,
-        '',
-        '--- PAYMENT DETAILS ---',
-        `AVS Result: ${customer.avs_code || 'N/A'}`,
-        `CVV Result: ${customer.cvv_code || 'N/A'}`,
-      ].filter(line => line !== '').join('\n');
+        shippingDisplay
+      ].join('\n');
+
+      // Log the ticket for debugging
+      console.log('📝 TICKET CONTENT:');
+      console.log(message);
 
       const payload = {
         name: fullName,
@@ -182,44 +481,34 @@
           orderRef: dorReference,
           transactionId: transactionId,
           currency: currency,
-          amount: amount,
-          status: customer.status,
+          amount: totals.total,
+          status: 'COMPLETED',
           customer: {
             name: fullName,
             email: email,
             phone: phone,
             shipping_name: customer.shipping_name,
-            shipping_address: shippingAddress,
+            shipping_address: shippingDisplay,
           },
           items: items,
-          totals: {
-            subtotal: subtotal,
-            shipping: shippingTotal,
-            tax: taxTotal,
-            total: grandTotal
-          },
+          totals: totals,
           paypalData: customer
         }
       };
 
       console.log('📤 Sending ticket to:', TICKETING_URL);
-      console.log('📦 Payload:', payload);
-
       const res = await fetch(TICKETING_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-
       if (!res.ok) {
         const errorText = await res.text();
         console.error('❌ Ticket creation failed:', res.status, errorText);
         return null;
       }
-
       const result = await res.json();
       console.log('✅ Ticket created:', result);
-      
       return result.ticketNumber;
     } catch (err) {
       console.error('❌ Ticketing failed:', err.message);
@@ -227,65 +516,93 @@
     }
   }
 
-  // ============================================================
-  // RENDER THE SUCCESS PAGE
-  // ============================================================
+  // ----- render UI -----
   function render(data, ticketNumber) {
     const page = document.getElementById('result-page');
     if (!page) return;
-    
     const { customer, orderId, transactionId, dorReference } = data;
-    
-    if (status === 'success') {
-      page.innerHTML = `
-        <div class="webshop-result-icon webshop-result-icon--success">✓</div>
-        <h1>${T('success_title', 'Order Confirmed!')}</h1>
-        <p>${T('success_message', 'Thank you for your purchase.')}</p>
-        
-        <div class="webshop-order-details">
-          <div class="detail-row">
-            <span class="label">Order Reference</span>
-            <span class="value">${dorReference}</span>
-          </div>
-          ${ticketNumber ? `<div class="detail-row">
-            <span class="label">Ticket Number</span>
-            <span class="value">${ticketNumber}</span>
-          </div>` : ''}
-        </div>
-        
-        <div style="height:2.5rem;"></div>
-        <a href="/${lang}/" class="webshop-btn webshop-btn--primary">${T('continue_shopping', 'Continue Shopping')}</a>
-      `;
-      launchConfetti();
-      
-      // Clean up localStorage after showing the page
-      setTimeout(() => {
-        localStorage.removeItem('webshop_paypal_customer');
-        localStorage.removeItem('webshop_paypal_order_id');
-        localStorage.removeItem('webshop_paypal_transaction_id');
-        localStorage.removeItem('webshop_dor_reference');
-        localStorage.removeItem('webshop_paypal_result');
-        localStorage.removeItem('webshop_order_snapshot');
-        localStorage.removeItem('webshop_order_ref');
-      }, 5000);
-    } else {
-      page.innerHTML = `
-        <div class="webshop-result-icon webshop-result-icon--cancel">⚠</div>
-        <h1>${T('cancel_title', 'Payment Cancelled')}</h1>
-        <p>${T('cancel_message', 'Your order has not been processed.')}</p>
-        <a href="/${lang}/cart/" class="webshop-btn webshop-btn--primary" style="margin-top:20px;">${T('return_to_cart', 'Return to Cart')}</a>
-      `;
-    }
+    const totals = customer._totals || { subtotal: 0, shipping: 0, tax: 0, total: 0 };
+    const items = customer._items || [];
+    const currency = customer.currency || 'EUR';
+    const fullName = customer.full_name || [customer.first_name, customer.last_name].filter(Boolean).join(' ') || customer.shipping_name || 'Customer';
+    const email = customer.email || '';
+    const phone = customer.phone || '';
+    const shippingDisplay = customer._shippingDisplay || 'Not provided';
+
+    // build html table
+    let rows = '';
+    items.forEach(it => {
+      const name = it.name || 'Product';
+      const id = it.id || 'N/A';
+      const qty = it.qty || 1;
+      const price = Number(it.price) || 0;
+      const total = price * qty;
+      rows += `<tr>
+        <td class="product-cell">${name}</td>
+        <td class="id-cell">${id}</td>
+        <td class="qty-cell">${qty}</td>
+        <td class="price-cell">${currency} ${fmt(price)}</td>
+        <td class="total-cell">${currency} ${fmt(total)}</td>
+      </tr>`;
+    });
+
+    const html = `
+      <div class="webshop-result-icon webshop-result-icon--success">✓</div>
+      <h1>${T('success_title', 'Order Confirmed!')}</h1>
+      <div class="subhead">${T('success_message', 'Thank you for your purchase.')}</div>
+
+      <div class="ref-block">
+        <span>📦 Order reference <span class="ref-value">${dorReference}</span></span>
+        <span>🆔 Transaction <span class="ref-value">${transactionId}</span></span>
+        ${ticketNumber ? `<span>🎫 Ticket #<span class="ref-value">${ticketNumber}</span></span>` : ''}
+      </div>
+
+      <div class="order-summary">
+        <h2>📋 Order summary</h2>
+        <table class="order-table">
+          <thead>
+            <tr><th>Product</th><th>ID</th><th>Qty</th><th>Unit price</th><th>Total</th></tr>
+          </thead>
+          <tbody>
+            ${rows}
+            <tr class="totals-row"><td colspan="3"></td><td class="label">Subtotal</td><td class="value">${currency} ${fmt(totals.subtotal)}</td></tr>
+            <tr class="totals-row"><td colspan="3"></td><td class="label">Shipping</td><td class="value">${currency} ${fmt(totals.shipping)}</td></tr>
+            <tr class="totals-row"><td colspan="3"></td><td class="label">Tax</td><td class="value">${currency} ${fmt(totals.tax)}</td></tr>
+            <tr class="grand-total"><td colspan="3"></td><td class="label">TOTAL</td><td class="value">${currency} ${fmt(totals.total)}</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="customer-card">
+        <div class="info-line"><strong>👤 Name</strong> <span class="value">${fullName}</span></div>
+        <div class="info-line"><strong>📧 Email</strong> <span class="value">${email}</span></div>
+        <div class="info-line"><strong>📞 Phone</strong> <span class="value">${phone}</span></div>
+        <div class="info-line" style="flex:1 1 100%;"><strong>📍 Shipping</strong> <span class="value">${shippingDisplay}</span></div>
+      </div>
+
+      <div class="btn-wrap">
+        <a href="/${lang}/" class="btn-continue">${T('continue_shopping', 'Continue Shopping')}</a>
+      </div>
+    `;
+    page.innerHTML = html;
+    launchConfetti();
+
+    // clean localstorage after a moment
+    setTimeout(() => {
+      ['webshop_paypal_customer','webshop_paypal_order_id','webshop_paypal_transaction_id',
+       'webshop_dor_reference','webshop_paypal_result','webshop_order_snapshot','webshop_order_ref']
+        .forEach(k => localStorage.removeItem(k));
+    }, 5000);
   }
 
   function launchConfetti() {
     const container = document.getElementById('confetti-container');
     if (!container) return;
     const colors = ['#c8a96e','#1a1714','#f0e4cc','#4a7c59','#9b3a3a','#ede9e3'];
-    for (let i = 0; i < 80; i++) {
+    for (let i=0; i<70; i++) {
       const el = document.createElement('div');
       el.className = 'confetti-piece';
-      el.style.cssText =
+      el.style.cssText = 
         'left:' + (Math.random()*100) + '%;' +
         'top:' + (-Math.random()*20) + 'px;' +
         'background:' + colors[Math.floor(Math.random()*colors.length)] + ';' +
@@ -298,26 +615,19 @@
     }
   }
 
-  // ============================================================
-  // INIT
-  // ============================================================
+  // ----- init -----
   async function init() {
     if (typeof Shop !== 'undefined' && Shop.loadLang) {
       await Shop.loadLang().catch(() => {});
     }
-    
-    // Read data from localStorage
     const data = getPayPalData();
-    console.log('📦 Data from localStorage:', data);
-    
-    // Send ticket to ticketing
+    console.log('📦 Data from localStorage (recalc):', data);
     const ticketNumber = await sendToTicketing(data);
-    
-    // Render the page
     render(data, ticketNumber);
   }
 
   init();
 })();
 </script>
-</div>
+</body>
+</html>
