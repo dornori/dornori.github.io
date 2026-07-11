@@ -453,20 +453,13 @@ const Payment = (() => {
       cardSection.className = 'paypal-card-section';
       
       cardSection.innerHTML = `
-        <div class="webshop-form" style="padding:0;">
-          <div class="webshop-form-group">
-            <label class="webshop-form-label">Card Number</label>
-            <div id="card-number-field-${uid}" class="paypal-hosted-field"></div>
-          </div>
-          <div class="webshop-form-row">
-            <div class="webshop-form-group">
-              <label class="webshop-form-label">Expiration</label>
-              <div id="expiry-field-${uid}" class="paypal-hosted-field"></div>
-            </div>
-            <div class="webshop-form-group">
-              <label class="webshop-form-label">CVV</label>
-              <div id="cvv-field-${uid}" class="paypal-hosted-field"></div>
-            </div>
+        <div class="card-fields-box">
+          <div id="card-number-field-${uid}" class="paypal-hosted-field"></div>
+          <div class="card-fields-divider-h"></div>
+          <div class="card-fields-row">
+            <div id="expiry-field-${uid}" class="paypal-hosted-field"></div>
+            <div class="card-fields-divider-v"></div>
+            <div id="cvv-field-${uid}" class="paypal-hosted-field"></div>
           </div>
         </div>
         <button id="paypal-card-submit-${uid}" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;margin-top:12px;">
