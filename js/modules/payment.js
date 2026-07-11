@@ -447,16 +447,16 @@ const Payment = (() => {
       cardSection.innerHTML = `
         <div class="webshop-form" style="padding:0;">
           <div class="webshop-form-group">
-            <label class="webshop-form-label" style="display:block;font-size:0.75rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--c-text-3,#8a8f87);margin-bottom:6px;">Card Number</label>
+            <label class="webshop-form-label">Card Number</label>
             <div id="card-number-field" class="paypal-hosted-field"></div>
           </div>
-          <div class="webshop-form-row" style="display:flex;gap:14px;margin:0 -6px;">
-            <div class="webshop-form-group" style="flex:1;padding:0 6px;">
-              <label class="webshop-form-label" style="display:block;font-size:0.75rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--c-text-3,#8a8f87);margin-bottom:6px;">Expiration</label>
+          <div class="webshop-form-row">
+            <div class="webshop-form-group">
+              <label class="webshop-form-label">Expiration</label>
               <div id="expiry-field" class="paypal-hosted-field"></div>
             </div>
-            <div class="webshop-form-group" style="flex:1;padding:0 6px;">
-              <label class="webshop-form-label" style="display:block;font-size:0.75rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--c-text-3,#8a8f87);margin-bottom:6px;">CVV</label>
+            <div class="webshop-form-group">
+              <label class="webshop-form-label">CVV</label>
               <div id="cvv-field" class="paypal-hosted-field"></div>
             </div>
           </div>
@@ -517,14 +517,14 @@ const Payment = (() => {
         _cardFieldsInstance = await window.paypal.CardFields({
           style: {
             input: {
-              'font-size': '16px',
+              'font-size': '15px',
               'font-family': 'system-ui, sans-serif',
               'color': '#1a1714',
               'background-color': 'transparent',
-              'padding': '8px 0',
+              'padding': '0',
             },
-            '.valid':   { 'border-color': '#4a7c59' },
-            '.invalid': { 'border-color': '#9b3a3a' }
+            '.valid':   { 'color': '#4a7c59' },
+            '.invalid': { 'color': '#9b3a3a' }
           },
           createOrder: async () => {
             // Read form data DIRECTLY from DOM
