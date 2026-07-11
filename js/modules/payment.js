@@ -447,29 +447,40 @@ const Payment = (() => {
 
       const uid = 'pf' + myToken + '_' + Date.now();
 
-      // ── Payment Method Selector Buttons ──
+      // ── Payment Methods Button Container ──
       const paymentBox = document.createElement('div');
       paymentBox.className = 'payment-card-box';
       el.appendChild(paymentBox);
 
-      const methodSelector = document.createElement('div');
-      methodSelector.id = 'payment-method-selector-' + uid;
-      methodSelector.style.cssText = 'display:grid;gap:12px;margin-bottom:24px;';
-      methodSelector.innerHTML = `
-        <button id="payment-method-card-${uid}" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;padding:14px 16px;text-align:center;">
-          💳 Credit Card
-        </button>
-        <button id="payment-method-paypal-${uid}" type="button" class="webshop-btn" style="width:100%;padding:14px 16px;text-align:center;background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);">
-          🅿️ PayPal
-        </button>
-      `;
-      paymentBox.appendChild(methodSelector);
+      // ── Primary Payment Methods (Google Pay, Apple Pay, Credit Card, PayPal) ──
+      const primaryMethodsContainer = document.createElement('div');
+      primaryMethodsContainer.id = 'payment-primary-methods-' + uid;
+      primaryMethodsContainer.style.cssText = 'display:grid;gap:12px;margin-bottom:16px;';
+      paymentBox.appendChild(primaryMethodsContainer);
 
-      // ── Credit Card Section (initially hidden) ──
+      // ── Alternative Payment Methods (SEPA, iDEAL, etc - country-dependent) ──
+      const altMethodsContainer = document.createElement('div');
+      altMethodsContainer.id = 'payment-alt-methods-' + uid;
+      altMethodsContainer.style.cssText = 'display:grid;gap:12px;margin-bottom:16px;';
+      paymentBox.appendChild(altMethodsContainer);
+
+      // ── Credit Card Form (hidden by default) ──
+      const creditCardFormContainer = document.createElement('div');
+      creditCardFormContainer.id = 'credit-card-form-' + uid;
+      creditCardFormContainer.style.display = 'none';
+      creditCardFormContainer.style.cssText = 'margin-top:24px;padding-top:24px;border-top:1px solid var(--c-border);';
+      paymentBox.appendChild(creditCardFormContainer);
+
+      // ── Shipping Form Section ──
+      const shippingFormDiv = document.createElement('div');
+      shippingFormDiv.className = 'payment-shipping-form';
+      creditCardFormContainer.appendChild(shippingFormDiv);
+
+      // ── Credit Card Fields Section ──
       const cardSection = document.createElement('div');
       cardSection.id = 'paypal-card-section-' + uid;
       cardSection.className = 'paypal-card-section';
-      cardSection.style.display = 'none';
+      cardSection.style.marginTop = '24px';
       
       cardSection.innerHTML = `
         <div class="webshop-form-group">
@@ -499,48 +510,48 @@ const Payment = (() => {
         </button>
         <div id="card-error-message-${uid}" class="webshop-form-error" style="display:none;margin-top:8px;"></div>
       `;
-      
-      paymentBox.appendChild(cardSection);
+      creditCardFormContainer.appendChild(cardSection);
 
-      // ── PayPal Button Section (initially hidden) ──
+      // ── Google Pay Button ──
+      const googlePayBtn = document.createElement('button');
+      googlePayBtn.type = 'button';
+      googlePayBtn.className = 'webshop-btn';
+      googlePayBtn.style.cssText = 'width:100%;padding:14px 16px;text-align:center;background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);';
+      googlePayBtn.textContent = 'Google Pay';
+      primaryMethodsContainer.appendChild(googlePayBtn);
+
+      // ── Apple Pay Button ──
+      const applePayBtn = document.createElement('button');
+      applePayBtn.type = 'button';
+      applePayBtn.className = 'webshop-btn';
+      applePayBtn.style.cssText = 'width:100%;padding:14px 16px;text-align:center;background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);';
+      applePayBtn.textContent = 'Apple Pay';
+      primaryMethodsContainer.appendChild(applePayBtn);
+
+      // ── Credit Card Button ──
+      const creditCardBtn = document.createElement('button');
+      creditCardBtn.type = 'button';
+      creditCardBtn.className = 'webshop-btn webshop-btn--primary';
+      creditCardBtn.style.cssText = 'width:100%;padding:14px 16px;text-align:center;';
+      creditCardBtn.textContent = '💳 Credit Card';
+      creditCardBtn.addEventListener('click', function() {
+        document.getElementById('credit-card-form-' + uid).style.display = 'block';
+        document.getElementById('payment-primary-methods-' + uid).style.display = 'none';
+        document.getElementById('payment-alt-methods-' + uid).style.display = 'none';
+      });
+      primaryMethodsContainer.appendChild(creditCardBtn);
+
+      // ── PayPal Button Section ──
       const paypalSection = document.createElement('div');
       paypalSection.id = 'paypal-button-section-' + uid;
-      paypalSection.style.display = 'none';
-      paymentBox.appendChild(paypalSection);
-
-      // ── Payment Method Toggle Handlers ──
-      const cardBtn = document.getElementById('payment-method-card-' + uid);
-      const paypalBtn = document.getElementById('payment-method-paypal-' + uid);
-      const cardSectionEl = document.getElementById('paypal-card-section-' + uid);
-      const paypalSectionEl = document.getElementById('paypal-button-section-' + uid);
-
-      cardBtn.addEventListener('click', function() {
-        cardBtn.style.background = 'var(--c-btn-bg)';
-        cardBtn.style.color = 'var(--c-btn-text)';
-        cardBtn.style.border = 'none';
-        paypalBtn.style.background = 'transparent';
-        paypalBtn.style.color = 'var(--c-text)';
-        paypalBtn.style.borderColor = 'var(--c-border)';
-        cardSectionEl.style.display = 'block';
-        paypalSectionEl.style.display = 'none';
-      });
-
-      paypalBtn.addEventListener('click', function() {
-        paypalBtn.style.background = 'var(--c-btn-bg)';
-        paypalBtn.style.color = 'var(--c-btn-text)';
-        paypalBtn.style.border = 'none';
-        cardBtn.style.background = 'var(--c-btn-bg)';
-        cardBtn.style.color = 'var(--c-btn-text)';
-        cardBtn.style.border = 'none';
-        cardSectionEl.style.display = 'none';
-        paypalSectionEl.style.display = 'block';
-      });
-
-      // Set Credit Card as default selected
-      cardBtn.click();
+      primaryMethodsContainer.appendChild(paypalSection);
 
       await this._renderCardFields(cardSection, cart, orderRef, getFormData, activeCurrency, onBeforePay, el, myToken, uid);
       if (_renderTokens.get(el) !== myToken) return;
+      
+      // ── Render alternative payment methods based on country ──
+      await this._renderAltPaymentMethods(altMethodsContainer, getFormData, uid);
+      
       await this._renderPayPalButton(paypalSection, cart, getFormData, activeCurrency, orderRef, onBeforePay, el, myToken);
 
       return el;
@@ -715,7 +726,48 @@ const Payment = (() => {
       }
     },
 
-    async _renderPayPalButton(container, cart, getFormData, currency, orderRef, onBeforePay, el, myToken) {
+    async _renderAltPaymentMethods(container, getFormData, uid) {
+      try {
+        // Get user country from form data
+        const formData = getFormData ? getFormData() : {};
+        const country = formData.country || '';
+        
+        // Define country-based alternative payment methods
+        const altMethods = {
+          'DE': [{ name: 'SEPA', label: 'SEPA Direct Debit' }],
+          'NL': [{ name: 'iDEAL', label: 'iDEAL' }],
+          'BE': [{ name: 'Bancontact', label: 'Bancontact' }],
+          'AT': [{ name: 'eps', label: 'eps' }],
+          'FR': [{ name: 'Giropay', label: 'Giropay' }],
+          'IT': [{ name: 'Sofortüberweisung', label: 'Sofortüberweisung' }],
+          'ES': [{ name: 'Sofortüberweisung', label: 'Sofortüberweisung' }]
+        };
+        
+        const countryMethods = altMethods[country] || [];
+        
+        if (countryMethods.length === 0) {
+          container.style.display = 'none';
+          return;
+        }
+        
+        container.style.display = 'grid';
+        container.innerHTML = '';
+        
+        countryMethods.forEach(method => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'webshop-btn';
+          btn.style.cssText = 'width:100%;padding:14px 16px;text-align:center;background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);';
+          btn.textContent = method.label;
+          btn.addEventListener('click', function() {
+            console.log('Alternative payment method selected: ' + method.name);
+            // TODO: Implement alternative payment method handling
+          });
+          container.appendChild(btn);
+        });
+      } catch (e) {
+        console.error('Error rendering alt payment methods:', e);
+      }
       if (!window.paypal) return;
       if (el && _renderTokens.get(el) !== myToken) return;
 
