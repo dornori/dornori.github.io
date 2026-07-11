@@ -667,7 +667,7 @@ const Payment = (() => {
           color: "gold",
           shape: "rect",
           label: "paypal",
-          height: 48
+          height: 46
         },
         onClick: async (data, actions) => {
           if (onBeforePay) {
