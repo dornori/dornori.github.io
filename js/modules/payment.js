@@ -441,11 +441,86 @@ const Payment = (() => {
         return;
       }
 
-      const getFormData = _normalizeFormData(formData);
       el.innerHTML = "";
+      const getFormData = _normalizeFormData(formData);
       if (_renderTokens.get(el) !== myToken) return;
 
       const uid = 'pf' + myToken + '_' + Date.now();
+
+      // Render payment method buttons
+      const primaryMethods = document.getElementById('payment-primary-methods');
+      if (primaryMethods) {
+        // Google Pay
+        const googleBtn = document.createElement('button');
+        googleBtn.type = 'button';
+        googleBtn.className = 'webshop-btn';
+        googleBtn.style.cssText = 'background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);';
+        googleBtn.textContent = 'Google Pay';
+        primaryMethods.appendChild(googleBtn);
+
+        // Apple Pay
+        const appleBtn = document.createElement('button');
+        appleBtn.type = 'button';
+        appleBtn.className = 'webshop-btn';
+        appleBtn.style.cssText = 'background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);';
+        appleBtn.textContent = 'Apple Pay';
+        primaryMethods.appendChild(appleBtn);
+
+        // Credit Card
+        const cardBtn = document.createElement('button');
+        cardBtn.type = 'button';
+        cardBtn.className = 'webshop-btn webshop-btn--primary';
+        cardBtn.textContent = '💳 Credit Card';
+        cardBtn.addEventListener('click', () => {
+          document.getElementById('payment-methods-container').style.display = 'none';
+          document.getElementById('shipping-form-section').style.display = 'block';
+          document.getElementById('payment-form-section').style.display = 'block';
+        });
+        primaryMethods.appendChild(cardBtn);
+
+        // PayPal
+        const paypalContainer = document.createElement('div');
+        paypalContainer.id = 'paypal-buttons-' + uid;
+        primaryMethods.appendChild(paypalContainer);
+        await this._renderPayPalButton(paypalContainer, cart, getFormData, activeCurrency, orderRef, onBeforePay, el, myToken);
+      }
+
+      // Alt methods
+      const altMethods = document.getElementById('payment-alt-methods');
+      if (altMethods) {
+        this._renderAltPaymentMethods(altMethods, getFormData);
+      }
+
+      // Render card fields in payment-form-section
+      await this._renderCardFields(document.getElementById('payment-form-section'), cart, orderRef, getFormData, activeCurrency, onBeforePay, el, myToken, uid);
+    },
+
+    _renderAltPaymentMethods(container, getFormData) {
+      const formData = getFormData ? getFormData() : {};
+      const country = formData.country || '';
+
+      const methods = {
+        'DE': [{ label: 'SEPA Direct Debit' }],
+        'NL': [{ label: 'iDEAL' }],
+        'BE': [{ label: 'Bancontact' }],
+        'AT': [{ label: 'eps' }],
+        'FR': [{ label: 'Giropay' }],
+        'IT': [{ label: 'Sofortüberweisung' }],
+        'ES': [{ label: 'Sofortüberweisung' }]
+      }[country] || [];
+
+      container.innerHTML = '';
+      methods.forEach(m => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'webshop-btn';
+        btn.style.cssText = 'background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);';
+        btn.textContent = m.label;
+        container.appendChild(btn);
+      });
+
+      if (methods.length === 0) container.style.display = 'none';
+    }
 
       // ── One white rounded card holding everything: fields, Pay Now, divider, PayPal ──
       const paymentBox = document.createElement('div');
@@ -787,31 +862,6 @@ const Payment = (() => {
     const el = typeof mountEl === "string" ? document.querySelector(mountEl) : mountEl;
     if (!el) return;
     await _adapters[CONFIG.payment.activeProcessor || "none"].render(cart, totals, orderRef, el, formData, onBeforePay);
-    
-    // ── Post-render: Hide forms and add Credit Card button ──
-    setTimeout(() => {
-      document.getElementById("shipping-form-section").style.display = "none";
-      document.getElementById("payment-form-section").style.display = "none";
-      document.getElementById("payment-alt-methods").style.display = "none";
-      
-      const primaryMethods = document.getElementById("payment-primary-methods");
-      const mount = document.getElementById("cart-payment-mount");
-      
-      if (primaryMethods && mount && !document.getElementById("credit-card-btn")) {
-        const cardBtn = document.createElement("button");
-        cardBtn.id = "credit-card-btn";
-        cardBtn.type = "button";
-        cardBtn.className = "webshop-btn webshop-btn--primary";
-        cardBtn.style.cssText = "width:100%;padding:14px 16px;";
-        cardBtn.textContent = "💳 Credit Card";
-        cardBtn.addEventListener("click", () => {
-          document.getElementById("shipping-form-section").style.display = "block";
-          document.getElementById("payment-form-section").style.display = "block";
-          primaryMethods.style.display = "none";
-        });
-        primaryMethods.insertBefore(cardBtn, mount);
-      }
-    }, 100);
   }
 
   async function switchProcessor(name) {
