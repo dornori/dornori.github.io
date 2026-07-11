@@ -459,8 +459,8 @@ const Payment = (() => {
       
       cardSection.innerHTML = `
         <div class="webshop-form-group">
-          <label style="font-weight:600;font-size:0.95rem;margin-bottom:8px;">Cardholder Name</label>
-          <input type="text" id="cardholder-name-${uid}" name="cardholderName" placeholder="Full name on card" required style="padding:10px 12px;border:1px solid var(--c-border);border-radius:4px;font-family:system-ui;font-size:15px;color:var(--c-text);">
+          <label style="font-weight:600;font-size:0.95rem;">Cardholder Name</label>
+          <input type="text" id="cardholder-name-${uid}" name="cardholderName" placeholder="Full name on card" required>
         </div>
         <div style="margin-top:16px;">
           <label style="font-weight:600;font-size:0.95rem;margin-bottom:8px;display:block;">Card Number</label>
@@ -542,10 +542,14 @@ const Payment = (() => {
               'font-family': 'system-ui, sans-serif',
               'color': '#1a1714',
               'background-color': 'transparent',
-              'padding': '0',
+              'padding': '8px 0'
             },
-            '.valid':   { 'color': '#4a7c59' },
-            '.invalid': { 'color': '#9b3a3a' }
+            '.valid': { 
+              'color': '#4a7c59'
+            },
+            '.invalid': { 
+              'color': '#9b3a3a'
+            }
           },
           createOrder: async () => {
             // Read form data DIRECTLY from DOM
