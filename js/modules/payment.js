@@ -443,10 +443,11 @@ const Payment = (() => {
 
       const getFormData = _normalizeFormData(formData);
       el.innerHTML = "";
-      
+      if (_renderTokens.get(el) !== myToken) return;
+
       const uid = 'pf' + myToken + '_' + Date.now();
 
-      // Setup Credit Card button
+      // Setup Credit Card button click handler
       const ccBtn = document.getElementById('credit-card-btn');
       if (ccBtn) {
         ccBtn.addEventListener('click', () => {
@@ -457,13 +458,13 @@ const Payment = (() => {
         });
       }
 
-      // Setup PayPal button in container
+      // Render PayPal button in container
       const paypalContainer = document.getElementById('paypal-buttons-container');
       if (paypalContainer) {
         await this._renderPayPalButton(paypalContainer, cart, getFormData, activeCurrency, orderRef, onBeforePay, el, myToken);
       }
 
-      // Render alt payment methods
+      // Render alt methods
       const altContainer = document.getElementById('payment-alt-methods');
       if (altContainer) {
         this._renderAltPaymentMethods(altContainer, getFormData);
@@ -474,6 +475,8 @@ const Payment = (() => {
       if (paymentFormSection) {
         await this._renderCardFields(paymentFormSection, cart, orderRef, getFormData, activeCurrency, onBeforePay, el, myToken, uid);
       }
+
+      return;
     },
 
     _renderAltPaymentMethods(container, getFormData) {
@@ -505,22 +508,9 @@ const Payment = (() => {
         btn.textContent = m.label;
         container.appendChild(btn);
       });
-    }
-      if (_renderTokens.get(el) !== myToken) return;
+    },
 
-      const uid = 'pf' + myToken + '_' + Date.now();
-
-      // ── One white rounded card holding everything: fields, Pay Now, divider, PayPal ──
-      const paymentBox = document.createElement('div');
-      paymentBox.className = 'payment-card-box';
-      el.appendChild(paymentBox);
-
-      // ── Credit Card Section ──
-      const cardSection = document.createElement('div');
-      cardSection.id = 'paypal-card-section';
-      cardSection.className = 'paypal-card-section';
-      
-      cardSection.innerHTML = `
+    async _renderCardFields(container, cart, orderRef, getFormData, currency, onBeforePay, el, myToken, uid) {
         <div class="webshop-form-group">
           <label style="font-weight:600;font-size:0.95rem;">Cardholder Name</label>
           <input type="text" id="cardholder-name-${uid}" name="cardholderName" placeholder="Full name on card" required>
