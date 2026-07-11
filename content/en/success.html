@@ -39,17 +39,6 @@
     return (Math.round((Number(n) || 0) * 100) / 100).toFixed(2); 
   }
 
-  function formatDate(date) {
-    const d = new Date(date);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const seconds = String(d.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-  }
-
   // ============================================================
   // READ DATA FROM LOCALSTORAGE
   // ============================================================
@@ -125,7 +114,7 @@
       if (customer.shipping_city) shippingLines.push(`City: ${customer.shipping_city}`);
       if (customer.shipping_postal) shippingLines.push(`Postcode: ${customer.shipping_postal}`);
       if (customer.shipping_country) shippingLines.push(`Country: ${customer.shipping_country}`);
-      const shippingAddress = shippingLines.join(', ') || 'Not provided';
+      const shippingAddress = shippingLines.join('\n') || 'Not provided';
 
       // Build product/order lines
       const items = customer._items || [];
@@ -150,11 +139,11 @@
             calculatedSubtotal += lineTotal;
             const name = i.name || i.product_name || i.title || 'Product';
             const id = i.sku || i.id || i.productId || i.variantId || 'N/A';
-            // Better formatting - fixed width columns
-            const namePadded = (name || '').padEnd(20);
-            const idPadded = (id || '').padEnd(18);
+            // Fixed width columns: Product 22 chars, ID 20 chars
+            const namePadded = (name || '').padEnd(22);
+            const idPadded = (id || '').padEnd(20);
             const qtyPadded = String(qty).padStart(3);
-            const pricePadded = `${currency}${fmt(price)}`.padStart(10);
+            const pricePadded = `${currency}  ${fmt(price)}`.padStart(12);
             const totalPadded = `${currency}${fmt(lineTotal)}`.padStart(10);
             return `${namePadded}  ${idPadded}  ${qtyPadded}  ${pricePadded}  ${totalPadded}`;
           }).join('\n')
@@ -166,38 +155,43 @@
       const finalTax = taxTotal != null ? taxTotal : 0;
       const finalTotal = grandTotal != null ? grandTotal : (finalSubtotal + finalShipping + finalTax);
 
-      // Format date nicely
+      // Format date
       const timestamp = customer.timestamp || new Date().toISOString();
-      const formattedDate = formatDate(timestamp);
+      const d = new Date(timestamp);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
 
+      // Build the message with EXACT format
       const message = [
-        `Date: ${formattedDate}`,
+        `--------------- TIME/DATE -----------------`,
+        `Transaction Date: ${dateStr}`,
+        `Transaction Time: ${timeStr}`,
+        ``,
+        `------------ REFERENCE NUMBERS -----------`,
         `Order Reference: ${dorReference}`,
         `PayPal Transaction ID: ${transactionId}`,
-        `Status: ${(customer.status || 'COMPLETED').toUpperCase()}`,
-        '',
-        '--- ORDER ---',
-        `Product             ID               Qty  Unit Price  Total`,
-        `------------------  ----------------  ---  ----------  -------`,
+        ``,
+        `--- ORDER SUMMARY ---`,
+        `Product               ID                  Qty  Unit Price  Total`,
+        `----------------------  --------------------  ---  ----------  -------`,
         itemLines,
-        `------------------  ----------------  ---  ----------  -------`,
-        `Subtotal                                             ${currency}${fmt(finalSubtotal).padStart(10)}`,
-        `Shipping                                             ${currency}${fmt(finalShipping).padStart(10)}`,
-        `Tax                                                  ${currency}${fmt(finalTax).padStart(10)}`,
-        `TOTAL                                                ${currency}${fmt(finalTotal).padStart(10)}`,
-        '',
-        '--- CUSTOMER INFORMATION ---',
+        `----------------------  --------------------  ---  ----------  -------`,
+        `Subtotal                                      ${currency}  ${fmt(finalSubtotal).padStart(10)}`,
+        `Shipping                                      ${currency}  ${fmt(finalShipping).padStart(10)}`,
+        `Tax                                           ${currency}  ${fmt(finalTax).padStart(10)}`,
+        `TOTAL                                         ${currency}  ${fmt(finalTotal).padStart(10)}`,
+        ``,
+        `--- CUSTOMER INFORMATION ---`,
         `Name: ${fullName}`,
         `Email: ${email}`,
         `Phone: ${phone}`,
-        '',
-        '--- SHIPPING ADDRESS ---',
-        shippingAddress,
-        '',
-        '--- PAYMENT DETAILS ---',
-        `AVS Result: ${customer.avs_code || 'N/A'}`,
-        `CVV Result: ${customer.cvv_code || 'N/A'}`,
-      ].filter(line => line !== '').join('\n');
+        ``,
+        `--- SHIPPING ADDRESS ---`,
+        shippingAddress
+      ].join('\n');
+
+      console.log('📝 TICKET CONTENT:');
+      console.log(message);
 
       const payload = {
         name: fullName,
@@ -215,7 +209,7 @@
           transactionId: transactionId,
           currency: currency,
           amount: finalTotal,
-          status: customer.status || 'COMPLETED',
+          status: 'COMPLETED',
           customer: {
             name: fullName,
             email: email,
@@ -233,9 +227,6 @@
           paypalData: customer
         }
       };
-
-      console.log('📤 Sending ticket to:', TICKETING_URL);
-      console.log('📦 Payload:', payload);
 
       const res = await fetch(TICKETING_URL, {
         method: 'POST',
