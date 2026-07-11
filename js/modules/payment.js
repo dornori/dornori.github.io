@@ -488,25 +488,33 @@ const Payment = (() => {
       
       paymentBox.appendChild(cardSection);
 
-      // ── Divider ──
-      const divider = document.createElement('div');
-      divider.className = 'paypal-divider';
-      divider.style.cssText = 'display:flex;align-items:center;gap:12px;margin:16px 0;';
-      divider.innerHTML = `
-        <hr style="flex:1;border:none;border-top:1px solid var(--c-border);">
-        <span style="font-size:0.78rem;color:var(--c-text-3);font-weight:500;text-transform:uppercase;letter-spacing:0.06em;">Or</span>
-        <hr style="flex:1;border:none;border-top:1px solid var(--c-border);">
-      `;
-      paymentBox.appendChild(divider);
-
-      // ── PayPal Button Section — same white card, no separate box ──
-      const paypalSection = document.createElement('div');
-      paypalSection.id = 'paypal-button-section-' + uid;
-      paymentBox.appendChild(paypalSection);
-
       await this._renderCardFields(cardSection, cart, orderRef, getFormData, activeCurrency, onBeforePay, el, myToken, uid);
+
+      return el;
+    },
+
+    async renderButtonOnly(cart, orderRef, el, formData, onBeforePay) {
+      const myToken = (_renderTokens.get(el) || 0) + 1;
+      _renderTokens.set(el, myToken);
+
+      const activeCurrency = _getActiveCurrency();
+
+      if (!window.paypal || this._loadedCurrency !== activeCurrency) {
+        await this.init(activeCurrency);
+      }
+
       if (_renderTokens.get(el) !== myToken) return;
-      await this._renderPayPalButton(paypalSection, cart, getFormData, activeCurrency, orderRef, onBeforePay, el, myToken);
+
+      if (!window.paypal) {
+        el.innerHTML = `<div class="webshop-text-muted" style="padding:20px;text-align:center;">PayPal not loaded</div>`;
+        return;
+      }
+
+      const getFormData = _normalizeFormData(formData);
+      el.innerHTML = "";
+      if (_renderTokens.get(el) !== myToken) return;
+
+      await this._renderPayPalButton(el, cart, getFormData, activeCurrency, orderRef, onBeforePay, el, myToken);
 
       return el;
     },
@@ -823,6 +831,13 @@ const Payment = (() => {
     await init();
   }
 
+  async function renderPayPalButton(cart, orderRef, mountEl, formData, onBeforePay) {
+    const el = typeof mountEl === "string" ? document.querySelector(mountEl) : mountEl;
+    if (!el) return;
+    if (!_paypal._loadedCurrency) await _paypal.init(_getActiveCurrency());
+    await _paypal.renderButtonOnly(cart, orderRef, el, formData, onBeforePay);
+  }
+
   async function renderGooglePay(container, cart, formData, onBeforePay) {
     const el = typeof container === "string" ? document.querySelector(container) : container;
     await _googlepay.render(el, cart, formData, onBeforePay);
@@ -840,6 +855,7 @@ const Payment = (() => {
   return {
     init,
     render,
+    renderPayPalButton,
     switchProcessor,
     getActive: () => CONFIG.payment.activeProcessor,
     adapters: _adapters,
