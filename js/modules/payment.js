@@ -445,6 +445,8 @@ const Payment = (() => {
       el.innerHTML = "";
       if (_renderTokens.get(el) !== myToken) return;
 
+      const uid = 'pf' + myToken + '_' + Date.now();
+
       // ── Credit Card Section ──
       const cardSection = document.createElement('div');
       cardSection.id = 'paypal-card-section';
@@ -454,23 +456,23 @@ const Payment = (() => {
         <div class="webshop-form" style="padding:0;">
           <div class="webshop-form-group">
             <label class="webshop-form-label">Card Number</label>
-            <div id="card-number-field" class="paypal-hosted-field"></div>
+            <div id="card-number-field-${uid}" class="paypal-hosted-field"></div>
           </div>
           <div class="webshop-form-row">
             <div class="webshop-form-group">
               <label class="webshop-form-label">Expiration</label>
-              <div id="expiry-field" class="paypal-hosted-field"></div>
+              <div id="expiry-field-${uid}" class="paypal-hosted-field"></div>
             </div>
             <div class="webshop-form-group">
               <label class="webshop-form-label">CVV</label>
-              <div id="cvv-field" class="paypal-hosted-field"></div>
+              <div id="cvv-field-${uid}" class="paypal-hosted-field"></div>
             </div>
           </div>
         </div>
-        <button id="paypal-card-submit" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;margin-top:12px;">
+        <button id="paypal-card-submit-${uid}" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;margin-top:12px;">
           Pay Now
         </button>
-        <div id="card-error-message" class="webshop-form-error" style="display:none;margin-top:8px;"></div>
+        <div id="card-error-message-${uid}" class="webshop-form-error" style="display:none;margin-top:8px;"></div>
       `;
       
       el.appendChild(cardSection);
@@ -486,20 +488,22 @@ const Payment = (() => {
       `;
       el.appendChild(divider);
 
-      // ── PayPal Button Section ──
+      // ── PayPal Button Section — plain white box, PayPal owns everything inside it ──
+      const paypalBox = document.createElement('div');
+      paypalBox.className = 'paypal-button-box';
       const paypalSection = document.createElement('div');
-      paypalSection.id = 'paypal-button-section';
-      paypalSection.style.cssText = 'margin-top:4px;';
-      el.appendChild(paypalSection);
+      paypalSection.id = 'paypal-button-section-' + uid;
+      paypalBox.appendChild(paypalSection);
+      el.appendChild(paypalBox);
 
-      await this._renderCardFields(cardSection, cart, orderRef, getFormData, activeCurrency, onBeforePay, el, myToken);
+      await this._renderCardFields(cardSection, cart, orderRef, getFormData, activeCurrency, onBeforePay, el, myToken, uid);
       if (_renderTokens.get(el) !== myToken) return;
       await this._renderPayPalButton(paypalSection, cart, getFormData, activeCurrency, orderRef, onBeforePay, el, myToken);
 
       return el;
     },
 
-    async _renderCardFields(container, cart, orderRef, getFormData, currency, onBeforePay, el, myToken) {
+    async _renderCardFields(container, cart, orderRef, getFormData, currency, onBeforePay, el, myToken, uid) {
       if (!window.paypal) { console.warn('PayPal not available'); return; }
 
       let attempts = 0;
@@ -512,11 +516,11 @@ const Payment = (() => {
 
       if (!window.paypal.CardFields) {
         console.warn('PayPal CardFields not available');
-        const numField = container.querySelector('#card-number-field');
+        const numField = container.querySelector('#card-number-field-' + uid);
         if (numField) {
           numField.innerHTML = '<div class="webshop-text-muted" style="padding:10px;color:var(--c-text-3);">Card payments not available. Please use PayPal.</div>';
         }
-        const submitBtn = container.querySelector('#paypal-card-submit');
+        const submitBtn = container.querySelector('#paypal-card-submit-' + uid);
         if (submitBtn) submitBtn.style.display = 'none';
         return;
       }
@@ -561,7 +565,7 @@ const Payment = (() => {
             return result.orderId;
           },
           onApprove: async (data) => {
-            const submitBtn = container.querySelector('#paypal-card-submit');
+            const submitBtn = container.querySelector('#paypal-card-submit-' + uid);
             try {
               const language = _getActiveLanguage();
               const cardFallback = {
@@ -585,7 +589,7 @@ const Payment = (() => {
               });
             } catch (err) {
               console.error('Card capture error:', err);
-              const errorMsg = container.querySelector('#card-error-message');
+              const errorMsg = container.querySelector('#card-error-message-' + uid);
               if (errorMsg) { 
                 errorMsg.textContent = err.message || 'Payment failed. Please try again.'; 
                 errorMsg.style.display = 'block'; 
@@ -599,12 +603,12 @@ const Payment = (() => {
           },
           onError: (err) => {
             console.error('Card fields error:', err);
-            const errorMsg = container.querySelector('#card-error-message');
+            const errorMsg = container.querySelector('#card-error-message-' + uid);
             if (errorMsg) { 
               errorMsg.textContent = 'Payment failed. Please check your card details.'; 
               errorMsg.style.display = 'block'; 
             }
-            const submitBtn = container.querySelector('#paypal-card-submit');
+            const submitBtn = container.querySelector('#paypal-card-submit-' + uid);
             if (submitBtn) { 
               submitBtn.disabled = false; 
               submitBtn.textContent = 'Pay Now'; 
@@ -619,12 +623,12 @@ const Payment = (() => {
 
         if (el && _renderTokens.get(el) !== myToken) return;
 
-        numberField.render(container.querySelector('#card-number-field'));
-        expiryField.render(container.querySelector('#expiry-field'));
-        cvvField.render(container.querySelector('#cvv-field'));
+        numberField.render('#card-number-field-' + uid);
+        expiryField.render('#expiry-field-' + uid);
+        cvvField.render('#cvv-field-' + uid);
 
-        const submitBtn = container.querySelector('#paypal-card-submit');
-        const errorMsg = container.querySelector('#card-error-message');
+        const submitBtn = container.querySelector('#paypal-card-submit-' + uid);
+        const errorMsg = container.querySelector('#card-error-message-' + uid);
         const newSubmitBtn = submitBtn.cloneNode(true);
         submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
 
@@ -649,11 +653,11 @@ const Payment = (() => {
         });
       } catch (e) {
         console.warn('Card fields error:', e);
-        const numField = container.querySelector('#card-number-field');
+        const numField = container.querySelector('#card-number-field-' + uid);
         if (numField) {
           numField.innerHTML = '<div class="webshop-text-muted" style="padding:10px;color:var(--c-text-3);">Card payments not available. Please use PayPal.</div>';
         }
-        const submitBtn = container.querySelector('#paypal-card-submit');
+        const submitBtn = container.querySelector('#paypal-card-submit-' + uid);
         if (submitBtn) submitBtn.style.display = 'none';
       }
     },
