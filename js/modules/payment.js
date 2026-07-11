@@ -447,15 +447,29 @@ const Payment = (() => {
 
       const uid = 'pf' + myToken + '_' + Date.now();
 
-      // ── One white rounded card holding everything: fields, Pay Now, divider, PayPal ──
+      // ── Payment Method Selector Buttons ──
       const paymentBox = document.createElement('div');
       paymentBox.className = 'payment-card-box';
       el.appendChild(paymentBox);
 
-      // ── Credit Card Section ──
+      const methodSelector = document.createElement('div');
+      methodSelector.id = 'payment-method-selector-' + uid;
+      methodSelector.style.cssText = 'display:grid;gap:12px;margin-bottom:24px;';
+      methodSelector.innerHTML = `
+        <button id="payment-method-card-${uid}" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;padding:14px 16px;text-align:center;">
+          💳 Credit Card
+        </button>
+        <button id="payment-method-paypal-${uid}" type="button" class="webshop-btn" style="width:100%;padding:14px 16px;text-align:center;background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);">
+          🅿️ PayPal
+        </button>
+      `;
+      paymentBox.appendChild(methodSelector);
+
+      // ── Credit Card Section (initially hidden) ──
       const cardSection = document.createElement('div');
-      cardSection.id = 'paypal-card-section';
+      cardSection.id = 'paypal-card-section-' + uid;
       cardSection.className = 'paypal-card-section';
+      cardSection.style.display = 'none';
       
       cardSection.innerHTML = `
         <div class="webshop-form-group">
@@ -488,21 +502,42 @@ const Payment = (() => {
       
       paymentBox.appendChild(cardSection);
 
-      // ── Divider ──
-      const divider = document.createElement('div');
-      divider.className = 'paypal-divider';
-      divider.style.cssText = 'display:flex;align-items:center;gap:12px;margin:16px 0;';
-      divider.innerHTML = `
-        <hr style="flex:1;border:none;border-top:1px solid var(--c-border);">
-        <span style="font-size:0.78rem;color:var(--c-text-3);font-weight:500;text-transform:uppercase;letter-spacing:0.06em;">Or</span>
-        <hr style="flex:1;border:none;border-top:1px solid var(--c-border);">
-      `;
-      paymentBox.appendChild(divider);
-
-      // ── PayPal Button Section — same white card, no separate box ──
+      // ── PayPal Button Section (initially hidden) ──
       const paypalSection = document.createElement('div');
       paypalSection.id = 'paypal-button-section-' + uid;
+      paypalSection.style.display = 'none';
       paymentBox.appendChild(paypalSection);
+
+      // ── Payment Method Toggle Handlers ──
+      const cardBtn = document.getElementById('payment-method-card-' + uid);
+      const paypalBtn = document.getElementById('payment-method-paypal-' + uid);
+      const cardSectionEl = document.getElementById('paypal-card-section-' + uid);
+      const paypalSectionEl = document.getElementById('paypal-button-section-' + uid);
+
+      cardBtn.addEventListener('click', function() {
+        cardBtn.style.background = 'var(--c-btn-bg)';
+        cardBtn.style.color = 'var(--c-btn-text)';
+        cardBtn.style.border = 'none';
+        paypalBtn.style.background = 'transparent';
+        paypalBtn.style.color = 'var(--c-text)';
+        paypalBtn.style.borderColor = 'var(--c-border)';
+        cardSectionEl.style.display = 'block';
+        paypalSectionEl.style.display = 'none';
+      });
+
+      paypalBtn.addEventListener('click', function() {
+        paypalBtn.style.background = 'var(--c-btn-bg)';
+        paypalBtn.style.color = 'var(--c-btn-text)';
+        paypalBtn.style.border = 'none';
+        cardBtn.style.background = 'var(--c-btn-bg)';
+        cardBtn.style.color = 'var(--c-btn-text)';
+        cardBtn.style.border = 'none';
+        cardSectionEl.style.display = 'none';
+        paypalSectionEl.style.display = 'block';
+      });
+
+      // Set Credit Card as default selected
+      cardBtn.click();
 
       await this._renderCardFields(cardSection, cart, orderRef, getFormData, activeCurrency, onBeforePay, el, myToken, uid);
       if (_renderTokens.get(el) !== myToken) return;
