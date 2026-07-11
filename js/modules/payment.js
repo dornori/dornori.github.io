@@ -458,13 +458,26 @@ const Payment = (() => {
       cardSection.className = 'paypal-card-section';
       
       cardSection.innerHTML = `
-        <div class="card-fields-box">
-          <div id="card-number-field-${uid}" class="paypal-hosted-field"></div>
-          <div class="card-fields-divider-h"></div>
-          <div class="card-fields-row">
-            <div id="expiry-field-${uid}" class="paypal-hosted-field"></div>
-            <div class="card-fields-divider-v"></div>
-            <div id="cvv-field-${uid}" class="paypal-hosted-field"></div>
+        <div class="webshop-form-group">
+          <label style="font-weight:600;font-size:0.95rem;margin-bottom:8px;">Cardholder Name</label>
+          <input type="text" id="cardholder-name-${uid}" name="cardholderName" placeholder="Full name on card" required style="padding:10px 12px;border:1px solid var(--c-border);border-radius:4px;font-family:system-ui;font-size:15px;color:var(--c-text);">
+        </div>
+        <div style="margin-top:16px;">
+          <label style="font-weight:600;font-size:0.95rem;margin-bottom:8px;display:block;">Card Number</label>
+          <div class="card-fields-box">
+            <div id="card-number-field-${uid}" class="paypal-hosted-field"></div>
+            <div class="card-fields-divider-h"></div>
+            <div class="card-fields-row">
+              <div style="flex:1;">
+                <label style="font-size:0.85rem;color:var(--c-text-2);display:block;margin-bottom:6px;">Expiry Date</label>
+                <div id="expiry-field-${uid}" class="paypal-hosted-field"></div>
+              </div>
+              <div class="card-fields-divider-v"></div>
+              <div style="flex:1;">
+                <label style="font-size:0.85rem;color:var(--c-text-2);display:block;margin-bottom:6px;">CVC</label>
+                <div id="cvv-field-${uid}" class="paypal-hosted-field"></div>
+              </div>
+            </div>
           </div>
         </div>
         <button id="paypal-card-submit-${uid}" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;margin-top:12px;">
@@ -629,6 +642,12 @@ const Payment = (() => {
 
         newSubmitBtn.addEventListener('click', async function() {
           errorMsg.style.display = 'none';
+          const cardholderInput = container.querySelector('#cardholder-name-' + uid);
+          if (!cardholderInput || !cardholderInput.value.trim()) {
+            errorMsg.textContent = 'Please enter the cardholder name.';
+            errorMsg.style.display = 'block';
+            return;
+          }
           if (onBeforePay) {
             const ok = await onBeforePay();
             if (!ok) return;
