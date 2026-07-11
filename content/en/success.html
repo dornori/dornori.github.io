@@ -1,5 +1,3 @@
-[file name]: success.html
-[file content begin]
 <div class="container">
 <style>
   .success-wrap { min-height:60vh; display:flex; align-items:center; justify-content:center; padding:3rem 1rem; }
@@ -12,26 +10,6 @@
   .webshop-order-details .detail-row .label { font-weight:600; color:var(--c-text-2,#666); }
   .webshop-order-details .detail-row .value { font-family:monospace; }
   .webshop-result-icon--success { background:#4a7c59; color:white; width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:32px; margin:0 auto 20px; }
-  
-  /* New styles for improved UI */
-  .order-summary-card { background:#f9f7f3; border-radius:16px; padding:1.5rem; margin:1.5rem 0; border:1px solid #e8e2d8; }
-  .order-summary-card h3 { font-size:1.1rem; font-weight:600; margin-bottom:1rem; color:#2c2a27; }
-  .order-table { width:100%; border-collapse:collapse; font-size:0.9rem; }
-  .order-table th { text-align:left; font-weight:600; color:#4a453e; padding:0.5rem 0.3rem; border-bottom:2px solid #ddd6cb; }
-  .order-table td { padding:0.6rem 0.3rem; border-bottom:1px solid #ede8df; }
-  .order-table .text-right { text-align:right; }
-  .order-table .font-mono { font-family:monospace; }
-  .order-table .totals-row td { border-bottom:none; padding-top:0.7rem; font-weight:600; }
-  .order-table .grand-total td { border-top:2px solid #c6bdb0; padding-top:0.9rem; font-weight:700; font-size:1.05rem; }
-  .customer-info-card { background:#fcfaf7; border-radius:16px; padding:1.2rem 1.5rem; margin:1rem 0; border:1px solid #e8e2d8; }
-  .customer-info-card .info-row { display:flex; padding:0.3rem 0; gap:0.5rem; }
-  .customer-info-card .info-label { font-weight:600; color:#4a453e; min-width:80px; }
-  .ref-block { background:#f3f0ea; border-radius:12px; padding:0.8rem 1.2rem; margin:1.2rem 0; display:flex; flex-wrap:wrap; gap:1rem; justify-content:space-between; border:1px solid #e2dad0; }
-  .ref-block .ref-item { display:flex; align-items:center; gap:0.4rem; font-size:0.9rem; }
-  .ref-block .ref-value { font-family:monospace; background:white; padding:0.1rem 0.7rem; border-radius:20px; }
-  .btn-continue { display:inline-block; background:#1a1714; color:white; text-decoration:none; padding:0.8rem 2.5rem; border-radius:60px; font-weight:500; transition:background 0.15s; border:none; font-size:1rem; cursor:pointer; }
-  .btn-continue:hover { background:#2f2a26; }
-  .btn-wrap { text-align:center; margin-top:1.5rem; }
 </style>
 
 <div class="webshop-confetti" id="confetti-container"></div>
@@ -61,6 +39,17 @@
     return (Math.round((Number(n) || 0) * 100) / 100).toFixed(2); 
   }
 
+  function formatDate(date) {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const seconds = String(d.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }
+
   // ============================================================
   // READ DATA FROM LOCALSTORAGE
   // ============================================================
@@ -87,74 +76,12 @@
       if (!customer.shipping_city && fd.city) customer.shipping_city = fd.city;
       if (!customer.shipping_postal && fd.postal) customer.shipping_postal = fd.postal;
       if (!customer.shipping_country && fd.country) customer.shipping_country = fd.country;
-      
-      customer.currency = customer.currency || snapshot.currency || 'EUR';
+      if (!customer.amount && totals.total != null) customer.amount = Number(totals.total).toFixed(2);
+      if (!customer.currency) customer.currency = snapshot.currency || 'EUR';
 
-      // Get items - try multiple sources
-      let items = [];
-      if (snapshot.items && Array.isArray(snapshot.items) && snapshot.items.length) {
-        items = snapshot.items;
-      } else if (customer._items && Array.isArray(customer._items) && customer._items.length) {
-        items = customer._items;
-      } else if (fd.items && Array.isArray(fd.items) && fd.items.length) {
-        items = fd.items;
-      } else if (customer.items && Array.isArray(customer.items) && customer.items.length) {
-        items = customer.items;
-      }
-
-      // Normalize items
-      items = items.map(it => ({
-        name: it.name || it.product_name || it.title || it.product || 'Product',
-        id: it.sku || it.id || it.productId || it.variantId || it.item_id || it.code || 'N/A',
-        qty: Number(it.qty || it.quantity || 1),
-        price: Number(it.price || it.unit_price || it.amount || 0)
-      }));
-
-      // RECALCULATE TOTALS FROM ITEMS (FIXES THE 0 ISSUE)
-      const subtotal = items.reduce((sum, it) => sum + (it.price * it.qty), 0);
-      
-      // Get shipping from various sources
-      let shipping = 0;
-      if (totals.shipping !== undefined && totals.shipping !== null) {
-        shipping = Number(totals.shipping);
-      } else if (customer._shipping !== undefined && customer._shipping !== null) {
-        shipping = Number(customer._shipping);
-      } else if (customer.shipping_cost !== undefined && customer.shipping_cost !== null) {
-        shipping = Number(customer.shipping_cost);
-      } else if (fd.shipping !== undefined && fd.shipping !== null) {
-        shipping = Number(fd.shipping);
-      } else if (customer.shipping !== undefined && customer.shipping !== null) {
-        shipping = Number(customer.shipping);
-      }
-      
-      // Get tax from various sources
-      let tax = 0;
-      if (totals.tax !== undefined && totals.tax !== null) {
-        tax = Number(totals.tax);
-      } else if (customer._tax !== undefined && customer._tax !== null) {
-        tax = Number(customer._tax);
-      } else if (fd.tax !== undefined && fd.tax !== null) {
-        tax = Number(fd.tax);
-      } else if (customer.tax !== undefined && customer.tax !== null) {
-        tax = Number(customer.tax);
-      }
-      
-      const total = subtotal + shipping + tax;
-
-      // Update customer with recalculated values
-      customer._totals = { subtotal, shipping, tax, total };
-      customer._items = items;
-      customer.amount = total.toFixed(2);
-
-      // Build shipping display
-      const shippingLines = [];
-      if (customer.shipping_name) shippingLines.push(`name: ${customer.shipping_name}`);
-      if (customer.shipping_address_line1) shippingLines.push(`Address: ${customer.shipping_address_line1}`);
-      if (customer.shipping_address_line2) shippingLines.push(customer.shipping_address_line2);
-      if (customer.shipping_city) shippingLines.push(`City: ${customer.shipping_city}`);
-      if (customer.shipping_postal) shippingLines.push(`Postcode: ${customer.shipping_postal}`);
-      if (customer.shipping_country) shippingLines.push(`Country: ${customer.shipping_country}`);
-      customer._shippingDisplay = shippingLines.length ? shippingLines.join(', ') : 'Not provided';
+      // Use items from snapshot if available, otherwise from customer._items
+      customer._items = customer._items || snapshot.items || [];
+      customer._totals = customer._totals || totals;
 
       return {
         customer,
@@ -169,7 +96,7 @@
   }
 
   // ============================================================
-  // SEND TICKET TO TICKETING SYSTEM (EXACT FORMAT)
+  // SEND TICKET TO TICKETING SYSTEM
   // ============================================================
   async function sendToTicketing(data) {
     if (status !== 'success') {
@@ -188,62 +115,76 @@
       const email = customer.email || '';
       const phone = customer.phone || '';
       const currency = customer.currency || 'EUR';
+      const amount = customer.amount || 'N/A';
       
-      const items = customer._items || [];
-      const totals = customer._totals || { subtotal: 0, shipping: 0, tax: 0, total: 0 };
-
-      // Build order table with proper formatting (EXACT format from example)
-      const maxNameLen = Math.max(20, ...items.map(i => (i.name || '').length), 0);
-      const maxIdLen = Math.max(18, ...items.map(i => (i.id || '').length), 0);
-      
-      let orderLines = [];
-      
-      // Header
-      orderLines.push('Product' + ' '.repeat(Math.max(0, maxNameLen - 7)) + '  ID' + ' '.repeat(Math.max(0, maxIdLen - 2)) + '  Qty  Unit Price  Total');
-      orderLines.push('-'.repeat(maxNameLen+2) + '  ' + '-'.repeat(maxIdLen+2) + '  ---  ----------  -------');
-      
-      // Items
-      items.forEach(it => {
-        const name = (it.name || 'Product').padEnd(maxNameLen);
-        const id = (it.id || 'N/A').padEnd(maxIdLen);
-        const qty = String(it.qty || 1).padStart(3);
-        const unitPrice = fmt(it.price || 0);
-        const lineTotal = fmt((it.price || 0) * (it.qty || 1));
-        orderLines.push(`${name}  ${id}  ${qty}  ${currency}${unitPrice.padStart(9)}  ${currency}${lineTotal.padStart(7)}`);
-      });
-      
-      // Separator
-      orderLines.push('-'.repeat(maxNameLen+2) + '  ' + '-'.repeat(maxIdLen+2) + '  ---  ----------  -------');
-      
-      // Totals with proper alignment
-      const subtotalStr = fmt(totals.subtotal);
-      const shippingStr = fmt(totals.shipping);
-      const taxStr = fmt(totals.tax);
-      const totalStr = fmt(totals.total);
-      const labelWidth = maxNameLen + maxIdLen + 8;
-      
-      orderLines.push(`Subtotal${' '.repeat(Math.max(1, labelWidth - 8))}${currency}${subtotalStr.padStart(10)}`);
-      orderLines.push(`Shipping${' '.repeat(Math.max(1, labelWidth - 8))}${currency}${shippingStr.padStart(10)}`);
-      orderLines.push(`Tax${' '.repeat(Math.max(1, labelWidth - 3))}${currency}${taxStr.padStart(10)}`);
-      orderLines.push(`TOTAL${' '.repeat(Math.max(1, labelWidth - 5))}${currency}${totalStr.padStart(10)}`);
-
-      // Shipping address
+      // Build shipping address
       const shippingLines = [];
       if (customer.shipping_name) shippingLines.push(`name: ${customer.shipping_name}`);
       if (customer.shipping_address_line1) shippingLines.push(`Address: ${customer.shipping_address_line1}`);
+      if (customer.shipping_address_line2) shippingLines.push(customer.shipping_address_line2);
       if (customer.shipping_city) shippingLines.push(`City: ${customer.shipping_city}`);
       if (customer.shipping_postal) shippingLines.push(`Postcode: ${customer.shipping_postal}`);
       if (customer.shipping_country) shippingLines.push(`Country: ${customer.shipping_country}`);
-      const shippingDisplay = shippingLines.length ? shippingLines.join('\n') : 'Not provided';
+      const shippingAddress = shippingLines.join(', ') || 'Not provided';
+
+      // Build product/order lines
+      const items = customer._items || [];
+      const totals = customer._totals || {};
+      
+      const subtotal = totals.subtotal != null ? totals.subtotal : 
+                       (customer._subtotal != null ? customer._subtotal : null);
+      const shippingTotal = totals.shipping != null ? totals.shipping : 
+                           (customer._shipping != null ? customer._shipping : null);
+      const taxTotal = totals.tax != null ? totals.tax : 
+                      (customer._tax != null ? customer._tax : null);
+      const grandTotal = totals.total != null ? totals.total : 
+                        (customer._total != null ? customer._total : null);
+
+      // Calculate from items if totals are missing
+      let calculatedSubtotal = 0;
+      const itemLines = items.length
+        ? items.map(i => {
+            const qty = i.qty || i.quantity || 1;
+            const price = i.price != null ? Number(i.price) : 0;
+            const lineTotal = price * qty;
+            calculatedSubtotal += lineTotal;
+            const name = i.name || i.product_name || i.title || 'Product';
+            const id = i.sku || i.id || i.productId || i.variantId || 'N/A';
+            // Better formatting - fixed width columns
+            const namePadded = (name || '').padEnd(20);
+            const idPadded = (id || '').padEnd(18);
+            const qtyPadded = String(qty).padStart(3);
+            const pricePadded = `${currency}${fmt(price)}`.padStart(10);
+            const totalPadded = `${currency}${fmt(lineTotal)}`.padStart(10);
+            return `${namePadded}  ${idPadded}  ${qtyPadded}  ${pricePadded}  ${totalPadded}`;
+          }).join('\n')
+        : '(no items recorded)';
+
+      // Use calculated subtotal if totals missing
+      const finalSubtotal = subtotal != null ? subtotal : calculatedSubtotal;
+      const finalShipping = shippingTotal != null ? shippingTotal : 0;
+      const finalTax = taxTotal != null ? taxTotal : 0;
+      const finalTotal = grandTotal != null ? grandTotal : (finalSubtotal + finalShipping + finalTax);
+
+      // Format date nicely
+      const timestamp = customer.timestamp || new Date().toISOString();
+      const formattedDate = formatDate(timestamp);
 
       const message = [
-        `Date: ${new Date().toISOString()}`,
+        `Date: ${formattedDate}`,
         `Order Reference: ${dorReference}`,
         `PayPal Transaction ID: ${transactionId}`,
-        `Status: COMPLETED`,
+        `Status: ${(customer.status || 'COMPLETED').toUpperCase()}`,
         '',
         '--- ORDER ---',
-        ...orderLines,
+        `Product             ID               Qty  Unit Price  Total`,
+        `------------------  ----------------  ---  ----------  -------`,
+        itemLines,
+        `------------------  ----------------  ---  ----------  -------`,
+        `Subtotal                                             ${currency}${fmt(finalSubtotal).padStart(10)}`,
+        `Shipping                                             ${currency}${fmt(finalShipping).padStart(10)}`,
+        `Tax                                                  ${currency}${fmt(finalTax).padStart(10)}`,
+        `TOTAL                                                ${currency}${fmt(finalTotal).padStart(10)}`,
         '',
         '--- CUSTOMER INFORMATION ---',
         `Name: ${fullName}`,
@@ -251,11 +192,12 @@
         `Phone: ${phone}`,
         '',
         '--- SHIPPING ADDRESS ---',
-        shippingDisplay
-      ].join('\n');
-
-      console.log('📝 TICKET CONTENT:');
-      console.log(message);
+        shippingAddress,
+        '',
+        '--- PAYMENT DETAILS ---',
+        `AVS Result: ${customer.avs_code || 'N/A'}`,
+        `CVV Result: ${customer.cvv_code || 'N/A'}`,
+      ].filter(line => line !== '').join('\n');
 
       const payload = {
         name: fullName,
@@ -272,20 +214,28 @@
           orderRef: dorReference,
           transactionId: transactionId,
           currency: currency,
-          amount: totals.total,
-          status: 'COMPLETED',
+          amount: finalTotal,
+          status: customer.status || 'COMPLETED',
           customer: {
             name: fullName,
             email: email,
             phone: phone,
             shipping_name: customer.shipping_name,
-            shipping_address: shippingDisplay,
+            shipping_address: shippingAddress,
           },
           items: items,
-          totals: totals,
+          totals: {
+            subtotal: finalSubtotal,
+            shipping: finalShipping,
+            tax: finalTax,
+            total: finalTotal
+          },
           paypalData: customer
         }
       };
+
+      console.log('📤 Sending ticket to:', TICKETING_URL);
+      console.log('📦 Payload:', payload);
 
       const res = await fetch(TICKETING_URL, {
         method: 'POST',
@@ -301,6 +251,7 @@
 
       const result = await res.json();
       console.log('✅ Ticket created:', result);
+      
       return result.ticketNumber;
     } catch (err) {
       console.error('❌ Ticketing failed:', err.message);
@@ -316,93 +267,27 @@
     if (!page) return;
     
     const { customer, orderId, transactionId, dorReference } = data;
-    const totals = customer._totals || { subtotal: 0, shipping: 0, tax: 0, total: 0 };
-    const items = customer._items || [];
-    const currency = customer.currency || 'EUR';
-    const fullName = customer.full_name || 'Customer';
-    const email = customer.email || '';
-    const phone = customer.phone || '';
-    const shippingDisplay = customer._shippingDisplay || 'Not provided';
     
     if (status === 'success') {
-      // Build order table HTML
-      let rows = '';
-      items.forEach(it => {
-        const name = it.name || 'Product';
-        const id = it.id || 'N/A';
-        const qty = it.qty || 1;
-        const price = Number(it.price) || 0;
-        const total = price * qty;
-        rows += `<tr>
-          <td>${name}</td>
-          <td class="font-mono">${id}</td>
-          <td class="text-right">${qty}</td>
-          <td class="text-right font-mono">${currency} ${fmt(price)}</td>
-          <td class="text-right font-mono">${currency} ${fmt(total)}</td>
-        </tr>`;
-      });
-
       page.innerHTML = `
         <div class="webshop-result-icon webshop-result-icon--success">✓</div>
         <h1>${T('success_title', 'Order Confirmed!')}</h1>
-        <p style="text-align:center;color:#4a4a4a;">${T('success_message', 'Thank you for your purchase.')}</p>
+        <p>${T('success_message', 'Thank you for your purchase.')}</p>
         
-        <div class="ref-block">
-          <span class="ref-item">📦 Order <span class="ref-value">${dorReference}</span></span>
-          <span class="ref-item">🆔 Transaction <span class="ref-value">${transactionId}</span></span>
-          ${ticketNumber ? `<span class="ref-item">🎫 Ticket #<span class="ref-value">${ticketNumber}</span></span>` : ''}
+        <div class="webshop-order-details">
+          <div class="detail-row">
+            <span class="label">Order Reference</span>
+            <span class="value">${dorReference}</span>
+          </div>
+          ${ticketNumber ? `<div class="detail-row">
+            <span class="label">Ticket Number</span>
+            <span class="value">${ticketNumber}</span>
+          </div>` : ''}
         </div>
         
-        <div class="order-summary-card">
-          <h3>📋 Order Summary</h3>
-          <table class="order-table">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>ID</th>
-                <th class="text-right">Qty</th>
-                <th class="text-right">Unit Price</th>
-                <th class="text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows}
-              <tr class="totals-row">
-                <td colspan="3"></td>
-                <td class="text-right">Subtotal</td>
-                <td class="text-right font-mono">${currency} ${fmt(totals.subtotal)}</td>
-              </tr>
-              <tr class="totals-row">
-                <td colspan="3"></td>
-                <td class="text-right">Shipping</td>
-                <td class="text-right font-mono">${currency} ${fmt(totals.shipping)}</td>
-              </tr>
-              <tr class="totals-row">
-                <td colspan="3"></td>
-                <td class="text-right">Tax</td>
-                <td class="text-right font-mono">${currency} ${fmt(totals.tax)}</td>
-              </tr>
-              <tr class="grand-total">
-                <td colspan="3"></td>
-                <td class="text-right">TOTAL</td>
-                <td class="text-right font-mono">${currency} ${fmt(totals.total)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        
-        <div class="customer-info-card">
-          <div class="info-row"><span class="info-label">👤 Name</span> <span>${fullName}</span></div>
-          <div class="info-row"><span class="info-label">📧 Email</span> <span>${email}</span></div>
-          <div class="info-row"><span class="info-label">📞 Phone</span> <span>${phone}</span></div>
-          <div class="info-row"><span class="info-label">📍 Shipping</span> <span>${shippingDisplay}</span></div>
-        </div>
-        
-        <div class="btn-wrap">
-          <a href="/${lang}/" class="btn-continue">${T('continue_shopping', 'Continue Shopping')}</a>
-        </div>
+        <div style="height:2.5rem;"></div>
+        <a href="/${lang}/" class="webshop-btn webshop-btn--primary">${T('continue_shopping', 'Continue Shopping')}</a>
       `;
-      
       launchConfetti();
       
       // Clean up localStorage after showing the page
@@ -417,10 +302,10 @@
       }, 5000);
     } else {
       page.innerHTML = `
-        <div class="webshop-result-icon webshop-result-icon--cancel" style="background:#c0392b;">⚠</div>
+        <div class="webshop-result-icon webshop-result-icon--cancel">⚠</div>
         <h1>${T('cancel_title', 'Payment Cancelled')}</h1>
         <p>${T('cancel_message', 'Your order has not been processed.')}</p>
-        <a href="/${lang}/cart/" class="btn-continue" style="margin-top:20px;">${T('return_to_cart', 'Return to Cart')}</a>
+        <a href="/${lang}/cart/" class="webshop-btn webshop-btn--primary" style="margin-top:20px;">${T('return_to_cart', 'Return to Cart')}</a>
       `;
     }
   }
@@ -473,4 +358,3 @@
 })();
 </script>
 </div>
-[file content end]
