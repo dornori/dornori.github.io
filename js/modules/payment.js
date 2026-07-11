@@ -447,6 +447,11 @@ const Payment = (() => {
 
       const uid = 'pf' + myToken + '_' + Date.now();
 
+      // ── One white rounded card holding everything: fields, Pay Now, divider, PayPal ──
+      const paymentBox = document.createElement('div');
+      paymentBox.className = 'payment-card-box';
+      el.appendChild(paymentBox);
+
       // ── Credit Card Section ──
       const cardSection = document.createElement('div');
       cardSection.id = 'paypal-card-section';
@@ -468,7 +473,7 @@ const Payment = (() => {
         <div id="card-error-message-${uid}" class="webshop-form-error" style="display:none;margin-top:8px;"></div>
       `;
       
-      el.appendChild(cardSection);
+      paymentBox.appendChild(cardSection);
 
       // ── Divider ──
       const divider = document.createElement('div');
@@ -479,15 +484,12 @@ const Payment = (() => {
         <span style="font-size:0.78rem;color:var(--c-text-3);font-weight:500;text-transform:uppercase;letter-spacing:0.06em;">Or</span>
         <hr style="flex:1;border:none;border-top:1px solid var(--c-border);">
       `;
-      el.appendChild(divider);
+      paymentBox.appendChild(divider);
 
-      // ── PayPal Button Section — plain white box, PayPal owns everything inside it ──
-      const paypalBox = document.createElement('div');
-      paypalBox.className = 'paypal-button-box';
+      // ── PayPal Button Section — same white card, no separate box ──
       const paypalSection = document.createElement('div');
       paypalSection.id = 'paypal-button-section-' + uid;
-      paypalBox.appendChild(paypalSection);
-      el.appendChild(paypalBox);
+      paymentBox.appendChild(paypalSection);
 
       await this._renderCardFields(cardSection, cart, orderRef, getFormData, activeCurrency, onBeforePay, el, myToken, uid);
       if (_renderTokens.get(el) !== myToken) return;
