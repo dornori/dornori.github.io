@@ -425,11 +425,16 @@ const Payment = (() => {
     },
 
     async render(cart, totals, orderRef, el, formData, onBeforePay) {
+      const myToken = (_renderTokens.get(el) || 0) + 1;
+      _renderTokens.set(el, myToken);
+
       const activeCurrency = _getActiveCurrency();
 
       if (!window.paypal || this._loadedCurrency !== activeCurrency) {
         await this.init(activeCurrency);
       }
+
+      if (_renderTokens.get(el) !== myToken) return;
 
       if (!window.paypal) {
         el.innerHTML = `<div class="webshop-text-muted" style="padding:20px;text-align:center;">PayPal not loaded</div>`;
@@ -438,6 +443,7 @@ const Payment = (() => {
 
       const getFormData = _normalizeFormData(formData);
       el.innerHTML = "";
+      if (_renderTokens.get(el) !== myToken) return;
 
       // ── Credit Card Section ──
       const cardSection = document.createElement('div');
@@ -486,13 +492,14 @@ const Payment = (() => {
       paypalSection.style.cssText = 'margin-top:4px;';
       el.appendChild(paypalSection);
 
-      await this._renderCardFields(cardSection, cart, orderRef, getFormData, activeCurrency, onBeforePay);
-      await this._renderPayPalButton(paypalSection, cart, getFormData, activeCurrency, orderRef, onBeforePay);
+      await this._renderCardFields(cardSection, cart, orderRef, getFormData, activeCurrency, onBeforePay, el, myToken);
+      if (_renderTokens.get(el) !== myToken) return;
+      await this._renderPayPalButton(paypalSection, cart, getFormData, activeCurrency, orderRef, onBeforePay, el, myToken);
 
       return el;
     },
 
-    async _renderCardFields(container, cart, orderRef, getFormData, currency, onBeforePay) {
+    async _renderCardFields(container, cart, orderRef, getFormData, currency, onBeforePay, el, myToken) {
       if (!window.paypal) { console.warn('PayPal not available'); return; }
 
       let attempts = 0;
@@ -500,6 +507,8 @@ const Payment = (() => {
         await new Promise(r => setTimeout(r, 300));
         attempts++;
       }
+
+      if (el && _renderTokens.get(el) !== myToken) return;
 
       if (!window.paypal.CardFields) {
         console.warn('PayPal CardFields not available');
@@ -605,13 +614,14 @@ const Payment = (() => {
         });
 
         const numberField = _cardFieldsInstance.NumberField({ placeholder: '1234 5678 9012 3456' });
-        numberField.render('#card-number-field');
-
         const expiryField = _cardFieldsInstance.ExpiryField({ placeholder: 'MM/YY' });
-        expiryField.render('#expiry-field');
-
         const cvvField = _cardFieldsInstance.CVVField({ placeholder: '123' });
-        cvvField.render('#cvv-field');
+
+        if (el && _renderTokens.get(el) !== myToken) return;
+
+        numberField.render(container.querySelector('#card-number-field'));
+        expiryField.render(container.querySelector('#expiry-field'));
+        cvvField.render(container.querySelector('#cvv-field'));
 
         const submitBtn = container.querySelector('#paypal-card-submit');
         const errorMsg = container.querySelector('#card-error-message');
@@ -648,8 +658,9 @@ const Payment = (() => {
       }
     },
 
-    async _renderPayPalButton(container, cart, getFormData, currency, orderRef, onBeforePay) {
+    async _renderPayPalButton(container, cart, getFormData, currency, orderRef, onBeforePay, el, myToken) {
       if (!window.paypal) return;
+      if (el && _renderTokens.get(el) !== myToken) return;
 
       let _lastOrder = null;
       
