@@ -1,938 +1,298 @@
-const Payment = (() => {
-  let _ready = false;
-  let _cardFieldsInstance = null;
+// PayPal Payment Adapter - v3
+// Renders payment method buttons (Google Pay, Apple Pay, Credit Card, PayPal) at top
+// Credit Card shows shipping form + card fields when selected
 
-  const WORKER = 'https://pay.dornori-info.workers.dev';
+const _paypal = {
+  _loadedCurrency: null,
 
-  function _dispatch(event, detail) {
-    document.dispatchEvent(new CustomEvent(event, { detail }));
-  }
-
-  function _loadScript(src, attrs = {}) {
-    return new Promise((resolve, reject) => {
-      const baseSrc = src.split("?")[0];
-      const existing = document.querySelector(`script[src*="${baseSrc}"]`);
-      if (existing && existing._loadSuccess) { resolve(); return; }
-      if (existing) existing.remove();
-      const s = Object.assign(document.createElement("script"), {
-        src,
-        onload:  () => { s._loadSuccess = true; resolve(); },
-        onerror: () => reject(new Error("Script load failed: " + src)),
-      });
-      Object.entries(attrs).forEach(([k, v]) => s.setAttribute(k, v));
-      document.head.appendChild(s);
+  async init(targetCurrency) {
+    await this._loadScript();
+    this._loadedCurrency = targetCurrency;
+    return new Promise((resolve) => {
+      const checkPayPal = () => {
+        if (window.paypal) resolve();
+        else setTimeout(checkPayPal, 200);
+      };
+      checkPayPal();
     });
-  }
+  },
 
-  function _getActiveCurrency() {
-    return (typeof Currency !== 'undefined' && Currency.getActive) ? Currency.getActive() : CONFIG.payment.paypal.currency;
-  }
+  async render(cart, totals, orderRef, el, formData, onBeforePay) {
+    const activeCurrency = _getActiveCurrency();
+    if (!window.paypal || this._loadedCurrency !== activeCurrency) {
+      await this.init(activeCurrency);
+    }
 
-  function _getActiveLanguage() {
-    return (typeof window !== 'undefined' && window.LANG) || 
-           localStorage.getItem('dornori-lang') || 
-           'en';
-  }
+    if (!window.paypal) {
+      el.innerHTML = `<div style="padding:20px;text-align:center;opacity:.6;">PayPal not available</div>`;
+      return;
+    }
 
-  function _normalizeFormData(formData) {
-    return typeof formData === 'function' ? formData : () => formData;
-  }
+    el.innerHTML = '';
+    const getFormData = _normalizeFormData(formData);
+    const uid = 'pf_' + Date.now();
 
-  function _collectFormData(formData) {
-    const fd = typeof formData === 'function' ? formData() : formData || {};
-    return {
-      first_name: fd.first_name || '',
-      last_name: fd.last_name || '',
-      email: fd.email || '',
-      phone: fd.phone || '',
-      address: fd.address || '',
-      city: fd.city || '',
-      postal: fd.postal || '',
-      country: fd.country || '',
-      billingChoice: fd.billingChoice || 'same',
-      billing_first_name: fd.billing_first_name || '',
-      billing_last_name: fd.billing_last_name || '',
-      billing_address: fd.billing_address || '',
-      billing_city: fd.billing_city || '',
-      billing_postal: fd.billing_postal || '',
-      billing_country: fd.billing_country || ''
-    };
-  }
+    // ── Render all payment methods ──
+    await this._renderPaymentMethods(el, cart, orderRef, getFormData, activeCurrency, onBeforePay, uid);
+  },
 
-  async function _createStandardOrder(cart, formData, currency, paymentMethod) {
-    const cleanFormData = _collectFormData(formData);
-    
-    const res = await fetch(`${WORKER}/api/create-order`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        items: cart,
-        countryCode: cleanFormData.country || 'US',
-        currency: currency,
-        formData: cleanFormData,
-        paymentMethod: paymentMethod || 'paypal'
-      })
+  async _renderPaymentMethods(el, cart, orderRef, getFormData, currency, onBeforePay, uid) {
+    const primaryContainer = document.getElementById('payment-primary-methods');
+    const altContainer = document.getElementById('payment-alt-methods');
+    const paymentFormSection = document.getElementById('payment-form-section');
+    const shippingFormSection = document.getElementById('shipping-form-section');
+
+    if (!primaryContainer) return;
+
+    // Clear containers
+    primaryContainer.innerHTML = '';
+    altContainer.innerHTML = '';
+
+    // ── Google Pay Button ──
+    const googleBtn = document.createElement('button');
+    googleBtn.type = 'button';
+    googleBtn.className = 'webshop-btn';
+    googleBtn.style.cssText = 'width:100%;padding:14px 16px;background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);';
+    googleBtn.textContent = 'Google Pay';
+    googleBtn.addEventListener('click', () => {
+      console.log('Google Pay selected');
+      // TODO: Implement Google Pay logic
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Order creation failed');
-    }
-    const result = await res.json();
-    localStorage.setItem('webshop_order_ref', result.orderRef);
-    localStorage.setItem('webshop_paypal_order_id', result.orderId);
-    localStorage.setItem('webshop_order_snapshot', JSON.stringify({
-      items: cart,
-      formData: cleanFormData,
-      totals: result.totals,
-      currency: currency
-    }));
-    // Attach formData to result so callers can pass it to capture
-    result._formData = cleanFormData;
-    return result;
-  }
+    primaryContainer.appendChild(googleBtn);
 
-  async function _captureOrder(orderId, orderRef, language, fallback, savedForm) {
-    const res = await fetch(`${WORKER}/api/capture-order`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, orderRef, language, fallback: fallback || {}, formData: savedForm || {} })
+    // ── Apple Pay Button ──
+    const appleBtn = document.createElement('button');
+    appleBtn.type = 'button';
+    appleBtn.className = 'webshop-btn';
+    appleBtn.style.cssText = 'width:100%;padding:14px 16px;background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);';
+    appleBtn.textContent = 'Apple Pay';
+    appleBtn.addEventListener('click', () => {
+      console.log('Apple Pay selected');
+      // TODO: Implement Apple Pay logic
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Capture failed');
-    }
-    return res.json();
-  }
+    primaryContainer.appendChild(appleBtn);
 
-  const _renderTokens = new WeakMap();
-
-  // ── GOOGLE PAY ──
-  const _googlepay = {
-    async isAvailable() {
-      return typeof window.paypal !== 'undefined' && typeof window.paypal.Googlepay === 'function';
-    },
-    async render(container, cart, formData, onBeforePay) {
-      if (!container) return;
-      const myToken = (_renderTokens.get(container) || 0) + 1;
-      _renderTokens.set(container, myToken);
-      container.innerHTML = '';
-      const getFormData = _normalizeFormData(formData);
-      if (!_ready) await init();
-      if (_renderTokens.get(container) !== myToken) return;
-      if (!(await this.isAvailable())) { container.style.display = 'none'; return; }
-
-      try {
-        if (typeof google === 'undefined' || !google.payments || !google.payments.api) {
-          await _loadScript('https://pay.google.com/gp/p/js/pay.js');
-        }
-        const gpayConfig = await window.paypal.Googlepay().config();
-        const paymentsClient = new google.payments.api.PaymentsClient({ environment: gpayConfig.environment || 'TEST' });
-
-        const readyRes = await paymentsClient.isReadyToPay({
-          apiVersion: 2, apiVersionMinor: 0,
-          allowedPaymentMethods: gpayConfig.allowedPaymentMethods
-        });
-        if (!readyRes.result) { container.style.display = 'none'; return; }
-        if (_renderTokens.get(container) !== myToken) return;
-
-        const allowedPaymentMethods = (gpayConfig.allowedPaymentMethods || []).map(m => ({
-          ...m,
-          parameters: {
-            ...m.parameters,
-            billingAddressRequired: true,
-            billingAddressParameters: { 
-              format: 'FULL', 
-              phoneNumberRequired: true 
-            }
-          }
-        }));
-
-        const button = paymentsClient.createButton({
-          buttonColor: 'black',
-          buttonType: 'pay',
-          buttonSizeMode: 'fill',
-          onClick: async () => {
-            try {
-              const currency = _getActiveCurrency();
-              const language = _getActiveLanguage();
-              
-              const order = await _createStandardOrder(cart, {}, currency, 'paypal');
-              
-              const paymentDataRequest = {
-                apiVersion: 2,
-                apiVersionMinor: 0,
-                allowedPaymentMethods: allowedPaymentMethods,
-                merchantInfo: gpayConfig.merchantInfo,
-                emailRequired: true,
-                shippingAddressRequired: true,
-                shippingAddressParameters: { 
-                  phoneNumberRequired: true 
-                },
-                transactionInfo: {
-                  totalPriceStatus: 'FINAL',
-                  totalPrice: Number(order.totals.total).toFixed(2),
-                  currencyCode: currency,
-                  countryCode: gpayConfig.countryCode || 'NL'
-                }
-              };
-
-              const paymentData = await paymentsClient.loadPaymentData(paymentDataRequest);
-
-              const gpayEmail = paymentData.email || null;
-              const gpayPhone = paymentData.shippingAddress?.phoneNumber ||
-                       paymentData.paymentMethodData?.info?.billingAddress?.phoneNumber || null;
-              const gpayName = paymentData.paymentMethodData?.info?.billingAddress?.name ||
-                       paymentData.shippingAddress?.name || '';
-              const [gpayFirst, ...gpayLastParts] = gpayName.split(' ').filter(Boolean);
-              const gpayAddr = paymentData.shippingAddress || paymentData.paymentMethodData?.info?.billingAddress || {};
-
-              // Create the real order now that we have the wallet's contact info,
-              // so it can be attached to the order (email/phone can only be set
-              // at order creation, not patched in afterward).
-              const realOrder = await _createStandardOrder(cart, {
-                email: gpayEmail || '',
-                phone: gpayPhone || '',
-                first_name: gpayFirst || '',
-                last_name: gpayLastParts.join(' ') || '',
-                address: gpayAddr.address1 || '',
-                city: gpayAddr.locality || '',
-                postal: gpayAddr.postalCode || '',
-                country: gpayAddr.countryCode || ''
-              }, currency, 'paypal');
-
-              const confirmResult = await window.paypal.Googlepay().confirmOrder({
-                orderId: realOrder.orderId,
-                paymentMethodData: paymentData.paymentMethodData
-              });
-              
-              if (confirmResult.status === 'DECLINED') throw new Error('Payment declined');
-
-              const gpayFallback = {
-                email: gpayEmail,
-                phone: gpayPhone,
-                amount: realOrder.totals?.total != null ? Number(realOrder.totals.total).toFixed(2) : null,
-                currency: currency
-              };
-
-              const captureResult = await _captureOrder(realOrder.orderId, realOrder.orderRef, language, gpayFallback);
-              
-              if (captureResult.success && captureResult.customer) {
-                localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
-                localStorage.setItem('webshop_paypal_order_id', captureResult.paypalOrderId);
-                localStorage.setItem('webshop_paypal_transaction_id', captureResult.transactionId);
-                localStorage.setItem('webshop_dor_reference', captureResult.dorReference);
-                localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult));
-              }
-              
-              _dispatch('payment:success', { 
-                orderRef: realOrder.orderRef, 
-                processor: 'googlepay', 
-                result: captureResult
-              });
-            } catch (err) {
-              if (err && err.statusCode === 'CANCELED') {
-                _dispatch('payment:cancel', { processor: 'googlepay' });
-                return;
-              }
-              console.error('Google Pay error:', err);
-              _dispatch('payment:error', { processor: 'googlepay', error: err });
-            }
-          }
-        });
-        container.appendChild(button);
-      } catch (e) {
-        console.warn('Google Pay unavailable:', e);
-        container.style.display = 'none';
-      }
-    }
-  };
-
-  // ── APPLE PAY ──
-  const _applepay = {
-    async isAvailable() {
-      return typeof window.ApplePaySession !== 'undefined' &&
-             ApplePaySession.canMakePayments() &&
-             typeof window.paypal !== 'undefined' &&
-             typeof window.paypal.Applepay === 'function';
-    },
-    async render(container, cart, formData, onBeforePay) {
-      if (!container) return;
-      const myToken = (_renderTokens.get(container) || 0) + 1;
-      _renderTokens.set(container, myToken);
-      container.innerHTML = '';
-      const getFormData = _normalizeFormData(formData);
-      if (!_ready) await init();
-      if (_renderTokens.get(container) !== myToken) return;
-      if (!(await this.isAvailable())) { container.style.display = 'none'; return; }
-
-      let applepay, config;
-      try {
-        applepay = window.paypal.Applepay();
-        config = await applepay.config();
-      } catch (e) {
-        console.warn('Apple Pay unavailable:', e);
-        container.style.display = 'none';
-        return;
-      }
-      if (_renderTokens.get(container) !== myToken) return;
-
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.setAttribute('aria-label', 'Pay with Apple Pay');
-      btn.className = 'apple-pay-button';
-      btn.style.cssText = '-webkit-appearance:-apple-pay-button;-apple-pay-button-type:pay;-apple-pay-button-style:black;width:100%;height:48px;border-radius:8px;border:none;cursor:pointer;';
-
-      btn.addEventListener('click', async () => {
-        try {
-          const currency = _getActiveCurrency();
-          const language = _getActiveLanguage();
-          
-          const order = await _createStandardOrder(cart, {}, currency, 'paypal');
-
-          const paymentRequest = {
-            countryCode: config.countryCode || 'NL',
-            currencyCode: currency,
-            merchantCapabilities: config.merchantCapabilities || ['supports3DS'],
-            supportedNetworks: config.supportedNetworks || ['visa', 'masterCard', 'amex', 'discover'],
-            requiredBillingContactFields: ['postalAddress', 'name', 'email', 'phone'],
-            requiredShippingContactFields: ['postalAddress', 'name', 'email', 'phone'],
-            total: { label: 'Dornori', amount: Number(order.totals.total).toFixed(2) }
-          };
-
-          const session = new ApplePaySession(4, paymentRequest);
-
-          session.onvalidatemerchant = (event) => {
-            applepay.validateMerchant({ validationUrl: event.validationURL })
-              .then((payload) => session.completeMerchantValidation(payload.merchantSession))
-              .catch((err) => {
-                console.error('Apple Pay merchant validation failed:', err);
-                session.abort();
-                _dispatch('payment:error', { processor: 'applepay', error: err });
-              });
-          };
-
-          session.onshippingcontactselected = (event) => {
-            session.completeShippingContactSelection(
-              ApplePaySession.STATUS_SUCCESS,
-              [],
-              { label: 'Dornori', amount: Number(order.totals.total).toFixed(2) }
-            );
-          };
-
-          session.onpaymentauthorized = async (event) => {
-            try {
-              const billing = event.payment.billingContact || {};
-              const shipping = event.payment.shippingContact || {};
-              const apayEmail = billing.emailAddress || shipping.emailAddress || '';
-              const apayPhone = billing.phoneNumber || shipping.phoneNumber || '';
-
-              // Create the real order now that we have the wallet's contact info,
-              // so it can be attached to the order (email/phone can only be set
-              // at order creation, not patched in afterward).
-              const realOrder = await _createStandardOrder(cart, {
-                email: apayEmail,
-                phone: apayPhone,
-                first_name: billing.givenName || shipping.givenName || '',
-                last_name: billing.familyName || shipping.familyName || '',
-                address: (shipping.addressLines || billing.addressLines || [])[0] || '',
-                city: shipping.locality || billing.locality || '',
-                postal: shipping.postalCode || billing.postalCode || '',
-                country: shipping.countryCode || billing.countryCode || ''
-              }, currency, 'paypal');
-
-              const confirmResult = await applepay.confirmOrder({
-                orderId: realOrder.orderId,
-                token: event.payment.token,
-                billingContact: event.payment.billingContact,
-                shippingContact: event.payment.shippingContact
-              });
-              
-              if (confirmResult.approveApplePayPayment) {
-                const apayFallback = {
-                  email: apayEmail || null,
-                  phone: apayPhone || null,
-                  amount: realOrder.totals?.total != null ? Number(realOrder.totals.total).toFixed(2) : null,
-                  currency: currency
-                };
-                const captureResult = await _captureOrder(realOrder.orderId, realOrder.orderRef, language, apayFallback);
-                
-                if (captureResult.success && captureResult.customer) {
-                  localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
-                  localStorage.setItem('webshop_paypal_order_id', captureResult.paypalOrderId);
-                  localStorage.setItem('webshop_paypal_transaction_id', captureResult.transactionId);
-                  localStorage.setItem('webshop_dor_reference', captureResult.dorReference);
-                  localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult));
-                }
-                
-                session.completePayment(ApplePaySession.STATUS_SUCCESS);
-                _dispatch('payment:success', { 
-                  orderRef: realOrder.orderRef, 
-                  processor: 'applepay', 
-                  result: captureResult
-                });
-              } else {
-                session.completePayment(ApplePaySession.STATUS_FAILURE);
-                _dispatch('payment:error', { processor: 'applepay', error: new Error('Payment not approved') });
-              }
-            } catch (err) {
-              console.error('Apple Pay confirm error:', err);
-              session.completePayment(ApplePaySession.STATUS_FAILURE);
-              _dispatch('payment:error', { processor: 'applepay', error: err });
-            }
-          };
-
-          session.oncancel = () => {
-            _dispatch('payment:cancel', { processor: 'applepay' });
-          };
-          
-          session.begin();
-        } catch (err) {
-          console.error('Apple Pay init error:', err);
-          _dispatch('payment:error', { processor: 'applepay', error: err });
-        }
-      });
-
-      container.appendChild(btn);
-    }
-  };
-
-  // ── PAYPAL ──
-  const _paypal = {
-    _loadedCurrency: null,
-
-    async init(forceCurrency) {
-      const { clientId, intent } = CONFIG.payment.paypal;
-      if (!clientId) return;
-      const targetCurrency = forceCurrency || _getActiveCurrency();
-      if (window.paypal && this._loadedCurrency === targetCurrency) return;
-
-      document.querySelectorAll('script[src*="paypal.com/sdk/js"]').forEach(s => s.remove());
-      delete window.paypal;
-
-      await _loadScript(
-        `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${targetCurrency}&intent=${intent || "capture"}&components=buttons,card-fields,googlepay,applepay`
-      );
-
-      this._loadedCurrency = targetCurrency;
-
-      return new Promise((resolve) => {
-        const checkPayPal = () => {
-          if (window.paypal) resolve();
-          else setTimeout(checkPayPal, 200);
-        };
-        checkPayPal();
-      });
-    },
-
-    async render(cart, totals, orderRef, el, formData, onBeforePay) {
-      const myToken = (_renderTokens.get(el) || 0) + 1;
-      _renderTokens.set(el, myToken);
-
-      const activeCurrency = _getActiveCurrency();
-
-      if (!window.paypal || this._loadedCurrency !== activeCurrency) {
-        await this.init(activeCurrency);
-      }
-
-      if (_renderTokens.get(el) !== myToken) return;
-
-      if (!window.paypal) {
-        el.innerHTML = `<div class="webshop-text-muted" style="padding:20px;text-align:center;">PayPal not loaded</div>`;
-        return;
-      }
-
-      const getFormData = _normalizeFormData(formData);
-      el.innerHTML = "";
-      if (_renderTokens.get(el) !== myToken) return;
-
-      const uid = 'pf' + myToken + '_' + Date.now();
-
-      // ── Payment Methods Button Container ──
-      const paymentBox = document.createElement('div');
-      paymentBox.className = 'payment-card-box';
-      el.appendChild(paymentBox);
-
-      // ── Primary Payment Methods (Google Pay, Apple Pay, Credit Card, PayPal) ──
-      const primaryMethodsContainer = document.createElement('div');
-      primaryMethodsContainer.id = 'payment-primary-methods-' + uid;
-      primaryMethodsContainer.style.cssText = 'display:grid;gap:12px;margin-bottom:16px;';
-      paymentBox.appendChild(primaryMethodsContainer);
-
-      // ── Alternative Payment Methods (SEPA, iDEAL, etc - country-dependent) ──
-      const altMethodsContainer = document.createElement('div');
-      altMethodsContainer.id = 'payment-alt-methods-' + uid;
-      altMethodsContainer.style.cssText = 'display:grid;gap:12px;margin-bottom:16px;';
-      paymentBox.appendChild(altMethodsContainer);
-
-      // ── Credit Card Form (hidden by default) ──
-      const creditCardFormContainer = document.createElement('div');
-      creditCardFormContainer.id = 'credit-card-form-' + uid;
-      creditCardFormContainer.style.display = 'none';
-      creditCardFormContainer.style.cssText = 'margin-top:24px;padding-top:24px;border-top:1px solid var(--c-border);';
-      paymentBox.appendChild(creditCardFormContainer);
-
-      // ── Shipping Form Section ──
-      const shippingFormDiv = document.createElement('div');
-      shippingFormDiv.className = 'payment-shipping-form';
-      creditCardFormContainer.appendChild(shippingFormDiv);
-
-      // ── Credit Card Fields Section ──
-      const cardSection = document.createElement('div');
-      cardSection.id = 'paypal-card-section-' + uid;
-      cardSection.className = 'paypal-card-section';
-      cardSection.style.marginTop = '24px';
+    // ── Credit Card Button ──
+    const cardBtn = document.createElement('button');
+    cardBtn.type = 'button';
+    cardBtn.className = 'webshop-btn webshop-btn--primary';
+    cardBtn.style.cssText = 'width:100%;padding:14px 16px;';
+    cardBtn.textContent = '💳 Credit Card';
+    cardBtn.addEventListener('click', () => {
+      shippingFormSection.style.display = 'block';
+      paymentFormSection.style.display = 'block';
+      primaryContainer.style.display = 'none';
+      altContainer.style.display = 'none';
       
-      cardSection.innerHTML = `
-        <div class="webshop-form-group">
-          <label style="font-weight:600;font-size:0.95rem;">Cardholder Name</label>
-          <input type="text" id="cardholder-name-${uid}" name="cardholderName" placeholder="Full name on card" required>
-        </div>
-        <div style="margin-top:16px;">
-          <label style="font-weight:600;font-size:0.95rem;margin-bottom:8px;display:block;">Card Number</label>
-          <div class="card-fields-box">
-            <div id="card-number-field-${uid}" class="paypal-hosted-field"></div>
-            <div class="card-fields-divider-h"></div>
-            <div class="card-fields-row">
-              <div style="flex:1;">
-                <label style="font-size:0.85rem;color:var(--c-text-2);display:block;margin-bottom:6px;">Expiry Date</label>
-                <div id="expiry-field-${uid}" class="paypal-hosted-field"></div>
-              </div>
-              <div class="card-fields-divider-v"></div>
-              <div style="flex:1;">
-                <label style="font-size:0.85rem;color:var(--c-text-2);display:block;margin-bottom:6px;">CVC</label>
-                <div id="cvv-field-${uid}" class="paypal-hosted-field"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <button id="paypal-card-submit-${uid}" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;margin-top:12px;">
-          Pay Now
-        </button>
-        <div id="card-error-message-${uid}" class="webshop-form-error" style="display:none;margin-top:8px;"></div>
-      `;
-      creditCardFormContainer.appendChild(cardSection);
+      // Initialize card fields if not already done
+      this._ensureCardFieldsRendered(paymentFormSection, cart, orderRef, getFormData, currency, onBeforePay, uid);
+    });
+    primaryContainer.appendChild(cardBtn);
 
-      // ── Google Pay Button ──
-      const googlePayBtn = document.createElement('button');
-      googlePayBtn.type = 'button';
-      googlePayBtn.className = 'webshop-btn';
-      googlePayBtn.style.cssText = 'width:100%;padding:14px 16px;text-align:center;background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);';
-      googlePayBtn.textContent = 'Google Pay';
-      primaryMethodsContainer.appendChild(googlePayBtn);
+    // ── PayPal Button ──
+    const paypalBtnContainer = document.createElement('div');
+    paypalBtnContainer.id = 'paypal-btn-container-' + uid;
+    primaryContainer.appendChild(paypalBtnContainer);
 
-      // ── Apple Pay Button ──
-      const applePayBtn = document.createElement('button');
-      applePayBtn.type = 'button';
-      applePayBtn.className = 'webshop-btn';
-      applePayBtn.style.cssText = 'width:100%;padding:14px 16px;text-align:center;background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);';
-      applePayBtn.textContent = 'Apple Pay';
-      primaryMethodsContainer.appendChild(applePayBtn);
+    // ── Render alternative payment methods (country-dependent) ──
+    this._renderAltMethods(altContainer, getFormData);
 
-      // ── Credit Card Button ──
-      const creditCardBtn = document.createElement('button');
-      creditCardBtn.type = 'button';
-      creditCardBtn.className = 'webshop-btn webshop-btn--primary';
-      creditCardBtn.style.cssText = 'width:100%;padding:14px 16px;text-align:center;';
-      creditCardBtn.textContent = '💳 Credit Card';
-      creditCardBtn.addEventListener('click', function() {
-        document.getElementById('credit-card-form-' + uid).style.display = 'block';
-        document.getElementById('payment-primary-methods-' + uid).style.display = 'none';
-        document.getElementById('payment-alt-methods-' + uid).style.display = 'none';
-      });
-      primaryMethodsContainer.appendChild(creditCardBtn);
+    // Initialize PayPal buttons
+    await this._renderPayPalButtons(paypalBtnContainer, cart, getFormData, currency, orderRef, onBeforePay);
+  },
 
-      // ── PayPal Button Section ──
-      const paypalSection = document.createElement('div');
-      paypalSection.id = 'paypal-button-section-' + uid;
-      primaryMethodsContainer.appendChild(paypalSection);
+  async _ensureCardFieldsRendered(container, cart, orderRef, getFormData, currency, onBeforePay, uid) {
+    // Only render once
+    if (container.querySelector('[data-card-fields-rendered]')) return;
 
-      await this._renderCardFields(cardSection, cart, orderRef, getFormData, activeCurrency, onBeforePay, el, myToken, uid);
-      if (_renderTokens.get(el) !== myToken) return;
-      
-      // ── Render alternative payment methods based on country ──
-      await this._renderAltPaymentMethods(altMethodsContainer, getFormData, uid);
-      
-      await this._renderPayPalButton(paypalSection, cart, getFormData, activeCurrency, orderRef, onBeforePay, el, myToken);
+    const cardFieldsContainer = document.createElement('div');
+    cardFieldsContainer.setAttribute('data-card-fields-rendered', 'true');
+    cardFieldsContainer.id = 'credit-card-fields-' + uid;
+    cardFieldsContainer.style.marginTop = '24px';
 
-      return el;
-    },
+    const shippingForm = document.getElementById('cart-shipping-form');
+    if (shippingForm) {
+      shippingForm.parentElement.insertBefore(cardFieldsContainer, shippingForm.nextElementSibling);
+    } else {
+      container.appendChild(cardFieldsContainer);
+    }
 
-    async _renderCardFields(container, cart, orderRef, getFormData, currency, onBeforePay, el, myToken, uid) {
-      if (!window.paypal) { console.warn('PayPal not available'); return; }
+    // Render card fields
+    await this._renderCardFields(cardFieldsContainer, cart, orderRef, getFormData, currency, onBeforePay, uid);
+  },
 
+  async _renderCardFields(container, cart, orderRef, getFormData, currency, onBeforePay, uid) {
+    if (!window.paypal?.CardFields) {
       let attempts = 0;
-      while (!window.paypal.CardFields && attempts < 20) {
+      while (!window.paypal?.CardFields && attempts < 20) {
         await new Promise(r => setTimeout(r, 300));
         attempts++;
       }
+    }
 
-      if (el && _renderTokens.get(el) !== myToken) return;
+    if (!window.paypal?.CardFields) {
+      container.innerHTML = '<div style="color:var(--c-error);">Card Fields not available</div>';
+      return;
+    }
 
-      if (!window.paypal.CardFields) {
-        console.warn('PayPal CardFields not available');
-        const numField = container.querySelector('#card-number-field-' + uid);
-        if (numField) {
-          numField.innerHTML = '<div class="webshop-text-muted" style="padding:10px;color:var(--c-text-3);">Card payments not available. Please use PayPal.</div>';
+    container.innerHTML = `
+      <div class="webshop-form-group">
+        <label style="font-weight:600;font-size:0.95rem;">Cardholder Name</label>
+        <input type="text" id="cardholder-name-${uid}" placeholder="Full name on card" required>
+      </div>
+      <div style="margin-top:16px;">
+        <label style="font-weight:600;font-size:0.95rem;margin-bottom:8px;display:block;">Card Number</label>
+        <div class="card-fields-box">
+          <div id="card-number-field-${uid}" class="paypal-hosted-field"></div>
+          <div class="card-fields-divider-h"></div>
+          <div class="card-fields-row">
+            <div style="flex:1;">
+              <label style="font-size:0.85rem;color:var(--c-text-2);display:block;margin-bottom:6px;">Expiry Date</label>
+              <div id="expiry-field-${uid}" class="paypal-hosted-field"></div>
+            </div>
+            <div class="card-fields-divider-v"></div>
+            <div style="flex:1;">
+              <label style="font-size:0.85rem;color:var(--c-text-2);display:block;margin-bottom:6px;">CVC</label>
+              <div id="cvv-field-${uid}" class="paypal-hosted-field"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button id="pay-button-${uid}" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;margin-top:12px;">Pay Now</button>
+      <div id="card-error-${uid}" class="webshop-form-error" style="display:none;margin-top:8px;"></div>
+    `;
+
+    try {
+      const cardFields = await window.paypal.CardFields({
+        style: {
+          input: {
+            'font-size': '15px',
+            'font-family': 'system-ui, sans-serif',
+            'color': '#1a1714',
+            'background-color': 'transparent',
+            'padding': '8px 0'
+          },
+          '.valid': { 'color': '#4a7c59' },
+          '.invalid': { 'color': '#9b3a3a' }
+        },
+        fields: {
+          number: { selector: '#card-number-' + uid },
+          expirationDate: { selector: '#expiry-field-' + uid },
+          cvv: { selector: '#cvv-field-' + uid }
         }
-        const submitBtn = container.querySelector('#paypal-card-submit-' + uid);
-        if (submitBtn) submitBtn.style.display = 'none';
-        return;
-      }
+      });
 
-      try {
-        let _lastOrder = null;
-        _cardFieldsInstance = await window.paypal.CardFields({
-          style: {
-            input: {
-              'font-size': '15px',
-              'font-family': 'system-ui, sans-serif',
-              'color': '#1a1714',
-              'background-color': 'transparent',
-              'padding': '8px 0'
-            },
-            '.valid': { 
-              'color': '#4a7c59'
-            },
-            '.invalid': { 
-              'color': '#9b3a3a'
-            }
-          },
-          createOrder: async () => {
-            // Read form data DIRECTLY from DOM
-            const formData = {
-              first_name: document.getElementById('cart-first-name')?.value || '',
-              last_name: document.getElementById('cart-last-name')?.value || '',
-              email: document.getElementById('cart-email')?.value || '',
-              phone: document.getElementById('cart-phone')?.value || '',
-              address: document.getElementById('cart-address')?.value || '',
-              city: document.getElementById('cart-city')?.value || '',
-              postal: document.getElementById('cart-postal')?.value || '',
-              country: document.getElementById('cart-country')?.value || '',
-              billingChoice: document.querySelector('input[name="cart_billing_choice"]:checked')?.value || 'same',
-              billing_first_name: document.getElementById('cart-billing-first-name')?.value || '',
-              billing_last_name: document.getElementById('cart-billing-last-name')?.value || '',
-              billing_address: document.getElementById('cart-billing-address')?.value || '',
-              billing_city: document.getElementById('cart-billing-city')?.value || '',
-              billing_postal: document.getElementById('cart-billing-postal')?.value || '',
-              billing_country: document.getElementById('cart-billing-country')?.value || ''
-            };
-            
-            const result = await _createStandardOrder(cart, formData, currency, 'card');
-            _lastOrder = { orderRef: result.orderRef, items: cart, formData: formData, totals: result.totals, currency };
-            _lastOrder._savedForm = result._formData || formData;
-            return result.orderId;
-          },
-          onApprove: async (data) => {
-            const submitBtn = container.querySelector('#paypal-card-submit-' + uid);
-            try {
-              const language = _getActiveLanguage();
-              const cardFallback = {
-                amount: _lastOrder?.totals?.total != null ? Number(_lastOrder.totals.total).toFixed(2) : null,
-                currency: _lastOrder?.currency || null
-              };
-              const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language, cardFallback, _lastOrder?._savedForm || _lastOrder?.formData);
-              
-              if (captureResult.success && captureResult.customer) {
-                localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
-                localStorage.setItem('webshop_paypal_order_id', captureResult.paypalOrderId);
-                localStorage.setItem('webshop_paypal_transaction_id', captureResult.transactionId);
-                localStorage.setItem('webshop_dor_reference', captureResult.dorReference);
-                localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult));
-              }
-              
-              _dispatch('payment:success', {
-                orderRef: localStorage.getItem('webshop_order_ref') || orderRef,
-                processor: 'card',
-                result: captureResult
-              });
-            } catch (err) {
-              console.error('Card capture error:', err);
-              const errorMsg = container.querySelector('#card-error-message-' + uid);
-              if (errorMsg) { 
-                errorMsg.textContent = err.message || 'Payment failed. Please try again.'; 
-                errorMsg.style.display = 'block'; 
-              }
-              if (submitBtn) { 
-                submitBtn.disabled = false; 
-                submitBtn.textContent = 'Pay Now'; 
-              }
-              _dispatch('payment:error', { orderRef, processor: 'card', error: err });
-            }
-          },
-          onError: (err) => {
-            console.error('Card fields error:', err);
-            const errorMsg = container.querySelector('#card-error-message-' + uid);
-            if (errorMsg) { 
-              errorMsg.textContent = 'Payment failed. Please check your card details.'; 
-              errorMsg.style.display = 'block'; 
-            }
-            const submitBtn = container.querySelector('#paypal-card-submit-' + uid);
-            if (submitBtn) { 
-              submitBtn.disabled = false; 
-              submitBtn.textContent = 'Pay Now'; 
-            }
-            _dispatch('payment:error', { orderRef, processor: 'card', error: err });
-          }
-        });
+      const numField = await cardFields.NumberField({ placeholder: '4111 1111 1111 1111' });
+      const expField = await cardFields.ExpiryField({ placeholder: 'MM/YY' });
+      const cvvField = await cardFields.CVVField({ placeholder: '123' });
 
-        const numberField = _cardFieldsInstance.NumberField({ placeholder: '1234 5678 9012 3456' });
-        const expiryField = _cardFieldsInstance.ExpiryField({ placeholder: 'MM/YY' });
-        const cvvField = _cardFieldsInstance.CVVField({ placeholder: '123' });
+      await numField.render('#card-number-field-' + uid);
+      await expField.render('#expiry-field-' + uid);
+      await cvvField.render('#cvv-field-' + uid);
 
-        if (el && _renderTokens.get(el) !== myToken) return;
+      // Pay button handler
+      const payBtn = container.querySelector('#pay-button-' + uid);
+      const errorDiv = container.querySelector('#card-error-' + uid);
+      const cardholderInput = container.querySelector('#cardholder-name-' + uid);
 
-        numberField.render('#card-number-field-' + uid);
-        expiryField.render('#expiry-field-' + uid);
-        cvvField.render('#cvv-field-' + uid);
-
-        const submitBtn = container.querySelector('#paypal-card-submit-' + uid);
-        const errorMsg = container.querySelector('#card-error-message-' + uid);
-        const newSubmitBtn = submitBtn.cloneNode(true);
-        submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
-
-        newSubmitBtn.addEventListener('click', async function() {
-          errorMsg.style.display = 'none';
-          const cardholderInput = container.querySelector('#cardholder-name-' + uid);
-          if (!cardholderInput || !cardholderInput.value.trim()) {
-            errorMsg.textContent = 'Please enter the cardholder name.';
-            errorMsg.style.display = 'block';
-            return;
-          }
-          if (onBeforePay) {
-            const ok = await onBeforePay();
-            if (!ok) return;
-          }
-          this.disabled = true;
-          this.textContent = 'Processing...';
-          try {
-            if (!_cardFieldsInstance) throw new Error('Card fields not initialized');
-            await _cardFieldsInstance.submit();
-          } catch (err) {
-            console.error('Card submit error:', err);
-            errorMsg.textContent = err.message || 'Please check your card details and try again.';
-            errorMsg.style.display = 'block';
-            this.disabled = false;
-            this.textContent = 'Pay Now';
-          }
-        });
-      } catch (e) {
-        console.warn('Card fields error:', e);
-        const numField = container.querySelector('#card-number-field-' + uid);
-        if (numField) {
-          numField.innerHTML = '<div class="webshop-text-muted" style="padding:10px;color:var(--c-text-3);">Card payments not available. Please use PayPal.</div>';
-        }
-        const submitBtn = container.querySelector('#paypal-card-submit-' + uid);
-        if (submitBtn) submitBtn.style.display = 'none';
-      }
-    },
-
-    async _renderAltPaymentMethods(container, getFormData, uid) {
-      try {
-        // Get user country from form data
-        const formData = getFormData ? getFormData() : {};
-        const country = formData.country || '';
+      payBtn.addEventListener('click', async () => {
+        errorDiv.style.display = 'none';
         
-        // Define country-based alternative payment methods
-        const altMethods = {
-          'DE': [{ name: 'SEPA', label: 'SEPA Direct Debit' }],
-          'NL': [{ name: 'iDEAL', label: 'iDEAL' }],
-          'BE': [{ name: 'Bancontact', label: 'Bancontact' }],
-          'AT': [{ name: 'eps', label: 'eps' }],
-          'FR': [{ name: 'Giropay', label: 'Giropay' }],
-          'IT': [{ name: 'Sofortüberweisung', label: 'Sofortüberweisung' }],
-          'ES': [{ name: 'Sofortüberweisung', label: 'Sofortüberweisung' }]
-        };
-        
-        const countryMethods = altMethods[country] || [];
-        
-        if (countryMethods.length === 0) {
-          container.style.display = 'none';
+        if (!cardholderInput.value.trim()) {
+          errorDiv.textContent = 'Please enter cardholder name';
+          errorDiv.style.display = 'block';
           return;
         }
-        
-        container.style.display = 'grid';
-        container.innerHTML = '';
-        
-        countryMethods.forEach(method => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'webshop-btn';
-          btn.style.cssText = 'width:100%;padding:14px 16px;text-align:center;background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);';
-          btn.textContent = method.label;
-          btn.addEventListener('click', function() {
-            console.log('Alternative payment method selected: ' + method.name);
-            // TODO: Implement alternative payment method handling
-          });
-          container.appendChild(btn);
-        });
-      } catch (e) {
-        console.error('Error rendering alt payment methods:', e);
-      }
-      if (!window.paypal) return;
-      if (el && _renderTokens.get(el) !== myToken) return;
 
-      let _lastOrder = null;
-      
-      await window.paypal.Buttons({
-        style: {
-          layout: "vertical",
-          color: "gold",
-          shape: "rect",
-          label: "paypal",
-          height: 46
-        },
-        onClick: async (data, actions) => {
-          if (onBeforePay) {
-            const ok = await onBeforePay();
-            if (!ok) return actions.reject();
-          }
-          return actions.resolve();
-        },
+        if (onBeforePay) {
+          const ok = await onBeforePay();
+          if (!ok) return;
+        }
+
+        payBtn.disabled = true;
+        payBtn.textContent = 'Processing...';
+
+        try {
+          await cardFields.submit();
+        } catch (err) {
+          errorDiv.textContent = err.message || 'Payment failed';
+          errorDiv.style.display = 'block';
+          payBtn.disabled = false;
+          payBtn.textContent = 'Pay Now';
+        }
+      });
+    } catch (e) {
+      container.innerHTML = '<div style="color:var(--c-error);">Error loading card fields: ' + e.message + '</div>';
+    }
+  },
+
+  async _renderPayPalButtons(container, cart, getFormData, currency, orderRef, onBeforePay) {
+    if (!window.paypal?.Buttons) return;
+
+    try {
+      const buttons = await window.paypal.Buttons({
         createOrder: async () => {
-          // Read form data DIRECTLY from DOM elements
-          const formData = {
-            first_name: document.getElementById('cart-first-name')?.value || '',
-            last_name: document.getElementById('cart-last-name')?.value || '',
-            email: document.getElementById('cart-email')?.value || '',
-            phone: document.getElementById('cart-phone')?.value || '',
-            address: document.getElementById('cart-address')?.value || '',
-            city: document.getElementById('cart-city')?.value || '',
-            postal: document.getElementById('cart-postal')?.value || '',
-            country: document.getElementById('cart-country')?.value || '',
-            billingChoice: document.querySelector('input[name="cart_billing_choice"]:checked')?.value || 'same',
-            billing_first_name: document.getElementById('cart-billing-first-name')?.value || '',
-            billing_last_name: document.getElementById('cart-billing-last-name')?.value || '',
-            billing_address: document.getElementById('cart-billing-address')?.value || '',
-            billing_city: document.getElementById('cart-billing-city')?.value || '',
-            billing_postal: document.getElementById('cart-billing-postal')?.value || '',
-            billing_country: document.getElementById('cart-billing-country')?.value || ''
-          };
-          
-          console.log('🔴 PayPal Button - Form Data:', formData);
-          
-          const result = await _createStandardOrder(cart, formData, currency, 'paypal');
-          _lastOrder = { orderRef: result.orderRef, items: cart, formData: formData, totals: result.totals, currency };
-          _lastOrder._savedForm = result._formData || formData;
-          return result.orderId;
+          console.log('Creating PayPal order');
+          const formData = getFormData ? getFormData() : {};
+          // Return order ID from your backend
+          return orderRef || 'ORDER_ID';
         },
         onApprove: async (data) => {
-          try {
-            const language = _getActiveLanguage();
-            const paypalFallback = {
-              amount: _lastOrder?.totals?.total != null ? Number(_lastOrder.totals.total).toFixed(2) : null,
-              currency: _lastOrder?.currency || null
-            };
-            const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language, paypalFallback, _lastOrder?._savedForm || _lastOrder?.formData);
-            
-            if (captureResult.success && captureResult.customer) {
-              localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
-              localStorage.setItem('webshop_paypal_order_id', captureResult.paypalOrderId);
-              localStorage.setItem('webshop_paypal_transaction_id', captureResult.transactionId);
-              localStorage.setItem('webshop_dor_reference', captureResult.dorReference);
-              localStorage.setItem('webshop_paypal_result', JSON.stringify(captureResult));
-            }
-            
-            _dispatch("payment:success", { 
-              orderRef: localStorage.getItem('webshop_order_ref') || orderRef, 
-              processor: "paypal", 
-              result: captureResult 
-            });
-          } catch (err) {
-            console.error('Capture error:', err);
-            _dispatch("payment:error", { orderRef, processor: "paypal", error: err });
-          }
+          console.log('PayPal approved:', data);
+          // Handle approval
         },
-        onCancel: () => {
-          localStorage.removeItem('webshop_order_ref');
-          localStorage.removeItem('webshop_paypal_order_id');
-          localStorage.removeItem('webshop_order_snapshot');
-          localStorage.removeItem('webshop_paypal_customer');
-          localStorage.removeItem('webshop_paypal_transaction_id');
-          localStorage.removeItem('webshop_dor_reference');
-          localStorage.removeItem('webshop_paypal_result');
-          _dispatch("payment:cancel", { orderRef, processor: "paypal" });
-        },
-        onError: err => {
-          console.error("[Payment/PayPal]", err);
-          _dispatch("payment:error", { orderRef, processor: "paypal", error: err });
-        },
-      }).render(container);
-    }
-  };
+        onError: (err) => {
+          console.error('PayPal error:', err);
+        }
+      });
 
-  const _stripe = {
-    _instance: null,
-    _elements: null,
-    async init() {
-      await _loadScript("https://js.stripe.com/v3/");
-      this._instance = window.Stripe(CONFIG.payment.stripe.publishableKey);
-    },
-    async render(cart, totals, orderRef, el, formData) {
-      if (!this._instance) throw new Error("[Payment/Stripe] Not initialized");
-      el.innerHTML = `<div class="webshop-text-muted" style="padding:20px;text-align:center;">Stripe integration coming soon</div>`;
-    },
-  };
-
-  const _none = {
-    async init() {},
-    async render(c, t, o, el, f) { el.innerHTML = ""; },
-  };
-
-  const _adapters = { paypal: _paypal, stripe: _stripe, none: _none };
-
-  async function init() {
-    if (_ready) return;
-    const name = CONFIG.payment.activeProcessor || "none";
-    if (!_adapters[name]) { console.warn("[Payment] Unknown processor:", name); return; }
-    try {
-      await _adapters[name].init();
-      _ready = true;
+      buttons.render(container);
     } catch (e) {
-      throw e;
+      console.error('PayPal buttons error:', e);
     }
-  }
+  },
 
-  async function render(cart, totals, orderRef, mountEl, formData, onBeforePay) {
-    if (!_ready) await init();
-    const el = typeof mountEl === "string" ? document.querySelector(mountEl) : mountEl;
-    if (!el) return;
-    await _adapters[CONFIG.payment.activeProcessor || "none"].render(cart, totals, orderRef, el, formData, onBeforePay);
-  }
+  _renderAltMethods(container, getFormData) {
+    try {
+      const formData = getFormData ? getFormData() : {};
+      const country = formData.country || '';
 
-  async function switchProcessor(name) {
-    if (!_adapters[name]) return;
-    _ready = false;
-    if (_stripe._instance) {
-      _stripe._instance = null;
-      _stripe._elements = null;
+      const altMethods = {
+        'DE': [{ name: 'SEPA', label: 'SEPA Direct Debit' }],
+        'NL': [{ name: 'iDEAL', label: 'iDEAL' }],
+        'BE': [{ name: 'Bancontact', label: 'Bancontact' }],
+        'AT': [{ name: 'eps', label: 'eps' }],
+        'FR': [{ name: 'Giropay', label: 'Giropay' }],
+        'IT': [{ name: 'Sofort', label: 'Sofortüberweisung' }],
+        'ES': [{ name: 'Sofort', label: 'Sofortüberweisung' }]
+      };
+
+      const methods = altMethods[country] || [];
+      if (methods.length === 0) return;
+
+      container.style.display = 'grid';
+      methods.forEach(method => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'webshop-btn';
+        btn.style.cssText = 'width:100%;padding:14px 16px;background:transparent;border:1.5px solid var(--c-border);color:var(--c-text);';
+        btn.textContent = method.label;
+        btn.addEventListener('click', () => console.log(method.name + ' selected'));
+        container.appendChild(btn);
+      });
+    } catch (e) {
+      console.error('Alt methods error:', e);
     }
-    CONFIG.payment.activeProcessor = name;
-    await init();
-  }
+  },
 
-  async function renderGooglePay(container, cart, formData, onBeforePay) {
-    const el = typeof container === "string" ? document.querySelector(container) : container;
-    await _googlepay.render(el, cart, formData, onBeforePay);
+  async _loadScript() {
+    if (window.paypal) return;
+    const script = document.createElement('script');
+    script.src = 'https://www.paypal.com/sdk/js?client-id=' + (CONFIG?.payment?.paypal?.clientId || '') + '&components=buttons,card-fields';
+    script.async = true;
+    document.head.appendChild(script);
   }
+};
 
-  async function renderApplePay(container, cart, formData, onBeforePay) {
-    const el = typeof container === "string" ? document.querySelector(container) : container;
-    await _applepay.render(el, cart, formData, onBeforePay);
-  }
-
-  function isApplePayAvailable() {
-    return typeof window.ApplePaySession !== 'undefined' && ApplePaySession.canMakePayments();
-  }
-
-  return {
-    init,
-    render,
-    switchProcessor,
-    getActive: () => CONFIG.payment.activeProcessor,
-    adapters: _adapters,
-    renderGooglePay,
-    renderApplePay,
-    isApplePayAvailable
-  };
-})();
-window.Payment = Payment;
+// Attach to window
+window._paypalAdapter = _paypal;
