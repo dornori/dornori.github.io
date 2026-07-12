@@ -10,6 +10,17 @@ window.EDGEDESK_CONSTANTS = {
     // ─── API CONFIGURATION ──────────────────────────────────────
     API_BASE: 'https://dornori-ticketing.dornori-info.workers.dev',
     
+    // ─── PRODUCT DATA URLS (for order reply multi-language support) ──
+    // PRODUCTS_DATA_BASE_URL: Base URL for language-specific product names
+    //   Files stored at: {PRODUCTS_DATA_BASE_URL}/{lang}/products.json
+    //   Example: https://cdn.example.com/data → /nl/products.json, /fr/products.json
+    PRODUCTS_DATA_BASE_URL: 'https://cdn.example.com/data',
+    
+    // PRODUCTS_IMAGES_BASE_URL: Base URL for generic product images/metadata
+    //   File stored at: {PRODUCTS_IMAGES_BASE_URL}/products.json
+    //   Example: https://cdn.example.com/products → /products.json
+    PRODUCTS_IMAGES_BASE_URL: 'https://cdn.example.com/products',
+    
     // ─── UI TIMING (milliseconds) ───────────────────────────────
     TOAST_DURATION_MS: 3500,           // Default toast display time
     TOAST_WARNING_DURATION_MS: 8000,   // Warning toasts show longer
