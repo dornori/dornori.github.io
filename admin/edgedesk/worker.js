@@ -201,27 +201,31 @@ const ROLE_RESOURCES = {
     users: ['read', 'write'],
     settings: ['read', 'write'],
     newsletter: ['read', 'write'],
-    reports: ['read', 'write']
+    reports: ['read', 'write'],
+    order_reply: ['read', 'write']
   },
   manager: {
     tickets: ['read', 'write'],
     users: ['read'],
     settings: ['read'],
     newsletter: ['read', 'write'],
-    reports: ['read', 'write']
+    reports: ['read', 'write'],
+    order_reply: ['read', 'write']
   },
   tl: {
     tickets: ['read', 'write'],
     users: ['read'],
     newsletter: ['read'],
-    reports: ['read']
+    reports: ['read'],
+    order_reply: ['read']
   },
   agent: {
     tickets: ['read', 'write'],
     newsletter: [],
     reports: [],
     users: [],
-    settings: []
+    settings: [],
+    order_reply: ['read']
   }
 };
 
@@ -258,7 +262,7 @@ async function hasPermission(email, resource, action, env) {
 }
 __name(hasPermission, "hasPermission");
 
-const PERMISSION_RESOURCES = ['tickets', 'users', 'settings', 'newsletter', 'reports'];
+const PERMISSION_RESOURCES = ['tickets', 'users', 'settings', 'newsletter', 'reports', 'order_reply'];
 
 // Resolves role defaults + per-user overrides into one flat object the
 // frontend can read directly without re-implementing any ACL logic.
@@ -1264,7 +1268,7 @@ __name(getTicketByNumber, "getTicketByNumber");
 async function getTickets(filters, env, user) {
   let query = `SELECT id, id AS ticket_id, ticket_number, category, language, status, priority,
         sender_name, sender_email, sender_phone, order_number, subject, created_at, updated_at,
-        last_action, sla_response_due, sla_resolution_due, assigned_to, last_updated_by
+        last_action, sla_response_due, sla_resolution_due, assigned_to, last_updated_by, metadata
         FROM tickets WHERE 1=1`;
   const params = [];
   if (user && user.role !== "admin") {
@@ -2017,8 +2021,12 @@ var worker_default = {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
-        if (!await checkAccess(email, "settings", "edit", env)) return json({ error: "Permission denied" }, 403);
         const { settings } = await request.json();
+        // Order-reply templates are gated by the order_reply resource (admin/manager)
+        // rather than the general settings resource, so managers can save them.
+        const isOrderTemplateWrite = Array.isArray(settings) && settings.length > 0 && settings.every((s) => s.category === "order_template");
+        const requiredResource = isOrderTemplateWrite ? "order_reply" : "settings";
+        if (!await checkAccess(email, requiredResource, "edit", env)) return json({ error: "Permission denied" }, 403);
         for (const s of settings) await updateSetting(env, s.category, s.key, s.value);
         await bumpConfigVersion(env);
         return json({ success: true });

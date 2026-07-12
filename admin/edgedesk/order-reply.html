@@ -239,70 +239,76 @@
     setTheme(localStorage.getItem('theme') || 'light');
 
     const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    const currentUser = storedUser ? JSON.parse(storedUser) : null;
+    let storedUser = localStorage.getItem('user');
+    let currentUser = storedUser ? JSON.parse(storedUser) : null;
 
-    // ─── PERMISSIONS (self-contained; does not depend on shared.js internals) ──
+    // ─── PERMISSIONS ──────────────────────────────────────────────
     function hasAccess(page, action = 'view') {
         if (!currentUser?.effective_permissions) return false;
         const perms = currentUser.effective_permissions[page];
         if (!perms) return false;
         return perms[action] === true;
     }
+
     function canViewOrderReply() {
-        // Admins always have access to order_reply
         if (currentUser?.role === 'admin' || currentUser?.role === 'manager') return true;
-        return hasAccess('order_reply', 'view');
+        return hasAccess('order-reply', 'view');
     }
+
     function canReplyTickets()   { return hasAccess('tickets', 'reply'); }
-    function canManageTemplates(){ return hasAccess('order_reply', 'edit'); }
-    function canExportOrders()   { return hasAccess('order_reply', 'edit'); }
+    function canManageTemplates(){ return hasAccess('order-reply', 'edit'); }
+    function canExportOrders()   { return hasAccess('order-reply', 'edit'); }
 
-    if (!token || !currentUser || !canViewOrderReply()) {
-        document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to access order reply.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
-        throw new Error('Order reply access required');
-    }
-
-    // Refresh permissions from the server: localStorage only reflects what
-    // was true at login, so a freshly-granted order_reply permission won't
-    // show up until this runs (or the user re-logs in).
-    (async function refreshCurrentUser() {
-        try {
-            const res = await fetch(API_BASE + '/api/admin/me', { headers: { Authorization: 'Bearer ' + token } });
-            if (!res.ok) return;
-            const data = await res.json();
-            if (data.success && data.user) {
-                currentUser.role = data.user.role;
-                currentUser.page_permissions = data.user.page_permissions || {};
-                currentUser.effective_permissions = data.user.effective_permissions || {};
-                currentUser.allowed_languages = data.user.allowed_languages || [];
-                currentUser.allowed_emails = data.user.allowed_emails || [];
-                currentUser.allowed_categories = data.user.allowed_categories || [];
-                localStorage.setItem('user', JSON.stringify(currentUser));
-                if (!canViewOrderReply()) { window.location.href = 'dashboard.html'; return; }
-                render();
+    // ─── INIT: Refresh user FIRST, then check access ─────────────
+    (async function init() {
+        // 1. Refresh user data from server
+        if (token) {
+            try {
+                const res = await fetch(API_BASE + '/api/admin/me', { 
+                    headers: { Authorization: 'Bearer ' + token } 
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.success && data.user) {
+                        currentUser = data.user;
+                        localStorage.setItem('user', JSON.stringify(currentUser));
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to refresh user:', e);
             }
-        } catch (e) { /* keep last-known permissions on failure */ }
-    })();
+        }
 
-    // ─── NAV TOGGLE (self page excluded) ─────────────────────────
-    ['nav-dashboard', 'nav-reports', 'nav-newsletter', 'nav-settings', 'nav-users'].forEach(id => {
-        const page = id.replace('nav-', '');
-        const el = document.getElementById(id);
-        if (!el) return;
-        const allowed = hasAccess(page, 'view');
-        el.classList.toggle('nav-disabled', !allowed);
-        if (!allowed) el.addEventListener('click', e => e.preventDefault());
-    });
-    // Order Reply nav: show if user has order_reply.view permission
-    const orNavEl = document.getElementById('nav-order-reply');
-    if (orNavEl) {
-        const hasOR = hasAccess('order_reply', 'view');
-        orNavEl.style.display = hasOR ? '' : 'none';
-        if (!hasOR) orNavEl.style.pointerEvents = 'none';
-    }
-    const uEl = document.getElementById('userDisplay');
-    if (uEl && currentUser) uEl.textContent = currentUser.name || currentUser.email;
+        // 2. NOW check access with fresh data
+        if (!token || !currentUser || !canViewOrderReply()) {
+            document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to access order reply.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
+            throw new Error('Order reply access required');
+        }
+
+        // 3. Update nav with fresh permissions
+        ['nav-dashboard', 'nav-reports', 'nav-newsletter', 'nav-settings', 'nav-users'].forEach(id => {
+            const page = id.replace('nav-', '');
+            const el = document.getElementById(id);
+            if (!el) return;
+            const allowed = hasAccess(page, 'view');
+            el.classList.toggle('nav-disabled', !allowed);
+            if (!allowed) el.addEventListener('click', e => e.preventDefault());
+        });
+        
+        const orNavEl = document.getElementById('nav-order-reply');
+        if (orNavEl) {
+            const hasOR = hasAccess('order-reply', 'view');
+            orNavEl.style.display = hasOR ? '' : 'none';
+            if (!hasOR) orNavEl.style.pointerEvents = 'none';
+        }
+
+        // 4. Set user display
+        const uEl = document.getElementById('userDisplay');
+        if (uEl && currentUser) uEl.textContent = currentUser.name || currentUser.email;
+
+        // 5. Load the page
+        load();
+    })();
 
     // ─── API WRAPPER ─────────────────────────────────────────────
     async function api(path, opts = {}) {
@@ -560,7 +566,7 @@
         return document.getElementById('compose_subject').value.trim();
     }
 
-    // ─── ORDER DATA RENDERING (mirrors dashboard.html reply flow) ─
+    // ─── ORDER DATA RENDERING ────────────────────────────────────
     function renderOrderItems(meta) {
         const order = meta && meta.order;
         if (!order || !order.items || !order.items.length) return '';
@@ -925,9 +931,7 @@
         }
     }
 
-    load();
-
-    // Expose functions globally
+    // ─── EXPOSE FUNCTIONS GLOBALLY ──────────────────────────────
     window.setLang = setLang;
     window.insertTag = insertTag;
     window.cmd = cmd;
