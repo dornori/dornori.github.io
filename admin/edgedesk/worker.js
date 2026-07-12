@@ -7,7 +7,7 @@ var cache = {
   users: /* @__PURE__ */ new Map(),
   categories: null,
   languages: null,
-  autoReplies: null,
+  autoReplies: null, 
   emailConfig: null,
   settingsTimestamp: 0,
   usersTimestamp: 0,

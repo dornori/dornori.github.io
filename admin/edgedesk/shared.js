@@ -214,11 +214,11 @@ function initTheme() {
 // ─── NAVIGATION PERMISSION HELPER ──────────────────────────────
 function setupNavigation() {
     const navItems = [
-        { id: 'nav-reports', page: 'reports' },
-        { id: 'nav-newsletter', page: 'newsletter' },
-        { id: 'nav-order-reply', page: 'order_reply' },
-        { id: 'nav-settings', page: 'settings' },
-        { id: 'nav-users', page: 'users' }
+        { id: 'nav-reports', page: 'reports', href: 'reports.html' },
+        { id: 'nav-newsletter', page: 'newsletter', href: 'newsletter.html' },
+        { id: 'nav-order-reply', page: 'order_reply', href: 'order-reply.html' },
+        { id: 'nav-settings', page: 'settings', href: 'settings.html' },
+        { id: 'nav-users', page: 'users', href: 'users.html' }
     ];
     
     for (const item of navItems) {
@@ -234,7 +234,7 @@ function setupNavigation() {
         } else {
             el.classList.remove('nav-disabled');
             el.setAttribute('aria-disabled', 'false');
-            el.href = item.page + '.html';
+            el.href = item.href;
             el.style.pointerEvents = '';
         }
     }
