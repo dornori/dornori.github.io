@@ -216,6 +216,7 @@ function setupNavigation() {
     const navItems = [
         { id: 'nav-reports', page: 'reports' },
         { id: 'nav-newsletter', page: 'newsletter' },
+        { id: 'nav-order-reply', page: 'order_reply' },
         { id: 'nav-settings', page: 'settings' },
         { id: 'nav-users', page: 'users' }
     ];
