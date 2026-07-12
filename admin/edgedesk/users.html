@@ -379,7 +379,10 @@
     // ─── LOAD SETTINGS ───────────────────────────────────────────
     async function loadSettings() {
         try {
-            const config = await getSharedConfig();
+            const res = await fetch(API_BASE + '/api/admin/settings', { headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' } });
+            if (!res.ok) throw new Error('Settings API failed');
+            const settingsData = await res.json();
+            const config = settingsData.data || {};
 
             let langList = config.languages || [];
             if (!langList || langList.length === 0) {
@@ -592,8 +595,14 @@
             if (settingsData.data?.email_addresses) {
                 supportEmails = settingsData.data.email_addresses.map(e => e.email || e.address).filter(Boolean);
             }
-            const teamsData = await apiCall('/api/admin/teams');
-            teams = teamsData.teams || [];
+            // Teams are optional — fallback to empty array if endpoint doesn't exist
+            try {
+                const teamsData = await apiCall('/api/admin/teams');
+                teams = teamsData.teams || [];
+            } catch (e) {
+                console.warn('Teams endpoint unavailable:', e.message);
+                teams = [];
+            }
             renderUI();
             renderUsers();
         } catch (e) {
