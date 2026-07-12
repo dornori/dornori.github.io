@@ -306,7 +306,8 @@
         const uEl = document.getElementById('userDisplay');
         if (uEl && currentUser) uEl.textContent = currentUser.name || currentUser.email;
 
-        // 5. Load the page
+        // 5. Load settings from DB first, then load the page
+        await loadSettings();
         load();
     })();
 
@@ -383,6 +384,208 @@
         filterText = '',
         sourceMode = false,
         pendingSend = null;
+
+    // ─── PRODUCT DATA WITH DB SETTINGS + CACHE ─────────────────────
+    let productDataCache = {};
+    let productConfigCache = null;  // Cache for the URLs from DB
+    let settingsLoaded = false;
+
+    // Load settings from database
+    async function loadSettings() {
+        try {
+            if (currentUser.role === 'admin' || currentUser.role === 'manager') {
+                const sd = await api('/api/admin/settings');
+                settings = sd.settings || {};
+                settingsLoaded = true;
+                // Clear product config cache so it reloads from fresh settings
+                productConfigCache = null;
+                console.log('✅ Settings loaded from DB:', settings);
+            }
+        } catch (e) {
+            console.warn('Failed to load settings from DB:', e);
+            settingsLoaded = false;
+        }
+    }
+
+    // Get product URLs from database settings (with caching)
+    async function getProductUrls() {
+        // Return cached config if available
+        if (productConfigCache) return productConfigCache;
+        
+        try {
+            // If settings not loaded yet, load them
+            if (!settingsLoaded || Object.keys(settings).length === 0) {
+                await loadSettings();
+            }
+            
+            // Extract the URLs from settings
+            let dataBaseUrl = '';
+            let imagesBaseUrl = '';
+            
+            // settings is an array of {category, key, value}
+            if (Array.isArray(settings)) {
+                for (const s of settings) {
+                    if (s.category === 'general' && s.key === 'products_data_base_url') {
+                        dataBaseUrl = s.value;
+                    }
+                    if (s.category === 'general' && s.key === 'products_images_base_url') {
+                        imagesBaseUrl = s.value;
+                    }
+                }
+            }
+            
+            // Fallback to config.js if not found in DB
+            if (!dataBaseUrl) {
+                dataBaseUrl = window.EDGEDESK_CONSTANTS?.PRODUCTS_DATA_BASE_URL || '';
+                console.log('Using fallback PRODUCTS_DATA_BASE_URL from config.js');
+            }
+            if (!imagesBaseUrl) {
+                imagesBaseUrl = window.EDGEDESK_CONSTANTS?.PRODUCTS_IMAGES_BASE_URL || '';
+                console.log('Using fallback PRODUCTS_IMAGES_BASE_URL from config.js');
+            }
+            
+            productConfigCache = { dataBaseUrl, imagesBaseUrl };
+            console.log('Product URLs loaded:', productConfigCache);
+            return productConfigCache;
+            
+        } catch (e) {
+            console.warn('Failed to load product URLs from DB, using config.js fallback:', e);
+            // Fallback to config.js
+            productConfigCache = {
+                dataBaseUrl: window.EDGEDESK_CONSTANTS?.PRODUCTS_DATA_BASE_URL || '',
+                imagesBaseUrl: window.EDGEDESK_CONSTANTS?.PRODUCTS_IMAGES_BASE_URL || ''
+            };
+            return productConfigCache;
+        }
+    }
+
+    // Fetch product names from language-specific JSON with caching
+    async function fetchProductNames(lang) {
+        const cacheKey = `names_${lang}`;
+        
+        // Return from memory cache if available
+        if (productDataCache[cacheKey]) {
+            console.log(`✅ Product names for ${lang} loaded from memory cache`);
+            return productDataCache[cacheKey];
+        }
+        
+        // Check localStorage cache (persistent across page reloads)
+        const storageKey = `product_names_${lang}`;
+        const cached = localStorage.getItem(storageKey);
+        const cacheTime = localStorage.getItem(`${storageKey}_time`);
+        
+        // Cache for 1 hour (3600000 ms)
+        if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 3600000)) {
+            try {
+                const data = JSON.parse(cached);
+                productDataCache[cacheKey] = data;
+                console.log(`✅ Product names for ${lang} loaded from localStorage cache`);
+                return data;
+            } catch (e) { /* Invalid cache, ignore */ }
+        }
+        
+        try {
+            // Get URLs from DB (with its own caching)
+            const urls = await getProductUrls();
+            const baseUrl = urls.dataBaseUrl;
+            
+            if (!baseUrl) {
+                console.warn('PRODUCTS_DATA_BASE_URL not configured');
+                return {};
+            }
+            
+            const url = `${baseUrl}/${lang}/products.json`;
+            console.log(`🌐 Fetching product names from: ${url}`);
+            
+            const res = await fetch(url);
+            if (!res.ok) {
+                console.warn(`Failed to fetch product names for ${lang}: ${res.status}`);
+                return {};
+            }
+            
+            const data = await res.json();
+            console.log(`✅ Product names for ${lang} loaded from network (${Object.keys(data).length} products)`);
+            
+            // Cache in memory
+            productDataCache[cacheKey] = data;
+            
+            // Cache in localStorage
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(data));
+                localStorage.setItem(`${storageKey}_time`, String(Date.now()));
+            } catch (e) { /* Storage full or unavailable */ }
+            
+            return data;
+            
+        } catch (e) {
+            console.warn(`Failed to fetch product names for ${lang}:`, e);
+            return {};
+        }
+    }
+
+    // Fetch product images and metadata with caching
+    async function fetchProductImages() {
+        const cacheKey = 'images_generic';
+        
+        // Return from memory cache if available
+        if (productDataCache[cacheKey]) {
+            console.log('✅ Product images loaded from memory cache');
+            return productDataCache[cacheKey];
+        }
+        
+        // Check localStorage cache
+        const storageKey = 'product_images';
+        const cached = localStorage.getItem(storageKey);
+        const cacheTime = localStorage.getItem(`${storageKey}_time`);
+        
+        // Cache for 1 hour
+        if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 3600000)) {
+            try {
+                const data = JSON.parse(cached);
+                productDataCache[cacheKey] = data;
+                console.log('✅ Product images loaded from localStorage cache');
+                return data;
+            } catch (e) { /* Invalid cache, ignore */ }
+        }
+        
+        try {
+            // Get URLs from DB (with its own caching)
+            const urls = await getProductUrls();
+            const baseUrl = urls.imagesBaseUrl;
+            
+            if (!baseUrl) {
+                console.warn('PRODUCTS_IMAGES_BASE_URL not configured');
+                return {};
+            }
+            
+            const url = `${baseUrl}/products.json`;
+            console.log(`🌐 Fetching product images from: ${url}`);
+            
+            const res = await fetch(url);
+            if (!res.ok) {
+                console.warn(`Failed to fetch product images: ${res.status}`);
+                return {};
+            }
+            
+            const data = await res.json();
+            console.log(`✅ Product images loaded from network (${Object.keys(data).length} products)`);
+            
+            // Cache in memory
+            productDataCache[cacheKey] = data;
+            
+            // Cache in localStorage
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(data));
+                localStorage.setItem(`${storageKey}_time`, String(Date.now()));
+            } catch (e) { /* Storage full or unavailable */ }
+            
+            return data;
+            
+        } catch (e) {
+            console.warn('Failed to fetch product images:', e);
+            return {};
+        }
+    }
 
     // ─── LANGUAGES ───────────────────────────────────────────────
     function getLangs() {
@@ -664,53 +867,6 @@
     }
     function getSubject() {
         return document.getElementById('compose_subject').value.trim();
-    }
-
-    // ─── PRODUCT DATA CACHE ────────────────────────────────────────
-    let productDataCache = {};
-    
-    // Fetch product names from language-specific JSON
-    async function fetchProductNames(lang) {
-        const cacheKey = `names_${lang}`;
-        if (productDataCache[cacheKey]) return productDataCache[cacheKey];
-        try {
-            const baseUrl = window.EDGEDESK_CONSTANTS?.PRODUCTS_DATA_BASE_URL || '';
-            if (!baseUrl) {
-                console.warn('PRODUCTS_DATA_BASE_URL not configured in config.js');
-                return {};
-            }
-            const url = `${baseUrl}/${lang}/products.json`;
-            const res = await fetch(url);
-            if (!res.ok) return {};
-            const data = await res.json();
-            productDataCache[cacheKey] = data;
-            return data;
-        } catch (e) {
-            console.warn(`Failed to fetch product names for ${lang}:`, e);
-            return {};
-        }
-    }
-    
-    // Fetch product images and metadata from generic JSON
-    async function fetchProductImages() {
-        const cacheKey = 'images_generic';
-        if (productDataCache[cacheKey]) return productDataCache[cacheKey];
-        try {
-            const baseUrl = window.EDGEDESK_CONSTANTS?.PRODUCTS_IMAGES_BASE_URL || '';
-            if (!baseUrl) {
-                console.warn('PRODUCTS_IMAGES_BASE_URL not configured in config.js');
-                return {};
-            }
-            const url = `${baseUrl}/products.json`;
-            const res = await fetch(url);
-            if (!res.ok) return {};
-            const data = await res.json();
-            productDataCache[cacheKey] = data;
-            return data;
-        } catch (e) {
-            console.warn('Failed to fetch product images:', e);
-            return {};
-        }
     }
 
     // ─── ORDER DATA RENDERING ────────────────────────────────────
@@ -1140,14 +1296,6 @@
     // ─── LOAD ────────────────────────────────────────────────────
     async function load() {
         try {
-            let settingsData = {};
-            if (currentUser.role === 'admin' || currentUser.role === 'manager') {
-                try {
-                    const sd = await api('/api/admin/settings');
-                    settingsData = sd.data || {};
-                } catch (e) { /* fall back to allowed_languages */ }
-            }
-            settings = settingsData;
             await Promise.all([loadSenders(), loadTemplates()]);
             await loadTickets(true);
             render();
