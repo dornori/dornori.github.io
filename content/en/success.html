@@ -97,12 +97,6 @@
       customer._items = customer._items || snapshot.items || [];
       customer._totals = customer._totals || totals;
 
-      console.log('📦 Raw data from localStorage:', { 
-        items_count: customer._items?.length || 0,
-        totals: totals,
-        customer_totals: customer._totals
-      });
-
       return {
         customer,
         orderId: orderId || 'N/A',
@@ -146,9 +140,7 @@
       if (customer.shipping_country) shippingLines.push(`Country: ${customer.shipping_country}`);
       const shippingAddress = shippingLines.join('\n') || 'Not provided';
 
-      // ============================================================
-      // FIX: Get items and normalize them
-      // ============================================================
+      // Get items and normalize them
       let items = customer._items || [];
       const totals = customer._totals || {};
 
@@ -166,8 +158,9 @@
       }).filter(Boolean);
 
       // ============================================================
-      // FIX: CALCULATE SUBTOTAL FROM ITEMS (PRIMARY SOURCE)
+      // FIX: CALCULATE ALL TOTALS FROM PARTS
       // ============================================================
+      // 1. Subtotal from items
       let calculatedSubtotal = 0;
       let itemLines = '';
 
@@ -192,30 +185,28 @@
         console.warn('⚠️ No items found in order data');
       }
 
-      // ============================================================
-      // FIX: USE CALCULATED SUBTOTAL AS PRIMARY SOURCE
-      // ============================================================
+      // Use calculated subtotal as primary source
       const finalSubtotal = calculatedSubtotal > 0 ? calculatedSubtotal : 
                             (totals.subtotal != null ? totals.subtotal : 0);
-      
+
+      // 2. Shipping from snapshot or fallback
       const finalShipping = totals.shipping != null ? totals.shipping : 
                             (customer._shipping != null ? customer._shipping : 0);
+
+      // 3. Tax from snapshot or fallback
       const finalTax = totals.tax != null ? totals.tax : 
                        (customer._tax != null ? customer._tax : 0);
-      const finalTotal = totals.total != null ? totals.total : 
-                         (customer._total != null ? customer._total : 
-                          (finalSubtotal + finalShipping + finalTax));
 
-      // Log what we calculated for debugging
-      console.log('📊 Calculated totals:', { 
+      // 4. TOTAL = SUBTOTAL + SHIPPING + TAX (FORCE CALCULATE - IGNORE STORED TOTAL)
+      const finalTotal = finalSubtotal + finalShipping + finalTax;
+
+      console.log('📊 FORCED TOTALS:', { 
         items_count: items.length,
         calculatedSubtotal, 
         finalSubtotal, 
         finalShipping, 
         finalTax, 
-        finalTotal,
-        currency,
-        totals_from_snapshot: totals
+        finalTotal 
       });
 
       // Format date
@@ -256,9 +247,7 @@
       console.log('📝 TICKET CONTENT:');
       console.log(message);
 
-      // ============================================================
-      // FIX: Build payload with correct totals
-      // ============================================================
+      // Build payload with correct totals
       const payload = {
         name: fullName,
         email: email,
@@ -294,8 +283,6 @@
           paypalData: customer
         }
       };
-
-      console.log('📦 Sending payload:', JSON.stringify(payload, null, 2));
 
       const res = await fetch(TICKETING_URL, {
         method: 'POST',
@@ -342,10 +329,6 @@
           ${ticketNumber ? `<div class="detail-row">
             <span class="label">Ticket Number</span>
             <span class="value">${ticketNumber}</span>
-          </div>` : ''}
-          ${customer.currency && customer.amount ? `<div class="detail-row">
-            <span class="label">Total</span>
-            <span class="value">${customer.currency} ${customer.amount}</span>
           </div>` : ''}
         </div>
         
