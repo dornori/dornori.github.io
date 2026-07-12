@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8" />
@@ -50,11 +51,6 @@
         .category-checkbox input, .category-checkbox label { margin: 0; cursor: pointer; }
         .category-checkbox input { margin-right: 8px; }
         .category-checkbox label { font-weight: normal; font-size: 13px; }
-        .permissions-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 8px; }
-        .permission-checkbox { display: flex; align-items: center; padding: 8px; background: var(--bg-input); border-radius: 4px; }
-        .permission-checkbox input, .permission-checkbox label { margin: 0; cursor: pointer; }
-        .permission-checkbox input { margin-right: 8px; }
-        .permission-checkbox label { font-weight: normal; font-size: 13px; }
         .emails-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 8px; }
         .email-checkbox { display: flex; align-items: center; padding: 8px; background: var(--bg-input); border-radius: 4px; }
         .email-checkbox input, .email-checkbox label { margin: 0; cursor: pointer; font-size: 12px; }
@@ -99,6 +95,7 @@
                 <a id="nav-dashboard" href="dashboard.html">🎫 <span>Dashboard</span></a>
                 <a id="nav-reports" href="reports.html">📊 <span>Reports</span></a>
                 <a id="nav-newsletter" href="newsletter.html">📧 <span>Newsletter</span></a>
+                <a id="nav-order-reply" href="order-reply.html">📦 <span>Order Reply</span></a>
                 <a id="nav-settings" href="settings.html">⚙️ <span>Settings</span></a>
                 <a id="nav-users" href="users.html" style="display:none;">👥 <span>Users</span></a>
             </div>
@@ -175,12 +172,6 @@
                     <button type="button" onclick="document.querySelectorAll('#newCategories input').forEach(i => i.checked = false)" style="padding: 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px;">✗ Uncheck All</button>
                 </div>
                 <div class="categories-group" id="newCategories"></div>
-            </div>
-
-            <div id="newPagePermsGroup" class="form-group" style="display:none;">
-                <label>Page Permissions</label>
-                <div class="role-info" style="margin-bottom: 8px;">Grant access to specific features and actions for each page.</div>
-                <div id="newPagePermissions"></div>
             </div>
 
             <div id="newTeamGroup" class="form-group" style="display:none;">
@@ -267,12 +258,6 @@
                 <div class="categories-group" id="editCategories"></div>
             </div>
 
-            <div id="editPagePermsGroup" class="form-group" style="display:none;">
-                <label>Page Permissions</label>
-                <div class="role-info" style="margin-bottom: 8px;">Grant access to specific features and actions for each page.</div>
-                <div id="editPagePermissions"></div>
-            </div>
-
             <div id="editTeamGroup" class="form-group" style="display:none;">
                 <label>Team</label>
                 <select id="editTeamId">
@@ -323,27 +308,6 @@
         tl: 'Manage your team. Assign tickets within team. View team reports.',
         agent: 'View &amp; update assigned tickets. Add comments &amp; replies.'
     };
-
-    const PAGE_PERMISSIONS_CONFIG = {
-        order_reply: {
-            label: '📦 Order Reply',
-            actions: ['view', 'edit', 'reply'],
-            actionLabels: { view: 'View templates', edit: 'Manage templates', reply: 'Send replies' },
-            rolesWithDefault: ['admin', 'manager']
-        },
-        newsletter: {
-            label: '📧 Newsletter',
-            actions: ['view', 'edit'],
-            actionLabels: { view: 'View newsletters', edit: 'Create/edit' },
-            rolesWithDefault: ['admin', 'manager']
-        },
-        reports: {
-            label: '📊 Reports',
-            actions: ['view'],
-            actionLabels: { view: 'View reports' },
-            rolesWithDefault: ['admin', 'manager', 'tl']
-        }
-    };
     
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
@@ -373,16 +337,11 @@
     let languagesLoaded = false;
     let allCategories = [];
     let categoriesLoaded = false;
-    let newPagePerms = {};
-    let editPagePerms = {};
 
     // ─── LOAD SETTINGS ───────────────────────────────────────────
     async function loadSettings() {
         try {
-            const res = await fetch(API_BASE + '/api/admin/settings', { headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' } });
-            if (!res.ok) throw new Error('Settings API failed');
-            const settingsData = await res.json();
-            const config = settingsData.data || {};
+            const config = await getSharedConfig();
 
             let langList = config.languages || [];
             if (!langList || langList.length === 0) {
@@ -411,8 +370,6 @@
             renderLanguageCheckboxes('editLanguages');
             renderCategoryCheckboxes('newCategories');
             renderCategoryCheckboxes('editCategories');
-            renderPagePermissions('newPagePermissions', newPagePerms);
-            renderPagePermissions('editPagePermissions', editPagePerms);
             renderUI();
 
             console.log('✅ Settings loaded:', languageList.length, 'languages,', allCategories.length, 'categories');
@@ -441,8 +398,6 @@
             renderLanguageCheckboxes('editLanguages');
             renderCategoryCheckboxes('newCategories');
             renderCategoryCheckboxes('editCategories');
-            renderPagePermissions('newPagePermissions', newPagePerms);
-            renderPagePermissions('editPagePermissions', editPagePerms);
             renderUI();
         }
     }
@@ -482,37 +437,6 @@
                 </div>
             `;
         }).join('');
-    }
-
-    function renderPagePermissions(containerId, permObject) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        let html = '';
-        for (const [pageKey, config] of Object.entries(PAGE_PERMISSIONS_CONFIG)) {
-            html += `<div style="margin-bottom:12px;padding:10px;background:var(--bg-input);border-radius:4px;">
-                <div style="font-weight:600;margin-bottom:8px;font-size:13px;">${config.label}</div>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;">`;
-            for (const action of config.actions) {
-                const isChecked = permObject[pageKey] && permObject[pageKey][action] ? 'checked' : '';
-                const inputId = `${containerId}_${pageKey}_${action}`;
-                html += `
-                    <div class="permission-checkbox">
-                        <input type="checkbox" id="${inputId}" value="${action}" data-page="${pageKey}" ${isChecked} 
-                               onchange="updatePermObject('${containerId}', this)" />
-                        <label for="${inputId}">${config.actionLabels[action]}</label>
-                    </div>`;
-            }
-            html += '</div></div>';
-        }
-        container.innerHTML = html;
-    }
-
-    function updatePermObject(containerId, checkbox) {
-        const pageKey = checkbox.dataset.page;
-        const action = checkbox.value;
-        const permObject = containerId === 'newPagePermissions' ? newPagePerms : editPagePerms;
-        if (!permObject[pageKey]) permObject[pageKey] = {};
-        permObject[pageKey][action] = checkbox.checked;
     }
 
     function populateEmailSelect(selectId) {
@@ -575,46 +499,279 @@
     async function apiCall(path, opts = {}) {
         opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
         const res = await fetch(API_BASE + path, opts);
-        if (res.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            throw new Error('Unauthorized');
-        }
-        if (res.status === 403) throw new Error('Permission denied');
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error || 'API Error');
-        return data;
+        if (res.status === 401) { localStorage.removeItem('token'); throw new Error('Unauthorized'); }
+        if (res.status === 403) { throw new Error('Permission denied'); }
+        return res.json();
     }
 
-    async function load() {
+    function toast(msg, type = 'success') {
+        const el = document.getElementById('toast');
+        el.innerHTML = msg;
+        el.className = 'toast show ' + type;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove('show'), type === 'warning' ? 8000 : 3500);
+    }
+
+    // ── Shared config version cache ──
+    function extractLanguages(res) {
+        try { return JSON.parse((res.data && res.data.languages && res.data.languages.list) || '[]'); }
+        catch (e) { return []; }
+    }
+    function extractCategories(res) {
+        const cats = new Set();
+        Object.keys((res.data && res.data.category) || {}).forEach(k => {
+            if (k.endsWith('_description') && res.data.category[k] !== '__deleted__') cats.add(k.replace('_description', ''));
+        });
+        return Array.from(cats);
+    }
+    async function loadAppConfig(forceFresh = false) {
+        if (!forceFresh) {
+            const cached = localStorage.getItem('appConfig');
+            const cachedVersion = localStorage.getItem('appConfigVersion');
+            if (cached && cachedVersion) {
+                checkForConfigUpdate(cachedVersion);
+                return JSON.parse(cached);
+            }
+        }
+        const res = await apiCall('/api/admin/settings');
+        const config = {
+            languages: extractLanguages(res),
+            categories: extractCategories(res),
+            version: (res.data && res.data.system && res.data.system.config_version) || Date.now().toString()
+        };
+        localStorage.setItem('appConfig', JSON.stringify(config));
+        localStorage.setItem('appConfigVersion', config.version);
+        return config;
+    }
+    async function checkForConfigUpdate(cachedVersion) {
+        try {
+            const res = await apiCall('/api/admin/config-version');
+            if (res.version && res.version !== cachedVersion) {
+                toast("Configuration was updated by admin. Please <a href='#' onclick='logout()'>re-login</a> to see changes.", "warning");
+            }
+        } catch (e) {}
+    }
+    let _configPromise = null;
+    function getSharedConfig(forceFresh) {
+        if (forceFresh || !_configPromise) {
+            _configPromise = loadAppConfig(forceFresh).finally(() => { _configPromise = null; });
+        }
+        return _configPromise;
+    }
+
+    async function loadData() {
+        if (!checkPermission()) return;
+
         try {
             await loadSettings();
-            const data = await apiCall('/api/admin/users');
-            allUsers = data.users || [];
-            const settingsData = await apiCall('/api/admin/settings');
-            if (settingsData.data?.email_addresses) {
-                supportEmails = settingsData.data.email_addresses.map(e => e.email || e.address).filter(Boolean);
+
+            const usersRes = await fetch(API_BASE + '/api/admin/users', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+
+            if (usersRes.status === 401 || usersRes.status === 403) {
+                localStorage.removeItem('token');
+                throw new Error('Unauthorized');
+                return;
             }
-            // Teams are optional — fallback to empty array if endpoint doesn't exist
-            try {
-                const teamsData = await apiCall('/api/admin/teams');
-                teams = teamsData.teams || [];
-            } catch (e) {
-                console.warn('Teams endpoint unavailable:', e.message);
-                teams = [];
+
+            const usersData = await usersRes.json();
+            if (usersData.success) {
+                allUsers = usersData.users || [];
             }
+
+            const emailsRes = await fetch(API_BASE + '/api/admin/email-addresses?active_only=true', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (emailsRes.ok) {
+                const emailsData = await emailsRes.json();
+                if (emailsData.success) {
+                    supportEmails = (emailsData.addresses || []).map(a => a.email);
+                }
+            }
+
             renderUI();
             renderUsers();
+            loadAppConfig();
         } catch (e) {
-            document.getElementById('usersTableContainer').innerHTML = `<div class="error">Error: ${e.message}</div>`;
+            document.getElementById('usersTableContainer').innerHTML = '<div class="error">Error loading data: ' + e.message + '</div>';
         }
     }
 
-    // ─── USER ACTIONS ────────────────────────────────────────────
+    function checkPermission() {
+        if (!canManageUsers()) {
+            document.getElementById('permDenied').style.display = 'block';
+            document.getElementById('usersApp').style.display = 'none';
+            return false;
+        }
+        document.getElementById('permDenied').style.display = 'none';
+        document.getElementById('usersApp').style.display = 'block';
+        return true;
+    }
+
+    // ─── RENDER USERS ────────────────────────────────────────────
+    function renderUsers() {
+        const viewable = getViewableUsers();
+        if (viewable.length === 0) {
+            document.getElementById('usersTableContainer').innerHTML = '<div class="loading">No users to display</div>';
+            return;
+        }
+
+        let html = '<table class="users-table"><thead><tr>';
+        html += '<th>Email</th><th>Name</th><th>Role</th><th>Languages</th>';
+        html += '<th>Categories</th>';
+        if (['admin', 'manager'].includes(currentUser.role)) html += '<th>Team</th>';
+        if (supportEmails.length > 0) html += '<th>Emails</th>';
+        html += '<th style="width:140px">Actions</th></tr></thead><tbody>';
+
+        viewable.forEach(u => {
+            const canEdit = canEditUser(u);
+            const canDelete = canDeleteUser(u);
+            const teamName = teams.find(t => t.id === u.team_id)?.name || u.team_id || '-';
+
+            const langNames = (u.allowed_languages || ['en']).map(code => LANGUAGES[code] || code);
+            const categoryNames = (u.allowed_categories || []).map(cat => 
+                cat.charAt(0).toUpperCase() + cat.slice(1)
+            );
+
+            html += '<tr>';
+            html += `<td><strong>${escapeHtml(u.email)}</strong></td>`;
+            html += `<td>${escapeHtml(u.name || '-')}</td>`;
+            html += `<td><span class="role-badge ${escapeHtml(u.role)}">${escapeHtml(u.role.toUpperCase())}</span></td>`;
+            html += `<td><span class="langs-cell">${escapeHtml(langNames.join(', '))}</span></td>`;
+            html += `<td><span class="langs-cell">${escapeHtml(categoryNames.length > 0 ? categoryNames.join(', ') : 'All')}</span></td>`;
+            if (['admin', 'manager'].includes(currentUser.role)) html += `<td><span class="langs-cell">${escapeHtml(teamName)}</span></td>`;
+            if (supportEmails.length > 0) {
+                const userEmails = u.allowed_emails || [];
+                html += `<td><span class="langs-cell">${escapeHtml(userEmails.length > 0 ? userEmails.length + ' email(s)' : '-')}</span></td>`;
+            }
+            html += '<td>';
+            html += `<button class="action-btn${canEdit ? '' : ' action-disabled'}" ${canEdit ? '' : 'disabled'} onclick="openEditUserModal('${escapeHtml(u.email)}')">Edit</button>`;
+            html += `<button class="action-btn delete${canDelete ? '' : ' action-disabled'}" ${canDelete ? '' : 'disabled'} onclick="deleteUser('${escapeHtml(u.email)}')">Delete</button>`;
+            html += '</td></tr>';
+        });
+
+        html += '</tbody></table>';
+        document.getElementById('usersTableContainer').innerHTML = html;
+    }
+
+    // ─── MODAL HELPERS ───────────────────────────────────────────
+    function updateRoleInfo() {
+        const role = document.getElementById('newRole').value;
+        document.getElementById('roleInfo').textContent = ROLE_DESCRIPTIONS[role] || '';
+        const teamGroup = document.getElementById('newTeamGroup');
+        const emailsGroup = document.getElementById('newEmailsGroup');
+        teamGroup.style.display = ['tl', 'agent'].includes(role) ? 'block' : 'none';
+        emailsGroup.style.display = ['agent', 'tl', 'manager'].includes(role) ? 'block' : 'none';
+    }
+
+    function updateEditRoleInfo() {
+        const role = document.getElementById('editRole').value;
+        document.getElementById('editRoleInfo').textContent = ROLE_DESCRIPTIONS[role] || '';
+        const teamGroup = document.getElementById('editTeamGroup');
+        const emailsGroup = document.getElementById('editEmailsGroup');
+        teamGroup.style.display = ['tl', 'agent'].includes(role) ? 'block' : 'none';
+        emailsGroup.style.display = ['agent', 'tl', 'manager'].includes(role) ? 'block' : 'none';
+    }
+
+    function createNewTeam() {
+        const input = document.getElementById('newTeamName');
+        const name = input.value.trim();
+        if (!name) return;
+        if (newTeams.includes(name)) { alert('Team already added'); return; }
+        newTeams.push(name);
+        input.value = '';
+        renderTeamSelect('newTeamId');
+        renderNewTeamsList();
+    }
+
+    function createNewTeamEdit() {
+        const input = document.getElementById('editTeamName');
+        const name = input.value.trim();
+        if (!name) return;
+        if (editTeams.includes(name) || newTeams.includes(name)) { alert('Team already added'); return; }
+        editTeams.push(name);
+        input.value = '';
+        renderTeamSelect('editTeamId');
+        renderEditTeamsList();
+    }
+
+    function addEmailToNew() {
+        const sel = document.getElementById('newEmailSelect');
+        const email = sel.value;
+        if (!email) return;
+        if (newEmails.includes(email)) return;
+        newEmails.push(email);
+        sel.value = '';
+        renderNewEmailsList();
+    }
+
+    function addEmailToEdit() {
+        const sel = document.getElementById('editEmailSelect');
+        const email = sel.value;
+        if (!email) return;
+        if (editEmails.includes(email)) return;
+        editEmails.push(email);
+        sel.value = '';
+        renderEditEmailsList();
+    }
+
+    function renderNewTeamsList() {
+        const container = document.getElementById('newTeamsList');
+        if (newTeams.length === 0) { container.innerHTML = ''; return; }
+        container.innerHTML = '<div style="margin-top:8px">' + newTeams.map(t => `
+            <span class="item-tag">[NEW] ${t}<button onclick="removeNewTeam('${t}')">✕</button></span>
+        `).join('') + '</div>';
+    }
+
+    function renderEditTeamsList() {
+        const container = document.getElementById('editTeamsList');
+        if (editTeams.length === 0) { container.innerHTML = ''; return; }
+        container.innerHTML = '<div style="margin-top:8px">' + editTeams.map(t => `
+            <span class="item-tag">[NEW] ${t}<button onclick="removeEditTeam('${t}')">✕</button></span>
+        `).join('') + '</div>';
+    }
+
+    function renderNewEmailsList() {
+        const container = document.getElementById('newEmailsList');
+        container.innerHTML = newEmails.map(e =>
+            `<span class="item-tag">${e}<button onclick="removeNewEmail('${e}')" style="margin-left:6px;background:none;border:none;cursor:pointer;color:inherit;">✕</button></span>`
+        ).join('');
+    }
+
+    function renderEditEmailsList() {
+        const container = document.getElementById('editEmailsList');
+        container.innerHTML = editEmails.map(e =>
+            `<span class="item-tag">${e}<button onclick="removeEditEmail('${e}')" style="margin-left:6px;background:none;border:none;cursor:pointer;color:inherit;">✕</button></span>`
+        ).join('');
+    }
+
+    function removeNewTeam(name) { newTeams = newTeams.filter(t => t !== name); renderTeamSelect('newTeamId'); renderNewTeamsList(); }
+    function removeEditTeam(name) { editTeams = editTeams.filter(t => t !== name); renderTeamSelect('editTeamId'); renderEditTeamsList(); }
+    function removeNewEmail(email) { newEmails = newEmails.filter(e => e !== email); renderNewEmailsList(); }
+    function removeEditEmail(email) { editEmails = editEmails.filter(e => e !== email); renderEditEmailsList(); }
+
+    // ─── OPEN / CLOSE MODALS ─────────────────────────────────────
     function openAddUserModal() {
-        newPagePerms = {};
+        if (!canCreateUser()) {
+            showErrorPopup('Permission Denied', 'You do not have permission to add users');
+            return;
+        }
         newTeams = [];
         newEmails = [];
+        document.getElementById('newEmail').value = '';
+        document.getElementById('newName').value = '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('newRole').value = 'agent';
+        document.getElementById('newTeamId').value = '';
+        document.getElementById('newTeamName').value = '';
+        document.getElementById('newEmailSelect').value = '';
+        document.getElementById('addUserError').textContent = '';
+        document.querySelectorAll('#newLanguages input').forEach(i => i.checked = false);
+        document.querySelectorAll('#newCategories input').forEach(i => i.checked = false);
+        renderNewTeamsList();
+        renderNewEmailsList();
+        updateRoleInfo();
         document.getElementById('addUserModal').classList.add('show');
     }
 
@@ -622,214 +779,268 @@
         document.getElementById('addUserModal').classList.remove('show');
     }
 
+    function openEditUserModal(email) {
+        const user = allUsers.find(u => u.email === email);
+        if (!user) return;
+        if (!canEditUser(user)) {
+            showErrorPopup('Permission Denied', 'You do not have permission to edit this user');
+            return;
+        }
+
+        editingEmail = email;
+        editTeams = [];
+        editEmails = [];
+        editSelectedCategories = user.allowed_categories || [];
+        document.getElementById('editEmail').value = user.email;
+        document.getElementById('editName').value = user.name || '';
+        document.getElementById('editRole').value = user.role;
+        document.getElementById('editTeamId').value = user.team_id || '';
+        document.getElementById('editTeamName').value = '';
+        document.getElementById('editUserError').textContent = '';
+
+        document.querySelectorAll('#editLanguages input').forEach(i => i.checked = false);
+        (user.allowed_languages || ['en']).forEach(lang => {
+            const input = document.querySelector(`#editLanguages input[value="${lang}"]`);
+            if (input) input.checked = true;
+        });
+
+        renderCategoryCheckboxes('editCategories');
+
+        editEmails = [...(user.allowed_emails || [])];
+        document.getElementById('editEmailSelect').value = '';
+        renderEditEmailsList();
+
+        renderEditTeamsList();
+        renderEditEmailsList();
+        updateEditRoleInfo();
+        document.getElementById('editUserModal').classList.add('show');
+        disableEditFormIfReadOnly();
+    }
+
     function closeEditModal() {
         document.getElementById('editUserModal').classList.remove('show');
+        editingEmail = null;
     }
 
-    function toast(msg, type = 'success') {
-        const el = document.getElementById('toast');
-        el.textContent = msg;
-        el.className = `toast show ${type}`;
-        setTimeout(() => el.classList.remove('show'), type === 'warning' ? 8000 : 3500);
+    function disableEditFormIfReadOnly() {
+        if (!canEditUserAction()) {
+            document.querySelectorAll('#editUserModal input:not([type="hidden"]), #editUserModal select, #editUserModal textarea').forEach(el => {
+                el.disabled = true;
+                el.style.opacity = '0.6';
+            });
+            document.querySelectorAll('#editUserModal .category-checkbox input, #editUserModal .email-checkbox input, #editUserModal input[type="checkbox"]').forEach(el => {
+                el.disabled = true;
+            });
+            document.getElementById('saveUserBtn').disabled = true;
+            document.getElementById('saveUserBtn').style.opacity = '0.5';
+        }
     }
 
-    function updateRoleInfo() {
-        const role = document.getElementById('newRole').value;
-        document.getElementById('roleInfo').textContent = ROLE_DESCRIPTIONS[role] || '';
-        updateRoleDependentFields('new', role);
-    }
-
-    function updateEditRoleInfo() {
-        const role = document.getElementById('editRole').value;
-        document.getElementById('editRoleInfo').textContent = ROLE_DESCRIPTIONS[role] || '';
-        updateRoleDependentFields('edit', role);
-    }
-
-    function updateRoleDependentFields(prefix, role) {
-        const emailsGroup = document.getElementById(`${prefix}EmailsGroup`);
-        const teamGroup = document.getElementById(`${prefix}TeamGroup`);
-        const pagePermsGroup = document.getElementById(`${prefix}PagePermsGroup`);
-        if (emailsGroup) emailsGroup.style.display = (role === 'agent' || role === 'manager') ? 'block' : 'none';
-        if (teamGroup) teamGroup.style.display = (role === 'tl' || role === 'manager') ? 'block' : 'none';
-        if (pagePermsGroup) pagePermsGroup.style.display = (role === 'manager' || role === 'admin') ? 'block' : 'none';
-    }
-
+    // ─── API ACTIONS ─────────────────────────────────────────────
     async function addUser() {
+        if (!canCreateUser()) {
+            showErrorPopup('Permission Denied', 'You do not have permission to add users');
+            return;
+        }
         const email = document.getElementById('newEmail').value.trim();
         const name = document.getElementById('newName').value.trim();
-        const pwd = document.getElementById('newPassword').value;
+        const password = document.getElementById('newPassword').value;
         const role = document.getElementById('newRole').value;
-        if (!email || !name || !pwd) {
-            document.getElementById('addUserError').textContent = 'Email, name, and password required';
-            return;
-        }
-        if (pwd.length < 8) {
-            document.getElementById('addUserError').textContent = 'Password must be at least 8 characters';
-            return;
-        }
+        const teamId = document.getElementById('newTeamId').value.trim() || null;
         const langs = Array.from(document.querySelectorAll('#newLanguages input:checked')).map(i => i.value);
-        const cats = Array.from(document.querySelectorAll('#newCategories input:checked')).map(i => i.value);
-        if (!langs.length || !cats.length) {
-            document.getElementById('addUserError').textContent = 'Select at least one language and category';
-            return;
-        }
-        try {
-            const payload = {
-                email, name, password: pwd, role, allowed_languages: langs, allowed_categories: cats,
-                allowed_emails: newEmails,
-                team_id: document.getElementById('newTeamId').value || null,
-                new_teams: newTeams,
-                page_permissions: newPagePerms
-            };
-            const res = await apiCall('/api/admin/users', { method: 'POST', body: JSON.stringify(payload) });
-            toast('✅ User created');
-            closeModal();
-            load();
-        } catch (e) {
-            document.getElementById('addUserError').textContent = '❌ ' + e.message;
-        }
-    }
+        const categories = Array.from(document.querySelectorAll('#newCategories input:checked')).map(i => i.value);
+        const emails = [...newEmails];
 
-    function openEditUserModal(email) {
-        const u = allUsers.find(x => x.email === email);
-        if (!u) return;
-        editingEmail = email;
-        editPagePerms = u.page_permissions ? JSON.parse(JSON.stringify(u.page_permissions)) : {};
-        editTeams = [];
-        editEmails = u.allowed_emails ? [...u.allowed_emails] : [];
-        editSelectedCategories = u.allowed_categories ? [...u.allowed_categories] : [];
-        document.getElementById('editEmail').value = u.email;
-        document.getElementById('editName').value = u.name || '';
-        document.getElementById('editRole').value = u.role;
-        updateEditRoleInfo();
-        document.querySelectorAll('#editLanguages input').forEach(i => i.checked = u.allowed_languages?.includes(i.value));
-        document.querySelectorAll('#editCategories input').forEach(i => i.checked = u.allowed_categories?.includes(i.value));
-        renderEmailsList('editEmailsList', editEmails);
-        renderPagePermissions('editPagePermissions', editPagePerms);
-        if (u.team_id) document.getElementById('editTeamId').value = u.team_id;
-        document.getElementById('editUserModal').classList.add('show');
+        const errorEl = document.getElementById('addUserError');
+        errorEl.textContent = '';
+
+        if (!email || !name || !password) { errorEl.textContent = 'All fields required'; return; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errorEl.textContent = 'Invalid email'; return; }
+        if (password.length < 8) { errorEl.textContent = 'Password min 8 chars'; return; }
+        if (langs.length === 0) { errorEl.textContent = 'Select at least one language'; return; }
+        if (['agent', 'tl'].includes(role) && emails.length === 0) { errorEl.textContent = 'Agents/TLs must have email addresses'; return; }
+        if (role === 'tl' && !teamId) { errorEl.textContent = 'Team Leaders must have a team'; return; }
+        
+        const validLangCodes = languageList.map(l => l.code);
+        for (const lang of langs) {
+            if (!validLangCodes.includes(lang)) {
+                errorEl.textContent = `Invalid language: ${lang}`;
+                return;
+            }
+        }
+        
+        for (const cat of categories) {
+            if (!allCategories.includes(cat)) {
+                errorEl.textContent = `Invalid category: ${cat}`;
+                return;
+            }
+        }
+
+        try {
+            const res = await fetch(API_BASE + '/api/admin/users', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email, name, password, role,
+                    allowed_languages: langs,
+                    allowed_categories: categories,
+                    allowed_emails: emails,
+                    team_id: teamId
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                showSuccessPopup('✅ User Added', `${name} (${email}) created successfully`);
+                closeModal();
+                loadData();
+            } else {
+                errorEl.textContent = data.error || 'Error adding user';
+                showErrorPopup('Error', data.error || 'Failed to add user');
+            }
+        } catch (e) {
+            errorEl.textContent = 'Network error';
+            showErrorPopup('Network Error', e.message);
+        }
     }
 
     async function saveUser() {
-        if (!editingEmail) return;
+        const user = allUsers.find(u => u.email === editingEmail);
+        if (!canEditUser(user)) {
+            showErrorPopup('Permission Denied', 'You do not have permission to edit users');
+            return;
+        }
         const name = document.getElementById('editName').value.trim();
         const role = document.getElementById('editRole').value;
-        if (!name) {
-            document.getElementById('editUserError').textContent = 'Name required';
-            return;
-        }
+        const teamId = document.getElementById('editTeamId').value.trim() || null;
         const langs = Array.from(document.querySelectorAll('#editLanguages input:checked')).map(i => i.value);
-        const cats = Array.from(document.querySelectorAll('#editCategories input:checked')).map(i => i.value);
-        if (!langs.length || !cats.length) {
-            document.getElementById('editUserError').textContent = 'Select at least one language and category';
-            return;
+        const categories = Array.from(document.querySelectorAll('#editCategories input:checked')).map(i => i.value);
+        const emails = [...editEmails];
+
+        const errorEl = document.getElementById('editUserError');
+        errorEl.textContent = '';
+
+        if (!name) { errorEl.textContent = 'Name required'; return; }
+        if (langs.length === 0) { errorEl.textContent = 'Select at least one language'; return; }
+        if (['agent', 'tl'].includes(role) && emails.length === 0) { errorEl.textContent = 'Agents/TLs must have email addresses'; return; }
+        if (role === 'tl' && !teamId) { errorEl.textContent = 'Team Leaders must have a team'; return; }
+        
+        const validLangCodes = languageList.map(l => l.code);
+        for (const lang of langs) {
+            if (!validLangCodes.includes(lang)) {
+                errorEl.textContent = `Invalid language: ${lang}`;
+                return;
+            }
         }
+        
+        for (const cat of categories) {
+            if (!allCategories.includes(cat)) {
+                errorEl.textContent = `Invalid category: ${cat}`;
+                return;
+            }
+        }
+        
         try {
-            const payload = {
-                name, role, allowed_languages: langs, allowed_categories: cats,
-                allowed_emails: editEmails,
-                team_id: document.getElementById('editTeamId').value || null,
-                new_teams: editTeams,
-                page_permissions: editPagePerms
-            };
-            const res = await apiCall('/api/admin/users/' + editingEmail, { method: 'PUT', body: JSON.stringify(payload) });
-            toast('✅ User updated');
-            closeEditModal();
-            load();
+            const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(editingEmail)}`, {
+                method: 'PUT',
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name, role,
+                    allowed_languages: langs,
+                    allowed_categories: categories,
+                    allowed_emails: emails,
+                    team_id: teamId
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                showSuccessPopup('✅ User Saved', `${name} updated successfully`);
+                closeEditModal();
+                loadData();
+            } else {
+                errorEl.textContent = data.error || 'Error saving user';
+                showErrorPopup('Error', data.error || 'Failed to save user');
+            }
         } catch (e) {
-            document.getElementById('editUserError').textContent = '❌ ' + e.message;
+            errorEl.textContent = 'Network error';
+            showErrorPopup('Network Error', e.message);
         }
     }
 
     async function deleteUser(email) {
-        if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
-        try {
-            await apiCall('/api/admin/users/' + email, { method: 'DELETE' });
-            toast('✅ User deleted');
-            load();
-        } catch (e) {
-            toast('❌ ' + e.message, 'error');
-        }
-    }
-
-    function addEmailToNew() {
-        const v = document.getElementById('newEmailSelect').value.trim();
-        if (!v || newEmails.includes(v)) return;
-        newEmails.push(v);
-        renderEmailsList('newEmailsList', newEmails);
-    }
-
-    function addEmailToEdit() {
-        const v = document.getElementById('editEmailSelect').value.trim();
-        if (!v || editEmails.includes(v)) return;
-        editEmails.push(v);
-        renderEmailsList('editEmailsList', editEmails);
-    }
-
-    function renderEmailsList(containerId, list) {
-        const el = document.getElementById(containerId);
-        if (!el) return;
-        el.innerHTML = list.map(e => `<div class="item-tag">${e}<button onclick="removeEmail('${containerId}','${e}')">×</button></div>`).join('');
-    }
-
-    function removeEmail(containerId, email) {
-        const list = containerId === 'newEmailsList' ? newEmails : editEmails;
-        const idx = list.indexOf(email);
-        if (idx >= 0) list.splice(idx, 1);
-        renderEmailsList(containerId, list);
-    }
-
-    function createNewTeam() {
-        const name = document.getElementById('newTeamName').value.trim();
-        if (!name) return;
-        newTeams.push(name);
-        document.getElementById('newTeamName').value = '';
-        renderTeamSelect('newTeamId');
-    }
-
-    function createNewTeamEdit() {
-        const name = document.getElementById('editTeamName').value.trim();
-        if (!name) return;
-        editTeams.push(name);
-        document.getElementById('editTeamName').value = '';
-        renderTeamSelect('editTeamId');
-    }
-
-    function renderUsers() {
-        const viewable = getViewableUsers();
-        if (!viewable.length) {
-            document.getElementById('usersTableContainer').innerHTML = '<div style="text-align:center;padding:40px;">No users to display</div>';
+        const user = allUsers.find(u => u.email === email);
+        if (!canDeleteUser(user)) {
+            showErrorPopup('Permission Denied', 'You do not have permission to delete users');
             return;
         }
-        const html = `<table class="users-table">
-            <thead><tr>
-                <th>Email</th><th>Name</th><th>Role</th><th>Languages</th><th>Actions</th>
-            </tr></thead>
-            <tbody>
-                ${viewable.map(u => `<tr>
-                    <td>${u.email}</td>
-                    <td>${u.name || '—'}</td>
-                    <td><span class="role-badge ${u.role}">${u.role.toUpperCase()}</span></td>
-                    <td class="langs-cell">${(u.allowed_languages || []).join(', ') || '—'}</td>
-                    <td>
-                        ${canEditUser(u) ? `<button class="action-btn" onclick="openEditUserModal('${u.email}')">Edit</button>` : ''}
-                        ${canDeleteUser(u) ? `<button class="action-btn delete" onclick="deleteUser('${u.email}')">Delete</button>` : ''}
-                    </td>
-                </tr>`).join('')}
-            </tbody>
-        </table>`;
-        document.getElementById('usersTableContainer').innerHTML = html;
+        if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
+
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(email)}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+
+            if (res.ok) {
+                showSuccessPopup('✅ User Deleted', `${email} has been deleted`);
+                loadData();
+            } else {
+                showErrorPopup('Error', 'Failed to delete user');
+            }
+        } catch (e) {
+            showErrorPopup('Network Error', e.message);
+        }
     }
 
-    // ─── INIT ───────────────────────────────────────────────────
-    if (!hasUsersAccess) {
-        document.getElementById('permDenied').style.display = 'block';
-        document.getElementById('usersApp').style.display = 'none';
-    } else {
-        document.getElementById('permDenied').style.display = 'none';
-        document.getElementById('usersApp').style.display = 'block';
-        load();
+    // ─── POPUP NOTIFICATIONS ─────────────────────────────────────
+    function showSuccessPopup(title, message) {
+        const popup = document.createElement('div');
+        popup.style.cssText = `
+            position: fixed; top: 20px; right: 20px; background: #22c55e; color: white;
+            padding: 15px 20px; border-radius: 8px; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            font-weight: bold; max-width: 400px; animation: slideUp 0.3s ease;
+        `;
+        popup.innerHTML = `<div style="font-size: 16px;">${title}</div><div style="font-size: 13px; margin-top: 5px;">${message}</div>`;
+        document.body.appendChild(popup);
+        setTimeout(() => popup.remove(), 3000);
     }
+
+    function showErrorPopup(title, message) {
+        const popup = document.createElement('div');
+        popup.style.cssText = `
+            position: fixed; top: 20px; right: 20px; background: #ef4444; color: white;
+            padding: 15px 20px; border-radius: 8px; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            font-weight: bold; max-width: 400px; animation: slideUp 0.3s ease;
+        `;
+        popup.innerHTML = `<div style="font-size: 16px;">${title}</div><div style="font-size: 13px; margin-top: 5px;">${message}</div>`;
+        document.body.appendChild(popup);
+        setTimeout(() => popup.remove(), 4000);
+    }
+
+    // ─── INIT ────────────────────────────────────────────────────
+    loadData();
+
+    window.setTheme = setTheme;
+    window.toggleTheme = toggleTheme;
+    window.openAddUserModal = openAddUserModal;
+    window.closeModal = closeModal;
+    window.openEditUserModal = openEditUserModal;
+    window.closeEditModal = closeEditModal;
+    window.addUser = addUser;
+    window.saveUser = saveUser;
+    window.deleteUser = deleteUser;
+    window.updateRoleInfo = updateRoleInfo;
+    window.updateEditRoleInfo = updateEditRoleInfo;
+    window.createNewTeam = createNewTeam;
+    window.createNewTeamEdit = createNewTeamEdit;
+    window.addEmailToNew = addEmailToNew;
+    window.addEmailToEdit = addEmailToEdit;
+    window.removeNewTeam = removeNewTeam;
+    window.removeEditTeam = removeEditTeam;
+    window.removeNewEmail = removeNewEmail;
+    window.removeEditEmail = removeEditEmail;
+    window.logout = logout;
 </script>
 </body>
 </html>
