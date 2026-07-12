@@ -117,21 +117,8 @@
       const shippingAddress = shippingLines.join('\n') || 'Not provided';
 
       // Build product/order lines
-      let items = customer._items || [];
+      const items = customer._items || [];
       const totals = customer._totals || {};
-      
-      // Normalize item field names for consistency
-      items = items.map(item => {
-        if (!item || typeof item !== 'object') return null;
-        return {
-          name: String(item.name || item.product_name || item.title || 'Product').trim(),
-          sku: String(item.sku || item.id || item.productId || item.variantId || ''),
-          qty: Math.max(1, parseInt(item.qty || item.quantity || 1, 10)),
-          price: Math.max(0, parseFloat(item.price || item.cost || 0)),
-          image: String(item.image || item.img || '').trim(),
-          ...item  // Keep all original fields
-        };
-      }).filter(Boolean);  // Remove null entries
       
       const subtotal = totals.subtotal != null ? totals.subtotal : 
                        (customer._subtotal != null ? customer._subtotal : null);
@@ -217,26 +204,25 @@
         orderNumber: dorReference,
         metadata: {
           source: 'webshop-success',
+          orderId: orderId,
+          orderRef: dorReference,
+          transactionId: transactionId,
           currency: currency,
-          order: {
-            reference: dorReference,
-            transaction_id: transactionId,
-            paypal_order_id: orderId,
-            status: 'COMPLETED',
-            items: items,
-            totals: {
-              subtotal: finalSubtotal,
-              shipping: finalShipping,
-              tax: finalTax,
-              total: finalTotal
-            },
-            customer: {
-              name: fullName,
-              email: email,
-              phone: phone,
-              shipping_name: customer.shipping_name,
-              shipping_address: shippingAddress,
-            }
+          amount: finalTotal,
+          status: 'COMPLETED',
+          customer: {
+            name: fullName,
+            email: email,
+            phone: phone,
+            shipping_name: customer.shipping_name,
+            shipping_address: shippingAddress,
+          },
+          items: items,
+          totals: {
+            subtotal: finalSubtotal,
+            shipping: finalShipping,
+            tax: finalTax,
+            total: finalTotal
           },
           paypalData: customer
         }

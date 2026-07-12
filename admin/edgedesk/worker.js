@@ -1064,10 +1064,12 @@ async function sendNewsletter(env, subject, body, language) {
 }
 __name(sendNewsletter, "sendNewsletter");
 
-function generateTicketNumber() {
+function generateTicketNumber(language) {
   const now = /* @__PURE__ */ new Date();
+  const yy = String(now.getFullYear()).slice(-2);
   const random = Math.floor(Math.random() * 1e5).toString().padStart(5, "0");
-  return `TKT-${now.getFullYear()}-${random}`;
+  const langCode = (language || "en").toUpperCase().slice(0, 2);
+  return `TKT-${langCode}${yy}${random}`;
 }
 __name(generateTicketNumber, "generateTicketNumber");
 
@@ -1153,10 +1155,10 @@ async function getSLA(env, category) {
 __name(getSLA, "getSLA");
 
 async function createTicket(data, env) {
-  const ticketNumber = generateTicketNumber();
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const category = await validateCategory(data.category, env);
   const language = await validateLanguage(data.language, env);
+  const ticketNumber = generateTicketNumber(language);
   const sla = await getSLA(env, category);
   const orderNumber = data.orderNumber || extractOrderNumber(data.subject || "") || extractOrderNumber(data.message || "");
   const subject = sanitizeSubject(data.subject || "");
@@ -2473,7 +2475,7 @@ var worker_default = {
     try {
       const { from, subject, body } = await parseEmail(message.raw);
       
-      const ticketRegex = /TKT-\d{4,}-\d{3,}/g;
+      const ticketRegex = /TKT-[A-Z]{2}\d{2}\d{5}/g;
       let ticketNumber = null;
       if (subject) {
         const m = subject.match(ticketRegex);
