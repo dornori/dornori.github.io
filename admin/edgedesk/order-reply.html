@@ -503,7 +503,8 @@
     function buildTagBar() {
         return `<div class="tag-bar">
             <span class="tag-bar-label">Insert order data:</span>
-            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_items}}')">{{order_items}}</button>
+            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_items_with_names}}')">{{order_items_with_names}}</button>
+            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_items_with_images}}')">{{order_items_with_images}}</button>
             <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_summary}}')">{{order_summary}}</button>
             <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_customer}}')">{{order_customer}}</button>
             <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_shipping}}')">{{order_shipping}}</button>
@@ -535,7 +536,7 @@
         return `<div class="s-card" id="autoReplyCard">
             <div class="s-card-head">
                 <div><h3>⚡ Payment Confirmation Auto-Reply (${esc(langName)})</h3>
-                <p>Sent automatically the moment a payment ticket is created in this language. Each language has its own separate template — use the selector below to switch and edit each one. Available tags: {{order_items}}, {{order_summary}}, {{order_customer}}, {{order_shipping}}, {{order_reference}}, {{ticket_number}}, {{sender_name}}, {{sender_email}}</p></div>
+                <p>Sent automatically the moment a payment ticket is created in this language. Each language has its own separate template — use the selector below to switch and edit each one. Available tags: {{order_items_with_names}}, {{order_items_with_images}}, {{order_summary}}, {{order_customer}}, {{order_shipping}}, {{order_reference}}, {{ticket_number}}, {{sender_name}}, {{sender_email}}</p></div>
             </div>
             <div class="f-row">
                 <label>Language</label>
@@ -559,7 +560,8 @@
                 <label>Body (HTML)</label>
                 <div class="tag-bar">
                     <span class="tag-bar-label">Insert order data:</span>
-                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_items}}')">{{order_items}}</button>
+                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_items_with_names}}')">{{order_items_with_names}}</button>
+                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_items_with_images}}')">{{order_items_with_images}}</button>
                     <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_summary}}')">{{order_summary}}</button>
                     <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_customer}}')">{{order_customer}}</button>
                     <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_shipping}}')">{{order_shipping}}</button>
@@ -664,18 +666,66 @@
         return document.getElementById('compose_subject').value.trim();
     }
 
+    // ─── PRODUCT DATA CACHE ────────────────────────────────────────
+    let productDataCache = {};
+    
+    // Fetch product names from language-specific JSON
+    async function fetchProductNames(lang) {
+        const cacheKey = `names_${lang}`;
+        if (productDataCache[cacheKey]) return productDataCache[cacheKey];
+        try {
+            const url = `${BASE_URL}/${lang}/products.json`;
+            const res = await fetch(url);
+            if (!res.ok) return {};
+            const data = await res.json();
+            productDataCache[cacheKey] = data;
+            return data;
+        } catch (e) {
+            console.warn(`Failed to fetch product names for ${lang}:`, e);
+            return {};
+        }
+    }
+    
+    // Fetch product images and metadata from generic JSON
+    async function fetchProductImages() {
+        const cacheKey = 'images_generic';
+        if (productDataCache[cacheKey]) return productDataCache[cacheKey];
+        try {
+            const url = `${BASE_URL}/folder/products.json`;
+            const res = await fetch(url);
+            if (!res.ok) return {};
+            const data = await res.json();
+            productDataCache[cacheKey] = data;
+            return data;
+        } catch (e) {
+            console.warn('Failed to fetch product images:', e);
+            return {};
+        }
+    }
+
     // ─── ORDER DATA RENDERING ────────────────────────────────────
-    function renderOrderItems(meta) {
+    async function renderOrderItems(meta, lang = 'en') {
         const order = meta && meta.order;
         if (!order || !order.items || !order.items.length) return '';
         const currency = meta.currency || 'EUR';
         const totals = order.totals || {};
+        
+        // Fetch product names for the language
+        const langProducts = await fetchProductNames(lang);
+        
         let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
-        html += '<tr style="background:#f5f5f5;border-bottom:2px solid #ddd;">';
+        html += '<tr style="border-bottom:1px solid #ddd;">';
         html += '<th style="padding:10px;text-align:left;">Product</th><th style="padding:10px;text-align:center;">Qty</th><th style="padding:10px;text-align:right;">Unit Price</th><th style="padding:10px;text-align:right;">Total</th></tr>';
+        
         for (const item of order.items) {
             if (!item || typeof item !== 'object') continue;
-            const name = esc(String(item.name || 'Product'));
+            const productId = item.product_id || item.id;
+            // Try to get name from language JSON, fallback to order data
+            let name = item.name;
+            if (productId && langProducts[productId]) {
+                name = langProducts[productId].name || item.name;
+            }
+            name = esc(String(name || 'Product'));
             const qty = Math.max(1, parseInt(item.qty || 1, 10));
             const price = Math.max(0, parseFloat(item.price || 0));
             if (isNaN(price) || isNaN(qty)) continue;
@@ -685,6 +735,53 @@
         }
         html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
         html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">TOTAL:</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${(totals.total || 0).toFixed(2)}</td></tr>`;
+        html += '</table>';
+        return html;
+    }
+    
+    async function renderOrderItemsWithImages(meta, lang = 'en') {
+        const order = meta && meta.order;
+        if (!order || !order.items || !order.items.length) return '';
+        const currency = meta.currency || 'EUR';
+        const totals = order.totals || {};
+        
+        // Fetch product data
+        const langProducts = await fetchProductNames(lang);
+        const genericProducts = await fetchProductImages();
+        
+        let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
+        html += '<tr style="border-bottom:1px solid #ddd;">';
+        html += '<th style="padding:10px;text-align:left;">Image</th><th style="padding:10px;text-align:left;">Product</th><th style="padding:10px;text-align:center;">Qty</th><th style="padding:10px;text-align:right;">Unit Price</th><th style="padding:10px;text-align:right;">Total</th></tr>';
+        
+        for (const item of order.items) {
+            if (!item || typeof item !== 'object') continue;
+            const productId = item.product_id || item.id;
+            
+            // Get product name from language JSON
+            let name = item.name;
+            if (productId && langProducts[productId]) {
+                name = langProducts[productId].name || item.name;
+            }
+            name = esc(String(name || 'Product'));
+            
+            // Get first image from generic products JSON
+            let imgHtml = '';
+            if (productId && genericProducts[productId] && genericProducts[productId].images && genericProducts[productId].images.length > 0) {
+                const imgUrl = esc(genericProducts[productId].images[0]);
+                imgHtml = `<img src="${imgUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" alt="${name}" />`;
+            } else {
+                imgHtml = '<div style="width:60px;height:60px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">No image</div>';
+            }
+            
+            const qty = Math.max(1, parseInt(item.qty || 1, 10));
+            const price = Math.max(0, parseFloat(item.price || 0));
+            if (isNaN(price) || isNaN(qty)) continue;
+            const lineTotal = (price * qty).toFixed(2);
+            html += '<tr style="border-bottom:1px solid #eee;">';
+            html += `<td style="padding:10px;text-align:center;">${imgHtml}</td><td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${currency} ${price.toFixed(2)}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+        }
+        html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
+        html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">TOTAL:</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${(totals.total || 0).toFixed(2)}</td></tr>`;
         html += '</table>';
         return html;
     }
@@ -721,11 +818,30 @@
         return `<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;white-space:pre-wrap;">${esc(String(customer.shipping_address))}</div>`;
     }
 
-    function applyOrderTags(html, ticket) {
+    async function applyOrderTags(html, ticket) {
         if (!ticket) return html;
         const meta = parseMeta(ticket);
+        // Extract language from ticket metadata or use default
+        const lang = meta.language || ticket.language || 'en';
+        
         let out = html;
-        out = out.replace(/\{\{order_items\}\}/g, renderOrderItems(meta));
+        
+        // Handle async replacements
+        if (out.includes('{{order_items_with_names}}')) {
+            const rendered = await renderOrderItems(meta, lang);
+            out = out.replace(/\{\{order_items_with_names\}\}/g, rendered);
+        }
+        if (out.includes('{{order_items_with_images}}')) {
+            const rendered = await renderOrderItemsWithImages(meta, lang);
+            out = out.replace(/\{\{order_items_with_images\}\}/g, rendered);
+        }
+        
+        // Handle legacy order_items tag
+        if (out.includes('{{order_items}}')) {
+            const rendered = await renderOrderItems(meta, lang);
+            out = out.replace(/\{\{order_items\}\}/g, rendered);
+        }
+        
         out = out.replace(/\{\{order_summary\}\}/g, renderOrderSummary(meta));
         out = out.replace(/\{\{order_customer\}\}/g, renderOrderCustomer(meta));
         out = out.replace(/\{\{order_shipping\}\}/g, renderOrderShipping(meta));
@@ -899,12 +1015,12 @@
     }
 
     // ─── PREVIEW ─────────────────────────────────────────────────
-    function previewEmail() {
+    async function previewEmail() {
         if (!activeTicket) { toast('Select a ticket first', 'error'); return; }
         const subj = getSubject();
         let body = getEditorHtml();
         if (!subj && !body) { toast('Nothing to preview yet', 'error'); return; }
-        body = applyOrderTags(body, activeTicket);
+        body = await applyOrderTags(body, activeTicket);
         const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:system-ui,sans-serif;max-width:600px;margin:24px auto;padding:0 16px;color:#1a202c;line-height:1.6;}a{color:#0a8f5c;}img{max-width:100%;}</style></head><body>${body}</body></html>`;
         document.getElementById('previewSubjectLine').innerHTML = `<strong>Subject:</strong> ${esc(subj) || '<em>(no subject)</em>'}`;
         document.getElementById('previewFrame').srcdoc = html;
@@ -932,7 +1048,7 @@
     async function executeSend() {
         if (!pendingSend || !activeTicket) return;
         const { body, from } = pendingSend;
-        const rendered = applyOrderTags(body, activeTicket);
+        const rendered = await applyOrderTags(body, activeTicket);
         document.getElementById('sendModalFoot').innerHTML = '<span style="font-size:13px;color:var(--text-muted);">Sending…</span>';
         try {
             const d = await api('/api/admin/ticket/' + activeTicket.id + '/reply', {
