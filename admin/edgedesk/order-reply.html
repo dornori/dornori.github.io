@@ -672,18 +672,30 @@
     // Fetch product names from language-specific JSON
     async function fetchProductNames(lang) {
         const cacheKey = `names_${lang}`;
-        if (productDataCache[cacheKey]) return productDataCache[cacheKey];
+        if (productDataCache[cacheKey]) {
+            console.log('💾 Cache hit for:', cacheKey);
+            return productDataCache[cacheKey];
+        }
         try {
             const domain = window.EDGEDESK_SETTINGS?.general?.domain || '';
             const dataPath = window.EDGEDESK_SETTINGS?.general?.products_data_base_url || '';
-            if (!domain || !dataPath) return {};
+            if (!domain || !dataPath) {
+                console.error('❌ Missing domain or path:', {domain, dataPath});
+                return {};
+            }
             const url = `https://${domain}${dataPath}/${lang}/products.json`;
+            console.log('📡 Fetching from:', url);
             const res = await fetch(url);
-            if (!res.ok) return {};
+            if (!res.ok) {
+                console.error(`❌ HTTP ${res.status} for ${url}`);
+                return {};
+            }
             const data = await res.json();
+            console.log('✅ Fetched data:', data);
             productDataCache[cacheKey] = data || {};
             return productDataCache[cacheKey];
         } catch (e) {
+            console.error('❌ Fetch error:', e);
             return {};
         }
     }
@@ -691,18 +703,30 @@
     // Fetch product images from generic JSON
     async function fetchProductImages() {
         const cacheKey = 'images_generic';
-        if (productDataCache[cacheKey]) return productDataCache[cacheKey];
+        if (productDataCache[cacheKey]) {
+            console.log('💾 Cache hit for images');
+            return productDataCache[cacheKey];
+        }
         try {
             const domain = window.EDGEDESK_SETTINGS?.general?.domain || '';
             const imagesPath = window.EDGEDESK_SETTINGS?.general?.products_images_base_url || '';
-            if (!domain || !imagesPath) return {};
+            if (!domain || !imagesPath) {
+                console.error('❌ Missing domain or images path:', {domain, imagesPath});
+                return {};
+            }
             const url = `https://${domain}${imagesPath}/products.json`;
+            console.log('📡 Fetching images from:', url);
             const res = await fetch(url);
-            if (!res.ok) return {};
+            if (!res.ok) {
+                console.error(`❌ HTTP ${res.status} for ${url}`);
+                return {};
+            }
             const data = await res.json();
+            console.log('✅ Fetched image data:', data);
             productDataCache[cacheKey] = data || {};
             return productDataCache[cacheKey];
         } catch (e) {
+            console.error('❌ Fetch error:', e);
             return {};
         }
     }
@@ -715,22 +739,25 @@
         const totals = order.totals || {};
         
         const langProducts = await fetchProductNames(lang);
+        console.log('🔍 Fetched lang products:', langProducts);
         
         let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
-        html += '<tr style="border-bottom:1px solid #ddd;">';
-        html += '<th style="padding:10px;text-align:left;">Product</th><th style="padding:10px;text-align:center;">Qty</th><th style="padding:10px;text-align:right;">Unit Price</th><th style="padding:10px;text-align:right;">Total</th></tr>';
         
         for (const item of order.items) {
             if (!item || typeof item !== 'object') continue;
             
             const productId = item.product_id || item.id;
+            console.log('📦 Product ID:', productId);
             let name = item.name || 'Product';
             
             if (productId && langProducts && langProducts[productId]) {
                 const productData = langProducts[productId];
+                console.log('✅ Found in JSON:', productData);
                 if (productData && typeof productData === 'object' && productData.name) {
                     name = productData.name;
                 }
+            } else {
+                console.log('❌ NOT found in JSON:', productId);
             }
             
             name = esc(String(name));
@@ -757,22 +784,26 @@
         
         const langProducts = await fetchProductNames(lang);
         const genericProducts = await fetchProductImages();
+        console.log('🔍 Fetched lang products:', langProducts);
+        console.log('🖼️ Fetched generic products:', genericProducts);
         
         let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
-        html += '<tr style="border-bottom:1px solid #ddd;">';
-        html += '<th style="padding:10px;text-align:center;">Image</th><th style="padding:10px;text-align:left;">Product</th><th style="padding:10px;text-align:center;">Qty</th><th style="padding:10px;text-align:right;">Unit Price</th><th style="padding:10px;text-align:right;">Total</th></tr>';
         
         for (const item of order.items) {
             if (!item || typeof item !== 'object') continue;
             
             const productId = item.product_id || item.id;
+            console.log('📦 Product ID:', productId);
             let name = item.name || 'Product';
             
             if (productId && langProducts && langProducts[productId]) {
                 const productData = langProducts[productId];
+                console.log('✅ Found in JSON:', productData);
                 if (productData && typeof productData === 'object' && productData.name) {
                     name = productData.name;
                 }
+            } else {
+                console.log('❌ NOT found in JSON:', productId);
             }
             
             name = esc(String(name));
@@ -780,10 +811,13 @@
             let imgHtml = '<div style="width:60px;height:60px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">No image</div>';
             if (productId && genericProducts && genericProducts[productId]) {
                 const productData = genericProducts[productId];
+                console.log('🖼️ Found image data:', productData);
                 if (productData && typeof productData === 'object' && productData.images && Array.isArray(productData.images) && productData.images.length > 0) {
                     const imgUrl = esc(productData.images[0]);
                     imgHtml = `<img src="${imgUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" alt="${name}" />`;
                 }
+            } else {
+                console.log('❌ NO image data for:', productId);
             }
             
             const qty = Math.max(1, parseInt(item.qty || 1, 10));
