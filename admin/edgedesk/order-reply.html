@@ -573,7 +573,7 @@
     function setLang(lang) {
         currentLang = lang;
         loadTickets(true);
-        rebuildTemplateBar();
+        rebuildAutoReplyCard();
     }
 
     // ─── SENDERS ─────────────────────────────────────────────────
@@ -689,7 +689,103 @@
         document.execCommand('insertText', false, tag);
     }
 
+    // ─── AUTO-REPLY (per-language payment confirmation) ────────────
+    function buildAutoReplyCard() {
+        if (!canManageTemplates()) return '<div id="autoReplyCard"></div>';
+        const lang = currentLang === 'all' ? 'en' : currentLang;
+        const langName = getLangName(lang);
+        const langOpts = getLangs().filter(l => l.code !== 'all')
+            .map(l => `<option value="${esc(l.code)}"${l.code === lang ? ' selected' : ''}>${esc(l.name)}</option>`).join('');
+        const enabled = settings.auto_reply?.[`payment_${lang}_enabled`] === '1';
+        const subject = settings.auto_reply?.[`payment_${lang}_subject`] || 'Your Dornori order confirmation';
+        const body = settings.auto_reply?.[`payment_${lang}_body`] || '';
+        const from = settings.auto_reply?.[`payment_${lang}_from`] || '';
+        const senderOpts = senders.map(s => `<option value="${esc(s)}"${s === from ? ' selected' : ''}>${esc(s)}</option>`).join('');
 
+        return `<div class="s-card" id="autoReplyCard">
+            <div class="s-card-head">
+                <div><h3>⚡ Payment Confirmation Auto-Reply (${esc(langName)})</h3>
+                <p>Sent automatically the moment a payment ticket is created in this language. Each language has its own separate template — use the selector below to switch and edit each one. Available tags: {{order_items_with_names}}, {{order_items_with_images}}, {{order_summary}}, {{order_customer}}, {{order_shipping}}, {{order_reference}}, {{ticket_number}}, {{sender_name}}, {{sender_email}}</p></div>
+            </div>
+            <div class="f-row">
+                <label>Language</label>
+                <select onchange="setLang(this.value)">${langOpts}</select>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;">
+                    <input type="checkbox" id="or_ar_enabled" ${enabled ? 'checked' : ''} style="width:18px;height:18px;" />
+                    <span style="font-size:14px;color:var(--text);font-weight:500;">Send confirmation automatically for new payment tickets</span>
+                </label>
+            </div>
+            <div class="f-row">
+                <label>From</label>
+                <select id="or_ar_from">${senderOpts || '<option value="">No sender addresses available</option>'}</select>
+            </div>
+            <div class="f-row">
+                <label>Subject</label>
+                <input type="text" id="or_ar_subject" value="${esc(subject)}" />
+            </div>
+            <div class="f-row">
+                <label>Body (HTML)</label>
+                <div class="tag-bar">
+                    <span class="tag-bar-label">Insert order data:</span>
+                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_items_with_names}}')">{{order_items_with_names}}</button>
+                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_items_with_images}}')">{{order_items_with_images}}</button>
+                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_summary}}')">{{order_summary}}</button>
+                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_customer}}')">{{order_customer}}</button>
+                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_shipping}}')">{{order_shipping}}</button>
+                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_reference}}')">{{order_reference}}</button>
+                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{ticket_number}}')">{{ticket_number}}</button>
+                </div>
+                <textarea id="or_ar_body" style="width:100%;min-height:160px;padding:9px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;font-family:Menlo,Consolas,monospace;line-height:1.55;resize:vertical;">${esc(body)}</textarea>
+            </div>
+            <button class="btn btn-accent" onclick="saveOrderAutoReply()">Save auto-reply</button>
+        </div>`;
+    }
+
+    function rebuildAutoReplyCard() {
+        const el = document.getElementById('autoReplyCard');
+        if (el) el.outerHTML = buildAutoReplyCard();
+    }
+
+    function insertAutoReplyTag(tag) {
+        const el = document.getElementById('or_ar_body');
+        if (!el) return;
+        const start = el.selectionStart ?? el.value.length;
+        const end = el.selectionEnd ?? el.value.length;
+        el.value = el.value.slice(0, start) + tag + el.value.slice(end);
+        el.focus();
+        el.selectionStart = el.selectionEnd = start + tag.length;
+    }
+
+    async function saveOrderAutoReply() {
+        if (!canManageTemplates()) { toast('You do not have permission to edit the auto-reply', 'error'); return; }
+        const lang = currentLang === 'all' ? 'en' : currentLang;
+        const enabled = document.getElementById('or_ar_enabled').checked ? '1' : '0';
+        const subject = document.getElementById('or_ar_subject').value;
+        const body = document.getElementById('or_ar_body').value;
+        const from = document.getElementById('or_ar_from').value;
+        try {
+            const d = await api('/api/admin/settings', {
+                method: 'PUT',
+                body: JSON.stringify({ settings: [
+                    { category: 'auto_reply', key: `payment_${lang}_enabled`, value: enabled },
+                    { category: 'auto_reply', key: `payment_${lang}_subject`, value: subject },
+                    { category: 'auto_reply', key: `payment_${lang}_body`, value: body },
+                    { category: 'auto_reply', key: `payment_${lang}_from`, value: from }
+                ] })
+            });
+            if (d.success) {
+                if (!settings.auto_reply) settings.auto_reply = {};
+                settings.auto_reply[`payment_${lang}_enabled`] = enabled;
+                settings.auto_reply[`payment_${lang}_subject`] = subject;
+                settings.auto_reply[`payment_${lang}_body`] = body;
+                settings.auto_reply[`payment_${lang}_from`] = from;
+                toast('✅ Auto-reply saved');
+                rebuildAutoReplyCard();
+            } else toast('❌ ' + (d.error || 'Save failed'), 'error');
+        } catch (e) { toast('❌ ' + e.message, 'error'); }
+    }
 
     // ─── EDITOR COMMANDS ────────────────────────────────────────
     function cmd(command, val) {
@@ -823,18 +919,16 @@
             name = esc(String(name || 'Product'));
             
             let imgHtml = '';
-            const baseUrl = window.EDGEDESK_CONSTANTS?.PRODUCTS_IMAGES_BASE_URL || '';
+            const _imgBase = (window.EDGEDESK_CONSTANTS?.PRODUCTS_IMAGES_BASE_URL || '').replace(/\/$/, '');
+            function _resolveImgUrl(raw) {
+                if (!raw) return '';
+                return raw.startsWith('http') ? raw : _imgBase + (raw.startsWith('/') ? '' : '/') + raw;
+            }
             if (productId && genericProducts[productId] && genericProducts[productId].images && genericProducts[productId].images.length > 0) {
-                // Use the first image from the images array
-                let imgPath = genericProducts[productId].images[0];
-                const fullUrl = imgPath.startsWith('http') ? imgPath : baseUrl + imgPath;
-                const imgUrl = esc(fullUrl);
+                const imgUrl = esc(_resolveImgUrl(genericProducts[productId].images[0]));
                 imgHtml = `<img src="${imgUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" alt="${name}" />`;
             } else if (productId && genericProducts[productId] && genericProducts[productId].image) {
-                // Fallback to single image field
-                let imgPath = genericProducts[productId].image;
-                const fullUrl = imgPath.startsWith('http') ? imgPath : baseUrl + imgPath;
-                const imgUrl = esc(fullUrl);
+                const imgUrl = esc(_resolveImgUrl(genericProducts[productId].image));
                 imgHtml = `<img src="${imgUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" alt="${name}" />`;
             } else {
                 imgHtml = '<div style="width:60px;height:60px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">No image</div>';
@@ -1184,6 +1278,7 @@
     // ─── RENDER ──────────────────────────────────────────────────
     function render() {
         document.getElementById('content').innerHTML = `
+            ${buildAutoReplyCard()}
             ${buildComposeArea()}
             ${buildTicketList()}
         `;
@@ -1192,17 +1287,14 @@
     // ─── LOAD ────────────────────────────────────────────────────
     async function load() {
         try {
-            // Load settings from DB if admin/manager
-            if (currentUser.role === 'admin' || currentUser.role === 'manager') {
-                try {
-                    const sd = await api('/api/admin/settings');
-                    settings = sd.settings || {};
-                    // Clear product config cache so it reloads from fresh settings
-                    productConfigCache = null;
-                } catch (e) { 
-                    console.warn('Failed to load settings from DB:', e);
-                    settings = {};
-                }
+            try {
+                const sd = await api('/api/admin/settings');
+                settings = sd.data || sd.settings || {};
+                // Clear product config cache so it reloads from fresh settings
+                productConfigCache = null;
+            } catch (e) {
+                console.warn('Failed to load settings from DB:', e);
+                settings = {};
             }
             await Promise.all([loadSenders(), loadTemplates()]);
             await loadTickets(true);
@@ -1231,6 +1323,8 @@
     window.saveTemplate = saveTemplate;
     window.deleteTemplate = deleteTemplate;
     window.loadTemplateIntoEditor = loadTemplateIntoEditor;
+    window.saveOrderAutoReply = saveOrderAutoReply;
+    window.insertAutoReplyTag = insertAutoReplyTag;
     window.exportOrdersCsv = exportOrdersCsv;
     window.logout = logout;
     window.toggleTheme = toggleTheme;
