@@ -383,6 +383,18 @@
         filterText = '',
         sourceMode = false,
         pendingSend = null;
+    
+    // Helper function to get setting by category and key
+    function getSetting(category, key, defaultValue = '') {
+        if (!settings || typeof settings !== 'object') return defaultValue;
+        // Try nested access first (if settings[category][key])
+        if (settings[category] && typeof settings[category] === 'object') {
+            return settings[category][key] !== undefined ? settings[category][key] : defaultValue;
+        }
+        // Try flat access (if settings[`${category}_${key}`])
+        const flatKey = `${category}_${key}`;
+        return settings[flatKey] !== undefined ? settings[flatKey] : defaultValue;
+    }
 
     // ─── LANGUAGES ───────────────────────────────────────────────
     function getLangs() {
@@ -677,8 +689,10 @@
             return productDataCache[cacheKey];
         }
         try {
-            const domain = window.EDGEDESK_SETTINGS?.general?.domain || '';
-            const dataPath = window.EDGEDESK_SETTINGS?.general?.products_data_base_url || '';
+            console.log('📋 Settings object:', settings);
+            const domain = getSetting('general', 'domain', '');
+            const dataPath = getSetting('general', 'products_data_base_url', '');
+            console.log('🔍 Retrieved:', {domain, dataPath});
             if (!domain || !dataPath) {
                 console.error('❌ Missing domain or path:', {domain, dataPath});
                 return {};
@@ -708,8 +722,8 @@
             return productDataCache[cacheKey];
         }
         try {
-            const domain = window.EDGEDESK_SETTINGS?.general?.domain || '';
-            const imagesPath = window.EDGEDESK_SETTINGS?.general?.products_images_base_url || '';
+            const domain = getSetting('general', 'domain', '');
+            const imagesPath = getSetting('general', 'products_images_base_url', '');
             if (!domain || !imagesPath) {
                 console.error('❌ Missing domain or images path:', {domain, imagesPath});
                 return {};
