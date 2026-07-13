@@ -208,7 +208,7 @@
         </div>
         <div class="modal-body">
             <div class="preview-subject" id="previewSubjectLine"></div>
-            <iframe id="previewFrame" title="Email preview" sandbox="allow-same-origin allow-scripts allow-top-navigation-by-user-activation"></iframe>
+            <iframe id="previewFrame" title="Email preview" sandbox="allow-same-origin"></iframe>
         </div>
         <div class="modal-foot">
             <button class="btn btn-ghost" onclick="closePreview()">Close</button>
@@ -383,17 +383,174 @@
         filterText = '',
         sourceMode = false,
         pendingSend = null;
-    
-    // Helper function to get setting by category and key
-    function getSetting(category, key, defaultValue = '') {
-        if (!settings || typeof settings !== 'object') return defaultValue;
-        // Try nested access first (if settings[category][key])
-        if (settings[category] && typeof settings[category] === 'object') {
-            return settings[category][key] !== undefined ? settings[category][key] : defaultValue;
+
+    // ─── PRODUCT DATA WITH DB SETTINGS + CACHE ─────────────────────
+    let productDataCache = {};
+    let productConfigCache = null;
+
+    // Get product URLs from database settings (with caching)
+    async function getProductUrls() {
+        if (productConfigCache) return productConfigCache;
+        
+        try {
+            let dataBaseUrl = '';
+            let imagesBaseUrl = '';
+            
+            if (Array.isArray(settings)) {
+                for (const s of settings) {
+                    if (s.category === 'general' && s.key === 'products_data_base_url') {
+                        dataBaseUrl = s.value;
+                    }
+                    if (s.category === 'general' && s.key === 'products_images_base_url') {
+                        imagesBaseUrl = s.value;
+                    }
+                }
+            }
+            
+            if (!dataBaseUrl) {
+                dataBaseUrl = window.EDGEDESK_CONSTANTS?.PRODUCTS_DATA_BASE_URL || '';
+            }
+            if (!imagesBaseUrl) {
+                imagesBaseUrl = window.EDGEDESK_CONSTANTS?.PRODUCTS_IMAGES_BASE_URL || '';
+            }
+            
+            productConfigCache = { dataBaseUrl, imagesBaseUrl };
+            return productConfigCache;
+            
+        } catch (e) {
+            productConfigCache = {
+                dataBaseUrl: window.EDGEDESK_CONSTANTS?.PRODUCTS_DATA_BASE_URL || '',
+                imagesBaseUrl: window.EDGEDESK_CONSTANTS?.PRODUCTS_IMAGES_BASE_URL || ''
+            };
+            return productConfigCache;
         }
-        // Try flat access (if settings[`${category}_${key}`])
-        const flatKey = `${category}_${key}`;
-        return settings[flatKey] !== undefined ? settings[flatKey] : defaultValue;
+    }
+
+    // Fetch product names from language-specific JSON with caching
+    async function fetchProductNames(lang) {
+        const cacheKey = `names_${lang}`;
+        
+        if (productDataCache[cacheKey]) return productDataCache[cacheKey];
+        
+        const storageKey = `product_names_${lang}`;
+        const cached = localStorage.getItem(storageKey);
+        const cacheTime = localStorage.getItem(`${storageKey}_time`);
+        
+        if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 3600000)) {
+            try {
+                const data = JSON.parse(cached);
+                productDataCache[cacheKey] = data;
+                return data;
+            } catch (e) { /* Invalid cache */ }
+        }
+        
+        try {
+            const urls = await getProductUrls();
+            const baseUrl = urls.dataBaseUrl;
+            
+            if (!baseUrl) return {};
+            
+            const url = `${baseUrl}/${lang}/products.json`;
+            const res = await fetch(url);
+            if (!res.ok) return {};
+            
+            const data = await res.json();
+            productDataCache[cacheKey] = data;
+            
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(data));
+                localStorage.setItem(`${storageKey}_time`, String(Date.now()));
+            } catch (e) { /* Storage full */ }
+            
+            return data;
+            
+        } catch (e) {
+            console.warn(`Failed to fetch product names for ${lang}:`, e);
+            return {};
+        }
+    }
+
+    // ✅ Normalizes array-format products.json into an object keyed by id.
+    // Applied on BOTH the cache-read path and the fresh-fetch path so a
+    // stale array-format cache entry can never leak through un-converted.
+    function normalizeProductImages(data) {
+        if (!Array.isArray(data)) return data || {};
+        const formattedData = {};
+        for (const item of data) {
+            if (item.id) {
+                formattedData[item.id] = {
+                    images: item.images || [],
+                    image: item.image || '',
+                    price: item.price,
+                    category: item.category,
+                    variants: item.variants,
+                    addons: item.addons,
+                    related: item.related,
+                    weight: item.weight,
+                    stock: item.stock,
+                    discount: item.discount,
+                    rating: item.rating,
+                    reviewCount: item.reviewCount,
+                    dimensions: item.dimensions,
+                    colors: item.colors,
+                    colors_soldout: item.colors_soldout,
+                    showBuyNow: item.showBuyNow,
+                    showQuantity: item.showQuantity,
+                    summaryBadge: item.summaryBadge,
+                    UpLabel: item.UpLabel,
+                    DownLabel: item.DownLabel,
+                    url: item.url,
+                    videos: item.videos
+                };
+            }
+        }
+        return formattedData;
+    }
+
+    // Fetch product images and metadata with caching
+    async function fetchProductImages() {
+        const cacheKey = 'images_generic';
+        
+        if (productDataCache[cacheKey]) return productDataCache[cacheKey];
+        
+        const storageKey = 'product_images';
+        const cached = localStorage.getItem(storageKey);
+        const cacheTime = localStorage.getItem(`${storageKey}_time`);
+        
+        if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 3600000)) {
+            try {
+                const data = normalizeProductImages(JSON.parse(cached));
+                productDataCache[cacheKey] = data;
+                return data;
+            } catch (e) { /* Invalid cache */ }
+        }
+        
+        try {
+            const urls = await getProductUrls();
+            const baseUrl = urls.imagesBaseUrl;
+            
+            if (!baseUrl) return {};
+            
+            const url = `${baseUrl}/products.json`;
+            const res = await fetch(url);
+            if (!res.ok) return {};
+            
+            const data = await res.json();
+            const formattedData = normalizeProductImages(data);
+            
+            productDataCache[cacheKey] = formattedData;
+            
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(formattedData));
+                localStorage.setItem(`${storageKey}_time`, String(Date.now()));
+            } catch (e) { /* Storage full */ }
+            
+            return formattedData;
+            
+        } catch (e) {
+            console.warn('Failed to fetch product images:', e);
+            return {};
+        }
     }
 
     // ─── LANGUAGES ───────────────────────────────────────────────
@@ -678,74 +835,33 @@
         return document.getElementById('compose_subject').value.trim();
     }
 
-    // ─── PRODUCT DATA CACHE ────────────────────────────────────────
-    let productDataCache = {};
-    
-    // Fetch product names from language-specific JSON
-    async function fetchProductNames(lang) {
-        const cacheKey = `names_${lang}`;
-        if (productDataCache[cacheKey]) {
-            console.log('💾 Cache hit for:', cacheKey);
-            return productDataCache[cacheKey];
-        }
-        try {
-            console.log('📋 Settings object:', settings);
-            const domain = getSetting('general', 'domain', '');
-            const dataPath = getSetting('general', 'products_data_base_url', '');
-            console.log('🔍 Retrieved:', {domain, dataPath});
-            if (!domain || !dataPath) {
-                console.error('❌ Missing domain or path:', {domain, dataPath});
-                return {};
+    // ─── ORDER DATA RENDERING ────────────────────────────────────
+    // Resolves a catalog product id from an order item, trying every
+    // field name seen in the wild, then falling back to matching the
+    // item's stored name/label against the catalog. Logs the raw item
+    // once if nothing matches, so the actual backend field names are
+    // visible in devtools.
+    function resolveProductId(item, catalogs) {
+        let id = item.product_id || item.productId || item.id || item.sku ||
+                 item.item_id || item.itemId || item.variant_id || item.variantId ||
+                 item.slug || null;
+        if (id) return id;
+
+        const itemName = (item.name || item.title || '').trim().toLowerCase();
+        if (itemName) {
+            for (const catalog of catalogs) {
+                if (!catalog) continue;
+                for (const [key, val] of Object.entries(catalog)) {
+                    const candidates = [val.name, val.label].filter(Boolean).map(s => String(s).toLowerCase());
+                    if (candidates.includes(itemName)) return key;
+                }
             }
-            const url = `${domain}${dataPath}/${lang}/products.json`;
-            console.log('📡 Fetching from:', url);
-            const res = await fetch(url);
-            if (!res.ok) {
-                console.error(`❌ HTTP ${res.status} for ${url}`);
-                return {};
-            }
-            const data = await res.json();
-            console.log('✅ Fetched data:', data);
-            productDataCache[cacheKey] = data || {};
-            return productDataCache[cacheKey];
-        } catch (e) {
-            console.error('❌ Fetch error:', e);
-            return {};
         }
-    }
-    
-    // Fetch product images from generic JSON
-    async function fetchProductImages() {
-        const cacheKey = 'images_generic';
-        if (productDataCache[cacheKey]) {
-            console.log('💾 Cache hit for images');
-            return productDataCache[cacheKey];
-        }
-        try {
-            const domain = getSetting('general', 'domain', '');
-            const imagesPath = getSetting('general', 'products_images_base_url', '');
-            if (!domain || !imagesPath) {
-                console.error('❌ Missing domain or images path:', {domain, imagesPath});
-                return {};
-            }
-            const url = `${domain}${imagesPath}/products.json`;
-            console.log('📡 Fetching images from:', url);
-            const res = await fetch(url);
-            if (!res.ok) {
-                console.error(`❌ HTTP ${res.status} for ${url}`);
-                return {};
-            }
-            const data = await res.json();
-            console.log('✅ Fetched image data:', data);
-            productDataCache[cacheKey] = data || {};
-            return productDataCache[cacheKey];
-        } catch (e) {
-            console.error('❌ Fetch error:', e);
-            return {};
-        }
+
+        console.warn('EdgeDesk: could not resolve product id for order item — raw item keys:', Object.keys(item), item);
+        return null;
     }
 
-    // ─── ORDER DATA RENDERING ────────────────────────────────────
     async function renderOrderItems(meta, lang = 'en') {
         const order = meta && meta.order;
         if (!order || !order.items || !order.items.length) return '';
@@ -753,37 +869,26 @@
         const totals = order.totals || {};
         
         const langProducts = await fetchProductNames(lang);
-        console.log('🔍 Fetched lang products:', langProducts);
         
         let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
+        html += '<tr style="border-bottom:1px solid #ddd;">';
+        html += '<th style="padding:10px;text-align:left;">Product</th><th style="padding:10px;text-align:center;">Qty</th><th style="padding:10px;text-align:right;">Unit Price</th><th style="padding:10px;text-align:right;">Total</th></tr>';
         
         for (const item of order.items) {
             if (!item || typeof item !== 'object') continue;
-            
-            const productId = item.product_id || item.id;
-            console.log('📦 Product ID:', productId);
-            let name = item.name || 'Product';
-            
-            if (productId && langProducts && langProducts[productId]) {
-                const productData = langProducts[productId];
-                console.log('✅ Found in JSON:', productData);
-                if (productData && typeof productData === 'object' && productData.name) {
-                    name = productData.name;
-                }
-            } else {
-                console.log('❌ NOT found in JSON:', productId);
+            const productId = resolveProductId(item, [langProducts]);
+            let name = item.name;
+            if (productId && langProducts[productId]) {
+                name = langProducts[productId].name || item.name;
             }
-            
-            name = esc(String(name));
-            const qty = Math.max(1, parseInt(item.qty || 1, 10));
+            name = esc(String(name || 'Product'));
+            const qty = Math.max(1, parseInt(item.qty || item.quantity || 1, 10));
             const price = Math.max(0, parseFloat(item.price || 0));
             if (isNaN(price) || isNaN(qty)) continue;
-            
             const lineTotal = (price * qty).toFixed(2);
             html += '<tr style="border-bottom:1px solid #eee;">';
             html += `<td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${currency} ${price.toFixed(2)}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
         }
-        
         html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
         html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">TOTAL:</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${(totals.total || 0).toFixed(2)}</td></tr>`;
         html += '</table>';
@@ -798,51 +903,41 @@
         
         const langProducts = await fetchProductNames(lang);
         const genericProducts = await fetchProductImages();
-        console.log('🔍 Fetched lang products:', langProducts);
-        console.log('🖼️ Fetched generic products:', genericProducts);
         
         let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
+        html += '<tr style="border-bottom:1px solid #ddd;">';
+        html += '<th style="padding:10px;text-align:left;">Image</th><th style="padding:10px;text-align:left;">Product</th><th style="padding:10px;text-align:center;">Qty</th><th style="padding:10px;text-align:right;">Unit Price</th><th style="padding:10px;text-align:right;">Total</th></tr>';
         
         for (const item of order.items) {
             if (!item || typeof item !== 'object') continue;
+            const productId = resolveProductId(item, [langProducts, genericProducts]);
             
-            const productId = item.product_id || item.id;
-            console.log('📦 Product ID:', productId);
-            let name = item.name || 'Product';
+            let name = item.name;
+            if (productId && langProducts[productId]) {
+                name = langProducts[productId].name || item.name;
+            }
+            name = esc(String(name || 'Product'));
             
-            if (productId && langProducts && langProducts[productId]) {
-                const productData = langProducts[productId];
-                console.log('✅ Found in JSON:', productData);
-                if (productData && typeof productData === 'object' && productData.name) {
-                    name = productData.name;
-                }
+            let imgHtml = '';
+            if (productId && genericProducts[productId] && genericProducts[productId].images && genericProducts[productId].images.length > 0) {
+                // Use the first image from the images array
+                const imgUrl = esc(genericProducts[productId].images[0]);
+                imgHtml = `<img src="${imgUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" alt="${name}" />`;
+            } else if (productId && genericProducts[productId] && genericProducts[productId].image) {
+                // Fallback to single image field
+                const imgUrl = esc(genericProducts[productId].image);
+                imgHtml = `<img src="${imgUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" alt="${name}" />`;
             } else {
-                console.log('❌ NOT found in JSON:', productId);
+                imgHtml = '<div style="width:60px;height:60px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">No image</div>';
             }
             
-            name = esc(String(name));
-            
-            let imgHtml = '<div style="width:60px;height:60px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">No image</div>';
-            if (productId && genericProducts && genericProducts[productId]) {
-                const productData = genericProducts[productId];
-                console.log('🖼️ Found image data:', productData);
-                if (productData && typeof productData === 'object' && productData.images && Array.isArray(productData.images) && productData.images.length > 0) {
-                    const imgUrl = esc(productData.images[0]);
-                    imgHtml = `<img src="${imgUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" alt="${name}" />`;
-                }
-            } else {
-                console.log('❌ NO image data for:', productId);
-            }
-            
-            const qty = Math.max(1, parseInt(item.qty || 1, 10));
+            const qty = Math.max(1, parseInt(item.qty || item.quantity || 1, 10));
             const price = Math.max(0, parseFloat(item.price || 0));
             if (isNaN(price) || isNaN(qty)) continue;
-            
             const lineTotal = (price * qty).toFixed(2);
             html += '<tr style="border-bottom:1px solid #eee;">';
             html += `<td style="padding:10px;text-align:center;">${imgHtml}</td><td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${currency} ${price.toFixed(2)}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
         }
-        
         html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
         html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">TOTAL:</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${(totals.total || 0).toFixed(2)}</td></tr>`;
         html += '</table>';
@@ -884,12 +979,10 @@
     async function applyOrderTags(html, ticket) {
         if (!ticket) return html;
         const meta = parseMeta(ticket);
-        // Extract language from ticket metadata or use default
         const lang = meta.language || ticket.language || 'en';
         
         let out = html;
         
-        // Handle async replacements
         if (out.includes('{{order_items_with_names}}')) {
             const rendered = await renderOrderItems(meta, lang);
             out = out.replace(/\{\{order_items_with_names\}\}/g, rendered);
@@ -898,8 +991,6 @@
             const rendered = await renderOrderItemsWithImages(meta, lang);
             out = out.replace(/\{\{order_items_with_images\}\}/g, rendered);
         }
-        
-        // Handle legacy order_items tag
         if (out.includes('{{order_items}}')) {
             const rendered = await renderOrderItems(meta, lang);
             out = out.replace(/\{\{order_items\}\}/g, rendered);
@@ -1193,14 +1284,18 @@
     // ─── LOAD ────────────────────────────────────────────────────
     async function load() {
         try {
-            let settingsData = {};
+            // Load settings from DB if admin/manager
             if (currentUser.role === 'admin' || currentUser.role === 'manager') {
                 try {
                     const sd = await api('/api/admin/settings');
-                    settingsData = sd.data || {};
-                } catch (e) { /* fall back to allowed_languages */ }
+                    settings = sd.settings || {};
+                    // Clear product config cache so it reloads from fresh settings
+                    productConfigCache = null;
+                } catch (e) { 
+                    console.warn('Failed to load settings from DB:', e);
+                    settings = {};
+                }
             }
-            settings = settingsData;
             await Promise.all([loadSenders(), loadTemplates()]);
             await loadTickets(true);
             render();
