@@ -439,11 +439,23 @@
         return productConfigCache;
     }
 
-    // Fetch product names from language-specific JSON (in-memory cache only)
+    // Fetch product names from language-specific JSON with caching
     async function fetchProductNames(lang) {
         const cacheKey = `names_${lang}`;
         
         if (productDataCache[cacheKey]) return productDataCache[cacheKey];
+        
+        const storageKey = `product_names_${lang}`;
+        const cached = localStorage.getItem(storageKey);
+        const cacheTime = localStorage.getItem(`${storageKey}_time`);
+        
+        if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 3600000)) {
+            try {
+                const data = JSON.parse(cached);
+                productDataCache[cacheKey] = data;
+                return data;
+            } catch (e) { /* Invalid cache */ }
+        }
         
         try {
             const urls = await getProductUrls();
@@ -457,6 +469,12 @@
             
             const data = await res.json();
             productDataCache[cacheKey] = data;
+            
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(data));
+                localStorage.setItem(`${storageKey}_time`, String(Date.now()));
+            } catch (e) { /* Storage full */ }
+            
             return data;
             
         } catch (e) {
@@ -500,12 +518,24 @@
         return formattedData;
     }
 
-    // Fetch product images and metadata (in-memory cache only)
-    // Uses the domain from settings, not imagesBaseUrl
+    // Fetch product images and metadata with caching
+    // FIXED: Uses the domain from settings, not imagesBaseUrl
     async function fetchProductImages() {
         const cacheKey = 'images_generic';
         
         if (productDataCache[cacheKey]) return productDataCache[cacheKey];
+        
+        const storageKey = 'product_images';
+        const cached = localStorage.getItem(storageKey);
+        const cacheTime = localStorage.getItem(`${storageKey}_time`);
+        
+        if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 3600000)) {
+            try {
+                const data = normalizeProductImages(JSON.parse(cached));
+                productDataCache[cacheKey] = data;
+                return data;
+            } catch (e) { /* Invalid cache */ }
+        }
         
         try {
             const domain = getDomain();
@@ -519,6 +549,12 @@
             const formattedData = normalizeProductImages(data);
             
             productDataCache[cacheKey] = formattedData;
+            
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(formattedData));
+                localStorage.setItem(`${storageKey}_time`, String(Date.now()));
+            } catch (e) { /* Storage full */ }
+            
             return formattedData;
             
         } catch (e) {
@@ -527,10 +563,21 @@
         }
     }
 
-    // Fetch order UI labels for a given language from {dataBaseUrl}/{lang}/orders.json (in-memory cache only)
+    // Fetch order UI labels for a given language from {dataBaseUrl}/{lang}/orders.json
     async function fetchOrderLabels(lang = 'en') {
         const cacheKey = `order_labels_${lang}`;
         if (productDataCache[cacheKey]) return productDataCache[cacheKey];
+
+        const storageKey = `order_labels_${lang}`;
+        const cached = localStorage.getItem(storageKey);
+        const cacheTime = localStorage.getItem(`${storageKey}_time`);
+        if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 3600000)) {
+            try {
+                const data = JSON.parse(cached);
+                productDataCache[cacheKey] = data;
+                return data;
+            } catch (e) { /* invalid cache */ }
+        }
 
         try {
             const urls = await getProductUrls();
@@ -539,6 +586,10 @@
             if (!res.ok) return {};
             const data = await res.json();
             productDataCache[cacheKey] = data;
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(data));
+                localStorage.setItem(`${storageKey}_time`, String(Date.now()));
+            } catch (e) { /* storage full */ }
             return data;
         } catch (e) {
             console.warn(`Failed to fetch order labels for ${lang}:`, e);
