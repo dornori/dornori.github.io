@@ -65,6 +65,48 @@
   }
 
   // ============================================================
+  // PRODUCT CATALOG LOOKUPS (name by lang, image generic) — keyed by sku/id
+  // ============================================================
+  async function fetchLangProducts(langCode) {
+    try {
+      const base = (window.SHOP_CONFIG && window.SHOP_CONFIG.PRODUCTS_DATA_BASE_URL) || '';
+      const url = base ? `${base}/${langCode}/products.json` : `/${langCode}/products.json`;
+      const res = await fetch(url);
+      if (!res.ok) return {};
+      return await res.json();
+    } catch (e) {
+      console.warn('Failed to fetch lang products.json:', e);
+      return {};
+    }
+  }
+
+  async function fetchGenericProducts() {
+    try {
+      const base = (window.SHOP_CONFIG && window.SHOP_CONFIG.PRODUCTS_IMAGES_BASE_URL) || '';
+      const url = base ? `${base}/products.json` : `/products.json`;
+      const res = await fetch(url);
+      if (!res.ok) return {};
+      const data = await res.json();
+      const map = {};
+      if (Array.isArray(data)) {
+        data.forEach(p => { if (p && p.id) map[p.id] = p; });
+      } else if (data && typeof data === 'object') {
+        Object.assign(map, data);
+      }
+      return map;
+    } catch (e) {
+      console.warn('Failed to fetch generic products.json:', e);
+      return {};
+    }
+  }
+
+  function bestImage(entry) {
+    if (!entry) return '';
+    if (Array.isArray(entry.images) && entry.images.length) return entry.images[0];
+    return entry.image || '';
+  }
+
+  // ============================================================
   // READ DATA FROM LOCALSTORAGE
   // ============================================================
   function getPayPalData() {
@@ -156,6 +198,28 @@
           ...item
         };
       }).filter(Boolean);
+
+      // Fill in real name + image from the product catalog, keyed by sku.
+      // PayPal only ever echoes back the literal 'Product' placeholder, so
+      // this is the only place the real name/image can come from.
+      try {
+        const [langProducts, genericProducts] = await Promise.all([
+          fetchLangProducts(lang),
+          fetchGenericProducts()
+        ]);
+        items = items.map(item => {
+          const key = item.sku;
+          const langEntry = key && key !== 'N/A' ? langProducts[key] : null;
+          const genEntry = key && key !== 'N/A' ? genericProducts[key] : null;
+          return {
+            ...item,
+            name: (langEntry && langEntry.name) || item.name,
+            image: bestImage(genEntry) || item.image
+          };
+        });
+      } catch (e) {
+        console.warn('Product catalog enrichment failed:', e);
+      }
 
       // ============================================================
       // FIX: CALCULATE ALL TOTALS FROM PARTS
