@@ -211,6 +211,9 @@ const Payment = (() => {
                 email: gpayEmail,
                 phone: gpayPhone,
                 amount: realOrder.totals?.total != null ? Number(realOrder.totals.total).toFixed(2) : null,
+                subtotal: realOrder.totals?.subtotal != null ? Number(realOrder.totals.subtotal).toFixed(2) : null,
+                shipping: realOrder.totals?.shipping != null ? Number(realOrder.totals.shipping).toFixed(2) : null,
+                tax: realOrder.totals?.tax != null ? Number(realOrder.totals.tax).toFixed(2) : null,
                 currency: currency
               };
 
@@ -352,6 +355,9 @@ const Payment = (() => {
                   email: apayEmail || null,
                   phone: apayPhone || null,
                   amount: realOrder.totals?.total != null ? Number(realOrder.totals.total).toFixed(2) : null,
+                  subtotal: realOrder.totals?.subtotal != null ? Number(realOrder.totals.subtotal).toFixed(2) : null,
+                  shipping: realOrder.totals?.shipping != null ? Number(realOrder.totals.shipping).toFixed(2) : null,
+                  tax: realOrder.totals?.tax != null ? Number(realOrder.totals.tax).toFixed(2) : null,
                   currency: currency
                 };
                 const captureResult = await _captureOrder(realOrder.orderId, realOrder.orderRef, language, apayFallback);
@@ -590,6 +596,9 @@ const Payment = (() => {
               const language = _getActiveLanguage();
               const cardFallback = {
                 amount: _lastOrder?.totals?.total != null ? Number(_lastOrder.totals.total).toFixed(2) : null,
+                subtotal: _lastOrder?.totals?.subtotal != null ? Number(_lastOrder.totals.subtotal).toFixed(2) : null,
+                shipping: _lastOrder?.totals?.shipping != null ? Number(_lastOrder.totals.shipping).toFixed(2) : null,
+                tax: _lastOrder?.totals?.tax != null ? Number(_lastOrder.totals.tax).toFixed(2) : null,
                 currency: _lastOrder?.currency || null
               };
               const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language, cardFallback, _lastOrder?._savedForm || _lastOrder?.formData);
@@ -741,6 +750,9 @@ const Payment = (() => {
             const language = _getActiveLanguage();
             const paypalFallback = {
               amount: _lastOrder?.totals?.total != null ? Number(_lastOrder.totals.total).toFixed(2) : null,
+              subtotal: _lastOrder?.totals?.subtotal != null ? Number(_lastOrder.totals.subtotal).toFixed(2) : null,
+              shipping: _lastOrder?.totals?.shipping != null ? Number(_lastOrder.totals.shipping).toFixed(2) : null,
+              tax: _lastOrder?.totals?.tax != null ? Number(_lastOrder.totals.tax).toFixed(2) : null,
               currency: _lastOrder?.currency || null
             };
             const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language, paypalFallback, _lastOrder?._savedForm || _lastOrder?.formData);
