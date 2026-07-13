@@ -388,29 +388,54 @@
     let productDataCache = {};
     let productConfigCache = null;
 
+    // ─── GET DOMAIN FROM SETTINGS ────────────────────────────────
+    function getDomain() {
+        const gen = settings.general || {};
+        const domain = (gen.domain || '').replace(/\/+$/, '');
+        if (!domain) return '';
+        return domain.startsWith('http') ? domain : 'https://' + domain;
+    }
+
+    // ─── RESOLVE IMAGE URL USING DOMAIN ──────────────────────────
+    function resolveImageUrl(raw) {
+        if (!raw) return '';
+        // If it's already a full URL, return it as-is
+        if (raw.startsWith('http://') || raw.startsWith('https://')) {
+            return raw;
+        }
+        const domain = getDomain();
+        if (!domain) return raw;
+        // If it starts with /, append to domain
+        if (raw.startsWith('/')) {
+            return domain + raw;
+        }
+        // Otherwise add a slash between domain and path
+        return domain + '/' + raw;
+    }
+
     // Get product URLs from database settings (with caching)
     async function getProductUrls() {
         if (productConfigCache) return productConfigCache;
 
-        // settings is a keyed object: settings.general.products_data_base_url
         const gen = settings.general || {};
-        const domain = (gen.domain || '').replace(/\/+$/, '');
+        const domain = getDomain();
 
-        let dataBaseUrl   = (gen.products_data_base_url   || '').replace(/\/+$/, '');
-        let imagesBaseUrl = (gen.products_images_base_url || '').replace(/\/+$/, '');
-
-        // If only a relative path stored, prepend domain (normalise protocol)
-        function withDomain(url) {
-            if (!url) return '';
-            if (url.startsWith('http')) return url;
-            const base = domain.startsWith('http') ? domain : 'https://' + domain;
-            return base + (url.startsWith('/') ? '' : '/') + url;
+        let dataBaseUrl = (gen.products_data_base_url || '').replace(/\/+$/, '');
+        
+        // If dataBaseUrl is relative, prepend domain
+        if (dataBaseUrl && !dataBaseUrl.startsWith('http')) {
+            dataBaseUrl = domain + (dataBaseUrl.startsWith('/') ? '' : '/') + dataBaseUrl;
+        }
+        
+        // Fallback to constant
+        if (!dataBaseUrl) {
+            dataBaseUrl = window.EDGEDESK_CONSTANTS?.PRODUCTS_DATA_BASE_URL || '';
+            if (dataBaseUrl && !dataBaseUrl.startsWith('http')) {
+                dataBaseUrl = domain + (dataBaseUrl.startsWith('/') ? '' : '/') + dataBaseUrl;
+            }
         }
 
-        dataBaseUrl   = withDomain(dataBaseUrl)   || withDomain(window.EDGEDESK_CONSTANTS?.PRODUCTS_DATA_BASE_URL   || '');
-        imagesBaseUrl = withDomain(imagesBaseUrl)  || withDomain(window.EDGEDESK_CONSTANTS?.PRODUCTS_IMAGES_BASE_URL || '');
-
-        productConfigCache = { dataBaseUrl, imagesBaseUrl };
+        productConfigCache = { dataBaseUrl, domain };
         return productConfigCache;
     }
 
@@ -459,8 +484,6 @@
     }
 
     // ✅ Normalizes array-format products.json into an object keyed by id.
-    // Applied on BOTH the cache-read path and the fresh-fetch path so a
-    // stale array-format cache entry can never leak through un-converted.
     function normalizeProductImages(data) {
         if (!Array.isArray(data)) return data || {};
         const formattedData = {};
@@ -496,6 +519,7 @@
     }
 
     // Fetch product images and metadata with caching
+    // FIXED: Uses the domain from settings, not imagesBaseUrl
     async function fetchProductImages() {
         const cacheKey = 'images_generic';
         
@@ -514,12 +538,10 @@
         }
         
         try {
-            const urls = await getProductUrls();
-            const baseUrl = urls.imagesBaseUrl;
+            const domain = getDomain();
+            if (!domain) return {};
             
-            if (!baseUrl) return {};
-            
-            const url = `${baseUrl}/products.json`;
+            const url = `${domain}/products.json`;
             const res = await fetch(url);
             if (!res.ok) return {};
             
@@ -542,10 +564,6 @@
     }
 
     // Fetch order UI labels for a given language from {dataBaseUrl}/{lang}/orders.json
-    // Expected format: { "product": "Produkt", "qty": "Antal", "unit_price": "Enhedspris",
-    //   "total": "Total", "image": "Billede", "order_ref": "Ordrenr.", "items": "Varer",
-    //   "subtotal": "Subtotal", "shipping": "Forsendelse", "tax": "Moms",
-    //   "name": "Navn", "email": "E-mail", "phone": "Telefon" }
     async function fetchOrderLabels(lang = 'en') {
         const cacheKey = `order_labels_${lang}`;
         if (productDataCache[cacheKey]) return productDataCache[cacheKey];
@@ -578,6 +596,7 @@
             return {};
         }
     }
+
     function getLangs() {
         try {
             const list = settings.languages?.list || '[]';
@@ -816,7 +835,6 @@
         const body = document.getElementById('or_ar_body')?.value;
         const subj = document.getElementById('or_ar_subject')?.value;
         if (!body) { toast('Nothing to preview yet', 'error'); return; }
-        // Use activeTicket if one is selected, otherwise use the most recent ticket
         let ticket = activeTicket;
         if (!ticket && tickets.length) ticket = tickets[0];
         if (!ticket) { toast('Load a ticket first so tags can be rendered with real order data', 'warning'); return; }
@@ -876,11 +894,6 @@
     }
 
     // ─── ORDER DATA RENDERING ────────────────────────────────────
-    // Resolves a catalog product id from an order item, trying every
-    // field name seen in the wild, then falling back to matching the
-    // item's stored name/label against the catalog. Logs the raw item
-    // once if nothing matches, so the actual backend field names are
-    // visible in devtools.
     function resolveProductId(item, catalogs) {
         let id = item.product_id || item.productId || item.id || item.sku ||
                  item.item_id || item.itemId || item.variant_id || item.variantId ||
@@ -947,7 +960,6 @@
         const currency = meta.currency || 'EUR';
         const totals = order.totals || {};
         
-        const urls = await getProductUrls();
         const [langProducts, genericProducts, labels] = await Promise.all([
             fetchProductNames(lang), fetchProductImages(), fetchOrderLabels(lang)
         ]);
@@ -962,13 +974,6 @@
             if (labels.total)      html += `<th style="padding:10px;text-align:right;">${esc(labels.total)}</th>`;
             html += '</tr>';
         }
-        
-        const _imgBase = (urls.imagesBaseUrl || '').replace(/\/+$/, '');
-        function _resolveImgUrl(raw) {
-            if (!raw) return '';
-            if (raw.startsWith('http')) return raw;
-            return _imgBase + (raw.startsWith('/') ? '' : '/') + raw;
-        }
 
         for (const item of order.items) {
             if (!item || typeof item !== 'object') continue;
@@ -982,10 +987,10 @@
             
             let imgHtml = '';
             if (productId && genericProducts[productId] && genericProducts[productId].images && genericProducts[productId].images.length > 0) {
-                const imgUrl = esc(_resolveImgUrl(genericProducts[productId].images[0]));
+                const imgUrl = esc(resolveImageUrl(genericProducts[productId].images[0]));
                 imgHtml = `<img src="${imgUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" alt="${name}" />`;
             } else if (productId && genericProducts[productId] && genericProducts[productId].image) {
-                const imgUrl = esc(_resolveImgUrl(genericProducts[productId].image));
+                const imgUrl = esc(resolveImageUrl(genericProducts[productId].image));
                 imgHtml = `<img src="${imgUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" alt="${name}" />`;
             } else {
                 imgHtml = '<div style="width:60px;height:60px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">No image</div>';
