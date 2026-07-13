@@ -384,14 +384,10 @@
         sourceMode = false,
         pendingSend = null;
 
-    // ─── PRODUCT DATA WITH DB SETTINGS + CACHE ─────────────────────
-    let productDataCache = {};
-    let productConfigCache = null;
+    // ─── PRODUCT DATA WITH DB SETTINGS ─────────────────────
 
-    // Get product URLs from database settings (with caching)
+    // Get product URLs from database settings
     async function getProductUrls() {
-        if (productConfigCache) return productConfigCache;
-
         // settings is a keyed object: settings.general.products_data_base_url
         const gen = settings.general || {};
         const domain = (gen.domain || '').replace(/\/+$/, '');
@@ -410,28 +406,11 @@
         dataBaseUrl   = withDomain(dataBaseUrl)   || withDomain(window.EDGEDESK_CONSTANTS?.PRODUCTS_DATA_BASE_URL   || '');
         imagesBaseUrl = withDomain(imagesBaseUrl)  || withDomain(window.EDGEDESK_CONSTANTS?.PRODUCTS_IMAGES_BASE_URL || '');
 
-        productConfigCache = { dataBaseUrl, imagesBaseUrl };
-        return productConfigCache;
+        return { dataBaseUrl, imagesBaseUrl };
     }
 
-    // Fetch product names from language-specific JSON with caching
+    // Fetch product names from language-specific JSON
     async function fetchProductNames(lang) {
-        const cacheKey = `names_${lang}`;
-        
-        if (productDataCache[cacheKey]) return productDataCache[cacheKey];
-        
-        const storageKey = `product_names_${lang}`;
-        const cached = localStorage.getItem(storageKey);
-        const cacheTime = localStorage.getItem(`${storageKey}_time`);
-        
-        if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 3600000)) {
-            try {
-                const data = JSON.parse(cached);
-                productDataCache[cacheKey] = data;
-                return data;
-            } catch (e) { /* Invalid cache */ }
-        }
-        
         try {
             const urls = await getProductUrls();
             const baseUrl = urls.dataBaseUrl;
@@ -442,15 +421,7 @@
             const res = await fetch(url);
             if (!res.ok) return {};
             
-            const data = await res.json();
-            productDataCache[cacheKey] = data;
-            
-            try {
-                localStorage.setItem(storageKey, JSON.stringify(data));
-                localStorage.setItem(`${storageKey}_time`, String(Date.now()));
-            } catch (e) { /* Storage full */ }
-            
-            return data;
+            return await res.json();
             
         } catch (e) {
             console.warn(`Failed to fetch product names for ${lang}:`, e);
@@ -495,24 +466,8 @@
         return formattedData;
     }
 
-    // Fetch product images and metadata with caching
+    // Fetch product images and metadata
     async function fetchProductImages() {
-        const cacheKey = 'images_generic';
-        
-        if (productDataCache[cacheKey]) return productDataCache[cacheKey];
-        
-        const storageKey = 'product_images';
-        const cached = localStorage.getItem(storageKey);
-        const cacheTime = localStorage.getItem(`${storageKey}_time`);
-        
-        if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 3600000)) {
-            try {
-                const data = normalizeProductImages(JSON.parse(cached));
-                productDataCache[cacheKey] = data;
-                return data;
-            } catch (e) { /* Invalid cache */ }
-        }
-        
         try {
             const urls = await getProductUrls();
             const baseUrl = urls.imagesBaseUrl;
@@ -524,16 +479,7 @@
             if (!res.ok) return {};
             
             const data = await res.json();
-            const formattedData = normalizeProductImages(data);
-            
-            productDataCache[cacheKey] = formattedData;
-            
-            try {
-                localStorage.setItem(storageKey, JSON.stringify(formattedData));
-                localStorage.setItem(`${storageKey}_time`, String(Date.now()));
-            } catch (e) { /* Storage full */ }
-            
-            return formattedData;
+            return normalizeProductImages(data);
             
         } catch (e) {
             console.warn('Failed to fetch product images:', e);
@@ -547,32 +493,12 @@
     //   "subtotal": "Subtotal", "shipping": "Forsendelse", "tax": "Moms",
     //   "name": "Navn", "email": "E-mail", "phone": "Telefon" }
     async function fetchOrderLabels(lang = 'en') {
-        const cacheKey = `order_labels_${lang}`;
-        if (productDataCache[cacheKey]) return productDataCache[cacheKey];
-
-        const storageKey = `order_labels_${lang}`;
-        const cached = localStorage.getItem(storageKey);
-        const cacheTime = localStorage.getItem(`${storageKey}_time`);
-        if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 3600000)) {
-            try {
-                const data = JSON.parse(cached);
-                productDataCache[cacheKey] = data;
-                return data;
-            } catch (e) { /* invalid cache */ }
-        }
-
         try {
             const urls = await getProductUrls();
             if (!urls.dataBaseUrl) return {};
             const res = await fetch(`${urls.dataBaseUrl}/${lang}/orders.json`);
             if (!res.ok) return {};
-            const data = await res.json();
-            productDataCache[cacheKey] = data;
-            try {
-                localStorage.setItem(storageKey, JSON.stringify(data));
-                localStorage.setItem(`${storageKey}_time`, String(Date.now()));
-            } catch (e) { /* storage full */ }
-            return data;
+            return await res.json();
         } catch (e) {
             console.warn(`Failed to fetch order labels for ${lang}:`, e);
             return {};
@@ -963,11 +889,12 @@
             html += '</tr>';
         }
         
-        const _imgBase = (urls.imagesBaseUrl || '').replace(/\/+$/, '');
+        const _domain = (settings.general?.domain || '').replace(/\/+$/, '');
         function _resolveImgUrl(raw) {
             if (!raw) return '';
             if (raw.startsWith('http')) return raw;
-            return _imgBase + (raw.startsWith('/') ? '' : '/') + raw;
+            const base = _domain.startsWith('http') ? _domain : (_domain ? 'https://' + _domain : '');
+            return base + (raw.startsWith('/') ? '' : '/') + raw;
         }
 
         for (const item of order.items) {
@@ -981,10 +908,7 @@
             name = esc(String(name || 'Product'));
             
             let imgHtml = '';
-            if (productId && genericProducts[productId] && genericProducts[productId].images && genericProducts[productId].images.length > 0) {
-                const imgUrl = esc(_resolveImgUrl(genericProducts[productId].images[0]));
-                imgHtml = `<img src="${imgUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" alt="${name}" />`;
-            } else if (productId && genericProducts[productId] && genericProducts[productId].image) {
+            if (productId && genericProducts[productId] && genericProducts[productId].image) {
                 const imgUrl = esc(_resolveImgUrl(genericProducts[productId].image));
                 imgHtml = `<img src="${imgUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" alt="${name}" />`;
             } else {
@@ -1004,35 +928,36 @@
         return html;
     }
 
-    function renderOrderSummary(meta) {
+    function renderOrderSummary(meta, labels = {}) {
         const order = meta && meta.order;
         if (!order || !order.items || !order.items.length) return '';
         const currency = meta.currency || 'EUR';
         const totals = order.totals || {};
         let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
-        html += `<div style="margin-bottom:8px;">${esc(String(order.reference || 'N/A'))}</div>`;
-        html += `<div style="margin-bottom:8px;">${currency} ${parseFloat(totals.subtotal || 0).toFixed(2)}</div>`;
-        if (parseFloat(totals.shipping) > 0) html += `<div style="margin-bottom:8px;">+ ${currency} ${parseFloat(totals.shipping).toFixed(2)}</div>`;
-        if (parseFloat(totals.tax) > 0) html += `<div style="margin-bottom:8px;">+ ${currency} ${parseFloat(totals.tax).toFixed(2)}</div>`;
-        html += `<div style="padding-top:8px;border-top:1px solid #ddd;font-weight:bold;">${currency} ${parseFloat(totals.total || 0).toFixed(2)}</div></div>`;
+        html += `<div style="margin-bottom:8px;">${labels.order_ref ? esc(labels.order_ref) + ': ' : ''}${esc(String(order.reference || 'N/A'))}</div>`;
+        html += `<div style="margin-bottom:8px;">${labels.subtotal ? esc(labels.subtotal) + ': ' : ''}${currency} ${parseFloat(totals.subtotal || 0).toFixed(2)}</div>`;
+        if (parseFloat(totals.shipping) > 0) html += `<div style="margin-bottom:8px;">${labels.shipping ? esc(labels.shipping) + ': ' : '+ '}${currency} ${parseFloat(totals.shipping).toFixed(2)}</div>`;
+        if (parseFloat(totals.tax) > 0) html += `<div style="margin-bottom:8px;">${labels.tax ? esc(labels.tax) + ': ' : '+ '}${currency} ${parseFloat(totals.tax).toFixed(2)}</div>`;
+        html += `<div style="padding-top:8px;border-top:1px solid #ddd;font-weight:bold;">${labels.total ? esc(labels.total) + ': ' : ''}${currency} ${parseFloat(totals.total || 0).toFixed(2)}</div></div>`;
         return html;
     }
 
-    function renderOrderCustomer(meta) {
+    function renderOrderCustomer(meta, labels = {}) {
         const customer = meta && meta.order && meta.order.customer;
         if (!customer || !(customer.name || customer.email || customer.phone)) return '';
         let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
-        if (customer.name) html += `<div style="margin-bottom:8px;">${esc(String(customer.name))}</div>`;
-        if (customer.email) html += `<div style="margin-bottom:8px;">${esc(String(customer.email))}</div>`;
-        if (customer.phone) html += `<div>${esc(String(customer.phone))}</div>`;
+        if (customer.name) html += `<div style="margin-bottom:8px;">${labels.name ? esc(labels.name) + ': ' : ''}${esc(String(customer.name))}</div>`;
+        if (customer.email) html += `<div style="margin-bottom:8px;">${labels.email ? esc(labels.email) + ': ' : ''}${esc(String(customer.email))}</div>`;
+        if (customer.phone) html += `<div>${labels.phone ? esc(labels.phone) + ': ' : ''}${esc(String(customer.phone))}</div>`;
         html += '</div>';
         return html;
     }
 
-    function renderOrderShipping(meta) {
+    function renderOrderShipping(meta, labels = {}) {
         const customer = meta && meta.order && meta.order.customer;
         if (!customer || !customer.shipping_address) return '';
-        return `<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;white-space:pre-wrap;">${esc(String(customer.shipping_address))}</div>`;
+        const prefix = labels.shipping_address ? `<div style="font-weight:bold;margin-bottom:4px;">${esc(labels.shipping_address)}</div>` : '';
+        return `<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">${prefix}<div style="white-space:pre-wrap;">${esc(String(customer.shipping_address))}</div></div>`;
     }
 
     async function applyOrderTags(html, ticket) {
@@ -1055,9 +980,12 @@
             out = out.replace(/\{\{order_items\}\}/g, rendered);
         }
         
-        out = out.replace(/\{\{order_summary\}\}/g, renderOrderSummary(meta));
-        out = out.replace(/\{\{order_customer\}\}/g, renderOrderCustomer(meta));
-        out = out.replace(/\{\{order_shipping\}\}/g, renderOrderShipping(meta));
+        const labels = (out.includes('{{order_summary}}') || out.includes('{{order_customer}}') || out.includes('{{order_shipping}}'))
+            ? await fetchOrderLabels(lang) : {};
+        
+        out = out.replace(/\{\{order_summary\}\}/g, renderOrderSummary(meta, labels));
+        out = out.replace(/\{\{order_customer\}\}/g, renderOrderCustomer(meta, labels));
+        out = out.replace(/\{\{order_shipping\}\}/g, renderOrderShipping(meta, labels));
         out = out.replace(/\{\{order_reference\}\}/g, esc(String((meta.order && meta.order.reference) || ticket.order_number || '')));
         out = out.replace(/\{\{ticket_number\}\}/g, esc(String(ticket.ticket_number || '')));
         return out;
@@ -1346,8 +1274,6 @@
             try {
                 const sd = await api('/api/admin/settings');
                 settings = sd.data || sd.settings || {};
-                // Clear product config cache so it reloads from fresh settings
-                productConfigCache = null;
             } catch (e) {
                 console.warn('Failed to load settings from DB:', e);
                 settings = {};
