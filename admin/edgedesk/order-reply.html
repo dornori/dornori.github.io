@@ -541,7 +541,43 @@
         }
     }
 
-    // ─── LANGUAGES ───────────────────────────────────────────────
+    // Fetch order UI labels for a given language from {dataBaseUrl}/{lang}/orders.json
+    // Expected format: { "product": "Produkt", "qty": "Antal", "unit_price": "Enhedspris",
+    //   "total": "Total", "image": "Billede", "order_ref": "Ordrenr.", "items": "Varer",
+    //   "subtotal": "Subtotal", "shipping": "Forsendelse", "tax": "Moms",
+    //   "name": "Navn", "email": "E-mail", "phone": "Telefon" }
+    async function fetchOrderLabels(lang = 'en') {
+        const cacheKey = `order_labels_${lang}`;
+        if (productDataCache[cacheKey]) return productDataCache[cacheKey];
+
+        const storageKey = `order_labels_${lang}`;
+        const cached = localStorage.getItem(storageKey);
+        const cacheTime = localStorage.getItem(`${storageKey}_time`);
+        if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 3600000)) {
+            try {
+                const data = JSON.parse(cached);
+                productDataCache[cacheKey] = data;
+                return data;
+            } catch (e) { /* invalid cache */ }
+        }
+
+        try {
+            const urls = await getProductUrls();
+            if (!urls.dataBaseUrl) return {};
+            const res = await fetch(`${urls.dataBaseUrl}/${lang}/orders.json`);
+            if (!res.ok) return {};
+            const data = await res.json();
+            productDataCache[cacheKey] = data;
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(data));
+                localStorage.setItem(`${storageKey}_time`, String(Date.now()));
+            } catch (e) { /* storage full */ }
+            return data;
+        } catch (e) {
+            console.warn(`Failed to fetch order labels for ${lang}:`, e);
+            return {};
+        }
+    }
     function getLangs() {
         try {
             const list = settings.languages?.list || '[]';
@@ -872,9 +908,17 @@
         const currency = meta.currency || 'EUR';
         const totals = order.totals || {};
         
-        const langProducts = await fetchProductNames(lang);
+        const [langProducts, labels] = await Promise.all([fetchProductNames(lang), fetchOrderLabels(lang)]);
         
         let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
+        if (labels.product || labels.qty || labels.unit_price || labels.total) {
+            html += '<tr style="border-bottom:1px solid #ddd;">';
+            if (labels.product)    html += `<th style="padding:10px;text-align:left;">${esc(labels.product)}</th>`;
+            if (labels.qty)        html += `<th style="padding:10px;text-align:center;">${esc(labels.qty)}</th>`;
+            if (labels.unit_price) html += `<th style="padding:10px;text-align:right;">${esc(labels.unit_price)}</th>`;
+            if (labels.total)      html += `<th style="padding:10px;text-align:right;">${esc(labels.total)}</th>`;
+            html += '</tr>';
+        }
         
         for (const item of order.items) {
             if (!item || typeof item !== 'object') continue;
@@ -892,7 +936,7 @@
             html += `<td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${currency} ${price.toFixed(2)}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
         }
         html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
-        html += `<td colspan="3" style="padding:12px;"></td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${(totals.total || 0).toFixed(2)}</td></tr>`;
+        html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? esc(labels.total) : ''}</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${(totals.total || 0).toFixed(2)}</td></tr>`;
         html += '</table>';
         return html;
     }
@@ -904,10 +948,20 @@
         const totals = order.totals || {};
         
         const urls = await getProductUrls();
-        const langProducts = await fetchProductNames(lang);
-        const genericProducts = await fetchProductImages();
+        const [langProducts, genericProducts, labels] = await Promise.all([
+            fetchProductNames(lang), fetchProductImages(), fetchOrderLabels(lang)
+        ]);
         
         let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
+        if (labels.image || labels.product || labels.qty || labels.unit_price || labels.total) {
+            html += '<tr style="border-bottom:1px solid #ddd;">';
+            if (labels.image)      html += `<th style="padding:10px;text-align:left;">${esc(labels.image)}</th>`;
+            if (labels.product)    html += `<th style="padding:10px;text-align:left;">${esc(labels.product)}</th>`;
+            if (labels.qty)        html += `<th style="padding:10px;text-align:center;">${esc(labels.qty)}</th>`;
+            if (labels.unit_price) html += `<th style="padding:10px;text-align:right;">${esc(labels.unit_price)}</th>`;
+            if (labels.total)      html += `<th style="padding:10px;text-align:right;">${esc(labels.total)}</th>`;
+            html += '</tr>';
+        }
         
         const _imgBase = (urls.imagesBaseUrl || '').replace(/\/+$/, '');
         function _resolveImgUrl(raw) {

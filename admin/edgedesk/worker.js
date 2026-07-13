@@ -1488,6 +1488,82 @@ async function sendEmail(env, to, subject, body, from) {
 }
 __name(sendEmail, "sendEmail");
 
+// ─── ORDER TAG RENDERING (mirrors order-reply.html composer) ────
+function escHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+__name(escHtml, "escHtml");
+
+function parseTicketMeta(ticket) {
+  if (!ticket) return {};
+  try { return typeof ticket.metadata === "object" && ticket.metadata ? ticket.metadata : JSON.parse(ticket.metadata || "{}"); }
+  catch (e) { return {}; }
+}
+__name(parseTicketMeta, "parseTicketMeta");
+
+function renderOrderItemsHtml(meta) {
+  const items = (meta && meta.order && meta.order.items) || [];
+  if (!items.length) return "";
+  const currency = meta.currency || "EUR";
+  let html = '<table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
+  html += '<tr style="border-bottom:2px solid #ddd;"><th style="text-align:left;padding:8px;">Item</th><th style="text-align:center;padding:8px;">Qty</th><th style="text-align:right;padding:8px;">Price</th></tr>';
+  for (const item of items) {
+    html += `<tr style="border-bottom:1px solid #eee;"><td style="padding:8px;">${escHtml(item.name || item.title || "")}</td><td style="text-align:center;padding:8px;">${escHtml(item.quantity || item.qty || 1)}</td><td style="text-align:right;padding:8px;">${currency} ${parseFloat(item.price || 0).toFixed(2)}</td></tr>`;
+  }
+  html += "</table>";
+  return html;
+}
+__name(renderOrderItemsHtml, "renderOrderItemsHtml");
+
+function renderOrderSummaryHtml(meta) {
+  const order = (meta && meta.order) || {};
+  const totals = order.totals || {};
+  const currency = meta.currency || "EUR";
+  if (!order.items || !order.items.length) return "";
+  let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
+  html += `<div style="margin-bottom:8px;"><strong>Order Reference:</strong> ${escHtml(order.reference || "N/A")}</div>`;
+  html += `<div style="margin-bottom:8px;"><strong>Items:</strong> ${order.items.length}</div>`;
+  html += `<div style="margin-bottom:8px;"><strong>Subtotal:</strong> ${currency} ${parseFloat(totals.subtotal || 0).toFixed(2)}</div>`;
+  if (parseFloat(totals.shipping) > 0) html += `<div style="margin-bottom:8px;"><strong>Shipping:</strong> ${currency} ${parseFloat(totals.shipping).toFixed(2)}</div>`;
+  if (parseFloat(totals.tax) > 0) html += `<div style="margin-bottom:8px;"><strong>Tax:</strong> ${currency} ${parseFloat(totals.tax).toFixed(2)}</div>`;
+  html += `<div style="padding-top:8px;border-top:1px solid #ddd;"><strong>Total:</strong> ${currency} ${parseFloat(totals.total || 0).toFixed(2)}</div></div>`;
+  return html;
+}
+__name(renderOrderSummaryHtml, "renderOrderSummaryHtml");
+
+function renderOrderCustomerHtml(meta) {
+  const customer = meta && meta.order && meta.order.customer;
+  if (!customer || !(customer.name || customer.email || customer.phone)) return "";
+  let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
+  if (customer.name) html += `<div style="margin-bottom:8px;"><strong>Name:</strong> ${escHtml(customer.name)}</div>`;
+  if (customer.email) html += `<div style="margin-bottom:8px;"><strong>Email:</strong> ${escHtml(customer.email)}</div>`;
+  if (customer.phone) html += `<div><strong>Phone:</strong> ${escHtml(customer.phone)}</div>`;
+  html += "</div>";
+  return html;
+}
+__name(renderOrderCustomerHtml, "renderOrderCustomerHtml");
+
+function renderOrderShippingHtml(meta) {
+  const customer = meta && meta.order && meta.order.customer;
+  if (!customer || !customer.shipping_address) return "";
+  return `<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;white-space:pre-wrap;">${escHtml(customer.shipping_address)}</div>`;
+}
+__name(renderOrderShippingHtml, "renderOrderShippingHtml");
+
+function applyOrderTags(html, ticket) {
+  if (!ticket || !html) return html;
+  const meta = parseTicketMeta(ticket);
+  let out = html;
+  out = out.replaceAll("{{order_items}}", renderOrderItemsHtml(meta));
+  out = out.replaceAll("{{order_summary}}", renderOrderSummaryHtml(meta));
+  out = out.replaceAll("{{order_customer}}", renderOrderCustomerHtml(meta));
+  out = out.replaceAll("{{order_shipping}}", renderOrderShippingHtml(meta));
+  out = out.replaceAll("{{order_reference}}", escHtml((meta.order && meta.order.reference) || ticket.order_number || ""));
+  return out;
+}
+__name(applyOrderTags, "applyOrderTags");
+
 async function sendTicketConfirmation(ticket, env, emailOverride) {
   const email = emailOverride || ticket.sender_email;
   if (!email) return { success: false, error: "No email" };
@@ -1501,6 +1577,8 @@ async function sendTicketConfirmation(ticket, env, emailOverride) {
     subject = subject.replaceAll(tag, val);
     body = body.replaceAll(tag, val);
   }
+  subject = applyOrderTags(subject, ticket);
+  body = applyOrderTags(body, ticket);
   const formattedBody = formatEmailBody(body);
   let from = ar.from || await getDefaultFrom(env);
   return await sendEmail(env, email, subject, formattedBody, from);
@@ -2022,10 +2100,14 @@ var worker_default = {
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
         const { settings } = await request.json();
-        // Order-reply templates are gated by the order_reply resource (admin/manager)
-        // rather than the general settings resource, so managers can save them.
-        const isOrderTemplateWrite = Array.isArray(settings) && settings.length > 0 && settings.every((s) => s.category === "order_template");
-        const requiredResource = isOrderTemplateWrite ? "order_reply" : "settings";
+        // Order-reply templates AND the payment auto-reply config are gated by
+        // the order_reply resource (admin/manager) rather than the general
+        // settings resource, so managers can save them without needing full
+        // settings access.
+        const isOrderReplyWrite = Array.isArray(settings) && settings.length > 0 && settings.every((s) =>
+          s.category === "order_template" || (s.category === "auto_reply" && String(s.key || "").startsWith("payment_"))
+        );
+        const requiredResource = isOrderReplyWrite ? "order_reply" : "settings";
         if (!await checkAccess(email, requiredResource, "edit", env)) return json({ error: "Permission denied" }, 403);
         for (const s of settings) await updateSetting(env, s.category, s.key, s.value);
         await bumpConfigVersion(env);
