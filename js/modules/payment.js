@@ -170,13 +170,11 @@ const Payment = (() => {
               const tax = _convert(rawTax);
               const displayTotal = subtotal + shipping + tax;
 
-              const buildDisplayItems = (sub, ship, tx) => [
-                { label: 'Subtotal', type: 'SUBTOTAL', price: sub.toFixed(2) },
-                { label: 'Shipping', type: 'LINE_ITEM', price: ship.toFixed(2) },
-                { label: 'Tax', type: 'TAX', price: tx.toFixed(2) }
+              const displayItems = [
+                { label: 'Subtotal', type: 'SUBTOTAL', price: subtotal.toFixed(2) },
+                { label: 'Shipping', type: 'LINE_ITEM', price: shipping.toFixed(2) },
+                { label: 'Tax', type: 'TAX', price: tax.toFixed(2) }
               ];
-
-              const displayItems = buildDisplayItems(subtotal, shipping, tax);
 
               const paymentDataRequest = {
                 apiVersion: 2,
@@ -195,30 +193,6 @@ const Payment = (() => {
                   displayItems: displayItems,
                   currencyCode: currency,
                   countryCode: gpayConfig.countryCode || 'NL'
-                },
-                shippingAddressChangeCallback: function(intermediate) {
-                  try {
-                    const selectedCountry = intermediate.shippingAddress?.countryCode || null;
-                    const liveTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, selectedCountry) : localTotals;
-                    const liveSubtotal = _convert(liveTotals ? liveTotals.subtotal : rawSubtotal);
-                    const liveShipping = _convert(liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : rawShipping);
-                    const liveTax = _convert(liveTotals ? liveTotals.tax : rawTax);
-                    const liveTotal = liveSubtotal + liveShipping + liveTax;
-
-                    return {
-                      newTransactionInfo: {
-                        totalPriceStatus: 'FINAL',
-                        totalPrice: liveTotal.toFixed(2),
-                        totalPriceLabel: 'Total',
-                        displayItems: buildDisplayItems(liveSubtotal, liveShipping, liveTax),
-                        currencyCode: currency,
-                        countryCode: selectedCountry || (gpayConfig.countryCode || 'NL')
-                      }
-                    };
-                  } catch (err) {
-                    console.warn('Google Pay shipping calculation error:', err);
-                    return { newTransactionInfo: { totalPriceStatus: 'FINAL', totalPrice: displayTotal.toFixed(2) } };
-                  }
                 }
               };
 
@@ -232,9 +206,13 @@ const Payment = (() => {
               const [gpayFirst, ...gpayLastParts] = gpayName.split(' ').filter(Boolean);
               const gpayAddr = paymentData.shippingAddress || paymentData.paymentMethodData?.info?.billingAddress || {};
 
-              // Create the real order now that we have the wallet's contact info,
-              // so it can be attached to the order (email/phone can only be set
-              // at order creation, not patched in afterward).
+              // Recalculate totals using actual country from Google Pay address
+              const gpayCountry = gpayAddr.countryCode || null;
+              const liveTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, gpayCountry) : localTotals;
+              const liveSubtotal = _convert(liveTotals ? liveTotals.subtotal : rawSubtotal);
+              const liveShipping = _convert(liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : rawShipping);
+              const liveTax = _convert(liveTotals ? liveTotals.tax : rawTax);
+
               const realOrder = await _createStandardOrder(cart, {
                 email: gpayEmail || '',
                 phone: gpayPhone || '',
