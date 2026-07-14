@@ -130,7 +130,38 @@ const Payment = (() => {
           await _loadScript('https://pay.google.com/gp/p/js/pay.js');
         }
         const gpayConfig = await window.paypal.Googlepay().config();
-        const paymentsClient = new google.payments.api.PaymentsClient({ environment: gpayConfig.environment || 'TEST' });
+        const paymentsClient = new google.payments.api.PaymentsClient({
+          environment: gpayConfig.environment || 'TEST',
+          paymentDataCallbacks: {
+            onPaymentDataChanged: function(intermediatePaymentData) {
+              return new Promise(function(resolve) {
+                const selectedCountry = intermediatePaymentData.shippingAddress?.countryCode || null;
+                const liveTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, selectedCountry) : null;
+                const liveRawSubtotal = liveTotals ? liveTotals.subtotal : cart.reduce((s, i) => s + (parseFloat(i.price) || 0) * i.qty, 0);
+                const liveRawShipping = liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : 0;
+                const liveRawTax = liveTotals ? liveTotals.tax : 0;
+                const liveSubtotal = _convert(liveRawSubtotal);
+                const liveShipping = _convert(liveRawShipping);
+                const liveTax = _convert(liveRawTax);
+                const liveTotal = liveSubtotal + liveShipping + liveTax;
+                resolve({
+                  newTransactionInfo: {
+                    totalPriceStatus: 'FINAL',
+                    totalPrice: liveTotal.toFixed(2),
+                    totalPriceLabel: 'Total',
+                    displayItems: [
+                      { label: 'Subtotal', type: 'SUBTOTAL', price: liveSubtotal.toFixed(2) },
+                      { label: 'Shipping', type: 'LINE_ITEM', price: liveShipping.toFixed(2) },
+                      { label: 'Tax', type: 'TAX', price: liveTax.toFixed(2) }
+                    ],
+                    currencyCode: _getActiveCurrency(),
+                    countryCode: selectedCountry || (gpayConfig.countryCode || 'NL')
+                  }
+                });
+              });
+            }
+          }
+        });
 
         const readyRes = await paymentsClient.isReadyToPay({
           apiVersion: 2, apiVersionMinor: 0,
@@ -186,6 +217,7 @@ const Payment = (() => {
                 shippingAddressParameters: { 
                   phoneNumberRequired: true 
                 },
+                callbackIntents: ['SHIPPING_ADDRESS'],
                 transactionInfo: {
                   totalPriceStatus: 'FINAL',
                   totalPrice: displayTotal.toFixed(2),
