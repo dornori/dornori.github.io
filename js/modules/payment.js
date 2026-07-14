@@ -170,11 +170,13 @@ const Payment = (() => {
               const tax = _convert(rawTax);
               const displayTotal = subtotal + shipping + tax;
 
-              const displayItems = [
-                { label: 'Subtotal', type: 'SUBTOTAL', price: subtotal.toFixed(2) },
-                { label: 'Shipping', type: 'LINE_ITEM', price: shipping.toFixed(2) },
-                { label: 'Tax', type: 'TAX', price: tax.toFixed(2) }
+              const buildDisplayItems = (sub, ship, tx) => [
+                { label: 'Subtotal', type: 'SUBTOTAL', price: sub.toFixed(2) },
+                { label: 'Shipping', type: 'LINE_ITEM', price: ship.toFixed(2) },
+                { label: 'Tax', type: 'TAX', price: tx.toFixed(2) }
               ];
+
+              const displayItems = buildDisplayItems(subtotal, shipping, tax);
 
               const paymentDataRequest = {
                 apiVersion: 2,
@@ -193,6 +195,25 @@ const Payment = (() => {
                   displayItems: displayItems,
                   currencyCode: currency,
                   countryCode: gpayConfig.countryCode || 'NL'
+                },
+                shippingAddressChangeCallback: async (intermediate) => {
+                  const selectedCountry = intermediate.shippingAddress?.countryCode || null;
+                  const liveTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, selectedCountry) : localTotals;
+                  const liveSubtotal = _convert(liveTotals ? liveTotals.subtotal : rawSubtotal);
+                  const liveShipping = _convert(liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : rawShipping);
+                  const liveTax = _convert(liveTotals ? liveTotals.tax : rawTax);
+                  const liveTotal = liveSubtotal + liveShipping + liveTax;
+
+                  return {
+                    newTransactionInfo: {
+                      totalPriceStatus: 'FINAL',
+                      totalPrice: liveTotal.toFixed(2),
+                      totalPriceLabel: 'Total',
+                      displayItems: buildDisplayItems(liveSubtotal, liveShipping, liveTax),
+                      currencyCode: currency,
+                      countryCode: selectedCountry || (gpayConfig.countryCode || 'NL')
+                    }
+                  };
                 }
               };
 
