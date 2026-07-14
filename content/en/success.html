@@ -232,6 +232,32 @@
       }
 
       // ============================================================
+      // FIX: CONVERT ITEM PRICES TO ORDER CURRENCY
+      // ============================================================
+      // customer._items comes from the cart snapshot, where item.price/
+      // originalPrice are always stored in EUR (the base catalog price),
+      // never converted to the customer's selected currency. totals.itemTotal
+      // (from handleValidateCart, same source as the already-correct shipping
+      // and tax figures) IS in the order currency, so derive the EUR->currency
+      // rate from it and apply that rate to every item's price/originalPrice.
+      if (currency !== 'EUR') {
+        const trustedItemTotal = totals.itemTotal != null ? Number(totals.itemTotal) :
+                                 (customer._itemTotal != null ? Number(customer._itemTotal) : null);
+        const eurItemTotal = items.reduce((sum, i) => {
+          const eurPrice = i.originalPrice != null ? Number(i.originalPrice) : Number(i.price) || 0;
+          return sum + eurPrice * (i.qty || 1);
+        }, 0);
+        if (trustedItemTotal != null && eurItemTotal > 0) {
+          const fxRate = trustedItemTotal / eurItemTotal;
+          items = items.map(i => ({
+            ...i,
+            price: Number(i.price) * fxRate,
+            originalPrice: i.originalPrice != null ? Number(i.originalPrice) * fxRate : i.originalPrice
+          }));
+        }
+      }
+
+      // ============================================================
       // FIX: CALCULATE ALL TOTALS FROM PARTS
       // ============================================================
       // 1. Subtotal from items
