@@ -1,101 +1,48 @@
-// config.js - Centralized configuration for all hardcoded values
+// config-hybrid.js - Supports loading from config.json with JS fallback
 // MUST be loaded FIRST before any other application scripts
 // Load order: config.js → edgedeskconfig.js → shared.js → page-specific scripts
 
+// Default constants (used if config.json unavailable)
 window.EDGEDESK_CONSTANTS = {
     // ─── APPLICATION META ───────────────────────────────────────
-    APP_NAME: 'EdgeDesk',
     VERSION: '1.1.0',
     
     // ─── API CONFIGURATION ──────────────────────────────────────
     API_BASE: 'https://dornori-ticketing.dornori-info.workers.dev',
     
-    // ─── PRODUCT DATA URLS (for order reply multi-language support) ──
-    // PRODUCTS_DATA_BASE_URL: Base URL for language-specific product names
-    //   Files stored at: {PRODUCTS_DATA_BASE_URL}/{lang}/products.json
-    //   Example: https://cdn.example.com/data → /nl/products.json, /fr/products.json
+    // ─── PRODUCT DATA URLS ──────────────────────────────────────
     PRODUCTS_DATA_BASE_URL: 'https://cdn.example.com/data',
-    
-    // PRODUCTS_IMAGES_BASE_URL: Base URL for generic product images/metadata
-    //   File stored at: {PRODUCTS_IMAGES_BASE_URL}/products.json
-    //   Example: https://cdn.example.com/products → /products.json
     PRODUCTS_IMAGES_BASE_URL: 'https://cdn.example.com/products',
     
     // ─── UI TIMING (milliseconds) ───────────────────────────────
-    TOAST_DURATION_MS: 3500,           // Default toast display time
-    TOAST_WARNING_DURATION_MS: 8000,   // Warning toasts show longer
+    TOAST_DURATION_MS: 3500,
+    TOAST_WARNING_DURATION_MS: 8000,
     
     // ─── WEBSOCKET CONFIGURATION ────────────────────────────────
-    WS_RECONNECT_DELAY_MS: 5000,       // Initial reconnect delay
-    WS_MAX_RECONNECT_DELAY_MS: 30000,  // Max backoff delay
-    WS_PING_INTERVAL_MS: 30000,        // Send ping every 30s to keep connection alive
-    WS_MAX_RECONNECT_ATTEMPTS: 5,      // Max attempts before giving up
-    WS_EXPONENTIAL_BACKOFF_ENABLED: true, // Enable exponential backoff
+    WS_RECONNECT_DELAY_MS: 5000,
+    WS_PING_INTERVAL_MS: 30000,
     
     // ─── AUTHENTICATION & SESSION (seconds) ─────────────────────
-    TOKEN_EXPIRY_SECONDS: 86400,       // 24 hours
-    LOGIN_TIMEOUT_MINUTES: 30,         // Login form timeout
-    SESSION_TIMEOUT_MINUTES: 60,       // Session inactivity timeout
+    TOKEN_EXPIRY_SECONDS: 86400,
+    LOGIN_TIMEOUT_MINUTES: 30,
+    SESSION_TIMEOUT_MINUTES: 60,
     
     // ─── RATE LIMITING ──────────────────────────────────────────
-    MAX_FAILED_LOGINS: 5,              // Max login attempts before lockout
-    LOGIN_LOCKOUT_MINUTES: 15,         // Lock account for this duration
-    RATE_LIMIT_WINDOW_MS: 60000,       // Rate limit window (1 minute)
+    MAX_FAILED_LOGINS: 5,
+    LOGIN_LOCKOUT_MINUTES: 15,
     
     // ─── TICKET LOCKING (milliseconds) ──────────────────────────
-    // Note: These control when locks are considered stale (expired)
-    LOCK_STALE_WRITE_MS: 45000,        // Lock stale timeout for write operations
-    LOCK_STALE_READ_MS: 30000,         // Lock stale timeout for read operations
-    LOCK_CLEANUP_THRESHOLD_MS: 15000,  // Check for stale locks interval
+    LOCK_STALE_WRITE_MS: 45000,
+    LOCK_STALE_READ_MS: 30000,
+    LOCK_CLEANUP_THRESHOLD_MS: 15000,
     
-    // ─── CACHING (seconds) ──────────────────────────────────────
-    CACHE_TTL_SECONDS: 86400,          // 24 hours cache TTL
-    CACHE_TICKET_TTL_SECONDS: 86400,   // Ticket cache expiry
-    CACHE_USER_TTL_SECONDS: 3600,      // User cache expiry (1 hour)
-    CACHE_CONFIG_TTL_SECONDS: 1800,    // Config cache expiry (30 mins)
-    
-    // ─── PAGINATION & LIMITS ────────────────────────────────────
-    DEFAULT_PAGE_SIZE: 25,
-    MAX_PAGE_SIZE: 100,
-    MAX_BULK_OPERATIONS: 100,
-    
-    // ─── TICKET ASSIGNMENT ──────────────────────────────────────
-    // IMPORTANT: Agents should ONLY be auto-assigned when they MODIFY a ticket
-    // Not on mere viewing. Manual assignment only when:
-    // - Agent explicitly assigns (themselves or others if privileged)
-    // - TL/Manager/Admin assigns the ticket
-    AUTO_ASSIGN_ON_MODIFY: true,       // Auto-assign self when agent makes updates
-    AUTO_ASSIGN_ON_VIEW: false,        // DO NOT auto-assign on view-only access
-    
-    // ─── CORS CONFIGURATION (fallback if DB unavailable) ────────
-    // These are used only if database is unreachable; normally from DB
+    // ─── CORS CONFIGURATION ─────────────────────────────────────
     CORS_ORIGINS: [
         'https://dornori.com',
         'https://www.dornori.com',
         'https://dornori.github.io',
         'https://dornori-ticketing.dornori-info.workers.dev'
     ],
-    
-    // ─── DURABLE OBJECT ENDPOINTS (Service Binding URLs) ────────
-    // Note: These are NOT real HTTP URLs—they use Durable Objects
-    // The worker runtime intercepts these for local service communication
-    DO_TICKET_CACHE_URL: 'https://cache/ticket-list',
-    DO_RATE_LIMIT_CHECK: 'https://ticket-hub/rl-check',
-    DO_RATE_LIMIT_FAIL: 'https://ticket-hub/rl-fail',
-    DO_RATE_LIMIT_CLEAR: 'https://ticket-hub/rl-clear',
-    DO_BROADCAST: 'https://ticket-hub/broadcast',
-    DO_CONNECT: 'https://ticket-hub/connect',
-    DO_USER_LOCKS: 'https://ticket-hub/user-locks',
-    DO_LOCK: 'https://ticket-hub/lock',
-    DO_CHECK_LOCK: 'https://ticket-hub/check-lock',
-    DO_RELEASE: 'https://ticket-hub/release',
-    
-    // ─── SLA CONFIGURATION ──────────────────────────────────────
-    SLA_WARNING_THRESHOLD_PERCENT: 80,  // Mark as at-risk at 80% of SLA time
-    SLA_CRITICAL_THRESHOLD_PERCENT: 95, // Mark as critical at 95% of SLA time
-    
-    // ─── NOTIFICATION CONFIGURATION ────────────────────────────
-    NOTIFICATION_REQUEST_DELAY_MS: 1000, // Delay before requesting notification permission
     
     // ─── DATE/TIME FORMATTING ───────────────────────────────────
     DATE_FORMAT_OPTIONS: {
@@ -106,12 +53,29 @@ window.EDGEDESK_CONSTANTS = {
         minute: '2-digit'
     },
     
-    // ─── CATEGORY COLORS (for visual categorization) ────────────
+    // ─── CATEGORY COLORS ────────────────────────────────────────
     CATEGORY_COLORS: [
         '#5aa9ff', '#ffb347', '#a78bfa', '#34d399', '#f87171',
         '#fbbf24', '#60a5fa', '#4ade80', '#fb923c', '#c084fc'
     ]
 };
+
+// ─── LOAD CONFIG FROM JSON (optional async fallback) ─────────
+async function loadConfigFromJson() {
+    try {
+        const response = await fetch('config.json', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const json = await response.json();
+        // Merge JSON config into constants (JSON values override defaults)
+        Object.assign(window.EDGEDESK_CONSTANTS, json);
+        console.log('✓ Config loaded from JSON');
+    } catch (err) {
+        console.warn('⚠ Config.json unavailable, using defaults:', err.message);
+    }
+}
+
+// Attempt to load JSON config immediately
+loadConfigFromJson();
 
 // ─── HELPER FUNCTIONS FOR CONFIGURATION ─────────────────────
 // Allow environment variable overrides (for deployment flexibility)

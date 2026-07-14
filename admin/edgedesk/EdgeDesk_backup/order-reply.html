@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Order Reply – EdgeDesk</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="config.js"></script>
+    <script src="shared.js"></script>
+    <style>
+        .n-page { max-width: 1200px; margin: 0 auto; }
+
+        .s-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .s-card-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; flex-wrap: wrap; gap: 10px; }
+        .s-card-head h3 { font-size: 15px; font-weight: 700; color: var(--text); }
+        .s-card-head p  { font-size: 12px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
+
+        .f-row { margin-bottom: 16px; }
+        .f-row label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted); margin-bottom: 6px; }
+        .f-row input[type="text"],
+        .f-row select {
+            width: 100%; padding: 9px 12px; background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 7px; color: var(--text); font-size: 14px; font-family: inherit; transition: border-color .15s;
+        }
+        .f-row input:focus, .f-row select:focus { outline: none; border-color: var(--accent); }
+        .f-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        .editor-wrap { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .editor-toolbar {
+            display: flex; flex-wrap: wrap; gap: 2px; padding: 6px 8px;
+            background: var(--bg-input); border-bottom: 1px solid var(--border);
+        }
+        .editor-toolbar button, .editor-toolbar select {
+            padding: 4px 8px; background: none; border: 1px solid transparent; border-radius: 5px;
+            color: var(--text); font-size: 13px; cursor: pointer; font-family: inherit; line-height: 1;
+            transition: background .12s, border-color .12s;
+        }
+        .editor-toolbar button:hover { background: var(--bg-secondary); border-color: var(--border); }
+        .editor-toolbar button.active { background: var(--accent); color: var(--text-inverse); border-color: var(--accent); }
+        .editor-toolbar .sep { width: 1px; background: var(--border); margin: 2px 4px; align-self: stretch; }
+        .editor-toolbar select {
+            padding: 3px 6px; background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 5px; color: var(--text); font-size: 12px; cursor: pointer;
+        }
+        #or_editor {
+            min-height: 220px; padding: 14px 16px; outline: none;
+            background: var(--bg-input); color: var(--text); font-size: 14px; line-height: 1.6;
+        }
+        #or_editor:focus { background: var(--bg-secondary); }
+        #or_editor h1, #or_editor h2, #or_editor h3 { margin: .5em 0; }
+        #or_editor p { margin: .4em 0; }
+        #or_editor ul, #or_editor ol { padding-left: 1.4em; margin: .4em 0; }
+        #or_editor a { color: var(--accent); }
+        #or_editor blockquote { border-left: 3px solid var(--accent); margin: .5em 0; padding-left: 12px; color: var(--text-muted); }
+
+        #or_source {
+            display: none; width: 100%; min-height: 220px; padding: 14px 16px;
+            background: var(--bg-input); color: var(--text); font-size: 12.5px;
+            font-family: 'Menlo','Consolas',monospace; line-height: 1.55;
+            border: none; outline: none; resize: vertical; box-sizing: border-box;
+        }
+        .editor-wrap.source-mode #or_editor { display: none; }
+        .editor-wrap.source-mode #or_source { display: block; }
+        .editor-wrap.source-mode .editor-toolbar button:not(#sourceToggleBtn),
+        .editor-wrap.source-mode .editor-toolbar select,
+        .editor-wrap.source-mode .editor-toolbar .sep { opacity: .3; pointer-events: none; }
+
+        .source-hint {
+            display: none; font-size: 12px; color: var(--text-muted); padding: 6px 16px 10px 16px;
+            background: var(--bg-input); border-top: 1px solid var(--border);
+        }
+        .editor-wrap.source-mode .source-hint { display: block; }
+        .source-hint code {
+            background: var(--bg-secondary); padding: 1px 6px; border-radius: 4px;
+            font-size: 11px; border: 1px solid var(--border);
+        }
+
+        .tag-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; align-items: center; }
+        .tag-bar-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin-right: 4px; }
+        .tag-chip {
+            padding: 3px 9px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 20px;
+            font-size: 11px; font-family: monospace; color: var(--accent); cursor: pointer; font-weight: 600;
+            transition: background .12s, color .12s;
+        }
+        .tag-chip:hover { background: var(--accent); color: var(--text-inverse); border-color: var(--accent); }
+
+        .modal-bg {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55);
+            z-index: 1000; align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal-bg.show { display: flex; }
+        .modal {
+            background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px;
+            width: 100%; max-width: 680px; max-height: 88vh; display: flex; flex-direction: column;
+            box-shadow: 0 8px 40px var(--shadow);
+        }
+        .modal-head {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+        }
+        .modal-head h3 { font-size: 15px; font-weight: 700; }
+        .modal-head button { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted); line-height: 1; }
+        .modal-body { flex: 1; overflow-y: auto; padding: 20px; }
+        .modal-foot { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; flex-shrink: 0; }
+        #previewFrame {
+            width: 100%; border: none; border-radius: 6px; background: #fff;
+            min-height: 360px; display: block;
+        }
+        .preview-subject { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
+        .preview-subject strong { color: var(--text); }
+
+        .confirm-msg { font-size: 14px; color: var(--text); line-height: 1.6; }
+        .confirm-msg strong { color: var(--accent); }
+
+        .btn { padding: 8px 18px; border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+        .btn:hover { opacity: .85; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-accent  { background: var(--accent);  color: var(--text-inverse); }
+        .btn-ghost   { background: var(--bg-input); color: var(--text); border: 1px solid var(--border); }
+        .btn-warning { background: #f59e0b;         color: #fff; }
+        .btn-danger  { background: var(--error);    color: #fff; }
+        .btn-sm  { padding: 5px 12px; font-size: 12px; }
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+
+        .toast {
+            position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px;
+            font-size: 14px; font-weight: 600; z-index: 9999; opacity: 0; transform: translateY(8px);
+            transition: opacity .2s, transform .2s; pointer-events: none;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background: var(--bg-secondary); color: var(--success); border-left: 4px solid var(--success); box-shadow: 0 4px 20px var(--shadow); }
+        .toast.error   { background: var(--bg-secondary); color: var(--error);   border-left: 4px solid var(--error);   box-shadow: 0 4px 20px var(--shadow); }
+        .toast.warning { background: var(--bg-secondary); color: #92400e; border-left: 4px solid #f59e0b; box-shadow: 0 4px 20px var(--shadow); pointer-events: auto; }
+        .toast.warning a { color: inherit; text-decoration: underline; }
+
+        .n-toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+        .n-toolbar input[type="text"] {
+            flex: 1; min-width: 180px; padding: 9px 12px; background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 7px; color: var(--text); font-size: 14px;
+        }
+        .n-toolbar select { padding: 9px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 7px; color: var(--text); font-size: 14px; }
+
+        table { width: 100%; border-collapse: collapse; }
+        table th, table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        table th { background: var(--bg-input); font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); }
+        table td { font-size: 13px; color: var(--text); }
+        table tbody tr { cursor: pointer; }
+        table tbody tr:hover { background: var(--bg-input); }
+        table tbody tr.active-row { background: var(--bg-input); box-shadow: inset 3px 0 0 var(--accent); }
+        .table-wrap { overflow-x: auto; }
+
+        .status-pill { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-muted); }
+        .status-pill.new, .status-pill.open { color: #0a8f5c; border-color: #0a8f5c; }
+        .status-pill.in_progress, .status-pill.pending { color: #b45309; border-color: #b45309; }
+        .status-pill.resolved, .status-pill.closed { color: var(--text-muted); }
+
+        .order-block { padding: 12px; background: var(--bg-input); border-radius: 6px; font-size: 13px; margin: 10px 0; }
+        .order-block .row { display: flex; justify-content: space-between; padding: 3px 0; }
+        .order-block .row strong { color: var(--text); }
+
+        .ticket-detail-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; padding: 12px 14px; background: var(--bg-input); border-radius: 8px; border: 1px solid var(--border); }
+        .ticket-detail-bar .tref { font-family: monospace; font-weight: 700; color: var(--accent); }
+        .empty-hint { text-align: center; padding: 40px 16px; color: var(--text-muted); font-size: 13px; }
+
+        .disabled-form { opacity: 0.5; pointer-events: none; cursor: not-allowed; }
+        .disabled-form input, .disabled-form select, .disabled-form textarea, .disabled-form button, .disabled-form .btn, .disabled-form .tag-chip {
+            opacity: 0.5; pointer-events: none; cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📦 Order Reply</h1>
+        <div class="header-right">
+            <div class="nav-links">
+                <a id="nav-dashboard" href="dashboard.html">🎫 <span>Dashboard</span></a>
+                <a id="nav-reports" href="reports.html">📊 <span>Reports</span></a>
+                <a id="nav-newsletter" href="newsletter.html">📧 <span>Newsletter</span></a>
+                <a id="nav-order-reply" href="order-reply.html">📦 <span>Order Reply</span></a>
+                <a id="nav-settings" href="settings.html">⚙️ <span>Settings</span></a>
+                <a id="nav-users" href="users.html">👥 <span>Users</span></a>
+            </div>
+            <div class="nav-actions">
+                <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+                <div id="userDisplay"></div>
+                <button class="btn-logout" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="n-page">
+        <div id="content"><div class="loading">Loading…</div></div>
+    </div>
+</div>
+
+<div class="modal-bg" id="previewModal">
+    <div class="modal">
+        <div class="modal-head">
+            <h3>📨 Email Preview</h3>
+            <button onclick="closePreview()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="preview-subject" id="previewSubjectLine"></div>
+            <iframe id="previewFrame" title="Email preview" sandbox="allow-same-origin"></iframe>
+        </div>
+        <div class="modal-foot">
+            <button class="btn btn-ghost" onclick="closePreview()">Close</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-bg" id="sendModal">
+    <div class="modal" style="max-width:480px;">
+        <div class="modal-head">
+            <h3>🚀 Confirm Send</h3>
+            <button onclick="closeSendModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <p class="confirm-msg" id="sendConfirmMsg"></p>
+        </div>
+        <div class="modal-foot" id="sendModalFoot">
+            <button class="btn btn-ghost" onclick="closeSendModal()">Cancel</button>
+            <button class="btn btn-warning" id="confirmSendBtn" onclick="executeSend()">Yes, send now</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+    // ─── THEME ────────────────────────────────────────────────────
+    setTheme(localStorage.getItem('theme') || 'light');
+
+    const token = localStorage.getItem('token');
+    let storedUser = localStorage.getItem('user');
+    let currentUser = storedUser ? JSON.parse(storedUser) : null;
+
+    // ─── PERMISSIONS ──────────────────────────────────────────────
+    function hasAccess(page, action = 'view') {
+        if (!currentUser?.effective_permissions) return false;
+        const perms = currentUser.effective_permissions[page];
+        if (!perms) return false;
+        return perms[action] === true;
+    }
+
+    function canViewOrderReply() {
+        if (currentUser?.role === 'admin' || currentUser?.role === 'manager') return true;
+        return hasAccess('order_reply', 'view');
+    }
+
+    function canReplyTickets()   { return hasAccess('tickets', 'edit'); }
+    function canManageTemplates(){ return hasAccess('order_reply', 'edit'); }
+    function canExportOrders()   { return hasAccess('order_reply', 'edit'); }
+
+    // ─── INIT: Refresh user FIRST, then check access ─────────────
+    (async function init() {
+        // 1. Refresh user data from server
+        if (token) {
+            try {
+                const res = await fetch(API_BASE + '/api/admin/me', { 
+                    headers: { Authorization: 'Bearer ' + token } 
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.success && data.user) {
+                        currentUser = data.user;
+                        localStorage.setItem('user', JSON.stringify(currentUser));
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to refresh user:', e);
+            }
+        }
+
+        // 2. NOW check access with fresh data
+        if (!token || !currentUser || !canViewOrderReply()) {
+            document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to access order reply.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
+            throw new Error('Order reply access required');
+        }
+
+        // 3. Update nav with fresh permissions
+        ['nav-reports', 'nav-newsletter', 'nav-settings', 'nav-users'].forEach(id => {
+            const page = id.replace('nav-', '');
+            const el = document.getElementById(id);
+            if (!el) return;
+            const allowed = hasAccess(page, 'view');
+            el.classList.toggle('nav-disabled', !allowed);
+            if (!allowed) el.addEventListener('click', e => e.preventDefault());
+        });
+        
+        const orNavEl = document.getElementById('nav-order-reply');
+        if (orNavEl) {
+            const hasOR = hasAccess('order_reply', 'view');
+            orNavEl.style.display = hasOR ? '' : 'none';
+            if (!hasOR) orNavEl.style.pointerEvents = 'none';
+        }
+
+        // 4. Set user display
+        const uEl = document.getElementById('userDisplay');
+        if (uEl && currentUser) uEl.textContent = currentUser.name || currentUser.email;
+
+        // 5. Load the page
+        load();
+    })();
+
+    // ─── API WRAPPER ─────────────────────────────────────────────
+    async function api(path, opts = {}) {
+        opts.headers = {
+            ...(opts.headers || {}),
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json'
+        };
+        const res = await fetch(API_BASE + path, opts);
+        if (res.status === 401) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            throw new Error('Unauthorized');
+        }
+        if (res.status === 403) throw new Error('Permission denied');
+        return res.json();
+    }
+
+    // ─── TOAST ────────────────────────────────────────────────────
+    function toast(msg, type = 'success') {
+        const el = document.getElementById('toast');
+        el.innerHTML = msg;
+        el.className = 'toast show ' + type;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove('show'), type === 'warning' ? 8000 : 3500);
+    }
+
+    function esc(s) {
+        return s ? String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : '';
+    }
+
+    function formatDate(d) {
+        if (!d) return '—';
+        try {
+            let s = d.replace(' ', 'T');
+            if (!s.includes('Z') && !s.includes('+')) s += 'Z';
+            const dt = new Date(s);
+            if (isNaN(dt)) return d;
+            return dt.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        } catch { return d; }
+    }
+
+    function relativeTime(d) {
+        if (!d) return '—';
+        try {
+            let s = d.replace(' ', 'T');
+            if (!s.includes('Z') && !s.includes('+')) s += 'Z';
+            const diffMs = Date.now() - new Date(s).getTime();
+            const mins = Math.floor(diffMs / 60000);
+            if (mins < 1) return 'just now';
+            if (mins < 60) return mins + 'm ago';
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return hrs + 'h ago';
+            return Math.floor(hrs / 24) + 'd ago';
+        } catch { return formatDate(d); }
+    }
+
+    function parseMeta(t) {
+        if (!t) return {};
+        if (typeof t.metadata === 'object' && t.metadata) return t.metadata;
+        try { return JSON.parse(t.metadata || '{}'); } catch (e) { return {}; }
+    }
+
+    // ─── STATE ────────────────────────────────────────────────────
+    let settings = {},
+        tickets = [],
+        pagination = { page: 1, totalPages: 1 },
+        senders = [],
+        templates = [],
+        activeTicket = null,
+        currentLang = 'all',
+        filterText = '',
+        sourceMode = false,
+        pendingSend = null;
+
+    // ─── PRODUCT DATA WITH DB SETTINGS ─────────────────────
+
+    // Get product URLs from database settings
+    async function getProductUrls() {
+        // settings is a keyed object: settings.general.products_data_base_url
+        const gen = settings.general || {};
+        const domain = (gen.domain || '').replace(/\/+$/, '');
+
+        let dataBaseUrl   = (gen.products_data_base_url   || '').replace(/\/+$/, '');
+        let imagesBaseUrl = (gen.products_images_base_url || '').replace(/\/+$/, '');
+
+        // If only a relative path stored, prepend domain (normalise protocol)
+        function withDomain(url) {
+            if (!url) return '';
+            if (url.startsWith('http')) return url;
+            const base = domain.startsWith('http') ? domain : 'https://' + domain;
+            return base + (url.startsWith('/') ? '' : '/') + url;
+        }
+
+        dataBaseUrl   = withDomain(dataBaseUrl)   || withDomain(window.EDGEDESK_CONSTANTS?.PRODUCTS_DATA_BASE_URL   || '');
+        imagesBaseUrl = withDomain(imagesBaseUrl)  || withDomain(window.EDGEDESK_CONSTANTS?.PRODUCTS_IMAGES_BASE_URL || '');
+
+        return { dataBaseUrl, imagesBaseUrl };
+    }
+
+    // Fetch product names from language-specific JSON
+    async function fetchProductNames(lang) {
+        try {
+            const urls = await getProductUrls();
+            const baseUrl = urls.dataBaseUrl;
+            
+            if (!baseUrl) return {};
+            
+            const url = `${baseUrl}/${lang}/products.json`;
+            const res = await fetch(url);
+            if (!res.ok) return {};
+            
+            return await res.json();
+            
+        } catch (e) {
+            console.warn(`Failed to fetch product names for ${lang}:`, e);
+            return {};
+        }
+    }
+
+    // ✅ Normalizes array-format products.json into an object keyed by id.
+    // Applied on BOTH the cache-read path and the fresh-fetch path so a
+    // stale array-format cache entry can never leak through un-converted.
+    function normalizeProductImages(data) {
+        if (!Array.isArray(data)) return data || {};
+        const formattedData = {};
+        for (const item of data) {
+            if (item.id) {
+                formattedData[item.id] = {
+                    images: item.images || [],
+                    image: item.image || '',
+                    price: item.price,
+                    category: item.category,
+                    variants: item.variants,
+                    addons: item.addons,
+                    related: item.related,
+                    weight: item.weight,
+                    stock: item.stock,
+                    discount: item.discount,
+                    rating: item.rating,
+                    reviewCount: item.reviewCount,
+                    dimensions: item.dimensions,
+                    colors: item.colors,
+                    colors_soldout: item.colors_soldout,
+                    showBuyNow: item.showBuyNow,
+                    showQuantity: item.showQuantity,
+                    summaryBadge: item.summaryBadge,
+                    UpLabel: item.UpLabel,
+                    DownLabel: item.DownLabel,
+                    url: item.url,
+                    videos: item.videos
+                };
+            }
+        }
+        return formattedData;
+    }
+
+    // Fetch product images and metadata
+    async function fetchProductImages() {
+        try {
+            const urls = await getProductUrls();
+            const baseUrl = urls.imagesBaseUrl;
+            
+            if (!baseUrl) return {};
+            
+            const url = `${baseUrl}/products.json`;
+            const res = await fetch(url);
+            if (!res.ok) return {};
+            
+            const data = await res.json();
+            return normalizeProductImages(data);
+            
+        } catch (e) {
+            console.warn('Failed to fetch product images:', e);
+            return {};
+        }
+    }
+
+    // Fetch order UI labels for a given language from {dataBaseUrl}/{lang}/orders.json
+    // Expected format: { "product": "Produkt", "qty": "Antal", "unit_price": "Enhedspris",
+    //   "total": "Total", "image": "Billede", "order_ref": "Ordrenr.", "items": "Varer",
+    //   "subtotal": "Subtotal", "shipping": "Forsendelse", "tax": "Moms",
+    //   "name": "Navn", "email": "E-mail", "phone": "Telefon" }
+    async function fetchOrderLabels(lang = 'en') {
+        try {
+            const urls = await getProductUrls();
+            if (!urls.dataBaseUrl) return {};
+            const res = await fetch(`${urls.dataBaseUrl}/${lang}/orders.json`);
+            if (!res.ok) return {};
+            return await res.json();
+        } catch (e) {
+            console.warn(`Failed to fetch order labels for ${lang}:`, e);
+            return {};
+        }
+    }
+    function getLangs() {
+        try {
+            const list = settings.languages?.list || '[]';
+            const parsed = JSON.parse(list);
+            if (parsed.length) return [{ code: 'all', name: '📢 All Languages' }, ...parsed];
+        } catch (e) { /* fall through */ }
+        const codes = currentUser.allowed_languages && currentUser.allowed_languages.length
+            ? currentUser.allowed_languages
+            : ['en'];
+        return [{ code: 'all', name: '📢 All Languages' }, ...codes.map(c => ({ code: c, name: c.toUpperCase() }))];
+    }
+
+    function getLangName(code) {
+        return getLangs().find(l => l.code === code)?.name || code;
+    }
+
+    function setLang(lang) {
+        currentLang = lang;
+        loadTickets(true);
+        rebuildAutoReplyCard();
+    }
+
+    // ─── SENDERS ─────────────────────────────────────────────────
+    async function loadSenders() {
+        if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
+            senders = currentUser.allowed_emails || [];
+            return;
+        }
+        try {
+            const d = await api('/api/admin/email-addresses?active_only=true');
+            senders = (d.addresses || []).map(a => a.email || a.address).filter(Boolean);
+        } catch (e) { senders = currentUser.allowed_emails || []; }
+    }
+
+    // ─── TEMPLATES ───────────────────────────────────────────────
+    async function loadTemplates() {
+        if (!canManageTemplates()) { templates = []; return; }
+        try {
+            const key = 'templates_' + (currentLang === 'all' ? 'en' : currentLang);
+            const raw = settings.order_template?.[key];
+            templates = raw ? JSON.parse(raw) : [];
+        } catch (e) { templates = []; }
+    }
+
+    async function saveTemplate() {
+        if (!canManageTemplates()) { toast('You do not have permission to save templates', 'error'); return; }
+        const name = prompt('Template name:');
+        if (!name) return;
+        const lang = currentLang === 'all' ? 'en' : currentLang;
+        const key = 'templates_' + lang;
+        const list = templates.filter(t => t.name !== name);
+        list.push({ name, subject: getSubject(), body: getEditorHtml() });
+        try {
+            const d = await api('/api/admin/settings', {
+                method: 'PUT',
+                body: JSON.stringify({ settings: [{ category: 'order_template', key, value: JSON.stringify(list) }] })
+            });
+            if (d.success) {
+                templates = list;
+                if (!settings.order_template) settings.order_template = {};
+                settings.order_template[key] = JSON.stringify(list);
+                toast('💾 Template saved');
+                rebuildTemplateBar();
+            } else toast('❌ ' + (d.error || 'Save failed'), 'error');
+        } catch (e) { toast('❌ ' + e.message, 'error'); }
+    }
+
+    async function deleteTemplate(name) {
+        if (!canManageTemplates()) return;
+        if (!confirm(`Delete template "${name}"?`)) return;
+        const lang = currentLang === 'all' ? 'en' : currentLang;
+        const key = 'templates_' + lang;
+        const list = templates.filter(t => t.name !== name);
+        try {
+            const d = await api('/api/admin/settings', {
+                method: 'PUT',
+                body: JSON.stringify({ settings: [{ category: 'order_template', key, value: JSON.stringify(list) }] })
+            });
+            if (d.success) {
+                templates = list;
+                settings.order_template[key] = JSON.stringify(list);
+                toast('✅ Deleted');
+                rebuildTemplateBar();
+            }
+        } catch (e) { toast('❌ ' + e.message, 'error'); }
+    }
+
+    function loadTemplateIntoEditor(name) {
+        const t = templates.find(x => x.name === name);
+        if (!t) return;
+        document.getElementById('compose_subject').value = t.subject || '';
+        if (sourceMode) document.getElementById('or_source').value = t.body || '';
+        else document.getElementById('or_editor').innerHTML = t.body || '';
+        toast('Loaded template');
+    }
+
+    function rebuildTemplateBar() {
+        const el = document.getElementById('templateBar');
+        if (el) el.outerHTML = buildTemplateBar();
+    }
+
+    function buildTemplateBar() {
+        if (!canManageTemplates()) return '<div id="templateBar"></div>';
+        const opts = templates.map(t => `<option value="${esc(t.name)}">${esc(t.name)}</option>`).join('');
+        return `<div id="templateBar" class="btn-row" style="margin-top:0;margin-bottom:14px;">
+            <select id="templateSelect" style="max-width:220px;padding:6px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;">
+                <option value="">📁 Load template…</option>${opts}
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="const v=document.getElementById('templateSelect').value; if(v) loadTemplateIntoEditor(v);">Load</button>
+            <button class="btn btn-ghost btn-sm" onclick="saveTemplate()">💾 Save as template</button>
+            <button class="btn btn-danger btn-sm" onclick="const v=document.getElementById('templateSelect').value; if(v) deleteTemplate(v); else toast('Select a template first','error');">Delete</button>
+        </div>`;
+    }
+
+    // ─── TAG BAR ─────────────────────────────────────────────────
+    function buildTagBar() {
+        return `<div class="tag-bar">
+            <span class="tag-bar-label">Insert order data:</span>
+            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_items_with_names}}')">{{order_items_with_names}}</button>
+            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_items_with_images}}')">{{order_items_with_images}}</button>
+            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_summary}}')">{{order_summary}}</button>
+            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_customer}}')">{{order_customer}}</button>
+            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_shipping}}')">{{order_shipping}}</button>
+            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_reference}}')">{{order_reference}}</button>
+            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{ticket_number}}')">{{ticket_number}}</button>
+        </div>`;
+    }
+
+    function insertTag(id, tag) {
+        const el = document.getElementById(id);
+        if (!el || !el.contentEditable) return;
+        el.focus();
+        document.execCommand('insertText', false, tag);
+    }
+
+    // ─── AUTO-REPLY (per-language payment confirmation) ────────────
+    function buildAutoReplyCard() {
+        if (!canManageTemplates()) return '<div id="autoReplyCard"></div>';
+        const lang = currentLang === 'all' ? 'en' : currentLang;
+        const langName = getLangName(lang);
+        const langOpts = getLangs().filter(l => l.code !== 'all')
+            .map(l => `<option value="${esc(l.code)}"${l.code === lang ? ' selected' : ''}>${esc(l.name)}</option>`).join('');
+        const enabled = settings.auto_reply?.[`payment_${lang}_enabled`] === '1';
+        const subject = settings.auto_reply?.[`payment_${lang}_subject`] || 'Your Dornori order confirmation';
+        const body = settings.auto_reply?.[`payment_${lang}_body`] || '';
+        const from = settings.auto_reply?.[`payment_${lang}_from`] || '';
+        const senderOpts = senders.map(s => `<option value="${esc(s)}"${s === from ? ' selected' : ''}>${esc(s)}</option>`).join('');
+
+        return `<div class="s-card" id="autoReplyCard">
+            <div class="s-card-head">
+                <div><h3>⚡ Payment Confirmation Auto-Reply (${esc(langName)})</h3>
+                <p>Sent automatically the moment a payment ticket is created in this language. Each language has its own separate template — use the selector below to switch and edit each one. Available tags: {{order_items_with_names}}, {{order_items_with_images}}, {{order_summary}}, {{order_customer}}, {{order_shipping}}, {{order_reference}}, {{ticket_number}}, {{sender_name}}, {{sender_email}}</p></div>
+            </div>
+            <div class="f-row">
+                <label>Language</label>
+                <select onchange="setLang(this.value)">${langOpts}</select>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;">
+                    <input type="checkbox" id="or_ar_enabled" ${enabled ? 'checked' : ''} style="width:18px;height:18px;" />
+                    <span style="font-size:14px;color:var(--text);font-weight:500;">Send confirmation automatically for new payment tickets</span>
+                </label>
+            </div>
+            <div class="f-row">
+                <label>From</label>
+                <select id="or_ar_from">${senderOpts || '<option value="">No sender addresses available</option>'}</select>
+            </div>
+            <div class="f-row">
+                <label>Subject</label>
+                <input type="text" id="or_ar_subject" value="${esc(subject)}" />
+            </div>
+            <div class="f-row">
+                <label>Body (HTML)</label>
+                <div class="tag-bar">
+                    <span class="tag-bar-label">Insert order data:</span>
+                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_items_with_names}}')">{{order_items_with_names}}</button>
+                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_items_with_images}}')">{{order_items_with_images}}</button>
+                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_summary}}')">{{order_summary}}</button>
+                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_customer}}')">{{order_customer}}</button>
+                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_shipping}}')">{{order_shipping}}</button>
+                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_reference}}')">{{order_reference}}</button>
+                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{ticket_number}}')">{{ticket_number}}</button>
+                </div>
+                <textarea id="or_ar_body" style="width:100%;min-height:160px;padding:9px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;font-family:Menlo,Consolas,monospace;line-height:1.55;resize:vertical;">${esc(body)}</textarea>
+            </div>
+            <button class="btn btn-accent" onclick="saveOrderAutoReply()">Save auto-reply</button>
+            <button class="btn btn-ghost" onclick="previewAutoReply()" style="margin-left:8px;">👁 Preview with ticket</button>
+        </div>`;
+    }
+
+    function rebuildAutoReplyCard() {
+        const el = document.getElementById('autoReplyCard');
+        if (el) el.outerHTML = buildAutoReplyCard();
+    }
+
+    function insertAutoReplyTag(tag) {
+        const el = document.getElementById('or_ar_body');
+        if (!el) return;
+        const start = el.selectionStart ?? el.value.length;
+        const end = el.selectionEnd ?? el.value.length;
+        el.value = el.value.slice(0, start) + tag + el.value.slice(end);
+        el.focus();
+        el.selectionStart = el.selectionEnd = start + tag.length;
+    }
+
+    async function saveOrderAutoReply() {
+        if (!canManageTemplates()) { toast('You do not have permission to edit the auto-reply', 'error'); return; }
+        const lang = currentLang === 'all' ? 'en' : currentLang;
+        const enabled = document.getElementById('or_ar_enabled').checked ? '1' : '0';
+        const subject = document.getElementById('or_ar_subject').value;
+        const body = document.getElementById('or_ar_body').value;
+        const from = document.getElementById('or_ar_from').value;
+        try {
+            const d = await api('/api/admin/settings', {
+                method: 'PUT',
+                body: JSON.stringify({ settings: [
+                    { category: 'auto_reply', key: `payment_${lang}_enabled`, value: enabled },
+                    { category: 'auto_reply', key: `payment_${lang}_subject`, value: subject },
+                    { category: 'auto_reply', key: `payment_${lang}_body`, value: body },
+                    { category: 'auto_reply', key: `payment_${lang}_from`, value: from }
+                ] })
+            });
+            if (d.success) {
+                if (!settings.auto_reply) settings.auto_reply = {};
+                settings.auto_reply[`payment_${lang}_enabled`] = enabled;
+                settings.auto_reply[`payment_${lang}_subject`] = subject;
+                settings.auto_reply[`payment_${lang}_body`] = body;
+                settings.auto_reply[`payment_${lang}_from`] = from;
+                toast('✅ Auto-reply saved');
+                rebuildAutoReplyCard();
+            } else toast('❌ ' + (d.error || 'Save failed'), 'error');
+        } catch (e) { toast('❌ ' + e.message, 'error'); }
+    }
+
+    async function previewAutoReply() {
+        const body = document.getElementById('or_ar_body')?.value;
+        const subj = document.getElementById('or_ar_subject')?.value;
+        if (!body) { toast('Nothing to preview yet', 'error'); return; }
+        // Use activeTicket if one is selected, otherwise use the most recent ticket
+        let ticket = activeTicket;
+        if (!ticket && tickets.length) ticket = tickets[0];
+        if (!ticket) { toast('Load a ticket first so tags can be rendered with real order data', 'warning'); return; }
+        const rendered = await applyOrderTags(body, ticket);
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:system-ui,sans-serif;max-width:600px;margin:24px auto;padding:0 16px;color:#1a202c;line-height:1.6;}a{color:#0a8f5c;}img{max-width:100%;}table{border-collapse:collapse;width:100%;}td,th{padding:8px;}</style></head><body>${rendered}</body></html>`;
+        document.getElementById('previewSubjectLine').innerHTML = `<strong>Subject:</strong> ${esc(subj) || '<em>(no subject)</em>'} <span style="font-size:11px;color:#888;margin-left:8px;">— previewed with ticket #${esc(ticket.ticket_number)}</span>`;
+        document.getElementById('previewFrame').srcdoc = html;
+        document.getElementById('previewModal').classList.add('show');
+    }
+
+    // ─── EDITOR COMMANDS ────────────────────────────────────────
+    function cmd(command, val) {
+        document.getElementById('or_editor').focus();
+        document.execCommand(command, false, val || null);
+    }
+    function editorBlock(sel) {
+        document.getElementById('or_editor').focus();
+        document.execCommand('formatBlock', false, sel.value);
+        sel.value = 'p';
+    }
+    function insertLink() {
+        const url = prompt('Enter URL:');
+        if (!url) return;
+        const text = prompt('Link text (leave blank to use URL):') || url;
+        document.getElementById('or_editor').focus();
+        document.execCommand('insertHTML', false, `<a href="${url}">${text}</a>`);
+    }
+    function insertImage() {
+        const url = prompt('Enter image URL:');
+        if (!url) return;
+        document.getElementById('or_editor').focus();
+        document.execCommand('insertImage', false, url);
+    }
+    function toggleSource() {
+        const wrap = document.querySelector('.editor-wrap');
+        const editor = document.getElementById('or_editor');
+        const source = document.getElementById('or_source');
+        const btn = document.getElementById('sourceToggleBtn');
+        if (!sourceMode) {
+            source.value = editor.innerHTML;
+            wrap.classList.add('source-mode');
+            btn.classList.add('active');
+            sourceMode = true;
+        } else {
+            editor.innerHTML = source.value;
+            wrap.classList.remove('source-mode');
+            btn.classList.remove('active');
+            sourceMode = false;
+        }
+    }
+    function getEditorHtml() {
+        if (sourceMode) return document.getElementById('or_source').value.trim();
+        return document.getElementById('or_editor').innerHTML.trim();
+    }
+    function getSubject() {
+        return document.getElementById('compose_subject').value.trim();
+    }
+
+    // ─── ORDER DATA RENDERING ────────────────────────────────────
+    // Resolves a catalog product id from an order item, trying every
+    // field name seen in the wild, then falling back to matching the
+    // item's stored name/label against the catalog. Logs the raw item
+    // once if nothing matches, so the actual backend field names are
+    // visible in devtools.
+    function resolveProductId(item, catalogs) {
+        let id = item.product_id || item.productId || item.id || item.sku ||
+                 item.item_id || item.itemId || item.variant_id || item.variantId ||
+                 item.slug || null;
+        if (id) return id;
+
+        const itemName = (item.name || item.title || '').trim().toLowerCase();
+        if (itemName) {
+            for (const catalog of catalogs) {
+                if (!catalog) continue;
+                for (const [key, val] of Object.entries(catalog)) {
+                    const candidates = [val.name, val.label].filter(Boolean).map(s => String(s).toLowerCase());
+                    if (candidates.includes(itemName)) return key;
+                }
+            }
+        }
+
+        console.warn('EdgeDesk: could not resolve product id for order item — raw item keys:', Object.keys(item), item);
+        return null;
+    }
+
+    async function renderOrderItems(meta, lang = 'en') {
+        const order = meta && meta.order;
+        if (!order || !order.items || !order.items.length) return '';
+        const currency = meta.currency || 'EUR';
+        const totals = order.totals || {};
+        
+        const [langProducts, labels] = await Promise.all([fetchProductNames(lang), fetchOrderLabels(lang)]);
+        
+        let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
+        if (labels.product || labels.qty || labels.unit_price || labels.total) {
+            html += '<tr style="border-bottom:1px solid #ddd;">';
+            if (labels.product)    html += `<th style="padding:10px;text-align:left;">${esc(labels.product)}</th>`;
+            if (labels.qty)        html += `<th style="padding:10px;text-align:center;">${esc(labels.qty)}</th>`;
+            if (labels.unit_price) html += `<th style="padding:10px;text-align:right;">${esc(labels.unit_price)}</th>`;
+            if (labels.total)      html += `<th style="padding:10px;text-align:right;">${esc(labels.total)}</th>`;
+            html += '</tr>';
+        }
+        
+        for (const item of order.items) {
+            if (!item || typeof item !== 'object') continue;
+            const productId = resolveProductId(item, [langProducts]);
+            let name = item.name;
+            if (productId && langProducts[productId]) {
+                name = langProducts[productId].name || item.name;
+            }
+            name = esc(String(name || 'Product'));
+            const qty = Math.max(1, parseInt(item.qty || item.quantity || 1, 10));
+            const price = Math.max(0, parseFloat(item.price || 0));
+            if (isNaN(price) || isNaN(qty)) continue;
+            const lineTotal = (price * qty).toFixed(2);
+            html += '<tr style="border-bottom:1px solid #eee;">';
+            html += `<td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${currency} ${price.toFixed(2)}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+        }
+        html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
+        html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? esc(labels.total) : ''}</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${(totals.total || 0).toFixed(2)}</td></tr>`;
+        html += '</table>';
+        return html;
+    }
+    
+    async function renderOrderItemsWithImages(meta, lang = 'en') {
+        const order = meta && meta.order;
+        if (!order || !order.items || !order.items.length) return '';
+        const currency = meta.currency || 'EUR';
+        const totals = order.totals || {};
+        
+        const urls = await getProductUrls();
+        const [langProducts, genericProducts, labels] = await Promise.all([
+            fetchProductNames(lang), fetchProductImages(), fetchOrderLabels(lang)
+        ]);
+        
+        let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
+        if (labels.image || labels.product || labels.qty || labels.unit_price || labels.total) {
+            html += '<tr style="border-bottom:1px solid #ddd;">';
+            if (labels.image)      html += `<th style="padding:10px;text-align:left;">${esc(labels.image)}</th>`;
+            if (labels.product)    html += `<th style="padding:10px;text-align:left;">${esc(labels.product)}</th>`;
+            if (labels.qty)        html += `<th style="padding:10px;text-align:center;">${esc(labels.qty)}</th>`;
+            if (labels.unit_price) html += `<th style="padding:10px;text-align:right;">${esc(labels.unit_price)}</th>`;
+            if (labels.total)      html += `<th style="padding:10px;text-align:right;">${esc(labels.total)}</th>`;
+            html += '</tr>';
+        }
+        
+        const _domain = (settings.general?.domain || '').replace(/\/+$/, '');
+        function _resolveImgUrl(raw) {
+            if (!raw) return '';
+            if (raw.startsWith('http')) return raw;
+            const base = _domain.startsWith('http') ? _domain : (_domain ? 'https://' + _domain : '');
+            return base + (raw.startsWith('/') ? '' : '/') + raw;
+        }
+
+        for (const item of order.items) {
+            if (!item || typeof item !== 'object') continue;
+            const productId = resolveProductId(item, [langProducts, genericProducts]);
+            
+            let name = item.name;
+            if (productId && langProducts[productId]) {
+                name = langProducts[productId].name || item.name;
+            }
+            name = esc(String(name || 'Product'));
+            
+            let imgHtml = '';
+            if (productId && genericProducts[productId] && genericProducts[productId].image) {
+                const imgUrl = esc(_resolveImgUrl(genericProducts[productId].image));
+                imgHtml = `<img src="${imgUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" alt="${name}" />`;
+            } else {
+                imgHtml = '<div style="width:60px;height:60px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">No image</div>';
+            }
+            
+            const qty = Math.max(1, parseInt(item.qty || item.quantity || 1, 10));
+            const price = Math.max(0, parseFloat(item.price || 0));
+            if (isNaN(price) || isNaN(qty)) continue;
+            const lineTotal = (price * qty).toFixed(2);
+            html += '<tr style="border-bottom:1px solid #eee;">';
+            html += `<td style="padding:10px;text-align:center;">${imgHtml}</td><td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${currency} ${price.toFixed(2)}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+        }
+        html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
+        html += `<td colspan="4" style="padding:12px;"></td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${(totals.total || 0).toFixed(2)}</td></tr>`;
+        html += '</table>';
+        return html;
+    }
+
+    function renderOrderSummary(meta, labels = {}) {
+        const order = meta && meta.order;
+        if (!order || !order.items || !order.items.length) return '';
+        const currency = meta.currency || 'EUR';
+        const totals = order.totals || {};
+        let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
+        html += `<div style="margin-bottom:8px;">${labels.order_ref ? esc(labels.order_ref) + ': ' : ''}${esc(String(order.reference || 'N/A'))}</div>`;
+        html += `<div style="margin-bottom:8px;">${labels.subtotal ? esc(labels.subtotal) + ': ' : ''}${currency} ${parseFloat(totals.subtotal || 0).toFixed(2)}</div>`;
+        if (parseFloat(totals.shipping) > 0) html += `<div style="margin-bottom:8px;">${labels.shipping ? esc(labels.shipping) + ': ' : '+ '}${currency} ${parseFloat(totals.shipping).toFixed(2)}</div>`;
+        if (parseFloat(totals.tax) > 0) html += `<div style="margin-bottom:8px;">${labels.tax ? esc(labels.tax) + ': ' : '+ '}${currency} ${parseFloat(totals.tax).toFixed(2)}</div>`;
+        html += `<div style="padding-top:8px;border-top:1px solid #ddd;font-weight:bold;">${labels.total ? esc(labels.total) + ': ' : ''}${currency} ${parseFloat(totals.total || 0).toFixed(2)}</div></div>`;
+        return html;
+    }
+
+    function renderOrderCustomer(meta, labels = {}) {
+        const customer = meta && meta.order && meta.order.customer;
+        if (!customer || !(customer.name || customer.email || customer.phone)) return '';
+        let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
+        if (customer.name) html += `<div style="margin-bottom:8px;">${labels.name ? esc(labels.name) + ': ' : ''}${esc(String(customer.name))}</div>`;
+        if (customer.email) html += `<div style="margin-bottom:8px;">${labels.email ? esc(labels.email) + ': ' : ''}${esc(String(customer.email))}</div>`;
+        if (customer.phone) html += `<div>${labels.phone ? esc(labels.phone) + ': ' : ''}${esc(String(customer.phone))}</div>`;
+        html += '</div>';
+        return html;
+    }
+
+    function renderOrderShipping(meta, labels = {}) {
+        const customer = meta && meta.order && meta.order.customer;
+        if (!customer || !customer.shipping_address) return '';
+        const prefix = labels.shipping_address ? `<div style="font-weight:bold;margin-bottom:4px;">${esc(labels.shipping_address)}</div>` : '';
+        return `<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">${prefix}<div style="white-space:pre-wrap;">${esc(String(customer.shipping_address))}</div></div>`;
+    }
+
+    async function applyOrderTags(html, ticket) {
+        if (!ticket) return html;
+        const meta = parseMeta(ticket);
+        const lang = meta.language || ticket.language || 'en';
+        
+        let out = html;
+        
+        if (out.includes('{{order_items_with_names}}')) {
+            const rendered = await renderOrderItems(meta, lang);
+            out = out.replace(/\{\{order_items_with_names\}\}/g, rendered);
+        }
+        if (out.includes('{{order_items_with_images}}')) {
+            const rendered = await renderOrderItemsWithImages(meta, lang);
+            out = out.replace(/\{\{order_items_with_images\}\}/g, rendered);
+        }
+        if (out.includes('{{order_items}}')) {
+            const rendered = await renderOrderItems(meta, lang);
+            out = out.replace(/\{\{order_items\}\}/g, rendered);
+        }
+        
+        const labels = (out.includes('{{order_summary}}') || out.includes('{{order_customer}}') || out.includes('{{order_shipping}}'))
+            ? await fetchOrderLabels(lang) : {};
+        
+        out = out.replace(/\{\{order_summary\}\}/g, renderOrderSummary(meta, labels));
+        out = out.replace(/\{\{order_customer\}\}/g, renderOrderCustomer(meta, labels));
+        out = out.replace(/\{\{order_shipping\}\}/g, renderOrderShipping(meta, labels));
+        out = out.replace(/\{\{order_reference\}\}/g, esc(String((meta.order && meta.order.reference) || ticket.order_number || '')));
+        out = out.replace(/\{\{ticket_number\}\}/g, esc(String(ticket.ticket_number || '')));
+        return out;
+    }
+
+    // ─── TICKET LIST ─────────────────────────────────────────────
+    async function loadTickets(reset) {
+        if (reset) { pagination.page = 1; tickets = []; }
+        try {
+            const params = new URLSearchParams({ category: 'payment', page: String(pagination.page), limit: '25', sort: 'created' });
+            if (currentLang !== 'all') params.set('language', currentLang);
+            if (filterText) params.set('search', filterText);
+            const d = await api('/api/admin/tickets?' + params.toString());
+            if (d.success) {
+                tickets = pagination.page === 1 ? d.tickets : tickets.concat(d.tickets);
+                pagination = d.pagination;
+            }
+            rebuildTicketList();
+        } catch (e) {
+            toast('❌ ' + e.message, 'error');
+        }
+    }
+
+    function loadMoreTickets() {
+        pagination.page += 1;
+        loadTickets(false);
+    }
+
+    function onSearch(v) {
+        filterText = v.trim();
+        clearTimeout(window._orSearchTimer);
+        window._orSearchTimer = setTimeout(() => loadTickets(true), 350);
+    }
+
+    async function selectTicket(id) {
+        try {
+            const d = await api('/api/admin/ticket/' + id);
+            if (!d.success) { toast('❌ Could not load ticket', 'error'); return; }
+            activeTicket = d.data;
+            rebuildTicketList();
+            rebuildComposeArea();
+            document.getElementById('composeCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (e) { toast('❌ ' + e.message, 'error'); }
+    }
+
+    function buildTicketRow(t) {
+        const meta = parseMeta(t);
+        const order = meta.order || {};
+        const totals = order.totals || {};
+        const currency = meta.currency || 'EUR';
+        const ref = order.reference || t.order_number || '—';
+        const isActive = activeTicket && activeTicket.id === t.id;
+        return `<tr class="${isActive ? 'active-row' : ''}" onclick="selectTicket(${t.id})">
+            <td style="font-family:monospace;color:var(--accent);">#${esc(t.ticket_number)}</td>
+            <td style="font-family:monospace;">${esc(ref)}</td>
+            <td>${esc(t.sender_name || '—')}<br><span style="color:var(--text-muted);font-size:11px;">${esc(t.sender_email || '')}</span></td>
+            <td>${currency} ${parseFloat(totals.total || 0).toFixed(2)}</td>
+            <td><span class="status-pill ${esc(t.status)}">${esc(t.status)}</span></td>
+            <td>${relativeTime(t.created_at)}</td>
+        </tr>`;
+    }
+
+    function buildTicketList() {
+        const langOpts = getLangs().map(l => `<option value="${esc(l.code)}"${l.code === currentLang ? ' selected' : ''}>${esc(l.name)}</option>`).join('');
+        const rows = tickets.map(buildTicketRow).join('');
+        const canExport = canExportOrders();
+        return `<div class="s-card" id="ticketListCard">
+            <div class="s-card-head">
+                <div><h3>💳 Payment Tickets</h3><p>Only tickets created from a completed checkout. Click a row to open it in the composer above.</p></div>
+                <button class="btn btn-ghost btn-sm" onclick="exportOrdersCsv()" ${!canExport ? 'disabled title="No export permission"' : ''}>⬇ Export CSV</button>
+            </div>
+            <div class="n-toolbar">
+                <input type="text" id="or_search" placeholder="Search ticket #, customer, email, order ref…" oninput="onSearch(this.value)" value="${esc(filterText)}" />
+                <select onchange="setLang(this.value)">${langOpts}</select>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Ticket</th><th>Order Ref</th><th>Customer</th><th>Total</th><th>Status</th><th>Created</th></tr></thead>
+                    <tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted);">No payment tickets found</td></tr>'}</tbody>
+                </table>
+            </div>
+            ${pagination.page < pagination.totalPages ? `<div class="btn-row"><button class="btn btn-ghost btn-sm" onclick="loadMoreTickets()">Load more (${tickets.length} of ${pagination.total})</button></div>` : ''}
+        </div>`;
+    }
+
+    function rebuildTicketList() {
+        const el = document.getElementById('ticketListCard');
+        if (el) el.outerHTML = buildTicketList();
+    }
+
+    // ─── COMPOSE AREA ────────────────────────────────────────────
+    function buildComposeArea() {
+        const canReply = canReplyTickets();
+        const senderOpts = senders.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+        const meta = activeTicket ? parseMeta(activeTicket) : {};
+        const order = meta.order || {};
+        const totals = order.totals || {};
+        const currency = meta.currency || 'EUR';
+
+        const detailBar = activeTicket ? `<div class="ticket-detail-bar">
+            <div><span class="tref">#${esc(activeTicket.ticket_number)}</span> — ${esc(activeTicket.sender_name || 'Unknown')} (${esc(activeTicket.sender_email || '')})</div>
+            <div>${esc(order.reference || activeTicket.order_number || '—')} · ${currency} ${parseFloat(totals.total || 0).toFixed(2)} · <span class="status-pill ${esc(activeTicket.status)}">${esc(activeTicket.status)}</span></div>
+        </div>` : `<div class="empty-hint">Select a payment ticket below to compose a reply.</div>`;
+
+        const isDisabled = !activeTicket || !canReply;
+
+        return `<div class="s-card" id="composeCard">
+            <div class="s-card-head">
+                <div><h3>✍️ Compose Reply</h3><p>Insert order data tags below — they render as HTML tables/blocks when you preview or send.</p></div>
+            </div>
+            ${detailBar}
+            <div class="${isDisabled ? 'disabled-form' : ''}">
+                ${buildTemplateBar()}
+                <div class="f-row">
+                    <label>From</label>
+                    <select id="reply_from">${senderOpts || '<option value="">No sender addresses available</option>'}</select>
+                </div>
+                <div class="f-row">
+                    <label>Subject</label>
+                    <input type="text" id="compose_subject" placeholder="Re: your order" value="${activeTicket ? esc('Re: [' + activeTicket.ticket_number + '] ' + (activeTicket.subject || '')) : ''}" />
+                </div>
+                <div class="f-row" style="margin-bottom:8px;">
+                    <label>Body</label>
+                    ${buildTagBar()}
+                    <div class="editor-wrap">
+                        <div class="editor-toolbar">
+                            <select onchange="editorBlock(this)">
+                                <option value="p">Paragraph</option>
+                                <option value="h1">Heading 1</option>
+                                <option value="h2">Heading 2</option>
+                                <option value="h3">Heading 3</option>
+                            </select>
+                            <div class="sep"></div>
+                            <button title="Bold" onclick="cmd('bold')"><b>B</b></button>
+                            <button title="Italic" onclick="cmd('italic')"><i>I</i></button>
+                            <button title="Underline" onclick="cmd('underline')"><u>U</u></button>
+                            <div class="sep"></div>
+                            <button title="Bullet list" onclick="cmd('insertUnorderedList')">• List</button>
+                            <button title="Numbered list" onclick="cmd('insertOrderedList')">1. List</button>
+                            <div class="sep"></div>
+                            <button title="Link" onclick="insertLink()">🔗 Link</button>
+                            <button title="Image URL" onclick="insertImage()">🖼 Image</button>
+                            <div class="sep"></div>
+                            <button title="Undo" onclick="cmd('undo')">↩</button>
+                            <button title="Redo" onclick="cmd('redo')">↪</button>
+                            <div class="sep"></div>
+                            <button title="Remove formatting" onclick="cmd('removeFormat')">✕ fmt</button>
+                            <div class="sep"></div>
+                            <button id="sourceToggleBtn" title="Toggle HTML source" onclick="toggleSource()" style="font-family:monospace;font-weight:700;">&lt;/&gt; Source</button>
+                        </div>
+                        <div id="or_editor" contenteditable="true" spellcheck="true"></div>
+                        <textarea id="or_source" spellcheck="false" placeholder="Paste your full HTML here…"></textarea>
+                        <div class="source-hint">⚡ <strong>Source mode</strong> — tags like <code>{{order_items}}</code> still render on preview/send.</div>
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-ghost" onclick="previewEmail()">👁 Preview</button>
+                    <button class="btn btn-warning" onclick="showConfirmSend()">🚀 Send reply</button>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function rebuildComposeArea() {
+        const el = document.getElementById('composeCard');
+        if (el) el.outerHTML = buildComposeArea();
+        else render();
+    }
+
+    // ─── PREVIEW ─────────────────────────────────────────────────
+    async function previewEmail() {
+        if (!activeTicket) { toast('Select a ticket first', 'error'); return; }
+        const subj = getSubject();
+        let body = getEditorHtml();
+        if (!subj && !body) { toast('Nothing to preview yet', 'error'); return; }
+        body = await applyOrderTags(body, activeTicket);
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:system-ui,sans-serif;max-width:600px;margin:24px auto;padding:0 16px;color:#1a202c;line-height:1.6;}a{color:#0a8f5c;}img{max-width:100%;}</style></head><body>${body}</body></html>`;
+        document.getElementById('previewSubjectLine').innerHTML = `<strong>Subject:</strong> ${esc(subj) || '<em>(no subject)</em>'}`;
+        document.getElementById('previewFrame').srcdoc = html;
+        document.getElementById('previewModal').classList.add('show');
+    }
+    function closePreview() { document.getElementById('previewModal').classList.remove('show'); }
+
+    // ─── SEND ────────────────────────────────────────────────────
+    function showConfirmSend() {
+        if (!activeTicket) { toast('Select a ticket first', 'error'); return; }
+        if (!canReplyTickets()) { toast('You do not have permission to reply', 'error'); return; }
+        const subj = getSubject();
+        const body = getEditorHtml();
+        if (!subj) { toast('Subject is required', 'error'); return; }
+        if (!body) { toast('Body is required', 'error'); return; }
+        const from = document.getElementById('reply_from').value;
+        if (!from) { toast('Choose a sender address', 'error'); return; }
+        pendingSend = { subj, body, from };
+        document.getElementById('sendConfirmMsg').innerHTML =
+            `You are about to send <strong>"${esc(subj)}"</strong> to <strong>${esc(activeTicket.sender_email)}</strong> for ticket <strong>#${esc(activeTicket.ticket_number)}</strong>.<br><br>This cannot be undone.`;
+        document.getElementById('sendModal').classList.add('show');
+    }
+    function closeSendModal() { document.getElementById('sendModal').classList.remove('show'); pendingSend = null; }
+
+    async function executeSend() {
+        if (!pendingSend || !activeTicket) return;
+        const { body, from } = pendingSend;
+        const rendered = await applyOrderTags(body, activeTicket);
+        document.getElementById('sendModalFoot').innerHTML = '<span style="font-size:13px;color:var(--text-muted);">Sending…</span>';
+        try {
+            const d = await api('/api/admin/ticket/' + activeTicket.id + '/reply', {
+                method: 'POST',
+                body: JSON.stringify({ from, body: rendered })
+            });
+            if (d.success) {
+                closeSendModal();
+                toast('✅ Reply sent to ' + activeTicket.sender_email);
+                document.getElementById('or_editor').innerHTML = '';
+                document.getElementById('compose_subject').value = '';
+                activeTicket = null;
+                loadTickets(true);
+                render();
+            } else {
+                closeSendModal();
+                toast('❌ Send failed: ' + (d.error || 'Unknown error'), 'error');
+            }
+        } catch (e) {
+            closeSendModal();
+            toast('❌ ' + e.message, 'error');
+        }
+    }
+
+    // ─── EXPORT CSV ─────────────────────────────────────────────
+    async function exportOrdersCsv() {
+        if (!canExportOrders()) { toast('You do not have permission to export', 'error'); return; }
+        toast('Preparing export…');
+        let all = [];
+        try {
+            let page = 1, totalPages = 1;
+            do {
+                const params = new URLSearchParams({ category: 'payment', page: String(page), limit: '100', sort: 'created' });
+                if (currentLang !== 'all') params.set('language', currentLang);
+                if (filterText) params.set('search', filterText);
+                const d = await api('/api/admin/tickets?' + params.toString());
+                if (!d.success) break;
+                all = all.concat(d.tickets);
+                totalPages = d.pagination.totalPages;
+                page += 1;
+            } while (page <= totalPages);
+        } catch (e) { toast('❌ ' + e.message, 'error'); return; }
+
+        if (!all.length) { toast('Nothing to export', 'error'); return; }
+
+        const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const header = ['Ticket Number', 'Order Reference', 'Transaction ID', 'Customer Name', 'Customer Email', 'Customer Phone', 'Currency', 'Subtotal', 'Shipping', 'Tax', 'Total', 'Items', 'Shipping Address', 'Created', 'Status'];
+        const lines = [header.join(',')];
+        all.forEach(t => {
+            const meta = parseMeta(t);
+            const order = meta.order || {};
+            const totals = order.totals || {};
+            const customer = order.customer || {};
+            const items = (order.items || []).map(i => `${i.name || 'Product'} x${i.qty || 1} @ ${i.price || 0}`).join(' | ');
+            lines.push([
+                t.ticket_number, order.reference || t.order_number || '', order.transaction_id || '',
+                customer.name || t.sender_name || '', customer.email || t.sender_email || '', customer.phone || t.sender_phone || '',
+                meta.currency || 'EUR', totals.subtotal ?? '', totals.shipping ?? '', totals.tax ?? '', totals.total ?? '',
+                items, customer.shipping_address || '', t.created_at || '', t.status || ''
+            ].map(q).join(','));
+        });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' }));
+        a.download = `dornori-orders-${currentLang}-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        toast(`✅ Exported ${all.length} orders`);
+    }
+
+    // ─── RENDER ──────────────────────────────────────────────────
+    function render() {
+        document.getElementById('content').innerHTML = `
+            ${buildAutoReplyCard()}
+            ${buildComposeArea()}
+            ${buildTicketList()}
+        `;
+    }
+
+    // ─── LOAD ────────────────────────────────────────────────────
+    async function load() {
+        try {
+            try {
+                const sd = await api('/api/admin/settings');
+                settings = sd.data || sd.settings || {};
+            } catch (e) {
+                console.warn('Failed to load settings from DB:', e);
+                settings = {};
+            }
+            await Promise.all([loadSenders(), loadTemplates()]);
+            await loadTickets(true);
+            render();
+        } catch (e) {
+            document.getElementById('content').innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
+        }
+    }
+
+    // ─── EXPOSE FUNCTIONS GLOBALLY ──────────────────────────────
+    window.setLang = setLang;
+    window.insertTag = insertTag;
+    window.cmd = cmd;
+    window.editorBlock = editorBlock;
+    window.insertLink = insertLink;
+    window.insertImage = insertImage;
+    window.toggleSource = toggleSource;
+    window.previewEmail = previewEmail;
+    window.closePreview = closePreview;
+    window.showConfirmSend = showConfirmSend;
+    window.closeSendModal = closeSendModal;
+    window.executeSend = executeSend;
+    window.selectTicket = selectTicket;
+    window.loadMoreTickets = loadMoreTickets;
+    window.onSearch = onSearch;
+    window.saveTemplate = saveTemplate;
+    window.deleteTemplate = deleteTemplate;
+    window.loadTemplateIntoEditor = loadTemplateIntoEditor;
+    window.saveOrderAutoReply = saveOrderAutoReply;
+    window.previewAutoReply = previewAutoReply;
+    window.insertAutoReplyTag = insertAutoReplyTag;
+    window.exportOrdersCsv = exportOrdersCsv;
+    window.logout = logout;
+    window.toggleTheme = toggleTheme;
+</script>
+</body>
+</html>
