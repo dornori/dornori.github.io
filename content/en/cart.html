@@ -82,15 +82,15 @@
         <!-- PAYMENT BUTTONS WITH LOADING STATES -->
         <div id="payment-methods-buttons" style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
           
-          <!-- Google Pay - Always shown with loading state -->
+          <!-- Google Pay - Always shown -->
           <div id="google-pay-button" style="min-height:48px;">
             <div class="payment-loading-placeholder" style="display:flex;align-items:center;justify-content:center;height:48px;background:var(--c-bg-2, rgba(0,0,0,0.05));border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);">
               <span data-i18n="loading_google_pay">Loading Google Pay...</span>
             </div>
           </div>
 
-          <!-- Apple Pay - Always shown with loading state, hidden if not available -->
-          <div id="apple-pay-button" style="min-height:48px;">
+          <!-- Apple Pay - Only shown on Apple devices -->
+          <div id="apple-pay-button" style="min-height:48px;display:none;">
             <div class="payment-loading-placeholder" style="display:flex;align-items:center;justify-content:center;height:48px;background:var(--c-bg-2, rgba(0,0,0,0.05));border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);">
               <span data-i18n="loading_apple_pay">Loading Apple Pay...</span>
             </div>
@@ -101,7 +101,7 @@
             <span>💳</span> <span data-i18n="credit_card">Credit Card</span>
           </button>
 
-          <!-- PayPal - Always shown with loading state -->
+          <!-- PayPal - Always shown -->
           <div id="paypal-button-wrapper" style="min-height:46px;border-radius:8px;overflow:hidden;"></div>
         </div>
         <div id="payment-alt-methods" style="display:none;flex-direction:column;gap:12px;margin-bottom:24px;"></div>
@@ -751,6 +751,26 @@
   }
 
   // ============================================================
+  // CHECK IF APPLE PAY IS AVAILABLE ON THIS DEVICE
+  // ============================================================
+  function isApplePayAvailable() {
+    // Check if we're on an Apple device with Safari
+    var isAppleDevice = /iPhone|iPad|iPod|Mac/.test(navigator.userAgent) && 
+                        /AppleWebKit/.test(navigator.userAgent) &&
+                        !/Chrome/.test(navigator.userAgent) &&
+                        !/Android/.test(navigator.userAgent);
+    
+    // Check if ApplePaySession exists
+    var hasApplePaySession = typeof window.ApplePaySession !== 'undefined';
+    
+    // Check if PayPal Apple Pay is available
+    var hasPayPalApplePay = typeof window.paypal !== 'undefined' && 
+                            typeof window.paypal.Applepay === 'function';
+    
+    return isAppleDevice && hasApplePaySession && hasPayPalApplePay;
+  }
+
+  // ============================================================
   // RENDER ALL PAYMENTS - Shows loading states until ready
   // ============================================================
   async function renderAllPayments(cart, custFormData, onBeforePay) {
@@ -773,21 +793,20 @@
     try {
       await Payment.init();
 
-      // Render all payment methods in parallel
+      // Get containers
       const paypalWrapper = document.getElementById('paypal-button-wrapper');
       const googleContainer = document.getElementById('google-pay-button');
       const appleContainer = document.getElementById('apple-pay-button');
 
-      // Check availability
-      const [googleAvailable, appleAvailable] = await Promise.all([
-        checkGooglePayAvailable(),
-        checkApplePayAvailable()
-      ]);
+      // Check Google Pay availability
+      const googleAvailable = await checkGooglePayAvailable();
+      
+      // Check Apple Pay availability
+      const appleAvailable = isApplePayAvailable();
 
-      // Render PayPal (always) - with proper orderRef
+      // Render PayPal (always)
       if (paypalWrapper) {
         try {
-          // Clear loading placeholder
           paypalWrapper.innerHTML = '';
           await Payment.renderPayPalButton(cart, orderRef, paypalWrapper, custFormData, onBeforePay);
         } catch(e) {
@@ -800,6 +819,7 @@
       if (googleContainer && googleAvailable) {
         try {
           googleContainer.innerHTML = '';
+          googleContainer.style.display = 'block';
           await Payment.renderGooglePay(googleContainer, cart, custFormData);
         } catch(e) {
           console.warn('Google Pay render failed:', e);
@@ -809,10 +829,11 @@
         googleContainer.style.display = 'none';
       }
 
-      // Render Apple Pay if available
+      // Render Apple Pay ONLY if available on this device
       if (appleContainer && appleAvailable) {
         try {
           appleContainer.innerHTML = '';
+          appleContainer.style.display = 'block';
           await Payment.renderApplePay(appleContainer, cart, custFormData);
         } catch(e) {
           console.warn('Apple Pay render failed:', e);
@@ -850,18 +871,6 @@
         resolve(false);
       }
     });
-  }
-
-  function checkApplePayAvailable() {
-    try {
-      var available = typeof window.ApplePaySession !== 'undefined' && 
-                       ApplePaySession.canMakePayments() &&
-                       typeof window.paypal !== 'undefined' &&
-                       typeof window.paypal.Applepay === 'function';
-      return Promise.resolve(available);
-    } catch(e) {
-      return Promise.resolve(false);
-    }
   }
 
   function showPaymentError() {
