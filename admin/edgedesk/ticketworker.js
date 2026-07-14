@@ -1623,8 +1623,18 @@ function renderOrderItemsHtml(meta, langProducts, labels) {
     html += '<tr style="border-bottom:1px solid #eee;">';
     html += `<td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${currency} ${price.toFixed(2)}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
   }
+  html += '<tr style="border-top:2px solid #ddd;background:#f9f9f9;">';
+  html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? escHtml(labels.subtotal) : "Subtotal"}</td><td style="padding:12px;text-align:right;">${currency} ${parseFloat(totals.subtotal || 0).toFixed(2)}</td></tr>`;
+  if (parseFloat(totals.shipping) > 0) {
+    html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
+    html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.shipping ? escHtml(labels.shipping) : "Shipping"}</td><td style="padding:12px;text-align:right;">${currency} ${parseFloat(totals.shipping || 0).toFixed(2)}</td></tr>`;
+  }
+  if (parseFloat(totals.tax) > 0) {
+    html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
+    html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.tax ? escHtml(labels.tax) : "Tax"}</td><td style="padding:12px;text-align:right;">${currency} ${parseFloat(totals.tax || 0).toFixed(2)}</td></tr>`;
+  }
   html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
-  html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? escHtml(labels.total) : ""}</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${parseFloat(totals.total || 0).toFixed(2)}</td></tr>`;
+  html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? escHtml(labels.total) : "Total"}</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${parseFloat(totals.total || 0).toFixed(2)}</td></tr>`;
   html += "</table>";
   return html;
 }
@@ -1664,8 +1674,18 @@ function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, lab
     html += '<tr style="border-bottom:1px solid #eee;">';
     html += `<td style="padding:10px;text-align:center;">${imgHtml}</td><td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${currency} ${price.toFixed(2)}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
   }
+  html += '<tr style="border-top:2px solid #ddd;background:#f9f9f9;">';
+  html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? escHtml(labels.subtotal) : "Subtotal"} ${currency} ${parseFloat(totals.subtotal || 0).toFixed(2)}</td></tr>`;
+  if (parseFloat(totals.shipping) > 0) {
+    html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
+    html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.shipping ? escHtml(labels.shipping) : "Shipping"} ${currency} ${parseFloat(totals.shipping || 0).toFixed(2)}</td></tr>`;
+  }
+  if (parseFloat(totals.tax) > 0) {
+    html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
+    html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.tax ? escHtml(labels.tax) : "Tax"} ${currency} ${parseFloat(totals.tax || 0).toFixed(2)}</td></tr>`;
+  }
   html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
-  html += `<td colspan="4" style="padding:12px;"></td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${parseFloat(totals.total || 0).toFixed(2)}</td></tr>`;
+  html += `<td colspan="4" style="padding:12px;"></td><td style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? escHtml(labels.total) : "Total"} ${currency} ${parseFloat(totals.total || 0).toFixed(2)}</td></tr>`;
   html += "</table>";
   return html;
 }
