@@ -82,27 +82,27 @@
         <!-- PAYMENT BUTTONS WITH LOADING STATES -->
         <div id="payment-methods-buttons" style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
           
-          <!-- Google Pay - Always shown -->
+          <!-- Google Pay -->
           <div id="google-pay-button" style="min-height:48px;">
             <div class="payment-loading-placeholder" style="display:flex;align-items:center;justify-content:center;height:48px;background:var(--c-bg-2, rgba(0,0,0,0.05));border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);">
               <span data-i18n="loading_google_pay">Loading Google Pay...</span>
             </div>
           </div>
 
-          <!-- Apple Pay - Only shown on Apple devices -->
+          <!-- Apple Pay -->
           <div id="apple-pay-button" style="min-height:48px;display:none;">
             <div class="payment-loading-placeholder" style="display:flex;align-items:center;justify-content:center;height:48px;background:var(--c-bg-2, rgba(0,0,0,0.05));border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);">
               <span data-i18n="loading_apple_pay">Loading Apple Pay...</span>
             </div>
           </div>
 
-          <!-- Credit Card - Always shown -->
+          <!-- Credit Card -->
           <button id="credit-card-btn" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;">
             <span>💳</span> <span data-i18n="credit_card">Credit Card</span>
           </button>
 
-          <!-- PayPal - Always shown -->
-          <div id="paypal-button-wrapper" style="min-height:46px;border-radius:8px;overflow:hidden;"></div>
+          <!-- PayPal -->
+          <div id="paypal-button-wrapper" style="min-height:46px;border-radius:8px;overflow:hidden;background:transparent;"></div>
         </div>
         <div id="payment-alt-methods" style="display:none;flex-direction:column;gap:12px;margin-bottom:24px;"></div>
 
@@ -244,7 +244,7 @@
 
 <style>
 /* ============================================================
-   PAYPAL CARD FORM - layout-only rules
+   THEME-BASED STYLES
    ============================================================ */
 
 .paypal-card-section {
@@ -368,27 +368,38 @@
   display: none;
 }
 
-/* PayPal button wrapper - clean styling */
+/* ============================================================
+   PAYPAL BUTTON FIX - Remove white background
+   ============================================================ */
 #paypal-button-wrapper {
   min-height: 46px;
   border-radius: 8px;
   overflow: hidden;
-  background: transparent;
+  background: transparent !important;
 }
 
-/* Remove any borders from PayPal iframe */
+/* Force PayPal's container to be transparent */
+#paypal-button-wrapper > div {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 8px !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove white background from PayPal iframe */
 #paypal-button-wrapper iframe {
   border: none !important;
   border-radius: 8px !important;
   outline: none !important;
   box-shadow: none !important;
+  background: transparent !important;
 }
 
-#paypal-button-wrapper > div {
-  border: none !important;
-  border-radius: 8px !important;
-  outline: none !important;
-  box-shadow: none !important;
+/* Force PayPal's inner elements to be transparent */
+#paypal-button-wrapper [class*="paypal"],
+#paypal-button-wrapper [class*="PayPal"] {
+  background: transparent !important;
 }
 
 /* Mobile responsive */
@@ -754,32 +765,24 @@
   // CHECK IF APPLE PAY IS AVAILABLE ON THIS DEVICE
   // ============================================================
   function isApplePayAvailable() {
-    // Check if we're on an Apple device with Safari
-    var isAppleDevice = /iPhone|iPad|iPod|Mac/.test(navigator.userAgent) && 
-                        /AppleWebKit/.test(navigator.userAgent) &&
-                        !/Chrome/.test(navigator.userAgent) &&
-                        !/Android/.test(navigator.userAgent);
-    
-    // Check if ApplePaySession exists
+    var isAppleDevice = /iPhone|iPad|iPod|Mac/.test(navigator.userAgent);
+    var isSafari = /AppleWebKit/.test(navigator.userAgent) && 
+                   !/Chrome/.test(navigator.userAgent) &&
+                   !/Android/.test(navigator.userAgent);
     var hasApplePaySession = typeof window.ApplePaySession !== 'undefined';
-    
-    // Check if PayPal Apple Pay is available
     var hasPayPalApplePay = typeof window.paypal !== 'undefined' && 
                             typeof window.paypal.Applepay === 'function';
-    
-    return isAppleDevice && hasApplePaySession && hasPayPalApplePay;
+    return isAppleDevice && isSafari && hasApplePaySession && hasPayPalApplePay;
   }
 
   // ============================================================
-  // RENDER ALL PAYMENTS - Shows loading states until ready
+  // RENDER ALL PAYMENTS
   // ============================================================
   async function renderAllPayments(cart, custFormData, onBeforePay) {
-    // Generate order reference if it doesn't exist
     if (!orderRef) {
       orderRef = 'ORD-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7).toUpperCase();
     }
 
-    // Wire Credit Card button
     var ccBtn = document.getElementById('credit-card-btn');
     if (ccBtn && !ccBtn._wired) {
       ccBtn._wired = true;
@@ -793,18 +796,14 @@
     try {
       await Payment.init();
 
-      // Get containers
-      const paypalWrapper = document.getElementById('paypal-button-wrapper');
-      const googleContainer = document.getElementById('google-pay-button');
-      const appleContainer = document.getElementById('apple-pay-button');
+      var paypalWrapper = document.getElementById('paypal-button-wrapper');
+      var googleContainer = document.getElementById('google-pay-button');
+      var appleContainer = document.getElementById('apple-pay-button');
 
-      // Check Google Pay availability
-      const googleAvailable = await checkGooglePayAvailable();
-      
-      // Check Apple Pay availability
-      const appleAvailable = isApplePayAvailable();
+      var googleAvailable = await checkGooglePayAvailable();
+      var appleAvailable = isApplePayAvailable();
 
-      // Render PayPal (always)
+      // PayPal (always)
       if (paypalWrapper) {
         try {
           paypalWrapper.innerHTML = '';
@@ -815,7 +814,7 @@
         }
       }
 
-      // Render Google Pay if available
+      // Google Pay
       if (googleContainer && googleAvailable) {
         try {
           googleContainer.innerHTML = '';
@@ -829,7 +828,7 @@
         googleContainer.style.display = 'none';
       }
 
-      // Render Apple Pay ONLY if available on this device
+      // Apple Pay (only if available)
       if (appleContainer && appleAvailable) {
         try {
           appleContainer.innerHTML = '';
@@ -845,7 +844,6 @@
 
     } catch(e) {
       console.error('Payment initialization failed:', e);
-      showPaymentError();
     }
   }
 
@@ -871,13 +869,6 @@
         resolve(false);
       }
     });
-  }
-
-  function showPaymentError() {
-    var wrapper = document.getElementById('paypal-button-wrapper');
-    if (wrapper) {
-      wrapper.innerHTML = '<div style="padding:12px;text-align:center;font-size:0.85rem;color:var(--c-text-3);border:1px solid var(--c-border);border-radius:8px;">Payment unavailable</div>';
-    }
   }
 
   async function renderCardPayment(cart, custFormData, onBeforePay) {
