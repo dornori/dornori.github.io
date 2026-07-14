@@ -133,11 +133,18 @@
       if (!customer.shipping_postal && fd.postal) customer.shipping_postal = fd.postal;
       if (!customer.shipping_country && fd.country) customer.shipping_country = fd.country;
       if (!customer.amount && totals.total != null) customer.amount = Number(totals.total).toFixed(2);
-      if (!customer.currency) customer.currency = snapshot.currency || 'EUR';
+
+      // The cart snapshot is taken BEFORE payment, in the currency/amounts the
+      // customer actually saw and agreed to. Capture-returned values have been
+      // unreliable, so the snapshot wins whenever it's available.
+      if (snapshot.currency) customer.currency = snapshot.currency;
+      else if (!customer.currency) customer.currency = 'EUR';
 
       // Use items from snapshot if available, otherwise from customer._items
       customer._items = customer._items || snapshot.items || [];
-      customer._totals = customer._totals || totals;
+      customer._totals = (totals && (totals.subtotal != null || totals.shipping != null || totals.tax != null || totals.total != null))
+        ? totals
+        : (customer._totals || {});
 
       return {
         customer,
