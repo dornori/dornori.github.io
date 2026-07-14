@@ -30,25 +30,6 @@ function getSupportedLanguages() {
 
 // ── DATA LOADERS ─────────────────────────────────────────────────────────────
 
-/**
- * FIX #5: Return cached countries instead of fetching again
- * site-main.js already fetched and cached in window.__countriesCache
- */
-export async function loadCountries() {
-    // Check window cache first (set by site-main.js)
-    if (window.__countriesCache) {
-        return window.__countriesCache;
-    }
-    
-    // Fallback: fetch if somehow cache not available
-    const url = BASE() + SITE_CONFIG.paths.countries_file;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`[i18n] Failed to load countries: ${res.status}`);
-    const data = await res.json();
-    window.__countriesCache = data;
-    return data;
-}
-
 const _langCache = {};
 
 export async function loadLanguage(langCode) {
@@ -70,19 +51,10 @@ export async function loadLanguage(langCode) {
 
 // ── COUNTRY HELPERS ───────────────────────────────────────────────────────
 
-export function getActiveCountries(data) {
-    return (data || []).filter(c => c.active === true);
-}
-
 export function getLanguageByCountry(data, code) {
     const country = (data || []).find(c => c.code === code?.toUpperCase());
     if (!country || !country.active) return null;
     return country.language || null;
-}
-
-export function getCurrencyByCountry(data, code) {
-    const country = (data || []).find(c => c.code === code?.toUpperCase());
-    return country?.currency || null;
 }
 
 // ── LANGUAGE DATA HELPERS ─────────────────────────────────────────────────────
@@ -213,40 +185,4 @@ export async function initI18n() {
     injectHreflangTags('', window.T);
 }
 
-/**
- * Detect parent/child relationship from URL segments
- * Returns { slug, parentSlug } if child, { slug, parentSlug: null } if parent
- * E.g., /en/files/python/ → { slug: 'python', parentSlug: 'files' }
- */
-export function parsePageFromUrl(urlSegments, langData) {
-    if (urlSegments.length === 0) return { slug: '', parentSlug: null };
-    
-    const CONFIG = window.CONFIG || {};
-    const slugs = langData?.url_slugs || {};
-    
-    if (urlSegments.length === 1) {
-        // Single segment: parent page
-        const slug = canonicalSlug(langData, urlSegments[0]) || urlSegments[0];
-        return { slug, parentSlug: null };
-    }
-    
-    if (urlSegments.length >= 2) {
-        // Two or more segments: potential parent/child
-        const firstSegment = urlSegments[0];
-        const secondSegment = urlSegments[1];
-        
-        const potentialParent = canonicalSlug(langData, firstSegment) || firstSegment;
-        const potentialChild = canonicalSlug(langData, secondSegment) || secondSegment;
-        
-        // Check if first segment is a parent in config
-        const parentConfig = CONFIG.navigation?.find(n => n.slug === potentialParent);
-        if (parentConfig?.children?.find(c => c.slug === potentialChild)) {
-            return { slug: potentialChild, parentSlug: potentialParent };
-        }
-        
-        // Otherwise treat second segment as the main slug
-        return { slug: potentialChild, parentSlug: null };
-    }
-    
-    return { slug: '', parentSlug: null };
-}
+

@@ -1455,7 +1455,7 @@ __name(getReports, "getReports");
 
 function formatEmailBody(text) {
   if (!text) return "";
-  const blockTagRegex = /<(?:p|div|h[1-6]|ul|ol|blockquote)[\s>]/i;
+  const blockTagRegex = /<(?:p|div|h[1-6]|ul|ol|blockquote|table)[\s>]/i;
   if (blockTagRegex.test(text)) return text;
   let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\r\n|\r|\n/g, "</p><p>");
   html = "<p>" + html + "</p>";
@@ -1502,64 +1502,246 @@ function parseTicketMeta(ticket) {
 }
 __name(parseTicketMeta, "parseTicketMeta");
 
-function renderOrderItemsHtml(meta) {
-  const items = (meta && meta.order && meta.order.items) || [];
+// Resolves general.products_data_base_url / products_images_base_url against
+// general.domain, mirroring order-reply.html's getProductUrls().
+async function getProductUrls(env) {
+  const domain = ((await getSetting(env, "general", "domain")) || "").replace(/\/+$/, "");
+  function withDomain(url) {
+    if (!url) return "";
+    if (url.startsWith("http")) return url;
+    const base = domain.startsWith("http") ? domain : domain ? "https://" + domain : "";
+    return base + (url.startsWith("/") ? "" : "/") + url;
+  }
+  const dataBaseUrl = withDomain(((await getSetting(env, "general", "products_data_base_url")) || "").replace(/\/+$/, ""));
+  const imagesBaseUrl = withDomain(((await getSetting(env, "general", "products_images_base_url")) || "").replace(/\/+$/, ""));
+  return { domain, dataBaseUrl, imagesBaseUrl };
+}
+__name(getProductUrls, "getProductUrls");
+
+async function fetchProductNames(urls, lang) {
+  try {
+    if (!urls.dataBaseUrl) return {};
+    const res = await fetch(`${urls.dataBaseUrl}/${lang}/products.json`);
+    if (!res.ok) return {};
+    return await res.json();
+  } catch (e) {
+    return {};
+  }
+}
+__name(fetchProductNames, "fetchProductNames");
+
+// Normalizes array-format products.json into an object keyed by id (mirrors
+// order-reply.html's normalizeProductImages so server and client agree).
+function normalizeProductImages(data) {
+  if (!Array.isArray(data)) return data || {};
+  const out = {};
+  for (const item of data) {
+    if (item.id) out[item.id] = { images: item.images || [], image: item.image || "" };
+  }
+  return out;
+}
+__name(normalizeProductImages, "normalizeProductImages");
+
+async function fetchProductImages(urls) {
+  try {
+    if (!urls.imagesBaseUrl) return {};
+    const res = await fetch(`${urls.imagesBaseUrl}/products.json`);
+    if (!res.ok) return {};
+    return normalizeProductImages(await res.json());
+  } catch (e) {
+    return {};
+  }
+}
+__name(fetchProductImages, "fetchProductImages");
+
+async function fetchOrderLabels(urls, lang) {
+  try {
+    if (!urls.dataBaseUrl) return {};
+    const res = await fetch(`${urls.dataBaseUrl}/${lang}/orders.json`);
+    if (!res.ok) return {};
+    return await res.json();
+  } catch (e) {
+    return {};
+  }
+}
+__name(fetchOrderLabels, "fetchOrderLabels");
+
+// Resolves a catalog product id from an order item (mirrors order-reply.html's
+// resolveProductId so name/image lookups match the manual composer).
+function resolveProductId(item, catalogs) {
+  let id = item.product_id || item.productId || item.id || item.sku ||
+    item.item_id || item.itemId || item.variant_id || item.variantId ||
+    item.slug || null;
+  if (id) return id;
+  const itemName = (item.name || item.title || "").trim().toLowerCase();
+  if (itemName) {
+    for (const catalog of catalogs) {
+      if (!catalog) continue;
+      for (const [key, val] of Object.entries(catalog)) {
+        const candidates = [val.name, val.label].filter(Boolean).map((s) => String(s).toLowerCase());
+        if (candidates.includes(itemName)) return key;
+      }
+    }
+  }
+  return null;
+}
+__name(resolveProductId, "resolveProductId");
+
+function resolveImgUrl(domain, raw) {
+  if (!raw) return "";
+  if (raw.startsWith("http")) return raw;
+  const base = domain.startsWith("http") ? domain : domain ? "https://" + domain : "";
+  return base + (raw.startsWith("/") ? "" : "/") + raw;
+}
+__name(resolveImgUrl, "resolveImgUrl");
+
+function renderOrderItemsHtml(meta, langProducts, labels) {
+  const order = (meta && meta.order) || {};
+  const items = order.items || [];
   if (!items.length) return "";
   const currency = meta.currency || "EUR";
-  let html = '<table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
-  html += '<tr style="border-bottom:2px solid #ddd;"><th style="text-align:left;padding:8px;">Item</th><th style="text-align:center;padding:8px;">Qty</th><th style="text-align:right;padding:8px;">Price</th></tr>';
-  for (const item of items) {
-    html += `<tr style="border-bottom:1px solid #eee;"><td style="padding:8px;">${escHtml(item.name || item.title || "")}</td><td style="text-align:center;padding:8px;">${escHtml(item.quantity || item.qty || 1)}</td><td style="text-align:right;padding:8px;">${currency} ${parseFloat(item.price || 0).toFixed(2)}</td></tr>`;
+  const totals = order.totals || {};
+  let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
+  if (labels.product || labels.qty || labels.unit_price || labels.total) {
+    html += '<tr style="border-bottom:1px solid #ddd;">';
+    if (labels.product) html += `<th style="padding:10px;text-align:left;">${escHtml(labels.product)}</th>`;
+    if (labels.qty) html += `<th style="padding:10px;text-align:center;">${escHtml(labels.qty)}</th>`;
+    if (labels.unit_price) html += `<th style="padding:10px;text-align:right;">${escHtml(labels.unit_price)}</th>`;
+    if (labels.total) html += `<th style="padding:10px;text-align:right;">${escHtml(labels.total)}</th>`;
+    html += "</tr>";
   }
+  for (const item of items) {
+    if (!item || typeof item !== "object") continue;
+    const productId = resolveProductId(item, [langProducts]);
+    let name = item.name;
+    if (productId && langProducts[productId]) name = langProducts[productId].name || item.name;
+    name = escHtml(String(name || "Product"));
+    const qty = Math.max(1, parseInt(item.qty || item.quantity || 1, 10));
+    const price = Math.max(0, parseFloat(item.price || 0));
+    if (isNaN(price) || isNaN(qty)) continue;
+    const lineTotal = (price * qty).toFixed(2);
+    html += '<tr style="border-bottom:1px solid #eee;">';
+    html += `<td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${currency} ${price.toFixed(2)}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+  }
+  html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
+  html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? escHtml(labels.total) : ""}</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${parseFloat(totals.total || 0).toFixed(2)}</td></tr>`;
   html += "</table>";
   return html;
 }
 __name(renderOrderItemsHtml, "renderOrderItemsHtml");
 
-function renderOrderSummaryHtml(meta) {
+function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, labels, domain) {
+  const order = (meta && meta.order) || {};
+  const items = order.items || [];
+  if (!items.length) return "";
+  const currency = meta.currency || "EUR";
+  const totals = order.totals || {};
+  let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
+  if (labels.image || labels.product || labels.qty || labels.unit_price || labels.total) {
+    html += '<tr style="border-bottom:1px solid #ddd;">';
+    if (labels.image) html += `<th style="padding:10px;text-align:left;">${escHtml(labels.image)}</th>`;
+    if (labels.product) html += `<th style="padding:10px;text-align:left;">${escHtml(labels.product)}</th>`;
+    if (labels.qty) html += `<th style="padding:10px;text-align:center;">${escHtml(labels.qty)}</th>`;
+    if (labels.unit_price) html += `<th style="padding:10px;text-align:right;">${escHtml(labels.unit_price)}</th>`;
+    if (labels.total) html += `<th style="padding:10px;text-align:right;">${escHtml(labels.total)}</th>`;
+    html += "</tr>";
+  }
+  for (const item of items) {
+    if (!item || typeof item !== "object") continue;
+    const productId = resolveProductId(item, [langProducts, genericProducts]);
+    let name = item.name;
+    if (productId && langProducts[productId]) name = langProducts[productId].name || item.name;
+    name = escHtml(String(name || "Product"));
+    let imgHtml = '<div style="width:60px;height:60px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">No image</div>';
+    if (productId && genericProducts[productId] && genericProducts[productId].image) {
+      const imgUrl = escHtml(resolveImgUrl(domain, genericProducts[productId].image));
+      imgHtml = `<img src="${imgUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" alt="${name}" />`;
+    }
+    const qty = Math.max(1, parseInt(item.qty || item.quantity || 1, 10));
+    const price = Math.max(0, parseFloat(item.price || 0));
+    if (isNaN(price) || isNaN(qty)) continue;
+    const lineTotal = (price * qty).toFixed(2);
+    html += '<tr style="border-bottom:1px solid #eee;">';
+    html += `<td style="padding:10px;text-align:center;">${imgHtml}</td><td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${currency} ${price.toFixed(2)}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+  }
+  html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
+  html += `<td colspan="4" style="padding:12px;"></td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${parseFloat(totals.total || 0).toFixed(2)}</td></tr>`;
+  html += "</table>";
+  return html;
+}
+__name(renderOrderItemsWithImagesHtml, "renderOrderItemsWithImagesHtml");
+
+function renderOrderSummaryHtml(meta, labels) {
   const order = (meta && meta.order) || {};
   const totals = order.totals || {};
   const currency = meta.currency || "EUR";
   if (!order.items || !order.items.length) return "";
   let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
-  html += `<div style="margin-bottom:8px;"><strong>Order Reference:</strong> ${escHtml(order.reference || "N/A")}</div>`;
-  html += `<div style="margin-bottom:8px;"><strong>Items:</strong> ${order.items.length}</div>`;
-  html += `<div style="margin-bottom:8px;"><strong>Subtotal:</strong> ${currency} ${parseFloat(totals.subtotal || 0).toFixed(2)}</div>`;
-  if (parseFloat(totals.shipping) > 0) html += `<div style="margin-bottom:8px;"><strong>Shipping:</strong> ${currency} ${parseFloat(totals.shipping).toFixed(2)}</div>`;
-  if (parseFloat(totals.tax) > 0) html += `<div style="margin-bottom:8px;"><strong>Tax:</strong> ${currency} ${parseFloat(totals.tax).toFixed(2)}</div>`;
-  html += `<div style="padding-top:8px;border-top:1px solid #ddd;"><strong>Total:</strong> ${currency} ${parseFloat(totals.total || 0).toFixed(2)}</div></div>`;
+  html += `<div style="margin-bottom:8px;">${labels.order_ref ? escHtml(labels.order_ref) + ": " : "<strong>Order Reference:</strong> "}${escHtml(order.reference || "N/A")}</div>`;
+  html += `<div style="margin-bottom:8px;">${labels.subtotal ? escHtml(labels.subtotal) + ": " : "<strong>Subtotal:</strong> "}${currency} ${parseFloat(totals.subtotal || 0).toFixed(2)}</div>`;
+  if (parseFloat(totals.shipping) > 0) html += `<div style="margin-bottom:8px;">${labels.shipping ? escHtml(labels.shipping) + ": " : "<strong>Shipping:</strong> "}${currency} ${parseFloat(totals.shipping).toFixed(2)}</div>`;
+  if (parseFloat(totals.tax) > 0) html += `<div style="margin-bottom:8px;">${labels.tax ? escHtml(labels.tax) + ": " : "<strong>Tax:</strong> "}${currency} ${parseFloat(totals.tax).toFixed(2)}</div>`;
+  html += `<div style="padding-top:8px;border-top:1px solid #ddd;"><strong>${labels.total ? escHtml(labels.total) + ":" : "Total:"}</strong> ${currency} ${parseFloat(totals.total || 0).toFixed(2)}</div></div>`;
   return html;
 }
 __name(renderOrderSummaryHtml, "renderOrderSummaryHtml");
 
-function renderOrderCustomerHtml(meta) {
+function renderOrderCustomerHtml(meta, labels) {
   const customer = meta && meta.order && meta.order.customer;
   if (!customer || !(customer.name || customer.email || customer.phone)) return "";
   let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
-  if (customer.name) html += `<div style="margin-bottom:8px;"><strong>Name:</strong> ${escHtml(customer.name)}</div>`;
-  if (customer.email) html += `<div style="margin-bottom:8px;"><strong>Email:</strong> ${escHtml(customer.email)}</div>`;
-  if (customer.phone) html += `<div><strong>Phone:</strong> ${escHtml(customer.phone)}</div>`;
+  if (customer.name) html += `<div style="margin-bottom:8px;"><strong>${labels.name ? escHtml(labels.name) + ":" : "Name:"}</strong> ${escHtml(customer.name)}</div>`;
+  if (customer.email) html += `<div style="margin-bottom:8px;"><strong>${labels.email ? escHtml(labels.email) + ":" : "Email:"}</strong> ${escHtml(customer.email)}</div>`;
+  if (customer.phone) html += `<div><strong>${labels.phone ? escHtml(labels.phone) + ":" : "Phone:"}</strong> ${escHtml(customer.phone)}</div>`;
   html += "</div>";
   return html;
 }
 __name(renderOrderCustomerHtml, "renderOrderCustomerHtml");
 
-function renderOrderShippingHtml(meta) {
+function renderOrderShippingHtml(meta, labels) {
   const customer = meta && meta.order && meta.order.customer;
   if (!customer || !customer.shipping_address) return "";
-  return `<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;white-space:pre-wrap;">${escHtml(customer.shipping_address)}</div>`;
+  const prefix = labels.shipping_address ? `<div style="font-weight:bold;margin-bottom:4px;">${escHtml(labels.shipping_address)}</div>` : "";
+  return `<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">${prefix}<div style="white-space:pre-wrap;">${escHtml(customer.shipping_address)}</div></div>`;
 }
 __name(renderOrderShippingHtml, "renderOrderShippingHtml");
 
-function applyOrderTags(html, ticket) {
+// Renders {{order_items_with_names}}, {{order_items_with_images}}, {{order_items}}
+// (legacy alias), {{order_summary}}, {{order_customer}}, {{order_shipping}},
+// {{order_reference}} and {{ticket_number}}. Mirrors order-reply.html's
+// applyOrderTags so auto-replies and manual replies render identically.
+async function applyOrderTags(html, ticket, env) {
   if (!ticket || !html) return html;
   const meta = parseTicketMeta(ticket);
+  const lang = meta.language || ticket.language || "en";
   let out = html;
-  out = out.replaceAll("{{order_items}}", renderOrderItemsHtml(meta));
-  out = out.replaceAll("{{order_summary}}", renderOrderSummaryHtml(meta));
-  out = out.replaceAll("{{order_customer}}", renderOrderCustomerHtml(meta));
-  out = out.replaceAll("{{order_shipping}}", renderOrderShippingHtml(meta));
+
+  const needsNames = out.includes("{{order_items_with_names}}") || out.includes("{{order_items}}");
+  const needsImages = out.includes("{{order_items_with_images}}");
+  const needsLabels = needsNames || needsImages ||
+    out.includes("{{order_summary}}") || out.includes("{{order_customer}}") || out.includes("{{order_shipping}}");
+
+  let urls = { domain: "", dataBaseUrl: "", imagesBaseUrl: "" };
+  let langProducts = {}, genericProducts = {}, labels = {};
+  if (needsNames || needsImages || needsLabels) urls = await getProductUrls(env);
+  if (needsNames || needsImages) langProducts = await fetchProductNames(urls, lang);
+  if (needsImages) genericProducts = await fetchProductImages(urls);
+  if (needsLabels) labels = await fetchOrderLabels(urls, lang);
+
+  if (out.includes("{{order_items_with_names}}")) {
+    out = out.replaceAll("{{order_items_with_names}}", renderOrderItemsHtml(meta, langProducts, labels));
+  }
+  if (out.includes("{{order_items_with_images}}")) {
+    out = out.replaceAll("{{order_items_with_images}}", renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, labels, urls.domain));
+  }
+  if (out.includes("{{order_items}}")) {
+    out = out.replaceAll("{{order_items}}", renderOrderItemsHtml(meta, langProducts, labels));
+  }
+  out = out.replaceAll("{{order_summary}}", renderOrderSummaryHtml(meta, labels));
+  out = out.replaceAll("{{order_customer}}", renderOrderCustomerHtml(meta, labels));
+  out = out.replaceAll("{{order_shipping}}", renderOrderShippingHtml(meta, labels));
   out = out.replaceAll("{{order_reference}}", escHtml((meta.order && meta.order.reference) || ticket.order_number || ""));
+  out = out.replaceAll("{{ticket_number}}", escHtml(ticket.ticket_number || ""));
   return out;
 }
 __name(applyOrderTags, "applyOrderTags");
@@ -1577,8 +1759,8 @@ async function sendTicketConfirmation(ticket, env, emailOverride) {
     subject = subject.replaceAll(tag, val);
     body = body.replaceAll(tag, val);
   }
-  subject = applyOrderTags(subject, ticket);
-  body = applyOrderTags(body, ticket);
+  subject = await applyOrderTags(subject, ticket, env);
+  body = await applyOrderTags(body, ticket, env);
   const formattedBody = formatEmailBody(body);
   let from = ar.from || await getDefaultFrom(env);
   return await sendEmail(env, email, subject, formattedBody, from);

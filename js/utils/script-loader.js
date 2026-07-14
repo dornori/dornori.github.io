@@ -1,5 +1,3 @@
-import ENV_CONFIG from '../env-config.js';
-
 const _loadedScripts = new Map();
 
 export async function loadScript(src, attrs = {}) {
@@ -35,23 +33,3 @@ export async function loadScript(src, attrs = {}) {
     });
 }
 
-export async function loadJSON(url, fallback = {}) {
-    try {
-        const r = await fetch(url);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return await r.json();
-    } catch (e) {
-        if (ENV_CONFIG.DEBUG) console.warn(`Failed to load ${url}:`, e);
-        return fallback;
-    }
-}
-
-export async function loadMultiple(urls) {
-    const results = {};
-    await Promise.all(Object.entries(urls).map(async ([name, url]) => {
-        results[name] = await loadJSON(url);
-    }));
-    return results;
-}
-
-export default { loadScript, loadJSON, loadMultiple };
