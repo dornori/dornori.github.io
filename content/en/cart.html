@@ -106,8 +106,9 @@
         </div>
         <div id="payment-alt-methods" style="display:none;flex-direction:column;gap:12px;margin-bottom:24px;"></div>
 
-        <!-- Customer Details: always visible. Required for ALL payment methods (PayPal/Google/Apple Pay validate against this
-             form via onBeforePay too), not just Credit Card, so it must never be hidden behind the Credit Card toggle. -->
+        <!-- FORM: hidden until Credit Card clicked -->
+        <div id="credit-card-form-section" style="display:none;">
+
         <h2 class="webshop-panel-title" data-i18n="shipping_info" style="font-size:1.1rem;margin-bottom:16px;">Customer Details</h2>
         <div class="webshop-form" id="cart-shipping-form">
           <div class="webshop-form-row">
@@ -152,7 +153,7 @@
           </div>
         </div>
 
-        <!-- Billing Address: always visible (same reason as above) -->
+        <!-- Billing Address -->
         <div class="webshop-billing-section">
           <h3 class="webshop-billing-section__title" data-i18n="billing_address">Billing Address</h3>
           <p class="webshop-billing-section__desc" data-i18n="billing_address_desc">Select the address that matches your card or payment method.</p>
@@ -201,9 +202,6 @@
             </div>
           </div>
         </div>
-
-        <!-- FORM: hidden until Credit Card clicked (card entry UI only) -->
-        <div id="credit-card-form-section" style="display:none;">
 
         <!-- Payment Section -->
         <div style="margin-top:32px;padding-top:24px;border-top:2px solid var(--c-border);">
@@ -371,37 +369,19 @@
 }
 
 /* ============================================================
-   PAYPAL BUTTON FIX - Remove white background
+   PAYPAL BUTTON — no forced border-radius/overflow clipping on
+   the wrapper: PayPal's iframe already renders its own rounded
+   "rect" shape (set via Buttons({ style }) in payment.js), and
+   clipping it with a mismatched outer radius is what produced
+   the white corner sliver. Only the browser's default iframe
+   focus outline is removed, which is safe and doesn't touch
+   PayPal's rendered button in any way.
    ============================================================ */
 #paypal-button-wrapper {
   min-height: 46px;
-  border-radius: 8px;
-  overflow: hidden;
-  background: transparent !important;
 }
-
-/* Force PayPal's container to be transparent */
-#paypal-button-wrapper > div {
-  background: transparent !important;
-  border: none !important;
-  border-radius: 8px !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-/* Remove white background from PayPal iframe */
 #paypal-button-wrapper iframe {
-  border: none !important;
-  border-radius: 8px !important;
-  outline: none !important;
-  box-shadow: none !important;
-  background: transparent !important;
-}
-
-/* Force PayPal's inner elements to be transparent */
-#paypal-button-wrapper [class*="paypal"],
-#paypal-button-wrapper [class*="PayPal"] {
-  background: transparent !important;
+  outline: none;
 }
 
 /* Mobile responsive */
@@ -809,7 +789,7 @@
       if (paypalWrapper) {
         try {
           paypalWrapper.innerHTML = '';
-          await Payment.renderPayPalButton(cart, orderRef, paypalWrapper, custFormData, onBeforePay);
+          await Payment.renderPayPalButton(cart, orderRef, paypalWrapper, custFormData);
         } catch(e) {
           console.warn('PayPal button failed:', e);
           paypalWrapper.innerHTML = '<div style="padding:12px;text-align:center;font-size:0.85rem;color:var(--c-text-3);border:1px solid var(--c-border);border-radius:8px;">PayPal unavailable</div>';
