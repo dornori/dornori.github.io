@@ -4,20 +4,14 @@
 translations
 -=-=-=-=-=-=
 - word discount in email not translated - missing from orders.json
-- 'you save' from cart missing from cart - it's in common.js but not used - also change color from RED to GREEN
 - CC window in english - probably not in common.js
-- subject line for confirmation email is in english (also check contact, support etc.)
 
 
 major
 -=-=-=
 - country selection in cart summary not selected so probably not right shipping applied. (was working at some point)
  check the actual tax and shipping
- 
- 
- 
-- paypal button dissapears or doesnt show up always 
-
+ -Paypal button can dissapear after payment and user wasts to make another payment. probable needs cleanup
 
 
 minor

@@ -196,24 +196,29 @@ const Payment = (() => {
                   currencyCode: currency,
                   countryCode: gpayConfig.countryCode || 'NL'
                 },
-                shippingAddressChangeCallback: async (intermediate) => {
-                  const selectedCountry = intermediate.shippingAddress?.countryCode || null;
-                  const liveTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, selectedCountry) : localTotals;
-                  const liveSubtotal = _convert(liveTotals ? liveTotals.subtotal : rawSubtotal);
-                  const liveShipping = _convert(liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : rawShipping);
-                  const liveTax = _convert(liveTotals ? liveTotals.tax : rawTax);
-                  const liveTotal = liveSubtotal + liveShipping + liveTax;
+                shippingAddressChangeCallback: function(intermediate) {
+                  try {
+                    const selectedCountry = intermediate.shippingAddress?.countryCode || null;
+                    const liveTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, selectedCountry) : localTotals;
+                    const liveSubtotal = _convert(liveTotals ? liveTotals.subtotal : rawSubtotal);
+                    const liveShipping = _convert(liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : rawShipping);
+                    const liveTax = _convert(liveTotals ? liveTotals.tax : rawTax);
+                    const liveTotal = liveSubtotal + liveShipping + liveTax;
 
-                  return {
-                    newTransactionInfo: {
-                      totalPriceStatus: 'FINAL',
-                      totalPrice: liveTotal.toFixed(2),
-                      totalPriceLabel: 'Total',
-                      displayItems: buildDisplayItems(liveSubtotal, liveShipping, liveTax),
-                      currencyCode: currency,
-                      countryCode: selectedCountry || (gpayConfig.countryCode || 'NL')
-                    }
-                  };
+                    return {
+                      newTransactionInfo: {
+                        totalPriceStatus: 'FINAL',
+                        totalPrice: liveTotal.toFixed(2),
+                        totalPriceLabel: 'Total',
+                        displayItems: buildDisplayItems(liveSubtotal, liveShipping, liveTax),
+                        currencyCode: currency,
+                        countryCode: selectedCountry || (gpayConfig.countryCode || 'NL')
+                      }
+                    };
+                  } catch (err) {
+                    console.warn('Google Pay shipping calculation error:', err);
+                    return { newTransactionInfo: { totalPriceStatus: 'FINAL', totalPrice: displayTotal.toFixed(2) } };
+                  }
                 }
               };
 
