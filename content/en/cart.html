@@ -99,12 +99,8 @@
             <span>💳</span> <span data-i18n="credit_card">Credit Card</span>
           </button>
 
-          <!-- PayPal Button Container -->
-          <div id="paypal-button-wrapper" style="min-height:46px;position:relative;">
-            <div id="paypal-loading-placeholder" style="display:flex;align-items:center;justify-content:center;height:46px;background:var(--c-bg-2, rgba(0,0,0,0.05));border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);">
-              <span data-i18n="loading_paypal">Loading PayPal...</span>
-            </div>
-          </div>
+          <!-- PayPal Button Container - Clean, no borders -->
+          <div id="paypal-button-wrapper" style="min-height:46px;"></div>
         </div>
 
         <!-- Credit Card Form Section -->
@@ -309,35 +305,10 @@
   min-height: 48px;
 }
 
-/* PayPal button wrapper - clean, no borders */
+/* PayPal button wrapper - CLEAN, no borders or backgrounds */
 #paypal-button-wrapper {
   min-height: 46px;
-  position: relative;
-}
-
-#paypal-button-wrapper iframe,
-#paypal-button-wrapper > div {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-/* Loading placeholder */
-#paypal-loading-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 46px;
-  background: var(--c-bg-2, rgba(0,0,0,0.05));
-  border-radius: 8px;
-  font-size: 0.85rem;
-  color: var(--c-text-3, #8a8f87);
-  animation: pulse-loading 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse-loading {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+  width: 100%;
 }
 
 /* Billing section */
@@ -469,11 +440,6 @@
 .webshop-step3-summary__totals-row--savings {
   color: var(--c-success, #2e7d32) !important;
   font-weight: 600;
-}
-
-.webshop-cart-totals-bar__row--savings span,
-.webshop-step3-summary__totals-row--savings span {
-  color: var(--c-success, #2e7d32) !important;
 }
 </style>
 
@@ -635,7 +601,6 @@
     if (tax) tax.textContent = isBusiness ? Shop.fmt(0) + ' ' + L.b2b : Shop.fmt(t.tax);
     if (tot) tot.textContent = Shop.fmt(t.subtotal + (isBusiness ? 0 : t.tax));
     
-    // Calculate and display savings with proper translation
     var totalSavings = cart.reduce(function(a, i) { return a + (i.originalPrice ? (i.originalPrice - i.price) * i.qty : 0); }, 0);
     var savRow = document.getElementById('cart-savings-row');
     var savVal = document.getElementById('cart-savings-val');
@@ -643,7 +608,6 @@
       if (totalSavings > 0) {
         savRow.style.display = 'flex'; 
         savVal.textContent = '-' + Shop.fmt(totalSavings);
-        // Update the label to use translation
         var label = savRow.querySelector('span:first-child');
         if (label) label.textContent = T('you_save', 'You save');
       } else {
@@ -868,8 +832,6 @@
     var cart = Shop.getCart();
     if (!cart || !cart.length) return;
 
-    showPaymentLoading();
-
     try {
       await Payment.init();
 
@@ -908,9 +870,10 @@
         appleContainer.style.display = 'none';
       }
 
-      // PayPal last
+      // PayPal last - clean render, no wrapper styling
       if (paypalWrapper) {
         try {
+          // Clear wrapper completely - let PayPal render its own button
           paypalWrapper.innerHTML = '';
           await Payment.renderPayPalButton(cart, orderRef, paypalWrapper, getFormData, beforePay);
         } catch (e) {
@@ -922,7 +885,6 @@
 
     } catch (e) {
       console.error('Payment rendering failed:', e);
-      showPaymentError();
     }
   }
 
@@ -959,20 +921,6 @@
       return Promise.resolve(available);
     } catch (e) {
       return Promise.resolve(false);
-    }
-  }
-
-  function showPaymentLoading() {
-    var paypalWrapper = document.getElementById('paypal-button-wrapper');
-    if (paypalWrapper) {
-      paypalWrapper.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:46px;background:var(--c-bg-2, rgba(0,0,0,0.05));border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);"><span data-i18n="loading_paypal">Loading PayPal...</span></div>';
-    }
-  }
-
-  function showPaymentError() {
-    var paypalWrapper = document.getElementById('paypal-button-wrapper');
-    if (paypalWrapper) {
-      paypalWrapper.innerHTML = '<div style="padding:12px;text-align:center;font-size:0.85rem;color:var(--c-text-3);border:1px solid var(--c-border);border-radius:8px;"><span data-i18n="payment_unavailable">Payment unavailable</span></div>';
     }
   }
 
