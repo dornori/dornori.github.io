@@ -36,7 +36,7 @@
         <div id="result-page" class="webshop-result-page webshop-fade-in">
             <div class="loading-spinner">
                 <div class="spinner"></div>
-                <p style="margin-top:16px;color:#666;">Processing your order...</p>
+                <p style="margin-top:16px;color:#666;" id="success-loading-text">Processing your order...</p>
             </div>
         </div>
     </div>
@@ -422,11 +422,11 @@
         
         <div class="webshop-order-details">
           <div class="detail-row">
-            <span class="label">Order Reference</span>
+            <span class="label">${T('order_reference', 'Order Reference')}</span>
             <span class="value">${dorReference}</span>
           </div>
           ${ticketNumber ? `<div class="detail-row">
-            <span class="label">Ticket Number</span>
+            <span class="label">${T('ticket_number', 'Ticket Number')}</span>
             <span class="value">${ticketNumber}</span>
           </div>` : ''}
         </div>
@@ -484,8 +484,8 @@
     if (!page) return;
     page.innerHTML = `
       <div class="error-state">
-        <h3>⚠️ Something went wrong</h3>
-        <p style="color:#666;">${message || 'Please contact support with your order reference.'}</p>
+        <h3>⚠️ ${T('error_title', 'Something went wrong')}</h3>
+        <p style="color:#666;">${message || T('error_contact_support', 'Please contact support with your order reference.')}</p>
         <div style="margin-top:20px;">
           <a href="/${lang}/" class="webshop-btn webshop-btn--primary">${T('continue_shopping', 'Continue Shopping')}</a>
         </div>
@@ -501,6 +501,9 @@
       if (typeof Shop !== 'undefined' && Shop.loadLang) {
         await Shop.loadLang().catch(() => {});
       }
+
+      const loadingText = document.getElementById('success-loading-text');
+      if (loadingText) loadingText.textContent = T('processing_order', 'Processing your order...');
       
       // Read data from localStorage
       const data = getPayPalData();
@@ -509,7 +512,7 @@
       // Check if we have data
       if (!data.dorReference || data.dorReference === 'N/A') {
         console.warn('⚠️ No order reference found, showing error state');
-        showError('No order reference found. Please contact support.');
+        showError(T('error_no_order_reference', 'No order reference found. Please contact support.'));
         return;
       }
       
