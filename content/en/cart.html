@@ -82,27 +82,31 @@
         <!-- PAYMENT BUTTONS WITH LOADING STATES -->
         <div id="payment-methods-buttons" style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
           
-          <!-- Google Pay -->
+          <!-- Google Pay - Loading state -->
           <div id="google-pay-button" style="min-height:48px;">
-            <div class="payment-loading-placeholder" style="display:flex;align-items:center;justify-content:center;height:48px;background:var(--c-bg-2, rgba(0,0,0,0.05));border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);">
-              <span data-i18n="loading_google_pay">Loading Google Pay...</span>
+            <div class="payment-loading" style="display:flex;align-items:center;justify-content:center;height:48px;background:var(--c-bg-2, #f5f3ef);border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);">
+              <span>Loading Google Pay...</span>
             </div>
           </div>
 
-          <!-- Apple Pay -->
-          <div id="apple-pay-button" style="min-height:48px;display:none;">
-            <div class="payment-loading-placeholder" style="display:flex;align-items:center;justify-content:center;height:48px;background:var(--c-bg-2, rgba(0,0,0,0.05));border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);">
-              <span data-i18n="loading_apple_pay">Loading Apple Pay...</span>
+          <!-- Apple Pay - Loading state (hidden if not available) -->
+          <div id="apple-pay-button" style="min-height:48px;">
+            <div class="payment-loading" style="display:flex;align-items:center;justify-content:center;height:48px;background:var(--c-bg-2, #f5f3ef);border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);">
+              <span>Loading Apple Pay...</span>
             </div>
           </div>
 
-          <!-- Credit Card -->
+          <!-- Credit Card - Always visible -->
           <button id="credit-card-btn" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;">
             <span>💳</span> <span data-i18n="credit_card">Credit Card</span>
           </button>
 
-          <!-- PayPal -->
-          <div id="paypal-button-wrapper" style="min-height:46px;border-radius:8px;overflow:hidden;background:transparent;"></div>
+          <!-- PayPal - Loading state -->
+          <div id="paypal-button-wrapper" style="min-height:46px;">
+            <div class="payment-loading" style="display:flex;align-items:center;justify-content:center;height:46px;background:var(--c-bg-2, #f5f3ef);border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);">
+              <span>Loading PayPal...</span>
+            </div>
+          </div>
         </div>
         <div id="payment-alt-methods" style="display:none;flex-direction:column;gap:12px;margin-bottom:24px;"></div>
 
@@ -353,7 +357,7 @@
   border-radius: 8px;
 }
 
-.payment-loading-placeholder {
+.payment-loading {
   animation: pulse-loading 1.5s ease-in-out infinite;
 }
 
@@ -368,38 +372,24 @@
   display: none;
 }
 
-/* ============================================================
-   PAYPAL BUTTON FIX - Remove white background
-   ============================================================ */
+/* Fix PayPal white border */
 #paypal-button-wrapper {
   min-height: 46px;
   border-radius: 8px;
   overflow: hidden;
-  background: transparent !important;
 }
 
-/* Force PayPal's container to be transparent */
-#paypal-button-wrapper > div {
-  background: transparent !important;
-  border: none !important;
-  border-radius: 8px !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-/* Remove white background from PayPal iframe */
 #paypal-button-wrapper iframe {
   border: none !important;
-  border-radius: 8px !important;
   outline: none !important;
   box-shadow: none !important;
-  background: transparent !important;
+  border-radius: 8px !important;
 }
 
-/* Force PayPal's inner elements to be transparent */
-#paypal-button-wrapper [class*="paypal"],
-#paypal-button-wrapper [class*="PayPal"] {
-  background: transparent !important;
+#paypal-button-wrapper > div {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* Mobile responsive */
@@ -691,7 +681,8 @@
     if (s2) s2.style.display = n === 2 ? 'block' : 'none';
     if (n === 2) {
       renderOrderSummary();
-      renderAllPayments(Shop.getCart(), getFormData, beforePay);
+      renderPayment(Shop.getCart(), getFormData, beforePay);
+      loadAlternativePayments();
     }
     requestAnimationFrame(function() {
       document.documentElement.scrollTop = 0;
@@ -761,139 +752,15 @@
     });
   }
 
-  // ============================================================
-  // CHECK IF APPLE PAY IS AVAILABLE ON THIS DEVICE
-  // ============================================================
-  function isApplePayAvailable() {
-    var isAppleDevice = /iPhone|iPad|iPod|Mac/.test(navigator.userAgent);
-    var isSafari = /AppleWebKit/.test(navigator.userAgent) && 
-                   !/Chrome/.test(navigator.userAgent) &&
-                   !/Android/.test(navigator.userAgent);
-    var hasApplePaySession = typeof window.ApplePaySession !== 'undefined';
-    var hasPayPalApplePay = typeof window.paypal !== 'undefined' && 
-                            typeof window.paypal.Applepay === 'function';
-    return isAppleDevice && isSafari && hasApplePaySession && hasPayPalApplePay;
-  }
-
-  // ============================================================
-  // RENDER ALL PAYMENTS
-  // ============================================================
-  async function renderAllPayments(cart, custFormData, onBeforePay) {
-    if (!orderRef) {
-      orderRef = 'ORD-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7).toUpperCase();
-    }
-
-    var ccBtn = document.getElementById('credit-card-btn');
-    if (ccBtn && !ccBtn._wired) {
-      ccBtn._wired = true;
-      ccBtn.addEventListener('click', function() {
-        document.getElementById('payment-methods-buttons').style.display = 'none';
-        document.getElementById('credit-card-form-section').style.display = 'block';
-        renderCardPayment(cart, custFormData, onBeforePay);
-      });
-    }
-
-    try {
-      await Payment.init();
-
-      var paypalWrapper = document.getElementById('paypal-button-wrapper');
-      var googleContainer = document.getElementById('google-pay-button');
-      var appleContainer = document.getElementById('apple-pay-button');
-
-      var googleAvailable = await checkGooglePayAvailable();
-      var appleAvailable = isApplePayAvailable();
-
-      // PayPal (always)
-      if (paypalWrapper) {
-        try {
-          paypalWrapper.innerHTML = '';
-          await Payment.renderPayPalButton(cart, orderRef, paypalWrapper, custFormData, onBeforePay);
-        } catch(e) {
-          console.warn('PayPal button failed:', e);
-          paypalWrapper.innerHTML = '<div style="padding:12px;text-align:center;font-size:0.85rem;color:var(--c-text-3);border:1px solid var(--c-border);border-radius:8px;">PayPal unavailable</div>';
-        }
-      }
-
-      // Google Pay
-      if (googleContainer && googleAvailable) {
-        try {
-          googleContainer.innerHTML = '';
-          googleContainer.style.display = 'block';
-          await Payment.renderGooglePay(googleContainer, cart, custFormData);
-        } catch(e) {
-          console.warn('Google Pay render failed:', e);
-          googleContainer.style.display = 'none';
-        }
-      } else if (googleContainer) {
-        googleContainer.style.display = 'none';
-      }
-
-      // Apple Pay (only if available)
-      if (appleContainer && appleAvailable) {
-        try {
-          appleContainer.innerHTML = '';
-          appleContainer.style.display = 'block';
-          await Payment.renderApplePay(appleContainer, cart, custFormData);
-        } catch(e) {
-          console.warn('Apple Pay render failed:', e);
-          appleContainer.style.display = 'none';
-        }
-      } else if (appleContainer) {
-        appleContainer.style.display = 'none';
-      }
-
-    } catch(e) {
-      console.error('Payment initialization failed:', e);
-    }
-  }
-
-  function checkGooglePayAvailable() {
-    return new Promise(function(resolve) {
-      try {
-        if (typeof window.paypal !== 'undefined' && typeof window.paypal.Googlepay === 'function') {
-          var hasGoogleScript = document.querySelector('script[src*="pay.google.com"]');
-          if (hasGoogleScript) {
-            resolve(true);
-            return;
-          }
-          var script = document.createElement('script');
-          script.src = 'https://pay.google.com/gp/p/js/pay.js';
-          script.onload = function() { resolve(true); };
-          script.onerror = function() { resolve(false); };
-          document.head.appendChild(script);
-          setTimeout(function() { resolve(false); }, 5000);
-        } else {
-          resolve(false);
-        }
-      } catch(e) {
-        resolve(false);
-      }
+  function loadAlternativePayments() {
+    Payment.init().then(function() {
+      Payment.renderGooglePay('#google-pay-button', Shop.getCart(), getFormData);
+      Payment.renderApplePay('#apple-pay-button', Shop.getCart(), getFormData);
+    }).catch(function(e) {
+      console.warn('Alternative payments unavailable:', e);
+      var g = document.getElementById('google-pay-button'); if (g) g.style.display = 'none';
+      var a = document.getElementById('apple-pay-button'); if (a) a.style.display = 'none';
     });
-  }
-
-  async function renderCardPayment(cart, custFormData, onBeforePay) {
-    var mount = document.getElementById('cart-payment-mount');
-    if (!mount) return;
-    
-    mount.innerHTML = '<div style="padding:16px;text-align:center;opacity:.6;font-size:.85rem;">' + T('loading_payment', 'Loading payment…') + '</div>';
-    
-    var t = Shop.calculateTotals(cart, false, formData.country);
-    
-    try {
-      await Payment.init();
-      await Payment.render(cart, { 
-        subtotal: t.subtotal, 
-        shipping: t.isFreeShipping ? 0 : t.shipping, 
-        tax: t.tax, 
-        total: t.total 
-      }, orderRef, mount, custFormData, onBeforePay);
-    } catch(e) {
-      var isCfg = e.message && (e.message.includes('Script load failed') || e.message.includes('client-id'));
-      mount.innerHTML = '<div style="padding:20px;text-align:center;border:1px dashed var(--c-border,var(--border));border-radius:8px;opacity:.7;font-size:.85rem;line-height:1.6;">' +
-        '<strong style="display:block;margin-bottom:6px;">' + (isCfg ? T('payment_not_configured','Payment not configured') : T('payment_load_error','Payment could not be loaded')) + '</strong>' +
-        (isCfg ? 'Set <code>CONFIG.payment.paypal.clientId</code> in config.js.' : T('payment_refresh','Please refresh or contact support.')) +
-      '</div>';
-    }
   }
 
   function validateFormBeforePayment(callback) {
@@ -1040,6 +907,56 @@
       Shop.submitOrderStatus(orderRef, 'PAYMENT_ERROR').catch(function() {});
       if (typeof Shop.toast === 'function') Shop.toast(L.paymentError, 4000);
     });
+  }
+
+  async function renderPayment(cart, custFormData, onBeforePay) {
+    // 🔥 FIX: Generate orderRef BEFORE PayPal renders
+    if (!orderRef) {
+      orderRef = 'ORD-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+    }
+
+    // Wire Credit Card button
+    var ccBtn = document.getElementById('credit-card-btn');
+    if (ccBtn && !ccBtn._wired) {
+      ccBtn._wired = true;
+      ccBtn.addEventListener('click', function() {
+        document.getElementById('payment-methods-buttons').style.display = 'none';
+        document.getElementById('payment-alt-methods').style.display = 'none';
+        document.getElementById('credit-card-form-section').style.display = 'block';
+      });
+    }
+
+    // Render PayPal into button row
+    var paypalWrapper = document.getElementById('paypal-button-wrapper');
+    if (paypalWrapper && !paypalWrapper._rendered) {
+      paypalWrapper._rendered = true;
+      try {
+        await Payment.init();
+        // Clear loading state
+        paypalWrapper.innerHTML = '';
+        await Payment.renderPayPalButton(cart, orderRef, paypalWrapper, custFormData, onBeforePay);
+      } catch(e) {
+        console.warn('PayPal button failed:', e);
+        paypalWrapper.innerHTML = '<div style="padding:12px;text-align:center;font-size:0.85rem;color:var(--c-text-3);border:1px solid var(--c-border);border-radius:8px;">PayPal unavailable</div>';
+      }
+    }
+
+    var mount = document.getElementById('cart-payment-mount');
+    if (!mount) return;
+    mount.innerHTML = '<div style="padding:16px;text-align:center;opacity:.6;font-size:.85rem;">' + T('loading_payment', 'Loading payment…') + '</div>';
+    
+    var t = Shop.calculateTotals(cart, false, formData.country);
+    
+    try {
+      await Payment.init();
+      await Payment.render(cart, { subtotal: t.subtotal, shipping: t.isFreeShipping ? 0 : t.shipping, tax: t.tax, total: t.total }, orderRef, mount, custFormData, onBeforePay);
+    } catch(e) {
+      var isCfg = e.message && (e.message.includes('Script load failed') || e.message.includes('client-id'));
+      mount.innerHTML = '<div style="padding:20px;text-align:center;border:1px dashed var(--c-border,var(--border));border-radius:8px;opacity:.7;font-size:.85rem;line-height:1.6;">' +
+        '<strong style="display:block;margin-bottom:6px;">' + (isCfg ? T('payment_not_configured','Payment not configured') : T('payment_load_error','Payment could not be loaded')) + '</strong>' +
+        (isCfg ? 'Set <code>CONFIG.payment.paypal.clientId</code> in config.js.' : T('payment_refresh','Please refresh or contact support.')) +
+      '</div>';
+    }
   }
 
   applyI18n();
