@@ -28,6 +28,10 @@ const Payment = (() => {
     return (typeof Currency !== 'undefined' && Currency.getActive) ? Currency.getActive() : CONFIG.payment.paypal.currency;
   }
 
+  function _convert(amount) {
+    return (typeof Currency !== 'undefined' && Currency.convert) ? Currency.convert(amount) : amount;
+  }
+
   function _getActiveLanguage() {
     return (typeof window !== 'undefined' && window.LANG) || 
            localStorage.getItem('dornori-lang') || 
@@ -157,9 +161,20 @@ const Payment = (() => {
               const language = _getActiveLanguage();
               
               const localTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, null) : null;
-              const displayTotal = localTotals
-                ? (localTotals.subtotal + (localTotals.isFreeShipping ? 0 : localTotals.shipping) + localTotals.tax)
-                : cart.reduce((s, i) => s + (parseFloat(i.price) || 0) * i.qty, 0);
+              const rawSubtotal = localTotals ? localTotals.subtotal : cart.reduce((s, i) => s + (parseFloat(i.price) || 0) * i.qty, 0);
+              const rawShipping = localTotals ? (localTotals.isFreeShipping ? 0 : localTotals.shipping) : 0;
+              const rawTax = localTotals ? localTotals.tax : 0;
+
+              const subtotal = _convert(rawSubtotal);
+              const shipping = _convert(rawShipping);
+              const tax = _convert(rawTax);
+              const displayTotal = subtotal + shipping + tax;
+
+              const displayItems = [
+                { label: 'Subtotal', type: 'SUBTOTAL', price: subtotal.toFixed(2) },
+                { label: 'Shipping', type: 'LINE_ITEM', price: shipping.toFixed(2) },
+                { label: 'Tax', type: 'TAX', price: tax.toFixed(2) }
+              ];
 
               const paymentDataRequest = {
                 apiVersion: 2,
@@ -174,6 +189,8 @@ const Payment = (() => {
                 transactionInfo: {
                   totalPriceStatus: 'FINAL',
                   totalPrice: displayTotal.toFixed(2),
+                  totalPriceLabel: 'Total',
+                  displayItems: displayItems,
                   currencyCode: currency,
                   countryCode: gpayConfig.countryCode || 'NL'
                 }
