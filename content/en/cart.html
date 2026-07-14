@@ -714,14 +714,22 @@
 
   function handlePaymentSuccess(ref) {
     try {
-      var snapCart = Shop.getCart();
-      var snapTotals = Shop.calculateTotals(snapCart, false, formData.country);
-      localStorage.setItem('webshop_order_snapshot', JSON.stringify({
-        orderRef: ref,
-        formData: formData,
-        items: snapCart,
-        totals: snapTotals
-      }));
+      // payment.js already wrote a complete snapshot (with server-verified
+      // itemTotal/totalDiscount/subtotal) right before capture. Don't
+      // clobber it with a client recalculation that lacks those fields -
+      // only fall back to recomputing if it's genuinely missing.
+      var existing = null;
+      try { existing = JSON.parse(localStorage.getItem('webshop_order_snapshot') || 'null'); } catch (e) {}
+      if (!existing || !existing.totals) {
+        var snapCart = Shop.getCart();
+        var snapTotals = Shop.calculateTotals(snapCart, false, formData.country);
+        localStorage.setItem('webshop_order_snapshot', JSON.stringify({
+          orderRef: ref,
+          formData: formData,
+          items: snapCart,
+          totals: snapTotals
+        }));
+      }
       localStorage.setItem('webshop_order_ref', ref);
     } catch (e) { console.warn('Order snapshot failed:', e); }
     

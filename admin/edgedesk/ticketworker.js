@@ -2498,7 +2498,7 @@ var worker_default = {
         return json({ success: true, user: { email: user.email, name: user.name, role: user.role, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id, page_permissions: user.page_permissions || {}, effective_permissions: buildEffectivePermissions(user) } });
       }
 
-// ─── LOGIN ─────────────────────────────────────────────
+      // ─── LOGIN ─────────────────────────────────────────────
       if (path === "/api/admin/login" && method === "POST") {
         const { email, password } = await request.json();
         const rateLimitKey = (email || "").toLowerCase().trim();
