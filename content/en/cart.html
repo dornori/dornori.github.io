@@ -97,16 +97,12 @@
           </div>
 
           <!-- Credit Card - Always shown -->
-          <button id="credit-card-btn" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
+          <button id="credit-card-btn" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;">
             <span>💳</span> <span data-i18n="credit_card">Credit Card</span>
           </button>
 
           <!-- PayPal - Always shown with loading state -->
-          <div id="paypal-button-wrapper" style="min-height:46px;">
-            <div class="payment-loading-placeholder" style="display:flex;align-items:center;justify-content:center;height:46px;background:var(--c-bg-2, rgba(0,0,0,0.05));border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);">
-              <span data-i18n="loading_paypal">Loading PayPal...</span>
-            </div>
-          </div>
+          <div id="paypal-button-wrapper" style="min-height:46px;border-radius:8px;overflow:hidden;"></div>
         </div>
         <div id="payment-alt-methods" style="display:none;flex-direction:column;gap:12px;margin-bottom:24px;"></div>
 
@@ -370,6 +366,29 @@
 #google-pay-button:empty,
 #apple-pay-button:empty {
   display: none;
+}
+
+/* PayPal button wrapper - clean styling */
+#paypal-button-wrapper {
+  min-height: 46px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: transparent;
+}
+
+/* Remove any borders from PayPal iframe */
+#paypal-button-wrapper iframe {
+  border: none !important;
+  border-radius: 8px !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+#paypal-button-wrapper > div {
+  border: none !important;
+  border-radius: 8px !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* Mobile responsive */
@@ -735,7 +754,7 @@
   // RENDER ALL PAYMENTS - Shows loading states until ready
   // ============================================================
   async function renderAllPayments(cart, custFormData, onBeforePay) {
-    // Generate order reference
+    // Generate order reference if it doesn't exist
     if (!orderRef) {
       orderRef = 'ORD-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7).toUpperCase();
     }
@@ -765,14 +784,15 @@
         checkApplePayAvailable()
       ]);
 
-      // Render PayPal (always)
+      // Render PayPal (always) - with proper orderRef
       if (paypalWrapper) {
         try {
+          // Clear loading placeholder
           paypalWrapper.innerHTML = '';
           await Payment.renderPayPalButton(cart, orderRef, paypalWrapper, custFormData, onBeforePay);
         } catch(e) {
           console.warn('PayPal button failed:', e);
-          paypalWrapper.innerHTML = '<div style="padding:12px;text-align:center;font-size:0.85rem;color:var(--c-text-3);">PayPal unavailable</div>';
+          paypalWrapper.innerHTML = '<div style="padding:12px;text-align:center;font-size:0.85rem;color:var(--c-text-3);border:1px solid var(--c-border);border-radius:8px;">PayPal unavailable</div>';
         }
       }
 
