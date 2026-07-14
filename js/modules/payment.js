@@ -211,6 +211,8 @@ const Payment = (() => {
                 email: gpayEmail,
                 phone: gpayPhone,
                 amount: realOrder.totals?.total != null ? Number(realOrder.totals.total).toFixed(2) : null,
+                itemTotal: realOrder.totals?.itemTotal != null ? Number(realOrder.totals.itemTotal).toFixed(2) : null,
+                discount: realOrder.totals?.totalDiscount != null ? Number(realOrder.totals.totalDiscount).toFixed(2) : null,
                 subtotal: realOrder.totals?.subtotal != null ? Number(realOrder.totals.subtotal).toFixed(2) : null,
                 shipping: realOrder.totals?.shipping != null ? Number(realOrder.totals.shipping).toFixed(2) : null,
                 tax: realOrder.totals?.tax != null ? Number(realOrder.totals.tax).toFixed(2) : null,
@@ -355,6 +357,8 @@ const Payment = (() => {
                   email: apayEmail || null,
                   phone: apayPhone || null,
                   amount: realOrder.totals?.total != null ? Number(realOrder.totals.total).toFixed(2) : null,
+                  itemTotal: realOrder.totals?.itemTotal != null ? Number(realOrder.totals.itemTotal).toFixed(2) : null,
+                  discount: realOrder.totals?.totalDiscount != null ? Number(realOrder.totals.totalDiscount).toFixed(2) : null,
                   subtotal: realOrder.totals?.subtotal != null ? Number(realOrder.totals.subtotal).toFixed(2) : null,
                   shipping: realOrder.totals?.shipping != null ? Number(realOrder.totals.shipping).toFixed(2) : null,
                   tax: realOrder.totals?.tax != null ? Number(realOrder.totals.tax).toFixed(2) : null,
@@ -596,6 +600,8 @@ const Payment = (() => {
               const language = _getActiveLanguage();
               const cardFallback = {
                 amount: _lastOrder?.totals?.total != null ? Number(_lastOrder.totals.total).toFixed(2) : null,
+                itemTotal: _lastOrder?.totals?.itemTotal != null ? Number(_lastOrder.totals.itemTotal).toFixed(2) : null,
+                discount: _lastOrder?.totals?.totalDiscount != null ? Number(_lastOrder.totals.totalDiscount).toFixed(2) : null,
                 subtotal: _lastOrder?.totals?.subtotal != null ? Number(_lastOrder.totals.subtotal).toFixed(2) : null,
                 shipping: _lastOrder?.totals?.shipping != null ? Number(_lastOrder.totals.shipping).toFixed(2) : null,
                 tax: _lastOrder?.totals?.tax != null ? Number(_lastOrder.totals.tax).toFixed(2) : null,
@@ -750,6 +756,8 @@ const Payment = (() => {
             const language = _getActiveLanguage();
             const paypalFallback = {
               amount: _lastOrder?.totals?.total != null ? Number(_lastOrder.totals.total).toFixed(2) : null,
+              itemTotal: _lastOrder?.totals?.itemTotal != null ? Number(_lastOrder.totals.itemTotal).toFixed(2) : null,
+              discount: _lastOrder?.totals?.totalDiscount != null ? Number(_lastOrder.totals.totalDiscount).toFixed(2) : null,
               subtotal: _lastOrder?.totals?.subtotal != null ? Number(_lastOrder.totals.subtotal).toFixed(2) : null,
               shipping: _lastOrder?.totals?.shipping != null ? Number(_lastOrder.totals.shipping).toFixed(2) : null,
               tax: _lastOrder?.totals?.tax != null ? Number(_lastOrder.totals.tax).toFixed(2) : null,
