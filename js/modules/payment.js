@@ -313,9 +313,20 @@ const Payment = (() => {
           const language = _getActiveLanguage();
           
           const localTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, null) : null;
-          const displayTotal = localTotals
-            ? (localTotals.subtotal + (localTotals.isFreeShipping ? 0 : localTotals.shipping) + localTotals.tax)
-            : cart.reduce((s, i) => s + (parseFloat(i.price) || 0) * i.qty, 0);
+          const rawSubtotal = localTotals ? localTotals.subtotal : cart.reduce((s, i) => s + (parseFloat(i.price) || 0) * i.qty, 0);
+          const rawShipping = localTotals ? (localTotals.isFreeShipping ? 0 : localTotals.shipping) : 0;
+          const rawTax = localTotals ? localTotals.tax : 0;
+
+          const subtotal = _convert(rawSubtotal);
+          const shipping = _convert(rawShipping);
+          const tax = _convert(rawTax);
+          const displayTotal = subtotal + shipping + tax;
+
+          const buildLineItems = (sub, ship, tx) => [
+            { label: 'Subtotal', amount: sub.toFixed(2) },
+            { label: 'Shipping', amount: ship.toFixed(2) },
+            { label: 'Tax', amount: tx.toFixed(2) }
+          ];
 
           const paymentRequest = {
             countryCode: config.countryCode || 'NL',
@@ -324,6 +335,7 @@ const Payment = (() => {
             supportedNetworks: config.supportedNetworks || ['visa', 'masterCard', 'amex', 'discover'],
             requiredBillingContactFields: ['postalAddress', 'name', 'email', 'phone'],
             requiredShippingContactFields: ['postalAddress', 'name', 'email', 'phone'],
+            lineItems: buildLineItems(subtotal, shipping, tax),
             total: { label: 'Dornori', amount: displayTotal.toFixed(2) }
           };
 
@@ -340,10 +352,18 @@ const Payment = (() => {
           };
 
           session.onshippingcontactselected = (event) => {
+            const country = event.shippingContact?.countryCode || null;
+            const liveTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, country) : localTotals;
+            const liveSubtotal = _convert(liveTotals ? liveTotals.subtotal : rawSubtotal);
+            const liveShipping = _convert(liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : rawShipping);
+            const liveTax = _convert(liveTotals ? liveTotals.tax : rawTax);
+            const liveTotal = liveSubtotal + liveShipping + liveTax;
+
             session.completeShippingContactSelection(
               ApplePaySession.STATUS_SUCCESS,
               [],
-              { label: 'Dornori', amount: displayTotal.toFixed(2) }
+              { label: 'Dornori', amount: liveTotal.toFixed(2) },
+              buildLineItems(liveSubtotal, liveShipping, liveTax)
             );
           };
 
