@@ -1605,7 +1605,9 @@ function renderOrderItemsHtml(meta, langProducts, labels) {
   const discount = parseFloat(totals.discount || 0);
   const shipping = parseFloat(totals.shipping || 0);
   const tax = parseFloat(totals.tax || 0);
-  const calculatedTotal = subtotal - discount + shipping + tax;
+  // totals.subtotal is already net of discount (see success.html), so the
+  // discount is display-only here and must not be subtracted again.
+  const calculatedTotal = subtotal + shipping + tax;
   
   let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
   if (labels.product || labels.qty || labels.unit_price || labels.total) {
@@ -1626,8 +1628,13 @@ function renderOrderItemsHtml(meta, langProducts, labels) {
     const price = Math.max(0, parseFloat(item.price || 0));
     if (isNaN(price) || isNaN(qty)) continue;
     const lineTotal = (price * qty).toFixed(2);
+    const itemDiscount = parseFloat(item.discount) || 0;
+    const hasItemDiscount = itemDiscount > 0 && item.originalPrice != null;
+    const unitPriceCell = hasItemDiscount
+      ? `<s style="opacity:.55;">${currency} ${parseFloat(item.originalPrice).toFixed(2)}</s><br/>${currency} ${price.toFixed(2)} <span style="display:inline-block;background:#c8a96e;color:#1a1714;font-size:11px;font-weight:bold;padding:1px 6px;border-radius:3px;margin-left:4px;">-${itemDiscount}%</span>`
+      : `${currency} ${price.toFixed(2)}`;
     html += '<tr style="border-bottom:1px solid #eee;">';
-    html += `<td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${currency} ${price.toFixed(2)}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+    html += `<td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${unitPriceCell}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
   }
   html += '<tr style="border-top:2px solid #ddd;background:#f9f9f9;">';
   html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? escHtml(labels.subtotal) : "Subtotal"}</td><td style="padding:12px;text-align:right;">${currency} ${subtotal.toFixed(2)}</td></tr>`;
@@ -1660,7 +1667,9 @@ function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, lab
   const discount = parseFloat(totals.discount || 0);
   const shipping = parseFloat(totals.shipping || 0);
   const tax = parseFloat(totals.tax || 0);
-  const calculatedTotal = subtotal - discount + shipping + tax;
+  // totals.subtotal is already net of discount (see success.html), so the
+  // discount is display-only here and must not be subtracted again.
+  const calculatedTotal = subtotal + shipping + tax;
   
   let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
   if (labels.image || labels.product || labels.qty || labels.unit_price || labels.total) {
@@ -1687,8 +1696,13 @@ function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, lab
     const price = Math.max(0, parseFloat(item.price || 0));
     if (isNaN(price) || isNaN(qty)) continue;
     const lineTotal = (price * qty).toFixed(2);
+    const itemDiscount = parseFloat(item.discount) || 0;
+    const hasItemDiscount = itemDiscount > 0 && item.originalPrice != null;
+    const unitPriceCell = hasItemDiscount
+      ? `<s style="opacity:.55;">${currency} ${parseFloat(item.originalPrice).toFixed(2)}</s><br/>${currency} ${price.toFixed(2)} <span style="display:inline-block;background:#c8a96e;color:#1a1714;font-size:11px;font-weight:bold;padding:1px 6px;border-radius:3px;margin-left:4px;">-${itemDiscount}%</span>`
+      : `${currency} ${price.toFixed(2)}`;
     html += '<tr style="border-bottom:1px solid #eee;">';
-    html += `<td style="padding:10px;text-align:center;">${imgHtml}</td><td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${currency} ${price.toFixed(2)}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+    html += `<td style="padding:10px;text-align:center;">${imgHtml}</td><td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${unitPriceCell}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
   }
   html += '<tr style="border-top:2px solid #ddd;background:#f9f9f9;">';
   html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? escHtml(labels.subtotal) : "Subtotal"} ${currency} ${subtotal.toFixed(2)}</td></tr>`;
@@ -1721,7 +1735,9 @@ function renderOrderSummaryHtml(meta, labels) {
   const discount = parseFloat(totals.discount || 0);
   const shipping = parseFloat(totals.shipping || 0);
   const tax = parseFloat(totals.tax || 0);
-  const calculatedTotal = subtotal - discount + shipping + tax;
+  // totals.subtotal is already net of discount (see success.html), so the
+  // discount is display-only here and must not be subtracted again.
+  const calculatedTotal = subtotal + shipping + tax;
   
   let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
   html += `<div style="margin-bottom:8px;">${labels.order_ref ? escHtml(labels.order_ref) + ": " : "<strong>Order Reference:</strong> "}${escHtml(order.reference || "N/A")}</div>`;

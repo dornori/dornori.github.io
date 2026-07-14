@@ -872,44 +872,10 @@ const Payment = (() => {
     return typeof window.ApplePaySession !== 'undefined' && ApplePaySession.canMakePayments();
   }
 
-  async function renderAllButtons(containers, cart, formData, onBeforePay) {
-    if (!_ready) await init();
-    
-    const promises = [];
-    
-    // Render Google Pay
-    if (containers.googlePay) {
-      promises.push(
-        _googlepay.render(containers.googlePay, cart, formData, onBeforePay)
-          .catch(err => console.warn('[Payment] Google Pay render failed:', err))
-      );
-    }
-    
-    // Render Apple Pay
-    if (containers.applePay) {
-      promises.push(
-        _applepay.render(containers.applePay, cart, formData, onBeforePay)
-          .catch(err => console.warn('[Payment] Apple Pay render failed:', err))
-      );
-    }
-    
-    // Render PayPal
-    if (containers.paypal) {
-      promises.push(
-        _paypal.renderButtonOnly(cart, containers.orderRef, containers.paypal, formData, onBeforePay)
-          .catch(err => console.warn('[Payment] PayPal render failed:', err))
-      );
-    }
-    
-    // Wait for all renders to complete (Promise.all with catch handlers means it won't throw)
-    await Promise.all(promises);
-  }
-
   return {
     init,
     render,
     renderPayPalButton,
-    renderAllButtons,
     switchProcessor,
     getActive: () => CONFIG.payment.activeProcessor,
     adapters: _adapters,
