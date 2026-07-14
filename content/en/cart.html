@@ -50,7 +50,7 @@
 <div id="cart-step-2-wrapper" style="display:none;" class="webshop-fade-in">
   <div class="webshop-checkout-panel">
 
-    <!-- MOBILE ORDER SUMMARY ACCORDION (shown on mobile, hidden on desktop) -->
+    <!-- MOBILE ORDER SUMMARY ACCORDION -->
     <div id="order-summary-accordion" style="display:none;margin-bottom:24px;border-bottom:2px solid var(--c-border);padding-bottom:20px;">
       <button id="accordion-toggle" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:12px 0;font-family:var(--font-display);font-size:1.1rem;background:none;border:none;cursor:pointer;color:var(--c-text);">
         <span data-i18n="order_summary">Order Summary</span>
@@ -79,26 +79,26 @@
     <div id="checkout-layout" style="display:grid;grid-template-columns:2fr 1fr;gap:32px;align-items:start;">
       <!-- Left Column -->
       <div>
-        <!-- PAYMENT METHODS - Always visible, all buttons rendered together -->
+        <!-- PAYMENT METHODS - Google/Apple Pay on top -->
         <div id="payment-methods-container" style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
           
-          <!-- Credit Card Button (always shown) -->
+          <!-- Google Pay Container (top) -->
+          <div id="google-pay-button" style="min-height:48px;display:none;"></div>
+
+          <!-- Apple Pay Container (second) -->
+          <div id="apple-pay-button" style="min-height:48px;display:none;"></div>
+
+          <!-- Credit Card Button (third) -->
           <button id="credit-card-btn" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
             <span>💳</span> <span data-i18n="credit_card">Credit Card</span>
           </button>
 
-          <!-- PayPal Button Container -->
+          <!-- PayPal Button Container (bottom) -->
           <div id="paypal-button-wrapper" style="min-height:46px;position:relative;">
-            <div id="paypal-loading-placeholder" style="display:flex;align-items:center;justify-content:center;height:46px;background:rgba(0,0,0,0.05);border-radius:8px;font-size:0.85rem;color:var(--c-text-3);">
+            <div id="paypal-loading-placeholder" style="display:flex;align-items:center;justify-content:center;height:46px;background:var(--c-bg-2, rgba(0,0,0,0.05));border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);">
               <span data-i18n="loading_paypal">Loading PayPal...</span>
             </div>
           </div>
-
-          <!-- Google Pay Container -->
-          <div id="google-pay-button" style="min-height:48px;display:none;"></div>
-
-          <!-- Apple Pay Container -->
-          <div id="apple-pay-button" style="min-height:48px;display:none;"></div>
         </div>
 
         <!-- Credit Card Form Section (hidden by default) -->
@@ -200,7 +200,6 @@
 
           <!-- Payment Section with Card Fields -->
           <div style="margin-top:32px;padding-top:24px;border-top:2px solid var(--c-border);">
-            <!-- This is where the credit card fields will be rendered -->
             <div id="cart-payment-mount"></div>
             <div class="webshop-secure-badge">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -240,12 +239,8 @@
 
 <style>
 /* ============================================================
-   PAYPAL CARD FORM - layout-only rules; box styling lives in shop.css
+   THEME-BASED STYLES - Uses CSS variables from theme
    ============================================================ */
-
-.paypal-card-section {
-  margin-bottom: 16px;
-}
 
 /* Form label style */
 .webshop-form-label {
@@ -254,11 +249,11 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #8a8f87;
+  color: var(--c-text-2, #8a8f87);
   margin-bottom: 6px;
 }
 
-/* Fix for form row spacing */
+/* Form row spacing */
 .webshop-form-row {
   display: flex;
   gap: 14px;
@@ -270,9 +265,9 @@
   padding: 0 6px;
 }
 
-/* Error message styling */
+/* Error message */
 .webshop-form-error {
-  color: #c0392b;
+  color: var(--c-danger, #c0392b);
   font-size: 0.82rem;
   margin-top: 4px;
 }
@@ -283,7 +278,7 @@
   align-items: center;
   gap: 8px;
   font-size: 0.78rem;
-  color: #8a8f87;
+  color: var(--c-text-2, #8a8f87);
   margin-top: 12px;
 }
 
@@ -300,20 +295,152 @@
   margin-bottom: 24px;
 }
 
-/* Consistent button heights */
 #payment-methods-container button,
 #payment-methods-container div {
   min-height: 48px;
 }
 
-/* Loading placeholder animation */
+/* PayPal button wrapper - clean, no borders */
+#paypal-button-wrapper {
+  min-height: 46px;
+  position: relative;
+}
+
+#paypal-button-wrapper iframe,
+#paypal-button-wrapper > div {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Loading placeholder */
 #paypal-loading-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 46px;
+  background: var(--c-bg-2, rgba(0,0,0,0.05));
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--c-text-3, #8a8f87);
   animation: pulse-loading 1.5s ease-in-out infinite;
 }
 
 @keyframes pulse-loading {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
+}
+
+/* Billing section */
+.webshop-billing-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 2px solid var(--c-border, #e5e0da);
+}
+
+.webshop-billing-section__title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--c-text, #1a1714);
+  margin-bottom: 4px;
+}
+
+.webshop-billing-section__desc {
+  font-size: 0.85rem;
+  color: var(--c-text-2, #8a8f87);
+  margin-bottom: 12px;
+}
+
+.webshop-billing-options {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.webshop-billing-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 2px solid var(--c-border, #e5e0da);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--c-text, #1a1714);
+  transition: all 0.2s ease;
+  background: var(--c-bg, #ffffff);
+}
+
+.webshop-billing-option:hover {
+  border-color: var(--c-primary, #1a1714);
+}
+
+.webshop-billing-option.selected {
+  border-color: var(--c-primary, #1a1714);
+  background: var(--c-bg-2, #f5f3ef);
+}
+
+.webshop-billing-option input[type="radio"] {
+  margin: 0;
+  accent-color: var(--c-primary, #1a1714);
+}
+
+.webshop-billing-form {
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--c-bg-2, #f5f3ef);
+  border-radius: 8px;
+}
+
+/* Payment card box */
+.payment-card-box {
+  background: var(--c-bg, #ffffff);
+  border: 1px solid var(--c-border, #e5e0da);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.paypal-hosted-field {
+  background: var(--c-bg, #ffffff);
+  border: 1px solid var(--c-border, #e5e0da);
+  border-radius: 8px;
+  padding: 10px 14px;
+  transition: border-color 0.2s ease;
+  min-height: 44px;
+}
+
+.paypal-hosted-field:focus-within {
+  border-color: var(--c-primary, #1a1714);
+}
+
+.card-fields-box {
+  background: var(--c-bg, #ffffff);
+  border: 1px solid var(--c-border, #e5e0da);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.card-fields-divider-h {
+  height: 1px;
+  background: var(--c-border, #e5e0da);
+  margin: 0 14px;
+}
+
+.card-fields-row {
+  display: flex;
+  gap: 0;
+}
+
+.card-fields-row > div {
+  flex: 1;
+  padding: 8px 14px;
+}
+
+.card-fields-divider-v {
+  width: 1px;
+  background: var(--c-border, #e5e0da);
+  flex-shrink: 0;
 }
 
 /* Mobile responsive */
@@ -608,11 +735,10 @@
     if (s1) s1.style.display = n === 1 ? 'block' : 'none';
     if (s2) s2.style.display = n === 2 ? 'block' : 'none';
     if (n === 2) {
-      // Reset payment container visibility when entering checkout
-      const container = document.getElementById('payment-methods-container');
+      var container = document.getElementById('payment-methods-container');
       if (container) container.style.display = 'flex';
       
-      const formSection = document.getElementById('credit-card-form-section');
+      var formSection = document.getElementById('credit-card-form-section');
       if (formSection) formSection.style.display = 'none';
       
       renderOrderSummary();
@@ -680,53 +806,31 @@
     checkLayout();
   }
 
-  // ============================================================
-  // BEFORE PAY - Only validates for PayPal button and Card
-  // ============================================================
   function beforePay() {
     return new Promise(function(resolve) {
       validateFormBeforePayment(function(valid) { resolve(valid); });
     });
   }
 
-  // ============================================================
-  // RENDER ALL PAYMENT METHODS SIMULTANEOUSLY
-  // ============================================================
   async function renderAllPaymentMethods() {
-    const cart = Shop.getCart();
+    var cart = Shop.getCart();
     if (!cart || !cart.length) return;
 
-    // Show loading states
     showPaymentLoading();
 
     try {
       await Payment.init();
 
-      // Get containers
-      const paypalWrapper = document.getElementById('paypal-button-wrapper');
-      const googleContainer = document.getElementById('google-pay-button');
-      const appleContainer = document.getElementById('apple-pay-button');
+      var paypalWrapper = document.getElementById('paypal-button-wrapper');
+      var googleContainer = document.getElementById('google-pay-button');
+      var appleContainer = document.getElementById('apple-pay-button');
 
-      // Check availability in parallel
-      const [googleAvailable, appleAvailable] = await Promise.all([
+      var [googleAvailable, appleAvailable] = await Promise.all([
         checkGooglePayAvailable(),
         checkApplePayAvailable()
       ]);
 
-      // Render PayPal (always attempt)
-      if (paypalWrapper) {
-        try {
-          // Clear loading placeholder
-          paypalWrapper.innerHTML = '';
-          await Payment.renderPayPalButton(cart, orderRef, paypalWrapper, getFormData, beforePay);
-        } catch (e) {
-          console.warn('PayPal unavailable:', e);
-          paypalWrapper.innerHTML = `<div style="padding:12px;text-align:center;font-size:0.85rem;color:var(--c-text-3);">PayPal unavailable</div>`;
-          paypalWrapper.style.display = 'none';
-        }
-      }
-
-      // Render Google Pay if available
+      // Google Pay first
       if (googleContainer && googleAvailable) {
         try {
           googleContainer.style.display = 'block';
@@ -739,7 +843,7 @@
         googleContainer.style.display = 'none';
       }
 
-      // Render Apple Pay if available
+      // Apple Pay second
       if (appleContainer && appleAvailable) {
         try {
           appleContainer.style.display = 'block';
@@ -752,6 +856,18 @@
         appleContainer.style.display = 'none';
       }
 
+      // PayPal last
+      if (paypalWrapper) {
+        try {
+          paypalWrapper.innerHTML = '';
+          await Payment.renderPayPalButton(cart, orderRef, paypalWrapper, getFormData, beforePay);
+        } catch (e) {
+          console.warn('PayPal unavailable:', e);
+          paypalWrapper.innerHTML = '<div style="padding:12px;text-align:center;font-size:0.85rem;color:var(--c-text-3);">PayPal unavailable</div>';
+          paypalWrapper.style.display = 'none';
+        }
+      }
+
     } catch (e) {
       console.error('Payment rendering failed:', e);
       showPaymentError();
@@ -759,22 +875,20 @@
   }
 
   function checkGooglePayAvailable() {
-    return new Promise((resolve) => {
+    return new Promise(function(resolve) {
       try {
         if (typeof window.paypal !== 'undefined' && typeof window.paypal.Googlepay === 'function') {
-          // Check if Google Pay script is loaded
-          const hasGoogleScript = document.querySelector('script[src*="pay.google.com"]');
+          var hasGoogleScript = document.querySelector('script[src*="pay.google.com"]');
           if (hasGoogleScript) {
             resolve(true);
             return;
           }
-          // Load Google Pay script and check
-          const script = document.createElement('script');
+          var script = document.createElement('script');
           script.src = 'https://pay.google.com/gp/p/js/pay.js';
-          script.onload = () => resolve(true);
-          script.onerror = () => resolve(false);
+          script.onload = function() { resolve(true); };
+          script.onerror = function() { resolve(false); };
           document.head.appendChild(script);
-          setTimeout(() => resolve(false), 5000); // timeout
+          setTimeout(function() { resolve(false); }, 5000);
         } else {
           resolve(false);
         }
@@ -786,7 +900,7 @@
 
   function checkApplePayAvailable() {
     try {
-      const available = typeof window.ApplePaySession !== 'undefined' && 
+      var available = typeof window.ApplePaySession !== 'undefined' && 
                        ApplePaySession.canMakePayments() &&
                        typeof window.paypal !== 'undefined' &&
                        typeof window.paypal.Applepay === 'function';
@@ -797,59 +911,37 @@
   }
 
   function showPaymentLoading() {
-    const paypalWrapper = document.getElementById('paypal-button-wrapper');
+    var paypalWrapper = document.getElementById('paypal-button-wrapper');
     if (paypalWrapper) {
-      paypalWrapper.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:center;height:46px;background:rgba(0,0,0,0.05);border-radius:8px;font-size:0.85rem;color:var(--c-text-3);">
-          <span data-i18n="loading_paypal">Loading PayPal...</span>
-        </div>
-      `;
+      paypalWrapper.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:46px;background:var(--c-bg-2, rgba(0,0,0,0.05));border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);"><span data-i18n="loading_paypal">Loading PayPal...</span></div>';
     }
   }
 
   function showPaymentError() {
-    const paypalWrapper = document.getElementById('paypal-button-wrapper');
+    var paypalWrapper = document.getElementById('paypal-button-wrapper');
     if (paypalWrapper) {
-      paypalWrapper.innerHTML = `
-        <div style="padding:12px;text-align:center;font-size:0.85rem;color:var(--c-text-3);border:1px solid var(--c-border);border-radius:8px;">
-          <span data-i18n="payment_unavailable">Payment unavailable</span>
-        </div>
-      `;
+      paypalWrapper.innerHTML = '<div style="padding:12px;text-align:center;font-size:0.85rem;color:var(--c-text-3);border:1px solid var(--c-border);border-radius:8px;"><span data-i18n="payment_unavailable">Payment unavailable</span></div>';
     }
   }
 
-  // ============================================================
-  // RENDER PAYMENT - Calls all-at-once render for buttons, 
-  // and renders card fields when credit card is clicked
-  // ============================================================
   async function renderPayment(cart, custFormData, onBeforePay) {
-    // Wire Credit Card button
     var ccBtn = document.getElementById('credit-card-btn');
     if (ccBtn && !ccBtn._wired) {
       ccBtn._wired = true;
       ccBtn.addEventListener('click', function() {
-        // Hide payment methods
         document.getElementById('payment-methods-container').style.display = 'none';
-        // Show credit card form section
         document.getElementById('credit-card-form-section').style.display = 'block';
-        
-        // Render the card fields inside the payment mount
         renderCardPayment(cart, custFormData, onBeforePay);
       });
     }
 
-    // Render all payment methods at once (PayPal, Google Pay, Apple Pay)
     await renderAllPaymentMethods();
   }
 
-  // ============================================================
-  // RENDER CARD PAYMENT - Called when credit card button is clicked
-  // ============================================================
   async function renderCardPayment(cart, custFormData, onBeforePay) {
     var mount = document.getElementById('cart-payment-mount');
     if (!mount) return;
     
-    // Show loading state
     mount.innerHTML = '<div style="padding:16px;text-align:center;opacity:.6;font-size:.85rem;">' + T('loading_payment', 'Loading payment…') + '</div>';
     
     var t = Shop.calculateTotals(cart, false, formData.country);
