@@ -156,8 +156,11 @@ const Payment = (() => {
               const currency = _getActiveCurrency();
               const language = _getActiveLanguage();
               
-              const order = await _createStandardOrder(cart, {}, currency, 'paypal');
-              
+              const localTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, null) : null;
+              const displayTotal = localTotals
+                ? (localTotals.subtotal + (localTotals.isFreeShipping ? 0 : localTotals.shipping) + localTotals.tax)
+                : cart.reduce((s, i) => s + (parseFloat(i.price) || 0) * i.qty, 0);
+
               const paymentDataRequest = {
                 apiVersion: 2,
                 apiVersionMinor: 0,
@@ -170,7 +173,7 @@ const Payment = (() => {
                 },
                 transactionInfo: {
                   totalPriceStatus: 'FINAL',
-                  totalPrice: Number(order.totals.total).toFixed(2),
+                  totalPrice: displayTotal.toFixed(2),
                   currencyCode: currency,
                   countryCode: gpayConfig.countryCode || 'NL'
                 }
@@ -292,7 +295,10 @@ const Payment = (() => {
           const currency = _getActiveCurrency();
           const language = _getActiveLanguage();
           
-          const order = await _createStandardOrder(cart, {}, currency, 'paypal');
+          const localTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, null) : null;
+          const displayTotal = localTotals
+            ? (localTotals.subtotal + (localTotals.isFreeShipping ? 0 : localTotals.shipping) + localTotals.tax)
+            : cart.reduce((s, i) => s + (parseFloat(i.price) || 0) * i.qty, 0);
 
           const paymentRequest = {
             countryCode: config.countryCode || 'NL',
@@ -301,7 +307,7 @@ const Payment = (() => {
             supportedNetworks: config.supportedNetworks || ['visa', 'masterCard', 'amex', 'discover'],
             requiredBillingContactFields: ['postalAddress', 'name', 'email', 'phone'],
             requiredShippingContactFields: ['postalAddress', 'name', 'email', 'phone'],
-            total: { label: 'Dornori', amount: Number(order.totals.total).toFixed(2) }
+            total: { label: 'Dornori', amount: displayTotal.toFixed(2) }
           };
 
           const session = new ApplePaySession(4, paymentRequest);
@@ -320,7 +326,7 @@ const Payment = (() => {
             session.completeShippingContactSelection(
               ApplePaySession.STATUS_SUCCESS,
               [],
-              { label: 'Dornori', amount: Number(order.totals.total).toFixed(2) }
+              { label: 'Dornori', amount: displayTotal.toFixed(2) }
             );
           };
 
