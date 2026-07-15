@@ -1068,12 +1068,51 @@ async function sendNewsletter(env, subject, body, language) {
 }
 __name(sendNewsletter, "sendNewsletter");
 
-function generateTicketNumber(language) {
-  const now = /* @__PURE__ */ new Date();
+async function getNextTicketSequence(language, env) {
+  const now = new Date();
   const yy = String(now.getFullYear()).slice(-2);
-  const random = Math.floor(Math.random() * 1e5).toString().padStart(5, "0");
   const langCode = (language || "en").toUpperCase().slice(0, 2);
-  return `TKT-${langCode}${yy}${random}`;
+  const sequenceKey = `ticket_seq_${langCode}${yy}`;
+  
+  try {
+    // Get current sequence value
+    const row = await env.DB.prepare(
+      `SELECT value FROM settings WHERE category = 'system' AND key = ?`
+    ).bind(sequenceKey).first();
+    
+    let nextSeq = 1;
+    if (row && row.value) {
+      nextSeq = parseInt(row.value) + 1;
+    }
+    
+    // Ensure we don't exceed 999999 (6 digits)
+    if (nextSeq > 999999) {
+      throw new Error(`Ticket sequence overflow for ${langCode}${yy}`);
+    }
+    
+    // Update sequence in database
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO settings (category, key, value, updated_at) 
+       VALUES ('system', ?, ?, datetime('now'))`
+    ).bind(sequenceKey, String(nextSeq)).run();
+    
+    return nextSeq;
+  } catch (e) {
+    console.error("Sequence generation error:", e);
+    throw e;
+  }
+}
+__name(getNextTicketSequence, "getNextTicketSequence");
+
+async function generateTicketNumber(language, env) {
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(-2);
+  const langCode = (language || "en").toUpperCase().slice(0, 2);
+  
+  const sequence = await getNextTicketSequence(language, env);
+  const paddedSeq = String(sequence).padStart(6, "0");
+  
+  return `TKT-${langCode}${yy}${paddedSeq}`;
 }
 __name(generateTicketNumber, "generateTicketNumber");
 
@@ -1162,7 +1201,7 @@ async function createTicket(data, env) {
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const category = await validateCategory(data.category, env);
   const language = await validateLanguage(data.language, env);
-  const ticketNumber = generateTicketNumber(language);
+  const ticketNumber = await generateTicketNumber(language, env);
   const sla = await getSLA(env, category);
   const orderNumber = data.orderNumber || extractOrderNumber(data.subject || "") || extractOrderNumber(data.message || "");
   const subject = sanitizeSubject(data.subject || "");
@@ -1464,6 +1503,40 @@ function formatEmailBody(text) {
 }
 __name(formatEmailBody, "formatEmailBody");
 
+// ─── PASSWORD RESET ──────────────────────────────────────────
+async function ensurePasswordResetsTable(env) {
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS password_resets (
+    token_hash TEXT PRIMARY KEY,
+    email TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`).run();
+}
+__name(ensurePasswordResetsTable, "ensurePasswordResetsTable");
+
+async function createPasswordResetToken(env, email) {
+  await ensurePasswordResetsTable(env);
+  const token = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, "");
+  const tokenHash = await sha256(token);
+  const expiresAt = Math.floor(Date.now() / 1e3) + 30 * 60; // 30 minutes
+  await env.DB.prepare("INSERT INTO password_resets (token_hash, email, expires_at) VALUES (?, ?, ?)").bind(tokenHash, email, expiresAt).run();
+  return token;
+}
+__name(createPasswordResetToken, "createPasswordResetToken");
+
+async function consumePasswordResetToken(env, token) {
+  await ensurePasswordResetsTable(env);
+  const tokenHash = await sha256(token || "");
+  const row = await env.DB.prepare("SELECT * FROM password_resets WHERE token_hash = ?").bind(tokenHash).first();
+  if (!row) return null;
+  if (row.used) return null;
+  if (Math.floor(Date.now() / 1e3) > row.expires_at) return null;
+  await env.DB.prepare("UPDATE password_resets SET used = 1 WHERE token_hash = ?").bind(tokenHash).run();
+  return row.email;
+}
+__name(consumePasswordResetToken, "consumePasswordResetToken");
+
 async function sendEmail(env, to, subject, body, from) {
   if (!env.SCRIPT_URL) return { success: false, error: "SCRIPT_URL missing" };
   if (!from || from === "") return { success: false, error: "From address is required" };
@@ -1474,7 +1547,18 @@ async function sendEmail(env, to, subject, body, from) {
     const footerKey = "footer_" + (from || "").replace(/[^a-z0-9]/gi, "_");
     let footer = await getSetting(env, "email", footerKey);
     if (footer === null) footer = await getSetting(env, "email", "footer_html");
-    if (footer) htmlBody += "\n\n" + footer;
+    
+    // Append footer - handle both HTML and text footers
+    if (footer) {
+      if (/<[a-z][\s\S]*>/i.test(htmlBody)) {
+        // Body is HTML - append footer as HTML
+        htmlBody += "<br /><br />" + footer;
+      } else {
+        // Body is plain text - append with line breaks
+        htmlBody += "\n\n" + footer;
+      }
+    }
+    
     const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${htmlBody}</body></html>`;
     const safeSubject = subject ? subject.replace(/[<>]/g, "") : "";
     const params = { secret: emailConfig.secret, username: emailConfig.username, password: emailConfig.password, to, subject: safeSubject, message: fullHtml, from };
@@ -1992,10 +2076,11 @@ async function parseEmail(rawStream) {
       }
     }
     
-    if (plainTextBody) {
+    if (htmlBody) {
+      // Preserve HTML emails for better rendering in the UI
+      body = htmlBody;
+    } else if (plainTextBody) {
       body = plainTextBody;
-    } else if (htmlBody) {
-      body = htmlToPlainText(htmlBody);
     } else if (!body) {
       body = "";
     }
@@ -2202,7 +2287,7 @@ var worker_default = {
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
         await pushTicketNotification({
-          ticket_number: "TKT-TEST-001",
+          ticket_number: "TKT-EN25000001",
           category: "support",
           language: "en",
           sla_status: "on_track",
@@ -2541,6 +2626,45 @@ var worker_default = {
         return json({ success: true });
       }
 
+      // ─── FORGOT PASSWORD ─────────────────────────────────────
+      if (path === "/api/admin/forgot-password" && method === "POST") {
+        const { email } = await request.json();
+        const cleanEmail = (email || "").toLowerCase().trim();
+        const genericResponse = { success: true, message: "If an account exists for that address, a reset link has been sent." };
+        if (!cleanEmail) return json(genericResponse);
+        if (await isLoginRateLimited("reset:" + cleanEmail, env)) return json({ error: "Too many requests. Try again later." }, 429);
+        await recordFailedLogin("reset:" + cleanEmail, env);
+
+        const user = await getUser(cleanEmail, env);
+        if (user) {
+          const token = await createPasswordResetToken(env, user.email);
+          const domain = (await getSetting(env, "general", "domain")) || "";
+          const base = domain ? `https://${domain}` : "";
+          const resetLink = `${base}/reset-password.html?token=${token}`;
+          const from = (await getSetting(env, "email", "password_reset_from")) || (await getSetting(env, "email", "default_from"));
+          if (from) {
+            const body = `<p>Hi ${user.name || ""},</p><p>We received a request to reset your EdgeDesk password. Click the link below to choose a new password. This link expires in 30 minutes.</p><p><a href="${resetLink}">${resetLink}</a></p><p>If you didn't request this, you can safely ignore this email.</p>`;
+            await sendEmail(env, user.email, "Reset your EdgeDesk password", body, from);
+          }
+        }
+        return json(genericResponse);
+      }
+
+      // ─── RESET PASSWORD ──────────────────────────────────────
+      if (path === "/api/admin/reset-password" && method === "POST") {
+        const { token, password } = await request.json();
+        if (!token || !password || password.length < 8) {
+          return json({ error: "A valid token and a password of at least 8 characters are required." }, 400);
+        }
+        const email = await consumePasswordResetToken(env, token);
+        if (!email) return json({ error: "This reset link is invalid or has expired." }, 400);
+
+        const passwordHash = await sha256(password);
+        await env.DB.prepare("UPDATE users SET password_hash = ? WHERE LOWER(email) = ?").bind(passwordHash, email.toLowerCase()).run();
+        cache.users.delete(email.toLowerCase());
+        return json({ success: true, message: "Password updated. You can now log in." });
+      }
+
       // ─── CACHE PURGE (manual) ───────────────────────────────
       if (path === "/api/admin/cache/purge" && method === "POST") {
         const token2 = (request.headers.get("Authorization") || "").replace("Bearer ", "");
@@ -2811,7 +2935,7 @@ var worker_default = {
     try {
       const { from, subject, body } = await parseEmail(message.raw);
       
-      const ticketRegex = /TKT-[A-Z]{2}\d{2}\d{5}/g;
+      const ticketRegex = /TKT-[A-Z]{2}\d{2}\d{6}/g;
       let ticketNumber = null;
       if (subject) {
         const m = subject.match(ticketRegex);

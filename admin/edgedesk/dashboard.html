@@ -340,6 +340,22 @@
         <button onclick="login()">Login</button>
         <div id="loginError" class="error"></div>
         <div id="loginLoading" class="loading">⏳ Logging in...</div>
+        <div style="text-align:center;margin-top:14px;">
+            <a href="javascript:void(0)" onclick="showForgotPassword()" style="font-size:13px;color:var(--text-muted);">Can't access your account?</a>
+        </div>
+    </div>
+
+    <div id="forgotPassword" style="display:none;">
+        <h1 class="brand-logo"><span class="brand-icon">🔐</span><span class="brand-text">EdgeDesk</span></h1>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Enter your account email and we'll send you a link to reset your password.</p>
+        <input type="email" id="forgotEmail" placeholder="Email" />
+        <button onclick="submitForgotPassword()">Send reset link</button>
+        <div id="forgotError" class="error"></div>
+        <div id="forgotMessage" style="font-size:13px;color:var(--text);margin-top:10px;"></div>
+        <div id="forgotLoading" class="loading">⏳ Sending...</div>
+        <div style="text-align:center;margin-top:14px;">
+            <a href="javascript:void(0)" onclick="showLogin()" style="font-size:13px;color:var(--text-muted);">← Back to login</a>
+        </div>
     </div>
 
     <div id="dashboard" style="display:none;">
@@ -955,6 +971,51 @@
             loadingEl.classList.remove("active");
             btn.disabled = false;
             btn.textContent = "Login";
+        }
+    }
+
+    function showForgotPassword() {
+        document.getElementById('login').style.display = 'none';
+        document.getElementById('forgotPassword').style.display = 'block';
+        document.getElementById('forgotEmail').value = document.getElementById('loginEmail').value || '';
+        document.getElementById('forgotError').textContent = '';
+        document.getElementById('forgotMessage').textContent = '';
+    }
+
+    function showLogin() {
+        document.getElementById('forgotPassword').style.display = 'none';
+        document.getElementById('login').style.display = 'block';
+    }
+
+    async function submitForgotPassword() {
+        var email = document.getElementById('forgotEmail').value.trim();
+        var errorEl = document.getElementById('forgotError');
+        var messageEl = document.getElementById('forgotMessage');
+        var loadingEl = document.getElementById('forgotLoading');
+        var btn = document.querySelector('#forgotPassword button');
+        errorEl.textContent = '';
+        messageEl.textContent = '';
+        if (!email) { errorEl.textContent = 'Please enter your email address.'; return; }
+
+        loadingEl.classList.add('active');
+        btn.disabled = true;
+        try {
+            var res = await fetch(API_BASE + '/api/admin/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email })
+            });
+            var data = await res.json();
+            if (res.ok) {
+                messageEl.textContent = data.message || 'If an account exists for that address, a reset link has been sent.';
+            } else {
+                errorEl.textContent = data.error || 'Something went wrong. Please try again.';
+            }
+        } catch (e) {
+            errorEl.textContent = 'Network error – please try again.';
+        } finally {
+            loadingEl.classList.remove('active');
+            btn.disabled = false;
         }
     }
 
