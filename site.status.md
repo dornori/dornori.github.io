@@ -29,3 +29,5 @@ dashboard
 -=-=-=-=-=
 - Address field print - delivery label (also maybe use laser printer for labels :) )-
 -  tracking number entry with tracking site link? eg see immidate time/place of delivery
+- maybe add appartment etc for better delivery
+- 
