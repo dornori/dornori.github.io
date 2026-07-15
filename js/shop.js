@@ -1,5 +1,5 @@
 /* =========================================================
-   WEBSHOP SHOP ENGINE  –  shop.js  (v5 - FIXED RELATED STRIP)
+   WEBSHOP SHOP ENGINE  –  shop.js  (v5 - FIXED TOTAL DISPLAY)
    =========================================================
    Language file structure:
      lang/{lang}/common.json   — UI strings, slugs, profiles
@@ -299,19 +299,33 @@ var Shop = (() => {
 
   /* ─── FORMAT ────────────────────────────────────────── */
   function fmt(eurAmount) {
-    // Rounded-up, no-decimal display — used for prices, shipping, subtotal, totals.
+    // Rounded-up, no-decimal display — used for prices, shipping, subtotal ONLY.
+    // NEVER use for tax or total.
     if (typeof Currency !== "undefined" && Currency.getActive && Currency.isReady && Currency.isReady()) {
       if (Currency.getActive() !== "EUR") return Currency.fmt(eurAmount);
     }
     return "€" + Math.ceil(eurAmount);
   }
+  
   function fmtExact(eurAmount) {
     // Exact, decimal-preserving display — used for tax, in every currency incl. base.
+    // NEVER round tax amounts - legal requirement.
     if (typeof Currency !== "undefined" && Currency.getActive && Currency.isReady && Currency.isReady()) {
       if (Currency.getActive() !== "EUR") return Currency.fmtExact(eurAmount);
     }
     return "€" + eurAmount.toFixed(2);
   }
+  
+  function fmtTotal(eurAmount) {
+    // Exact, decimal-preserving display — used for TOTAL display.
+    // This ensures customers see EXACTLY what they'll be charged.
+    // Matches the exact amount used in payment processing.
+    if (typeof Currency !== "undefined" && Currency.getActive && Currency.isReady && Currency.isReady()) {
+      if (Currency.getActive() !== "EUR") return Currency.fmtExact(eurAmount);
+    }
+    return "€" + eurAmount.toFixed(2);
+  }
+  
   function fmtWeight(kg) { return kg >= 1 ? kg.toFixed(1) + " kg" : (kg * 1000).toFixed(0) + " g"; }
 
   /* ─── PRODUCT LOADER ────────────────────────────────── */
@@ -1360,7 +1374,7 @@ var Shop = (() => {
             ${totalDiscount > 0 ? `<div class="webshop-mini-cart__row" style="color:#c8522d;font-weight:600;"><span>${t("you_save","You Save")}</span><span style="color:#c8522d;">-${fmt(totalDiscount)}</span></div>` : ""}
             <div class="webshop-mini-cart__row"><span>${t("shipping","Shipping")}</span><span>${isFreeShipping?t("free","FREE"):fmt(shipping)}</span></div>
             <div class="webshop-mini-cart__row"><span>${t("weight","Weight")}</span><span>${fmtWeight(totalWeight)}</span></div>
-            <div class="webshop-mini-cart__row webshop-mini-cart__row--total"><span>${t("total","Total")}</span><span>${fmt(total)}</span></div>
+            <div class="webshop-mini-cart__row webshop-mini-cart__row--total"><span>${t("total","Total")}</span><span>${fmtTotal(total)}</span></div>
           </div>
           <a class="webshop-btn webshop-btn--primary" href="${(typeof window !== 'undefined' && window.__CART_URL__) || cartUrl}">${t("checkout","Proceed to Checkout")}</a>`;
         container.querySelectorAll(".webshop-mini-cart__remove").forEach(btn => { btn.addEventListener("click", () => removeFromCart(btn.dataset.key)); });
@@ -1396,9 +1410,12 @@ var Shop = (() => {
     const data = {
       _subject: `New Order ${orderRef}`, order_ref: orderRef, status: "PENDING_PAYMENT",
       display_currency: CONFIG.currencyCode, ...filtered, items,
-      subtotal_eur: "€"+totals.subtotal.toFixed(2), subtotal_display: fmt(totals.subtotal),
-      tax: fmtExact(totals.tax), shipping: totals.isFreeShipping?"FREE":fmt(totals.shipping),
-      total_eur: "€"+totals.total.toFixed(2), total_display: fmt(totals.total),
+      subtotal_eur: "€"+totals.subtotal.toFixed(2), 
+      subtotal_display: fmt(totals.subtotal),
+      tax: fmtExact(totals.tax), 
+      shipping: totals.isFreeShipping?"FREE":fmt(totals.shipping),
+      total_eur: "€"+totals.total.toFixed(2), 
+      total_display: fmtTotal(totals.total),  // ← FIXED: Now shows exact total, not rounded!
       total_weight: fmtWeight(totals.totalWeight||0),
     };
     try { const fn = (typeof sendToQueue !== "undefined" ? sendToQueue : window.sendToQueue); if (!fn) { console.warn("sendToQueue not available"); return false; } const ok = await fn("payment-pending", data); return ok; } catch(e) { console.warn("Queue failed",e); return false; }
@@ -1418,7 +1435,7 @@ var Shop = (() => {
     loadProducts, getProduct, pName, pDesc, pCategory, getUrlText, getUpLabelText, getDownLabelText,
     getProductLang, getProductLangEn,
     getCart, saveCart, addToCart, removeFromCart, updateQty, clearCart, calculateTotals,
-    fmt, fmtExact, fmtWeight, generateOrderRef,
+    fmt, fmtExact, fmtTotal, fmtWeight, generateOrderRef,
     slugify, buildImagePath, colorImageSrc,
     toast, swapMainImg,
     getVariant, variantPrice, variantWeight, variantImage, variantStock, variantInStock,
