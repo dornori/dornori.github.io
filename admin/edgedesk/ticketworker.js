@@ -1519,7 +1519,7 @@ async function createPasswordResetToken(env, email) {
   await ensurePasswordResetsTable(env);
   const token = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, "");
   const tokenHash = await sha256(token);
-  const expiresAt = Math.floor(Date.now() / 1e3) + 30 * 60; // 30 minutes
+  const expiresAt = Math.floor(Date.now() / 1e3) + 15 * 60; // 15 minutes (industry standard)
   await env.DB.prepare("INSERT INTO password_resets (token_hash, email, expires_at) VALUES (?, ?, ?)").bind(tokenHash, email, expiresAt).run();
   return token;
 }
@@ -2638,12 +2638,16 @@ var worker_default = {
         const user = await getUser(cleanEmail, env);
         if (user) {
           const token = await createPasswordResetToken(env, user.email);
-          const domain = (await getSetting(env, "general", "domain")) || "";
-          const base = domain ? `https://${domain}` : "";
-          const resetLink = `${base}/reset-password.html?token=${token}`;
+          const domainRaw = (await getSetting(env, "general", "domain")) || "";
+          const cleanDomain = domainRaw.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+          const basedirRaw = (await getSetting(env, "general", "app_basedir")) || "";
+          const cleanBasedir = basedirRaw.trim().replace(/^\/+/, "").replace(/\/+$/, "");
+          const base = cleanDomain ? `https://${cleanDomain}` : "";
+          const pathPrefix = cleanBasedir ? `/${cleanBasedir}` : "";
+          const resetLink = `${base}${pathPrefix}/reset-password.html?token=${token}`;
           const from = (await getSetting(env, "email", "password_reset_from")) || (await getSetting(env, "email", "default_from"));
           if (from) {
-            const body = `<p>Hi ${user.name || ""},</p><p>We received a request to reset your EdgeDesk password. Click the link below to choose a new password. This link expires in 30 minutes.</p><p><a href="${resetLink}">${resetLink}</a></p><p>If you didn't request this, you can safely ignore this email.</p>`;
+            const body = `<p>Hi ${user.name || ""},</p><p>We received a request to reset your EdgeDesk password. Click the link below to choose a new password. This link expires in 15 minutes.</p><p><a href="${resetLink}">${resetLink}</a></p><p>If you didn't request this, you can safely ignore this email.</p>`;
             await sendEmail(env, user.email, "Reset your EdgeDesk password", body, from);
           }
         }

@@ -758,6 +758,7 @@ function buildGeneral() {
     const defaultLang = S('general', 'default_language', '');
     const defaultFrom = S('email', 'default_from', '');
     const passwordResetFrom = S('email', 'password_reset_from', '');
+    const appBasedir = S('general', 'app_basedir', '');
     const productsDataUrl = S('general', 'products_data_base_url', '');
     const productsImagesUrl = S('general', 'products_images_base_url', '');
     const langs = getLanguages();
@@ -776,6 +777,11 @@ function buildGeneral() {
         <div class="f-row" style="max-width:420px;">
             <label>Domain <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;">domain used for building settings URL's no protocol, no trailing slash)</span></label>
             <input type="text" id="gen_domain" value="${esc(domain)}" placeholder="edgedesk.com" />
+        </div>
+        
+        <div class="f-row" style="max-width:420px;">
+            <label>App Base Directory <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;">(folder this app is deployed in, if not domain root — no leading/trailing slash, e.g. "ticketing". Used to build the password reset link.)</span></label>
+            <input type="text" id="gen_app_basedir" value="${esc(appBasedir)}" placeholder="ticketing" />
         </div>
         
         <hr class="divider" />
@@ -819,10 +825,12 @@ async function saveGeneral() {
     const defaultLang = document.getElementById('gen_default_lang').value;
     const defaultFrom = document.getElementById('gen_default_from').value.trim();
     const passwordResetFrom = document.getElementById('gen_password_reset_from').value.trim();
+    const appBasedir = document.getElementById('gen_app_basedir').value.trim().replace(/^\/+/, '').replace(/\/+$/, '');
     
     const updates = [
         { category:'general', key:'timezone', value: document.getElementById('gen_tz').value },
         { category:'general', key:'domain',   value: document.getElementById('gen_domain').value.trim() },
+        { category:'general', key:'app_basedir', value: appBasedir },
         { category:'general', key:'default_language', value: defaultLang },
         { category:'general', key:'products_data_base_url', value: document.getElementById('gen_products_data_url').value.trim() },
         { category:'general', key:'products_images_base_url', value: document.getElementById('gen_products_images_url').value.trim() },
