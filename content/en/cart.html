@@ -554,8 +554,10 @@
     var shipEl = document.getElementById('cart-shipping-val');
     if (shipEl) shipEl.textContent = t.isFreeShipping ? T('free','FREE') : Shop.fmt(t.shipping);
     if (sub) sub.textContent = Shop.fmt(t.subtotal);
-    if (tax) tax.textContent = isBusiness ? Shop.fmt(0) + ' ' + L.b2b : Shop.fmt(t.tax);
-    if (tot) tot.textContent = Shop.fmt(t.subtotal + (isBusiness ? 0 : t.tax));
+    // FIX: Use fmtExact for tax (never round tax!)
+    if (tax) tax.textContent = isBusiness ? Shop.fmt(0) + ' ' + L.b2b : Shop.fmtExact(t.tax);
+    // FIX: Use fmtTotal for total (exact, no rounding)
+    if (tot) tot.textContent = Shop.fmtTotal(t.subtotal + (isBusiness ? 0 : t.tax));
     var totalSavings = cart.reduce(function(a, i) { return a + (i.originalPrice ? (i.originalPrice - i.price) * i.qty : 0); }, 0);
     var savRow = document.getElementById('cart-savings-row');
     var savVal = document.getElementById('cart-savings-val');
@@ -654,7 +656,8 @@
 
     var tax = document.getElementById(taxId);
     var taxM = document.getElementById(taxMobileId);
-    var taxText = isBusiness ? Shop.fmt(0) + ' ' + L.b2b : Shop.fmt(t.tax);
+    // FIX: Use fmtExact for tax (never round tax!)
+    var taxText = isBusiness ? Shop.fmt(0) + ' ' + L.b2b : Shop.fmtExact(t.tax);
     if (tax) tax.textContent = taxText;
     if (taxM) taxM.textContent = taxText;
 
@@ -666,7 +669,8 @@
 
     var total = document.getElementById(totalId);
     var totalM = document.getElementById(totalMobileId);
-    var totalText = Shop.fmt(t.subtotal + (isBusiness ? 0 : t.tax));
+    // FIX: Use fmtTotal for total (exact, no rounding)
+    var totalText = Shop.fmtTotal(t.subtotal + (isBusiness ? 0 : t.tax));
     if (total) total.textContent = totalText;
     if (totalM) totalM.textContent = totalText;
   }
