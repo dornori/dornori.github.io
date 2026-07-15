@@ -48,26 +48,26 @@
             padding: 3px 6px; background: var(--bg-input); border: 1px solid var(--border);
             border-radius: 5px; color: var(--text); font-size: 12px; cursor: pointer;
         }
-        #or_editor {
+        .rte-editor {
             min-height: 220px; padding: 14px 16px; outline: none;
             background: var(--bg-input); color: var(--text); font-size: 14px; line-height: 1.6;
         }
-        #or_editor:focus { background: var(--bg-secondary); }
-        #or_editor h1, #or_editor h2, #or_editor h3 { margin: .5em 0; }
-        #or_editor p { margin: .4em 0; }
-        #or_editor ul, #or_editor ol { padding-left: 1.4em; margin: .4em 0; }
-        #or_editor a { color: var(--accent); }
-        #or_editor blockquote { border-left: 3px solid var(--accent); margin: .5em 0; padding-left: 12px; color: var(--text-muted); }
+        .rte-editor:focus { background: var(--bg-secondary); }
+        .rte-editor h1, .rte-editor h2, .rte-editor h3 { margin: .5em 0; }
+        .rte-editor p { margin: .4em 0; }
+        .rte-editor ul, .rte-editor ol { padding-left: 1.4em; margin: .4em 0; }
+        .rte-editor a { color: var(--accent); }
+        .rte-editor blockquote { border-left: 3px solid var(--accent); margin: .5em 0; padding-left: 12px; color: var(--text-muted); }
 
-        #or_source {
+        .rte-source {
             display: none; width: 100%; min-height: 220px; padding: 14px 16px;
             background: var(--bg-input); color: var(--text); font-size: 12.5px;
             font-family: 'Menlo','Consolas',monospace; line-height: 1.55;
             border: none; outline: none; resize: vertical; box-sizing: border-box;
         }
-        .editor-wrap.source-mode #or_editor { display: none; }
-        .editor-wrap.source-mode #or_source { display: block; }
-        .editor-wrap.source-mode .editor-toolbar button:not(#sourceToggleBtn),
+        .editor-wrap.source-mode .rte-editor { display: none; }
+        .editor-wrap.source-mode .rte-source { display: block; }
+        .editor-wrap.source-mode .editor-toolbar button:not(.rte-toggle-btn),
         .editor-wrap.source-mode .editor-toolbar select,
         .editor-wrap.source-mode .editor-toolbar .sep { opacity: .3; pointer-events: none; }
 
@@ -547,14 +547,15 @@
         } catch (e) { templates = []; }
     }
 
-    async function saveTemplate() {
+    async function saveTemplate(prefix) {
         if (!canManageTemplates()) { toast('You do not have permission to save templates', 'error'); return; }
         const name = prompt('Template name:');
         if (!name) return;
         const lang = currentLang === 'all' ? 'en' : currentLang;
         const key = 'templates_' + lang;
+        const subject = prefix === 'or_ar' ? document.getElementById('or_ar_subject').value : getSubject();
         const list = templates.filter(t => t.name !== name);
-        list.push({ name, subject: getSubject(), body: getEditorHtml('or') });
+        list.push({ name, subject, body: getEditorHtml(prefix) });
         try {
             const d = await api('/api/admin/settings', {
                 method: 'PUT',
@@ -565,7 +566,8 @@
                 if (!settings.order_template) settings.order_template = {};
                 settings.order_template[key] = JSON.stringify(list);
                 toast('💾 Template saved');
-                rebuildTemplateBar();
+                rebuildTemplateBar('or');
+                rebuildTemplateBar('or_ar');
             } else toast('❌ ' + (d.error || 'Save failed'), 'error');
         } catch (e) { toast('❌ ' + e.message, 'error'); }
     }
@@ -585,35 +587,40 @@
                 templates = list;
                 settings.order_template[key] = JSON.stringify(list);
                 toast('✅ Deleted');
-                rebuildTemplateBar();
+                rebuildTemplateBar('or');
+                rebuildTemplateBar('or_ar');
             }
         } catch (e) { toast('❌ ' + e.message, 'error'); }
     }
 
-    function loadTemplateIntoEditor(name) {
+    function loadTemplateIntoEditor(name, prefix) {
         const t = templates.find(x => x.name === name);
         if (!t) return;
-        document.getElementById('compose_subject').value = t.subject || '';
-        if (sourceModes.or) document.getElementById('or_source').value = t.body || '';
-        else document.getElementById('or_editor').innerHTML = t.body || '';
+        if (prefix === 'or_ar') {
+            document.getElementById('or_ar_subject').value = t.subject || '';
+        } else {
+            document.getElementById('compose_subject').value = t.subject || '';
+        }
+        if (sourceModes[prefix]) document.getElementById(prefix + '_source').value = t.body || '';
+        else document.getElementById(prefix + '_editor').innerHTML = t.body || '';
         toast('Loaded template');
     }
 
-    function rebuildTemplateBar() {
-        const el = document.getElementById('templateBar');
-        if (el) el.outerHTML = buildTemplateBar();
+    function rebuildTemplateBar(prefix) {
+        const el = document.getElementById(prefix + '_templateBar');
+        if (el) el.outerHTML = buildTemplateBar(prefix);
     }
 
-    function buildTemplateBar() {
-        if (!canManageTemplates()) return '<div id="templateBar"></div>';
+    function buildTemplateBar(prefix) {
+        if (!canManageTemplates()) return `<div id="${prefix}_templateBar"></div>`;
         const opts = templates.map(t => `<option value="${esc(t.name)}">${esc(t.name)}</option>`).join('');
-        return `<div id="templateBar" class="btn-row" style="margin-top:0;margin-bottom:14px;">
-            <select id="templateSelect" style="max-width:220px;padding:6px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;">
+        return `<div id="${prefix}_templateBar" class="btn-row" style="margin-top:0;margin-bottom:14px;">
+            <select id="${prefix}_templateSelect" style="max-width:220px;padding:6px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;">
                 <option value="">📁 Load template…</option>${opts}
             </select>
-            <button class="btn btn-ghost btn-sm" onclick="const v=document.getElementById('templateSelect').value; if(v) loadTemplateIntoEditor(v);">Load</button>
-            <button class="btn btn-ghost btn-sm" onclick="saveTemplate()">💾 Save as template</button>
-            <button class="btn btn-danger btn-sm" onclick="const v=document.getElementById('templateSelect').value; if(v) deleteTemplate(v); else toast('Select a template first','error');">Delete</button>
+            <button class="btn btn-ghost btn-sm" onclick="const v=document.getElementById('${prefix}_templateSelect').value; if(v) loadTemplateIntoEditor(v,'${prefix}');">Load</button>
+            <button class="btn btn-ghost btn-sm" onclick="saveTemplate('${prefix}')">💾 Save as template</button>
+            <button class="btn btn-danger btn-sm" onclick="const v=document.getElementById('${prefix}_templateSelect').value; if(v) deleteTemplate(v); else toast('Select a template first','error');">Delete</button>
         </div>`;
     }
 
@@ -694,6 +701,7 @@
             </div>
             <div class="f-row">
                 <label>Body</label>
+                ${buildTemplateBar('or_ar')}
                 ${buildRichEditor('or_ar', body, 'or_ar')}
             </div>
             <button class="btn btn-accent" onclick="saveOrderAutoReply()">Save auto-reply</button>
@@ -826,10 +834,10 @@
                 <div class="sep"></div>
                 <button title="Remove formatting" onclick="cmd('${prefix}','removeFormat')">✕ fmt</button>
                 <div class="sep"></div>
-                <button id="${prefix}_sourceToggleBtn" title="Toggle HTML source" onclick="toggleSource('${prefix}')" style="font-family:monospace;font-weight:700;">&lt;/&gt; Source</button>
+                <button id="${prefix}_sourceToggleBtn" class="rte-toggle-btn" title="Toggle HTML source" onclick="toggleSource('${prefix}')" style="font-family:monospace;font-weight:700;">&lt;/&gt; Source</button>
             </div>
-            <div id="${prefix}_editor" contenteditable="true" spellcheck="true" onfocus="trackFocus('${group}','${prefix}_editor')">${initialHtml || ''}</div>
-            <textarea id="${prefix}_source" spellcheck="false" placeholder="Paste your full HTML here…" onfocus="trackFocus('${group}','${prefix}_source')"></textarea>
+            <div id="${prefix}_editor" class="rte-editor" contenteditable="true" spellcheck="true" onfocus="trackFocus('${group}','${prefix}_editor')">${initialHtml || ''}</div>
+            <textarea id="${prefix}_source" class="rte-source" spellcheck="false" placeholder="Paste your full HTML here…" onfocus="trackFocus('${group}','${prefix}_source')"></textarea>
             <div class="source-hint">⚡ <strong>Source mode</strong> — tags like <code>{{order_items}}</code> still render on preview/send.</div>
         </div>`;
     }
@@ -1185,7 +1193,7 @@
             </div>
             ${detailBar}
             <div class="${isDisabled ? 'disabled-form' : ''}">
-                ${buildTemplateBar()}
+                ${buildTemplateBar('or')}
                 <div class="f-row">
                     <label>From</label>
                     <select id="reply_from">${senderOpts || '<option value="">No sender addresses available</option>'}</select>
