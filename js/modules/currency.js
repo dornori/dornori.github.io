@@ -76,18 +76,37 @@ var Currency = (() => {
     return eurAmount * (c.rate + (c.buffer || 0));
   }
 
-  function fmt(eurAmount, code = _active) {
-    if (!_loaded || !Object.keys(_rates).length) return '€\u00A0' + eurAmount.toFixed(2);
-    const c = _rates[code] || _rates['EUR'];
-    if (!c) return '€\u00A0' + eurAmount.toFixed(2);
-    const val = convert(eurAmount, code);
+  // Rounded-up (ceiling), whole-number conversion — used for prices/shipping display.
+  function convertRounded(eurAmount, code = _active) {
+    return Math.ceil(convert(eurAmount, code));
+  }
+
+  function _resolveSymbol(c) {
     let symbol = c.symbol;
     if (symbol && symbol.includes('&')) {
       const ta = document.createElement('textarea');
       ta.innerHTML = symbol;
       symbol = ta.value;
     }
-    return symbol + '\u00A0' + val.toFixed(c.decimals);
+    return symbol;
+  }
+
+  // Rounded-up, no-decimal display — default for prices/shipping.
+  function fmt(eurAmount, code = _active) {
+    if (!_loaded || !Object.keys(_rates).length) return '€\u00A0' + Math.ceil(eurAmount);
+    const c = _rates[code] || _rates['EUR'];
+    if (!c) return '€\u00A0' + Math.ceil(eurAmount);
+    const val = convertRounded(eurAmount, code);
+    return _resolveSymbol(c) + '\u00A0' + val;
+  }
+
+  // Exact, decimal-preserving display — used for tax (in every currency, incl. base).
+  function fmtExact(eurAmount, code = _active) {
+    if (!_loaded || !Object.keys(_rates).length) return '€\u00A0' + eurAmount.toFixed(2);
+    const c = _rates[code] || _rates['EUR'];
+    if (!c) return '€\u00A0' + eurAmount.toFixed(2);
+    const val = convert(eurAmount, code);
+    return _resolveSymbol(c) + '\u00A0' + val.toFixed(c.decimals);
   }
 
   function setActive(code) {
@@ -135,6 +154,6 @@ var Currency = (() => {
 
   async function waitForReady() { await init(); return isReady(); }
 
-  return { load, init, waitForReady, detect: detectFromIP, convert, fmt, setActive, getActive, list, getRates, isReady };
+  return { load, init, waitForReady, detect: detectFromIP, convert, convertRounded, fmt, fmtExact, setActive, getActive, list, getRates, isReady };
 })();
 window.Currency = Currency;

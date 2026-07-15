@@ -299,9 +299,16 @@ var Shop = (() => {
 
   /* ─── FORMAT ────────────────────────────────────────── */
   function fmt(eurAmount) {
-    // FIXED: Provide immediate Euro fallback if Currency not ready
+    // Rounded-up, no-decimal display — used for prices, shipping, subtotal, totals.
     if (typeof Currency !== "undefined" && Currency.getActive && Currency.isReady && Currency.isReady()) {
       if (Currency.getActive() !== "EUR") return Currency.fmt(eurAmount);
+    }
+    return "€" + Math.ceil(eurAmount);
+  }
+  function fmtExact(eurAmount) {
+    // Exact, decimal-preserving display — used for tax, in every currency incl. base.
+    if (typeof Currency !== "undefined" && Currency.getActive && Currency.isReady && Currency.isReady()) {
+      if (Currency.getActive() !== "EUR") return Currency.fmtExact(eurAmount);
     }
     return "€" + eurAmount.toFixed(2);
   }
@@ -1390,7 +1397,7 @@ var Shop = (() => {
       _subject: `New Order ${orderRef}`, order_ref: orderRef, status: "PENDING_PAYMENT",
       display_currency: CONFIG.currencyCode, ...filtered, items,
       subtotal_eur: "€"+totals.subtotal.toFixed(2), subtotal_display: fmt(totals.subtotal),
-      tax: fmt(totals.tax), shipping: totals.isFreeShipping?"FREE":fmt(totals.shipping),
+      tax: fmtExact(totals.tax), shipping: totals.isFreeShipping?"FREE":fmt(totals.shipping),
       total_eur: "€"+totals.total.toFixed(2), total_display: fmt(totals.total),
       total_weight: fmtWeight(totals.totalWeight||0),
     };
@@ -1411,7 +1418,7 @@ var Shop = (() => {
     loadProducts, getProduct, pName, pDesc, pCategory, getUrlText, getUpLabelText, getDownLabelText,
     getProductLang, getProductLangEn,
     getCart, saveCart, addToCart, removeFromCart, updateQty, clearCart, calculateTotals,
-    fmt, fmtWeight, generateOrderRef,
+    fmt, fmtExact, fmtWeight, generateOrderRef,
     slugify, buildImagePath, colorImageSrc,
     toast, swapMainImg,
     getVariant, variantPrice, variantWeight, variantImage, variantStock, variantInStock,

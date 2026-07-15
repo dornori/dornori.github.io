@@ -32,6 +32,12 @@ const Payment = (() => {
     return (typeof Currency !== 'undefined' && Currency.convert) ? Currency.convert(amount) : amount;
   }
 
+  // Rounded-up (ceiling), whole-number conversion — for subtotal/shipping display.
+  // Tax must stay exact with decimals, so it always uses _convert() instead.
+  function _convertRounded(amount) {
+    return (typeof Currency !== 'undefined' && Currency.convertRounded) ? Currency.convertRounded(amount) : Math.ceil(amount);
+  }
+
   function _getActiveLanguage() {
     return (typeof window !== 'undefined' && window.LANG) || 
            localStorage.getItem('dornori-lang') || 
@@ -140,8 +146,8 @@ const Payment = (() => {
                 const liveRawSubtotal = liveTotals ? liveTotals.subtotal : cart.reduce((s, i) => s + (parseFloat(i.price) || 0) * i.qty, 0);
                 const liveRawShipping = liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : 0;
                 const liveRawTax = liveTotals ? liveTotals.tax : 0;
-                const liveSubtotal = _convert(liveRawSubtotal);
-                const liveShipping = _convert(liveRawShipping);
+                const liveSubtotal = _convertRounded(liveRawSubtotal);
+                const liveShipping = _convertRounded(liveRawShipping);
                 const liveTax = _convert(liveRawTax);
                 const liveTotal = liveSubtotal + liveShipping + liveTax;
                 resolve({
@@ -150,8 +156,8 @@ const Payment = (() => {
                     totalPrice: liveTotal.toFixed(2),
                     totalPriceLabel: 'Total',
                     displayItems: [
-                      { label: 'Subtotal', type: 'SUBTOTAL', price: liveSubtotal.toFixed(2) },
-                      { label: 'Shipping', type: 'LINE_ITEM', price: liveShipping.toFixed(2) },
+                      { label: 'Subtotal', type: 'SUBTOTAL', price: liveSubtotal.toFixed(0) },
+                      { label: 'Shipping', type: 'LINE_ITEM', price: liveShipping.toFixed(0) },
                       { label: 'Tax', type: 'TAX', price: liveTax.toFixed(2) }
                     ],
                     currencyCode: _getActiveCurrency(),
@@ -196,14 +202,14 @@ const Payment = (() => {
               const rawShipping = localTotals ? (localTotals.isFreeShipping ? 0 : localTotals.shipping) : 0;
               const rawTax = localTotals ? localTotals.tax : 0;
 
-              const subtotal = _convert(rawSubtotal);
-              const shipping = _convert(rawShipping);
+              const subtotal = _convertRounded(rawSubtotal);
+              const shipping = _convertRounded(rawShipping);
               const tax = _convert(rawTax);
               const displayTotal = subtotal + shipping + tax;
 
               const displayItems = [
-                { label: 'Subtotal', type: 'SUBTOTAL', price: subtotal.toFixed(2) },
-                { label: 'Shipping', type: 'LINE_ITEM', price: shipping.toFixed(2) },
+                { label: 'Subtotal', type: 'SUBTOTAL', price: subtotal.toFixed(0) },
+                { label: 'Shipping', type: 'LINE_ITEM', price: shipping.toFixed(0) },
                 { label: 'Tax', type: 'TAX', price: tax.toFixed(2) }
               ];
 
@@ -353,14 +359,14 @@ const Payment = (() => {
           const rawShipping = localTotals ? (localTotals.isFreeShipping ? 0 : localTotals.shipping) : 0;
           const rawTax = localTotals ? localTotals.tax : 0;
 
-          const subtotal = _convert(rawSubtotal);
-          const shipping = _convert(rawShipping);
+          const subtotal = _convertRounded(rawSubtotal);
+          const shipping = _convertRounded(rawShipping);
           const tax = _convert(rawTax);
           const displayTotal = subtotal + shipping + tax;
 
           const buildLineItems = (sub, ship, tx) => [
-            { label: 'Subtotal', amount: sub.toFixed(2) },
-            { label: 'Shipping', amount: ship.toFixed(2) },
+            { label: 'Subtotal', amount: sub.toFixed(0) },
+            { label: 'Shipping', amount: ship.toFixed(0) },
             { label: 'Tax', amount: tx.toFixed(2) }
           ];
 
@@ -390,8 +396,8 @@ const Payment = (() => {
           session.onshippingcontactselected = (event) => {
             const country = event.shippingContact?.countryCode || null;
             const liveTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, country) : localTotals;
-            const liveSubtotal = _convert(liveTotals ? liveTotals.subtotal : rawSubtotal);
-            const liveShipping = _convert(liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : rawShipping);
+            const liveSubtotal = _convertRounded(liveTotals ? liveTotals.subtotal : rawSubtotal);
+            const liveShipping = _convertRounded(liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : rawShipping);
             const liveTax = _convert(liveTotals ? liveTotals.tax : rawTax);
             const liveTotal = liveSubtotal + liveShipping + liveTax;
 
