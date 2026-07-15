@@ -256,6 +256,70 @@
             background: var(--bg-input);
             border-color: var(--accent);
         }
+
+        /* Toast notification styles */
+        .notification-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 8px;
+            padding: 16px 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 350px;
+            z-index: 9999;
+            border-left: 4px solid var(--accent);
+            animation: slideIn 0.3s ease;
+        }
+        .notification-toast h4 {
+            margin: 0 0 4px 0;
+            font-size: 14px;
+            color: var(--text);
+        }
+        .notification-toast p {
+            margin: 0;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .notification-toast .close-toast {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            max-width: 90%;
+            text-align: center;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+        .toast.success { background: #22c55e; }
+        .toast.error { background: #ef4444; }
+        .toast.warning { background: #f59e0b; }
+        .toast.info { background: #3b82f6; }
+        .toast a { color: white; text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -369,6 +433,9 @@
     let ticketLockedByOther = false;
     let ticketLockedByInfo = null;
     let ticketLocks = {};
+    let emailTemplates = [];
+    let emailSourceMode = false;
+    let lastEmailFocusedField = null;
     
     // ─── WEBSOCKET ──────────────────────────────────────────
     let ws = null;
@@ -1244,7 +1311,7 @@
 
     function escapeHtml(str) {
         if (!str) return "";
-        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
@@ -1313,10 +1380,7 @@
         return tempDiv.innerHTML;
     }
 
-    // ─── EMAIL EDITOR STATE ─────────────────────────────────────────
-    let emailTemplates = [];
-    let emailSourceMode = false;
-    let lastEmailFocusedField = null;
+    // ─── EMAIL EDITOR FUNCTIONS ─────────────────────────────────────────
 
     function insertEmailTag(tag) {
         var editor = document.getElementById("detailReplyBodyEditor");
@@ -1331,8 +1395,10 @@
             source.selectionStart = source.selectionEnd = start + tag.length;
         } else {
             // In visual mode, insert into contentEditable
-            editor.focus();
-            document.execCommand('insertText', false, tag);
+            if (editor) {
+                editor.focus();
+                document.execCommand('insertText', false, tag);
+            }
         }
         
         lastEmailFocusedField = emailSourceMode ? source : editor;
@@ -1491,6 +1557,256 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  ORDER DATA RENDERING FUNCTIONS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    function renderOrderItems(metadata) {
+        const order = metadata && metadata.order;
+        if (!order || !order.items || !order.items.length) return '';
+        
+        const currency = metadata.currency || 'EUR';
+        const items = order.items;
+        const totals = order.totals || {};
+        
+        let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
+        html += '<tr style="background:#f5f5f5;border-bottom:2px solid #ddd;">';
+        html += '<th style="padding:10px;text-align:left;font-weight:bold;">Product</th>';
+        html += '<th style="padding:10px;text-align:center;font-weight:bold;">Qty</th>';
+        html += '<th style="padding:10px;text-align:right;font-weight:bold;">Unit Price</th>';
+        html += '<th style="padding:10px;text-align:right;font-weight:bold;">Total</th>';
+        html += '</tr>';
+        
+        for (const item of items) {
+            if (!item || typeof item !== 'object') continue;
+            
+            const name = escapeHtml(String(item.name || 'Product'));
+            const qty = Math.max(1, parseInt(item.qty || 1, 10));
+            const price = Math.max(0, parseFloat(item.price || 0));
+            const imageSrc = String(item.image || '').trim();
+            
+            if (isNaN(price) || isNaN(qty)) continue;
+            
+            const lineTotal = (price * qty).toFixed(2);
+            const imageTag = imageSrc ? `<img src="${escapeHtml(imageSrc)}" style="max-width:40px;height:auto;vertical-align:middle;margin-right:8px;border-radius:3px;" alt="${name}" />` : '';
+            
+            html += '<tr style="border-bottom:1px solid #eee;">';
+            html += `<td style="padding:10px;text-align:left;">${imageTag}${name}</td>`;
+            html += `<td style="padding:10px;text-align:center;">${qty}</td>`;
+            html += `<td style="padding:10px;text-align:right;">${currency} ${price.toFixed(2)}</td>`;
+            html += `<td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td>`;
+            html += '</tr>';
+        }
+        
+        html += '<tr style="border-top:2px solid #ddd;background:#fafafa;">';
+        html += `<td colspan="3" style="padding:10px;text-align:right;font-weight:bold;">Subtotal:</td>`;
+        html += `<td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${(totals.subtotal || 0).toFixed(2)}</td>`;
+        html += '</tr>';
+        
+        if (totals.shipping !== undefined) {
+            html += '<tr style="background:#fafafa;">';
+            html += `<td colspan="3" style="padding:10px;text-align:right;font-weight:bold;">Shipping:</td>`;
+            html += `<td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${(totals.shipping || 0).toFixed(2)}</td>`;
+            html += '</tr>';
+        }
+        
+        if (totals.tax !== undefined && totals.tax > 0) {
+            html += '<tr style="background:#fafafa;">';
+            html += `<td colspan="3" style="padding:10px;text-align:right;font-weight:bold;">Tax:</td>`;
+            html += `<td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${(totals.tax || 0).toFixed(2)}</td>`;
+            html += '</tr>';
+        }
+        
+        html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
+        html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;font-size:15px;">TOTAL:</td>`;
+        html += `<td style="padding:12px;text-align:right;font-weight:bold;font-size:15px;">${currency} ${(totals.total || 0).toFixed(2)}</td>`;
+        html += '</tr>';
+        html += '</table>';
+        
+        return html;
+    }
+
+    function renderOrderSummary(metadata) {
+        const order = metadata && metadata.order;
+        if (!order) return '';
+        
+        const currency = metadata.currency || 'EUR';
+        const totals = order.totals || {};
+        const itemCount = (order.items || []).length;
+        
+        if (itemCount === 0) return '';
+        
+        let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
+        html += `<div style="margin-bottom:8px;"><strong>Order Reference:</strong> ${escapeHtml(String(order.reference || 'N/A'))}</div>`;
+        html += `<div style="margin-bottom:8px;"><strong>Items:</strong> ${itemCount}</div>`;
+        
+        const subtotal = parseFloat(totals.subtotal || 0);
+        const shipping = parseFloat(totals.shipping || 0);
+        const tax = parseFloat(totals.tax || 0);
+        const total = parseFloat(totals.total || 0);
+        
+        html += `<div style="margin-bottom:8px;"><strong>Subtotal:</strong> ${currency} ${subtotal.toFixed(2)}</div>`;
+        if (!isNaN(shipping) && shipping > 0) {
+            html += `<div style="margin-bottom:8px;"><strong>Shipping:</strong> ${currency} ${shipping.toFixed(2)}</div>`;
+        }
+        if (!isNaN(tax) && tax > 0) {
+            html += `<div style="margin-bottom:8px;"><strong>Tax:</strong> ${currency} ${tax.toFixed(2)}</div>`;
+        }
+        html += `<div style="margin-bottom:0;padding-top:8px;border-top:1px solid #ddd;"><strong>Total:</strong> ${currency} ${total.toFixed(2)}</div>`;
+        html += '</div>';
+        
+        return html;
+    }
+
+    function renderCustomerInfo(metadata) {
+        const order = metadata && metadata.order;
+        const customer = order && order.customer;
+        if (!customer) return '';
+        
+        const hasData = customer.name || customer.email || customer.phone || customer.shipping_address;
+        if (!hasData) return '';
+        
+        let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
+        
+        if (customer.name) {
+            html += `<div style="margin-bottom:8px;"><strong>Name:</strong> ${escapeHtml(String(customer.name))}</div>`;
+        }
+        if (customer.email) {
+            html += `<div style="margin-bottom:8px;"><strong>Email:</strong> ${escapeHtml(String(customer.email))}</div>`;
+        }
+        if (customer.phone) {
+            html += `<div style="margin-bottom:8px;"><strong>Phone:</strong> ${escapeHtml(String(customer.phone))}</div>`;
+        }
+        
+        if (customer.shipping_address) {
+            html += `<div style="margin-top:12px;padding-top:12px;border-top:1px solid #ddd;"><strong>Shipping Address:</strong></div>`;
+            html += `<div style="margin-top:8px;white-space:pre-wrap;font-size:13px;">${escapeHtml(String(customer.shipping_address))}</div>`;
+        }
+        
+        html += '</div>';
+        return html;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  SEND REPLY - UPDATED WITH FIXED TAG REPLACEMENT
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    async function sendReply(id) {
+        if (!canEdit()) {
+            showToast('❌ Permission Denied', 'You do not have edit permission for tickets', 'error');
+            return;
+        }
+        var from = document.getElementById("detailReplyFrom").value;
+        var editor = document.getElementById("detailReplyBodyEditor");
+        var source = document.getElementById("detailReplyBodySource");
+        
+        // Get body from whichever mode is active
+        var rawBody = emailSourceMode ? source.value.trim() : editor.innerHTML.trim();
+        
+        if (!rawBody || rawBody === '<br>') {
+            showToast('⚠️ Please enter a reply', 'Reply content is required', 'warning');
+            return;
+        }
+        
+        // Get the ticket to access metadata
+        let metadata = {};
+        let ticketData = {};
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            
+            const ticketRes = await fetch(API_BASE + "/api/admin/ticket/" + id, {
+                headers: { "Authorization": "Bearer " + token },
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            
+            if (ticketRes.ok) {
+                const data = await ticketRes.json();
+                ticketData = data.ticket || {};
+                metadata = (data.ticket && data.ticket.metadata) || {};
+            } else {
+                console.warn('Failed to fetch ticket:', ticketRes.status);
+            }
+        } catch (e) {
+            console.error('Error fetching ticket metadata:', e);
+            if (e.name === 'AbortError') {
+                showToast('⚠️ Slow Server', 'Order data unavailable, proceeding with reply', 'warning');
+            }
+        }
+        
+        // Start with the raw body
+        let body = rawBody;
+        
+        // REPLACE TEXT TAGS (these are plain text, escape them)
+        // Customer name - handle multiple variations
+        const customerName = (ticketData.sender_name || '').toString();
+        const customerEmail = (ticketData.sender_email || '').toString();
+        const customerPhone = (ticketData.sender_phone || '').toString();
+        const ticketNumber = (ticketData.ticket_number || '').toString();
+        
+        // Replace all text-based tags with escaped values
+        body = body.replace(/\{\{customer_name\}\}/g, escapeHtml(customerName));
+        body = body.replace(/\{\{customer_email\}\}/g, escapeHtml(customerEmail));
+        body = body.replace(/\{\{customer_phone\}\}/g, escapeHtml(customerPhone));
+        body = body.replace(/\{\{ticket_number\}\}/g, escapeHtml(ticketNumber));
+        
+        // Also handle shorter/alternative tag versions
+        body = body.replace(/\{\{customer\}\}/g, escapeHtml(customerName));
+        body = body.replace(/\{\{email\}\}/g, escapeHtml(customerEmail));
+        body = body.replace(/\{\{phone\}\}/g, escapeHtml(customerPhone));
+        body = body.replace(/\{\{ticket\}\}/g, escapeHtml(ticketNumber));
+        body = body.replace(/\{\{name\}\}/g, escapeHtml(customerName));
+        
+        // REPLACE HTML TAGS (these contain HTML, don't escape them)
+        const itemsHtml = renderOrderItems(metadata);
+        if (itemsHtml) {
+            body = body.replace(/\{\{order_items\}\}/g, itemsHtml);
+        }
+        
+        const summaryHtml = renderOrderSummary(metadata);
+        if (summaryHtml) {
+            body = body.replace(/\{\{order_summary\}\}/g, summaryHtml);
+        }
+        
+        const customerHtml = renderCustomerInfo(metadata);
+        if (customerHtml) {
+            body = body.replace(/\{\{order_customer\}\}/g, customerHtml);
+        }
+        
+        // Also handle any {{order}} tag that might be used
+        if (metadata.order) {
+            const orderRef = metadata.order.reference || '';
+            body = body.replace(/\{\{order\}\}/g, escapeHtml(String(orderRef)));
+        }
+        
+        let finalBody = body;
+        
+        try {
+            var res = await fetch(API_BASE + "/api/admin/ticket/" + id + "/reply", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                body: JSON.stringify({ from: from, body: finalBody })
+            });
+            if (res.status === 401) { logout(); closeModal(); return; }
+            var data = await res.json();
+            if (data.success) { 
+                // Clear the editor
+                editor.innerHTML = ""; 
+                source.value = "";
+                // Refresh the modal and lists
+                openTicketModal(id, true); 
+                loadStats(); 
+                resetAndLoad();
+                showToast('✅ Reply Sent', 'Your reply has been sent to the customer', 'success');
+            } else {
+                showToast('❌ Failed', data.error || 'Failed to send reply', 'error');
+            }
+        } catch (e) { 
+            showToast('❌ Error', e.message, 'error');
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  MODAL
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     function openModal() {
@@ -1498,7 +1814,6 @@
         document.body.style.overflow = "hidden";
     }
 
-    // ─── FIXED: /unlock → /release ──────────────────────────────
     function releaseTicketLock(id, useBeacon) {
         if (!id) return;
         var url = API_BASE + "/api/admin/ticket/" + id + "/release";
@@ -1612,10 +1927,6 @@
             var ticket = data.ticket || data.data || data;
             if (ticket && ticket.id) {
                 if (!ticket.comments) ticket.comments = [];
-                // NOTE: Auto-assignment removed from view.
-                // Agents should ONLY be auto-assigned when they MODIFY a ticket (add comment, send email, etc.)
-                // Not on mere viewing. See ticketAction() for assignment on actual changes.
-                // Manual assignment only via assignTicket() UI button or TL/Manager action.
                 renderTicketDetailModal(ticket);
                 applyLockStateToModal();
             } else if (!isRefresh) {
@@ -1659,7 +1970,6 @@
                         replyContent = raw.replace(/^Reply sent:\s*/, '');
                     }
                     
-                    // Detect if content is HTML and render appropriately
                     var isHtml = detectIsHtml(replyContent);
                     var displayContent = isHtml ? sanitizeHtml(replyContent) : escapeHtml(replyContent);
                     var contentStyle = isHtml ? msgStyle : 'style="font-size:13px;line-height:1.6;margin-top:8px;white-space:pre-wrap;word-wrap:break-word;"';
@@ -1677,7 +1987,6 @@
                         '<div ' + contentStyle + '>' + displayContent + '</div>' +
                         '</div>';
                 } else if (isIncoming) {
-                    // Detect if content is HTML and render appropriately
                     var isHtml = detectIsHtml(c.content || '');
                     var displayContent = isHtml ? sanitizeHtml(c.content || '') : escapeHtml(c.content || '');
                     var contentStyle = isHtml ? msgStyle : 'style="font-size:13px;line-height:1.6;margin-top:8px;white-space:pre-wrap;word-wrap:break-word;"';
@@ -1722,7 +2031,7 @@
         }
 
         var statusOptions = ["new", "open", "in_progress", "pending", "resolved", "closed"];
-        var statusDropdown = `<select id="detailStatus" onchange="updateStatus(${ticket.id})" ${!canEdit ? 'disabled' : ''}>`;
+        var statusDropdown = `<select id="detailStatus" onchange="updateStatus(${ticket.id})" ${!canEdit() ? 'disabled' : ''}>`;
         for (var i = 0; i < statusOptions.length; i++) {
             var s = statusOptions[i];
             statusDropdown += '<option value="' + s + '" ' + (s === ticket.status ? "selected" : "") + '>' + s.replace('_', ' ') + '</option>';
@@ -1786,12 +2095,11 @@
                 ${ticket.metadata && ticket.metadata.order && ticket.metadata.order.items && ticket.metadata.order.items.length > 0 ? `
                 <div style="margin:12px 0;padding:10px;background:var(--bg-secondary,#f5f5f5);border-radius:6px;display:flex;gap:6px;flex-wrap:wrap;">
                     <span style="font-size:12px;color:var(--text-muted);width:100%;margin-bottom:6px;">📦 Insert order data:</span>
-                    <button type="button" class="tag-chip" onclick="insertTag('detailReplyBody', '{{order_items}}')">📦 Order Items</button>
-                    <button type="button" class="tag-chip" onclick="insertTag('detailReplyBody', '{{order_summary}}')">📊 Order Summary</button>
-                    <button type="button" class="tag-chip" onclick="insertTag('detailReplyBody', '{{order_customer}}')">👤 Customer Info</button>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{order_items}}')">📦 Order Items</button>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{order_summary}}')">📊 Order Summary</button>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{order_customer}}')">👤 Customer Info</button>
                 </div>
                 ` : ''}
-                <textarea id="detailReplyBody" placeholder="Write your reply to the customer..." ${!canEditTicket ? 'disabled' : ''} style="display:none;"></textarea>
                 
                 <div id="emailTagBar" class="email-tag-bar" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px;background:var(--bg-secondary);border-radius:6px;">
                     <span class="tag-bar-label" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-right:4px;">Insert:</span>
@@ -1802,6 +2110,7 @@
                     ${ticket.metadata && ticket.metadata.order ? `
                     <button type="button" class="tag-chip" onclick="insertEmailTag('{{order_items}}')">📦 Order Items</button>
                     <button type="button" class="tag-chip" onclick="insertEmailTag('{{order_summary}}')">📊 Summary</button>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{order_customer}}')">👤 Customer Info</button>
                     ` : ''}
                 </div>
                 
@@ -1895,7 +2204,6 @@
         if (canAssignTicket) populateAssignDropdown(ticket.assigned_to);
         setTimeout(() => {
             initializeEmailEditor();
-            // Show template bar if user has permission to edit
             if (canEdit()) {
                 document.getElementById("emailTemplateBar").style.display = "flex";
             }
@@ -1933,13 +2241,11 @@
         }
     }
 
-    // Auto-update assignment without modal refresh
     async function autoUpdateAssignment(ticketId) {
         const select = document.getElementById('detailAssignSelect');
         if (!select) return;
         const assigned_to = select.value || null;
         
-        // Disable select temporarily to prevent double-clicks
         select.disabled = true;
         const originalValue = select.value;
         
@@ -1952,32 +2258,24 @@
             const data = await res.json();
             if (data.success) {
                 showToast('✅ Assigned', assigned_to ? `Assigned to ${assigned_to}` : 'Unassigned', 'success');
-                // Update UI without refresh - just update the meta display
                 const metaDisplay = document.querySelector('[data-meta="assigned_to"]');
                 if (metaDisplay) {
                     metaDisplay.textContent = assigned_to || '—';
                 }
-                // Refresh ticket list in background (don't reload modal)
                 loadStats();
                 resetAndLoad();
             } else {
                 showToast('❌ Error', data.error || 'Could not update assignment', 'error');
-                select.value = originalValue; // Revert on error
+                select.value = originalValue;
             }
         } catch (e) {
             showToast('❌ Error', e.message, 'error');
-            select.value = originalValue; // Revert on error
+            select.value = originalValue;
         } finally {
             select.disabled = false;
         }
     }
 
-    // Legacy assignTicket function for backward compatibility - removed in favor of auto-update
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  ACTIONS
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // Auto-update status without modal refresh
     async function updateStatus(id) {
         if (!canEdit()) {
             showToast('❌ Permission Denied', 'You do not have edit permission for tickets', 'error');
@@ -1990,7 +2288,6 @@
         const newStatus = statusSelect.value;
         const originalStatus = statusSelect.dataset.originalValue || statusSelect.value;
         
-        // Disable select temporarily
         statusSelect.disabled = true;
         
         try {
@@ -2005,25 +2302,22 @@
             if (data.success) { 
                 showToast('✅ Status Updated', `Changed to ${newStatus.toUpperCase()}`, 'success');
                 
-                // Update UI without refresh
                 const statusDisplay = document.querySelector('[data-meta="status"]');
                 if (statusDisplay) {
                     statusDisplay.textContent = newStatus.toUpperCase();
                 }
                 
-                // Store original value for next change detection
                 statusSelect.dataset.originalValue = newStatus;
                 
-                // Refresh ticket list in background
                 loadStats(); 
                 resetAndLoad();
             } else {
                 showToast('❌ Update Failed', data.error || 'Unknown error', 'error');
-                statusSelect.value = originalStatus; // Revert on error
+                statusSelect.value = originalStatus;
             }
         } catch (e) { 
             showToast('❌ Error', e.message, 'error');
-            statusSelect.value = originalStatus; // Revert on error
+            statusSelect.value = originalStatus;
         } finally {
             statusSelect.disabled = false;
         }
@@ -2049,259 +2343,11 @@
             var data = await res.json();
             if (data.success) { 
                 document.getElementById("detailComment").value = ""; 
-                openTicketModal(id); 
+                openTicketModal(id, true); 
                 loadStats(); 
                 resetAndLoad();
             } else {
                 showToast('❌ Failed', 'Failed to add comment', 'error');
-            }
-        } catch (e) { 
-            showToast('❌ Error', e.message, 'error');
-        }
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  ORDER DATA RENDERING & TAG INSERTION
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    function insertTag(elementId, tag) {
-        const textarea = document.getElementById(elementId);
-        if (!textarea) return;
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const text = textarea.value;
-        textarea.value = text.substring(0, start) + tag + text.substring(end);
-        textarea.selectionStart = textarea.selectionEnd = start + tag.length;
-        textarea.focus();
-    }
-
-    function renderOrderItems(metadata) {
-        const order = metadata && metadata.order;
-        if (!order || !order.items || !order.items.length) return '';
-        
-        const currency = metadata.currency || 'EUR';
-        const items = order.items;
-        const totals = order.totals || {};
-        
-        let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
-        html += '<tr style="background:#f5f5f5;border-bottom:2px solid #ddd;">';
-        html += '<th style="padding:10px;text-align:left;font-weight:bold;">Product</th>';
-        html += '<th style="padding:10px;text-align:center;font-weight:bold;">Qty</th>';
-        html += '<th style="padding:10px;text-align:right;font-weight:bold;">Unit Price</th>';
-        html += '<th style="padding:10px;text-align:right;font-weight:bold;">Total</th>';
-        html += '</tr>';
-        
-        for (const item of items) {
-            if (!item || typeof item !== 'object') continue;
-            
-            // Type-safe field extraction (with normalized data from success.html)
-            const name = escapeHtml(String(item.name || 'Product'));
-            const qty = Math.max(1, parseInt(item.qty || 1, 10));
-            const price = Math.max(0, parseFloat(item.price || 0));
-            const imageSrc = String(item.image || '').trim();
-            
-            // Validate calculations
-            if (isNaN(price) || isNaN(qty)) continue;
-            
-            const lineTotal = (price * qty).toFixed(2);
-            const imageTag = imageSrc ? `<img src="${escapeHtml(imageSrc)}" style="max-width:40px;height:auto;vertical-align:middle;margin-right:8px;border-radius:3px;" alt="${name}" />` : '';
-            
-            html += '<tr style="border-bottom:1px solid #eee;">';
-            html += `<td style="padding:10px;text-align:left;">${imageTag}${name}</td>`;
-            html += `<td style="padding:10px;text-align:center;">${qty}</td>`;
-            html += `<td style="padding:10px;text-align:right;">${currency} ${price.toFixed(2)}</td>`;
-            html += `<td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td>`;
-            html += '</tr>';
-        }
-        
-        html += '<tr style="border-top:2px solid #ddd;background:#fafafa;">';
-        html += `<td colspan="3" style="padding:10px;text-align:right;font-weight:bold;">Subtotal:</td>`;
-        html += `<td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${(totals.subtotal || 0).toFixed(2)}</td>`;
-        html += '</tr>';
-        
-        if (totals.shipping !== undefined) {
-            html += '<tr style="background:#fafafa;">';
-            html += `<td colspan="3" style="padding:10px;text-align:right;font-weight:bold;">Shipping:</td>`;
-            html += `<td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${(totals.shipping || 0).toFixed(2)}</td>`;
-            html += '</tr>';
-        }
-        
-        if (totals.tax !== undefined && totals.tax > 0) {
-            html += '<tr style="background:#fafafa;">';
-            html += `<td colspan="3" style="padding:10px;text-align:right;font-weight:bold;">Tax:</td>`;
-            html += `<td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${(totals.tax || 0).toFixed(2)}</td>`;
-            html += '</tr>';
-        }
-        
-        html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
-        html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;font-size:15px;">TOTAL:</td>`;
-        html += `<td style="padding:12px;text-align:right;font-weight:bold;font-size:15px;">${currency} ${(totals.total || 0).toFixed(2)}</td>`;
-        html += '</tr>';
-        html += '</table>';
-        
-        return html;
-    }
-
-    function renderOrderSummary(metadata) {
-        const order = metadata && metadata.order;
-        if (!order) return '';
-        
-        const currency = metadata.currency || 'EUR';
-        const totals = order.totals || {};
-        const itemCount = (order.items || []).length;
-        
-        if (itemCount === 0) return '';  // Don't show empty summary
-        
-        let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
-        html += `<div style="margin-bottom:8px;"><strong>Order Reference:</strong> ${escapeHtml(String(order.reference || 'N/A'))}</div>`;
-        html += `<div style="margin-bottom:8px;"><strong>Items:</strong> ${itemCount}</div>`;
-        
-        const subtotal = parseFloat(totals.subtotal || 0);
-        const shipping = parseFloat(totals.shipping || 0);
-        const tax = parseFloat(totals.tax || 0);
-        const total = parseFloat(totals.total || 0);
-        
-        html += `<div style="margin-bottom:8px;"><strong>Subtotal:</strong> ${currency} ${subtotal.toFixed(2)}</div>`;
-        if (!isNaN(shipping) && shipping > 0) {
-            html += `<div style="margin-bottom:8px;"><strong>Shipping:</strong> ${currency} ${shipping.toFixed(2)}</div>`;
-        }
-        if (!isNaN(tax) && tax > 0) {
-            html += `<div style="margin-bottom:8px;"><strong>Tax:</strong> ${currency} ${tax.toFixed(2)}</div>`;
-        }
-        html += `<div style="margin-bottom:0;padding-top:8px;border-top:1px solid #ddd;"><strong>Total:</strong> ${currency} ${total.toFixed(2)}</div>`;
-        html += '</div>';
-        
-        return html;
-    }
-
-    function renderCustomerInfo(metadata) {
-        const order = metadata && metadata.order;
-        const customer = order && order.customer;
-        if (!customer) return '';
-        
-        // Check if customer has any data
-        const hasData = customer.name || customer.email || customer.phone || customer.shipping_address;
-        if (!hasData) return '';
-        
-        let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
-        
-        if (customer.name) {
-            html += `<div style="margin-bottom:8px;"><strong>Name:</strong> ${escapeHtml(String(customer.name))}</div>`;
-        }
-        if (customer.email) {
-            html += `<div style="margin-bottom:8px;"><strong>Email:</strong> ${escapeHtml(String(customer.email))}</div>`;
-        }
-        if (customer.phone) {
-            html += `<div style="margin-bottom:8px;"><strong>Phone:</strong> ${escapeHtml(String(customer.phone))}</div>`;
-        }
-        
-        if (customer.shipping_address) {
-            html += `<div style="margin-top:12px;padding-top:12px;border-top:1px solid #ddd;"><strong>Shipping Address:</strong></div>`;
-            html += `<div style="margin-top:8px;white-space:pre-wrap;font-size:13px;">${escapeHtml(String(customer.shipping_address))}</div>`;
-        }
-        
-        html += '</div>';
-        return html;
-    }
-
-    async function sendReply(id) {
-        if (!canEdit()) {
-            showToast('❌ Permission Denied', 'You do not have edit permission for tickets', 'error');
-            return;
-        }
-        var from = document.getElementById("detailReplyFrom").value;
-        var editor = document.getElementById("detailReplyBodyEditor");
-        var source = document.getElementById("detailReplyBodySource");
-        
-        // Get body from whichever mode is active
-        var rawBody = emailSourceMode ? source.value.trim() : editor.innerHTML.trim();
-        
-        if (!rawBody || rawBody === '<br>') {
-            showToast('⚠️ Please enter a reply', 'Reply content is required', 'warning');
-            return;
-        }
-        
-        // Get the ticket to access metadata (with timeout)
-        let metadata = {};
-        let ticketData = {};
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-            
-            const ticketRes = await fetch(API_BASE + "/api/admin/ticket/" + id, {
-                headers: { "Authorization": "Bearer " + token },
-                signal: controller.signal
-            });
-            clearTimeout(timeoutId);
-            
-            if (ticketRes.ok) {
-                const data = await ticketRes.json();
-                ticketData = data.ticket || {};
-                metadata = (data.ticket && data.ticket.metadata) || {};
-            } else {
-                console.warn('Failed to fetch ticket:', ticketRes.status);
-            }
-        } catch (e) {
-            console.error('Error fetching ticket metadata:', e);
-            if (e.name === 'AbortError') {
-                showToast('⚠️ Slow Server', 'Order data unavailable, proceeding with reply', 'warning');
-            }
-        }
-        
-        // Replace customer variables
-        let body = rawBody;
-        
-        body = body.replace(/\{\{customer_name\}\}/g, escapeHtml(ticketData.sender_name || ''));
-        body = body.replace(/\{\{customer_email\}\}/g, escapeHtml(ticketData.sender_email || ''));
-        body = body.replace(/\{\{customer_phone\}\}/g, escapeHtml(ticketData.sender_phone || ''));
-        body = body.replace(/\{\{ticket_number\}\}/g, escapeHtml(ticketData.ticket_number || ''));
-        
-        // Replace dynamic tags with rendered HTML
-        let htmlInserted = false;
-        
-        const itemsHtml = renderOrderItems(metadata);
-        if (itemsHtml) {
-            body = body.replace(/\{\{order_items\}\}/g, itemsHtml);
-            htmlInserted = true;
-        }
-        
-        const summaryHtml = renderOrderSummary(metadata);
-        if (summaryHtml) {
-            body = body.replace(/\{\{order_summary\}\}/g, summaryHtml);
-            htmlInserted = true;
-        }
-        
-        const customerHtml = renderCustomerInfo(metadata);
-        if (customerHtml) {
-            body = body.replace(/\{\{order_customer\}\}/g, customerHtml);
-            htmlInserted = true;
-        }
-        
-        // Body is already HTML from editor - just use as-is
-        let finalBody = body;
-        
-        try {
-            var res = await fetch(API_BASE + "/api/admin/ticket/" + id + "/reply", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-                body: JSON.stringify({ from: from, body: finalBody })
-            });
-            if (res.status === 401) { logout(); closeModal(); return; }
-            var data = await res.json();
-            if (data.success) { 
-                editor.innerHTML = ""; 
-                source.value = "";
-                openTicketModal(id); 
-                loadStats(); 
-                resetAndLoad();
-                showToast('✅ Reply Sent', 'Your reply has been sent to the customer', 'success');
-            } else {
-                showToast('❌ Failed', 'Failed to send reply', 'error');
             }
         } catch (e) { 
             showToast('❌ Error', e.message, 'error');
