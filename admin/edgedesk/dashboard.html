@@ -320,14 +320,18 @@
         .toast.info { background: #3b82f6; }
         .toast a { color: white; text-decoration: underline; }
 
-        /* Template storage */
-        .template-storage-info {
-            font-size: 11px;
-            color: var(--text-muted);
-            padding: 4px 8px;
-            background: var(--bg-input);
-            border-radius: 4px;
+        /* Shared templates badge */
+        .shared-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: var(--accent);
+            color: var(--text-inverse);
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
             margin-left: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
     </style>
 </head>
@@ -462,6 +466,7 @@
     let emailTemplates = [];
     let emailSourceMode = false;
     let lastEmailFocusedField = null;
+    let settingsCache = null;
     
     // ─── WEBSOCKET ──────────────────────────────────────────
     let ws = null;
@@ -670,6 +675,10 @@
         return hasAccess('tickets', 'edit');
     }
 
+    function canManageTemplates() {
+        return hasAccess('tickets', 'edit');
+    }
+
     function showToast(title, message, type = 'info') {
         const toast = document.createElement('div');
         toast.className = 'notification-toast';
@@ -837,7 +846,12 @@
                     PermissionService.updateUI();
                     updateUserDisplay();
                     
+                    // Load settings for templates
+                    await loadSettings();
+                    
                     loadEmailSenders();
+                    // Load templates from DB
+                    await loadTemplatesFromDB();
                     
                     Promise.all([
                         loadLanguagesFromSettings(),
@@ -885,6 +899,21 @@
             }
         } catch (e) {
             console.warn('Could not refresh permissions:', e.message);
+        }
+    }
+
+    async function loadSettings() {
+        try {
+            const res = await fetch(API_BASE + "/api/admin/settings", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                settingsCache = data.data || data.settings || {};
+            }
+        } catch (e) {
+            console.warn('Failed to load settings:', e);
+            settingsCache = {};
         }
     }
 
@@ -950,7 +979,13 @@
                 document.getElementById("login").style.display = "none";
                 document.getElementById("dashboard").style.display = "block";
                 
+                // Load settings for templates
+                await loadSettings();
+                
                 await loadEmailSenders();
+                // Load templates from DB
+                await loadTemplatesFromDB();
+                
                 await Promise.all([
                     loadLanguagesFromSettings(),
                     loadCategoriesFromSettings()
@@ -1451,31 +1486,71 @@
         return tempDiv.innerHTML;
     }
 
-    // ─── EMAIL EDITOR FUNCTIONS ─────────────────────────────────────────
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  TEMPLATE FUNCTIONS - STORED IN DATABASE (SHARED)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    // Load templates from localStorage
-    function loadTemplatesFromStorage() {
+    // Load templates from database
+    async function loadTemplatesFromDB() {
         try {
-            const saved = localStorage.getItem('emailTemplates');
-            if (saved) {
-                emailTemplates = JSON.parse(saved);
-                return true;
+            if (!settingsCache) await loadSettings();
+            
+            // Templates are stored in order_template category
+            const templateKey = 'templates_dashboard';
+            const raw = settingsCache?.order_template?.[templateKey];
+            if (raw) {
+                emailTemplates = JSON.parse(raw);
+            } else {
+                emailTemplates = [];
             }
+            updateTemplateSelect();
         } catch (e) {
-            console.warn('Failed to load templates:', e);
+            console.warn('Failed to load templates from DB:', e);
+            emailTemplates = [];
         }
-        return false;
     }
 
-    // Save templates to localStorage
-    function saveTemplatesToStorage() {
+    // Save templates to database
+    async function saveTemplatesToDB() {
         try {
-            localStorage.setItem('emailTemplates', JSON.stringify(emailTemplates));
-            return true;
+            const templateKey = 'templates_dashboard';
+            const value = JSON.stringify(emailTemplates);
+            
+            const res = await fetch(API_BASE + '/api/admin/settings', {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token 
+                },
+                body: JSON.stringify({ 
+                    settings: [{ 
+                        category: 'order_template', 
+                        key: templateKey, 
+                        value: value 
+                    }] 
+                })
+            });
+            
+            if (res.ok) {
+                // Update cache
+                if (!settingsCache) settingsCache = {};
+                if (!settingsCache.order_template) settingsCache.order_template = {};
+                settingsCache.order_template[templateKey] = value;
+                return true;
+            }
+            return false;
         } catch (e) {
-            console.warn('Failed to save templates:', e);
+            console.warn('Failed to save templates to DB:', e);
             return false;
         }
+    }
+
+    function updateTemplateSelect() {
+        var select = document.getElementById("emailTemplateSelect");
+        if (!select) return;
+        
+        var opts = emailTemplates.map(t => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('');
+        select.innerHTML = '<option value="">📁 Load template…</option>' + opts;
     }
 
     function insertEmailTag(tag) {
@@ -1564,9 +1639,8 @@
         preview.innerHTML = content;
     }
 
-    function loadEmailTemplate(name) {
+    async function loadEmailTemplate(name) {
         if (!name) return;
-        // Load from memory (already loaded from localStorage)
         var t = emailTemplates.find(x => x.name === name);
         if (!t) return;
         
@@ -1582,7 +1656,12 @@
         showToast('✅ Template Loaded', 'Template loaded into editor', 'success');
     }
 
-    function saveEmailTemplate() {
+    async function saveEmailTemplate() {
+        if (!canManageTemplates()) {
+            showToast('❌ Permission Denied', 'You do not have permission to save templates', 'error');
+            return;
+        }
+        
         var editor = document.getElementById("detailReplyBodyEditor");
         var source = document.getElementById("detailReplyBodySource");
         var name = prompt('Template name:');
@@ -1598,16 +1677,26 @@
         emailTemplates = emailTemplates.filter(t => t.name !== name);
         emailTemplates.push({ name, body });
         
-        // Save to localStorage
-        saveTemplatesToStorage();
+        // Save to database (shared across all agents)
+        const success = await saveTemplatesToDB();
         
-        // Update select dropdown
-        updateTemplateSelect();
-        
-        showToast('✅ Saved', 'Template saved successfully', 'success');
+        if (success) {
+            // Update select dropdown
+            updateTemplateSelect();
+            showToast('✅ Saved', 'Template saved (shared with all agents)', 'success');
+        } else {
+            // Revert on error
+            emailTemplates = emailTemplates.filter(t => t.name !== name);
+            showToast('❌ Failed', 'Could not save template to database', 'error');
+        }
     }
 
-    function deleteEmailTemplate() {
+    async function deleteEmailTemplate() {
+        if (!canManageTemplates()) {
+            showToast('❌ Permission Denied', 'You do not have permission to delete templates', 'error');
+            return;
+        }
+        
         var select = document.getElementById("emailTemplateSelect");
         var name = select.value;
         if (!name) {
@@ -1619,22 +1708,18 @@
         
         emailTemplates = emailTemplates.filter(t => t.name !== name);
         
-        // Save to localStorage
-        saveTemplatesToStorage();
+        // Save to database
+        const success = await saveTemplatesToDB();
         
-        // Update select dropdown
-        updateTemplateSelect();
-        select.value = '';
-        
-        showToast('✅ Deleted', 'Template deleted successfully', 'success');
-    }
-
-    function updateTemplateSelect() {
-        var select = document.getElementById("emailTemplateSelect");
-        if (!select) return;
-        
-        var opts = emailTemplates.map(t => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('');
-        select.innerHTML = '<option value="">📁 Load template…</option>' + opts;
+        if (success) {
+            updateTemplateSelect();
+            select.value = '';
+            showToast('✅ Deleted', 'Template deleted (removed for all agents)', 'success');
+        } else {
+            // Revert
+            emailTemplates = emailTemplates.filter(t => t.name !== name);
+            showToast('❌ Failed', 'Could not delete template from database', 'error');
+        }
     }
 
     function initializeEmailEditor() {
@@ -1643,8 +1728,7 @@
         
         if (!editor) return;
         
-        // Load templates from localStorage
-        loadTemplatesFromStorage();
+        // Load templates from DB (already loaded)
         updateTemplateSelect();
         
         // Update preview on input
@@ -1814,7 +1898,7 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  SEND REPLY - FIXED VERSION
+    //  SEND REPLY - FIXED VERSION WITH PROPER TAG REPLACEMENT
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     async function sendReply(id) {
@@ -1888,7 +1972,6 @@
         body = body.replace(/\{\{name\}\}/g, escapeHtml(customerName));
         
         // REPLACE ORDER TAGS (these contain HTML, don't escape them)
-        // These mirror the backend's applyOrderTags function
         const itemsHtml = renderOrderItemsHtml(metadata);
         if (itemsHtml) {
             body = body.replace(/\{\{order_items\}\}/g, itemsHtml);
@@ -2263,7 +2346,7 @@
                     <button type="button" class="editor-btn" style="padding:6px 10px;" onclick="loadEmailTemplate(document.getElementById('emailTemplateSelect').value)">Load</button>
                     <button type="button" class="editor-btn" style="padding:6px 10px;" onclick="saveEmailTemplate()">💾 Save</button>
                     <button type="button" class="editor-btn" style="padding:6px 10px;color:#dc2626;" onclick="deleteEmailTemplate()">Delete</button>
-                    <span class="template-storage-info">💾 Saved in browser</span>
+                    <span class="shared-badge">👥 Shared</span>
                 </div>
                 
                 <div id="editorWrapper" class="editor-wrapper">
