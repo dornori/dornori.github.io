@@ -18,3 +18,14 @@ TESTING!
 
 check - seems to work - check pass of prices etc 
 EPS , SEPA in paypal probably IDEAL etc.
+
+CSS on site on unsubscribe newletter 'bleeds'
+
+
+
+FUTURE DEV
+
+dashboard
+-=-=-=-=-=
+- Address field print - delivery label (also maybe use laser printer for labels :) )-
+-  tracking number entry with tracking site link? eg see immidate time/place of delivery

@@ -381,7 +381,6 @@
         activeTicket = null,
         currentLang = 'all',
         filterText = '',
-        sourceMode = false,
         pendingSend = null;
 
     // ─── PRODUCT DATA WITH DB SETTINGS ─────────────────────
@@ -555,7 +554,7 @@
         const lang = currentLang === 'all' ? 'en' : currentLang;
         const key = 'templates_' + lang;
         const list = templates.filter(t => t.name !== name);
-        list.push({ name, subject: getSubject(), body: getEditorHtml() });
+        list.push({ name, subject: getSubject(), body: getEditorHtml('or') });
         try {
             const d = await api('/api/admin/settings', {
                 method: 'PUT',
@@ -595,7 +594,7 @@
         const t = templates.find(x => x.name === name);
         if (!t) return;
         document.getElementById('compose_subject').value = t.subject || '';
-        if (sourceMode) document.getElementById('or_source').value = t.body || '';
+        if (sourceModes.or) document.getElementById('or_source').value = t.body || '';
         else document.getElementById('or_editor').innerHTML = t.body || '';
         toast('Loaded template');
     }
@@ -618,25 +617,42 @@
         </div>`;
     }
 
-    // ─── TAG BAR ─────────────────────────────────────────────────
-    function buildTagBar() {
+    // ─── TAG BAR (cursor-aware: inserts into whichever field was last focused) ──
+    const ORDER_TAGS = ['order_items_with_names', 'order_items_with_images', 'order_summary', 'order_customer', 'order_shipping', 'order_reference', 'ticket_number'];
+
+    let lastFocusedField = {};   // { or: 'or_editor'|'or_source'|'compose_subject', or_ar: '...' }
+
+    function trackFocus(group, id) {
+        lastFocusedField[group] = id;
+    }
+
+    function buildTagBar(group, defaultId) {
+        const chips = ORDER_TAGS.map(t =>
+            `<button type="button" class="tag-chip" onclick="insertTagSmart('${group}','${defaultId}','{{${t}}}')">{{${t}}}</button>`
+        ).join('');
         return `<div class="tag-bar">
             <span class="tag-bar-label">Insert order data:</span>
-            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_items_with_names}}')">{{order_items_with_names}}</button>
-            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_items_with_images}}')">{{order_items_with_images}}</button>
-            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_summary}}')">{{order_summary}}</button>
-            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_customer}}')">{{order_customer}}</button>
-            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_shipping}}')">{{order_shipping}}</button>
-            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{order_reference}}')">{{order_reference}}</button>
-            <button type="button" class="tag-chip" onclick="insertTag('or_editor','{{ticket_number}}')">{{ticket_number}}</button>
+            ${chips}
         </div>`;
     }
 
-    function insertTag(id, tag) {
-        const el = document.getElementById(id);
-        if (!el || !el.contentEditable) return;
-        el.focus();
-        document.execCommand('insertText', false, tag);
+    // Inserts a tag into the subject field or the body editor/source box,
+    // whichever the cursor was last placed in for this group (compose vs auto-reply).
+    function insertTagSmart(group, defaultId, tag) {
+        const targetId = lastFocusedField[group] || defaultId;
+        const el = document.getElementById(targetId);
+        if (!el) return;
+        if (el.isContentEditable) {
+            el.focus();
+            document.execCommand('insertText', false, tag);
+        } else if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+            const start = el.selectionStart ?? el.value.length;
+            const end = el.selectionEnd ?? el.value.length;
+            el.value = el.value.slice(0, start) + tag + el.value.slice(end);
+            el.focus();
+            el.selectionStart = el.selectionEnd = start + tag.length;
+        }
+        lastFocusedField[group] = targetId;
     }
 
     // ─── AUTO-REPLY (per-language payment confirmation) ────────────
@@ -671,23 +687,14 @@
                 <label>From</label>
                 <select id="or_ar_from">${senderOpts || '<option value="">No sender addresses available</option>'}</select>
             </div>
+            ${buildTagBar('or_ar', 'or_ar_editor')}
             <div class="f-row">
                 <label>Subject</label>
-                <input type="text" id="or_ar_subject" value="${esc(subject)}" />
+                <input type="text" id="or_ar_subject" value="${esc(subject)}" onfocus="trackFocus('or_ar','or_ar_subject')" />
             </div>
             <div class="f-row">
-                <label>Body (HTML)</label>
-                <div class="tag-bar">
-                    <span class="tag-bar-label">Insert order data:</span>
-                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_items_with_names}}')">{{order_items_with_names}}</button>
-                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_items_with_images}}')">{{order_items_with_images}}</button>
-                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_summary}}')">{{order_summary}}</button>
-                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_customer}}')">{{order_customer}}</button>
-                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_shipping}}')">{{order_shipping}}</button>
-                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{order_reference}}')">{{order_reference}}</button>
-                    <button type="button" class="tag-chip" onclick="insertAutoReplyTag('{{ticket_number}}')">{{ticket_number}}</button>
-                </div>
-                <textarea id="or_ar_body" style="width:100%;min-height:160px;padding:9px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;font-family:Menlo,Consolas,monospace;line-height:1.55;resize:vertical;">${esc(body)}</textarea>
+                <label>Body</label>
+                ${buildRichEditor('or_ar', body, 'or_ar')}
             </div>
             <button class="btn btn-accent" onclick="saveOrderAutoReply()">Save auto-reply</button>
             <button class="btn btn-ghost" onclick="previewAutoReply()" style="margin-left:8px;">👁 Preview with ticket</button>
@@ -696,17 +703,7 @@
 
     function rebuildAutoReplyCard() {
         const el = document.getElementById('autoReplyCard');
-        if (el) el.outerHTML = buildAutoReplyCard();
-    }
-
-    function insertAutoReplyTag(tag) {
-        const el = document.getElementById('or_ar_body');
-        if (!el) return;
-        const start = el.selectionStart ?? el.value.length;
-        const end = el.selectionEnd ?? el.value.length;
-        el.value = el.value.slice(0, start) + tag + el.value.slice(end);
-        el.focus();
-        el.selectionStart = el.selectionEnd = start + tag.length;
+        if (el) { sourceModes.or_ar = false; el.outerHTML = buildAutoReplyCard(); }
     }
 
     async function saveOrderAutoReply() {
@@ -714,7 +711,7 @@
         const lang = currentLang === 'all' ? 'en' : currentLang;
         const enabled = document.getElementById('or_ar_enabled').checked ? '1' : '0';
         const subject = document.getElementById('or_ar_subject').value;
-        const body = document.getElementById('or_ar_body').value;
+        const body = getEditorHtml('or_ar');
         const from = document.getElementById('or_ar_from').value;
         try {
             const d = await api('/api/admin/settings', {
@@ -739,7 +736,7 @@
     }
 
     async function previewAutoReply() {
-        const body = document.getElementById('or_ar_body')?.value;
+        const body = getEditorHtml('or_ar');
         const subj = document.getElementById('or_ar_subject')?.value;
         if (!body) { toast('Nothing to preview yet', 'error'); return; }
         // Use activeTicket if one is selected, otherwise use the most recent ticket
@@ -753,52 +750,88 @@
         document.getElementById('previewModal').classList.add('show');
     }
 
-    // ─── EDITOR COMMANDS ────────────────────────────────────────
-    function cmd(command, val) {
-        document.getElementById('or_editor').focus();
+    // ─── EDITOR COMMANDS (prefix: 'or' for compose reply, 'or_ar' for auto-reply) ──
+    function cmd(prefix, command, val) {
+        document.getElementById(prefix + '_editor').focus();
         document.execCommand(command, false, val || null);
     }
-    function editorBlock(sel) {
-        document.getElementById('or_editor').focus();
+    function editorBlock(prefix, sel) {
+        document.getElementById(prefix + '_editor').focus();
         document.execCommand('formatBlock', false, sel.value);
         sel.value = 'p';
     }
-    function insertLink() {
+    function insertLink(prefix) {
         const url = prompt('Enter URL:');
         if (!url) return;
         const text = prompt('Link text (leave blank to use URL):') || url;
-        document.getElementById('or_editor').focus();
+        document.getElementById(prefix + '_editor').focus();
         document.execCommand('insertHTML', false, `<a href="${url}">${text}</a>`);
     }
-    function insertImage() {
+    function insertImage(prefix) {
         const url = prompt('Enter image URL:');
         if (!url) return;
-        document.getElementById('or_editor').focus();
+        document.getElementById(prefix + '_editor').focus();
         document.execCommand('insertImage', false, url);
     }
-    function toggleSource() {
-        const wrap = document.querySelector('.editor-wrap');
-        const editor = document.getElementById('or_editor');
-        const source = document.getElementById('or_source');
-        const btn = document.getElementById('sourceToggleBtn');
-        if (!sourceMode) {
+    let sourceModes = { or: false, or_ar: false };
+    function toggleSource(prefix) {
+        const wrap = document.getElementById(prefix + '_editorWrap');
+        const editor = document.getElementById(prefix + '_editor');
+        const source = document.getElementById(prefix + '_source');
+        const btn = document.getElementById(prefix + '_sourceToggleBtn');
+        if (!sourceModes[prefix]) {
             source.value = editor.innerHTML;
             wrap.classList.add('source-mode');
             btn.classList.add('active');
-            sourceMode = true;
+            sourceModes[prefix] = true;
         } else {
             editor.innerHTML = source.value;
             wrap.classList.remove('source-mode');
             btn.classList.remove('active');
-            sourceMode = false;
+            sourceModes[prefix] = false;
         }
     }
-    function getEditorHtml() {
-        if (sourceMode) return document.getElementById('or_source').value.trim();
-        return document.getElementById('or_editor').innerHTML.trim();
+    function getEditorHtml(prefix) {
+        if (sourceModes[prefix]) return document.getElementById(prefix + '_source').value.trim();
+        return document.getElementById(prefix + '_editor').innerHTML.trim();
     }
     function getSubject() {
         return document.getElementById('compose_subject').value.trim();
+    }
+
+    // Reusable rich HTML editor (WYSIWYG + source toggle), used for both the
+    // compose-reply body and the auto-reply body so both are full HTML editors.
+    function buildRichEditor(prefix, initialHtml, group) {
+        return `<div class="editor-wrap" id="${prefix}_editorWrap">
+            <div class="editor-toolbar">
+                <select onchange="editorBlock('${prefix}',this)">
+                    <option value="p">Paragraph</option>
+                    <option value="h1">Heading 1</option>
+                    <option value="h2">Heading 2</option>
+                    <option value="h3">Heading 3</option>
+                </select>
+                <div class="sep"></div>
+                <button title="Bold" onclick="cmd('${prefix}','bold')"><b>B</b></button>
+                <button title="Italic" onclick="cmd('${prefix}','italic')"><i>I</i></button>
+                <button title="Underline" onclick="cmd('${prefix}','underline')"><u>U</u></button>
+                <div class="sep"></div>
+                <button title="Bullet list" onclick="cmd('${prefix}','insertUnorderedList')">• List</button>
+                <button title="Numbered list" onclick="cmd('${prefix}','insertOrderedList')">1. List</button>
+                <div class="sep"></div>
+                <button title="Link" onclick="insertLink('${prefix}')">🔗 Link</button>
+                <button title="Image URL" onclick="insertImage('${prefix}')">🖼 Image</button>
+                <div class="sep"></div>
+                <button title="Undo" onclick="cmd('${prefix}','undo')">↩</button>
+                <button title="Redo" onclick="cmd('${prefix}','redo')">↪</button>
+                <div class="sep"></div>
+                <button title="Remove formatting" onclick="cmd('${prefix}','removeFormat')">✕ fmt</button>
+                <div class="sep"></div>
+                <button id="${prefix}_sourceToggleBtn" title="Toggle HTML source" onclick="toggleSource('${prefix}')" style="font-family:monospace;font-weight:700;">&lt;/&gt; Source</button>
+            </div>
+            <div id="${prefix}_editor" contenteditable="true" spellcheck="true" onfocus="trackFocus('${group}','${prefix}_editor')">${initialHtml || ''}</div>
+            <textarea id="${prefix}_source" spellcheck="false" placeholder="Paste your full HTML here…" onfocus="trackFocus('${group}','${prefix}_source')"></textarea>
+            <div class="source-hint">⚡ <strong>Source mode</strong> — tags like <code>{{order_items}}</code> still render on preview/send.</div>
+        </div>`;
     }
 
     // ─── ORDER DATA RENDERING ────────────────────────────────────
@@ -833,9 +866,15 @@
         if (!order || !order.items || !order.items.length) return '';
         const currency = meta.currency || 'EUR';
         const totals = order.totals || {};
-        
+        const subtotal = parseFloat(totals.subtotal || 0);
+        const discount = parseFloat(totals.discount || 0);
+        const shipping = parseFloat(totals.shipping || 0);
+        const tax = parseFloat(totals.tax || 0);
+        // totals.subtotal is already net of discount, so discount is display-only here.
+        const calculatedTotal = subtotal + shipping + tax;
+
         const [langProducts, labels] = await Promise.all([fetchProductNames(lang), fetchOrderLabels(lang)]);
-        
+
         let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
         if (labels.product || labels.qty || labels.unit_price || labels.total) {
             html += '<tr style="border-bottom:1px solid #ddd;">';
@@ -845,7 +884,7 @@
             if (labels.total)      html += `<th style="padding:10px;text-align:right;">${esc(labels.total)}</th>`;
             html += '</tr>';
         }
-        
+
         for (const item of order.items) {
             if (!item || typeof item !== 'object') continue;
             const productId = resolveProductId(item, [langProducts]);
@@ -858,11 +897,30 @@
             const price = Math.max(0, parseFloat(item.price || 0));
             if (isNaN(price) || isNaN(qty)) continue;
             const lineTotal = (price * qty).toFixed(2);
+            const itemDiscount = parseFloat(item.discount) || 0;
+            const hasItemDiscount = itemDiscount > 0 && item.originalPrice != null;
+            const unitPriceCell = hasItemDiscount
+                ? `<s style="opacity:.55;">${currency} ${parseFloat(item.originalPrice).toFixed(2)}</s><br/>${currency} ${price.toFixed(2)} <span style="display:inline-block;background:#c8a96e;color:#1a1714;font-size:11px;font-weight:bold;padding:1px 6px;border-radius:3px;margin-left:4px;">-${itemDiscount}%</span>`
+                : `${currency} ${price.toFixed(2)}`;
             html += '<tr style="border-bottom:1px solid #eee;">';
-            html += `<td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${currency} ${price.toFixed(2)}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+            html += `<td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${unitPriceCell}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+        }
+        html += '<tr style="border-top:2px solid #ddd;background:#f9f9f9;">';
+        html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? esc(labels.subtotal) : 'Subtotal'}</td><td style="padding:12px;text-align:right;">${currency} ${subtotal.toFixed(2)}</td></tr>`;
+        if (discount > 0) {
+            html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
+            html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.discount ? esc(labels.discount) : 'Discount'}</td><td style="padding:12px;text-align:right;">-${currency} ${discount.toFixed(2)}</td></tr>`;
+        }
+        if (shipping > 0) {
+            html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
+            html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.shipping ? esc(labels.shipping) : 'Shipping'}</td><td style="padding:12px;text-align:right;">${currency} ${shipping.toFixed(2)}</td></tr>`;
+        }
+        if (tax > 0) {
+            html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
+            html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.tax ? esc(labels.tax) : 'Tax'}</td><td style="padding:12px;text-align:right;">${currency} ${tax.toFixed(2)}</td></tr>`;
         }
         html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
-        html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? esc(labels.total) : ''}</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${(totals.total || 0).toFixed(2)}</td></tr>`;
+        html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? esc(labels.total) : 'Total'}</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${calculatedTotal.toFixed(2)}</td></tr>`;
         html += '</table>';
         return html;
     }
@@ -872,12 +930,17 @@
         if (!order || !order.items || !order.items.length) return '';
         const currency = meta.currency || 'EUR';
         const totals = order.totals || {};
-        
-        const urls = await getProductUrls();
+        const subtotal = parseFloat(totals.subtotal || 0);
+        const discount = parseFloat(totals.discount || 0);
+        const shipping = parseFloat(totals.shipping || 0);
+        const tax = parseFloat(totals.tax || 0);
+        // totals.subtotal is already net of discount, so discount is display-only here.
+        const calculatedTotal = subtotal + shipping + tax;
+
         const [langProducts, genericProducts, labels] = await Promise.all([
             fetchProductNames(lang), fetchProductImages(), fetchOrderLabels(lang)
         ]);
-        
+
         let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
         if (labels.image || labels.product || labels.qty || labels.unit_price || labels.total) {
             html += '<tr style="border-bottom:1px solid #ddd;">';
@@ -888,7 +951,7 @@
             if (labels.total)      html += `<th style="padding:10px;text-align:right;">${esc(labels.total)}</th>`;
             html += '</tr>';
         }
-        
+
         const _domain = (settings.general?.domain || '').replace(/\/+$/, '');
         function _resolveImgUrl(raw) {
             if (!raw) return '';
@@ -900,30 +963,47 @@
         for (const item of order.items) {
             if (!item || typeof item !== 'object') continue;
             const productId = resolveProductId(item, [langProducts, genericProducts]);
-            
+
             let name = item.name;
             if (productId && langProducts[productId]) {
                 name = langProducts[productId].name || item.name;
             }
             name = esc(String(name || 'Product'));
-            
-            let imgHtml = '';
+
+            let imgHtml = '<div style="width:60px;height:60px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">No image</div>';
             if (productId && genericProducts[productId] && genericProducts[productId].image) {
                 const imgUrl = esc(_resolveImgUrl(genericProducts[productId].image));
                 imgHtml = `<img src="${imgUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;" alt="${name}" />`;
-            } else {
-                imgHtml = '<div style="width:60px;height:60px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">No image</div>';
             }
-            
+
             const qty = Math.max(1, parseInt(item.qty || item.quantity || 1, 10));
             const price = Math.max(0, parseFloat(item.price || 0));
             if (isNaN(price) || isNaN(qty)) continue;
             const lineTotal = (price * qty).toFixed(2);
+            const itemDiscount = parseFloat(item.discount) || 0;
+            const hasItemDiscount = itemDiscount > 0 && item.originalPrice != null;
+            const unitPriceCell = hasItemDiscount
+                ? `<s style="opacity:.55;">${currency} ${parseFloat(item.originalPrice).toFixed(2)}</s><br/>${currency} ${price.toFixed(2)} <span style="display:inline-block;background:#c8a96e;color:#1a1714;font-size:11px;font-weight:bold;padding:1px 6px;border-radius:3px;margin-left:4px;">-${itemDiscount}%</span>`
+                : `${currency} ${price.toFixed(2)}`;
             html += '<tr style="border-bottom:1px solid #eee;">';
-            html += `<td style="padding:10px;text-align:center;">${imgHtml}</td><td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${currency} ${price.toFixed(2)}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+            html += `<td style="padding:10px;text-align:center;">${imgHtml}</td><td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${unitPriceCell}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+        }
+        html += '<tr style="border-top:2px solid #ddd;background:#f9f9f9;">';
+        html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? esc(labels.subtotal) : 'Subtotal'} ${currency} ${subtotal.toFixed(2)}</td></tr>`;
+        if (discount > 0) {
+            html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
+            html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.discount ? esc(labels.discount) : 'Discount'} -${currency} ${discount.toFixed(2)}</td></tr>`;
+        }
+        if (shipping > 0) {
+            html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
+            html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.shipping ? esc(labels.shipping) : 'Shipping'} ${currency} ${shipping.toFixed(2)}</td></tr>`;
+        }
+        if (tax > 0) {
+            html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
+            html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.tax ? esc(labels.tax) : 'Tax'} ${currency} ${tax.toFixed(2)}</td></tr>`;
         }
         html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
-        html += `<td colspan="4" style="padding:12px;"></td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${(totals.total || 0).toFixed(2)}</td></tr>`;
+        html += `<td colspan="4" style="padding:12px;"></td><td style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? esc(labels.total) : 'Total'} ${currency} ${calculatedTotal.toFixed(2)}</td></tr>`;
         html += '</table>';
         return html;
     }
@@ -933,12 +1013,19 @@
         if (!order || !order.items || !order.items.length) return '';
         const currency = meta.currency || 'EUR';
         const totals = order.totals || {};
+        const subtotal = parseFloat(totals.subtotal || 0);
+        const discount = parseFloat(totals.discount || 0);
+        const shipping = parseFloat(totals.shipping || 0);
+        const tax = parseFloat(totals.tax || 0);
+        // totals.subtotal is already net of discount, so discount is display-only here.
+        const calculatedTotal = subtotal + shipping + tax;
         let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
-        html += `<div style="margin-bottom:8px;">${labels.order_ref ? esc(labels.order_ref) + ': ' : ''}${esc(String(order.reference || 'N/A'))}</div>`;
-        html += `<div style="margin-bottom:8px;">${labels.subtotal ? esc(labels.subtotal) + ': ' : ''}${currency} ${parseFloat(totals.subtotal || 0).toFixed(2)}</div>`;
-        if (parseFloat(totals.shipping) > 0) html += `<div style="margin-bottom:8px;">${labels.shipping ? esc(labels.shipping) + ': ' : '+ '}${currency} ${parseFloat(totals.shipping).toFixed(2)}</div>`;
-        if (parseFloat(totals.tax) > 0) html += `<div style="margin-bottom:8px;">${labels.tax ? esc(labels.tax) + ': ' : '+ '}${currency} ${parseFloat(totals.tax).toFixed(2)}</div>`;
-        html += `<div style="padding-top:8px;border-top:1px solid #ddd;font-weight:bold;">${labels.total ? esc(labels.total) + ': ' : ''}${currency} ${parseFloat(totals.total || 0).toFixed(2)}</div></div>`;
+        html += `<div style="margin-bottom:8px;">${labels.order_ref ? esc(labels.order_ref) + ': ' : '<strong>Order Reference:</strong> '}${esc(String(order.reference || 'N/A'))}</div>`;
+        html += `<div style="margin-bottom:8px;">${labels.subtotal ? esc(labels.subtotal) + ': ' : '<strong>Subtotal:</strong> '}${currency} ${subtotal.toFixed(2)}</div>`;
+        if (discount > 0) html += `<div style="margin-bottom:8px;">${labels.discount ? esc(labels.discount) + ': ' : '<strong>Discount:</strong> '}-${currency} ${discount.toFixed(2)}</div>`;
+        if (shipping > 0) html += `<div style="margin-bottom:8px;">${labels.shipping ? esc(labels.shipping) + ': ' : '<strong>Shipping:</strong> '}${currency} ${shipping.toFixed(2)}</div>`;
+        if (tax > 0) html += `<div style="margin-bottom:8px;">${labels.tax ? esc(labels.tax) + ': ' : '<strong>Tax:</strong> '}${currency} ${tax.toFixed(2)}</div>`;
+        html += `<div style="padding-top:8px;border-top:1px solid #ddd;"><strong>${labels.total ? esc(labels.total) + ':' : 'Total:'}</strong> ${currency} ${calculatedTotal.toFixed(2)}</div></div>`;
         return html;
     }
 
@@ -946,9 +1033,9 @@
         const customer = meta && meta.order && meta.order.customer;
         if (!customer || !(customer.name || customer.email || customer.phone)) return '';
         let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
-        if (customer.name) html += `<div style="margin-bottom:8px;">${labels.name ? esc(labels.name) + ': ' : ''}${esc(String(customer.name))}</div>`;
-        if (customer.email) html += `<div style="margin-bottom:8px;">${labels.email ? esc(labels.email) + ': ' : ''}${esc(String(customer.email))}</div>`;
-        if (customer.phone) html += `<div>${labels.phone ? esc(labels.phone) + ': ' : ''}${esc(String(customer.phone))}</div>`;
+        if (customer.name) html += `<div style="margin-bottom:8px;"><strong>${labels.name ? esc(labels.name) + ':' : 'Name:'}</strong> ${esc(String(customer.name))}</div>`;
+        if (customer.email) html += `<div style="margin-bottom:8px;"><strong>${labels.email ? esc(labels.email) + ':' : 'Email:'}</strong> ${esc(String(customer.email))}</div>`;
+        if (customer.phone) html += `<div><strong>${labels.phone ? esc(labels.phone) + ':' : 'Phone:'}</strong> ${esc(String(customer.phone))}</div>`;
         html += '</div>';
         return html;
     }
@@ -1103,43 +1190,14 @@
                     <label>From</label>
                     <select id="reply_from">${senderOpts || '<option value="">No sender addresses available</option>'}</select>
                 </div>
+                ${buildTagBar('or', 'or_editor')}
                 <div class="f-row">
                     <label>Subject</label>
-                    <input type="text" id="compose_subject" placeholder="Re: your order" value="${activeTicket ? esc('Re: [' + activeTicket.ticket_number + '] ' + (activeTicket.subject || '')) : ''}" />
+                    <input type="text" id="compose_subject" placeholder="Re: your order" value="${activeTicket ? esc('Re: [' + activeTicket.ticket_number + '] ' + (activeTicket.subject || '')) : ''}" onfocus="trackFocus('or','compose_subject')" />
                 </div>
                 <div class="f-row" style="margin-bottom:8px;">
                     <label>Body</label>
-                    ${buildTagBar()}
-                    <div class="editor-wrap">
-                        <div class="editor-toolbar">
-                            <select onchange="editorBlock(this)">
-                                <option value="p">Paragraph</option>
-                                <option value="h1">Heading 1</option>
-                                <option value="h2">Heading 2</option>
-                                <option value="h3">Heading 3</option>
-                            </select>
-                            <div class="sep"></div>
-                            <button title="Bold" onclick="cmd('bold')"><b>B</b></button>
-                            <button title="Italic" onclick="cmd('italic')"><i>I</i></button>
-                            <button title="Underline" onclick="cmd('underline')"><u>U</u></button>
-                            <div class="sep"></div>
-                            <button title="Bullet list" onclick="cmd('insertUnorderedList')">• List</button>
-                            <button title="Numbered list" onclick="cmd('insertOrderedList')">1. List</button>
-                            <div class="sep"></div>
-                            <button title="Link" onclick="insertLink()">🔗 Link</button>
-                            <button title="Image URL" onclick="insertImage()">🖼 Image</button>
-                            <div class="sep"></div>
-                            <button title="Undo" onclick="cmd('undo')">↩</button>
-                            <button title="Redo" onclick="cmd('redo')">↪</button>
-                            <div class="sep"></div>
-                            <button title="Remove formatting" onclick="cmd('removeFormat')">✕ fmt</button>
-                            <div class="sep"></div>
-                            <button id="sourceToggleBtn" title="Toggle HTML source" onclick="toggleSource()" style="font-family:monospace;font-weight:700;">&lt;/&gt; Source</button>
-                        </div>
-                        <div id="or_editor" contenteditable="true" spellcheck="true"></div>
-                        <textarea id="or_source" spellcheck="false" placeholder="Paste your full HTML here…"></textarea>
-                        <div class="source-hint">⚡ <strong>Source mode</strong> — tags like <code>{{order_items}}</code> still render on preview/send.</div>
-                    </div>
+                    ${buildRichEditor('or', '', 'or')}
                 </div>
                 <div class="btn-row">
                     <button class="btn btn-ghost" onclick="previewEmail()">👁 Preview</button>
@@ -1159,7 +1217,7 @@
     async function previewEmail() {
         if (!activeTicket) { toast('Select a ticket first', 'error'); return; }
         const subj = getSubject();
-        let body = getEditorHtml();
+        let body = getEditorHtml('or');
         if (!subj && !body) { toast('Nothing to preview yet', 'error'); return; }
         body = await applyOrderTags(body, activeTicket);
         const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:system-ui,sans-serif;max-width:600px;margin:24px auto;padding:0 16px;color:#1a202c;line-height:1.6;}a{color:#0a8f5c;}img{max-width:100%;}</style></head><body>${body}</body></html>`;
@@ -1174,7 +1232,7 @@
         if (!activeTicket) { toast('Select a ticket first', 'error'); return; }
         if (!canReplyTickets()) { toast('You do not have permission to reply', 'error'); return; }
         const subj = getSubject();
-        const body = getEditorHtml();
+        const body = getEditorHtml('or');
         if (!subj) { toast('Subject is required', 'error'); return; }
         if (!body) { toast('Body is required', 'error'); return; }
         const from = document.getElementById('reply_from').value;
@@ -1288,7 +1346,8 @@
 
     // ─── EXPOSE FUNCTIONS GLOBALLY ──────────────────────────────
     window.setLang = setLang;
-    window.insertTag = insertTag;
+    window.insertTagSmart = insertTagSmart;
+    window.trackFocus = trackFocus;
     window.cmd = cmd;
     window.editorBlock = editorBlock;
     window.insertLink = insertLink;
@@ -1307,7 +1366,6 @@
     window.loadTemplateIntoEditor = loadTemplateIntoEditor;
     window.saveOrderAutoReply = saveOrderAutoReply;
     window.previewAutoReply = previewAutoReply;
-    window.insertAutoReplyTag = insertAutoReplyTag;
     window.exportOrdersCsv = exportOrdersCsv;
     window.logout = logout;
     window.toggleTheme = toggleTheme;
