@@ -101,17 +101,12 @@ var Currency = (() => {
   }
 
   // Exact, decimal-preserving display — used for tax (in every currency, incl. base).
-  // FIX: ALWAYS use 2 decimals for tax/exact amounts, regardless of currency.
-  // Even if the currency normally shows 0 decimals (like CZK for display),
-  // tax MUST show exact decimals for legal compliance.
   function fmtExact(eurAmount, code = _active) {
     if (!_loaded || !Object.keys(_rates).length) return '€\u00A0' + eurAmount.toFixed(2);
     const c = _rates[code] || _rates['EUR'];
     if (!c) return '€\u00A0' + eurAmount.toFixed(2);
     const val = convert(eurAmount, code);
-    // ALWAYS use 2 decimal places for exact amounts (tax, totals, order details)
-    // This ensures tax is always shown with proper precision
-    return _resolveSymbol(c) + '\u00A0' + val.toFixed(2);
+    return _resolveSymbol(c) + '\u00A0' + val.toFixed(c.decimals);
   }
 
   function setActive(code) {
