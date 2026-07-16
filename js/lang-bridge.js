@@ -26,9 +26,13 @@
   var parentKey = keys.parentLangKey || "dornori-lang";
   var shopKey   = keys.shopLangKey   || "dornori-lang";
 
-  // Safe fallback before Shipping module sets CONFIG.supportedLanguages
-  var supported = (typeof CONFIG !== "undefined" && CONFIG.supportedLanguages)
-    || ["en", "nl", "de", "fr", "cs", "es", "it", "pt"];
+  // Get supported languages from manifest (loaded by site-boot.js)
+  // Falls back to config.defaultLanguage if manifest not yet available
+  var supported = (typeof window.__supportedLanguages !== "undefined" && window.__supportedLanguages.length > 0)
+    ? window.__supportedLanguages
+    : (typeof CONFIG !== "undefined" && CONFIG.defaultLanguage)
+    ? [CONFIG.defaultLanguage]
+    : ["en"];
 
   var siteLang = localStorage.getItem(parentKey);
 
