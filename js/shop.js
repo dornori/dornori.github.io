@@ -230,7 +230,8 @@ var Shop = (() => {
     if (countryCode && typeof Shipping !== "undefined") cfg = Shipping.getRate(countryCode);
     const isFreeShipping = subtotal >= cfg.freeThreshold;
     const shipping       = isFreeShipping ? 0 : cfg.base + totalBillableWeight * cfg.perKg;
-    const tax            = isBusiness ? 0 : subtotal * CONFIG.taxRate;
+    // Tax is calculated once shipping is known, on subtotal + shipping — not subtotal alone.
+    const tax            = isBusiness ? 0 : (subtotal + shipping) * CONFIG.taxRate;
     return { subtotal, shipping, tax, total: subtotal + shipping + tax, totalWeight, totalBillableWeight, isFreeShipping, estimatedDays: cfg.estimatedDays, totalDiscount };
   }
 

@@ -251,8 +251,10 @@
           const fxRate = trustedItemTotal / eurItemTotal;
           items = items.map(i => ({
             ...i,
-            price: Number(i.price) * fxRate,
-            originalPrice: i.originalPrice != null ? Number(i.originalPrice) * fxRate : i.originalPrice
+            // Round UP — product prices never carry decimals, matching the
+            // frontend (Currency.convertRounded) and the pay-worker (Math.ceil).
+            price: Math.ceil(Number(i.price) * fxRate),
+            originalPrice: i.originalPrice != null ? Math.ceil(Number(i.originalPrice) * fxRate) : i.originalPrice
           }));
         }
       }
@@ -306,9 +308,9 @@
         : (totals.totalDiscount != null ? totals.totalDiscount :
           (customer._discount != null ? customer._discount : 0));
 
-      // 2. Shipping from snapshot or fallback
-      const finalShipping = totals.shipping != null ? totals.shipping : 
-                            (customer._shipping != null ? customer._shipping : 0);
+      // 2. Shipping from snapshot or fallback — always whole units, rounded up.
+      const finalShipping = Math.ceil(totals.shipping != null ? totals.shipping :
+                            (customer._shipping != null ? customer._shipping : 0));
 
       // 3. Tax from snapshot or fallback
       const finalTax = totals.tax != null ? totals.tax : 
