@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EdgeDesk Setup</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --bg-card: #1e293b;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --accent: #38bdf8;
+            --success: #22c55e;
+            --error: #ef4444;
+            --border: #334155;
+            --input-bg: #0f172a;
+            --radius: 10px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .setup-container {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 40px;
+            max-width: 560px;
+            width: 100%;
+            border: 1px solid var(--border);
+        }
+        h1 { font-size: 24px; margin-bottom: 8px; }
+        .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 32px; }
+        .step { display: none; }
+        .step.active { display: block; }
+        .step h2 { font-size: 18px; margin-bottom: 16px; }
+        .step p { color: var(--text-muted); font-size: 14px; margin-bottom: 20px; line-height: 1.6; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin-bottom: 6px; }
+        .form-group input { width: 100%; padding: 10px 14px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 7px; color: var(--text); font-size: 14px; font-family: inherit; }
+        .form-group input:focus { outline: none; border-color: var(--accent); }
+        .code-block {
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 14px;
+            font-family: 'Menlo', 'Consolas', monospace;
+            font-size: 12px;
+            color: var(--accent);
+            word-break: break-all;
+            margin-bottom: 16px;
+            user-select: all;
+        }
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 7px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity .15s;
+        }
+        .btn:hover { opacity: .85; }
+        .btn-primary { background: var(--accent); color: #0f172a; }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+        .btn:disabled { opacity: .4; cursor: not-allowed; }
+        .btn-row { display: flex; gap: 12px; margin-top: 24px; }
+        .status { font-size: 13px; padding: 10px 14px; border-radius: 7px; margin-top: 16px; display: none; }
+        .status.success { display: block; background: rgba(34,197,94,.1); color: var(--success); border: 1px solid rgba(34,197,94,.2); }
+        .status.error { display: block; background: rgba(239,68,68,.1); color: var(--error); border: 1px solid rgba(239,68,68,.2); }
+        .status.info { display: block; background: rgba(56,189,248,.1); color: var(--accent); border: 1px solid rgba(56,189,248,.2); }
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid transparent; border-top-color: currentColor; border-radius: 50%; animation: spin .6s linear infinite; margin-right: 6px; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .checklist { list-style: none; margin-bottom: 20px; }
+        .checklist li { padding: 8px 0; font-size: 14px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+        .checklist li.done { color: var(--success); }
+        .checklist li .check { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+        .checklist li.done .check { border-color: var(--success); background: var(--success); color: #fff; }
+    </style>
+</head>
+<body>
+<div class="setup-container" id="app">
+    <h1>🚀 EdgeDesk Setup</h1>
+    <p class="subtitle">One-time configuration wizard</p>
+
+    <!-- Step 0: Check -->
+    <div class="step active" id="step-check">
+        <h2>Checking system status…</h2>
+        <p id="check-msg"><span class="spinner"></span> Connecting to worker…</p>
+    </div>
+
+    <!-- Step 1: ENCRYPTION_KEY -->
+    <div class="step" id="step-key">
+        <h2>Step 1: Create Encryption Key</h2>
+        <p>EdgeDesk encrypts sensitive credentials. You need to create a Cloudflare secret named <strong>ENCRYPTION_KEY</strong>.</p>
+        <ol style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px; padding-left: 20px; line-height: 2;">
+            <li>Open Cloudflare Dashboard → Workers → <strong>Your Worker</strong> → Variables</li>
+            <li>Click <strong>Add Secret</strong></li>
+            <li>Name: <code>ENCRYPTION_KEY</code></li>
+            <li>Value: copy the key below</li>
+            <li>Click <strong>Save and Deploy</strong></li>
+        </ol>
+        <div class="form-group">
+            <label>Your Encryption Key (auto-generated)</label>
+            <div class="code-block" id="encKeyDisplay"></div>
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);">⚠️ Save this key somewhere safe. You'll need it if you ever recreate the worker.</p>
+        <div class="btn-row">
+            <button class="btn btn-primary" onclick="copyKey()">📋 Copy Key</button>
+            <button class="btn btn-success" onclick="stepKeyDone()">✅ I've added the secret and deployed</button>
+        </div>
+        <div class="status" id="key-status"></div>
+    </div>
+
+    <!-- Step 2: Initialize Database -->
+    <div class="step" id="step-init">
+        <h2>Step 2: Initialize Database</h2>
+        <p>This will create all tables and seed default settings. Paste your encryption key to verify.</p>
+        <div class="form-group">
+            <label>ENCRYPTION_KEY</label>
+            <input type="password" id="initKey" placeholder="Paste your encryption key" />
+        </div>
+        <div class="btn-row">
+            <button class="btn btn-primary" onclick="initializeDB()">🗄️ Initialize Database</button>
+        </div>
+        <div class="status" id="init-status"></div>
+    </div>
+
+    <!-- Step 3: Create Admin -->
+    <div class="step" id="step-admin">
+        <h2>Step 3: Create Admin Account</h2>
+        <p>This will be the first administrator account. Choose a strong password.</p>
+        <div class="form-group">
+            <label>ENCRYPTION_KEY</label>
+            <input type="password" id="adminKey" placeholder="Paste your encryption key" />
+        </div>
+        <div class="form-group">
+            <label>Admin Email</label>
+            <input type="email" id="adminEmail" placeholder="admin@example.com" />
+        </div>
+        <div class="form-group">
+            <label>Admin Name</label>
+            <input type="text" id="adminName" placeholder="Admin" />
+        </div>
+        <div class="form-group">
+            <label>Password (min 12 chars, upper, lower, number, special)</label>
+            <input type="password" id="adminPassword" placeholder="••••••••••••" />
+        </div>
+        <div class="btn-row">
+            <button class="btn btn-success" onclick="createAdmin()">👤 Create Admin & Finish</button>
+        </div>
+        <div class="status" id="admin-status"></div>
+    </div>
+
+    <!-- Step 4: Done -->
+    <div class="step" id="step-done">
+        <h2>✅ Setup Complete!</h2>
+        <p>Your EdgeDesk instance is ready. Click below to go to the dashboard.</p>
+        <div class="btn-row">
+            <button class="btn btn-primary" onclick="goToDashboard()">🎫 Go to Dashboard</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const API_BASE = '';  // Empty = same origin. Change if worker is on different domain.
+let encryptionKey = '';
+
+// Generate key on load
+function generateKey() {
+    return crypto.randomUUID() + crypto.randomUUID().replace(/-/g, '');
+}
+
+function showStep(id) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+}
+
+function showStatus(id, msg, type) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.className = 'status ' + type;
+}
+
+function clearStatus(id) {
+    const el = document.getElementById(id);
+    el.className = 'status';
+    el.textContent = '';
+}
+
+async function api(path, opts = {}) {
+    const url = API_BASE + path;
+    const res = await fetch(url, {
+        ...opts,
+        headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) }
+    });
+    return { status: res.status, data: await res.json() };
+}
+
+// ── Step 0: Check status ──
+(async function check() {
+    encryptionKey = generateKey();
+    document.getElementById('encKeyDisplay').textContent = encryptionKey;
+    
+    try {
+        const { data } = await api('/api/setup/status');
+        if (data.setupComplete) {
+            document.getElementById('check-msg').innerHTML = '✅ System is already set up. Redirecting…';
+            setTimeout(goToDashboard, 1500);
+        } else {
+            showStep('step-key');
+        }
+    } catch (e) {
+        document.getElementById('check-msg').innerHTML = '⚠️ Cannot reach worker. Make sure the worker is deployed and try refreshing.';
+    }
+})();
+
+// ── Step 1: Key copied ──
+function copyKey() {
+    navigator.clipboard.writeText(encryptionKey).then(() => {
+        showStatus('key-status', '✅ Key copied! Paste it into Cloudflare as ENCRYPTION_KEY secret.', 'success');
+    });
+}
+
+function stepKeyDone() {
+    showStep('step-init');
+    document.getElementById('initKey').value = encryptionKey;
+}
+
+// ── Step 2: Initialize DB ──
+async function initializeDB() {
+    const key = document.getElementById('initKey').value.trim();
+    if (!key) { showStatus('init-status', 'Paste your encryption key first.', 'error'); return; }
+    
+    clearStatus('init-status');
+    const btn = document.querySelector('#step-init .btn-primary');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Initializing…';
+    
+    try {
+        const { status, data } = await api('/api/setup/initialize', {
+            method: 'POST',
+            body: JSON.stringify({ encryptionKey: key })
+        });
+        
+        if (data.success) {
+            showStatus('init-status', `✅ Database initialized! ${data.tablesCreated} tables created, ${data.settingsSeeded} settings seeded.`, 'success');
+            setTimeout(() => {
+                showStep('step-admin');
+                document.getElementById('adminKey').value = key;
+            }, 1000);
+        } else {
+            showStatus('init-status', '❌ ' + (data.error || 'Failed'), 'error');
+        }
+    } catch (e) {
+        showStatus('init-status', '❌ Connection error: ' + e.message, 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = '🗄️ Initialize Database';
+}
+
+// ── Step 3: Create Admin ──
+async function createAdmin() {
+    const key = document.getElementById('adminKey').value.trim();
+    const email = document.getElementById('adminEmail').value.trim();
+    const name = document.getElementById('adminName').value.trim();
+    const password = document.getElementById('adminPassword').value;
+    
+    if (!key || !email || !name || !password) {
+        showStatus('admin-status', 'All fields are required.', 'error');
+        return;
+    }
+    
+    clearStatus('admin-status');
+    const btn = document.querySelector('#step-admin .btn-success');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Creating…';
+    
+    try {
+        const { status, data } = await api('/api/setup/create-admin', {
+            method: 'POST',
+            body: JSON.stringify({ encryptionKey: key, email, name, password })
+        });
+        
+        if (data.success) {
+            // Store token and user
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            showStatus('admin-status', '✅ Admin account created!', 'success');
+            setTimeout(() => showStep('step-done'), 1000);
+        } else {
+            showStatus('admin-status', '❌ ' + (data.error || 'Failed'), 'error');
+        }
+    } catch (e) {
+        showStatus('admin-status', '❌ Connection error: ' + e.message, 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = '👤 Create Admin & Finish';
+}
+
+// ── Done ──
+function goToDashboard() {
+    const token = localStorage.getItem('token');
+    if (token) {
+        window.location.href = 'dashboard.html';
+    } else {
+        window.location.href = 'dashboard.html';
+    }
+}
+</script>
+</body>
+</html>
