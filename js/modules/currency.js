@@ -141,8 +141,11 @@ var Currency = (() => {
                        window.CONFIG?.features?.showLanguageSwitcher !== false;
       if (needsGeo) {
         detectFromIP().then(code => {
-          // Only auto-switch currency if currency selector is enabled
-          if (window.CONFIG?.features?.showCurrencySelector !== false && code && _rates[code] && code !== _active) {
+          // Only auto-switch currency if:
+          // 1. Currency selector is enabled
+          // 2. No saved user preference exists (respect user's previous choice)
+          // 3. Detected currency is different from current active
+          if (window.CONFIG?.features?.showCurrencySelector !== false && code && _rates[code] && !saved && code !== _active) {
             setActive(code);
           }
         }).catch(() => {});

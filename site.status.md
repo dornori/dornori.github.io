@@ -8,7 +8,6 @@ minor
 -=-=-=-=-=-=-=-=-=-=
 - sometimes two confirmation email (en / nl)
 - all seems well  - cart - go back looping at checkout - cart empty -back works but prolly not consistent
-- preview in order-reply not rendering as it is now.
 - when cart is refreshed goes back to IP currency 
 
 
@@ -42,3 +41,5 @@ Redirect to PayPal for payment
 No cardholder data stored on your servers
 
 Simplified compliance
+\
+

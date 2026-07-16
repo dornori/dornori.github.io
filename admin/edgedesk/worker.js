@@ -20,6 +20,69 @@ var TOKEN_EXPIRY_SECONDS = 86400; // 24 hours
 var LOCK_STALE_WRITE_MS = 45000;  // Write operation lock timeout
 var LOCK_STALE_READ_MS = 30000;   // Read operation lock timeout
 var LOCK_CLEANUP_THRESHOLD_MS = 15000; // Check for stale locks interval
+
+// ─── PASSWORD SECURITY CONFIGURATION ──────────────────────────────
+// Industry-standard requirements (OWASP/NIST aligned)
+const PASSWORD_MIN_LENGTH = 12;
+const COMMON_PASSWORDS = [
+  'password', '123456', '12345678', 'qwerty', 'abc123', 
+  'password123', 'admin', 'letmein', 'welcome', 'monkey',
+  'dragon', 'master', 'hello', 'fuckyou', 'superman',
+  '123456789', '12345', '1234567890', 'qwertyuiop',
+  'qwerty123', '1q2w3e4r', 'password1', '123321',
+  '111111', '000000', 'abcdef', 'abcd1234', 'iloveyou',
+  'trustno1', 'sunshine', 'princess', 'shadow', 'ashley',
+  'bailey', 'passw0rd', 'admin123', 'root', 'toor'
+];
+
+function validatePasswordStrength(password) {
+  const errors = [];
+  
+  if (!password || typeof password !== 'string') {
+    errors.push('Password is required');
+    return { valid: false, errors };
+  }
+  
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    errors.push(`Password must be at least ${PASSWORD_MIN_LENGTH} characters`);
+  }
+  
+  if (!/[A-Z]/.test(password)) {
+    errors.push('Password must contain at least one uppercase letter (A-Z)');
+  }
+  
+  if (!/[a-z]/.test(password)) {
+    errors.push('Password must contain at least one lowercase letter (a-z)');
+  }
+  
+  if (!/[0-9]/.test(password)) {
+    errors.push('Password must contain at least one number (0-9)');
+  }
+  
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password)) {
+    errors.push('Password must contain at least one special character (!@#$%^&* etc.)');
+  }
+  
+  if (COMMON_PASSWORDS.some(common => common.toLowerCase() === password.toLowerCase())) {
+    errors.push('This password is too common. Please choose a more unique password.');
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors: errors
+  };
+}
+__name(validatePasswordStrength, "validatePasswordStrength");
+
+async function validateAndHashPassword(password, env) {
+  const result = validatePasswordStrength(password);
+  if (!result.valid) {
+    throw new Error(result.errors[0]);
+  }
+  return await sha256(password);
+}
+__name(validateAndHashPassword, "validateAndHashPassword");
+
 async function getTicketCache() {
   try {
     const res = await caches.default.match(TICKET_CACHE_URL);
@@ -31,6 +94,7 @@ async function getTicketCache() {
   }
 }
 __name(getTicketCache, "getTicketCache");
+
 async function setTicketCache(tickets) {
   try {
     const res = new Response(JSON.stringify({ tickets }), {
@@ -41,6 +105,7 @@ async function setTicketCache(tickets) {
   }
 }
 __name(setTicketCache, "setTicketCache");
+
 async function purgeTicketCache() {
   try {
     await caches.default.delete(TICKET_CACHE_URL);
@@ -48,6 +113,7 @@ async function purgeTicketCache() {
   }
 }
 __name(purgeTicketCache, "purgeTicketCache");
+
 async function injectTicketIntoCache(updatedTicket, env) {
   const cacheRequest = new Request(TICKET_CACHE_URL);
   let response = await caches.default.match(cacheRequest);
@@ -70,6 +136,7 @@ async function injectTicketIntoCache(updatedTicket, env) {
   }
 }
 __name(injectTicketIntoCache, "injectTicketIntoCache");
+
 function clearCache() {
   cache.settings.clear();
   cache.users.clear();
@@ -2657,16 +2724,67 @@ var worker_default = {
       // ─── RESET PASSWORD ──────────────────────────────────────
       if (path === "/api/admin/reset-password" && method === "POST") {
         const { token, password } = await request.json();
-        if (!token || !password || password.length < 8) {
-          return json({ error: "A valid token and a password of at least 8 characters are required." }, 400);
+        
+        if (!token || !password) {
+          return json({ error: "Token and password are required." }, 400);
         }
+        
+        let passwordHash;
+        try {
+          passwordHash = await validateAndHashPassword(password, env);
+        } catch (e) {
+          return json({ error: e.message }, 400);
+        }
+        
         const email = await consumePasswordResetToken(env, token);
         if (!email) return json({ error: "This reset link is invalid or has expired." }, 400);
 
-        const passwordHash = await sha256(password);
-        await env.DB.prepare("UPDATE users SET password_hash = ? WHERE LOWER(email) = ?").bind(passwordHash, email.toLowerCase()).run();
+        await env.DB.prepare("UPDATE users SET password_hash = ? WHERE LOWER(email) = ?")
+          .bind(passwordHash, email.toLowerCase()).run();
         cache.users.delete(email.toLowerCase());
         return json({ success: true, message: "Password updated. You can now log in." });
+      }
+
+      // ─── VALIDATE RESET TOKEN ──────────────────────────────────────
+      if (path === "/api/admin/validate-reset-token" && method === "POST") {
+        const { token } = await request.json();
+        
+        if (!token) {
+          return json({ valid: false, message: "No token provided" }, 400);
+        }
+        
+        try {
+          await ensurePasswordResetsTable(env);
+          const tokenHash = await sha256(token);
+          const row = await env.DB.prepare(
+            "SELECT expires_at, used FROM password_resets WHERE token_hash = ?"
+          ).bind(tokenHash).first();
+          
+          if (!row) {
+            return json({ valid: false, message: "Invalid or expired token" });
+          }
+          
+          if (row.used === 1) {
+            return json({ valid: false, message: "This token has already been used" });
+          }
+          
+          const now = Math.floor(Date.now() / 1000);
+          if (now > row.expires_at) {
+            return json({ valid: false, message: "This reset link has expired" });
+          }
+          
+          // IMPORTANT: DO NOT UPDATE used = 1 here!
+          // Only check the token, never modify it.
+          
+          return json({ 
+            valid: true, 
+            expires_at: row.expires_at,
+            message: "Token is valid"
+          });
+        } catch (e) {
+          console.error("Validate token error:", e);
+          return json({ valid: false, message: "Error validating token" }, 500);
+        }
       }
 
       // ─── CACHE PURGE (manual) ───────────────────────────────
@@ -2692,6 +2810,7 @@ var worker_default = {
         return json({ success: true, users: (users.results || []).map((u) => ({ email: u.email, name: u.name, role: u.role, allowed_languages: JSON.parse(u.allowed_languages || "[]"), allowed_emails: JSON.parse(u.allowed_emails || "[]"), allowed_categories: JSON.parse(u.allowed_categories || "[]"), team_id: u.team_id, page_permissions: (() => { try { return JSON.parse(u.page_permissions || "{}"); } catch (e) { return {}; } })() })) });
       }
 
+      // ─── USER CREATION ───────────────────────────────
       if (path === "/api/admin/users" && method === "POST") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2716,9 +2835,16 @@ var worker_default = {
         let finalPerms = page_permissions || {};
         if (role !== "admin" && caller.role !== "admin") finalPerms = {};
 
+        let passwordHash;
         try {
-          const passwordHash = await sha256(password);
-          await env.DB.prepare("INSERT INTO users (email, name, role, password_hash, allowed_languages, allowed_emails, allowed_categories, team_id, page_permissions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(newEmail.toLowerCase().trim(), name, role, passwordHash, JSON.stringify(allowed_languages || []), JSON.stringify(allowed_emails || []), JSON.stringify(allowed_categories || []), team_id || null, JSON.stringify(finalPerms)).run();
+          passwordHash = await validateAndHashPassword(password, env);
+        } catch (e) {
+          return json({ error: e.message }, 400);
+        }
+
+        try {
+          await env.DB.prepare("INSERT INTO users (email, name, role, password_hash, allowed_languages, allowed_emails, allowed_categories, team_id, page_permissions) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            .bind(newEmail.toLowerCase().trim(), name, role, passwordHash, JSON.stringify(allowed_languages || []), JSON.stringify(allowed_emails || []), JSON.stringify(allowed_categories || []), team_id || null, JSON.stringify(finalPerms)).run();
           clearCache();
           return json({ success: true });
         } catch (e) {
@@ -2726,6 +2852,7 @@ var worker_default = {
         }
       }
 
+      // ─── USER UPDATE ────────────────────────────────────
       if (path.startsWith("/api/admin/users/") && method === "PUT") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2764,7 +2891,19 @@ var worker_default = {
         let finalPerms = page_permissions;
         if (role !== "admin" && caller.role !== "admin") finalPerms = target.page_permissions;
 
-        await env.DB.prepare("UPDATE users SET name = ?, role = ?, allowed_languages = ?, allowed_emails = ?, allowed_categories = ?, team_id = ?, page_permissions = ? WHERE email = ?").bind(name, role, JSON.stringify(allowed_languages || []), JSON.stringify(allowed_emails || []), JSON.stringify(allowed_categories || []), team_id || null, JSON.stringify(finalPerms || {}), userEmail).run();
+        if (body.password) {
+          let passwordHash;
+          try {
+            passwordHash = await validateAndHashPassword(body.password, env);
+          } catch (e) {
+            return json({ error: e.message }, 400);
+          }
+          await env.DB.prepare("UPDATE users SET password_hash = ? WHERE email = ?")
+            .bind(passwordHash, userEmail).run();
+        }
+
+        await env.DB.prepare("UPDATE users SET name = ?, role = ?, allowed_languages = ?, allowed_emails = ?, allowed_categories = ?, team_id = ?, page_permissions = ? WHERE email = ?")
+          .bind(name, role, JSON.stringify(allowed_languages || []), JSON.stringify(allowed_emails || []), JSON.stringify(allowed_categories || []), team_id || null, JSON.stringify(finalPerms || {}), userEmail).run();
         clearCache();
         return json({ success: true });
       }
@@ -2841,8 +2980,6 @@ var worker_default = {
         const { assigned_to } = await request.json();
         const existingTicket = await getTicket(id, env);
         const oldAssignee = existingTicket ? existingTicket.assigned_to : null;
-        // Any agent may self-assign an unassigned ticket by opening it;
-        // reassigning to someone else still requires tl/manager/admin.
         const isSelfAssign = assigned_to === userEmail && !oldAssignee;
         const isPrivileged = requester && ["tl", "manager", "admin"].includes(requester.role);
         if (!requester || !(isPrivileged || isSelfAssign)) return json({ error: "Permission denied" }, 403);
@@ -2907,6 +3044,15 @@ var worker_default = {
           return json({ success: true });
         }
         return json({ success: false, error: result.error }, 500);
+      }
+
+      // ─── GET PASSWORD POLICY (for frontend) ────────────────────────
+      if (path === "/api/admin/password-policy" && method === "GET") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const email = await verifyToken(token, env);
+        if (!email) return json({ error: "Unauthorized" }, 401);
+        const policy = await getPasswordPolicy(env);
+        return json({ success: true, policy });
       }
 
       // ─── DELETE CATEGORY ──────────────────────────────────
@@ -3147,7 +3293,7 @@ var TicketHub = class {
       return new Response(JSON.stringify({ lockedTickets }));
     }
 
-    // ─── CHECK LOCK (was /lock-check - renamed to avoid adblockers) ──
+    // ─── CHECK LOCK ──────────────────────────────────────────────
     if (request.method === "POST" && url.pathname === "/check-lock") {
       let body = {};
       try {
@@ -3163,7 +3309,7 @@ var TicketHub = class {
 
     // ─── LOCK ─────────────────────────────────────────────────────
     if (request.method === "POST" && url.pathname === "/lock") {
-      const LOCK_STALE_MS = LOCK_STALE_WRITE_MS; // Use global constant (45s for write operations)
+      const LOCK_STALE_MS = LOCK_STALE_WRITE_MS;
       let body = {};
       try {
         body = await request.json();
@@ -3212,7 +3358,7 @@ var TicketHub = class {
       return new Response(JSON.stringify({ success: true }));
     }
 
-    // ─── RELEASE (was /unlock - renamed to avoid adblockers) ──
+    // ─── RELEASE ──────────────────────────────────────────────────
     if (request.method === "POST" && url.pathname === "/release") {
       let body = {};
       try {
@@ -3239,6 +3385,7 @@ var TicketHub = class {
       return new Response(JSON.stringify({ success: true }));
     }
 
+    // ─── WEBSOCKET CONNECT ──────────────────────────────────────
     if (url.pathname === "/connect" && request.headers.get("Upgrade") === "websocket") {
       const role = url.searchParams.get("role") || "agent";
       const email = url.searchParams.get("email") || "";
@@ -3285,9 +3432,9 @@ var TicketHub = class {
   }
 
   async alarm() {
-    const IDLE_MS = 20 * 60 * 1000;                // Clean up idle connections after 20 minutes
-    const LOCK_STALE_MS = LOCK_STALE_READ_MS;     // Use global constant (30s for read operations)
-    const RL_WINDOW_MS = 5 * 60 * 1000;            // Rate limit window: 5 minutes
+    const IDLE_MS = 20 * 60 * 1000;
+    const LOCK_STALE_MS = LOCK_STALE_READ_MS;
+    const RL_WINDOW_MS = 5 * 60 * 1000;
     const now = Date.now();
     let expiredAny = false;
 
