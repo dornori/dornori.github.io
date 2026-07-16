@@ -143,12 +143,9 @@ const Payment = (() => {
               return new Promise(function(resolve) {
                 const selectedCountry = intermediatePaymentData.shippingAddress?.countryCode || null;
                 const liveTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, selectedCountry) : null;
-                const liveRawSubtotal = liveTotals ? liveTotals.subtotal : cart.reduce((s, i) => s + (parseFloat(i.price) || 0) * i.qty, 0);
-                const liveRawShipping = liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : 0;
-                const liveRawTax = liveTotals ? liveTotals.tax : 0;
-                const liveSubtotal = _convertRounded(liveRawSubtotal);
-                const liveShipping = _convertRounded(liveRawShipping);
-                const liveTax = _convert(liveRawTax);
+                const liveSubtotal = liveTotals ? liveTotals.subtotal : _convertRounded(cart.reduce((s, i) => s + (parseFloat(i.price) || 0) * i.qty, 0));
+                const liveShipping = liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : 0;
+                const liveTax = liveTotals ? liveTotals.tax : 0;
                 const liveTotal = liveSubtotal + liveShipping + liveTax;
                 resolve({
                   newTransactionInfo: {
@@ -198,13 +195,13 @@ const Payment = (() => {
               const language = _getActiveLanguage();
               
               const localTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, null) : null;
-              const rawSubtotal = localTotals ? localTotals.subtotal : cart.reduce((s, i) => s + (parseFloat(i.price) || 0) * i.qty, 0);
+              const rawSubtotal = localTotals ? localTotals.subtotal : _convertRounded(cart.reduce((s, i) => s + (parseFloat(i.price) || 0) * i.qty, 0));
               const rawShipping = localTotals ? (localTotals.isFreeShipping ? 0 : localTotals.shipping) : 0;
               const rawTax = localTotals ? localTotals.tax : 0;
 
-              const subtotal = _convertRounded(rawSubtotal);
-              const shipping = _convertRounded(rawShipping);
-              const tax = _convert(rawTax);
+              const subtotal = rawSubtotal;
+              const shipping = rawShipping;
+              const tax = rawTax;
               const displayTotal = subtotal + shipping + tax;
 
               const displayItems = [
@@ -247,9 +244,9 @@ const Payment = (() => {
               // Recalculate totals using actual country from Google Pay address
               const gpayCountry = gpayAddr.countryCode || null;
               const liveTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, gpayCountry) : localTotals;
-              const liveSubtotal = _convert(liveTotals ? liveTotals.subtotal : rawSubtotal);
-              const liveShipping = _convert(liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : rawShipping);
-              const liveTax = _convert(liveTotals ? liveTotals.tax : rawTax);
+              const liveSubtotal = liveTotals ? liveTotals.subtotal : rawSubtotal;
+              const liveShipping = liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : rawShipping;
+              const liveTax = liveTotals ? liveTotals.tax : rawTax;
 
               const realOrder = await _createStandardOrder(cart, {
                 email: gpayEmail || '',
@@ -355,13 +352,13 @@ const Payment = (() => {
           const language = _getActiveLanguage();
           
           const localTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, null) : null;
-          const rawSubtotal = localTotals ? localTotals.subtotal : cart.reduce((s, i) => s + (parseFloat(i.price) || 0) * i.qty, 0);
+          const rawSubtotal = localTotals ? localTotals.subtotal : _convertRounded(cart.reduce((s, i) => s + (parseFloat(i.price) || 0) * i.qty, 0));
           const rawShipping = localTotals ? (localTotals.isFreeShipping ? 0 : localTotals.shipping) : 0;
           const rawTax = localTotals ? localTotals.tax : 0;
 
-          const subtotal = _convertRounded(rawSubtotal);
-          const shipping = _convertRounded(rawShipping);
-          const tax = _convert(rawTax);
+          const subtotal = rawSubtotal;
+          const shipping = rawShipping;
+          const tax = rawTax;
           const displayTotal = subtotal + shipping + tax;
 
           const buildLineItems = (sub, ship, tx) => [
@@ -396,9 +393,9 @@ const Payment = (() => {
           session.onshippingcontactselected = (event) => {
             const country = event.shippingContact?.countryCode || null;
             const liveTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, country) : localTotals;
-            const liveSubtotal = _convertRounded(liveTotals ? liveTotals.subtotal : rawSubtotal);
-            const liveShipping = _convertRounded(liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : rawShipping);
-            const liveTax = _convert(liveTotals ? liveTotals.tax : rawTax);
+            const liveSubtotal = liveTotals ? liveTotals.subtotal : rawSubtotal;
+            const liveShipping = liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : rawShipping;
+            const liveTax = liveTotals ? liveTotals.tax : rawTax;
             const liveTotal = liveSubtotal + liveShipping + liveTax;
 
             session.completeShippingContactSelection(
