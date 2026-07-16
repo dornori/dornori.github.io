@@ -39,7 +39,6 @@
             overflow-x: hidden;
         }
 
-        /* ─── ANIMATED BACKGROUND ───────────────────────── */
         .bg-canvas {
             position: fixed;
             inset: 0;
@@ -68,7 +67,6 @@
             100% { transform: translateY(100vh); }
         }
 
-        /* ─── SETUP CARD ────────────────────────────────── */
         .setup-container {
             position: relative;
             z-index: 1;
@@ -86,7 +84,6 @@
             100% { opacity: 1; transform: translateY(0) scale(1); }
         }
 
-        /* ─── LOGO ──────────────────────────────────────── */
         .logo-area {
             text-align: center;
             margin-bottom: 36px;
@@ -157,7 +154,6 @@
             margin-top: 4px;
         }
 
-        /* ─── STEPS ─────────────────────────────────────── */
         .step { display: none; }
         .step.active { display: block; animation: fadeSlide .4s ease; }
         @keyframes fadeSlide {
@@ -257,7 +253,6 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ─── PROGRESS DOTS ─────────────────────────────── */
         .progress-dots {
             display: flex;
             justify-content: center;
@@ -274,7 +269,6 @@
         .progress-dot.done { background: var(--success); box-shadow: 0 0 8px var(--success); }
         .progress-dot.current { background: var(--accent); box-shadow: 0 0 12px var(--accent); animation: pulse 1.5s ease-in-out infinite; }
 
-        /* ─── GLOW LINE ──────────────────────────────────── */
         .glow-line {
             height: 2px;
             background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
@@ -311,11 +305,9 @@
 </head>
 <body>
 
-<!-- Background particles -->
 <div class="bg-canvas" id="bg"></div>
 
 <div class="setup-container" id="app">
-    <!-- Logo -->
     <div class="logo-area">
         <div class="logo-icon">
             <div class="ring"></div>
@@ -329,20 +321,17 @@
 
     <div class="glow-line"></div>
 
-    <!-- Progress -->
     <div class="progress-dots" id="progressDots">
         <div class="progress-dot" data-step="1"></div>
         <div class="progress-dot" data-step="2"></div>
         <div class="progress-dot" data-step="3"></div>
     </div>
 
-    <!-- Step 0: Check -->
     <div class="step active" id="step-check">
         <h2>Checking system status…</h2>
         <p id="check-msg"><span class="spinner"></span> Connecting to EdgeDesk worker…</p>
     </div>
 
-    <!-- Step 1 -->
     <div class="step" id="step-key">
         <h2>🔐 Step 1: Create Encryption Key</h2>
         <p>EdgeDesk encrypts all sensitive credentials at rest. Create a Cloudflare secret named <strong>ENCRYPTION_KEY</strong> using the key below.</p>
@@ -365,7 +354,6 @@
         <div class="status" id="key-status"></div>
     </div>
 
-    <!-- Step 2 -->
     <div class="step" id="step-init">
         <h2>🗄️ Step 2: Initialize Database</h2>
         <p>Creates all required tables and seeds default configuration. Paste your encryption key to authorize.</p>
@@ -379,7 +367,6 @@
         <div class="status" id="init-status"></div>
     </div>
 
-    <!-- Step 3 -->
     <div class="step" id="step-admin">
         <h2>👤 Step 3: Create Admin Account</h2>
         <p>Set up the first administrator. Use a strong, unique password.</p>
@@ -405,7 +392,6 @@
         <div class="status" id="admin-status"></div>
     </div>
 
-    <!-- Step 4: Done -->
     <div class="step" id="step-done">
         <h2>✅ EdgeDesk is Ready!</h2>
         <p>Your helpdesk is live. All systems initialized. You're being redirected…</p>
@@ -416,7 +402,6 @@
 </div>
 
 <script>
-// ── BACKGROUND PARTICLES ────────────────────────────────
 (function createBG() {
     const bg = document.getElementById('bg');
     const colors = ['#38bdf8','#818cf8','#22c55e','#a78bfa','#38bdf8'];
@@ -445,7 +430,6 @@
     }
 })();
 
-// ── SETUP LOGIC ─────────────────────────────────────────
 let encryptionKey = '';
 
 function generateKey() {
@@ -486,8 +470,11 @@ async function api(path, opts = {}) {
     return { status: res.status, data: await res.json() };
 }
 
-// ── Init ──
 (async function init() {
+    while (!API_BASE) {
+        await new Promise(r => setTimeout(r, 100));
+    }
+
     encryptionKey = generateKey();
     document.getElementById('encKeyDisplay').textContent = encryptionKey;
 
