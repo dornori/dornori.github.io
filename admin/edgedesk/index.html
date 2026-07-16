@@ -10,7 +10,7 @@
       .then(c => { API_BASE = c.API_BASE; })
       .catch(() => { API_BASE = ''; });
     </script>
-    <title>EdgeDesk Setup</title>
+    <title>EdgeDesk</title>
     <style>
         :root {
             --bg: #0a0a0f;
@@ -19,6 +19,7 @@
             --text-muted: #94a3b8;
             --accent: #38bdf8;
             --accent2: #818cf8;
+            --gold: #f59e0b;
             --success: #22c55e;
             --error: #ef4444;
             --border: #1e293b;
@@ -29,52 +30,150 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg);
+            background: #000;
             color: var(--text);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
-            overflow-x: hidden;
+            overflow: hidden;
         }
 
-        .bg-canvas {
+        /* ─── HOLLYWOOD INTRO ──────────────────────────── */
+        .intro-overlay {
             position: fixed;
             inset: 0;
-            z-index: 0;
+            z-index: 100;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity .8s ease-out;
+        }
+        .intro-overlay.fade-out { opacity: 0; pointer-events: none; }
+
+        .intro-content { text-align: center; perspective: 800px; }
+        .intro-mountain {
+            width: 0; height: 0;
+            border-left: 140px solid transparent;
+            border-right: 140px solid transparent;
+            border-bottom: 200px solid #0a1628;
+            margin: 0 auto 20px;
+            animation: mountainRise 1.8s cubic-bezier(.16,1,.3,1) forwards;
+            opacity: 0;
+            position: relative;
+        }
+        .intro-mountain::after {
+            content: '';
+            position: absolute;
+            top: 60px; left: -40px;
+            width: 0; height: 0;
+            border-left: 60px solid transparent;
+            border-right: 60px solid transparent;
+            border-bottom: 90px solid #0d1f3c;
+        }
+        .intro-mountain::before {
+            content: '';
+            position: absolute;
+            top: 30px; left: -60px;
+            width: 0; height: 0;
+            border-left: 50px solid transparent;
+            border-right: 50px solid transparent;
+            border-bottom: 70px solid #091428;
+        }
+        @keyframes mountainRise {
+            0% { opacity: 0; transform: translateY(60px) scale(.8); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .intro-stars {
+            position: absolute;
+            inset: 0;
             pointer-events: none;
         }
-        .particle {
+        .intro-star {
             position: absolute;
+            width: 2px; height: 2px;
+            background: #fff;
             border-radius: 50%;
-            animation: floatUp linear infinite;
+            animation: starTwinkle 2s ease-in-out infinite;
+        }
+        @keyframes starTwinkle {
+            0%,100% { opacity: .3; }
+            50% { opacity: 1; box-shadow: 0 0 6px #fff; }
+        }
+        .intro-title {
+            font-size: 52px;
+            font-weight: 900;
+            letter-spacing: 8px;
+            color: #fff;
+            animation: titleReveal 2s cubic-bezier(.16,1,.3,1) forwards;
             opacity: 0;
+            text-shadow: 0 0 60px rgba(56,189,248,.4), 0 0 120px rgba(129,140,248,.2);
+        }
+        @keyframes titleReveal {
+            0% { opacity: 0; transform: scale(1.4); letter-spacing: 20px; }
+            60% { opacity: 1; }
+            100% { opacity: 1; transform: scale(1); letter-spacing: 8px; }
+        }
+        .intro-subtitle {
+            font-size: 13px;
+            letter-spacing: 6px;
+            color: var(--gold);
+            text-transform: uppercase;
+            animation: subtitleFade 2.2s ease forwards;
+            opacity: 0;
+            margin-top: 8px;
+        }
+        @keyframes subtitleFade {
+            0%,50% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        .intro-beam {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 80px;
+            background: linear-gradient(to top, transparent, rgba(56,189,248,.6), transparent);
+            animation: beamPulse 2s ease-in-out infinite;
+        }
+        @keyframes beamPulse {
+            0%,100% { opacity: .3; height: 80px; }
+            50% { opacity: .8; height: 120px; }
+        }
+
+        /* ─── SETUP / DASHBOARD CONTAINER ──────────────── */
+        .app-container {
+            position: relative;
+            z-index: 1;
+            display: none;
+        }
+        .app-container.visible { display: flex; }
+
+        .bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+        .particle {
+            position: absolute; border-radius: 50%;
+            animation: floatUp linear infinite; opacity: 0;
         }
         @keyframes floatUp {
-            0%   { transform: translateY(100vh) scale(0); opacity: 0; }
-            10%  { opacity: 1; }
-            90%  { opacity: 1; }
+            0% { transform: translateY(100vh) scale(0); opacity: 0; }
+            10% { opacity: 1; } 90% { opacity: 1; }
             100% { transform: translateY(-10vh) scale(1.5); opacity: 0; }
         }
         .grid-line {
             position: absolute;
-            background: linear-gradient(90deg, transparent, rgba(56,189,248,.03), transparent);
+            background: linear-gradient(90deg, transparent, rgba(56,189,248,.02), transparent);
             animation: scanDown linear infinite;
         }
         @keyframes scanDown {
-            0%   { transform: translateY(-100%); }
+            0% { transform: translateY(-100%); }
             100% { transform: translateY(100vh); }
         }
 
         .setup-container {
-            position: relative;
-            z-index: 1;
-            background: var(--bg-card);
-            border-radius: var(--radius);
-            padding: 44px;
-            max-width: 580px;
-            width: 100%;
+            background: var(--bg-card); border-radius: var(--radius);
+            padding: 44px; max-width: 580px; width: 100%;
             border: 1px solid var(--border);
             box-shadow: 0 0 80px rgba(56,189,248,.05), 0 0 200px rgba(129,140,248,.03);
             animation: cardIn .6s cubic-bezier(.16,1,.3,1);
@@ -84,333 +183,245 @@
             100% { opacity: 1; transform: translateY(0) scale(1); }
         }
 
-        .logo-area {
-            text-align: center;
-            margin-bottom: 36px;
-        }
-        .logo-icon {
-            display: inline-block;
-            width: 64px;
-            height: 64px;
-            position: relative;
-            margin-bottom: 12px;
-        }
-        .logo-icon .ring {
-            position: absolute;
-            inset: 0;
-            border-radius: 50%;
-            border: 3px solid transparent;
-        }
-        .logo-icon .ring:nth-child(1) {
-            border-top-color: var(--accent);
-            animation: spin3d 3s linear infinite;
-        }
-        .logo-icon .ring:nth-child(2) {
-            inset: 6px;
-            border-right-color: var(--accent2);
-            animation: spin3d 2s linear infinite reverse;
-        }
-        .logo-icon .ring:nth-child(3) {
-            inset: 12px;
-            border-bottom-color: var(--accent);
-            animation: spin3d 4s linear infinite;
-        }
+        .logo-area { text-align: center; margin-bottom: 36px; }
+        .logo-icon { display: inline-block; width: 64px; height: 64px; position: relative; margin-bottom: 12px; }
+        .logo-icon .ring { position: absolute; inset: 0; border-radius: 50%; border: 3px solid transparent; }
+        .logo-icon .ring:nth-child(1) { border-top-color: var(--accent); animation: spin3d 3s linear infinite; }
+        .logo-icon .ring:nth-child(2) { inset: 6px; border-right-color: var(--accent2); animation: spin3d 2s linear infinite reverse; }
+        .logo-icon .ring:nth-child(3) { inset: 12px; border-bottom-color: var(--accent); animation: spin3d 4s linear infinite; }
         .logo-icon .center-dot {
-            position: absolute;
-            inset: 22px;
-            background: var(--accent);
-            border-radius: 50%;
+            position: absolute; inset: 22px; background: var(--accent); border-radius: 50%;
             box-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent2);
             animation: pulse 1.5s ease-in-out infinite;
         }
-        @keyframes spin3d {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        @keyframes pulse {
-            0%,100% { transform: scale(1); opacity: .8; }
-            50% { transform: scale(1.3); opacity: 1; }
-        }
+        @keyframes spin3d { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0%,100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.3); opacity: 1; } }
         .logo-text {
-            font-size: 28px;
-            font-weight: 800;
-            letter-spacing: -1px;
+            font-size: 28px; font-weight: 800; letter-spacing: -1px;
             background: linear-gradient(135deg, var(--accent), var(--accent2));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: shimmer 3s ease-in-out infinite;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text; animation: shimmer 3s ease-in-out infinite;
             background-size: 200% 200%;
         }
-        @keyframes shimmer {
-            0%,100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
+        @keyframes shimmer { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        .logo-subtitle { font-size: 12px; color: var(--text-muted); letter-spacing: 3px; text-transform: uppercase; margin-top: 4px; }
+
+        /* ─── LOADING SCREEN ───────────────────────────── */
+        .loading-screen {
+            text-align: center;
+            animation: fadeSlide .4s ease;
         }
-        .logo-subtitle {
-            font-size: 12px;
-            color: var(--text-muted);
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            margin-top: 4px;
+        @keyframes fadeSlide { 0% { opacity: 0; transform: translateX(20px); } 100% { opacity: 1; transform: translateX(0); } }
+        .loading-dots { display: flex; justify-content: center; gap: 8px; margin: 24px 0; }
+        .loading-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: var(--accent);
+            animation: loadBounce 1.2s ease-in-out infinite;
+        }
+        .loading-dot:nth-child(2) { animation-delay: .2s; }
+        .loading-dot:nth-child(3) { animation-delay: .4s; }
+        @keyframes loadBounce {
+            0%,80%,100% { transform: scale(.6); opacity: .4; }
+            40% { transform: scale(1.2); opacity: 1; }
         }
 
+        /* ─── STEPS ────────────────────────────────────── */
         .step { display: none; }
         .step.active { display: block; animation: fadeSlide .4s ease; }
-        @keyframes fadeSlide {
-            0% { opacity: 0; transform: translateX(20px); }
-            100% { opacity: 1; transform: translateX(0); }
-        }
         .step h2 { font-size: 18px; margin-bottom: 12px; }
         .step p { color: var(--text-muted); font-size: 14px; margin-bottom: 20px; line-height: 1.7; }
 
         .form-group { margin-bottom: 20px; }
-        .form-group label {
-            display: block;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: .6px;
-            color: var(--text-muted);
-            margin-bottom: 6px;
-        }
+        .form-group label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted); margin-bottom: 6px; }
         .form-group input {
-            width: 100%;
-            padding: 12px 16px;
-            background: var(--input-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text);
-            font-size: 14px;
-            font-family: inherit;
-            transition: border-color .2s, box-shadow .2s;
+            width: 100%; padding: 12px 16px; background: var(--input-bg);
+            border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+            font-size: 14px; font-family: inherit; transition: border-color .2s, box-shadow .2s;
         }
-        .form-group input:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(56,189,248,.1);
-        }
+        .form-group input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56,189,248,.1); }
+        .form-group input[readonly] { background: var(--border); color: var(--text-muted); cursor: default; }
         .code-block {
-            background: var(--input-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 16px;
-            font-family: 'Menlo', 'Consolas', 'SF Mono', monospace;
-            font-size: 11px;
-            color: var(--accent);
-            word-break: break-all;
-            margin-bottom: 16px;
-            user-select: all;
-            letter-spacing: .5px;
-            line-height: 1.6;
+            background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px;
+            padding: 16px; font-family: 'Menlo', 'Consolas', 'SF Mono', monospace;
+            font-size: 11px; color: var(--accent); word-break: break-all;
+            margin-bottom: 16px; user-select: all; letter-spacing: .5px; line-height: 1.6;
         }
         .btn {
-            padding: 12px 28px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all .2s;
-            position: relative;
-            overflow: hidden;
+            padding: 12px 28px; border: none; border-radius: 8px; font-size: 14px;
+            font-weight: 600; cursor: pointer; transition: all .2s; position: relative; overflow: hidden;
         }
         .btn::after {
-            content: '';
-            position: absolute;
-            inset: 0;
+            content: ''; position: absolute; inset: 0;
             background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,.08) 50%, transparent 60%);
-            transform: translateX(-100%);
-            transition: transform .5s;
+            transform: translateX(-100%); transition: transform .5s;
         }
         .btn:hover::after { transform: translateX(100%); }
         .btn-primary { background: var(--accent); color: #0a0a0f; }
         .btn-success { background: var(--success); color: #fff; }
-        .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
         .btn:disabled { opacity: .4; cursor: not-allowed; }
         .btn-row { display: flex; gap: 12px; margin-top: 24px; }
 
         .status {
-            font-size: 13px;
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-top: 16px;
-            display: none;
-            animation: fadeSlide .3s ease;
+            font-size: 13px; padding: 12px 16px; border-radius: 8px; margin-top: 16px;
+            display: none; animation: fadeSlide .3s ease;
         }
         .status.success { display: block; background: rgba(34,197,94,.08); color: var(--success); border: 1px solid rgba(34,197,94,.15); }
         .status.error { display: block; background: rgba(239,68,68,.08); color: var(--error); border: 1px solid rgba(239,68,68,.15); }
         .status.info { display: block; background: rgba(56,189,248,.08); color: var(--accent); border: 1px solid rgba(56,189,248,.15); }
         .spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid transparent;
-            border-top-color: currentColor;
-            border-radius: 50%;
-            animation: spin .6s linear infinite;
-            margin-right: 6px;
-            vertical-align: middle;
+            display: inline-block; width: 16px; height: 16px;
+            border: 2px solid transparent; border-top-color: currentColor;
+            border-radius: 50%; animation: spin .6s linear infinite;
+            margin-right: 6px; vertical-align: middle;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        .progress-dots {
-            display: flex;
-            justify-content: center;
-            gap: 8px;
-            margin-bottom: 32px;
-        }
-        .progress-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--border);
-            transition: all .3s;
-        }
+        .progress-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 32px; }
+        .progress-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); transition: all .3s; }
         .progress-dot.done { background: var(--success); box-shadow: 0 0 8px var(--success); }
         .progress-dot.current { background: var(--accent); box-shadow: 0 0 12px var(--accent); animation: pulse 1.5s ease-in-out infinite; }
-
         .glow-line {
-            height: 2px;
-            background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
-            margin-bottom: 32px;
-            border-radius: 2px;
-            animation: glowPulse 2s ease-in-out infinite;
+            height: 2px; background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
+            margin-bottom: 32px; border-radius: 2px; animation: glowPulse 2s ease-in-out infinite;
         }
-        @keyframes glowPulse {
-            0%,100% { opacity: .5; }
-            50% { opacity: 1; }
-        }
-
-        .checklist { list-style: none; margin-bottom: 20px; }
-        .checklist li { padding: 7px 0; font-size: 14px; color: var(--text-muted); display: flex; align-items: center; gap: 10px; }
-        .checklist li.done { color: var(--success); }
-        .checklist li .check {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            border: 2px solid var(--border);
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            transition: all .3s;
-        }
-        .checklist li.done .check { border-color: var(--success); background: var(--success); color: #fff; }
-
-        @media (max-width: 500px) {
-            .setup-container { padding: 28px 20px; }
-        }
+        @keyframes glowPulse { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
+        @media (max-width: 500px) { .setup-container { padding: 28px 20px; } .intro-title { font-size: 32px; letter-spacing: 4px; } }
     </style>
 </head>
 <body>
 
-<div class="bg-canvas" id="bg"></div>
-
-<div class="setup-container" id="app">
-    <div class="logo-area">
-        <div class="logo-icon">
-            <div class="ring"></div>
-            <div class="ring"></div>
-            <div class="ring"></div>
-            <div class="center-dot"></div>
+<!-- ─── HOLLYWOOD INTRO ─────────────────────────────── -->
+<div class="intro-overlay" id="introOverlay">
+    <div class="intro-stars" id="introStars"></div>
+    <div class="intro-content">
+        <div class="intro-mountain">
+            <div class="intro-beam"></div>
         </div>
-        <div class="logo-text">EdgeDesk</div>
-        <div class="logo-subtitle">Setup Wizard</div>
+        <div class="intro-title">EDGEDESK</div>
+        <div class="intro-subtitle">Enterprise Helpdesk</div>
     </div>
+</div>
 
-    <div class="glow-line"></div>
+<!-- ─── MAIN APP ─────────────────────────────────────── -->
+<div class="app-container" id="appContainer">
+    <div class="bg-canvas" id="bg"></div>
 
-    <div class="progress-dots" id="progressDots">
-        <div class="progress-dot" data-step="1"></div>
-        <div class="progress-dot" data-step="2"></div>
-        <div class="progress-dot" data-step="3"></div>
-    </div>
+    <div class="setup-container" id="setupCard">
+        <div class="logo-area">
+            <div class="logo-icon">
+                <div class="ring"></div><div class="ring"></div><div class="ring"></div>
+                <div class="center-dot"></div>
+            </div>
+            <div class="logo-text">EdgeDesk</div>
+            <div class="logo-subtitle" id="modeLabel">Loading…</div>
+        </div>
+        <div class="glow-line"></div>
+        <div class="progress-dots" id="progressDots" style="display:none;">
+            <div class="progress-dot" data-step="1"></div>
+            <div class="progress-dot" data-step="2"></div>
+            <div class="progress-dot" data-step="3"></div>
+        </div>
 
-    <div class="step active" id="step-check">
-        <h2>Checking system status…</h2>
-        <p id="check-msg"><span class="spinner"></span> Connecting to EdgeDesk worker…</p>
-    </div>
+        <!-- Loading -->
+        <div class="loading-screen" id="loadingScreen">
+            <p style="color:var(--text-muted);margin-bottom:8px;">Connecting to EdgeDesk</p>
+            <div class="loading-dots">
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            </div>
+        </div>
 
-    <div class="step" id="step-key">
-        <h2>🔐 Step 1: Create Encryption Key</h2>
-        <p>EdgeDesk encrypts all sensitive credentials at rest. Create a Cloudflare secret named <strong>ENCRYPTION_KEY</strong> using the key below.</p>
-        <ol style="color:var(--text-muted);font-size:13px;margin-bottom:20px;padding-left:18px;line-height:2.2;">
-            <li>Cloudflare Dashboard → Workers → <strong>Your Worker</strong> → Variables</li>
-            <li>Click <strong>+ Add Secret</strong></li>
-            <li>Name: <code style="color:var(--accent);">ENCRYPTION_KEY</code></li>
-            <li>Value: paste the generated key below</li>
-            <li>Click <strong>Save and Deploy</strong></li>
-        </ol>
-        <div class="form-group">
-            <label>🔑 Your Encryption Key</label>
-            <div class="code-block" id="encKeyDisplay"></div>
+        <!-- Step 1 -->
+        <div class="step" id="step-key">
+            <h2>🔐 Step 1: Create Encryption Key</h2>
+            <p>Copy this key and add it as a Cloudflare secret. This secures all sensitive data.</p>
+            <ol style="color:var(--text-muted);font-size:13px;margin-bottom:20px;padding-left:18px;line-height:2.2;">
+                <li>Open <strong>Cloudflare Dashboard</strong> → Workers → Your Worker → <strong>Variables</strong></li>
+                <li>Click <strong>+ Add Secret</strong></li>
+                <li>Name: <code style="color:var(--accent);">ENCRYPTION_KEY</code></li>
+                <li>Value: paste the key below</li>
+                <li>Click <strong>Save and Deploy</strong></li>
+            </ol>
+            <div class="form-group">
+                <label>🔑 Your Encryption Key (auto-generated)</label>
+                <div class="code-block" id="encKeyDisplay"></div>
+            </div>
+            <p style="font-size:11px;color:var(--text-muted);">⚠️ Save this key somewhere safe. Without it, encrypted data cannot be recovered.</p>
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="copyKey()">📋 Copy Key</button>
+                <button class="btn btn-success" onclick="stepKeyDone()">✅ I've Deployed — Continue</button>
+            </div>
+            <div class="status" id="key-status"></div>
         </div>
-        <p style="font-size:11px;color:var(--text-muted);">⚠️ Store this key securely. Without it, encrypted data cannot be recovered.</p>
-        <div class="btn-row">
-            <button class="btn btn-primary" onclick="copyKey()">📋 Copy Key</button>
-            <button class="btn btn-success" onclick="stepKeyDone()">✅ Deployed — Continue</button>
-        </div>
-        <div class="status" id="key-status"></div>
-    </div>
 
-    <div class="step" id="step-init">
-        <h2>🗄️ Step 2: Initialize Database</h2>
-        <p>Creates all required tables and seeds default configuration. Paste your encryption key to authorize.</p>
-        <div class="form-group">
-            <label>ENCRYPTION_KEY</label>
-            <input type="password" id="initKey" placeholder="Paste your encryption key" />
+        <!-- Step 2 -->
+        <div class="step" id="step-init">
+            <h2>🗄️ Step 2: Initialize Database</h2>
+            <p>Creates all tables and seeds default settings. Your encryption key is pre-loaded.</p>
+            <div class="form-group">
+                <label>ENCRYPTION_KEY (auto-filled)</label>
+                <input type="text" id="initKey" readonly />
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="initializeDB()">⚡ Initialize Database</button>
+            </div>
+            <div class="status" id="init-status"></div>
         </div>
-        <div class="btn-row">
-            <button class="btn btn-primary" onclick="initializeDB()">⚡ Initialize Database</button>
-        </div>
-        <div class="status" id="init-status"></div>
-    </div>
 
-    <div class="step" id="step-admin">
-        <h2>👤 Step 3: Create Admin Account</h2>
-        <p>Set up the first administrator. Use a strong, unique password.</p>
-        <div class="form-group">
-            <label>ENCRYPTION_KEY</label>
-            <input type="password" id="adminKey" placeholder="Paste your encryption key" />
+        <!-- Step 3 -->
+        <div class="step" id="step-admin">
+            <h2>👤 Step 3: Create Admin Account</h2>
+            <p>Set up the first administrator. Your encryption key is pre-loaded.</p>
+            <div class="form-group">
+                <label>ENCRYPTION_KEY (auto-filled)</label>
+                <input type="text" id="adminKey" readonly />
+            </div>
+            <div class="form-group"><label>Admin Email</label><input type="email" id="adminEmail" placeholder="admin@example.com" /></div>
+            <div class="form-group"><label>Display Name</label><input type="text" id="adminName" placeholder="Admin" /></div>
+            <div class="form-group"><label>Password (12+ chars, A-Z, a-z, 0-9, special)</label><input type="password" id="adminPassword" placeholder="••••••••••••" /></div>
+            <div class="btn-row">
+                <button class="btn btn-success" onclick="createAdmin()">🚀 Create Admin & Launch</button>
+            </div>
+            <div class="status" id="admin-status"></div>
         </div>
-        <div class="form-group">
-            <label>Admin Email</label>
-            <input type="email" id="adminEmail" placeholder="admin@example.com" />
-        </div>
-        <div class="form-group">
-            <label>Display Name</label>
-            <input type="text" id="adminName" placeholder="Admin" />
-        </div>
-        <div class="form-group">
-            <label>Password (12+ chars, A-Z, a-z, 0-9, special)</label>
-            <input type="password" id="adminPassword" placeholder="••••••••••••" />
-        </div>
-        <div class="btn-row">
-            <button class="btn btn-success" onclick="createAdmin()">🚀 Create Admin & Launch</button>
-        </div>
-        <div class="status" id="admin-status"></div>
-    </div>
 
-    <div class="step" id="step-done">
-        <h2>✅ EdgeDesk is Ready!</h2>
-        <p>Your helpdesk is live. All systems initialized. You're being redirected…</p>
-        <div class="btn-row">
-            <button class="btn btn-primary" onclick="goToDashboard()">🎫 Enter Dashboard</button>
+        <!-- Done -->
+        <div class="step" id="step-done">
+            <h2>✅ EdgeDesk is Ready!</h2>
+            <p>Your helpdesk is live. All systems initialized.</p>
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="goToDashboard()">🎫 Enter Dashboard</button>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
+// ─── HOLLYWOOD INTRO STARS ────────────────────────────
+(function createStars() {
+    const container = document.getElementById('introStars');
+    for (let i = 0; i < 80; i++) {
+        const star = document.createElement('div');
+        star.className = 'intro-star';
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.animationDelay = Math.random() * 2 + 's';
+        star.style.width = (Math.random() * 3 + 1) + 'px';
+        star.style.height = star.style.width;
+        container.appendChild(star);
+    }
+})();
+
+// ─── BACKGROUND PARTICLES ──────────────────────────────
 (function createBG() {
     const bg = document.getElementById('bg');
-    const colors = ['#38bdf8','#818cf8','#22c55e','#a78bfa','#38bdf8'];
+    const colors = ['#38bdf8','#818cf8','#22c55e','#a78bfa'];
     for (let i = 0; i < 40; i++) {
         const p = document.createElement('div');
         p.className = 'particle';
         const size = Math.random() * 4 + 1;
-        p.style.width = size + 'px';
-        p.style.height = size + 'px';
+        p.style.width = size + 'px'; p.style.height = size + 'px';
         p.style.left = Math.random() * 100 + '%';
         p.style.background = colors[Math.floor(Math.random() * colors.length)];
         p.style.animationDuration = (Math.random() * 8 + 6) + 's';
@@ -422,8 +433,7 @@
         const line = document.createElement('div');
         line.className = 'grid-line';
         line.style.left = Math.random() * 100 + '%';
-        line.style.width = '1px';
-        line.style.height = '100%';
+        line.style.width = '1px'; line.style.height = '100%';
         line.style.animationDuration = (Math.random() * 4 + 4) + 's';
         line.style.animationDelay = Math.random() * 3 + 's';
         bg.appendChild(line);
@@ -431,6 +441,7 @@
 })();
 
 let encryptionKey = '';
+let setupNeeded = false;
 
 function generateKey() {
     return crypto.randomUUID() + crypto.randomUUID().replace(/-/g, '');
@@ -446,18 +457,21 @@ function updateProgress(step) {
 
 function showStep(id, progressStep) {
     document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
     if (progressStep) updateProgress(progressStep);
 }
 
 function showStatus(id, msg, type) {
     const el = document.getElementById(id);
+    if (!el) return;
     el.textContent = msg;
     el.className = 'status ' + type;
 }
 
 function clearStatus(id) {
     const el = document.getElementById(id);
+    if (!el) return;
     el.className = 'status';
     el.textContent = '';
 }
@@ -470,43 +484,74 @@ async function api(path, opts = {}) {
     return { status: res.status, data: await res.json() };
 }
 
-(async function init() {
-    while (!API_BASE) {
-        await new Promise(r => setTimeout(r, 100));
-    }
+// ─── FLOW: Intro → Check → Setup or Dashboard ──────────
+async function boot() {
+    // Wait for config
+    while (!API_BASE) { await new Promise(r => setTimeout(r, 100)); }
 
     encryptionKey = generateKey();
     document.getElementById('encKeyDisplay').textContent = encryptionKey;
 
+    // Show intro for 3.5 seconds
+    await new Promise(r => setTimeout(r, 3500));
+
+    // Fade out intro
+    const intro = document.getElementById('introOverlay');
+    intro.classList.add('fade-out');
+    await new Promise(r => setTimeout(r, 800));
+    intro.style.display = 'none';
+
+    // Show main app
+    const app = document.getElementById('appContainer');
+    app.classList.add('visible');
+
+    // Check worker status
     try {
         const { data } = await api('/api/setup/status');
         if (data.setupComplete) {
-            document.getElementById('check-msg').innerHTML = '✅ System already configured. Redirecting…';
-            setTimeout(goToDashboard, 1200);
+            // Already set up — redirect to dashboard
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('modeLabel').textContent = 'Loading Dashboard…';
+            document.getElementById('step-done').classList.add('active');
+            setTimeout(goToDashboard, 800);
         } else {
+            // Needs setup
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('modeLabel').textContent = 'Setup Wizard';
+            document.getElementById('progressDots').style.display = 'flex';
             showStep('step-key', 1);
+            setupNeeded = true;
         }
     } catch (e) {
-        document.getElementById('check-msg').innerHTML = '⚠️ Cannot connect to worker. Verify deployment and refresh.';
+        document.getElementById('loadingScreen').style.display = 'none';
+        document.getElementById('modeLabel').textContent = 'Connection Error';
+        showStep('step-done', 0);
+        document.querySelector('#step-done h2').textContent = '⚠️ Cannot Connect';
+        document.querySelector('#step-done p').textContent = 'Could not reach the EdgeDesk worker. Verify your config.json and deployment.';
+        document.querySelector('#step-done .btn-primary').textContent = '🔄 Retry';
+        document.querySelector('#step-done .btn-primary').onclick = () => location.reload();
     }
-})();
+}
+
+boot();
 
 function copyKey() {
     navigator.clipboard.writeText(encryptionKey).then(() => {
         showStatus('key-status', '✅ Copied! Paste into Cloudflare as ENCRYPTION_KEY secret.', 'success');
     }).catch(() => {
-        showStatus('key-status', '⚠️ Manual copy: select the key above and Ctrl+C', 'info');
+        showStatus('key-status', '⚠️ Select the key above and press Ctrl+C', 'info');
     });
 }
 
 function stepKeyDone() {
-    showStep('step-init', 2);
     document.getElementById('initKey').value = encryptionKey;
+    document.getElementById('adminKey').value = encryptionKey;
+    showStep('step-init', 2);
 }
 
 async function initializeDB() {
     const key = document.getElementById('initKey').value.trim();
-    if (!key) { showStatus('init-status', 'Paste your encryption key first.', 'error'); return; }
+    if (!key) { showStatus('init-status', 'Key missing. Please go back to Step 1.', 'error'); return; }
     clearStatus('init-status');
     const btn = document.querySelector('#step-init .btn-primary');
     btn.disabled = true;
@@ -514,15 +559,11 @@ async function initializeDB() {
 
     try {
         const { data } = await api('/api/setup/initialize', {
-            method: 'POST',
-            body: JSON.stringify({ encryptionKey: key })
+            method: 'POST', body: JSON.stringify({ encryptionKey: key })
         });
         if (data.success) {
             showStatus('init-status', `✅ Done! ${data.tablesCreated} tables, ${data.settingsSeeded} settings.`, 'success');
-            setTimeout(() => {
-                showStep('step-admin', 3);
-                document.getElementById('adminKey').value = key;
-            }, 800);
+            setTimeout(() => showStep('step-admin', 3), 800);
         } else {
             showStatus('init-status', '❌ ' + (data.error || 'Initialization failed'), 'error');
         }
@@ -549,8 +590,7 @@ async function createAdmin() {
 
     try {
         const { data } = await api('/api/setup/create-admin', {
-            method: 'POST',
-            body: JSON.stringify({ encryptionKey: key, email, name, password })
+            method: 'POST', body: JSON.stringify({ encryptionKey: key, email, name, password })
         });
         if (data.success) {
             localStorage.setItem('token', data.token);
