@@ -31,3 +31,14 @@ dashboard
 -  tracking number entry with tracking site link? eg see immidate time/place of delivery
 - maybe add appartment etc for better delivery
 - 
+
+\
+\
+What SAQ-A Allows:
+Payment page hosted by you
+
+Redirect to PayPal for payment
+
+No cardholder data stored on your servers
+
+Simplified compliance

@@ -30,9 +30,9 @@
       <div class="webshop-cart-totals-bar__row" id="cart-savings-row" style="display:none;color:var(--c-success, #2e7d32);font-weight:600;"><span data-i18n="you_save">You save</span><span id="cart-savings-val">—</span></div>
       <div class="webshop-cart-totals-bar__row"><span data-i18n="subtotal">Subtotal</span><span id="cart-subtotal-val">—</span></div>
       <div class="webshop-cart-totals-bar__row webshop-cart-totals-bar__row--shipping">
-        <span><span data-i18n="shipping">Shipping</span> <span class="webshop-info-tip"><span class="webshop-info-tip__icon" tabindex="0">?</span><span class="webshop-info-tip__badge" data-i18n="shipping_estimate_note">(estimate - will be calculated at checkout)</span></span></span><span id="cart-shipping-val">—</span>
+        <span><span data-i18n="shipping">Shipping</span> <span class="webshop-info-tip"><span class="webshop-info-tip__icon" tabindex="0">?</span><span class="webshop-info-tip__badge" data-i18n="shipping_estimate_note">estimate - will be calculated at checkout</span></span></span><span id="cart-shipping-val">—</span>
       </div>
-      <div class="webshop-cart-totals-bar__row"><span><span data-i18n="tax">Tax</span> <span class="webshop-info-tip"><span class="webshop-info-tip__icon" tabindex="0">?</span><span class="webshop-info-tip__badge" data-i18n="shipping_estimate_note">(estimate - will be calculated at checkout)</span></span></span><span id="cart-tax-val">—</span></div>
+      <div class="webshop-cart-totals-bar__row"><span><span data-i18n="tax">Tax</span> <span class="webshop-info-tip"><span class="webshop-info-tip__icon" tabindex="0">?</span><span class="webshop-info-tip__badge" data-i18n="shipping_estimate_note">estimate - will be calculated at checkout</span></span></span><span id="cart-tax-val">—</span></div>
       <div class="webshop-cart-totals-bar__row webshop-cart-totals-bar__row--total">
         <span data-i18n="total">Total</span><span id="cart-total-val">—</span>
       </div>
@@ -65,8 +65,8 @@
         <div class="webshop-step3-summary__totals">
           <div class="webshop-step3-summary__totals-row" id="cart-step3-savings-row-mobile" style="display:none;color:var(--c-success, #2e7d32);font-weight:600;"><span data-i18n="you_save">You save</span><span id="cart-step3-savings-mobile">—</span></div>
           <div class="webshop-step3-summary__totals-row"><span data-i18n="subtotal">Subtotal</span><span id="cart-step3-subtotal-mobile">—</span></div>
-          <div class="webshop-step3-summary__totals-row"><span><span data-i18n="shipping">Shipping</span> <span class="webshop-info-tip"><span class="webshop-info-tip__icon" tabindex="0">?</span><span class="webshop-info-tip__badge" data-i18n="shipping_estimate_note">(estimate - will be calculated at checkout)</span></span></span><span id="cart-step3-shipping-mobile">—</span></div>
-          <div class="webshop-step3-summary__totals-row"><span><span data-i18n="tax">Tax</span> <span class="webshop-info-tip"><span class="webshop-info-tip__icon" tabindex="0">?</span><span class="webshop-info-tip__badge" data-i18n="shipping_estimate_note">(estimate - will be calculated at checkout)</span></span></span><span id="cart-step3-tax-mobile">—</span></div>
+          <div class="webshop-step3-summary__totals-row"><span><span data-i18n="shipping">Shipping</span> <span class="webshop-info-tip"><span class="webshop-info-tip__icon" tabindex="0">?</span><span class="webshop-info-tip__badge" data-i18n="shipping_estimate_note">estimate - will be calculated at checkout</span></span></span><span id="cart-step3-shipping-mobile">—</span></div>
+          <div class="webshop-step3-summary__totals-row"><span><span data-i18n="tax">Tax</span> <span class="webshop-info-tip"><span class="webshop-info-tip__icon" tabindex="0">?</span><span class="webshop-info-tip__badge" data-i18n="shipping_estimate_note">estimate - will be calculated at checkout</span></span></span><span id="cart-step3-tax-mobile">—</span></div>
           <div class="webshop-step3-summary__totals-row webshop-step3-summary__totals-row--total"><span data-i18n="total">Total</span><span id="cart-step3-total-mobile">—</span></div>
         </div>
       </div>
@@ -563,15 +563,20 @@
       if (src.startsWith('data:') || src.startsWith('http') || src.startsWith('/')) return src;
       return basePath + src;
     }
+    function lineDisplay(item) {
+      var qty = item.qty;
+      var unit = Shop.convertCeil(parseFloat(item.price) || 0);
+      var lineTotal = unit * qty;
+      if (item.originalPrice) {
+        var lineOrig = Shop.convertCeil(item.originalPrice) * qty;
+        return '<div style="font-size:.75em;"><span style="color:var(--c-success, #2e7d32);font-weight:600;">-' + item.discount + '%</span> <s style="opacity:.5;">' + Shop.fmtWhole(lineOrig) + '</s></div>' +
+               '<div>' + Shop.fmtWhole(lineTotal) + '</div>';
+      }
+      return '<div>' + Shop.fmtWhole(lineTotal) + '</div>';
+    }
     tbody.innerHTML = cart.map(function(item) {
       var fb = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 72'%3E%3Crect fill='%23ede9e3' width='72' height='72'/%3E%3C/svg%3E";
-      var pricingHtml = '';
-      if (item.originalPrice) {
-        pricingHtml = '<div style="font-size:.75em;"><span style="color:var(--c-success, #2e7d32);font-weight:600;">-' + item.discount + '%</span> <s style="opacity:.5;">' + Shop.fmt(item.originalPrice * item.qty) + '</s></div>' +
-                      '<div>' + Shop.fmt((parseFloat(item.price)||0) * item.qty) + '</div>';
-      } else {
-        pricingHtml = '<div>' + Shop.fmt((parseFloat(item.price)||0) * item.qty) + '</div>';
-      }
+      var pricingHtml = lineDisplay(item);
       return '<tr>' +
         '<td><img class="webshop-cart-item-img" src="' + (resolveImg(item.image) || fb) + '" alt="' + item.name + '"></td>' +
         '<td><div class="webshop-cart-item-name">' + item.name + '</div></td>' +
@@ -615,16 +620,15 @@
     var tax = document.getElementById('cart-tax-val');
     var tot = document.getElementById('cart-total-val');
     var shipEl = document.getElementById('cart-shipping-val');
-    if (shipEl) shipEl.textContent = t.isFreeShipping ? T('free','FREE') : Shop.fmt(t.shipping);
-    if (sub) sub.textContent = Shop.fmt(t.subtotal);
-    // FIX: Use fmtExact for tax (never round tax!)
-    if (tax) tax.textContent = isBusiness ? Shop.fmt(0) + ' ' + L.b2b : Shop.fmtExact(t.tax);
-    // FIX: Total includes shipping + tax (tax itself is calculated on subtotal+shipping in Shop.calculateTotals)
-    if (tot) tot.textContent = Shop.fmtTotal(t.total);
-    var totalSavings = cart.reduce(function(a, i) { return a + (i.originalPrice ? (i.originalPrice - i.price) * i.qty : 0); }, 0);
+    if (shipEl) shipEl.textContent = t.isFreeShipping ? T('free','FREE') : Shop.fmtWhole(t.shipping);
+    if (sub) sub.textContent = Shop.fmtWhole(t.subtotal);
+    // Tax and total are derived entirely from the already-rounded subtotal/shipping
+    // inside Shop.calculateTotals — never re-converted or re-rounded here.
+    if (tax) tax.textContent = isBusiness ? Shop.fmtWhole(0) + ' ' + L.b2b : Shop.fmtDecimal(t.tax);
+    if (tot) tot.textContent = Shop.fmtDecimal(t.total);
     var savRow = document.getElementById('cart-savings-row');
     var savVal = document.getElementById('cart-savings-val');
-    if (savRow && savVal) { savRow.style.display = totalSavings > 0 ? '' : 'none'; savVal.textContent = '-' + Shop.fmt(totalSavings); }
+    if (savRow && savVal) { savRow.style.display = t.totalDiscount > 0 ? '' : 'none'; savVal.textContent = '-' + Shop.fmtWhole(t.totalDiscount); }
   }
 
   function renderOrderSummary() {
@@ -650,12 +654,16 @@
     }
     var fb = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect fill='%23ede9e3' width='40' height='40'/%3E%3C/svg%3E";
     var html = cart.map(function(item) {
+      var qty = item.qty;
+      var unit = Shop.convertCeil(parseFloat(item.price) || 0);
+      var lineTotal = unit * qty;
       var priceHtml;
       if (item.originalPrice) {
-        priceHtml = '<div style="font-size:.75em;"><span style="color:var(--c-success, #2e7d32);font-weight:600;">-' + item.discount + '%</span> <s style="opacity:.5;">' + Shop.fmt(item.originalPrice * item.qty) + '</s></div>' +
-                    '<div>' + Shop.fmt((parseFloat(item.price)||0) * item.qty) + '</div>';
+        var lineOrig = Shop.convertCeil(item.originalPrice) * qty;
+        priceHtml = '<div style="font-size:.75em;"><span style="color:var(--c-success, #2e7d32);font-weight:600;">-' + item.discount + '%</span> <s style="opacity:.5;">' + Shop.fmtWhole(lineOrig) + '</s></div>' +
+                    '<div>' + Shop.fmtWhole(lineTotal) + '</div>';
       } else {
-        priceHtml = Shop.fmt((parseFloat(item.price)||0) * item.qty);
+        priceHtml = Shop.fmtWhole(lineTotal);
       }
       return '<div class="webshop-step3-summary__item">' +
         '<img src="' + (resolveImg(item.image) || fb) + '" alt="' + item.name + '">' +
@@ -693,37 +701,36 @@
 
   function renderTotals(savRowId, savRowMobileId, savValId, savValMobileId,
                         subId, subMobileId, taxId, taxMobileId, shipId, shipMobileId, totalId, totalMobileId, cart, t) {
-    var totalSavings = cart.reduce(function(a, i) { return a + (i.originalPrice ? (i.originalPrice - i.price) * i.qty : 0); }, 0);
-    
     var savRow = document.getElementById(savRowId);
     var savRowM = document.getElementById(savRowMobileId);
     var savVal = document.getElementById(savValId);
     var savValM = document.getElementById(savValMobileId);
-    if (savRow && savVal) { savRow.style.display = totalSavings > 0 ? '' : 'none'; savVal.textContent = '-' + Shop.fmt(totalSavings); }
-    if (savRowM && savValM) { savRowM.style.display = totalSavings > 0 ? '' : 'none'; savValM.textContent = '-' + Shop.fmt(totalSavings); }
+    if (savRow && savVal) { savRow.style.display = t.totalDiscount > 0 ? '' : 'none'; savVal.textContent = '-' + Shop.fmtWhole(t.totalDiscount); }
+    if (savRowM && savValM) { savRowM.style.display = t.totalDiscount > 0 ? '' : 'none'; savValM.textContent = '-' + Shop.fmtWhole(t.totalDiscount); }
 
     var sub = document.getElementById(subId);
     var subM = document.getElementById(subMobileId);
-    if (sub) sub.textContent = Shop.fmt(t.subtotal);
-    if (subM) subM.textContent = Shop.fmt(t.subtotal);
+    if (sub) sub.textContent = Shop.fmtWhole(t.subtotal);
+    if (subM) subM.textContent = Shop.fmtWhole(t.subtotal);
 
     var tax = document.getElementById(taxId);
     var taxM = document.getElementById(taxMobileId);
-    // FIX: Use fmtExact for tax (never round tax!)
-    var taxText = isBusiness ? Shop.fmt(0) + ' ' + L.b2b : Shop.fmtExact(t.tax);
+    // Tax and total are derived entirely from the already-rounded subtotal/shipping
+    // inside Shop.calculateTotals — never re-converted or re-rounded here.
+    var taxText = isBusiness ? Shop.fmtWhole(0) + ' ' + L.b2b : Shop.fmtDecimal(t.tax);
     if (tax) tax.textContent = taxText;
     if (taxM) taxM.textContent = taxText;
 
     var ship = document.getElementById(shipId);
     var shipM = document.getElementById(shipMobileId);
-    var shipText = t.isFreeShipping ? T('free','FREE') : Shop.fmt(t.shipping);
+    var shipText = t.isFreeShipping ? T('free','FREE') : Shop.fmtWhole(t.shipping);
     if (ship) ship.textContent = shipText;
     if (shipM) shipM.textContent = shipText;
 
     var total = document.getElementById(totalId);
     var totalM = document.getElementById(totalMobileId);
     // FIX: Total includes shipping + tax (tax itself is calculated on subtotal+shipping in Shop.calculateTotals)
-    var totalText = Shop.fmtTotal(t.total);
+    var totalText = Shop.fmtDecimal(t.total);
     if (total) total.textContent = totalText;
     if (totalM) totalM.textContent = totalText;
   }

@@ -214,11 +214,54 @@ var Shop = (() => {
   }
 
   /* ─── TOTALS ────────────────────────────────────────── */
-  function calculateTotals(cart, isBusiness = false, countryCode = null) {
-    const subtotal    = cart.reduce((a, i) => a + i.price * i.qty, 0);
+  function roundToDecimals(n, decimals) {
+    const f = Math.pow(10, decimals);
+    return Math.round((n + Number.EPSILON) * f) / f;
+  }
+
+  function _currencyInfo(currencyCode) {
+    const code = currencyCode || (typeof Currency !== "undefined" && Currency.getActive ? Currency.getActive() : "EUR");
+    const rates = (typeof Currency !== "undefined" && Currency.getRates) ? Currency.getRates() : null;
+    const c = rates && rates[code];
+    return { code, rate: c ? c.rate : 1, decimals: c ? c.decimals : 2, symbol: c ? c.symbol : "€" };
+  }
+
+  // Converts a single EUR amount to the given/active currency and rounds UP once —
+  // the same single-step conversion the server (pay-worker) performs. Use this
+  // instead of converting a value twice (e.g. once in EUR, once after conversion).
+  function convertCeil(eurAmount, currencyCode) {
+    const { rate } = _currencyInfo(currencyCode);
+    return Math.ceil(eurAmount * rate);
+  }
+
+  // Formats an amount that has ALREADY been converted to the active currency
+  // (e.g. from calculateTotals or convertCeil) — no further conversion, whole units.
+  function fmtWhole(amount, currencyCode) {
+    const { symbol } = _currencyInfo(currencyCode);
+    return symbol + "\u00A0" + Math.ceil(amount);
+  }
+
+  // Formats an amount that has ALREADY been converted to the active currency,
+  // preserving decimals — for tax and total, which are never rounded to whole units.
+  function fmtDecimal(amount, currencyCode) {
+    const { symbol, decimals } = _currencyInfo(currencyCode);
+    return symbol + "\u00A0" + amount.toFixed(decimals);
+  }
+
+  function calculateTotals(cart, isBusiness = false, countryCode = null, currencyCode = null) {
+    const { rate, decimals, code } = _currencyInfo(currencyCode);
+
+    // EUR-space subtotal is only used for the free-shipping threshold check,
+    // since thresholds are configured in EUR.
+    const subtotalEUR = cart.reduce((a, i) => a + i.price * i.qty, 0);
+
+    // Subtotal in the active currency: convert + round UP per unit, then multiply by qty
+    // (matches pay-worker.txt and the per-item price shown on each cart row exactly —
+    // never round a summed line total, always round the unit price first).
+    const subtotal = cart.reduce((a, i) => a + Math.ceil(i.price * rate) * i.qty, 0);
     const totalDiscount = cart.reduce((a, i) => {
       if (i.originalPrice && i.discount > 0) {
-        return a + (i.originalPrice - i.price) * i.qty;
+        return a + (Math.ceil(i.originalPrice * rate) - Math.ceil(i.price * rate)) * i.qty;
       }
       return a;
     }, 0);
@@ -228,11 +271,14 @@ var Shop = (() => {
     const totalBillableWeight = cart.reduce((a, i) => a + billableWeight(i) * i.qty, 0);
     let cfg = { base: CONFIG.shipping.base, perKg: CONFIG.shipping.perKg, freeThreshold: CONFIG.shipping.freeThreshold, estimatedDays: CONFIG.shipping.estimatedDays };
     if (countryCode && typeof Shipping !== "undefined") cfg = Shipping.getRate(countryCode);
-    const isFreeShipping = subtotal >= cfg.freeThreshold;
-    const shipping       = isFreeShipping ? 0 : cfg.base + totalBillableWeight * cfg.perKg;
-    // Tax is calculated once shipping is known, on subtotal + shipping — not subtotal alone.
-    const tax            = isBusiness ? 0 : (subtotal + shipping) * CONFIG.taxRate;
-    return { subtotal, shipping, tax, total: subtotal + shipping + tax, totalWeight, totalBillableWeight, isFreeShipping, estimatedDays: cfg.estimatedDays, totalDiscount };
+    const isFreeShipping = subtotalEUR >= cfg.freeThreshold;
+    // Shipping in the active currency: convert the raw EUR shipping cost once, round UP once.
+    const shipping = isFreeShipping ? 0 : Math.ceil((cfg.base + totalBillableWeight * cfg.perKg) * rate);
+    // Tax is calculated ONLY on the already-rounded subtotal + shipping (the exact figures
+    // the customer sees) — never on raw/unrounded amounts. Kept with currency decimals.
+    const tax = isBusiness ? 0 : roundToDecimals((subtotal + shipping) * CONFIG.taxRate, decimals);
+    const total = subtotal + shipping + tax;
+    return { subtotal, shipping, tax, total, totalWeight, totalBillableWeight, isFreeShipping, estimatedDays: cfg.estimatedDays, totalDiscount, currency: code, decimals };
   }
 
   /* ─── LANG LOADER ───────────────────────────────────── */
@@ -1436,7 +1482,7 @@ var Shop = (() => {
     loadProducts, getProduct, pName, pDesc, pCategory, getUrlText, getUpLabelText, getDownLabelText,
     getProductLang, getProductLangEn,
     getCart, saveCart, addToCart, removeFromCart, updateQty, clearCart, calculateTotals,
-    fmt, fmtExact, fmtTotal, fmtWeight, generateOrderRef,
+    fmt, fmtExact, fmtTotal, fmtWhole, fmtDecimal, convertCeil, fmtWeight, generateOrderRef,
     slugify, buildImagePath, colorImageSrc,
     toast, swapMainImg,
     getVariant, variantPrice, variantWeight, variantImage, variantStock, variantInStock,
