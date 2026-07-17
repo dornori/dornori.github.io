@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DORNORIUM • Setup</title>
+    <style>
+        :root {
+            --bg: #0a0a0f; --bg-card: #13131f; --text: #e2e8f0; --text-muted: #94a3b8;
+            --accent: #38bdf8; --accent2: #818cf8; --gold: #f59e0b;
+            --success: #22c55e; --error: #ef4444; --border: #1e293b;
+            --input-bg: #0a0a0f; --radius: 12px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: radial-gradient(ellipse at center, #0a1628 0%, #000 70%);
+            color: var(--text); min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            padding: 20px; overflow-x: hidden;
+        }
+        .bg-particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+        .particle {
+            position: absolute; border-radius: 50%;
+            animation: floatUp linear infinite; opacity: 0;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(100vh) scale(0); opacity: 0; }
+            10% { opacity: 1; } 90% { opacity: 1; }
+            100% { transform: translateY(-10vh) scale(1.5); opacity: 0; }
+        }
+        .mountains {
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 180px;
+            z-index: 0; pointer-events: none;
+        }
+        .mountain {
+            position: absolute; bottom: 0; width: 0; height: 0; border-style: solid;
+        }
+        .mountain.back { border-left: 280px solid transparent; border-right: 280px solid transparent; border-bottom: 160px solid #0d1a30; left: 15%; opacity: 0.8; }
+        .mountain.mid { border-left: 200px solid transparent; border-right: 200px solid transparent; border-bottom: 130px solid #111f38; left: 5%; opacity: 0.9; }
+        .mountain.front { border-left: 240px solid transparent; border-right: 240px solid transparent; border-bottom: 180px solid #162544; left: 25%; }
+        .mountain.right { border-left: 170px solid transparent; border-right: 170px solid transparent; border-bottom: 140px solid #0f1f35; left: 55%; opacity: 0.85; }
+        .mountain::after { content: ''; position: absolute; top: -18px; left: -15px; width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-bottom: 18px solid rgba(255,255,255,.08); }
+        .mountain.front::after { top: -26px; left: -20px; border-left-width: 20px; border-right-width: 20px; border-bottom-width: 26px; }
+        .lake {
+            position: fixed; bottom: 0; left: 10%; right: 10%; height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(56,189,248,.3), rgba(129,140,248,.4), rgba(56,189,248,.3), transparent);
+            border-radius: 50%; z-index: 1; pointer-events: none;
+            box-shadow: 0 0 20px rgba(56,189,248,.2);
+        }
+        .sun {
+            position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%);
+            width: 70px; height: 70px; z-index: 0; pointer-events: none;
+            background: radial-gradient(circle, #fff 0%, #ffd780 20%, #f59e0b 45%, rgba(245,158,11,0.2) 70%, transparent 100%);
+            border-radius: 50%; box-shadow: 0 0 60px rgba(255,180,50,.4), 0 0 120px rgba(255,140,30,.2);
+            animation: sunPulse 3s ease-in-out infinite;
+        }
+        @keyframes sunPulse {
+            0%,100% { box-shadow: 0 0 60px rgba(255,180,50,.4), 0 0 120px rgba(255,140,30,.2); }
+            50% { box-shadow: 0 0 80px rgba(255,180,50,.6), 0 0 160px rgba(255,140,30,.4); }
+        }
+        .setup-card {
+            position: relative; z-index: 10;
+            background: var(--bg-card); border-radius: var(--radius);
+            padding: 40px; max-width: 600px; width: 100%;
+            border: 1px solid var(--border);
+            box-shadow: 0 0 80px rgba(56,189,248,.06), 0 0 200px rgba(0,0,0,0.4);
+            animation: cardIn .6s cubic-bezier(.16,1,.3,1);
+            max-height: 90vh; overflow-y: auto;
+        }
+        @keyframes cardIn { 0% { opacity: 0; transform: translateY(30px) scale(.96); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+        .logo-text {
+            font-size: 28px; font-weight: 800; letter-spacing: -1px; text-align: center;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .logo-subtitle { font-size: 12px; color: var(--text-muted); letter-spacing: 3px; text-transform: uppercase; text-align: center; margin: 8px 0 24px; }
+        .glow-line { height: 2px; background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent); margin-bottom: 24px; border-radius: 2px; }
+        .progress { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+        .progress-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); transition: all .3s; }
+        .progress-dot.done { background: var(--success); box-shadow: 0 0 8px var(--success); }
+        .progress-dot.current { background: var(--accent); box-shadow: 0 0 12px var(--accent); animation: dotPulse 1.5s ease-in-out infinite; }
+        @keyframes dotPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.4); } }
+        .phase { display: none; animation: fadeSlide .4s ease; }
+        .phase.active { display: block; }
+        @keyframes fadeSlide { 0% { opacity: 0; transform: translateX(20px); } 100% { opacity: 1; transform: translateX(0); } }
+        .phase h2 { font-size: 18px; margin-bottom: 10px; }
+        .phase p { color: var(--text-muted); font-size: 14px; margin-bottom: 16px; line-height: 1.6; }
+        .phase ol { color: var(--text-muted); font-size: 13px; margin-bottom: 18px; padding-left: 18px; line-height: 2; }
+        .phase ol li { margin-bottom: 4px; }
+        .phase code { background: var(--input-bg); padding: 2px 8px; border-radius: 4px; color: var(--accent); font-size: 12px; }
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); margin-bottom: 6px; }
+        .form-group input { width: 100%; padding: 12px 16px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; font-family: inherit; transition: border-color .2s; }
+        .form-group input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56,189,248,.1); }
+        .form-group input[readonly] { background: var(--border); color: var(--text-muted); cursor: default; }
+        .code-block {
+            background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px;
+            padding: 14px; font-family: 'Menlo', monospace; font-size: 11px;
+            color: var(--accent); word-break: break-all; margin-bottom: 14px; user-select: all;
+        }
+        .btn { padding: 12px 26px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .2s; }
+        .btn-primary { background: var(--accent); color: #0a0a0f; }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+        .btn:disabled { opacity: .4; cursor: not-allowed; }
+        .btn-row { display: flex; gap: 12px; margin-top: 22px; flex-wrap: wrap; }
+        .status { font-size: 13px; padding: 12px 16px; border-radius: 8px; margin-top: 14px; display: none; }
+        .status.success { display: block; background: rgba(34,197,94,.08); color: var(--success); border: 1px solid rgba(34,197,94,.15); }
+        .status.error { display: block; background: rgba(239,68,68,.08); color: var(--error); border: 1px solid rgba(239,68,68,.15); }
+        .status.info { display: block; background: rgba(56,189,248,.08); color: var(--accent); border: 1px solid rgba(56,189,248,.15); }
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid transparent; border-top-color: currentColor; border-radius: 50%; animation: spin .6s linear infinite; margin-right: 6px; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .checklist { list-style: none; margin-bottom: 16px; }
+        .checklist li { padding: 6px 0; font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+        .checklist li.done { color: var(--success); }
+        .checklist li .check { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+        .checklist li.done .check { border-color: var(--success); background: var(--success); color: #fff; }
+        @media (max-width: 500px) { .setup-card { padding: 24px 18px; } }
+    </style>
+</head>
+<body>
+    <div class="bg-particles" id="particles"></div>
+    <div class="mountains">
+        <div class="mountain back"></div>
+        <div class="mountain right"></div>
+        <div class="mountain mid"></div>
+        <div class="mountain front"></div>
+    </div>
+    <div class="lake"></div>
+    <div class="sun"></div>
+
+    <div class="setup-card">
+        <div class="logo-text">DORNORIUM</div>
+        <div class="logo-subtitle">Setup Wizard</div>
+        <div class="glow-line"></div>
+        <div class="progress" id="progressBar">
+            <div class="progress-dot" data-step="1">①</div>
+            <span style="color:var(--border);">→</span>
+            <div class="progress-dot" data-step="2">②</div>
+            <span style="color:var(--border);">→</span>
+            <div class="progress-dot" data-step="3">③</div>
+            <span style="color:var(--border);">→</span>
+            <div class="progress-dot" data-step="4">④</div>
+        </div>
+
+        <!-- Phase 1: Cloudflare Setup -->
+        <div class="phase active" id="phase-cloudflare">
+            <h2>🏗️ Phase 1: Cloudflare Setup</h2>
+            <p>Before Dornorium can run, you need a Cloudflare account with these services:</p>
+            <ul class="checklist" id="cf-checklist">
+                <li id="cf-account"><span class="check"></span> Cloudflare account created</li>
+                <li id="cf-d1"><span class="check"></span> D1 database created</li>
+                <li id="cf-do"><span class="check"></span> Durable Object binding added</li>
+                <li id="cf-worker"><span class="check"></span> Worker deployed</li>
+            </ul>
+            <ol>
+                <li>Go to <a href="https://dash.cloudflare.com" target="_blank" style="color:var(--accent);">dash.cloudflare.com</a> and sign up/login</li>
+                <li>Go to <strong>Workers & Pages</strong> → <strong>D1</strong> → Create database</li>
+                <li>Go to <strong>Workers & Pages</strong> → Create Worker</li>
+                <li>In Worker settings, bind your D1 database as <code>DB</code></li>
+                <li>Bind a Durable Object named <code>TICKET_HUB</code></li>
+                <li>Add a secret named <code>ENCRYPTION_KEY</code> (any strong value)</li>
+                <li>Add a secret named <code>JWT_SECRET</code> (any strong value)</li>
+                <li>Deploy the worker, copy its URL (e.g. <code>https://your-worker.workers.dev</code>)</li>
+            </ol>
+            <div class="form-group">
+                <label>Your Worker URL</label>
+                <input type="text" id="workerUrl" placeholder="https://your-worker.workers.dev" />
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="testConnection()">🔗 Test Connection</button>
+            </div>
+            <div class="status" id="cf-status"></div>
+        </div>
+
+        <!-- Phase 2: Encryption Key -->
+        <div class="phase" id="phase-key">
+            <h2>🔐 Phase 2: Encryption Key</h2>
+            <p>This key encrypts all sensitive data. Add it to Cloudflare as a secret, then paste it below to verify.</p>
+            <div class="form-group">
+                <label>Your Encryption Key</label>
+                <div class="code-block" id="encKeyDisplay"></div>
+            </div>
+            <ol>
+                <li>Copy the key above</li>
+                <li>Cloudflare Dashboard → Workers → <strong>Your Worker</strong> → Variables</li>
+                <li>Click <strong>+ Add Secret</strong> → Name: <code>ENCRYPTION_KEY</code></li>
+                <li>Paste the key → <strong>Save and Deploy</strong></li>
+            </ol>
+            <div class="form-group">
+                <label>Paste ENCRYPTION_KEY to verify</label>
+                <input type="password" id="encKeyInput" placeholder="Paste your encryption key here" />
+            </div>
+            <p style="font-size:11px;color:var(--text-muted);">⚠️ Save this key. Without it, encrypted data cannot be recovered.</p>
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="copyKey()">📋 Copy Key</button>
+                <button class="btn btn-success" onclick="verifyKey()">✅ Verify & Continue</button>
+            </div>
+            <div class="status" id="key-status"></div>
+        </div>
+
+        <!-- Phase 3: Initialize Database -->
+        <div class="phase" id="phase-init">
+            <h2>🗄️ Phase 3: Initialize Database</h2>
+            <p>Creates all tables and seeds default configuration.</p>
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="initializeDB()">⚡ Initialize Database</button>
+            </div>
+            <div class="status" id="init-status"></div>
+        </div>
+
+        <!-- Phase 4: Create Admin -->
+        <div class="phase" id="phase-admin">
+            <h2>👤 Phase 4: Create Admin Account</h2>
+            <p>Set up the first administrator account.</p>
+            <div class="form-group"><label>Admin Email</label><input type="email" id="adminEmail" placeholder="admin@example.com" /></div>
+            <div class="form-group"><label>Display Name</label><input type="text" id="adminName" placeholder="Admin" /></div>
+            <div class="form-group"><label>Password (12+ chars, A-Z, a-z, 0-9, special)</label><input type="password" id="adminPassword" placeholder="••••••••••••" /></div>
+            <div class="btn-row">
+                <button class="btn btn-success" onclick="createAdmin()">🚀 Create Admin & Launch</button>
+            </div>
+            <div class="status" id="admin-status"></div>
+        </div>
+
+        <!-- Done -->
+        <div class="phase" id="phase-done">
+            <h2>✅ Dornorium is Ready!</h2>
+            <p style="color:var(--text-muted);">Your helpdesk is live. Redirecting to dashboard…</p>
+        </div>
+    </div>
+
+    <script>
+    // Background particles
+    (function() {
+        const container = document.getElementById('particles');
+        const colors = ['#38bdf8','#818cf8','#22c55e','#a78bfa'];
+        for (let i = 0; i < 50; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            const size = Math.random() * 3 + 1;
+            p.style.width = size + 'px'; p.style.height = size + 'px';
+            p.style.left = Math.random() * 100 + '%';
+            p.style.background = colors[Math.floor(Math.random() * colors.length)];
+            p.style.animationDuration = (Math.random() * 10 + 8) + 's';
+            p.style.animationDelay = Math.random() * 10 + 's';
+            p.style.boxShadow = '0 0 ' + (size*3) + 'px ' + p.style.background;
+            container.appendChild(p);
+        }
+    })();
+
+    let API_BASE = '';
+    let encryptionKey = '';
+    let verifiedKey = '';
+
+    function generateKey() { return crypto.randomUUID() + crypto.randomUUID().replace(/-/g, ''); }
+    function updateProgress(s) {
+        document.querySelectorAll('.progress-dot').forEach((d, i) => {
+            d.classList.remove('done', 'current');
+            if (i + 1 < s) d.classList.add('done');
+            if (i + 1 === s) d.classList.add('current');
+        });
+    }
+    function showPhase(id, ps) {
+        document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        if (ps) updateProgress(ps);
+    }
+    function showStatus(id, msg, type) { const el = document.getElementById(id); el.textContent = msg; el.className = 'status ' + type; }
+    function clearStatus(id) { const el = document.getElementById(id); el.className = 'status'; el.textContent = ''; }
+    async function api(path, opts = {}) {
+        const res = await fetch(API_BASE + path, {
+            ...opts,
+            headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) }
+        });
+        return { status: res.status, data: await res.json() };
+    }
+    function goToDashboard() { window.location.href = 'dashboard.html'; }
+
+    // Init
+    (function init() {
+        encryptionKey = generateKey();
+        document.getElementById('encKeyDisplay').textContent = encryptionKey;
+        
+        // Check config.json
+        fetch('config.json')
+            .then(r => r.json())
+            .then(c => {
+                if (c.API_BASE && c.API_BASE.startsWith('http')) {
+                    API_BASE = c.API_BASE;
+                    document.getElementById('workerUrl').value = API_BASE;
+                    testConnection();
+                }
+            })
+            .catch(() => {});
+    })();
+
+    // Phase 1: Test connection
+    async function testConnection() {
+        const url = document.getElementById('workerUrl').value.trim();
+        if (!url) { showStatus('cf-status', 'Enter your worker URL.', 'error'); return; }
+        if (!url.startsWith('https://')) { showStatus('cf-status', 'URL must start with https://', 'error'); return; }
+        
+        API_BASE = url;
+        clearStatus('cf-status');
+        showStatus('cf-status', '<span class="spinner"></span> Testing connection…', 'info');
+
+        try {
+            const { status, data } = await api('/api/setup/status');
+            if (data && typeof data.setupComplete === 'boolean') {
+                showStatus('cf-status', '✅ Worker connected successfully!', 'success');
+                document.getElementById('cf-checklist').querySelectorAll('li').forEach(li => li.classList.add('done'));
+                setTimeout(() => showPhase('phase-key', 2), 800);
+            } else {
+                showStatus('cf-status', '⚠️ Worker responded but setup endpoint not found. Deploy the latest worker code.', 'error');
+            }
+        } catch (e) {
+            showStatus('cf-status', '❌ Cannot reach worker. Check the URL and try again.', 'error');
+        }
+    }
+
+    // Phase 2: Encryption key
+    function copyKey() {
+        navigator.clipboard.writeText(encryptionKey).then(() => showStatus('key-status', '✅ Copied!', 'success'))
+            .catch(() => showStatus('key-status', '⚠️ Select and Ctrl+C', 'info'));
+    }
+
+    async function verifyKey() {
+        const key = document.getElementById('encKeyInput').value.trim();
+        if (!key) { showStatus('key-status', 'Paste your encryption key first.', 'error'); return; }
+        
+        clearStatus('key-status');
+        showStatus('key-status', '<span class="spinner"></span> Verifying…', 'info');
+
+        try {
+            const { data } = await api('/api/admin/setup/encrypt', {
+                method: 'POST',
+                body: JSON.stringify({ value: 'test' })
+            });
+            if (data.encrypted) {
+                verifiedKey = key;
+                showStatus('key-status', '✅ Key verified!', 'success');
+                setTimeout(() => showPhase('phase-init', 3), 800);
+            } else {
+                showStatus('key-status', '❌ Key verification failed. Did you deploy after adding the secret?', 'error');
+            }
+        } catch (e) {
+            // If encrypt endpoint fails, try initialize directly
+            verifiedKey = key;
+            showPhase('phase-init', 3);
+        }
+    }
+
+    // Phase 3: Initialize DB
+    async function initializeDB() {
+        if (!verifiedKey) { showStatus('init-status', 'Encryption key not verified.', 'error'); return; }
+        clearStatus('init-status');
+        const btn = document.querySelector('#phase-init .btn-primary');
+        btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Initializing…';
+
+        try {
+            const { data } = await api('/api/setup/initialize', {
+                method: 'POST',
+                body: JSON.stringify({ encryptionKey: verifiedKey })
+            });
+            if (data.success) {
+                showStatus('init-status', `✅ Done! ${data.tablesCreated} tables, ${data.settingsSeeded} settings.`, 'success');
+                setTimeout(() => showPhase('phase-admin', 4), 800);
+            } else {
+                showStatus('init-status', '❌ ' + (data.error || 'Failed'), 'error');
+            }
+        } catch (e) {
+            showStatus('init-status', '❌ ' + e.message, 'error');
+        }
+        btn.disabled = false; btn.innerHTML = '⚡ Initialize Database';
+    }
+
+    // Phase 4: Create admin
+    async function createAdmin() {
+        const email = document.getElementById('adminEmail').value.trim();
+        const name = document.getElementById('adminName').value.trim();
+        const password = document.getElementById('adminPassword').value;
+        if (!email || !name || !password) { showStatus('admin-status', 'All fields required.', 'error'); return; }
+        clearStatus('admin-status');
+        const btn = document.querySelector('#phase-admin .btn-success');
+        btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Creating…';
+
+        try {
+            const { data } = await api('/api/setup/create-admin', {
+                method: 'POST',
+                body: JSON.stringify({ encryptionKey: verifiedKey, email, name, password })
+            });
+            if (data.success) {
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+                showStatus('admin-status', '✅ Admin created!', 'success');
+                updateProgress(4);
+                showPhase('phase-done');
+                setTimeout(goToDashboard, 2000);
+            } else {
+                showStatus('admin-status', '❌ ' + (data.error || 'Failed'), 'error');
+            }
+        } catch (e) {
+            showStatus('admin-status', '❌ ' + e.message, 'error');
+        }
+        btn.disabled = false; btn.innerHTML = '🚀 Create Admin & Launch';
+    }
+    </script>
+</body>
+</html>
