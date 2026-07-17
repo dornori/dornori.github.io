@@ -1,0 +1,2638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dornorium</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="config.js"></script>
+    <script src="dornoriumconfig.js"></script>
+    <script src="shared.js"></script>
+    <style>
+        .tag-chip {
+            display: inline-block;
+            padding: 6px 12px;
+            background: var(--btn-bg, #007bff);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.2s ease;
+        }
+        .tag-chip:hover {
+            background: var(--btn-hover, #0056b3);
+        }
+        .tag-chip:active {
+            transform: scale(0.98);
+        }
+        
+        .editor-wrapper {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+        }
+        
+        .editor-tabs {
+            display: flex;
+            gap: 0;
+            padding: 0;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            align-items: stretch;
+        }
+        
+        .editor-tab {
+            padding: 10px 16px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            transition: all 0.2s;
+            flex: 1;
+            text-align: center;
+        }
+        
+        .editor-tab:hover {
+            background: var(--bg-input);
+            color: var(--text);
+        }
+        
+        .editor-tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+            background: white;
+        }
+        
+        .editor-toolbar {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 2px;
+            padding: 6px 8px;
+            background: var(--bg-input);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .editor-btn {
+            padding: 6px 10px;
+            background: white;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text);
+            transition: all 0.2s;
+            min-width: 30px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .editor-btn:hover {
+            background: var(--bg-secondary);
+            border-color: var(--border);
+        }
+        
+        .editor-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .editor-divider {
+            width: 1px;
+            height: 20px;
+            background: var(--border);
+            margin: 0 2px;
+        }
+        
+        .editor-container {
+            border: none;
+            border-radius: 0;
+            background: white;
+            overflow: hidden;
+        }
+        
+        .editor-content {
+            min-height: 240px;
+            padding: 14px 16px;
+            outline: none;
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text);
+            background: white;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            border: none;
+        }
+        
+        .editor-content[contenteditable="false"] {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: var(--bg-secondary);
+        }
+        
+        .editor-content:focus {
+            background: #fafafa;
+        }
+        
+        .rte-source {
+            display: none;
+            width: 100%;
+            min-height: 240px;
+            padding: 14px 16px;
+            background: white;
+            color: var(--text);
+            font-size: 12px;
+            font-family: 'Menlo', 'Consolas', monospace;
+            line-height: 1.5;
+            border: none;
+            outline: none;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        
+        .rte-source:focus {
+            background: #fafafa;
+        }
+        
+        .editor-wrapper.source-mode .editor-content {
+            display: none;
+        }
+        
+        .editor-wrapper.source-mode .rte-source {
+            display: block;
+        }
+        
+        .editor-wrapper.source-mode .editor-toolbar button:not(.rte-toggle-btn),
+        .editor-wrapper.source-mode .editor-toolbar .editor-divider {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+        
+        #sourceHint {
+            display: none;
+        }
+        
+        .editor-wrapper.source-mode #sourceHint {
+            display: block !important;
+        }
+        
+        #sourceHint code {
+            background: var(--bg-input);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            border: 1px solid var(--border);
+            color: var(--accent);
+            font-family: monospace;
+        }
+        
+        .email-preview {
+            padding: 20px;
+            background: white;
+            min-height: 240px;
+            line-height: 1.6;
+            color: var(--text);
+        }
+        
+        .email-preview h1, .email-preview h2, .email-preview h3 {
+            margin: 0.5em 0;
+            color: var(--text);
+        }
+        
+        .email-preview p {
+            margin: 0.8em 0;
+        }
+        
+        .email-preview ul, .email-preview ol {
+            margin: 0.8em 0;
+            padding-left: 1.5em;
+        }
+        
+        .email-preview a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .email-preview a:hover {
+            text-decoration: underline;
+        }
+        
+        .email-preview blockquote {
+            border-left: 3px solid var(--accent);
+            margin: 0.8em 0;
+            padding-left: 12px;
+            color: var(--text-muted);
+        }
+        
+        .email-template-bar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .email-template-bar button {
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text);
+            transition: all 0.2s;
+        }
+        
+        .email-template-bar button:hover {
+            background: var(--bg-input);
+            border-color: var(--accent);
+        }
+
+        .notification-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 8px;
+            padding: 16px 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 350px;
+            z-index: 9999;
+            border-left: 4px solid var(--accent);
+            animation: slideIn 0.3s ease;
+        }
+        .notification-toast h4 {
+            margin: 0 0 4px 0;
+            font-size: 14px;
+            color: var(--text);
+        }
+        .notification-toast p {
+            margin: 0;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .notification-toast .close-toast {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            max-width: 90%;
+            text-align: center;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+        .toast.success { background: #22c55e; }
+        .toast.error { background: #ef4444; }
+        .toast.warning { background: #f59e0b; }
+        .toast.info { background: #3b82f6; }
+        .toast a { color: white; text-decoration: underline; }
+
+        /* Shared templates badge */
+        .shared-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: var(--accent);
+            color: var(--text-inverse);
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-left: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div id="login">
+        <h1 class="brand-logo"><span class="brand-icon">🔐</span><span class="brand-text">Dornorium</span></h1>
+        <input type="email" id="loginEmail" placeholder="Email" />
+        <input type="password" id="loginPassword" placeholder="Enter your password">
+        <button onclick="login()">Login</button>
+        <div id="loginError" class="error"></div>
+        <div id="loginLoading" class="loading">⏳ Logging in...</div>
+        <div style="text-align:center;margin-top:14px;">
+            <a href="javascript:void(0)" onclick="showForgotPassword()" style="font-size:13px;color:var(--text-muted);">Can't access your account?</a>
+        </div>
+    </div>
+
+    <div id="forgotPassword" style="display:none;">
+        <h1 class="brand-logo"><span class="brand-icon">🔐</span><span class="brand-text">Dornorium</span></h1>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Enter your account email and we'll send you a link to reset your password.</p>
+        <label for="forgotEmail" style="display:block;font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px;">Email address</label>
+        <input type="email" id="forgotEmail" placeholder="you@example.com" autocomplete="email" style="display:block;width:100%;" />
+        <button onclick="submitForgotPassword()">Send reset link</button>
+        <div id="forgotError" class="error"></div>
+        <div id="forgotMessage" style="font-size:13px;color:var(--text);margin-top:10px;"></div>
+        <div id="forgotLoading" class="loading">⏳ Sending...</div>
+        <div style="text-align:center;margin-top:14px;">
+            <a href="javascript:void(0)" onclick="showLogin()" style="font-size:13px;color:var(--text-muted);">← Back to login</a>
+        </div>
+    </div>
+
+    <div id="dashboard" style="display:none;">
+        <div class="header">
+            <h1 class="brand-logo"><span class="brand-icon">🎫</span><span class="brand-text">Dornorium</span></h1>
+            <div class="header-right">
+                <div class="nav-links">
+                    <a id="nav-reports" href="reports.html">📊 <span>Reports</span></a>
+                    <a id="nav-newsletter" href="newsletter.html">📧 <span>Newsletter</span></a>
+                    <a id="nav-order-reply" href="order-reply.html">📦 <span>Order Reply</span></a>
+                    <a id="nav-settings" href="settings.html">⚙️ <span>Settings</span></a>
+                    <a id="nav-users" href="users.html">👥 <span>Users</span></a>
+                </div>
+                <div class="nav-actions">
+                    <span id="wsIndicator" style="font-size:12px;font-weight:400;color:var(--text-muted);min-width:50px;text-align:center;"></span>
+                    <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+                    <div id="userDisplay"></div>
+                    <button class="btn-logout" onclick="logout()">Logout</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="notificationBanner" class="notification-permission-banner">
+            ⚠️ Notifications are blocked. 
+            <button onclick="requestNotificationPermission()">Enable Notifications</button>
+        </div>
+
+        <div class="stats" id="stats"></div>
+
+        <div class="ticket-tabs">
+            <button class="ticket-tab active" data-tab="active" onclick="switchTab('active')">Active</button>
+            <button class="ticket-tab" data-tab="resolved" onclick="switchTab('resolved')">Resolved</button>
+            <button class="ticket-tab" data-tab="closed" onclick="switchTab('closed')">Closed</button>
+        </div>
+
+        <div class="filters">
+            <input type="text" id="filterSearch" placeholder="Search # / sender / subject..." onkeydown="if(event.key==='Enter') resetAndLoad()" style="flex:1;min-width:180px;" />
+            <select id="filterLanguage" onchange="resetAndLoad()">
+                <option value="">All Languages</option>
+            </select>
+            <select id="filterCategory" onchange="resetAndLoad()">
+                <option value="">All Categories</option>
+            </select>
+            <select id="filterSort" onchange="resetAndLoad()">
+                <option value="last_updated">Sort: Last Updated</option>
+                <option value="created">Sort: Created Date</option>
+                <option value="sla">Sort: SLA Status</option>
+            </select>
+            <select id="filterPageSize" onchange="currentLimit=parseInt(this.value);resetAndLoad()">
+                <option value="25">25 / page</option>
+                <option value="50">50 / page</option>
+                <option value="100">100 / page</option>
+            </select>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;white-space:nowrap;">
+                <input type="checkbox" id="filterAssignedToMe" onchange="resetAndLoad()" style="cursor:pointer;" />
+                <span style="font-size:13px;">Assigned to Me</span>
+            </label>
+            <button class="btn-refresh" onclick="resetAndLoad()">⟳ Refresh</button>
+        </div>
+
+        <div id="ticketList" class="ticket-list"></div>
+        <div id="paginationWrap" class="load-more-wrap"></div>
+    </div>
+
+    <!-- TICKET MODAL -->
+    <div id="ticketModal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">✕</button>
+            <div id="lockBanner" style="display:none;margin-bottom:14px;padding:10px 14px;border-radius:6px;background:#fef3c7;color:#92400e;font-size:13px;font-weight:600;"></div>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+</div>
+
+<div id="barToast" class="toast"></div>
+
+<script>
+    // Get API_BASE and WS_URL from config (API_BASE will be available from shared.js)
+    const WS_URL = getConfigValue('API_BASE', 'https://dornori-ticketing.dornori-info.workers.dev').replace('https://', 'wss://') + '/api/admin/ws';
+    
+    let token = null;
+    let currentUser = null;
+    let agentsListCache = null;
+    let currentTab = 'active';
+    let currentLimit = 25;
+    let currentPage = 1;
+    let currentTotalPages = 1;
+    let currentTotal = 0;
+    let lastStatsData = null;
+    let loadedTickets = [];
+    let emailSenders = [];
+    let allLanguages = [];
+    let LANG_NAMES = {};
+    let languagesLoaded = false;
+    let categoriesLoaded = false;
+    let allCategories = [];
+    let isRefreshing = false;
+    let userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    let currentModalTicketId = null;
+    let ticketLockedByOther = false;
+    let ticketLockedByInfo = null;
+    let ticketLocks = {};
+    let emailTemplates = [];
+    let emailSourceMode = false;
+    let lastEmailFocusedField = null;
+    let settingsCache = null;
+    
+    // ─── WEBSOCKET ──────────────────────────────────────────
+    let ws = null;
+    let wsReconnectTimer = null;
+
+    function connectWebSocket() {
+        if (!token) return;
+        
+        try {
+            ws = new WebSocket(WS_URL + '?token=' + encodeURIComponent(token));
+            
+            ws.onopen = function() {
+                console.log('🔌 WebSocket connected');
+                document.getElementById('wsIndicator').textContent = '🟢 Live';
+                document.getElementById('wsIndicator').style.color = '#22c55e';
+            };
+            
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'pong') return;
+
+                    if (data.type === 'ticket_locked' && data.ticket_id) {
+                        ticketLocks[data.ticket_id] = data.locked_by || {};
+                        if (currentModalTicketId === data.ticket_id && data.locked_by && data.locked_by.email !== (currentUser && currentUser.email)) {
+                            ticketLockedByOther = true;
+                            ticketLockedByInfo = data.locked_by;
+                            applyLockStateToModal();
+                        }
+                        renderTickets(loadedTickets);
+                        return;
+                    }
+
+                    if (data.type === 'lock_sync') {
+                        var newLocks = data.locks || {};
+                        if (currentModalTicketId !== null) {
+                            var stillLocked = newLocks[currentModalTicketId];
+                            if (stillLocked && stillLocked.email !== (currentUser && currentUser.email)) {
+                                ticketLockedByOther = true;
+                                ticketLockedByInfo = stillLocked;
+                            } else {
+                                ticketLockedByOther = false;
+                                ticketLockedByInfo = null;
+                            }
+                            applyLockStateToModal();
+                        }
+                        ticketLocks = newLocks;
+                        renderTickets(loadedTickets);
+                        return;
+                    }
+
+                    if (data.type === 'ticket_unlocked' && data.ticket_id) {
+                        delete ticketLocks[data.ticket_id];
+                        if (currentModalTicketId === data.ticket_id) {
+                            ticketLockedByOther = false;
+                            ticketLockedByInfo = null;
+                            applyLockStateToModal();
+                        }
+                        renderTickets(loadedTickets);
+                        return;
+                    }
+
+                    if ((data.type === 'new_ticket' || data.type === 'ticket_updated') && data.ticket) {
+                        const t = data.ticket;
+                        const isNew = data.type === 'new_ticket';
+                        console.log((isNew ? '🎫 New ticket' : '✏️ Ticket updated') + ' via WebSocket:', t.ticket_number);
+                        
+                        const ticketObj = {
+                            id: t.id || 0,
+                            ticket_id: t.id || 0,
+                            ticket_number: t.ticket_number,
+                            category: t.category,
+                            sla_status: t.sla_status,
+                            status: t.status,
+                            subject: t.subject,
+                            sender_name: t.sender_name,
+                            sender_email: t.sender_email || '',
+                            last_updated_by: t.last_updated_by || '',
+                            last_action: t.last_updated,
+                            created_at: t.last_updated,
+                            language: t.language || 'en'
+                        };
+                        
+                        upsertTicketInList(ticketObj, isNew);
+
+                        if (currentModalTicketId === ticketObj.ticket_id) {
+                            openTicketModal(ticketObj.ticket_id, true);
+                        }
+                        
+                        if (isNew) {
+                            showToast('🎫 New Ticket', '#' + t.ticket_number + ' - ' + (t.subject || 'No subject'), 'success');
+                        } else {
+                            showToast('✏️ Ticket Updated', '#' + t.ticket_number + ' - ' + (t.subject || 'No subject'), 'info');
+                        }
+                        
+                        try {
+                            if (Notification.permission === 'granted') {
+                                new Notification((isNew ? '🎫 New Ticket #' : '✏️ Ticket Updated #') + t.ticket_number, {
+                                    body: t.subject || (isNew ? 'New ticket arrived' : 'Ticket was updated'),
+                                    icon: '/favicon.ico'
+                                });
+                            }
+                        } catch(e) {}
+                        
+                        loadStats();
+                    }
+                } catch(e) {
+                    console.warn('WebSocket message parse error:', e.message);
+                }
+            };
+            
+            ws.onclose = function(event) {
+                console.log('🔌 WebSocket closed:', event.code);
+                document.getElementById('wsIndicator').textContent = '🔴 Offline';
+                document.getElementById('wsIndicator').style.color = '#ef4444';
+                ws = null;
+                if (currentModalTicketId) releaseTicketLock(currentModalTicketId, false);
+
+                if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+                const reconnectDelay = getConfigValue('WS_RECONNECT_DELAY_MS', 5000);
+                wsReconnectTimer = setTimeout(connectWebSocket, reconnectDelay);
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+            
+            const pingInterval = setInterval(function() {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'ping' }));
+                } else {
+                    clearInterval(pingInterval);
+                }
+            }, getConfigValue('WS_PING_INTERVAL_MS', 30000));
+            
+        } catch(e) {
+            console.error('WebSocket connection failed:', e.message);
+            if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+            const reconnectDelay = getConfigValue('WS_RECONNECT_DELAY_MS', 5000);
+            wsReconnectTimer = setTimeout(connectWebSocket, reconnectDelay);
+        }
+    }
+
+    function disconnectWebSocket() {
+        if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+        if (ws) {
+            ws.onclose = null;
+            ws.close();
+            ws = null;
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  PERMISSION SERVICE - UNIFIED
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function hasAccess(page, action = 'view') {
+        if (!currentUser?.effective_permissions) return false;
+        const perms = currentUser.effective_permissions[page];
+        if (!perms) return false;
+        return perms[action] === true;
+    }
+
+    const PermissionService = {
+        updateUI() {
+            this.updateNavigation();
+        },
+
+        can(action, page = 'tickets') {
+            const actionMap = { update: 'edit', comment: 'edit', reply: 'edit', assign: 'edit' };
+            return hasAccess(page, actionMap[action] || action);
+        },
+
+        hasPageAccess(page) {
+            return hasAccess(page, 'view');
+        },
+
+        updateNavigation() {
+            const navs = [
+                { id: 'nav-reports', page: 'reports', href: 'reports.html' },
+                { id: 'nav-newsletter', page: 'newsletter', href: 'newsletter.html' },
+                { id: 'nav-order-reply', page: 'order_reply', href: 'order-reply.html' },
+                { id: 'nav-settings', page: 'settings', href: 'settings.html' },
+                { id: 'nav-users', page: 'users', href: 'users.html' }
+            ];
+            
+            for (const nav of navs) {
+                const el = document.getElementById(nav.id);
+                if (el) {
+                    const allowed = this.hasPageAccess(nav.page);
+                    el.classList.toggle('nav-disabled', !allowed);
+                    el.setAttribute('aria-disabled', allowed ? 'false' : 'true');
+                    if (allowed) {
+                        el.href = nav.href;
+                        el.style.pointerEvents = '';
+                    } else {
+                        el.href = 'javascript:void(0)';
+                        el.style.pointerEvents = 'none';
+                    }
+                }
+            }
+        }
+    };
+
+    function canEdit() {
+        return hasAccess('tickets', 'edit');
+    }
+
+    function canManageTemplates() {
+        return hasAccess('tickets', 'edit');
+    }
+
+    function showToast(title, message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = 'notification-toast';
+        const colors = {
+            info: 'var(--accent)',
+            success: '#22c55e',
+            error: '#ef4444',
+            warning: '#f59e0b'
+        };
+        toast.style.borderLeftColor = colors[type] || colors.info;
+        toast.innerHTML = `
+            <button class="close-toast" onclick="this.parentElement.remove()">×</button>
+            <h4>${title}</h4>
+            <p>${message}</p>
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            if (toast.parentElement) toast.remove();
+        }, 8000);
+    }
+
+    let barToastTimer;
+    function barToast(msg, type = 'success') {
+        const el = document.getElementById('barToast');
+        el.innerHTML = msg;
+        el.className = 'toast show ' + type;
+        clearTimeout(barToastTimer);
+        barToastTimer = setTimeout(() => el.classList.remove('show'), type === 'warning' ? 8000 : 3500);
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  SHARED CONFIG VERSION CACHE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function extractLanguages(res) {
+        try {
+            return JSON.parse((res.settings && res.settings.find(s => s.category === 'languages' && s.key === 'list')?.value) || '[]');
+        } catch (e) { return []; }
+    }
+    function extractCategories(res) {
+        const cats = new Set();
+        (res.settings || []).forEach(s => {
+            if (s.category === 'category' && s.key.endsWith('_description') && s.value !== '__deleted__') {
+                cats.add(s.key.replace('_description', ''));
+            }
+        });
+        return Array.from(cats);
+    }
+    async function loadAppConfig(forceFresh = false) {
+        if (!forceFresh) {
+            const cached = localStorage.getItem('appConfig');
+            const cachedVersion = localStorage.getItem('appConfigVersion');
+            if (cached && cachedVersion) {
+                checkForConfigUpdate(cachedVersion);
+                return JSON.parse(cached);
+            }
+        }
+        const res = await fetch(API_BASE + "/api/admin/settings", {
+            headers: { "Authorization": "Bearer " + token }
+        }).then(r => r.json());
+        const config = {
+            languages: extractLanguages(res),
+            categories: extractCategories(res),
+            version: (res.data && res.data.system && res.data.system.config_version) || '0'
+        };
+        localStorage.setItem('appConfig', JSON.stringify(config));
+        localStorage.setItem('appConfigVersion', config.version);
+        return config;
+    }
+    async function checkForConfigUpdate(cachedVersion) {
+        try {
+            const res = await fetch(API_BASE + "/api/admin/config-version", {
+                headers: { "Authorization": "Bearer " + token }
+            }).then(r => r.json());
+            if (res.version && res.version !== cachedVersion) {
+                barToast("Configuration was updated by admin. Please <a href='#' onclick='logout()'>re-login</a> to see changes.", "warning");
+                localStorage.setItem('appConfigVersion', res.version);
+            }
+        } catch (e) {}
+    }
+    let _configPromise = null;
+    function getSharedConfig(forceFresh) {
+        if (forceFresh || !_configPromise) {
+            _configPromise = loadAppConfig(forceFresh).finally(() => { _configPromise = null; });
+        }
+        return _configPromise;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD LANGUAGES
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadLanguagesFromSettings() {
+        try {
+            if (currentUser.role !== 'admin') {
+                const userLangs = currentUser.allowed_languages || [];
+                allLanguages = userLangs.length ? userLangs.map(code => ({ code, name: LANG_NAMES[code] || code })) : [];
+            } else {
+                const config = await getSharedConfig();
+                allLanguages = config.languages || [];
+                LANG_NAMES = {};
+                allLanguages.forEach(lang => { LANG_NAMES[lang.code] = lang.name; });
+            }
+            languagesLoaded = true;
+            applyUserLanguageFilter();
+        } catch (e) {
+            console.error('Failed to load languages:', e);
+            allLanguages = [];
+            languagesLoaded = true;
+            applyUserLanguageFilter();
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD CATEGORIES
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadCategoriesFromSettings() {
+        try {
+            if (currentUser.role !== 'admin') {
+                allCategories = (currentUser.allowed_categories || []).sort();
+            } else {
+                const config = await getSharedConfig();
+                allCategories = (config.categories || []).sort();
+            }
+            categoriesLoaded = true;
+            updateCategoryDropdown();
+        } catch (e) {
+            console.error('Failed to load categories:', e);
+            allCategories = [];
+            categoriesLoaded = true;
+            updateCategoryDropdown();
+        }
+    }
+
+    function updateCategoryDropdown() {
+        const sel = document.getElementById('filterCategory');
+        if (!sel) return;
+        
+        let opts = '<option value="">All Categories</option>';
+        for (const cat of allCategories) {
+            const label = cat.charAt(0).toUpperCase() + cat.slice(1);
+            opts += '<option value="' + cat + '">' + label + '</option>';
+        }
+        sel.innerHTML = opts;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  INIT & STORAGE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    window.addEventListener('load', async function() {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        updateThemeButtonIcon(savedTheme);
+        
+        const savedToken = localStorage.getItem('token');
+        const savedUser = localStorage.getItem('user');
+        
+        if (savedToken && savedUser) {
+            try {
+                token = savedToken;
+                currentUser = JSON.parse(savedUser);
+                
+                if (currentUser) {
+                    document.getElementById('login').style.display = 'none';
+                    document.getElementById('dashboard').style.display = 'block';
+                    await refreshCurrentUser();
+                    PermissionService.updateUI();
+                    updateUserDisplay();
+                    
+                    // Load settings for templates
+                    await loadSettings();
+                    
+                    loadEmailSenders();
+                    // Load templates from DB
+                    await loadTemplatesFromDB();
+                    
+                    Promise.all([
+                        loadLanguagesFromSettings(),
+                        loadCategoriesFromSettings()
+                    ]).then(async () => {
+                        await loadStats();
+                        resetAndLoad();
+                        connectWebSocket();
+                        checkNotificationBanner();
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to restore session:', e);
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+            }
+        }
+    });
+
+    // ─── BEFORE UNLOAD: Release current modal lock ──────────────
+    window.addEventListener('beforeunload', function() {
+        if (currentModalTicketId) releaseTicketLock(currentModalTicketId, false);
+    });
+
+    async function refreshCurrentUser() {
+        try {
+            const res = await fetch(API_BASE + "/api/admin/me", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.success && data.user) {
+                currentUser = {
+                    email: data.user.email,
+                    name: data.user.name,
+                    role: data.user.role,
+                    page_permissions: data.user.page_permissions || {},
+                    effective_permissions: data.user.effective_permissions || {},
+                    allowed_languages: data.user.allowed_languages || [],
+                    allowed_emails: data.user.allowed_emails || [],
+                    allowed_categories: data.user.allowed_categories || [],
+                    team_id: data.user.team_id || null
+                };
+                localStorage.setItem('user', JSON.stringify(currentUser));
+            }
+        } catch (e) {
+            console.warn('Could not refresh permissions:', e.message);
+        }
+    }
+
+    async function loadSettings() {
+        try {
+            const res = await fetch(API_BASE + "/api/admin/settings", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                settingsCache = data.data || data.settings || {};
+            }
+        } catch (e) {
+            console.warn('Failed to load settings:', e);
+            settingsCache = {};
+        }
+    }
+
+    function setTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
+    }
+
+    function toggleTheme() {
+        const current = document.documentElement.getAttribute('data-theme') || 'light';
+        const newTheme = current === 'light' ? 'dark' : 'light';
+        setTheme(newTheme);
+        updateThemeButtonIcon(newTheme);
+    }
+    
+    function updateThemeButtonIcon(theme) {
+        const btn = document.querySelector('.theme-toggle');
+        if (btn) {
+            btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  AUTHENTICATION
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function login() {
+        var email = document.getElementById("loginEmail").value;
+        var password = document.getElementById("loginPassword").value;
+        var errorEl = document.getElementById("loginError");
+        var loadingEl = document.getElementById("loginLoading");
+        var btn = document.querySelector("#login button");
+        errorEl.textContent = "";
+        loadingEl.classList.add("active");
+        btn.disabled = true;
+        btn.textContent = "🔐 Logging in...";
+        
+        try {
+            var res = await fetch(API_BASE + "/api/admin/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: email, password: password })
+            });
+            var data = await res.json();
+            if (data.success) {
+                token = data.token;
+                currentUser = {
+                    email: data.user.email,
+                    name: data.user.name,
+                    role: data.user.role,
+                    page_permissions: data.user.page_permissions || {},
+                    effective_permissions: data.user.effective_permissions || {},
+                    allowed_languages: data.user.allowed_languages || [],
+                    allowed_emails: data.user.allowed_emails || [],
+                    allowed_categories: data.user.allowed_categories || [],
+                    team_id: data.user.team_id || null
+                };
+                localStorage.setItem("token", token);
+                localStorage.setItem("user", JSON.stringify(currentUser));
+                console.log('✅ Login successful for:', email, 'Role:', currentUser.role);
+                
+                PermissionService.updateUI();
+                updateUserDisplay();
+                document.getElementById("login").style.display = "none";
+                document.getElementById("dashboard").style.display = "block";
+                
+                // Load settings for templates
+                await loadSettings();
+                
+                await loadEmailSenders();
+                // Load templates from DB
+                await loadTemplatesFromDB();
+                
+                await Promise.all([
+                    loadLanguagesFromSettings(),
+                    loadCategoriesFromSettings()
+                ]);
+                await loadStats();
+                resetAndLoad();
+                connectWebSocket();
+                checkNotificationBanner();
+                showToast('✅ Login Successful', 'Welcome to Dornorium', 'success');
+            } else {
+                errorEl.textContent = data.message || "Invalid credentials";
+                showToast('❌ Login Failed', data.message || 'Invalid credentials', 'error');
+            }
+        } catch (e) {
+            errorEl.textContent = "Network error – please try again.";
+            showToast('❌ Network Error', e.message, 'error');
+            console.error('Login error:', e);
+        } finally {
+            loadingEl.classList.remove("active");
+            btn.disabled = false;
+            btn.textContent = "Login";
+        }
+    }
+
+    function showForgotPassword() {
+        document.getElementById('login').style.display = 'none';
+        document.getElementById('forgotPassword').style.display = 'block';
+        document.getElementById('forgotEmail').value = document.getElementById('loginEmail').value || '';
+        document.getElementById('forgotError').textContent = '';
+        document.getElementById('forgotMessage').textContent = '';
+    }
+
+    function showLogin() {
+        document.getElementById('forgotPassword').style.display = 'none';
+        document.getElementById('login').style.display = 'block';
+    }
+
+    async function submitForgotPassword() {
+        var email = document.getElementById('forgotEmail').value.trim();
+        var errorEl = document.getElementById('forgotError');
+        var messageEl = document.getElementById('forgotMessage');
+        var loadingEl = document.getElementById('forgotLoading');
+        var btn = document.querySelector('#forgotPassword button');
+        errorEl.textContent = '';
+        messageEl.textContent = '';
+        if (!email) { errorEl.textContent = 'Please enter your email address.'; return; }
+
+        loadingEl.classList.add('active');
+        btn.disabled = true;
+        try {
+            var res = await fetch(API_BASE + '/api/admin/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email })
+            });
+            var data = await res.json();
+            if (res.ok) {
+                messageEl.textContent = data.message || 'If an account exists for that address, a reset link has been sent.';
+            } else {
+                errorEl.textContent = data.error || 'Something went wrong. Please try again.';
+            }
+        } catch (e) {
+            errorEl.textContent = 'Network error – please try again.';
+        } finally {
+            loadingEl.classList.remove('active');
+            btn.disabled = false;
+        }
+    }
+
+    function renderUserBadge() {
+        const u = currentUser;
+        if (!u) return;
+        const initials = (u.name || u.email || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+        const meta = [u.role, u.team_id].filter(Boolean).join(' · ');
+        const el = document.getElementById('userDisplay');
+        if (el) el.innerHTML = `<div class="user-badge"><div class="user-badge-avatar">${initials}</div><div class="user-badge-info"><span class="user-badge-name">${u.name || u.email}</span><span class="user-badge-meta">${meta}</span></div></div>`;
+    }
+
+    function updateUserDisplay() {
+        renderUserBadge();
+    }
+
+    function logout() {
+        if (currentModalTicketId) releaseTicketLock(currentModalTicketId, false);
+        disconnectWebSocket();
+        token = null;
+        currentUser = { email: null, name: null, role: null, page_permissions: {} };
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("appConfig");
+        localStorage.removeItem("appConfigVersion");
+        emailSenders = [];
+        document.getElementById("login").style.display = "block";
+        document.getElementById("dashboard").style.display = "none";
+        document.getElementById('wsIndicator').textContent = '';
+        showToast('👋 Logged Out', 'See you next time!', 'info');
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  NOTIFICATIONS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function checkNotificationBanner() {
+        const banner = document.getElementById('notificationBanner');
+        if (Notification.permission === 'denied') {
+            banner.style.display = 'block';
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+
+    async function requestNotificationPermission() {
+        const result = await Notification.requestPermission();
+        if (result === 'granted') {
+            document.getElementById('notificationBanner').style.display = 'none';
+            showToast('✅ Notifications Enabled', 'You will now receive real-time updates', 'success');
+        } else {
+            showToast('❌ Permission Denied', 'Please enable notifications in your browser settings', 'error');
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  APPLY USER LANGUAGE FILTER
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function applyUserLanguageFilter() {
+        var sel = document.getElementById('filterLanguage');
+        if (!sel || !currentUser) return;
+        
+        if (!languagesLoaded || allLanguages.length === 0) {
+            sel.innerHTML = '<option value="">No languages configured</option>';
+            return;
+        }
+        
+        var userLangs = (currentUser.role === 'admin') ? null : (currentUser.allowed_languages || []);
+        var list = (userLangs && userLangs.length > 0)
+            ? allLanguages.filter(function(l) { return userLangs.includes(l.code); })
+            : allLanguages;
+        
+        if (list.length === 0) {
+            sel.innerHTML = '<option value="">No languages available</option>';
+            return;
+        }
+        
+        var opts = list.length !== 1 ? '<option value="">All Languages</option>' : '';
+        list.forEach(function(l) { 
+            opts += '<option value="' + l.code + '">' + l.name + '</option>'; 
+        });
+        sel.innerHTML = opts;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD EMAIL SENDERS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadEmailSenders() {
+        try {
+            try {
+                const profileRes = await fetch(API_BASE + '/api/admin/user-profile', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (profileRes.ok) {
+                    const profileData = await profileRes.json();
+                    if (profileData.success && profileData.user) {
+                        currentUser.allowed_emails = profileData.user.allowed_emails || [];
+                        currentUser.allowed_languages = profileData.user.allowed_languages || [];
+                        currentUser.allowed_categories = profileData.user.allowed_categories || [];
+                        localStorage.setItem('user', JSON.stringify(currentUser));
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not refresh profile, using cached data');
+            }
+            
+            if (currentUser.role !== 'admin') {
+                emailSenders = currentUser.allowed_emails || [];
+                return;
+            }
+            
+            const res = await fetch(API_BASE + "/api/admin/email-addresses?active_only=true", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            
+            if (!res.ok) {
+                emailSenders = [];
+                return;
+            }
+            
+            const data = await res.json();
+            if (data.success) {
+                const allAddresses = data.addresses || [];
+                emailSenders = allAddresses
+                    .map(addr => addr.address || addr.email)
+                    .filter(e => e);
+            } else {
+                emailSenders = [];
+            }
+        } catch (e) {
+            console.error('Failed to load senders:', e);
+            emailSenders = [];
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD STATS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadStats() {
+        try {
+            var res = await fetch(API_BASE + "/api/admin/stats", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (res.status === 401) { logout(); return; }
+            var data = await res.json();
+            if (data.success) {
+                var stats = data.stats;
+                var html = "";
+                var labels = { new: "New", open: "Open", in_progress: "In Progress", pending: "Pending", resolved: "Resolved", closed: "Closed" };
+                for (var key in labels) {
+                    if (stats.hasOwnProperty(key)) {
+                        html += '<div class="stat-card"><div class="number">' + stats[key] + '</div><div class="label">' + labels[key] + '</div></div>';
+                    }
+                }
+                document.getElementById("stats").innerHTML = html;
+                lastStatsData = stats;
+            }
+        } catch (e) { console.error("Failed to load stats", e); }
+    }
+
+    function getTotalForTab(tab) {
+        if (!lastStatsData) return null;
+        var statuses = getStatusesForTab(tab);
+        var total = 0;
+        for (var i = 0; i < statuses.length; i++) {
+            total += (lastStatsData[statuses[i]] || 0);
+        }
+        return total;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  LOAD TICKETS
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function loadTickets(goToPage) {
+        var list = document.getElementById("ticketList");
+        var pagWrap = document.getElementById("paginationWrap");
+
+        if (goToPage) currentPage = goToPage;
+        else currentPage = 1;
+
+        list.innerHTML = '<div class="loading">Loading...</div>';
+        pagWrap.innerHTML = '';
+
+        var category = document.getElementById("filterCategory").value;
+        var language = document.getElementById("filterLanguage").value;
+        var sort = document.getElementById("filterSort").value;
+        var search = document.getElementById("filterSearch").value.trim();
+        var assignedToMe = document.getElementById("filterAssignedToMe").checked;
+        var statuses = getStatusesForTab(currentTab);
+
+        var url = API_BASE + "/api/admin/tickets?page=" + currentPage + "&limit=" + currentLimit;
+        if (statuses.length > 0) {
+            url += "&statuses=" + statuses.join(',');
+        }
+        if (category) url += "&category=" + encodeURIComponent(category);
+        if (language) url += "&language=" + encodeURIComponent(language);
+        if (sort) url += "&sort=" + encodeURIComponent(sort);
+        if (search) url += "&search=" + encodeURIComponent(search);
+        if (assignedToMe && currentUser && currentUser.email) url += "&assigned_to=" + encodeURIComponent(currentUser.email);
+
+        try {
+            var res = await fetch(url, { headers: { "Authorization": "Bearer " + token } });
+            if (res.status === 401) { logout(); return; }
+            var data = await res.json();
+            if (data.success) {
+                var tickets = data.tickets || [];
+                var pagination = data.pagination || { total: 0, page: 1, totalPages: 1 };
+                currentPage = pagination.page;
+
+                var tabTotal = (!search && !category && !language && !assignedToMe) ? getTotalForTab(currentTab) : null;
+                if (tabTotal !== null) {
+                    currentTotal = tabTotal;
+                    currentTotalPages = Math.max(1, Math.ceil(tabTotal / currentLimit));
+                } else {
+                    currentTotal = pagination.total;
+                    currentTotalPages = pagination.totalPages;
+                }
+
+                loadedTickets = tickets;
+
+                renderTickets(loadedTickets);
+                updatePagination();
+            } else {
+                list.innerHTML = '<div class="loading">Error loading tickets</div>';
+            }
+        } catch (e) {
+            list.innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
+        }
+    }
+
+    function renderTickets(tickets) {
+        var list = document.getElementById("ticketList");
+        if (!tickets || tickets.length === 0) {
+            list.innerHTML = '<div class="loading">No tickets found</div>';
+            return;
+        }
+        
+        var html = '<div class="ticket-header-row">' +
+            '<span>SLA</span>' +
+            '<span>#</span>' +
+            '<span>Status</span>' +
+            '<span>Category</span>' +
+            '<span>Requester</span>' +
+            '<span>Subject</span>' +
+            '<span>Assigned To</span>' +
+            '<span>Last Updated</span>' +
+            '<span>Updated By</span>' +
+            '</div>';
+        for (var i = 0; i < tickets.length; i++) {
+            var t = tickets[i];
+            var isLocked = ticketLocks[t.ticket_id];
+            var statusClass = "status-" + t.status;
+            var slaInfo = getSlaDisplay(t.sla_status || 'on_track');
+            var actionDate = t.last_action || t.created_at;
+            var subjectText = t.subject || "No subject";
+            var truncatedSubject = subjectText.length > 80 ? subjectText.substring(0, 80) + "…" : subjectText;
+            var catColor = getCatColor(t.category);
+            var catLabel = t.category ? t.category.charAt(0).toUpperCase() + t.category.slice(1) : 'Other';
+            var updatedBy = t.last_updated_by ? (t.last_updated_by === t.sender_email ? '👤 ' + t.last_updated_by : t.last_updated_by) : '-';
+            var rowStyle = isLocked ? 'opacity:0.6;background:var(--bg-secondary);cursor:not-allowed;' : '';
+            var lockBadge = isLocked ? '<span style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:11px;background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:4px;font-weight:600;white-space:nowrap;">🔒 ' + escapeHtml(isLocked.name || isLocked.email) + '</span>' : '';
+            var onClickHandler = 'openTicketModal(' + t.ticket_id + ')';
+            html += '<div class="ticket-item" onclick="' + onClickHandler + '" style="' + rowStyle + 'position:relative;cursor:pointer;">' +
+                '<span class="sla-cell" style="padding:0;display:flex;align-items:center;"><span class="sla-dot" style="background:' + getSlaColor(slaInfo.cls) + ';"></span></span>' +
+                '<span class="ticket-num">' + escapeHtml(t.ticket_number || '') + '</span>' +
+                '<span class="status ' + statusClass + '">' + t.status.replace('_', ' ') + '</span>' +
+                '<span class="cat-cell"><span class="cat-dot" style="background:' + catColor + ';"></span><span class="cat-name">' + escapeHtml(catLabel) + '</span></span>' +
+                '<span class="email" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;">' + (t.sender_email || "") + '</span>' +
+                '<span class="subject" title="' + escapeHtml(subjectText) + '">' + escapeHtml(truncatedSubject) + '</span>' +
+                '<span style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(t.assigned_to || '—') + '</span>' +
+                '<span style="font-size:12px;color:var(--text-muted);">' + formatDate(actionDate) + '</span>' +
+                '<span style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(updatedBy) + '</span>' +
+                lockBadge +
+                '</div>';
+        }
+        list.innerHTML = html;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  TARGETED TICKET INJECTION
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function ticketMatchesCurrentFilters(t) {
+        var statuses = getStatusesForTab(currentTab);
+        if (statuses.length > 0 && statuses.indexOf(t.status) === -1) return false;
+        var category = document.getElementById("filterCategory").value;
+        var language = document.getElementById("filterLanguage").value;
+        if (category && t.category !== category) return false;
+        if (language && t.language !== language) return false;
+        return true;
+    }
+
+    function parseTicketDate(dateStr) {
+        if (!dateStr) return 0;
+        var cleaned = ('' + dateStr).replace(' ', 'T');
+        if (!cleaned.includes('Z') && !cleaned.includes('+')) { cleaned += 'Z'; }
+        var d = new Date(cleaned);
+        return isNaN(d.getTime()) ? 0 : d.getTime();
+    }
+
+    var SLA_SORT_RANK = { breached: 0, critical: 1, at_risk: 2, paused: 3, on_track: 4 };
+    function compareTickets(a, b, sort) {
+        if (sort === 'sla') {
+            var ra = SLA_SORT_RANK.hasOwnProperty(a.sla_status) ? SLA_SORT_RANK[a.sla_status] : 5;
+            var rb = SLA_SORT_RANK.hasOwnProperty(b.sla_status) ? SLA_SORT_RANK[b.sla_status] : 5;
+            if (ra !== rb) return ra - rb;
+            return parseTicketDate(b.last_action || b.created_at) - parseTicketDate(a.last_action || a.created_at);
+        }
+        if (sort === 'created') {
+            return parseTicketDate(b.created_at) - parseTicketDate(a.created_at);
+        }
+        return parseTicketDate(b.last_action || b.created_at) - parseTicketDate(a.last_action || a.created_at);
+    }
+
+    function upsertTicketInList(ticket, isNew) {
+        var existingIdx = loadedTickets.findIndex(function (t) { return t.ticket_id === ticket.ticket_id; });
+        if (existingIdx !== -1) loadedTickets.splice(existingIdx, 1);
+
+        if (!ticketMatchesCurrentFilters(ticket)) {
+            renderTickets(loadedTickets);
+            return;
+        }
+
+        var sort = document.getElementById("filterSort").value || 'last_updated';
+        var insertAt = loadedTickets.length;
+        for (var i = 0; i < loadedTickets.length; i++) {
+            if (compareTickets(ticket, loadedTickets[i], sort) < 0) { insertAt = i; break; }
+        }
+
+        if (insertAt >= loadedTickets.length && loadedTickets.length > 0) return;
+
+        loadedTickets.splice(insertAt, 0, ticket);
+        if (isNew && existingIdx === -1) { currentTotal += 1; }
+        renderTickets(loadedTickets);
+        updatePagination();
+    }
+
+    function updatePagination() {
+        const pagWrap = document.getElementById('paginationWrap');
+        if (currentTotal === 0) { pagWrap.innerHTML = ''; return; }
+        var prevDisabled = currentPage <= 1 ? 'disabled' : '';
+        var nextDisabled = currentPage >= currentTotalPages ? 'disabled' : '';
+        pagWrap.innerHTML =
+            '<div style="display:flex;align-items:center;justify-content:center;gap:12px;">' +
+            '<button ' + prevDisabled + ' onclick="loadTickets(currentPage-1)">‹ Previous</button>' +
+            '<span style="color:var(--text-muted);font-size:13px;">Page ' + currentPage + ' of ' + currentTotalPages + ' (' + currentTotal + ' tickets)</span>' +
+            '<button ' + nextDisabled + ' onclick="loadTickets(currentPage+1)">Next ›</button>' +
+            '</div>';
+    }
+
+    function getCatColor(cat) {
+        if (!cat || cat.trim() === '') return "#8892b0";
+        return getCategoryColor(cat);
+    }
+    function getSlaColor(cls) {
+        var map = {
+            'sla-on-track': '#22c55e',
+            'sla-at-risk':  '#eab308',
+            'sla-critical': '#f97316',
+            'sla-breached': '#ef4444',
+            'sla-paused':   '#8892b0'
+        };
+        return map[cls] || '#8892b0';
+    }
+
+    function escapeHtml(str) {
+        if (!str) return "";
+        return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    function detectIsHtml(str) {
+        if (!str) return false;
+        return /<[a-z][\s\S]*>/i.test(str);
+    }
+
+    function sanitizeHtml(html) {
+        if (!html) return "";
+        
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        
+        // List of allowed tags
+        const allowedTags = ['p', 'br', 'div', 'span', 'strong', 'b', 'em', 'i', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td'];
+        const allowedAttrs = ['href', 'title', 'target', 'rel', 'style'];
+        
+        // Remove dangerous elements recursively
+        function cleanNode(node) {
+            if (node.nodeType === 3) return; // text node
+            
+            if (node.nodeType === 1) { // element node
+                const tag = node.tagName.toLowerCase();
+                
+                // Remove script, style, and other dangerous tags
+                if (!allowedTags.includes(tag)) {
+                    while (node.firstChild) {
+                        node.parentNode.insertBefore(node.firstChild, node);
+                    }
+                    node.parentNode.removeChild(node);
+                    return;
+                }
+                
+                // Remove dangerous attributes
+                const attrs = Array.from(node.attributes);
+                attrs.forEach(attr => {
+                    if (!allowedAttrs.includes(attr.name.toLowerCase())) {
+                        node.removeAttribute(attr.name);
+                    }
+                });
+                
+                // Clean style attribute - remove javascript: and other dangerous content
+                if (node.style && node.getAttribute('style')) {
+                    const styleStr = node.getAttribute('style');
+                    if (styleStr.toLowerCase().includes('javascript:') || styleStr.toLowerCase().includes('expression:')) {
+                        node.removeAttribute('style');
+                    }
+                }
+                
+                // Verify href doesn't contain javascript
+                if (node.href && node.getAttribute('href')) {
+                    const href = node.getAttribute('href');
+                    if (href.toLowerCase().startsWith('javascript:') || href.toLowerCase().startsWith('data:')) {
+                        node.removeAttribute('href');
+                    }
+                }
+            }
+            
+            // Process children
+            const children = Array.from(node.childNodes);
+            children.forEach(child => cleanNode(child));
+        }
+        
+        cleanNode(tempDiv);
+        return tempDiv.innerHTML;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  TEMPLATE FUNCTIONS - STORED IN DATABASE (SHARED)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    // Load templates from database
+    async function loadTemplatesFromDB() {
+        try {
+            if (!settingsCache) await loadSettings();
+            
+            // Templates are stored in order_template category
+            const templateKey = 'templates_dashboard';
+            const raw = settingsCache?.order_template?.[templateKey];
+            if (raw) {
+                emailTemplates = JSON.parse(raw);
+            } else {
+                emailTemplates = [];
+            }
+            updateTemplateSelect();
+        } catch (e) {
+            console.warn('Failed to load templates from DB:', e);
+            emailTemplates = [];
+        }
+    }
+
+    // Save templates to database
+    async function saveTemplatesToDB() {
+        try {
+            const templateKey = 'templates_dashboard';
+            const value = JSON.stringify(emailTemplates);
+            
+            const res = await fetch(API_BASE + '/api/admin/settings', {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token 
+                },
+                body: JSON.stringify({ 
+                    settings: [{ 
+                        category: 'order_template', 
+                        key: templateKey, 
+                        value: value 
+                    }] 
+                })
+            });
+            
+            if (res.ok) {
+                // Update cache
+                if (!settingsCache) settingsCache = {};
+                if (!settingsCache.order_template) settingsCache.order_template = {};
+                settingsCache.order_template[templateKey] = value;
+                return true;
+            }
+            return false;
+        } catch (e) {
+            console.warn('Failed to save templates to DB:', e);
+            return false;
+        }
+    }
+
+    function updateTemplateSelect() {
+        var select = document.getElementById("emailTemplateSelect");
+        if (!select) return;
+        
+        var opts = emailTemplates.map(t => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('');
+        select.innerHTML = '<option value="">📁 Load template…</option>' + opts;
+    }
+
+    function insertEmailTag(tag) {
+        var editor = document.getElementById("detailReplyBodyEditor");
+        var source = document.getElementById("detailReplyBodySource");
+        
+        if (emailSourceMode) {
+            // In source mode, insert into textarea
+            var start = source.selectionStart || source.value.length;
+            var end = source.selectionEnd || source.value.length;
+            source.value = source.value.slice(0, start) + tag + source.value.slice(end);
+            source.focus();
+            source.selectionStart = source.selectionEnd = start + tag.length;
+        } else {
+            // In visual mode, insert into contentEditable
+            if (editor) {
+                editor.focus();
+                document.execCommand('insertText', false, tag);
+            }
+        }
+        
+        lastEmailFocusedField = emailSourceMode ? source : editor;
+    }
+
+    function formatEditor(command, value = null) {
+        if (!emailSourceMode) {
+            document.execCommand(command, false, value);
+            document.getElementById("detailReplyBodyEditor").focus();
+        }
+    }
+
+    function insertEmailLink() {
+        if (emailSourceMode) return;
+        var url = prompt("Enter URL:", "https://");
+        if (url) {
+            document.execCommand("createLink", false, url);
+            document.getElementById("detailReplyBodyEditor").focus();
+        }
+    }
+
+    function toggleEmailHtmlSource() {
+        var wrapper = document.getElementById("editorWrapper");
+        var editor = document.getElementById("detailReplyBodyEditor");
+        var source = document.getElementById("detailReplyBodySource");
+        var sourceHint = document.getElementById("sourceHint");
+        
+        emailSourceMode = !emailSourceMode;
+        
+        if (emailSourceMode) {
+            // Switch to source mode
+            source.value = editor.innerHTML;
+            wrapper.classList.add("source-mode");
+        } else {
+            // Switch to visual mode
+            var html = source.value;
+            editor.innerHTML = html;
+            wrapper.classList.remove("source-mode");
+        }
+        
+        editor.focus();
+    }
+
+    function switchEditorTab(tab) {
+        var tabButtons = document.querySelectorAll(".editor-tab");
+        var editorContainer = document.getElementById("editorContainerVisual");
+        var previewContainer = document.getElementById("editorContainerPreview");
+        
+        tabButtons.forEach(btn => btn.classList.remove("active"));
+        
+        if (tab === "preview") {
+            document.querySelector('[onclick="switchEditorTab(\'preview\')"]').classList.add("active");
+            editorContainer.style.display = "none";
+            previewContainer.style.display = "block";
+            updateEmailPreview();
+        } else {
+            document.querySelector('[onclick="switchEditorTab(\'editor\')"]').classList.add("active");
+            editorContainer.style.display = "block";
+            previewContainer.style.display = "none";
+        }
+    }
+
+    function updateEmailPreview() {
+        var editor = document.getElementById("detailReplyBodyEditor");
+        var preview = document.getElementById("previewContent");
+        var content = editor.innerHTML;
+        preview.innerHTML = content;
+    }
+
+    async function loadEmailTemplate(name) {
+        if (!name) return;
+        var t = emailTemplates.find(x => x.name === name);
+        if (!t) return;
+        
+        var editor = document.getElementById("detailReplyBodyEditor");
+        var source = document.getElementById("detailReplyBodySource");
+        
+        if (emailSourceMode) {
+            source.value = t.body || '';
+        } else {
+            editor.innerHTML = t.body || '';
+        }
+        
+        showToast('✅ Template Loaded', 'Template loaded into editor', 'success');
+    }
+
+    async function saveEmailTemplate() {
+        if (!canManageTemplates()) {
+            showToast('❌ Permission Denied', 'You do not have permission to save templates', 'error');
+            return;
+        }
+        
+        var editor = document.getElementById("detailReplyBodyEditor");
+        var source = document.getElementById("detailReplyBodySource");
+        var name = prompt('Template name:');
+        if (!name) return;
+        
+        var body = emailSourceMode ? source.value : editor.innerHTML;
+        if (!body.trim()) {
+            showToast('⚠️ Empty', 'Cannot save empty template', 'warning');
+            return;
+        }
+        
+        // Remove existing template with same name
+        emailTemplates = emailTemplates.filter(t => t.name !== name);
+        emailTemplates.push({ name, body });
+        
+        // Save to database (shared across all agents)
+        const success = await saveTemplatesToDB();
+        
+        if (success) {
+            // Update select dropdown
+            updateTemplateSelect();
+            showToast('✅ Saved', 'Template saved (shared with all agents)', 'success');
+        } else {
+            // Revert on error
+            emailTemplates = emailTemplates.filter(t => t.name !== name);
+            showToast('❌ Failed', 'Could not save template to database', 'error');
+        }
+    }
+
+    async function deleteEmailTemplate() {
+        if (!canManageTemplates()) {
+            showToast('❌ Permission Denied', 'You do not have permission to delete templates', 'error');
+            return;
+        }
+        
+        var select = document.getElementById("emailTemplateSelect");
+        var name = select.value;
+        if (!name) {
+            showToast('⚠️ Select Template', 'Select a template to delete', 'warning');
+            return;
+        }
+        
+        if (!confirm(`Delete template "${name}"?`)) return;
+        
+        emailTemplates = emailTemplates.filter(t => t.name !== name);
+        
+        // Save to database
+        const success = await saveTemplatesToDB();
+        
+        if (success) {
+            updateTemplateSelect();
+            select.value = '';
+            showToast('✅ Deleted', 'Template deleted (removed for all agents)', 'success');
+        } else {
+            // Revert
+            emailTemplates = emailTemplates.filter(t => t.name !== name);
+            showToast('❌ Failed', 'Could not delete template from database', 'error');
+        }
+    }
+
+    function initializeEmailEditor() {
+        var editor = document.getElementById("detailReplyBodyEditor");
+        var source = document.getElementById("detailReplyBodySource");
+        
+        if (!editor) return;
+        
+        // Load templates from DB (already loaded)
+        updateTemplateSelect();
+        
+        // Update preview on input
+        editor.addEventListener("input", updateEmailPreview);
+        editor.addEventListener("keyup", updateEmailPreview);
+        editor.addEventListener("paste", () => setTimeout(updateEmailPreview, 50));
+        
+        // Track focus for tag insertion
+        editor.addEventListener("focus", function() {
+            lastEmailFocusedField = editor;
+        });
+        
+        if (source) {
+            source.addEventListener("focus", function() {
+                lastEmailFocusedField = source;
+            });
+        }
+        
+        // Setup placeholder
+        if (editor.textContent.length === 0) {
+            editor.setAttribute("data-placeholder", "Write your reply to the customer...");
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  ORDER DATA RENDERING FUNCTIONS (mirrors backend)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    function renderOrderItemsHtml(metadata) {
+        const order = metadata && metadata.order;
+        if (!order || !order.items || !order.items.length) return '';
+        
+        const currency = metadata.currency || 'EUR';
+        const items = order.items || [];
+        const totals = order.totals || {};
+        const subtotal = parseFloat(totals.subtotal || 0);
+        const discount = parseFloat(totals.discount || 0);
+        const shipping = parseFloat(totals.shipping || 0);
+        const tax = parseFloat(totals.tax || 0);
+        const calculatedTotal = subtotal + shipping + tax;
+        
+        let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
+        html += '<tr style="border-bottom:1px solid #ddd;">';
+        html += '<th style="padding:10px;text-align:left;font-weight:bold;">Product</th>';
+        html += '<th style="padding:10px;text-align:center;font-weight:bold;">Qty</th>';
+        html += '<th style="padding:10px;text-align:right;font-weight:bold;">Unit Price</th>';
+        html += '<th style="padding:10px;text-align:right;font-weight:bold;">Total</th>';
+        html += '</tr>';
+        
+        for (const item of items) {
+            if (!item || typeof item !== 'object') continue;
+            
+            const name = escapeHtml(String(item.name || 'Product'));
+            const qty = Math.max(1, parseInt(item.qty || item.quantity || 1, 10));
+            const price = Math.max(0, parseFloat(item.price || 0));
+            
+            if (isNaN(price) || isNaN(qty)) continue;
+            
+            const lineTotal = (price * qty).toFixed(2);
+            const itemDiscount = parseFloat(item.discount) || 0;
+            const hasItemDiscount = itemDiscount > 0 && item.originalPrice != null;
+            const unitPriceCell = hasItemDiscount
+                ? `<s style="opacity:.55;">${currency} ${parseFloat(item.originalPrice).toFixed(2)}</s><br/>${currency} ${price.toFixed(2)} <span style="display:inline-block;background:#c8a96e;color:#1a1714;font-size:11px;font-weight:bold;padding:1px 6px;border-radius:3px;margin-left:4px;">-${itemDiscount}%</span>`
+                : `${currency} ${price.toFixed(2)}`;
+            
+            html += '<tr style="border-bottom:1px solid #eee;">';
+            html += `<td style="padding:10px;">${name}</td>`;
+            html += `<td style="padding:10px;text-align:center;">${qty}</td>`;
+            html += `<td style="padding:10px;text-align:right;">${unitPriceCell}</td>`;
+            html += `<td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td>`;
+            html += '</tr>';
+        }
+        
+        html += '<tr style="border-top:2px solid #ddd;background:#f9f9f9;">';
+        html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">Subtotal</td>`;
+        html += `<td style="padding:12px;text-align:right;">${currency} ${subtotal.toFixed(2)}</td></tr>`;
+        
+        if (discount > 0) {
+            html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
+            html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">Discount</td>`;
+            html += `<td style="padding:12px;text-align:right;">-${currency} ${discount.toFixed(2)}</td></tr>`;
+        }
+        
+        if (shipping > 0) {
+            html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
+            html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">Shipping</td>`;
+            html += `<td style="padding:12px;text-align:right;">${currency} ${shipping.toFixed(2)}</td></tr>`;
+        }
+        
+        if (tax > 0) {
+            html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
+            html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">Tax</td>`;
+            html += `<td style="padding:12px;text-align:right;">${currency} ${tax.toFixed(2)}</td></tr>`;
+        }
+        
+        html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
+        html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;font-size:15px;">TOTAL</td>`;
+        html += `<td style="padding:12px;text-align:right;font-weight:bold;font-size:15px;">${currency} ${calculatedTotal.toFixed(2)}</td>`;
+        html += '</tr>';
+        html += '</table>';
+        
+        return html;
+    }
+
+    function renderOrderSummaryHtml(metadata) {
+        const order = metadata && metadata.order;
+        if (!order) return '';
+        
+        const currency = metadata.currency || 'EUR';
+        const totals = order.totals || {};
+        const itemCount = (order.items || []).length;
+        
+        if (itemCount === 0) return '';
+        
+        const subtotal = parseFloat(totals.subtotal || 0);
+        const discount = parseFloat(totals.discount || 0);
+        const shipping = parseFloat(totals.shipping || 0);
+        const tax = parseFloat(totals.tax || 0);
+        const calculatedTotal = subtotal + shipping + tax;
+        
+        let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
+        html += `<div style="margin-bottom:8px;"><strong>Order Reference:</strong> ${escapeHtml(String(order.reference || 'N/A'))}</div>`;
+        html += `<div style="margin-bottom:8px;"><strong>Items:</strong> ${itemCount}</div>`;
+        html += `<div style="margin-bottom:8px;"><strong>Subtotal:</strong> ${currency} ${subtotal.toFixed(2)}</div>`;
+        if (discount > 0) {
+            html += `<div style="margin-bottom:8px;"><strong>Discount:</strong> -${currency} ${discount.toFixed(2)}</div>`;
+        }
+        if (shipping > 0) {
+            html += `<div style="margin-bottom:8px;"><strong>Shipping:</strong> ${currency} ${shipping.toFixed(2)}</div>`;
+        }
+        if (tax > 0) {
+            html += `<div style="margin-bottom:8px;"><strong>Tax:</strong> ${currency} ${tax.toFixed(2)}</div>`;
+        }
+        html += `<div style="padding-top:8px;border-top:1px solid #ddd;"><strong>Total:</strong> ${currency} ${calculatedTotal.toFixed(2)}</div>`;
+        html += '</div>';
+        
+        return html;
+    }
+
+    function renderOrderCustomerHtml(metadata) {
+        const order = metadata && metadata.order;
+        const customer = order && order.customer;
+        if (!customer) return '';
+        
+        const hasData = customer.name || customer.email || customer.phone || customer.shipping_address;
+        if (!hasData) return '';
+        
+        let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
+        
+        if (customer.name) {
+            html += `<div style="margin-bottom:8px;"><strong>Name:</strong> ${escapeHtml(String(customer.name))}</div>`;
+        }
+        if (customer.email) {
+            html += `<div style="margin-bottom:8px;"><strong>Email:</strong> ${escapeHtml(String(customer.email))}</div>`;
+        }
+        if (customer.phone) {
+            html += `<div style="margin-bottom:8px;"><strong>Phone:</strong> ${escapeHtml(String(customer.phone))}</div>`;
+        }
+        
+        if (customer.shipping_address) {
+            html += `<div style="margin-top:12px;padding-top:12px;border-top:1px solid #ddd;"><strong>Shipping Address:</strong></div>`;
+            html += `<div style="margin-top:8px;white-space:pre-wrap;font-size:13px;">${escapeHtml(String(customer.shipping_address))}</div>`;
+        }
+        
+        html += '</div>';
+        return html;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  SEND REPLY - FIXED VERSION WITH PROPER TAG REPLACEMENT
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    async function sendReply(id) {
+        if (!canEdit()) {
+            showToast('❌ Permission Denied', 'You do not have edit permission for tickets', 'error');
+            return;
+        }
+        var from = document.getElementById("detailReplyFrom").value;
+        var editor = document.getElementById("detailReplyBodyEditor");
+        var source = document.getElementById("detailReplyBodySource");
+        
+        // Get body from whichever mode is active
+        var rawBody = emailSourceMode ? source.value.trim() : editor.innerHTML.trim();
+        
+        if (!rawBody || rawBody === '<br>') {
+            showToast('⚠️ Please enter a reply', 'Reply content is required', 'warning');
+            return;
+        }
+        
+        // Get the ticket to access metadata
+        let metadata = {};
+        let ticketData = {};
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            
+            const ticketRes = await fetch(API_BASE + "/api/admin/ticket/" + id, {
+                headers: { "Authorization": "Bearer " + token },
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            
+            if (ticketRes.ok) {
+                const data = await ticketRes.json();
+                ticketData = data.ticket || data.data || {};
+                metadata = (ticketData.metadata) || {};
+                // If metadata is a string, parse it
+                if (typeof metadata === 'string') {
+                    try { metadata = JSON.parse(metadata); } catch (e) { metadata = {}; }
+                }
+            } else {
+                console.warn('Failed to fetch ticket:', ticketRes.status);
+            }
+        } catch (e) {
+            console.error('Error fetching ticket metadata:', e);
+            if (e.name === 'AbortError') {
+                showToast('⚠️ Slow Server', 'Order data unavailable, proceeding with reply', 'warning');
+            }
+        }
+        
+        // Start with the raw body
+        let body = rawBody;
+        
+        // REPLACE TEXT TAGS (these are plain text, escape them)
+        const customerName = (ticketData.sender_name || '').toString();
+        const customerEmail = (ticketData.sender_email || '').toString();
+        const customerPhone = (ticketData.sender_phone || '').toString();
+        const ticketNumber = (ticketData.ticket_number || '').toString();
+        
+        // Replace all text-based tags with escaped values
+        body = body.replace(/\{\{customer_name\}\}/g, escapeHtml(customerName));
+        body = body.replace(/\{\{customer_email\}\}/g, escapeHtml(customerEmail));
+        body = body.replace(/\{\{customer_phone\}\}/g, escapeHtml(customerPhone));
+        body = body.replace(/\{\{ticket_number\}\}/g, escapeHtml(ticketNumber));
+        
+        // Also handle shorter/alternative tag versions
+        body = body.replace(/\{\{customer\}\}/g, escapeHtml(customerName));
+        body = body.replace(/\{\{email\}\}/g, escapeHtml(customerEmail));
+        body = body.replace(/\{\{phone\}\}/g, escapeHtml(customerPhone));
+        body = body.replace(/\{\{ticket\}\}/g, escapeHtml(ticketNumber));
+        body = body.replace(/\{\{name\}\}/g, escapeHtml(customerName));
+        
+        // REPLACE ORDER TAGS (these contain HTML, don't escape them)
+        const itemsHtml = renderOrderItemsHtml(metadata);
+        if (itemsHtml) {
+            body = body.replace(/\{\{order_items\}\}/g, itemsHtml);
+            body = body.replace(/\{\{order_items_with_names\}\}/g, itemsHtml);
+        }
+        
+        const summaryHtml = renderOrderSummaryHtml(metadata);
+        if (summaryHtml) {
+            body = body.replace(/\{\{order_summary\}\}/g, summaryHtml);
+        }
+        
+        const customerHtml = renderOrderCustomerHtml(metadata);
+        if (customerHtml) {
+            body = body.replace(/\{\{order_customer\}\}/g, customerHtml);
+        }
+        
+        // Handle order reference
+        if (metadata.order && metadata.order.reference) {
+            body = body.replace(/\{\{order_reference\}\}/g, escapeHtml(String(metadata.order.reference)));
+        }
+        
+        // Handle shipping
+        if (metadata.order && metadata.order.customer && metadata.order.customer.shipping_address) {
+            const shippingHtml = `<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;"><div style="white-space:pre-wrap;">${escapeHtml(metadata.order.customer.shipping_address)}</div></div>`;
+            body = body.replace(/\{\{order_shipping\}\}/g, shippingHtml);
+        }
+        
+        let finalBody = body;
+        
+        try {
+            var res = await fetch(API_BASE + "/api/admin/ticket/" + id + "/reply", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                body: JSON.stringify({ from: from, body: finalBody })
+            });
+            if (res.status === 401) { logout(); closeModal(); return; }
+            var data = await res.json();
+            if (data.success) { 
+                // Clear the editor
+                editor.innerHTML = ""; 
+                source.value = "";
+                // Refresh the modal and lists
+                openTicketModal(id, true); 
+                loadStats(); 
+                resetAndLoad();
+                showToast('✅ Reply Sent', 'Your reply has been sent to the customer', 'success');
+            } else {
+                showToast('❌ Failed', data.error || 'Failed to send reply', 'error');
+            }
+        } catch (e) { 
+            showToast('❌ Error', e.message, 'error');
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  MODAL
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function openModal() {
+        document.getElementById("ticketModal").classList.add("active");
+        document.body.style.overflow = "hidden";
+    }
+
+    function releaseTicketLock(id, useBeacon) {
+        if (!id) return;
+        var url = API_BASE + "/api/admin/ticket/" + id + "/release";
+        if (useBeacon && navigator.sendBeacon) {
+            try {
+                navigator.sendBeacon(url, new Blob([JSON.stringify({ token: token })], { type: "text/plain" }));
+                return;
+            } catch (e) {}
+        }
+        try {
+            fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                keepalive: true
+            }).catch(function(){});
+        } catch (e) {}
+    }
+
+    function closeModal() {
+        document.getElementById("ticketModal").classList.remove("active");
+        document.body.style.overflow = "";
+        if (currentModalTicketId) {
+            releaseTicketLock(currentModalTicketId, false);
+        }
+        currentModalTicketId = null;
+        ticketLockedByOther = false;
+        ticketLockedByInfo = null;
+    }
+
+    document.getElementById("ticketModal").addEventListener("click", function(e) {
+        if (e.target === this) { closeModal(); }
+    });
+    document.addEventListener("keydown", function(e) {
+        if (e.key === "Escape") { closeModal(); }
+    });
+
+    function applyLockStateToModal() {
+        var banner = document.getElementById('lockBanner');
+        if (!banner) return;
+        var controlIds = ['detailStatus', 'detailComment', 'detailReplyBody', 'detailReplyFrom', 'detailAssignSelect'];
+        var controls = controlIds.map(function(id) { return document.getElementById(id); }).filter(Boolean);
+        var buttons = document.querySelectorAll('#modalContent .action-section .btn-primary');
+        var canEditTicket = canEdit();
+
+        if (ticketLockedByOther) {
+            var who = (ticketLockedByInfo && (ticketLockedByInfo.name || ticketLockedByInfo.email)) || 'another agent';
+            banner.textContent = '🔒 Locked by ' + who + ' — read-only until released.';
+            banner.style.display = 'block';
+            controls.forEach(function(el) { el.disabled = true; });
+            buttons.forEach(function(btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; });
+        } else {
+            banner.style.display = 'none';
+            banner.textContent = '';
+            controls.forEach(function(el) { el.disabled = !canEditTicket; });
+            buttons.forEach(function(btn) {
+                btn.disabled = !canEditTicket;
+                btn.style.opacity = canEditTicket ? '' : '0.5';
+                btn.style.cursor = canEditTicket ? '' : 'not-allowed';
+            });
+        }
+    }
+
+    async function openTicketModal(id, isRefresh) {
+        if (!isRefresh) {
+            if (currentModalTicketId && currentModalTicketId !== id) releaseTicketLock(currentModalTicketId);
+            currentModalTicketId = id;
+            ticketLockedByOther = false;
+            ticketLockedByInfo = null;
+
+            try {
+                var lockRes = await fetch(API_BASE + "/api/admin/ticket/" + id + "/lock", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token }
+                });
+                if (lockRes.status === 401) { logout(); return; }
+                var lockData = await lockRes.json();
+                if (!lockData.success && lockData.locked_by) {
+                    ticketLockedByOther = true;
+                    ticketLockedByInfo = lockData.locked_by;
+                    currentModalTicketId = null;
+                    if (currentUser && currentUser.role === 'admin') {
+                        var proceedForce = confirm('This ticket is locked by ' + (lockData.locked_by.name || lockData.locked_by.email) + '. Force unlock and open it?');
+                        if (proceedForce) {
+                            await fetch(API_BASE + "/api/admin/ticket/" + id + "/release", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token }
+                            }).catch(function(){});
+                            return openTicketModal(id, isRefresh);
+                        }
+                    }
+                    showToast('🔒 Ticket Locked', 'This ticket is being edited by ' + (lockData.locked_by.name || lockData.locked_by.email), 'warning');
+                    return;
+                }
+            } catch (e) {
+                showToast('❌ Error', 'Failed to lock ticket', 'error');
+                return;
+            }
+            
+            openModal();
+            var content = document.getElementById("modalContent");
+            content.innerHTML = '<div class="loading">Loading...</div>';
+        }
+
+        var content = document.getElementById("modalContent");
+        try {
+            var res = await fetch(API_BASE + "/api/admin/ticket/" + id, {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            if (res.status === 401) { logout(); closeModal(); return; }
+            var data = await res.json();
+            var ticket = data.ticket || data.data || data;
+            if (ticket && ticket.id) {
+                if (!ticket.comments) ticket.comments = [];
+                renderTicketDetailModal(ticket);
+                applyLockStateToModal();
+            } else if (!isRefresh) {
+                content.innerHTML = '<div class="loading">Error loading ticket</div>';
+            }
+        } catch (e) {
+            if (!isRefresh) content.innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
+        }
+    }
+
+    function renderTicketDetailModal(ticket) {
+        var content = document.getElementById("modalContent");
+        var activityHtml = "";
+        if (ticket.comments && ticket.comments.length > 0) {
+            for (var i = 0; i < ticket.comments.length; i++) {
+                var c = ticket.comments[i];
+                var isPublicReply = c.comment_type === 'public';
+                var isIncoming = c.comment_type === 'incoming';
+                var isStatusChange = c.comment_type === 'status_change';
+                var timestamp = formatDate(c.created_at);
+                var author = c.author_email || 'System';
+                
+                var boxStyle = 'style="border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:12px;background:var(--bg-input);"';
+                var headerStyle = 'style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);"';
+                var iconStyle = 'style="font-size:18px;min-width:24px;"';
+                var titleStyle = 'style="font-weight:600;font-size:13px;flex:1;"';
+                var timeStyle = 'style="font-size:12px;color:var(--text-muted);"';
+                var subHeaderStyle = 'style="font-size:12px;color:var(--text-muted);margin-bottom:8px;padding:0 0 8px 0;border-bottom:1px solid var(--border);"';
+                var msgStyle = 'style="font-size:13px;line-height:1.6;margin-top:8px;white-space:pre-wrap;word-wrap:break-word;"';
+                
+                if (isPublicReply) {
+                    var raw = c.content || '';
+                    var replyFrom = '';
+                    var replyContent = raw;
+                    if (raw.charAt(0) === '\u0001') {
+                        var parts = raw.substring(1).split('\u0001');
+                        replyFrom = parts[0] || '';
+                        replyContent = parts.slice(1).join('\u0001');
+                    } else {
+                        replyFrom = author;
+                        replyContent = raw.replace(/^Reply sent:\s*/, '');
+                    }
+                    
+                    var isHtml = detectIsHtml(replyContent);
+                    var displayContent = isHtml ? sanitizeHtml(replyContent) : escapeHtml(replyContent);
+                    var contentStyle = isHtml ? msgStyle : 'style="font-size:13px;line-height:1.6;margin-top:8px;white-space:pre-wrap;word-wrap:break-word;"';
+                    
+                    activityHtml += '<div ' + boxStyle + '>' +
+                        '<div ' + headerStyle + '>' +
+                        '<span ' + iconStyle + '>📧</span>' +
+                        '<span ' + titleStyle + '>Email sent to Customer</span>' +
+                        '<span ' + timeStyle + '>' + timestamp + '</span>' +
+                        '</div>' +
+                        '<div ' + subHeaderStyle + '>' +
+                        '<div>' + escapeHtml(author) + '</div>' +
+                        (replyFrom ? '<div style="margin-top:4px;"><strong>Sent from:</strong> ' + escapeHtml(replyFrom) + '</div>' : '') +
+                        '</div>' +
+                        '<div ' + contentStyle + '>' + displayContent + '</div>' +
+                        '</div>';
+                } else if (isIncoming) {
+                    var isHtml = detectIsHtml(c.content || '');
+                    var displayContent = isHtml ? sanitizeHtml(c.content || '') : escapeHtml(c.content || '');
+                    var contentStyle = isHtml ? msgStyle : 'style="font-size:13px;line-height:1.6;margin-top:8px;white-space:pre-wrap;word-wrap:break-word;"';
+                    
+                    activityHtml += '<div ' + boxStyle + '>' +
+                        '<div ' + headerStyle + '>' +
+                        '<span ' + iconStyle + '>📥</span>' +
+                        '<span ' + titleStyle + '>Email received from Customer</span>' +
+                        '<span ' + timeStyle + '>' + timestamp + '</span>' +
+                        '</div>' +
+                        '<div ' + subHeaderStyle + '>' + escapeHtml(author) + '</div>' +
+                        '<div ' + contentStyle + '>' + displayContent + '</div>' +
+                        '</div>';
+                } else if (isStatusChange) {
+                    var oldStatus = c.old_status || 'unknown';
+                    var newStatus = c.new_status || 'unknown';
+                    activityHtml += '<div ' + boxStyle + '>' +
+                        '<div ' + headerStyle + '>' +
+                        '<span ' + iconStyle + '>✏️</span>' +
+                        '<span ' + titleStyle + '>Status changed</span>' +
+                        '<span ' + timeStyle + '>' + timestamp + '</span>' +
+                        '</div>' +
+                        '<div ' + subHeaderStyle + '>' +
+                        escapeHtml(author) +
+                        '</div>' +
+                        '<div style="font-size:13px;"><span style="display:inline-block;padding:3px 10px;border-radius:4px;background:#fee2e2;color:#991b1b;font-family:monospace;font-weight:600;">' + escapeHtml(oldStatus) + '</span><span style="margin:0 8px;">→</span><span style="display:inline-block;padding:3px 10px;border-radius:4px;background:#dbeafe;color:#1e40af;font-family:monospace;font-weight:600;">' + escapeHtml(newStatus) + '</span></div>' +
+                        '</div>';
+                } else {
+                    activityHtml += '<div ' + boxStyle + '>' +
+                        '<div ' + headerStyle + '>' +
+                        '<span ' + iconStyle + '>💭</span>' +
+                        '<span ' + titleStyle + '>Internal comment</span>' +
+                        '<span ' + timeStyle + '>' + timestamp + '</span>' +
+                        '</div>' +
+                        '<div ' + subHeaderStyle + '>' +
+                        escapeHtml(author) +
+                        '</div>' +
+                        '<div ' + msgStyle + '>' + escapeHtml(c.content || '') + '</div>' +
+                        '</div>';
+                }
+            }
+        }
+
+        var statusOptions = ["new", "open", "in_progress", "pending", "resolved", "closed"];
+        var statusDropdown = `<select id="detailStatus" onchange="updateStatus(${ticket.id})" ${!canEdit() ? 'disabled' : ''}>`;
+        for (var i = 0; i < statusOptions.length; i++) {
+            var s = statusOptions[i];
+            statusDropdown += '<option value="' + s + '" ' + (s === ticket.status ? "selected" : "") + '>' + s.replace('_', ' ') + '</option>';
+        }
+        statusDropdown += '</select>';
+
+        var senderDropdown = '<select id="detailReplyFrom">';
+        if (emailSenders && emailSenders.length > 0) {
+            var isFirst = true;
+            for (var i = 0; i < emailSenders.length; i++) {
+                var email = emailSenders[i];
+                var selected = isFirst ? "selected" : "";
+                senderDropdown += '<option value="' + email + '" ' + selected + '>' + email + '</option>';
+                isFirst = false;
+            }
+        } else {
+            senderDropdown += '<option value="" disabled selected>No email senders available</option>';
+        }
+        senderDropdown += '</select>';
+
+        var slaLabel = getSlaDisplay(ticket.sla_status || 'on_track').label;
+        var slaClass = getSlaDisplay(ticket.sla_status || 'on_track').cls;
+        var catColor = getCatColor(ticket.category);
+        var isClosed = ticket.status === 'closed';
+
+        var fullName = [ticket.sender_name, ticket.sender_last_name].filter(Boolean).join(' ') || 'Unknown';
+        var orderNum = ticket.order_number ? escapeHtml(ticket.order_number) : '—';
+        var ticketCompany = '—';
+        var metaObj = {};
+        try {
+            metaObj = typeof ticket.metadata === 'string' ? JSON.parse(ticket.metadata) : (ticket.metadata || {});
+            if (metaObj && metaObj.company) ticketCompany = metaObj.company;
+        } catch (e) {}
+        var sourceLabel = getSourceLabel(metaObj);
+
+        var actionsHtml = '';
+        var canEditTicket = canEdit();
+        var canAssignTicket = currentUser && ['tl', 'manager', 'admin'].includes(currentUser.role);
+        var assignHtml = canAssignTicket ? `
+            <div class="detail-section action-section">
+                <h4>🧑‍💼 Assign Ticket</h4>
+                <select id="detailAssignSelect" onchange="autoUpdateAssignment(${ticket.id})"><option value="">Loading agents...</option></select>
+                <div style="margin-top:8px;font-size:12px;color:var(--text-muted);">Auto-saves on change</div>
+            </div>` : '';
+        if (!isClosed) {
+            actionsHtml = `
+            ${assignHtml}
+            <div class="detail-section action-section">
+                <h4>✏️ Update Status</h4>
+                ${statusDropdown}
+                <div style="margin-top:8px;font-size:12px;color:var(--text-muted);">Auto-saves on change</div>
+            </div>
+            <div class="detail-section action-section comment-input">
+                <h4>📝 Add Comment</h4>
+                <textarea id="detailComment" placeholder="Write an internal comment..." ${!canEditTicket ? 'disabled' : ''}></textarea>
+                <div class="actions"><button class="btn-primary" onclick="addComment(${ticket.id})" ${!canEditTicket ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Add Comment</button></div>
+            </div>
+            <div class="detail-section action-section">
+                <h4>✉️ Reply to Customer</h4>
+                <label>From:</label>
+                ${senderDropdown}
+                ${metaObj && metaObj.order && metaObj.order.items && metaObj.order.items.length > 0 ? `
+                <div style="margin:12px 0;padding:10px;background:var(--bg-secondary,#f5f5f5);border-radius:6px;display:flex;gap:6px;flex-wrap:wrap;">
+                    <span style="font-size:12px;color:var(--text-muted);width:100%;margin-bottom:6px;">📦 Insert order data:</span>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{order_items}}')">📦 Order Items</button>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{order_summary}}')">📊 Order Summary</button>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{order_customer}}')">👤 Customer Info</button>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{order_shipping}}')">📦 Shipping</button>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{order_reference}}')">📋 Order Ref</button>
+                </div>
+                ` : ''}
+                
+                <div id="emailTagBar" class="email-tag-bar" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px;background:var(--bg-secondary);border-radius:6px;">
+                    <span class="tag-bar-label" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-right:4px;">Insert:</span>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{customer_name}}')">👤 Customer Name</button>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{customer_email}}')">📧 Customer Email</button>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{customer_phone}}')">📱 Phone</button>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{ticket_number}}')">🎫 Ticket #</button>
+                    ${metaObj && metaObj.order ? `
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{order_items}}')">📦 Order Items</button>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{order_summary}}')">📊 Summary</button>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{order_customer}}')">👤 Customer Info</button>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{order_shipping}}')">📦 Shipping</button>
+                    <button type="button" class="tag-chip" onclick="insertEmailTag('{{order_reference}}')">📋 Order Ref</button>
+                    ` : ''}
+                </div>
+                
+                <div id="emailTemplateBar" class="email-template-bar" style="margin-bottom:12px;display:none;">
+                    <select id="emailTemplateSelect" style="max-width:220px;padding:6px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;">
+                        <option value="">📁 Load template…</option>
+                    </select>
+                    <button type="button" class="editor-btn" style="padding:6px 10px;" onclick="loadEmailTemplate(document.getElementById('emailTemplateSelect').value)">Load</button>
+                    <button type="button" class="editor-btn" style="padding:6px 10px;" onclick="saveEmailTemplate()">💾 Save</button>
+                    <button type="button" class="editor-btn" style="padding:6px 10px;color:#dc2626;" onclick="deleteEmailTemplate()">Delete</button>
+                    <span class="shared-badge">👥 Shared</span>
+                </div>
+                
+                <div id="editorWrapper" class="editor-wrapper">
+                    <div class="editor-tabs">
+                        <button type="button" class="editor-tab active" onclick="switchEditorTab('editor')">✏️ Editor</button>
+                        <button type="button" class="editor-tab" onclick="switchEditorTab('preview')">👁 Preview</button>
+                    </div>
+                    
+                    <div id="editorToolbar" class="editor-toolbar" ${!canEditTicket ? 'style="opacity:0.5;pointer-events:none"' : ''}>
+                        <button type="button" class="editor-btn" title="Bold" onclick="formatEditor('bold')"><strong>B</strong></button>
+                        <button type="button" class="editor-btn" title="Italic" onclick="formatEditor('italic')"><em>I</em></button>
+                        <button type="button" class="editor-btn" title="Underline" onclick="formatEditor('underline')"><u>U</u></button>
+                        <div class="editor-divider"></div>
+                        <button type="button" class="editor-btn" title="Heading" onclick="formatEditor('formatBlock', '<h3>')">H</button>
+                        <button type="button" class="editor-btn" title="Unordered List" onclick="formatEditor('insertUnorderedList')">• List</button>
+                        <button type="button" class="editor-btn" title="Ordered List" onclick="formatEditor('insertOrderedList')">1. List</button>
+                        <button type="button" class="editor-btn" title="Link" onclick="insertEmailLink()">🔗</button>
+                        <button type="button" class="editor-btn" title="Blockquote" onclick="formatEditor('formatBlock', '<blockquote')">❝</button>
+                        <div class="editor-divider"></div>
+                        <button type="button" class="editor-btn" title="Clear Formatting" onclick="formatEditor('removeFormat')">✕</button>
+                        <button type="button" class="editor-btn rte-toggle-btn" title="HTML Source" onclick="toggleEmailHtmlSource()">{'</>'}</button>
+                    </div>
+                    
+                    <div id="editorContainerVisual" class="editor-container">
+                        <div id="detailReplyBodyEditor" class="editor-content rte-editor" placeholder="Write your reply to the customer..." contenteditable="true" ${!canEditTicket ? 'disabled' : ''}></div>
+                    </div>
+                    
+                    <textarea id="detailReplyBodySource" class="rte-source" ${!canEditTicket ? 'disabled' : ''}></textarea>
+                    
+                    <div id="editorContainerPreview" class="editor-container" style="display:none;">
+                        <div id="previewContent" class="email-preview"></div>
+                    </div>
+                    
+                    <div style="font-size:12px;color:var(--text-muted);padding:6px 12px;background:var(--bg-secondary);border-top:1px solid var(--border);display:none;" id="sourceHint">Use <code>{{order_items}}</code>, <code>{{order_summary}}</code>, or <code>{{order_customer}}</code> for dynamic content</div>
+                </div>
+                <div class="actions"><button class="btn-primary" onclick="sendReply(${ticket.id})" ${!canEditTicket ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Send Reply</button></div>
+            </div>`;
+        } else {
+            actionsHtml = `
+            ${assignHtml}
+            <div class="detail-section action-section">
+                <h4>✏️ Reopen Ticket</h4>
+                ${statusDropdown}
+                <div style="margin-top:8px;font-size:12px;color:var(--text-muted);">Auto-saves on change</div>
+            </div>`;
+        }
+
+        content.innerHTML = `
+            <div class="detail-section">
+                <h3>📋 Ticket Details</h3>
+                <div class="modal-subject-row"><span class="meta-label" style="font-size:11px;color:var(--text-muted);margin-right:6px;">Subject:</span><span class="modal-subject-text">${escapeHtml(ticket.subject || 'No subject')}</span></div>
+                <div class="ticket-meta-grid">
+                    <div class="meta-item"><span class="meta-label">Ticket Number</span><span class="meta-value" style="font-family:monospace;color:var(--accent);">#${ticket.ticket_number}</span></div>
+                    <div class="meta-item"><span class="meta-label">Status</span><span class="meta-value" data-meta="status">${ticket.status.toUpperCase()}</span></div>
+                    <div class="meta-item"><span class="meta-label">SLA</span><span class="meta-value ${slaClass} sla-badge-inline">${slaLabel}</span></div>
+                    <div class="meta-item"><span class="meta-label">Category</span><span class="meta-value"><span class="cat-dot" style="background:${catColor};margin-right:6px;"></span>${ticket.category || "Other"}</span></div>
+                    <div class="meta-item"><span class="meta-label">Name</span><span class="meta-value">${escapeHtml(fullName)}</span></div>
+                    <div class="meta-item"><span class="meta-label">Email</span><span class="meta-value">${ticket.sender_email || "Unknown"}</span></div>
+                    <div class="meta-item"><span class="meta-label">Phone</span><span class="meta-value">${escapeHtml(ticket.sender_phone || '—')}</span></div>
+                    <div class="meta-item"><span class="meta-label">Company</span><span class="meta-value">${escapeHtml(ticketCompany)}</span></div>
+                    <div class="meta-item"><span class="meta-label">Source</span><span class="meta-value">${sourceLabel}</span></div>
+                    <div class="meta-item"><span class="meta-label">Order Number</span><span class="meta-value">${orderNum}</span></div>
+                    <div class="meta-item"><span class="meta-label">Assigned To</span><span class="meta-value" data-meta="assigned_to">${escapeHtml(ticket.assigned_to || '—')}</span></div>
+                    <div class="meta-item"><span class="meta-label">Created</span><span class="meta-value">${formatDate(ticket.created_at)}</span></div>
+                    <div class="meta-item"><span class="meta-label">Updated By</span><span class="meta-value">${ticket.last_updated_by ? (ticket.last_updated_by === ticket.sender_email ? '👤 Customer (' + escapeHtml(ticket.last_updated_by) + ')' : escapeHtml(ticket.last_updated_by)) : '—'}</span></div>
+                    <div class="meta-item"><span class="meta-label">Last Updated</span><span class="meta-value">${formatDate(ticket.updated_at || ticket.last_action || ticket.created_at)}</span></div>
+                    <div class="meta-item"><span class="meta-label">Language</span><span class="meta-value">${ticket.language ? escapeHtml(ticket.language.toUpperCase()) : '—'}</span></div>
+                </div>
+            </div>
+            <div class="detail-section">
+                <h3>💬 Message <span style="font-size:12px;font-weight:500;color:var(--text-muted);">${sourceLabel}</span></h3>
+                <div class="ticket-body">${escapeHtml(ticket.message || "No message")}</div>
+            </div>
+            <div class="detail-section activity-log-section">
+                <h3>📋 Activity Log (${ticket.comments ? ticket.comments.length : 0})</h3>
+                ${activityHtml || '<div style="color:var(--text-muted);font-size:13px;">No activity yet</div>'}
+            </div>
+            ${actionsHtml}
+        `;
+
+        if (canAssignTicket) populateAssignDropdown(ticket.assigned_to);
+        setTimeout(() => {
+            initializeEmailEditor();
+            if (canEdit()) {
+                document.getElementById("emailTemplateBar").style.display = "flex";
+            }
+        }, 100);
+    }
+
+    async function populateAssignDropdown(currentAssignee) {
+        const select = document.getElementById('detailAssignSelect');
+        if (!select) return;
+        if (!agentsListCache) {
+            try {
+                const res = await fetch(API_BASE + '/api/admin/users', { headers: { Authorization: 'Bearer ' + token } });
+                const data = await res.json();
+                agentsListCache = data.success ? data.users.filter(u => ['agent', 'tl', 'manager', 'admin'].includes(u.role)) : [];
+            } catch (e) {
+                agentsListCache = [];
+            }
+        }
+        select.innerHTML = '<option value="">Unassigned</option>' + agentsListCache.map(u =>
+            `<option value="${escapeHtml(u.email)}" ${u.email === currentAssignee ? 'selected' : ''}>${escapeHtml(u.name || u.email)}</option>`
+        ).join('');
+    }
+
+    async function autoUpdateAssignment(ticketId) {
+        const select = document.getElementById('detailAssignSelect');
+        if (!select) return;
+        const assigned_to = select.value || null;
+        
+        select.disabled = true;
+        const originalValue = select.value;
+        
+        try {
+            const res = await fetch(API_BASE + '/api/admin/ticket/' + ticketId + '/assign', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                body: JSON.stringify({ assigned_to })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast('✅ Assigned', assigned_to ? `Assigned to ${assigned_to}` : 'Unassigned', 'success');
+                const metaDisplay = document.querySelector('[data-meta="assigned_to"]');
+                if (metaDisplay) {
+                    metaDisplay.textContent = assigned_to || '—';
+                }
+                loadStats();
+                resetAndLoad();
+            } else {
+                showToast('❌ Error', data.error || 'Could not update assignment', 'error');
+                select.value = originalValue;
+            }
+        } catch (e) {
+            showToast('❌ Error', e.message, 'error');
+            select.value = originalValue;
+        } finally {
+            select.disabled = false;
+        }
+    }
+
+    async function updateStatus(id) {
+        if (!canEdit()) {
+            showToast('❌ Permission Denied', 'You do not have edit permission for tickets', 'error');
+            return;
+        }
+        
+        const statusSelect = document.getElementById("detailStatus");
+        if (!statusSelect) return;
+        
+        const newStatus = statusSelect.value;
+        const originalStatus = statusSelect.dataset.originalValue || statusSelect.value;
+        
+        statusSelect.disabled = true;
+        
+        try {
+            const res = await fetch(API_BASE + "/api/admin/ticket/" + id + "/status", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                body: JSON.stringify({ status: newStatus })
+            });
+            if (res.status === 401) { logout(); closeModal(); return; }
+            
+            const data = await res.json();
+            if (data.success) { 
+                showToast('✅ Status Updated', `Changed to ${newStatus.toUpperCase()}`, 'success');
+                
+                const statusDisplay = document.querySelector('[data-meta="status"]');
+                if (statusDisplay) {
+                    statusDisplay.textContent = newStatus.toUpperCase();
+                }
+                
+                statusSelect.dataset.originalValue = newStatus;
+                
+                loadStats(); 
+                resetAndLoad();
+            } else {
+                showToast('❌ Update Failed', data.error || 'Unknown error', 'error');
+                statusSelect.value = originalStatus;
+            }
+        } catch (e) { 
+            showToast('❌ Error', e.message, 'error');
+            statusSelect.value = originalStatus;
+        } finally {
+            statusSelect.disabled = false;
+        }
+    }
+
+    async function addComment(id) {
+        if (!canEdit()) {
+            showToast('❌ Permission Denied', 'You do not have edit permission for tickets', 'error');
+            return;
+        }
+        var content = document.getElementById("detailComment").value;
+        if (!content) {
+            showToast('⚠️ Please enter a comment', 'Comment is required', 'warning');
+            return;
+        }
+        try {
+            var res = await fetch(API_BASE + "/api/admin/ticket/" + id + "/comment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                body: JSON.stringify({ content: content, type: "internal" })
+            });
+            if (res.status === 401) { logout(); closeModal(); return; }
+            var data = await res.json();
+            if (data.success) { 
+                document.getElementById("detailComment").value = ""; 
+                openTicketModal(id, true); 
+                loadStats(); 
+                resetAndLoad();
+            } else {
+                showToast('❌ Failed', 'Failed to add comment', 'error');
+            }
+        } catch (e) { 
+            showToast('❌ Error', e.message, 'error');
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  TABS & FILTERING
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function switchTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll('.ticket-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
+        resetAndLoad();
+    }
+
+    function resetAndLoad() {
+        if (!isRefreshing) {
+            isRefreshing = true;
+            loadTickets(1).finally(() => {
+                isRefreshing = false;
+            });
+        }
+    }
+
+    function getStatusesForTab(tab) {
+        var map = {
+            'active': ['new', 'open', 'in_progress', 'pending'],
+            'resolved': ['resolved'],
+            'closed': ['closed']
+        };
+        return map[tab] || [];
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  UTILITIES
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    function formatDate(dateStr) {
+        if (!dateStr) return "Invalid Date";
+        try {
+            var cleaned = dateStr.replace(" ", "T");
+            if (!cleaned.includes("Z") && !cleaned.includes("+")) { cleaned += "Z"; }
+            var d = new Date(cleaned);
+            if (isNaN(d.getTime())) { return dateStr; }
+            return d.toLocaleString(undefined, {
+                year: "numeric", month: "short", day: "numeric",
+                hour: "2-digit", minute: "2-digit",
+                timeZone: userTimezone || "UTC"
+            });
+        } catch (e) { return dateStr; }
+    }
+
+    function getSourceLabel(metaObj) {
+        var source = metaObj && metaObj.source;
+        if (source === 'email') return '📧 Email';
+        if (source === 'newsletter') return '📧 Newsletter';
+        if (source === 'website') return '🌐 Web Form';
+        if (source === 'contact-form') return '🌐 Web Form (Contact)';
+        if (source === 'support-form') return '🌐 Web Form (Support)';
+        if (source) return '🌐 Web Form';
+        return '📧 Email';
+    }
+
+    function getSlaDisplay(status) {
+        var map = {
+            'on_track': { cls: 'sla-on-track', label: '✅ On Track' },
+            'at_risk': { cls: 'sla-at-risk', label: '⚠️ At Risk' },
+            'critical': { cls: 'sla-critical', label: '🔴 Critical' },
+            'breached': { cls: 'sla-breached', label: '❌ Breached' },
+            'paused': { cls: 'sla-paused', label: '⏸️ Paused' }
+        };
+        return map[status] || map['on_track'];
+    }
+</script>
+</body>
+</html>
