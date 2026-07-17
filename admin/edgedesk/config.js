@@ -1,9 +1,9 @@
 // config-hybrid.js - Supports loading from config.json with JS fallback
 // MUST be loaded FIRST before any other application scripts
-// Load order: config.js → edgedeskconfig.js → shared.js → page-specific scripts
+// Load order: config.js → dornoriumconfig.js → shared.js → page-specific scripts
 
 // Default constants (used if config.json unavailable)
-window.EDGEDESK_CONSTANTS = {
+window.DORNORIUM_CONSTANTS = {
     // ─── APPLICATION META ───────────────────────────────────────
     VERSION: '1.1.0',
     
@@ -67,7 +67,7 @@ async function loadConfigFromJson() {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const json = await response.json();
         // Merge JSON config into constants (JSON values override defaults)
-        Object.assign(window.EDGEDESK_CONSTANTS, json);
+        Object.assign(window.DORNORIUM_CONSTANTS, json);
         console.log('✓ Config loaded from JSON');
     } catch (err) {
         console.warn('⚠ Config.json unavailable, using defaults:', err.message);
@@ -80,7 +80,7 @@ loadConfigFromJson();
 // ─── HELPER FUNCTIONS FOR CONFIGURATION ─────────────────────
 // Allow environment variable overrides (for deployment flexibility)
 function getConfigValue(key, defaultValue) {
-    const envKey = `EDGEDESK_${key}`;
+    const envKey = `DORNORIUM_${key}`;
     const envVal = window[envKey] || undefined;
     
     if (envVal !== undefined) {
@@ -94,7 +94,7 @@ function getConfigValue(key, defaultValue) {
     }
     
     // Fall back to constant value
-    const constVal = window.EDGEDESK_CONSTANTS[key];
+    const constVal = window.DORNORIUM_CONSTANTS[key];
     if (constVal !== undefined) {
         return constVal;
     }
@@ -107,5 +107,5 @@ window.getConfigValue = getConfigValue;
 
 // ─── EXPORT FOR NODE.JS/BUNDLERS (Optional) ──────────────────
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = window.EDGEDESK_CONSTANTS;
+    module.exports = window.DORNORIUM_CONSTANTS;
 }

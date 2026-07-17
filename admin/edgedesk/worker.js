@@ -2714,8 +2714,8 @@ var worker_default = {
           const resetLink = `${base}${pathPrefix}/reset-password.html?token=${token}`;
           const from = (await getSetting(env, "email", "password_reset_from")) || (await getSetting(env, "email", "default_from"));
           if (from) {
-            const body = `<p>Hi ${user.name || ""},</p><p>We received a request to reset your EdgeDesk password. Click the link below to choose a new password. This link expires in 15 minutes.</p><p><a href="${resetLink}">${resetLink}</a></p><p>If you didn't request this, you can safely ignore this email.</p>`;
-            await sendEmail(env, user.email, "Reset your EdgeDesk password", body, from);
+            const body = `<p>Hi ${user.name || ""},</p><p>We received a request to reset your Dornorium password. Click the link below to choose a new password. This link expires in 15 minutes.</p><p><a href="${resetLink}">${resetLink}</a></p><p>If you didn't request this, you can safely ignore this email.</p>`;
+            await sendEmail(env, user.email, "Reset your Dornorium password", body, from);
           }
         }
         return json(genericResponse);
