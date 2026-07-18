@@ -8,7 +8,7 @@ window.DORNORIUM_CONSTANTS = {
     VERSION: '1.1.0',
     
     // ─── API CONFIGURATION ──────────────────────────────────────
-    API_BASE: 'https://dornori-ticketing.dornori-info.workers.dev',
+    API_BASE: 'https://dornor.dornori-info.workers.dev',
     
     // ─── PRODUCT DATA URLS ──────────────────────────────────────
     PRODUCTS_DATA_BASE_URL: 'https://cdn.example.com/data',
