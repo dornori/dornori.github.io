@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Settings – Dornorium</title>
     <link rel="stylesheet" href="style.css" />
-    <script src="config.js"></script>
     <script src="shared.js"></script>
     <style>
         .s-page { max-width: 1200px; margin: 0 auto; }
@@ -129,13 +128,7 @@
 <div id="toast" class="toast"></div>
 
 <script>
-// ── Theme ──
-function setTheme(t) {
-    document.documentElement.setAttribute('data-theme', t);
-    localStorage.setItem('theme', t);
-    document.querySelectorAll('.theme-toggle').forEach(b => b.textContent = t === 'dark' ? '☀️' : '🌙');
-}
-function toggleTheme() { setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); }
+// setTheme() / toggleTheme() come from shared.js
 setTheme(localStorage.getItem('theme') || 'light');
 
 // ── Auth ──
@@ -143,12 +136,7 @@ const token = localStorage.getItem('token');
 const storedUser = localStorage.getItem('user');
 const currentUser = storedUser ? JSON.parse(storedUser) : null;
 
-function hasAccess(page, action = 'view') {
-    if (!currentUser?.effective_permissions) return false;
-    const perms = currentUser.effective_permissions[page];
-    if (!perms) return false;
-    return perms[action] === true;
-}
+// hasAccess() comes from shared.js
 
 if (!token || !currentUser || !hasAccess('settings', 'view')) {
     document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1>⛔ Access Denied</h1><p>You don\'t have permission to access settings.</p><a href="dashboard.html" style="color: var(--accent);">← Back to Dashboard</a></div>';
@@ -168,13 +156,14 @@ if (!token || !currentUser || !hasAccess('settings', 'view')) {
             currentUser.allowed_emails = data.user.allowed_emails || [];
             currentUser.allowed_categories = data.user.allowed_categories || [];
             currentUser.team_id = data.user.team_id || null;
+            localStorage.setItem('user', JSON.stringify(currentUser));
             if (!hasAccess('settings', 'view')) { window.location.href = 'dashboard.html'; return; }
             if (typeof load === 'function') load();
         }
     } catch (e) {}
 })();
 
-function hasPageAccess(page) { return hasAccess(page, 'view'); }
+// hasPageAccess() comes from shared.js
 function canEditSettings() { return hasAccess('settings', 'edit'); }
 function canCreateSettings() { return hasAccess('settings', 'create'); }
 function canDeleteSettings() { return hasAccess('settings', 'delete'); }
@@ -775,15 +764,9 @@ async function clearFooter(email, safeKey) { if (!confirm('Clear footer for '+em
 
 // ── INIT ──
 load();
-function renderUserBadge() {
-    const u = currentUser; if (!u) return;
-    const initials = (u.name || u.email || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-    const meta = [u.role, u.team_id].filter(Boolean).join(' · ');
-    const el = document.getElementById('userDisplay');
-    if (el) el.innerHTML = `<div class="user-badge"><div class="user-badge-avatar">${initials}</div><div class="user-badge-info"><span class="user-badge-name">${u.name||u.email}</span><span class="user-badge-meta">${meta}</span></div></div>`;
-}
+// renderUserBadge() comes from shared.js
 renderUserBadge();
-function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'dashboard.html'; }
+// logout() comes from shared.js
 async function purgeTicketCacheClick() {
     if (!canEditSettings()) return;
     if (!confirm('Purge the ticket cache?')) return;

@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dornorium</title>
     <link rel="stylesheet" href="style.css" />
-    <script src="config.js"></script>
-    <script src="dornoriumconfig.js"></script>
+    
     <script src="shared.js"></script>
     <style>
         .tag-chip {
@@ -623,12 +622,7 @@
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  PERMISSION SERVICE - UNIFIED
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function hasAccess(page, action = 'view') {
-        if (!currentUser?.effective_permissions) return false;
-        const perms = currentUser.effective_permissions[page];
-        if (!perms) return false;
-        return perms[action] === true;
-    }
+    // hasAccess() comes from shared.js
 
     const PermissionService = {
         updateUI() {
@@ -827,10 +821,6 @@
     //  INIT & STORAGE
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     window.addEventListener('load', async function() {
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        updateThemeButtonIcon(savedTheme);
-        
         const savedToken = localStorage.getItem('token');
         const savedUser = localStorage.getItem('user');
         
@@ -917,24 +907,9 @@
         }
     }
 
-    function setTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('theme', theme);
-    }
-
-    function toggleTheme() {
-        const current = document.documentElement.getAttribute('data-theme') || 'light';
-        const newTheme = current === 'light' ? 'dark' : 'light';
-        setTheme(newTheme);
-        updateThemeButtonIcon(newTheme);
-    }
-    
-    function updateThemeButtonIcon(theme) {
-        const btn = document.querySelector('.theme-toggle');
-        if (btn) {
-            btn.textContent = theme === 'dark' ? '☀️' : '🌙';
-        }
-    }
+    // setTheme() / toggleTheme() come from shared.js (already handles the
+    // .theme-toggle button icon, so the local updateThemeButtonIcon() this
+    // page had was redundant with it).
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  AUTHENTICATION
@@ -1055,22 +1030,17 @@
         }
     }
 
-    function renderUserBadge() {
-        const u = currentUser;
-        if (!u) return;
-        const initials = (u.name || u.email || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-        const meta = [u.role, u.team_id].filter(Boolean).join(' · ');
-        const el = document.getElementById('userDisplay');
-        if (el) el.innerHTML = `<div class="user-badge"><div class="user-badge-avatar">${initials}</div><div class="user-badge-info"><span class="user-badge-name">${u.name || u.email}</span><span class="user-badge-meta">${meta}</span></div></div>`;
-    }
-
+    // renderUserBadge() comes from shared.js
     function updateUserDisplay() {
         renderUserBadge();
     }
 
-    function logout() {
+    async function logout() {
         if (currentModalTicketId) releaseTicketLock(currentModalTicketId, false);
         disconnectWebSocket();
+        try {
+            await apiCall('/api/admin/logout', { method: 'POST' });
+        } catch (e) {}
         token = null;
         currentUser = { email: null, name: null, role: null, page_permissions: {} };
         localStorage.removeItem("token");
@@ -1318,7 +1288,7 @@
                 '<span class="ticket-num">' + escapeHtml(t.ticket_number || '') + '</span>' +
                 '<span class="status ' + statusClass + '">' + t.status.replace('_', ' ') + '</span>' +
                 '<span class="cat-cell"><span class="cat-dot" style="background:' + catColor + ';"></span><span class="cat-name">' + escapeHtml(catLabel) + '</span></span>' +
-                '<span class="email" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;">' + (t.sender_email || "") + '</span>' +
+                '<span class="email" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(t.sender_email || "") + '</span>' +
                 '<span class="subject" title="' + escapeHtml(subjectText) + '">' + escapeHtml(truncatedSubject) + '</span>' +
                 '<span style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(t.assigned_to || '—') + '</span>' +
                 '<span style="font-size:12px;color:var(--text-muted);">' + formatDate(actionDate) + '</span>' +
@@ -2404,7 +2374,7 @@
                     <div class="meta-item"><span class="meta-label">SLA</span><span class="meta-value ${slaClass} sla-badge-inline">${slaLabel}</span></div>
                     <div class="meta-item"><span class="meta-label">Category</span><span class="meta-value"><span class="cat-dot" style="background:${catColor};margin-right:6px;"></span>${ticket.category || "Other"}</span></div>
                     <div class="meta-item"><span class="meta-label">Name</span><span class="meta-value">${escapeHtml(fullName)}</span></div>
-                    <div class="meta-item"><span class="meta-label">Email</span><span class="meta-value">${ticket.sender_email || "Unknown"}</span></div>
+                    <div class="meta-item"><span class="meta-label">Email</span><span class="meta-value">${escapeHtml(ticket.sender_email || "Unknown")}</span></div>
                     <div class="meta-item"><span class="meta-label">Phone</span><span class="meta-value">${escapeHtml(ticket.sender_phone || '—')}</span></div>
                     <div class="meta-item"><span class="meta-label">Company</span><span class="meta-value">${escapeHtml(ticketCompany)}</span></div>
                     <div class="meta-item"><span class="meta-label">Source</span><span class="meta-value">${sourceLabel}</span></div>
@@ -2597,20 +2567,7 @@
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  UTILITIES
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    function formatDate(dateStr) {
-        if (!dateStr) return "Invalid Date";
-        try {
-            var cleaned = dateStr.replace(" ", "T");
-            if (!cleaned.includes("Z") && !cleaned.includes("+")) { cleaned += "Z"; }
-            var d = new Date(cleaned);
-            if (isNaN(d.getTime())) { return dateStr; }
-            return d.toLocaleString(undefined, {
-                year: "numeric", month: "short", day: "numeric",
-                hour: "2-digit", minute: "2-digit",
-                timeZone: userTimezone || "UTC"
-            });
-        } catch (e) { return dateStr; }
-    }
+    // formatDate() comes from shared.js
 
     function getSourceLabel(metaObj) {
         var source = metaObj && metaObj.source;

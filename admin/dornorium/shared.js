@@ -1,6 +1,41 @@
 // shared.js - Common functions for all pages
-// REQUIRES: config.js must be loaded first
-const API_BASE = getConfigValue('API_BASE', 'https://dornori-ticketing.dornori-info.workers.dev');
+// REQUIRES: config.json must exist
+
+window.DORNORIUM_CONSTANTS = {
+    API_BASE: 'https://dornori-ticketing.dornori-info.workers.dev'
+};
+
+function loadConfig() {
+    try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', 'config.json', false);
+        xhr.send();
+        if (xhr.status === 200) {
+            Object.assign(window.DORNORIUM_CONSTANTS, JSON.parse(xhr.responseText));
+            console.log('✓ Config loaded');
+        }
+    } catch (err) {
+        console.warn('⚠ Config.json unavailable:', err.message);
+    }
+}
+
+function getConfigValue(key, defaultValue) {
+    const envKey = `DORNORIUM_${key}`;
+    const envVal = window[envKey] ?? undefined;
+    
+    if (envVal !== undefined) {
+        try {
+            return JSON.parse(envVal);
+        } catch {
+            return envVal;
+        }
+    }
+    
+    const constVal = window.DORNORIUM_CONSTANTS[key];
+    return constVal ?? defaultValue;
+}
+
+loadConfig();
 
 // ─── PERMISSION SERVICE ──────────────────────────────────────────
 function hasAccess(page, action = 'view') {
@@ -9,6 +44,10 @@ function hasAccess(page, action = 'view') {
     const perms = user.effective_permissions[page];
     if (!perms) return false;
     return perms[action] === true;
+}
+
+function hasPageAccess(page) {
+    return hasAccess(page, 'view');
 }
 
 function getCurrentUser() {
@@ -35,7 +74,8 @@ async function apiCall(path, options = {}) {
         ...(options.headers || {})
     };
     
-    const response = await fetch(API_BASE + path, {
+    const apiBase = getConfigValue('API_BASE', 'https://dornori-ticketing.dornori-info.workers.dev');
+    const response = await fetch(apiBase + path, {
         ...options,
         headers
     });
@@ -167,23 +207,6 @@ function getSlaColor(cls) {
     return map[cls] || '#8892b0';
 }
 
-// ─── CATEGORY COLORS ────────────────────────────────────────────
-const CAT_COLORS = getConfigValue('CATEGORY_COLORS', [
-    '#5aa9ff', '#ffb347', '#a78bfa', '#34d399', '#f87171',
-    '#fbbf24', '#60a5fa', '#4ade80', '#fb923c', '#c084fc'
-]);
-const catColorMap = {};
-let catColorIdx = 0;
-
-function getCategoryColor(cat) {
-    if (!cat) return '#8892b0';
-    if (!catColorMap[cat]) {
-        catColorMap[cat] = CAT_COLORS[catColorIdx % CAT_COLORS.length];
-        catColorIdx++;
-    }
-    return catColorMap[cat];
-}
-
 // ─── HTML ESCAPING ──────────────────────────────────────────────
 function escapeHtml(str) {
     if (!str) return '';
@@ -261,7 +284,13 @@ function checkPageAccess(page) {
 }
 
 // ─── LOGOUT ──────────────────────────────────────────────────────
-function logout() {
+async function logout() {
+    try {
+        // Best-effort server-side revocation so a copied/stolen token can't
+        // keep being used after the user has logged out. Never block the
+        // actual logout on this.
+        await apiCall('/api/admin/logout', { method: 'POST' });
+    } catch (e) {}
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('appConfig');
@@ -273,21 +302,20 @@ function logout() {
 function renderUserBadge() {
     const u = getCurrentUser();
     if (!u) return;
-    const initials = (u.name || u.email || '?')
-        .split(' ')
-        .map(w => w[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
+    const nameOrEmail = u.name || u.email || '?';
+    const words = nameOrEmail.trim().split(/\s+/).filter(Boolean);
+    const initials = words.length > 1
+        ? (words[0][0] + words[1][0]).toUpperCase()
+        : nameOrEmail.replace(/\s+/g, '').slice(0, 2).toUpperCase();
     const meta = [u.role, u.team_id].filter(Boolean).join(' · ');
     const el = document.getElementById('userDisplay');
     if (el) {
         el.innerHTML = `
             <div class="user-badge">
-                <div class="user-badge-avatar">${initials}</div>
+                <div class="user-badge-avatar">${escapeHtml(initials)}</div>
                 <div class="user-badge-info">
-                    <span class="user-badge-name">${u.name || u.email}</span>
-                    <span class="user-badge-meta">${meta}</span>
+                    <span class="user-badge-name">${escapeHtml(nameOrEmail)}</span>
+                    <span class="user-badge-meta">${escapeHtml(meta)}</span>
                 </div>
             </div>
         `;
@@ -296,6 +324,7 @@ function renderUserBadge() {
 
 // ─── EXPOSE GLOBALLY ────────────────────────────────────────────
 window.hasAccess = hasAccess;
+window.hasPageAccess = hasPageAccess;
 window.getCurrentUser = getCurrentUser;
 window.getToken = getToken;
 window.isAuthenticated = isAuthenticated;
@@ -304,7 +333,6 @@ window.showToast = showToast;
 window.formatDate = formatDate;
 window.getSlaDisplay = getSlaDisplay;
 window.getSlaColor = getSlaColor;
-window.getCategoryColor = getCategoryColor;
 window.escapeHtml = escapeHtml;
 window.setTheme = setTheme;
 window.toggleTheme = toggleTheme;
