@@ -1,9 +1,8 @@
 // shared.js - Common functions for all pages
-// REQUIRES: config.json must exist
 
-window.DORNORIUM_CONSTANTS = {
-    API_BASE: 'https://dornori-ticketing.dornori-info.workers.dev'
-};
+// ─── CONFIGURATION LOADING ──────────────────────────────────────
+// NO HARDCODING - load from config.json only
+let API_BASE = null;
 
 function loadConfig() {
     try {
@@ -11,15 +10,43 @@ function loadConfig() {
         xhr.open('GET', 'config.json', false);
         xhr.send();
         if (xhr.status === 200) {
-            Object.assign(window.DORNORIUM_CONSTANTS, JSON.parse(xhr.responseText));
-            console.log('✓ Config loaded');
+            const config = JSON.parse(xhr.responseText);
+            window.DORNORIUM_CONSTANTS = window.DORNORIUM_CONSTANTS || {};
+            Object.assign(window.DORNORIUM_CONSTANTS, config);
+            
+            // Set API_BASE from config ONLY
+            if (config.API_BASE) {
+                API_BASE = config.API_BASE;
+            } else {
+                console.error('❌ config.json missing API_BASE');
+                throw new Error('API_BASE not found in config.json');
+            }
+            
+            window.API_BASE = API_BASE;
+            console.log('✓ Config loaded, API_BASE:', API_BASE);
+        } else {
+            console.error('❌ config.json not found (status:', xhr.status, ')');
+            throw new Error('config.json not found');
         }
     } catch (err) {
-        console.warn('⚠ Config.json unavailable:', err.message);
+        console.error('❌ Failed to load config.json:', err.message);
+        // Show error to user
+        document.body.innerHTML = `
+            <div style="padding: 40px; text-align: center; font-family: sans-serif;">
+                <h1 style="color: #ef4444;">⚠️ Configuration Error</h1>
+                <p style="color: #6b7280;">Could not load config.json. Please ensure the file exists.</p>
+                <p style="color: #6b7280; font-size: 14px;">Error: ${err.message}</p>
+            </div>
+        `;
+        throw err;
     }
 }
 
+// Load config immediately
+loadConfig();
+
 function getConfigValue(key, defaultValue) {
+    // Check environment variables first
     const envKey = `DORNORIUM_${key}`;
     const envVal = window[envKey] ?? undefined;
     
@@ -31,11 +58,19 @@ function getConfigValue(key, defaultValue) {
         }
     }
     
-    const constVal = window.DORNORIUM_CONSTANTS[key];
-    return constVal ?? defaultValue;
+    // Check constants from config
+    const constVal = window.DORNORIUM_CONSTANTS?.[key];
+    if (constVal !== undefined) {
+        return constVal;
+    }
+    
+    // NO DEFAULT - config must provide it
+    if (key === 'API_BASE') {
+        throw new Error('API_BASE not found in config.json');
+    }
+    
+    return defaultValue;
 }
-
-loadConfig();
 
 // ─── PERMISSION SERVICE ──────────────────────────────────────────
 function hasAccess(page, action = 'view') {
@@ -74,8 +109,7 @@ async function apiCall(path, options = {}) {
         ...(options.headers || {})
     };
     
-    const apiBase = getConfigValue('API_BASE', 'https://dornori-ticketing.dornori-info.workers.dev');
-    const response = await fetch(apiBase + path, {
+    const response = await fetch(API_BASE + path, {
         ...options,
         headers
     });
@@ -97,20 +131,11 @@ async function apiCall(path, options = {}) {
 // ─── TOAST SYSTEM ───────────────────────────────────────────────
 let toastTimer;
 
-// Default durations from config
-const TOAST_DEFAULTS = {
-    success: () => getConfigValue('TOAST_DURATION_MS', 3500),
-    error: () => getConfigValue('TOAST_DURATION_MS', 3500),
-    warning: () => getConfigValue('TOAST_WARNING_DURATION_MS', 8000),
-    info: () => getConfigValue('TOAST_DURATION_MS', 3500)
-};
-
 function showToast(message, type = 'success', duration = null) {
     const existing = document.querySelector('.toast-notification');
     if (existing) existing.remove();
     
-    // Use default duration for type if not specified
-    const finalDuration = duration ?? (TOAST_DEFAULTS[type] ? TOAST_DEFAULTS[type]() : TOAST_DEFAULTS.success());
+    const finalDuration = duration ?? getConfigValue('TOAST_DURATION_MS', 3500);
     
     const toast = document.createElement('div');
     toast.className = 'toast-notification';
@@ -141,7 +166,6 @@ function showToast(message, type = 'success', duration = null) {
         pointer-events: auto;
     `;
     
-    // Add close button for warning toasts
     if (type === 'warning') {
         toast.style.paddingRight = '36px';
         const closeBtn = document.createElement('button');
@@ -205,6 +229,20 @@ function getSlaColor(cls) {
         'sla-paused': '#8892b0'
     };
     return map[cls] || '#8892b0';
+}
+
+function getCategoryColor(category) {
+    const colors = {
+        'general': '#5aa9ff',
+        'support': '#34d399',
+        'billing': '#fbbf24',
+        'technical': '#f87171',
+        'sales': '#a78bfa',
+        'product': '#fb923c',
+        'shipping': '#4ade80',
+        'returns': '#60a5fa'
+    };
+    return colors[category] || '#8892b0';
 }
 
 // ─── HTML ESCAPING ──────────────────────────────────────────────
@@ -286,9 +324,6 @@ function checkPageAccess(page) {
 // ─── LOGOUT ──────────────────────────────────────────────────────
 async function logout() {
     try {
-        // Best-effort server-side revocation so a copied/stolen token can't
-        // keep being used after the user has logged out. Never block the
-        // actual logout on this.
         await apiCall('/api/admin/logout', { method: 'POST' });
     } catch (e) {}
     localStorage.removeItem('token');
@@ -323,6 +358,9 @@ function renderUserBadge() {
 }
 
 // ─── EXPOSE GLOBALLY ────────────────────────────────────────────
+window.DORNORIUM_CONSTANTS = window.DORNORIUM_CONSTANTS || {};
+
+window.API_BASE = API_BASE;
 window.hasAccess = hasAccess;
 window.hasPageAccess = hasPageAccess;
 window.getCurrentUser = getCurrentUser;
@@ -333,6 +371,7 @@ window.showToast = showToast;
 window.formatDate = formatDate;
 window.getSlaDisplay = getSlaDisplay;
 window.getSlaColor = getSlaColor;
+window.getCategoryColor = getCategoryColor;
 window.escapeHtml = escapeHtml;
 window.setTheme = setTheme;
 window.toggleTheme = toggleTheme;
@@ -348,3 +387,5 @@ document.addEventListener('DOMContentLoaded', function() {
     renderUserBadge();
     setupNavigation();
 });
+
+console.log('✓ shared.js loaded, API_BASE from config:', API_BASE);
