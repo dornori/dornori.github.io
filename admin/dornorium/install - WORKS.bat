@@ -1,33 +1,28 @@
 @echo off
 setlocal enabledelayedexpansion
-title Dornorium Installer - SECURE COMPLETE
-
-:: Force working directory to the script's location
-cd /d "%~dp0"
+title Dornorium Installer - COMPLETE
 
 echo ========================================
-echo   Dornorium Installer - SECURE COMPLETE
+echo   Dornorium Installer - FINAL VERSION
 echo ========================================
 echo.
 
 :: ============================================
-:: STEP 1: GENERATE CRYPTOGRAPHIC SECRETS
+:: STEP 1: GENERATE SECRETS & CREDENTIALS
 :: ============================================
-echo Generating secure cryptographic keys...
-for /f %%i in ('powershell -Command "$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create(); $bytes = New-Object byte[] 48; $rng.GetBytes($bytes); [Convert]::ToBase64String($bytes)"') do set "JWT_SECRET=%%i"
-for /f %%i in ('powershell -Command "$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create(); $bytes = New-Object byte[] 32; $rng.GetBytes($bytes); [Convert]::ToBase64String($bytes)"') do set "ENCRYPTION_KEY=%%i"
+echo Generating security keys...
+set "CHARS=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+set "JWT_SECRET="
+for /L %%i in (1,1,64) do (
+    set /a "r=!random! %% 64"
+    for %%r in (!r!) do set "JWT_SECRET=!JWT_SECRET!!CHARS:~%%r,1!"
+)
+set "ENCRYPTION_KEY="
+for /L %%i in (1,1,32) do (
+    set /a "r=!random! %% 64"
+    for %%r in (!r!) do set "ENCRYPTION_KEY=!ENCRYPTION_KEY!!CHARS:~%%r,1!"
+)
 
-:: ============================================
-:: STEP 1.5: ADMIN USER SETUP
-:: ============================================
-echo.
-echo === Admin Account Setup ===
-set /p ADMIN_USER="Username: "
-set /p ADMIN_PASS="Password: "
-echo Generating secure hash...
-for /f %%i in ('powershell -Command "$input = '%ADMIN_PASS%'; $bytes = [System.Text.Encoding]::UTF8.GetBytes($input); $hash = [System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes); [Convert]::ToBase64String($hash)"') do set "ADMIN_HASH=%%i"
-
-echo.
 echo Enter your Cloudflare credentials
 set /p ACCOUNT_ID="Cloudflare Account ID: "
 set /p API_TOKEN="Cloudflare API Token: "
@@ -75,10 +70,10 @@ curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/worke
 curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%/secrets" -H "Authorization: Bearer %API_TOKEN%" -H "Content-Type: application/json" -d "{\"name\":\"ENCRYPTION_KEY\",\"text\":\"%ENCRYPTION_KEY%\"}" >nul
 
 :: ============================================
-:: STEP 5: RUN MIGRATIONS & SEED ADMIN
+:: STEP 5: RUN SEED.SQL (ROBUST)
 :: ============================================
-echo Applying schema and creating admin user...
-powershell -Command "$sql = [IO.File]::ReadAllText('seed.sql'); $adminSql = \"INSERT INTO users (username, password_hash, role) VALUES ('%ADMIN_USER%', '%ADMIN_HASH%', 'admin');\"; $combined = $sql + ' ' + $adminSql; $json = [PSCustomObject]@{sql = $combined} | ConvertTo-Json -Compress; [System.IO.File]::WriteAllText('%TEMP%\migrate.json', $json)"
+echo Running migrations from seed.sql...
+powershell -Command "$sql = [IO.File]::ReadAllText('seed.sql'); $json = [PSCustomObject]@{sql = $sql} | ConvertTo-Json -Compress; [System.IO.File]::WriteAllText('%TEMP%\migrate.json', $json)"
 
 curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/d1/database/%DB_ID%/query" ^
   -H "Authorization: Bearer %API_TOKEN%" ^
@@ -92,38 +87,26 @@ if errorlevel 1 (
     pause
     exit
 )
-echo OK: Database initialized and admin user created.
+echo OK: Migrations Applied.
 
 :: ============================================
-:: STEP 6: ENABLE WORKER SUBDOMAIN
-:: ============================================
-echo Enabling worker subdomain...
-curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%/subdomain" -H "Authorization: Bearer %API_TOKEN%" -H "Content-Type: application/json" -d "{\"enabled\": true}" >nul
-
-:: ============================================
-:: STEP 7: DEPLOY
+:: STEP 6: DEPLOY
 :: ============================================
 echo Deploying...
 curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%/deploy" -H "Authorization: Bearer %API_TOKEN%" >nul
 
 :: ============================================
-:: STEP 8: GENERATE CONFIG.JSON
+:: STEP 7: GENERATE CONFIG.JSON
 :: ============================================
 echo Fetching subdomain to generate config.json...
 curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/subdomain" -H "Authorization: Bearer %API_TOKEN%" > "%TEMP%\subdomain.json"
 
 for /f %%i in ('powershell -Command "(Get-Content '%TEMP%\subdomain.json' -Raw | ConvertFrom-Json).result.subdomain"') do set "SUBDOMAIN=%%i"
 
-if "%SUBDOMAIN%"=="" (
-    echo ERROR: Could not retrieve subdomain. Check your Cloudflare Workers plan settings.
-    pause
-    exit
-)
-
 echo {"API_BASE": "https://%WORKER_NAME%.!SUBDOMAIN!.workers.dev"} > config.json
-echo OK: config.json created in the current directory.
+echo OK: config.json created.
 
 echo ========================================
-echo   INSTALLATION COMPLETE AND SECURED!
+echo   INSTALLATION COMPLETE AND AUTOMATED!
 echo ========================================
 pause
