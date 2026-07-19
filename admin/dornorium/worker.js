@@ -18,6 +18,8 @@ var LOCK_CLEANUP_THRESHOLD_MS = null;
 var LOGIN_MAX_ATTEMPTS = null;
 var LOGIN_WINDOW_MS = null;
 var CORS_ALLOWED_ORIGINS = null;
+var CORS_ENABLED = null;
+var RATE_LIMIT_ENABLED = null;
 var PASSWORD_MIN_LENGTH = null;
 var PASSWORD_RESET_EXPIRY_MINUTES = null;
 var COMMON_PASSWORDS = null;
@@ -51,6 +53,8 @@ async function loadConfig(env) {
   CORS_ALLOWED_ORIGINS = corsRaw
     ? corsRaw.split(",").map((o) => o.trim()).filter(Boolean)
     : ["https://dornori.com", "https://www.dornori.com", "https://dornori.github.io", "https://dornori-ticketing.dornori-info.workers.dev"];
+  CORS_ENABLED = (await getSetting(env, "system", "cors_enabled")) === "1";
+  RATE_LIMIT_ENABLED = (await getSetting(env, "system", "rate_limit_enabled")) !== "0";
 
   PASSWORD_MIN_LENGTH = parseInt((await getSetting(env, "security", "password_min_length")) || "12", 10);
   PASSWORD_RESET_EXPIRY_MINUTES = parseInt((await getSetting(env, "security", "password_reset_expiry_minutes")) || "15", 10);
@@ -455,6 +459,7 @@ function getHubStub(env) {
 }
 
 async function isLoginRateLimited(key, env) {
+  if (!RATE_LIMIT_ENABLED) return false;
   const stub = getHubStub(env);
   if (!stub) return false;
   try {
@@ -2073,16 +2078,23 @@ async function getAllowedOrigins(env) {
 }
 
 function getCorsHeaders(origin, allowedOrigins) {
-  if (!origin || !allowedOrigins.includes(origin)) {
+  if (!CORS_ENABLED) {
     return {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization"
     };
   }
-  
+
+  if (origin && allowedOrigins.includes(origin)) {
+    return {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization"
+    };
+  }
+
   return {
-    "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization"
   };
@@ -2362,6 +2374,8 @@ var worker_default = {
         if (!await checkAccess(email, requiredResource, "edit", env)) return json({ error: "Permission denied" }, 403);
         for (const s of settings) await updateSetting(env, s.category, s.key, s.value);
         await bumpConfigVersion(env);
+        configLoaded = false;
+        await loadConfig(env);
         return json({ success: true });
       }
 
