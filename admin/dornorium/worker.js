@@ -1,15 +1,20 @@
 // @ts-nocheck
+var __defProp = Object.defineProperty;
+var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
+// worker.js
 var cache = {
-  settings: new Map(),
-  users: new Map(),
+  settings: /* @__PURE__ */ new Map(),
+  users: /* @__PURE__ */ new Map(),
   categories: null,
   languages: null,
   autoReplies: null,
   settingsTimestamp: 0,
   usersTimestamp: 0
 };
-
+// Durable Object service binding URL (not a real HTTP endpoint)
+// Intercepted by the worker runtime for local service communication
+// ─── RUNTIME CONFIGURATION (loaded from D1 settings table, see loadConfig) ──
 var TICKET_CACHE_URL = null;
 var TOKEN_EXPIRY_SECONDS = null;
 var LOCK_STALE_WRITE_MS = null;
@@ -92,7 +97,9 @@ async function loadConfig(env) {
 
   configLoaded = true;
 }
+__name(loadConfig, "loadConfig");
 
+// ─── ENCRYPTION / DECRYPTION ──────────────────────────────────
 async function encrypt(plaintext, env) {
   const keyStr = (env.ENCRYPTION_KEY || "").trim();
   if (!keyStr) throw new Error("ENCRYPTION_KEY not configured");
@@ -105,6 +112,7 @@ async function encrypt(plaintext, env) {
   const dataB64 = btoa(String.fromCharCode(...new Uint8Array(encrypted)));
   return `${ivB64}:${dataB64}`;
 }
+__name(encrypt, "encrypt");
 
 async function decrypt(encryptedData, env) {
   if (!encryptedData || !encryptedData.includes(":")) return encryptedData;
@@ -119,6 +127,7 @@ async function decrypt(encryptedData, env) {
   const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
   return new TextDecoder().decode(decrypted);
 }
+__name(decrypt, "decrypt");
 
 function validatePasswordStrength(password) {
   const errors = [];
@@ -157,6 +166,7 @@ function validatePasswordStrength(password) {
     errors: errors
   };
 }
+__name(validatePasswordStrength, "validatePasswordStrength");
 
 async function validateAndHashPassword(password, env) {
   const result = validatePasswordStrength(password);
@@ -165,6 +175,7 @@ async function validateAndHashPassword(password, env) {
   }
   return await sha256(password);
 }
+__name(validateAndHashPassword, "validateAndHashPassword");
 
 async function getTicketCache() {
   try {
@@ -176,6 +187,7 @@ async function getTicketCache() {
     return null;
   }
 }
+__name(getTicketCache, "getTicketCache");
 
 async function setTicketCache(tickets) {
   try {
@@ -186,6 +198,7 @@ async function setTicketCache(tickets) {
   } catch (e) {
   }
 }
+__name(setTicketCache, "setTicketCache");
 
 async function purgeTicketCache() {
   try {
@@ -193,6 +206,7 @@ async function purgeTicketCache() {
   } catch (e) {
   }
 }
+__name(purgeTicketCache, "purgeTicketCache");
 
 async function injectTicketIntoCache(updatedTicket, env) {
   const cacheRequest = new Request(TICKET_CACHE_URL);
@@ -215,6 +229,7 @@ async function injectTicketIntoCache(updatedTicket, env) {
   } catch (e) {
   }
 }
+__name(injectTicketIntoCache, "injectTicketIntoCache");
 
 function clearCache() {
   cache.settings.clear();
@@ -224,6 +239,7 @@ function clearCache() {
   cache.autoReplies = null;
   configLoaded = false;
 }
+__name(clearCache, "clearCache");
 
 async function bumpConfigVersion(env) {
   const version = Date.now().toString();
@@ -233,6 +249,7 @@ async function bumpConfigVersion(env) {
   clearCache();
   return version;
 }
+__name(bumpConfigVersion, "bumpConfigVersion");
 
 async function generateToken(email, env) {
   if (!env.JWT_SECRET) {
@@ -260,6 +277,7 @@ async function generateToken(email, env) {
   const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
   return `${headerB64}.${payloadB64}.${signatureB64}`;
 }
+__name(generateToken, "generateToken");
 
 async function verifyToken(token, env) {
   if (!token || !env.JWT_SECRET) return null;
@@ -290,20 +308,29 @@ async function verifyToken(token, env) {
     return null;
   }
 }
+__name(verifyToken, "verifyToken");
 
+// ─── SECURE PASSWORD HASHING (Cloudflare-safe) ─────────────────
 async function sha256(m) {
   const b = new TextEncoder().encode(m);
   const h = await crypto.subtle.digest("SHA-256", b);
   return [...new Uint8Array(h)].map(b2 => b2.toString(16).padStart(2, "0")).join("");
 }
+__name(sha256, "sha256");
 
 async function hashPassword(password) {
   return await sha256(password);
 }
+__name(hashPassword, "hashPassword");
 
 async function verifyPassword(password, storedHash) {
   return await sha256(password) === storedHash;
 }
+__name(verifyPassword, "verifyPassword");
+
+// ─── SIMPLIFIED ROLE-BASED ACCESS CONTROL ──────────────────
+// Resources: tickets, users, settings, newsletter, reports
+// Actions: read (view), write (edit/create/delete)
 
 const ROLE_RESOURCES = {
   admin: {
@@ -351,12 +378,16 @@ const PERM_ACTION_MAP = {
 async function hasPermission(email, resource, action, env) {
   const user = await getUser(email, env);
   if (!user) return false;
+
+  // Admins always have full access, matching buildEffectivePermissions().
+  // Per-user overrides must never be able to lock an admin out.
   if (user.role === 'admin') return true;
 
   const fineAction = Object.keys(PERM_ACTION_MAP).includes(action) ? action : null;
   const coarseAction = PERM_ACTION_MAP[action] || (['read', 'write'].includes(action) ? action : null);
   if (!coarseAction) return false;
 
+  // Per-user granular override takes precedence when explicitly set
   const override = user.page_permissions?.[resource];
   if (override && fineAction && typeof override[fineAction] === 'boolean') {
     return override[fineAction];
@@ -366,9 +397,12 @@ async function hasPermission(email, resource, action, env) {
   const allowed = resources[resource] || [];
   return allowed.includes(coarseAction);
 }
+__name(hasPermission, "hasPermission");
 
 const PERMISSION_RESOURCES = ['tickets', 'users', 'settings', 'newsletter', 'reports', 'order_reply'];
 
+// Resolves role defaults + per-user overrides into one flat object the
+// frontend can read directly without re-implementing any ACL logic.
 function buildEffectivePermissions(user) {
   const result = {};
   const roleRes = ROLE_RESOURCES[user.role] || {};
@@ -393,6 +427,7 @@ function buildEffectivePermissions(user) {
   }
   return result;
 }
+__name(buildEffectivePermissions, "buildEffectivePermissions");
 
 async function getUser(email, env) {
   const normalizedEmail = (email || "").toLowerCase().trim();
@@ -430,7 +465,9 @@ async function getUser(email, env) {
   }
   return null;
 }
+__name(getUser, "getUser");
 
+// ─── CHECK ACCESS (backward compatible wrapper) ──────────────
 async function getValidationSets(env) {
   let validLangs = [];
   try { validLangs = await getKnownLanguages(env); } catch (e) { validLangs = []; }
@@ -443,16 +480,24 @@ async function getValidationSets(env) {
   } catch (e) { validEmails = []; }
   return { validLangs, validCategories, validEmails };
 }
+__name(getValidationSets, "getValidationSets");
 
 async function checkAccess(email, resource, action, env) {
   return await hasPermission(email, resource, action, env);
 }
+__name(checkAccess, "checkAccess");
 
+// ─── LOGIN RATE LIMITING (persisted in the TicketHub Durable Object) ──────
+// DO storage is strongly consistent and single-threaded per instance, so
+// unlike KV (eventually consistent, ~60s propagation) or per-isolate memory
+// (reset on every cold start / lost across isolates), counts here are exact
+// and shared globally in real time.
 function getHubStub(env) {
   if (!env.TICKET_HUB) return null;
   const id = env.TICKET_HUB.idFromName("global");
   return env.TICKET_HUB.get(id);
 }
+__name(getHubStub, "getHubStub");
 
 async function isLoginRateLimited(key, env) {
   const stub = getHubStub(env);
@@ -470,6 +515,7 @@ async function isLoginRateLimited(key, env) {
     return false;
   }
 }
+__name(isLoginRateLimited, "isLoginRateLimited");
 
 async function recordFailedLogin(key, env) {
   const stub = getHubStub(env);
@@ -484,6 +530,7 @@ async function recordFailedLogin(key, env) {
     console.error("recordFailedLogin error:", e.message);
   }
 }
+__name(recordFailedLogin, "recordFailedLogin");
 
 async function clearFailedLogins(key, env) {
   const stub = getHubStub(env);
@@ -498,13 +545,16 @@ async function clearFailedLogins(key, env) {
     console.error("clearFailedLogins error:", e.message);
   }
 }
+__name(clearFailedLogins, "clearFailedLogins");
 
+// ─── SANITIZATION FUNCTIONS ─────────────────────────────────
 function sanitizeSubject(text) {
   if (!text) return "";
   let cleaned = text.replace(/[\x00-\x1F\x7F]/g, " ");
   cleaned = cleaned.replace(/<[^>]*>/g, "");
   return cleaned.replace(/\s+/g, " ").trim();
 }
+__name(sanitizeSubject, "sanitizeSubject");
 
 function extractOrderNumber(text) {
   if (!text) return null;
@@ -512,6 +562,7 @@ function extractOrderNumber(text) {
   const m = text.match(orderRegex);
   return m ? m[0].toUpperCase() : null;
 }
+__name(extractOrderNumber, "extractOrderNumber");
 
 function sanitizeName(text) {
   if (!text) return "";
@@ -519,11 +570,13 @@ function sanitizeName(text) {
   cleaned = cleaned.replace(/[^\p{L}\p{N}\p{Emoji}\s\.\-']/gu, "");
   return cleaned.trim();
 }
+__name(sanitizeName, "sanitizeName");
 
 function normalizeCategory(c) {
   if (!c) return "unclassified";
   return String(c).trim().toLowerCase().replace(/\s+/g, "-");
 }
+__name(normalizeCategory, "normalizeCategory");
 
 async function getDefaultLanguage(env) {
   const lang = await getSetting(env, "general", "default_language");
@@ -532,6 +585,7 @@ async function getDefaultLanguage(env) {
   }
   return lang;
 }
+__name(getDefaultLanguage, "getDefaultLanguage");
 
 async function getDefaultFrom(env) {
   const from = await getSetting(env, "email", "default_from");
@@ -540,6 +594,7 @@ async function getDefaultFrom(env) {
   }
   return from;
 }
+__name(getDefaultFrom, "getDefaultFrom");
 
 async function getSetting(env, category, key) {
   const cacheKey = `${category}:${key}`;
@@ -556,6 +611,7 @@ async function getSetting(env, category, key) {
     return null;
   }
 }
+__name(getSetting, "getSetting");
 
 async function getAllSettings(env) {
   try {
@@ -565,6 +621,7 @@ async function getAllSettings(env) {
     return [];
   }
 }
+__name(getAllSettings, "getAllSettings");
 
 async function updateSetting(env, category, key, value) {
   const existing = await env.DB.prepare("SELECT id FROM settings WHERE category = ? AND key = ?").bind(category, key).first();
@@ -579,12 +636,13 @@ async function updateSetting(env, category, key, value) {
   cache.languages = null;
   cache.autoReplies = null;
 }
+__name(updateSetting, "updateSetting");
 
 async function getKnownCategories(env) {
   if (cache.categories !== null) {
     return cache.categories;
   }
-  const cats = new Set(["unclassified"]);
+  const cats = /* @__PURE__ */ new Set(["unclassified"]);
   try {
     const r = await env.DB.prepare(
       `SELECT key, value FROM settings WHERE category = 'category' AND key LIKE '%_description'`
@@ -599,6 +657,7 @@ async function getKnownCategories(env) {
   cache.settingsTimestamp = Date.now();
   return cache.categories;
 }
+__name(getKnownCategories, "getKnownCategories");
 
 async function getKnownLanguages(env) {
   if (cache.languages !== null) {
@@ -616,6 +675,7 @@ async function getKnownLanguages(env) {
   }
   throw new Error("No languages configured. Please configure languages in settings.");
 }
+__name(getKnownLanguages, "getKnownLanguages");
 
 async function validateLanguage(language, env) {
   if (!language || language === "") {
@@ -628,6 +688,7 @@ async function validateLanguage(language, env) {
   }
   return normalized;
 }
+__name(validateLanguage, "validateLanguage");
 
 async function validateCategory(category, env) {
   if (!category || category === "") {
@@ -641,6 +702,7 @@ async function validateCategory(category, env) {
   }
   return normalized;
 }
+__name(validateCategory, "validateCategory");
 
 async function pushTicketNotification(ticket, env, eventType = "updated") {
   const notification = JSON.stringify({
@@ -657,7 +719,7 @@ async function pushTicketNotification(ticket, env, eventType = "updated") {
       sender_email: ticket.sender_email || "",
       assigned_to: ticket.assigned_to || null,
       last_updated_by: ticket.last_updated_by || "",
-      last_updated: ticket.updated_at || ticket.created_at || (new Date()).toISOString()
+      last_updated: ticket.updated_at || ticket.created_at || (/* @__PURE__ */ new Date()).toISOString()
     }
   });
   if (!env.TICKET_HUB) return;
@@ -673,17 +735,20 @@ async function pushTicketNotification(ticket, env, eventType = "updated") {
     console.error("pushTicketNotification error:", e.message);
   }
 }
+__name(pushTicketNotification, "pushTicketNotification");
 
 async function getAgentsOnlineCount(env) {
   const row = await env.DB.prepare("SELECT count FROM agents_online WHERE id = 1").first();
   return row ? row.count : 0;
 }
+__name(getAgentsOnlineCount, "getAgentsOnlineCount");
 
 async function setAgentsOnlineCount(env, n) {
   const value = Math.max(0, n);
   await env.DB.prepare("INSERT INTO agents_online (id, count) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET count = ?").bind(value, value).run();
   return value;
 }
+__name(setAgentsOnlineCount, "setAgentsOnlineCount");
 
 async function applyTicketFilters(tickets, filters, user, env) {
   let rows = tickets;
@@ -702,12 +767,12 @@ async function applyTicketFilters(tickets, filters, user, env) {
   if (filters.language) rows = rows.filter((t) => t.language === filters.language);
   if (filters.assigned_to) rows = rows.filter((t) => t.assigned_to === filters.assigned_to);
   const sort = filters.sort || "last_updated";
-  const rank = (t) => {
+  const rank = /* @__PURE__ */ __name((t) => {
     if (["resolved", "closed"].includes(t.status)) return 3;
-    if (t.sla_resolution_due && new Date(t.sla_resolution_due) < new Date()) return 0;
-    if (t.sla_response_due && new Date(t.sla_response_due) < new Date()) return 1;
+    if (t.sla_resolution_due && new Date(t.sla_resolution_due) < /* @__PURE__ */ new Date()) return 0;
+    if (t.sla_response_due && new Date(t.sla_response_due) < /* @__PURE__ */ new Date()) return 1;
     return 2;
-  };
+  }, "rank");
   rows = rows.slice().sort((a, b) => {
     if (sort === "sla") {
       const ra = rank(a), rb = rank(b);
@@ -721,6 +786,7 @@ async function applyTicketFilters(tickets, filters, user, env) {
   for (const row of rows) row.sla_status = computeSlaStatus(row, graceMap);
   return rows;
 }
+__name(applyTicketFilters, "applyTicketFilters");
 
 async function getTicketSnapshot(ticketId, env) {
   try {
@@ -734,11 +800,13 @@ async function getTicketSnapshot(ticketId, env) {
     return null;
   }
 }
+__name(getTicketSnapshot, "getTicketSnapshot");
 
 async function getTicketByOrderNumber(orderNumber, env) {
   if (!orderNumber) return null;
   return await env.DB.prepare("SELECT * FROM tickets WHERE order_number = ? LIMIT 1").bind(orderNumber).first();
 }
+__name(getTicketByOrderNumber, "getTicketByOrderNumber");
 
 async function getAutoReply(env, category, language) {
   const cat = await validateCategory(category, env);
@@ -826,6 +894,7 @@ async function getAutoReply(env, category, language) {
   }
   throw new Error(`Auto-reply not configured for category: ${cat}, language: ${lang}`);
 }
+__name(getAutoReply, "getAutoReply");
 
 async function saveAutoReply(env, category, language, enabled, subject, body, from) {
   const cat = await validateCategory(category, env);
@@ -847,6 +916,7 @@ async function saveAutoReply(env, category, language, enabled, subject, body, fr
   }
   cache.autoReplies = null;
 }
+__name(saveAutoReply, "saveAutoReply");
 
 async function deleteAutoReply(env, category, language) {
   const cat = await validateCategory(category, env);
@@ -859,6 +929,7 @@ async function deleteAutoReply(env, category, language) {
   }
   cache.autoReplies = null;
 }
+__name(deleteAutoReply, "deleteAutoReply");
 
 async function getAllAutoReplies(env) {
   if (cache.autoReplies !== null) {
@@ -922,6 +993,7 @@ async function getAllAutoReplies(env) {
     return [];
   }
 }
+__name(getAllAutoReplies, "getAllAutoReplies");
 
 async function getEmailAddresses(env, activeOnly = false) {
   try {
@@ -932,6 +1004,7 @@ async function getEmailAddresses(env, activeOnly = false) {
     return [];
   }
 }
+__name(getEmailAddresses, "getEmailAddresses");
 
 async function addEmailAddress(env, email, label, action, language) {
   if (!language) {
@@ -940,6 +1013,7 @@ async function addEmailAddress(env, email, label, action, language) {
   await validateLanguage(language, env);
   await env.DB.prepare("INSERT INTO email_addresses (email, label, action, language) VALUES (?, ?, ?, ?)").bind(email, label, action, language).run();
 }
+__name(addEmailAddress, "addEmailAddress");
 
 async function updateEmailAddress(env, id, email, label, action, language, is_active) {
   if (language) {
@@ -947,10 +1021,12 @@ async function updateEmailAddress(env, id, email, label, action, language, is_ac
   }
   await env.DB.prepare('UPDATE email_addresses SET email = ?, label = ?, action = ?, language = ?, is_active = ?, updated_at = datetime("now") WHERE id = ?').bind(email, label, action, language, is_active, id).run();
 }
+__name(updateEmailAddress, "updateEmailAddress");
 
 async function deleteEmailAddress(env, id) {
   await env.DB.prepare("DELETE FROM email_addresses WHERE id = ?").bind(id).run();
 }
+__name(deleteEmailAddress, "deleteEmailAddress");
 
 async function getEmailAddressConfig(env, toAddress) {
   if (!toAddress) {
@@ -984,6 +1060,7 @@ async function getEmailAddressConfig(env, toAddress) {
     language: await getDefaultLanguage(env)
   };
 }
+__name(getEmailAddressConfig, "getEmailAddressConfig");
 
 async function addSubscriber(email, name, language, env) {
   let lang;
@@ -1007,6 +1084,7 @@ async function addSubscriber(email, name, language, env) {
     `).bind(subscriber.id, token, token).run();
   return { subscriber, token };
 }
+__name(addSubscriber, "addSubscriber");
 
 async function unsubscribe(token, env) {
   const result = await env.DB.prepare('SELECT subscriber_id FROM unsubscribe_tokens WHERE token = ? AND expires_at > datetime("now")').bind(token).first();
@@ -1014,6 +1092,7 @@ async function unsubscribe(token, env) {
   await env.DB.prepare('UPDATE newsletter_subscribers SET status = "unsubscribed", unsubscribed_at = datetime("now") WHERE id = ?').bind(result.subscriber_id).run();
   return { success: true };
 }
+__name(unsubscribe, "unsubscribe");
 
 async function unsubscribeByEmail(email, env) {
   const clean = (email || "").toLowerCase().trim();
@@ -1023,6 +1102,7 @@ async function unsubscribeByEmail(email, env) {
   await env.DB.prepare('UPDATE newsletter_subscribers SET status = "unsubscribed", unsubscribed_at = datetime("now") WHERE id = ?').bind(subscriber.id).run();
   return { success: true };
 }
+__name(unsubscribeByEmail, "unsubscribeByEmail");
 
 async function getSubscribers(env) {
   try {
@@ -1032,11 +1112,13 @@ async function getSubscribers(env) {
     return [];
   }
 }
+__name(getSubscribers, "getSubscribers");
 
 async function deleteSubscriber(id, env) {
   await env.DB.prepare("DELETE FROM unsubscribe_tokens WHERE subscriber_id = ?").bind(id).run();
   await env.DB.prepare("DELETE FROM newsletter_subscribers WHERE id = ?").bind(id).run();
 }
+__name(deleteSubscriber, "deleteSubscriber");
 
 async function buildUnsubscribeLink(env, token, language) {
   const domain = DOMAIN;
@@ -1058,6 +1140,7 @@ async function buildUnsubscribeLink(env, token, language) {
   const cleanPath = unsubPath.replace(/^\//, "");
   return `https://${cleanDomain}/${cleanPath}?token=${token}`;
 }
+__name(buildUnsubscribeLink, "buildUnsubscribeLink");
 
 async function createNewsletter(env, subject, body, language, status = "draft") {
   const lang = language === "all" ? "all" : await validateLanguage(language, env);
@@ -1068,15 +1151,18 @@ async function createNewsletter(env, subject, body, language, status = "draft") 
   const row = await env.DB.prepare("SELECT * FROM newsletters WHERE id = ?").bind(id).first();
   return row;
 }
+__name(createNewsletter, "createNewsletter");
 
 async function getNewsletters(env) {
   const r = await env.DB.prepare("SELECT * FROM newsletters ORDER BY created_at DESC").all();
   return r.results || [];
 }
+__name(getNewsletters, "getNewsletters");
 
 async function deleteNewsletter(id, env) {
   await env.DB.prepare("DELETE FROM newsletters WHERE id = ?").bind(id).run();
 }
+__name(deleteNewsletter, "deleteNewsletter");
 
 async function sendNewsletter(env, subject, body, language) {
   const lang = language === "all" ? null : await validateLanguage(language, env);
@@ -1114,6 +1200,7 @@ async function sendNewsletter(env, subject, body, language) {
   const newsletter = await env.DB.prepare("SELECT * FROM newsletters WHERE id = ?").bind(newsletterId).first();
   return { newsletter, sent };
 }
+__name(sendNewsletter, "sendNewsletter");
 
 async function getNextTicketSequence(language, env) {
   const now = new Date();
@@ -1122,6 +1209,7 @@ async function getNextTicketSequence(language, env) {
   const sequenceKey = `ticket_seq_${langCode}${yy}`;
   
   try {
+    // Get current sequence value
     const row = await env.DB.prepare(
       `SELECT value FROM settings WHERE category = 'system' AND key = ?`
     ).bind(sequenceKey).first();
@@ -1131,10 +1219,12 @@ async function getNextTicketSequence(language, env) {
       nextSeq = parseInt(row.value) + 1;
     }
     
+    // Ensure we don't exceed the configured max (6 digits by default)
     if (nextSeq > TICKET_SEQUENCE_MAX) {
       throw new Error(`Ticket sequence overflow for ${langCode}${yy}`);
     }
     
+    // Update sequence in database
     await env.DB.prepare(
       `INSERT OR REPLACE INTO settings (category, key, value, updated_at) 
        VALUES ('system', ?, ?, datetime('now'))`
@@ -1146,6 +1236,7 @@ async function getNextTicketSequence(language, env) {
     throw e;
   }
 }
+__name(getNextTicketSequence, "getNextTicketSequence");
 
 async function generateTicketNumber(language, env) {
   const now = new Date();
@@ -1157,11 +1248,12 @@ async function generateTicketNumber(language, env) {
   
   return `TKT-${langCode}${yy}${paddedSeq}`;
 }
+__name(generateTicketNumber, "generateTicketNumber");
 
 function computeSlaStatus(ticket, graceMap = {}) {
   if (!ticket) return "on_track";
   if (!ticket.sla_response_due || !ticket.sla_resolution_due) return "on_track";
-  const now = new Date();
+  const now = /* @__PURE__ */ new Date();
   const rd = new Date(ticket.sla_response_due), rld = new Date(ticket.sla_resolution_due);
 
   const cat = ticket.category || "unclassified";
@@ -1169,6 +1261,8 @@ function computeSlaStatus(ticket, graceMap = {}) {
   const resolvedGracePeriod = (grace.resolvedGraceHours || 0) * 60 * 60 * 1000;
   const closedGracePeriod = (grace.closedGraceHours || 0) * 60 * 60 * 1000;
 
+  // Grace periods apply from when the ticket entered the resolved/closed
+  // state (updated_at), not from the original resolution due date.
   const transitionedAt = ticket.updated_at ? new Date(ticket.updated_at) : rld;
 
   if (ticket.status === "resolved") {
@@ -1187,7 +1281,10 @@ function computeSlaStatus(ticket, graceMap = {}) {
   if (now > rd) return "at_risk";
   return "on_track";
 }
+__name(computeSlaStatus, "computeSlaStatus");
 
+// Fetch all configured SLA grace periods once, keyed by category, so
+// list endpoints don't do N+1 settings lookups per ticket.
 async function getAllSlaGrace(env) {
   const list = await getAllSettings(env);
   const map = {};
@@ -1207,6 +1304,7 @@ async function getAllSlaGrace(env) {
   }
   return map;
 }
+__name(getAllSlaGrace, "getAllSlaGrace");
 
 async function getSLA(env, category) {
   const cat = await validateCategory(category, env);
@@ -1231,9 +1329,10 @@ async function getSLA(env, category) {
     closedGraceHours: closedGraceHours
   };
 }
+__name(getSLA, "getSLA");
 
 async function createTicket(data, env) {
-  const now = (new Date()).toISOString();
+  const now = (/* @__PURE__ */ new Date()).toISOString();
   const category = await validateCategory(data.category, env);
   const language = await validateLanguage(data.language, env);
   const ticketNumber = await generateTicketNumber(language, env);
@@ -1270,6 +1369,7 @@ async function createTicket(data, env) {
   await pushTicketNotification(newTicket || { id, ticket_number: ticketNumber, category, language, status: "new", subject }, env, "created");
   return newTicket;
 }
+__name(createTicket, "createTicket");
 
 async function getTicket(id, env) {
   const ticket = await env.DB.prepare(`
@@ -1286,6 +1386,7 @@ async function getTicket(id, env) {
   ticket.ticket_id = ticket.id;
   return { ...ticket, comments: comments.results || [] };
 }
+__name(getTicket, "getTicket");
 
 async function updateTicket(id, data, env) {
   const updates = [], values = [];
@@ -1302,7 +1403,7 @@ async function updateTicket(id, data, env) {
     values.push(data.priority);
   }
   if (updates.length === 0) return null;
-  const nowIso = (new Date()).toISOString();
+  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
   updates.push("last_action = ?", "updated_at = ?");
   values.push(nowIso, nowIso);
   values.push(id);
@@ -1314,9 +1415,10 @@ async function updateTicket(id, data, env) {
   }
   return updatedTicket;
 }
+__name(updateTicket, "updateTicket");
 
 async function addComment(ticketId, data, env) {
-  const now = (new Date()).toISOString();
+  const now = (/* @__PURE__ */ new Date()).toISOString();
   const result = await env.DB.prepare(`
         INSERT INTO ticket_comments (ticket_id, comment_type, author_email, content, created_at, old_status, new_status)
         VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -1329,10 +1431,12 @@ async function addComment(ticketId, data, env) {
   }
   return { id: result.meta?.last_row_id || result.lastInsertRowid };
 }
+__name(addComment, "addComment");
 
 async function getTicketByNumber(ticketNumber, env) {
   return await env.DB.prepare("SELECT * FROM tickets WHERE ticket_number = ?").bind(ticketNumber).first();
 }
+__name(getTicketByNumber, "getTicketByNumber");
 
 async function getTickets(filters, env, user) {
   let query = `SELECT id, id AS ticket_id, ticket_number, category, language, status, priority,
@@ -1398,6 +1502,7 @@ async function getTickets(filters, env, user) {
   for (const row of rows) row.sla_status = computeSlaStatus(row, graceMap);
   return rows;
 }
+__name(getTickets, "getTickets");
 
 async function getTotalTicketCount(filters, env, user) {
   let query = "SELECT COUNT(*) as total FROM tickets WHERE 1=1";
@@ -1440,6 +1545,7 @@ async function getTotalTicketCount(filters, env, user) {
   const r = await env.DB.prepare(query).bind(...params).first();
   return r ? r.total : 0;
 }
+__name(getTotalTicketCount, "getTotalTicketCount");
 
 async function getStats(env, user) {
   let query = "SELECT status, COUNT(*) as count FROM tickets WHERE 1=1";
@@ -1464,6 +1570,7 @@ async function getStats(env, user) {
   for (const row of r.results || []) if (stats.hasOwnProperty(row.status)) stats[row.status] = row.count;
   return stats;
 }
+__name(getStats, "getStats");
 
 async function getReports(env) {
   const result = {
@@ -1517,6 +1624,7 @@ async function getReports(env) {
   }
   return result;
 }
+__name(getReports, "getReports");
 
 function formatEmailBody(text) {
   if (!text) return "";
@@ -1527,16 +1635,32 @@ function formatEmailBody(text) {
   html = html.replace(/<p>\s*<\/p>/g, "");
   return html;
 }
+__name(formatEmailBody, "formatEmailBody");
+
+// ─── PASSWORD RESET ──────────────────────────────────────────
+async function ensurePasswordResetsTable(env) {
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS password_resets (
+    token_hash TEXT PRIMARY KEY,
+    email TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`).run();
+}
+__name(ensurePasswordResetsTable, "ensurePasswordResetsTable");
 
 async function createPasswordResetToken(env, email) {
+  await ensurePasswordResetsTable(env);
   const token = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, "");
   const tokenHash = await sha256(token);
   const expiresAt = Math.floor(Date.now() / 1e3) + PASSWORD_RESET_EXPIRY_MINUTES * 60;
   await env.DB.prepare("INSERT INTO password_resets (token_hash, email, expires_at) VALUES (?, ?, ?)").bind(tokenHash, email, expiresAt).run();
   return token;
 }
+__name(createPasswordResetToken, "createPasswordResetToken");
 
 async function consumePasswordResetToken(env, token) {
+  await ensurePasswordResetsTable(env);
   const tokenHash = await sha256(token || "");
   const row = await env.DB.prepare("SELECT * FROM password_resets WHERE token_hash = ?").bind(tokenHash).first();
   if (!row) return null;
@@ -1545,6 +1669,7 @@ async function consumePasswordResetToken(env, token) {
   await env.DB.prepare("UPDATE password_resets SET used = 1 WHERE token_hash = ?").bind(tokenHash).run();
   return row.email;
 }
+__name(consumePasswordResetToken, "consumePasswordResetToken");
 
 async function sendEmail(env, to, subject, body, from) {
   if (!SCRIPT_URL || !from) return { success: false, error: "Missing config" };
@@ -1562,18 +1687,24 @@ async function sendEmail(env, to, subject, body, from) {
     return { success: false, error: err.message };
   }
 }
+__name(sendEmail, "sendEmail");
 
+// ─── ORDER TAG RENDERING (mirrors order-reply.html composer) ────
 function escHtml(str) {
   if (str === null || str === undefined) return "";
   return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
+__name(escHtml, "escHtml");
 
 function parseTicketMeta(ticket) {
   if (!ticket) return {};
   try { return typeof ticket.metadata === "object" && ticket.metadata ? ticket.metadata : JSON.parse(ticket.metadata || "{}"); }
   catch (e) { return {}; }
 }
+__name(parseTicketMeta, "parseTicketMeta");
 
+// Resolves general.products_data_base_url / products_images_base_url against
+// general.domain, mirroring order-reply.html's getProductUrls().
 async function getProductUrls(env) {
   const domain = (DOMAIN || "").replace(/\/+$/, "");
   function withDomain(url) {
@@ -1586,6 +1717,7 @@ async function getProductUrls(env) {
   const imagesBaseUrl = withDomain((PRODUCTS_IMAGES_BASE_URL || "").replace(/\/+$/, ""));
   return { domain, dataBaseUrl, imagesBaseUrl };
 }
+__name(getProductUrls, "getProductUrls");
 
 async function fetchProductNames(urls, lang) {
   try {
@@ -1597,7 +1729,10 @@ async function fetchProductNames(urls, lang) {
     return {};
   }
 }
+__name(fetchProductNames, "fetchProductNames");
 
+// Normalizes array-format products.json into an object keyed by id (mirrors
+// order-reply.html's normalizeProductImages so server and client agree).
 function normalizeProductImages(data) {
   if (!Array.isArray(data)) return data || {};
   const out = {};
@@ -1606,6 +1741,7 @@ function normalizeProductImages(data) {
   }
   return out;
 }
+__name(normalizeProductImages, "normalizeProductImages");
 
 async function fetchProductImages(urls) {
   try {
@@ -1617,6 +1753,7 @@ async function fetchProductImages(urls) {
     return {};
   }
 }
+__name(fetchProductImages, "fetchProductImages");
 
 async function fetchOrderLabels(urls, lang) {
   try {
@@ -1628,7 +1765,10 @@ async function fetchOrderLabels(urls, lang) {
     return {};
   }
 }
+__name(fetchOrderLabels, "fetchOrderLabels");
 
+// Resolves a catalog product id from an order item (mirrors order-reply.html's
+// resolveProductId so name/image lookups match the manual composer).
 function resolveProductId(item, catalogs) {
   let id = item.product_id || item.productId || item.id || item.sku ||
     item.item_id || item.itemId || item.variant_id || item.variantId ||
@@ -1646,6 +1786,7 @@ function resolveProductId(item, catalogs) {
   }
   return null;
 }
+__name(resolveProductId, "resolveProductId");
 
 function resolveImgUrl(domain, raw) {
   if (!raw) return "";
@@ -1653,6 +1794,7 @@ function resolveImgUrl(domain, raw) {
   const base = domain.startsWith("http") ? domain : domain ? "https://" + domain : "";
   return base + (raw.startsWith("/") ? "" : "/") + raw;
 }
+__name(resolveImgUrl, "resolveImgUrl");
 
 function renderOrderItemsHtml(meta, langProducts, labels) {
   const order = (meta && meta.order) || {};
@@ -1664,6 +1806,8 @@ function renderOrderItemsHtml(meta, langProducts, labels) {
   const discount = parseFloat(totals.discount || 0);
   const shipping = parseFloat(totals.shipping || 0);
   const tax = parseFloat(totals.tax || 0);
+  // totals.subtotal is already net of discount (see success.html), so the
+  // discount is display-only here and must not be subtracted again.
   const calculatedTotal = subtotal + shipping + tax;
   
   let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
@@ -1712,6 +1856,7 @@ function renderOrderItemsHtml(meta, langProducts, labels) {
   html += "</table>";
   return html;
 }
+__name(renderOrderItemsHtml, "renderOrderItemsHtml");
 
 function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, labels, domain) {
   const order = (meta && meta.order) || {};
@@ -1723,6 +1868,8 @@ function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, lab
   const discount = parseFloat(totals.discount || 0);
   const shipping = parseFloat(totals.shipping || 0);
   const tax = parseFloat(totals.tax || 0);
+  // totals.subtotal is already net of discount (see success.html), so the
+  // discount is display-only here and must not be subtracted again.
   const calculatedTotal = subtotal + shipping + tax;
   
   let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
@@ -1777,6 +1924,7 @@ function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, lab
   html += "</table>";
   return html;
 }
+__name(renderOrderItemsWithImagesHtml, "renderOrderItemsWithImagesHtml");
 
 function renderOrderSummaryHtml(meta, labels) {
   const order = (meta && meta.order) || {};
@@ -1788,6 +1936,8 @@ function renderOrderSummaryHtml(meta, labels) {
   const discount = parseFloat(totals.discount || 0);
   const shipping = parseFloat(totals.shipping || 0);
   const tax = parseFloat(totals.tax || 0);
+  // totals.subtotal is already net of discount (see success.html), so the
+  // discount is display-only here and must not be subtracted again.
   const calculatedTotal = subtotal + shipping + tax;
   
   let html = '<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">';
@@ -1799,6 +1949,7 @@ function renderOrderSummaryHtml(meta, labels) {
   html += `<div style="padding-top:8px;border-top:1px solid #ddd;"><strong>${labels.total ? escHtml(labels.total) + ":" : "Total:"}</strong> ${currency} ${calculatedTotal.toFixed(2)}</div></div>`;
   return html;
 }
+__name(renderOrderSummaryHtml, "renderOrderSummaryHtml");
 
 function renderOrderCustomerHtml(meta, labels) {
   const customer = meta && meta.order && meta.order.customer;
@@ -1810,6 +1961,7 @@ function renderOrderCustomerHtml(meta, labels) {
   html += "</div>";
   return html;
 }
+__name(renderOrderCustomerHtml, "renderOrderCustomerHtml");
 
 function renderOrderShippingHtml(meta, labels) {
   const customer = meta && meta.order && meta.order.customer;
@@ -1817,7 +1969,12 @@ function renderOrderShippingHtml(meta, labels) {
   const prefix = labels.shipping_address ? `<div style="font-weight:bold;margin-bottom:4px;">${escHtml(labels.shipping_address)}</div>` : "";
   return `<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">${prefix}<div style="white-space:pre-wrap;">${escHtml(customer.shipping_address)}</div></div>`;
 }
+__name(renderOrderShippingHtml, "renderOrderShippingHtml");
 
+// Renders {{order_items_with_names}}, {{order_items_with_images}}, {{order_items}}
+// (legacy alias), {{order_summary}}, {{order_customer}}, {{order_shipping}},
+// {{order_reference}} and {{ticket_number}}. Mirrors order-reply.html's
+// applyOrderTags so auto-replies and manual replies render identically.
 async function applyOrderTags(html, ticket, env) {
   if (!ticket || !html) return html;
   const meta = parseTicketMeta(ticket);
@@ -1852,6 +2009,7 @@ async function applyOrderTags(html, ticket, env) {
   out = out.replaceAll("{{ticket_number}}", escHtml(ticket.ticket_number || ""));
   return out;
 }
+__name(applyOrderTags, "applyOrderTags");
 
 async function sendTicketConfirmation(ticket, env, emailOverride) {
   const email = emailOverride || ticket.sender_email;
@@ -1872,6 +2030,7 @@ async function sendTicketConfirmation(ticket, env, emailOverride) {
   let from = ar.from || await getDefaultFrom(env);
   return await sendEmail(env, email, subject, formattedBody, from);
 }
+__name(sendTicketConfirmation, "sendTicketConfirmation");
 
 async function sendNewsletterConfirmation(env, email, token, language) {
   const lang = await validateLanguage(language, env);
@@ -1888,6 +2047,7 @@ async function sendNewsletterConfirmation(env, email, token, language) {
   let from = ar.from || await getDefaultFrom(env);
   return await sendEmail(env, email, subject, formattedBody, from);
 }
+__name(sendNewsletterConfirmation, "sendNewsletterConfirmation");
 
 function decodeRFC2047(text) {
   if (!text) return text;
@@ -1907,6 +2067,7 @@ function decodeRFC2047(text) {
     }
   });
 }
+__name(decodeRFC2047, "decodeRFC2047");
 
 function decodeQuotedPrintable(str) {
   str = str.replace(/=\r\n/g, "").replace(/=\n/g, "");
@@ -1921,6 +2082,7 @@ function decodeQuotedPrintable(str) {
   }
   return new TextDecoder("utf-8").decode(new Uint8Array(bytes));
 }
+__name(decodeQuotedPrintable, "decodeQuotedPrintable");
 
 function decodeBase64Body(str) {
   try {
@@ -1933,11 +2095,13 @@ function decodeBase64Body(str) {
     return str;
   }
 }
+__name(decodeBase64Body, "decodeBase64Body");
 
 function looksLikeBase64(str) {
   const clean = str.replace(/\s+/g, "");
   return clean.length > 20 && clean.length % 4 === 0 && /^[A-Za-z0-9+/]+=*$/.test(clean);
 }
+__name(looksLikeBase64, "looksLikeBase64");
 
 function decodePartBody(headerBlock, rawBody) {
   const encMatch = (headerBlock || "").match(/Content-Transfer-Encoding:\s*([^\r\n]+)/i);
@@ -1947,10 +2111,12 @@ function decodePartBody(headerBlock, rawBody) {
   if (!encoding && looksLikeBase64(rawBody)) return decodeBase64Body(rawBody);
   return rawBody;
 }
+__name(decodePartBody, "decodePartBody");
 
 function cleanupBody(text) {
   return text.replace(/\r\n/g, "\n").replace(/[ \t]+/g, " ").replace(/\n[ \t]+/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
+__name(cleanupBody, "cleanupBody");
 
 function htmlToPlainText(html) {
   if (!html) return "";
@@ -1971,6 +2137,7 @@ function htmlToPlainText(html) {
   text = cleanupBody(text);
   return text;
 }
+__name(htmlToPlainText, "htmlToPlainText");
 
 async function parseEmail(rawStream) {
   try {
@@ -2027,6 +2194,7 @@ async function parseEmail(rawStream) {
     }
     
     if (htmlBody) {
+      // Preserve HTML emails for better rendering in the UI
       body = htmlBody;
     } else if (plainTextBody) {
       body = plainTextBody;
@@ -2042,6 +2210,7 @@ async function parseEmail(rawStream) {
     return { from: "unknown@example.com", subject: "No subject", body: "" };
   }
 }
+__name(parseEmail, "parseEmail");
 
 async function deleteCategoryData(env, cat) {
   if (!cat || !/^[a-z0-9\-_]+$/.test(cat)) throw new Error("Invalid category slug");
@@ -2067,13 +2236,18 @@ async function deleteCategoryData(env, cat) {
   cache.categories = null;
   cache.autoReplies = null;
 }
+__name(deleteCategoryData, "deleteCategoryData");
 
+// ─── CORS CONFIGURATION ───────────────────────────────────────────
 async function getAllowedOrigins(env) {
   return CORS_ALLOWED_ORIGINS;
 }
+__name(getAllowedOrigins, "getAllowedOrigins");
 
 function getCorsHeaders(origin, allowedOrigins) {
+  // STRICT: Only allow if origin is in allowlist. Do NOT silently fallback.
   if (!origin || !allowedOrigins.includes(origin)) {
+    // Origin not allowed; return permissive CORS for error response only
     return {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -2087,7 +2261,9 @@ function getCorsHeaders(origin, allowedOrigins) {
     "Access-Control-Allow-Headers": "Content-Type, Authorization"
   };
 }
+__name(getCorsHeaders, "getCorsHeaders");
 
+// ─── WORKER HANDLER ────────────────────────────────────────────
 var worker_default = {
   async fetch(request, env, ctx) {
     await loadConfig(env);
@@ -2095,12 +2271,13 @@ var worker_default = {
     const allowedOrigins = await getAllowedOrigins(env);
     const corsHeaders = getCorsHeaders(origin, allowedOrigins);
     if (request.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-    const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const json = /* @__PURE__ */ __name((data, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }), "json");
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
     try {
-      if (path === "/api/admin/debug-env" && method === "GET") {
+      // ─── WEBSOCKET ──────────────────────────────────────────
+            if (path === "/api/admin/debug-env" && method === "GET") {
         return json({ 
           hasKey: typeof env.ENCRYPTION_KEY !== 'undefined',
           allKeys: Object.keys(env).filter(k => k.includes('KEY') || k.includes('SECRET') || k.includes('ENCRYPT'))
@@ -2127,6 +2304,7 @@ var worker_default = {
         return stub.fetch(hubRequest);
       }
 
+      // ─── GET USER'S LOCKED TICKETS ─────────────────────────────
       if (path === "/api/admin/user-locks" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2145,6 +2323,7 @@ var worker_default = {
         return json(data);
       }
 
+      // ─── TICKET LOCKING ────────────────────────────────────
       if (path.startsWith("/api/admin/ticket/") && path.includes("/lock") && method === "POST") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const userEmail = await verifyToken(token, env);
@@ -2168,6 +2347,7 @@ var worker_default = {
         return json(await res.json());
       }
 
+      // ─── RELEASE LOCK (was /unlock - renamed to avoid adblockers) ──
       if (path.startsWith("/api/admin/ticket/") && path.includes("/release") && method === "POST") {
         let token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         if (!token) {
@@ -2211,6 +2391,7 @@ var worker_default = {
         return json(await res.json());
       }
 
+      // ─── TEST PUSH ─────────────────────────────────────────
       if (path === "/api/admin/test-push" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2223,11 +2404,12 @@ var worker_default = {
           status: "new",
           subject: "Test Ticket - Hub Working!",
           sender_name: "Test User",
-          updated_at: (new Date()).toISOString()
+          updated_at: (/* @__PURE__ */ new Date()).toISOString()
         }, env, "created");
         return json({ success: true, message: "Test ticket sent via TICKET_HUB" });
       }
 
+      // ─── REPORTS ───────────────────────────────────────────
       if (path === "/api/admin/reports" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2236,6 +2418,7 @@ var worker_default = {
         return json({ success: true, data: await getReports(env) });
       }
 
+      // ─── STATS ─────────────────────────────────────────────
       if (path === "/api/admin/stats" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2245,6 +2428,7 @@ var worker_default = {
         return json({ success: true, stats: await getStats(env, user) });
       }
 
+      // ─── AUTO-REPLY ───────────────────────────────────────
       if (path === "/api/admin/auto-reply" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2285,6 +2469,7 @@ var worker_default = {
         }
       }
 
+      // ─── EMAIL ADDRESSES ──────────────────────────────────
       if (path === "/api/admin/email-addresses" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2336,6 +2521,7 @@ var worker_default = {
         return json({ success: true });
       }
 
+      // ─── SETTINGS ──────────────────────────────────────────
       if (path === "/api/admin/settings" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2355,6 +2541,10 @@ var worker_default = {
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
         const { settings } = await request.json();
+        // Order-reply templates AND the payment auto-reply config are gated by
+        // the order_reply resource (admin/manager) rather than the general
+        // settings resource, so managers can save them without needing full
+        // settings access.
         const isOrderReplyWrite = Array.isArray(settings) && settings.length > 0 && settings.every((s) =>
           s.category === "order_template" || (s.category === "auto_reply" && String(s.key || "").startsWith("payment_"))
         );
@@ -2365,6 +2555,7 @@ var worker_default = {
         return json({ success: true });
       }
 
+      // ─── NEWSLETTERS ──────────────────────────────────────
       if (path === "/api/admin/newsletters" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2401,6 +2592,7 @@ var worker_default = {
         return json({ success: true });
       }
 
+      // ─── SUBSCRIBERS ──────────────────────────────────────
       if (path === "/api/admin/subscribers" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2418,6 +2610,7 @@ var worker_default = {
         return json({ success: true });
       }
 
+      // ─── PUBLIC SUBSCRIBE ────────────────────────────────
       if (path === "/api/subscribe" && method === "POST") {
         const { email, name, language } = await request.json();
         if (!email) return json({ error: "Email required" }, 400);
@@ -2449,6 +2642,7 @@ var worker_default = {
         return json(result, result.success ? 200 : 400);
       }
 
+      // ─── PUBLIC MESSAGE ──────────────────────────────────
       if (path === "/api/message" && method === "POST") {
         const data = await request.json();
         try {
@@ -2498,6 +2692,7 @@ var worker_default = {
         }
       }
 
+      // ─── USER PROFILE ──────────────────────────────────────
       if (path === "/api/admin/me" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2514,6 +2709,7 @@ var worker_default = {
         return json({ success: true, user: { email: user.email, name: user.name, role: user.role, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id, page_permissions: user.page_permissions || {}, effective_permissions: buildEffectivePermissions(user) } });
       }
 
+      // ─── LOGIN ─────────────────────────────────────────────
       if (path === "/api/admin/login" && method === "POST") {
         const { email, password } = await request.json();
         const rateLimitKey = (email || "").toLowerCase().trim();
@@ -2535,10 +2731,12 @@ var worker_default = {
         return json({ success: true, token, user: { email: user.email, name: user.name, role: user.role, allowed_languages: user.allowed_languages, allowed_emails: user.allowed_emails, allowed_categories: user.allowed_categories, team_id: user.team_id, page_permissions: user.page_permissions || {}, effective_permissions: buildEffectivePermissions(user) } });
       }
 
+      // ─── LOGOUT ────────────────────────────────────────────
       if (path === "/api/admin/logout" && method === "POST") {
         return json({ success: true });
       }
 
+      // ─── FORGOT PASSWORD ─────────────────────────────────────
       if (path === "/api/admin/forgot-password" && method === "POST") {
         const { email } = await request.json();
         const cleanEmail = (email || "").toLowerCase().trim();
@@ -2566,6 +2764,7 @@ var worker_default = {
         return json(genericResponse);
       }
 
+      // ─── RESET PASSWORD ──────────────────────────────────────
       if (path === "/api/admin/reset-password" && method === "POST") {
         const { token, password } = await request.json();
         
@@ -2589,6 +2788,7 @@ var worker_default = {
         return json({ success: true, message: "Password updated. You can now log in." });
       }
 
+      // ─── VALIDATE RESET TOKEN ──────────────────────────────────────
       if (path === "/api/admin/validate-reset-token" && method === "POST") {
         const { token } = await request.json();
         
@@ -2597,6 +2797,7 @@ var worker_default = {
         }
         
         try {
+          await ensurePasswordResetsTable(env);
           const tokenHash = await sha256(token);
           const row = await env.DB.prepare(
             "SELECT expires_at, used FROM password_resets WHERE token_hash = ?"
@@ -2615,6 +2816,9 @@ var worker_default = {
             return json({ valid: false, message: "This reset link has expired" });
           }
           
+          // IMPORTANT: DO NOT UPDATE used = 1 here!
+          // Only check the token, never modify it.
+          
           return json({ 
             valid: true, 
             expires_at: row.expires_at,
@@ -2626,6 +2830,7 @@ var worker_default = {
         }
       }
 
+      // ─── CACHE PURGE (manual) ───────────────────────────────
       if (path === "/api/admin/cache/purge" && method === "POST") {
         const token2 = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const purgeEmail = await verifyToken(token2, env);
@@ -2638,6 +2843,7 @@ var worker_default = {
         return json({ success: true });
       }
 
+      // ─── USERS MANAGEMENT ──────────────────────────────────
       if (path === "/api/admin/users" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2647,6 +2853,7 @@ var worker_default = {
         return json({ success: true, users: (users.results || []).map((u) => ({ email: u.email, name: u.name, role: u.role, allowed_languages: JSON.parse(u.allowed_languages || "[]"), allowed_emails: JSON.parse(u.allowed_emails || "[]"), allowed_categories: JSON.parse(u.allowed_categories || "[]"), team_id: u.team_id, page_permissions: (() => { try { return JSON.parse(u.page_permissions || "{}"); } catch (e) { return {}; } })() })) });
       }
 
+      // ─── USER CREATION ───────────────────────────────
       if (path === "/api/admin/users" && method === "POST") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2688,6 +2895,7 @@ var worker_default = {
         }
       }
 
+      // ─── USER UPDATE ────────────────────────────────────
       if (path.startsWith("/api/admin/users/") && method === "PUT") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2756,6 +2964,7 @@ var worker_default = {
         return json({ success: true });
       }
 
+      // ─── TICKETS ───────────────────────────────────────────
       if (path === "/api/admin/tickets" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2878,6 +3087,16 @@ var worker_default = {
         return json({ success: false, error: result.error }, 500);
       }
 
+      // ─── GET PASSWORD POLICY (for frontend) ────────────────────────
+      if (path === "/api/admin/password-policy" && method === "GET") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const email = await verifyToken(token, env);
+        if (!email) return json({ error: "Unauthorized" }, 401);
+        const policy = await getPasswordPolicy(env);
+        return json({ success: true, policy });
+      }
+
+      // ─── DELETE CATEGORY ──────────────────────────────────
       if (path.startsWith("/api/admin/category/") && method === "DELETE") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2895,6 +3114,7 @@ var worker_default = {
         return json({ version: row ? row.value : "0" });
       }
 
+      // ─── SETUP: ENCRYPT VALUE ────────────────────────────────
       if (path === "/api/admin/setup/encrypt" && method === "POST") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
@@ -2910,6 +3130,270 @@ var worker_default = {
         }
       }
 
+      // ─── SETUP: CHECK STATUS ──────────────────────────────────
+      if (path === "/api/setup/status" && method === "GET") {
+        try {
+          const hasUsers = await env.DB.prepare("SELECT COUNT(*) as count FROM users").first();
+          const setupComplete = (hasUsers && hasUsers.count > 0) ? true : false;
+          return json({ setupComplete });
+        } catch (e) {
+          // Tables don't exist yet
+          return json({ setupComplete: false });
+        }
+      }
+
+      // ─── SETUP: INITIALIZE DATABASE ───────────────────────────
+      if (path === "/api/setup/initialize" && method === "POST") {
+        const { encryptionKey } = await request.json();
+        
+        // Verify the provided key matches the Cloudflare secret
+        if (!encryptionKey || encryptionKey !== env.ENCRYPTION_KEY) {
+          return json({ error: "Invalid encryption key" }, 403);
+        }
+
+        try {
+          // Create all tables
+          await env.DB.prepare(`CREATE TABLE IF NOT EXISTS settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT,
+            updated_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(category, key)
+          )`).run();
+
+          await env.DB.prepare(`CREATE TABLE IF NOT EXISTS users (
+            email TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'agent',
+            password_hash TEXT NOT NULL,
+            allowed_languages TEXT DEFAULT '[]',
+            allowed_emails TEXT DEFAULT '[]',
+            allowed_categories TEXT DEFAULT '[]',
+            team_id INTEGER,
+            page_permissions TEXT DEFAULT '{}',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+          )`).run();
+
+          await env.DB.prepare(`CREATE TABLE IF NOT EXISTS tickets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticket_number TEXT NOT NULL UNIQUE,
+            category TEXT NOT NULL DEFAULT 'unclassified',
+            language TEXT NOT NULL DEFAULT 'en',
+            status TEXT NOT NULL DEFAULT 'new',
+            priority TEXT NOT NULL DEFAULT 'medium',
+            sender_name TEXT,
+            sender_email TEXT,
+            sender_phone TEXT,
+            order_number TEXT,
+            subject TEXT,
+            message TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now')),
+            last_action TEXT DEFAULT (datetime('now')),
+            sla_response_due TEXT,
+            sla_resolution_due TEXT,
+            assigned_to TEXT,
+            metadata TEXT DEFAULT '{}',
+            last_updated_by TEXT
+          )`).run();
+
+          await env.DB.prepare(`CREATE TABLE IF NOT EXISTS ticket_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticket_id INTEGER NOT NULL,
+            comment_type TEXT NOT NULL DEFAULT 'internal',
+            author_email TEXT,
+            content TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            old_status TEXT,
+            new_status TEXT,
+            FOREIGN KEY (ticket_id) REFERENCES tickets(id)
+          )`).run();
+
+          await env.DB.prepare(`CREATE TABLE IF NOT EXISTS email_addresses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            label TEXT NOT NULL,
+            action TEXT,
+            language TEXT NOT NULL DEFAULT 'en',
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+          )`).run();
+
+          await env.DB.prepare(`CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL UNIQUE,
+            name TEXT,
+            language TEXT NOT NULL DEFAULT 'en',
+            status TEXT NOT NULL DEFAULT 'active',
+            subscribed_at TEXT DEFAULT (datetime('now')),
+            unsubscribed_at TEXT
+          )`).run();
+
+          await env.DB.prepare(`CREATE TABLE IF NOT EXISTS unsubscribe_tokens (
+            subscriber_id INTEGER PRIMARY KEY,
+            token TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            FOREIGN KEY (subscriber_id) REFERENCES newsletter_subscribers(id)
+          )`).run();
+
+          await env.DB.prepare(`CREATE TABLE IF NOT EXISTS newsletters (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            subject TEXT NOT NULL,
+            body TEXT,
+            language TEXT NOT NULL DEFAULT 'all',
+            status TEXT NOT NULL DEFAULT 'draft',
+            created_at TEXT DEFAULT (datetime('now')),
+            sent_at TEXT,
+            recipient_count INTEGER DEFAULT 0
+          )`).run();
+
+          await env.DB.prepare(`CREATE TABLE IF NOT EXISTS password_resets (
+            token_hash TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            expires_at INTEGER NOT NULL,
+            used INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now'))
+          )`).run();
+
+          await env.DB.prepare(`CREATE TABLE IF NOT EXISTS agents_online (
+            id INTEGER PRIMARY KEY DEFAULT 1,
+            count INTEGER NOT NULL DEFAULT 0
+          )`).run();
+
+          await env.DB.prepare("INSERT OR IGNORE INTO agents_online (id, count) VALUES (1, 0)").run();
+
+          // Seed all default settings
+          const defaultSettings = [
+            // System
+            ['system', 'ticket_cache_key', 'ticket-list'],
+            ['system', 'jwt_expiry_seconds', '86400'],
+            ['system', 'lock_timeout_write_ms', '45000'],
+            ['system', 'lock_timeout_read_ms', '30000'],
+            ['system', 'lock_cleanup_interval_ms', '15000'],
+            ['system', 'login_max_attempts', '5'],
+            ['system', 'login_ratelimit_window_ms', '300000'],
+            ['system', 'cors_allowed_origins', 'https://dornori.com,https://www.dornori.com,https://dornori.github.io,https://dornori-ticketing.dornori-info.workers.dev'],
+            // Security
+            ['security', 'password_min_length', '12'],
+            ['security', 'password_reset_expiry_minutes', '15'],
+            ['security', 'password_blocklist', 'password,123456,12345678,qwerty,abc123,password123,admin,letmein,welcome,monkey,dragon,master,hello,fuckyou,superman,123456789,12345,1234567890,qwertyuiop,qwerty123,1q2w3e4r,password1,123321,111111,000000,abcdef,abcd1234,iloveyou,trustno1,sunshine,princess,shadow,ashley,bailey,passw0rd,admin123,root,toor'],
+            // Tickets
+            ['tickets', 'newsletter_batch_size', '10'],
+            ['tickets', 'ticket_sequence_max', '999999'],
+            ['tickets', 'email_body_max_length', '15000'],
+            ['tickets', 'ticket_active_statuses', 'new,open,in_progress,pending'],
+            ['tickets', 'reply_delimiter', '\\u0001'],
+            // General
+            ['general', 'domain', ''],
+            ['general', 'app_basedir', ''],
+            ['general', 'script_url', ''],
+            ['general', 'products_data_base_url', ''],
+            ['general', 'products_images_base_url', ''],
+            ['general', 'default_language', 'en'],
+            ['general', 'timezone', 'UTC'],
+            ['general', 'config_version', '1'],
+            // Email
+            ['email', 'default_from', ''],
+            ['email', 'password_reset_from', ''],
+          ];
+
+          for (const [cat, key, val] of defaultSettings) {
+            await env.DB.prepare(
+              "INSERT OR IGNORE INTO settings (category, key, value) VALUES (?, ?, ?)"
+            ).bind(cat, key, val).run();
+          }
+
+          // Generate and encrypt JWT secret
+          const jwtSecret = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, '');
+          const encryptedJwt = await encrypt(jwtSecret, env);
+          
+          // Encrypt and store the encryption key itself as a backup in settings
+          await env.DB.prepare(
+            "INSERT OR IGNORE INTO settings (category, key, value) VALUES (?, ?, ?)"
+          ).bind('system', 'jwt_secret_encrypted', encryptedJwt).run();
+
+          return json({ 
+            success: true, 
+            message: "Database initialized successfully",
+            tablesCreated: 10,
+            settingsSeeded: defaultSettings.length
+          });
+        } catch (e) {
+          return json({ error: e.message }, 500);
+        }
+      }
+
+      // ─── SETUP: CREATE ADMIN USER ─────────────────────────────
+      if (path === "/api/setup/create-admin" && method === "POST") {
+        const { encryptionKey, email, name, password } = await request.json();
+        
+        // Verify the provided key matches
+        if (!encryptionKey || encryptionKey !== env.ENCRYPTION_KEY) {
+          return json({ error: "Invalid encryption key" }, 403);
+        }
+
+        if (!email || !name || !password) {
+          return json({ error: "Email, name, and password are required" }, 400);
+        }
+
+        // Check if any users already exist
+        const existingUsers = await env.DB.prepare("SELECT COUNT(*) as count FROM users").first();
+        if (existingUsers && existingUsers.count > 0) {
+          return json({ error: "Admin user already exists. Setup is complete." }, 400);
+        }
+
+        try {
+          // Load config to get PASSWORD_MIN_LENGTH etc
+          await loadConfig(env);
+          
+          // Validate and hash password
+          const passwordHash = await validateAndHashPassword(password, env);
+          
+          // Create admin user
+          await env.DB.prepare(
+            "INSERT INTO users (email, name, role, password_hash, allowed_languages, allowed_emails, allowed_categories, page_permissions) VALUES (?, ?, 'admin', ?, '[]', '[]', '[]', '{}')"
+          ).bind(email.toLowerCase().trim(), name, passwordHash).run();
+
+          // Set setup complete
+          await env.DB.prepare(
+            "INSERT OR REPLACE INTO settings (category, key, value) VALUES ('system', 'setup_complete', '1')"
+          ).run();
+
+          // Generate JWT token for the new admin
+          await loadConfig(env);
+          const token = await generateToken(email, env);
+
+          return json({
+            success: true,
+            message: "Admin user created successfully",
+            token,
+            user: {
+              email: email.toLowerCase().trim(),
+              name,
+              role: 'admin',
+              allowed_languages: [],
+              allowed_emails: [],
+              allowed_categories: [],
+              team_id: null,
+              page_permissions: {},
+              effective_permissions: {
+                tickets: { view: true, edit: true, create: true, delete: true },
+                users: { view: true, edit: true, create: true, delete: true },
+                settings: { view: true, edit: true, create: true, delete: true },
+                newsletter: { view: true, edit: true, create: true, delete: true },
+                reports: { view: true, edit: true, create: true, delete: true },
+                order_reply: { view: true, edit: true, create: true, delete: true }
+              }
+            }
+          });
+        } catch (e) {
+          return json({ error: e.message }, 400);
+        }
+      }
+
       return json({ error: "Not found" }, 404);
     } catch (err) {
       console.error("Error:", err);
@@ -2917,6 +3401,7 @@ var worker_default = {
     }
   },
 
+  // ─── EMAIL HANDLER ──────────────────────────────────────────
   async email(message, env) {
     try {
       await loadConfig(env);
@@ -2982,13 +3467,17 @@ var worker_default = {
   }
 };
 
+// ─── TICKET HUB ───────────────────────────────────────────────
 var TicketHub = class {
+  static {
+    __name(this, "TicketHub");
+  }
   constructor(state, env) {
     this.state = state;
     this.env = env;
-    this.locks = new Map();
-    this.userLocks = new Map();
-    this.loginAttempts = new Map();
+    this.locks = /* @__PURE__ */ new Map();
+    this.userLocks = /* @__PURE__ */ new Map();
+    this.loginAttempts = /* @__PURE__ */ new Map();
   }
 
   locksSnapshot() {
@@ -3068,6 +3557,7 @@ var TicketHub = class {
       return new Response("ok");
     }
 
+    // ─── LOGIN RATE LIMIT: CHECK ───────────────────────────────────
     if (request.method === "POST" && url.pathname === "/rl-check") {
       const RL_MAX = LOGIN_MAX_ATTEMPTS;
       const RL_WINDOW_MS = LOGIN_WINDOW_MS;
@@ -3086,6 +3576,7 @@ var TicketHub = class {
       return new Response(JSON.stringify({ limited, retryAfterMs }));
     }
 
+    // ─── LOGIN RATE LIMIT: RECORD FAILURE ──────────────────────────
     if (request.method === "POST" && url.pathname === "/rl-fail") {
       const RL_WINDOW_MS = LOGIN_WINDOW_MS;
       let body = {};
@@ -3102,6 +3593,7 @@ var TicketHub = class {
       return new Response(JSON.stringify({ success: true }));
     }
 
+    // ─── LOGIN RATE LIMIT: CLEAR ────────────────────────────────────
     if (request.method === "POST" && url.pathname === "/rl-clear") {
       let body = {};
       try {
@@ -3112,6 +3604,7 @@ var TicketHub = class {
       return new Response(JSON.stringify({ success: true }));
     }
 
+    // ─── GET USER LOCKS ──────────────────────────────────────────
     if (request.method === "POST" && url.pathname === "/user-locks") {
       let body = {};
       try {
@@ -3123,6 +3616,7 @@ var TicketHub = class {
       return new Response(JSON.stringify({ lockedTickets }));
     }
 
+    // ─── CHECK LOCK ──────────────────────────────────────────────
     if (request.method === "POST" && url.pathname === "/check-lock") {
       let body = {};
       try {
@@ -3136,6 +3630,7 @@ var TicketHub = class {
       return new Response(JSON.stringify({ email: null }));
     }
 
+    // ─── LOCK ─────────────────────────────────────────────────────
     if (request.method === "POST" && url.pathname === "/lock") {
       const LOCK_STALE_MS = LOCK_STALE_WRITE_MS;
       let body = {};
@@ -3186,6 +3681,7 @@ var TicketHub = class {
       return new Response(JSON.stringify({ success: true }));
     }
 
+    // ─── RELEASE ──────────────────────────────────────────────────
     if (request.method === "POST" && url.pathname === "/release") {
       let body = {};
       try {
@@ -3212,6 +3708,7 @@ var TicketHub = class {
       return new Response(JSON.stringify({ success: true }));
     }
 
+    // ─── WEBSOCKET CONNECT ──────────────────────────────────────
     if (url.pathname === "/connect" && request.headers.get("Upgrade") === "websocket") {
       const role = url.searchParams.get("role") || "agent";
       const email = url.searchParams.get("email") || "";
@@ -3381,4 +3878,4 @@ var TicketHub = class {
 export {
   TicketHub,
   worker_default as default
-};
+};  
