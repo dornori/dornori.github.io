@@ -5,7 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Support</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<link rel="stylesheet" href="shared.css">
+<script>
+(function() {
+    var config = {};
+    try {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/dornorium/config.json', false);
+        xhr.send();
+        if (xhr.status === 200) config = JSON.parse(xhr.responseText);
+    } catch (e) {}
+    window.DORNORIUM_CONFIG = {
+        API_BASE: config.API_BASE || '',
+        LANG_BASE_PATH: config.LANG_BASE_PATH || '/lang/',
+        CSS_PATH: config.CSS_PATH || '/css/dornorium.css'
+    };
+    document.write('<link rel="stylesheet" href="' + window.DORNORIUM_CONFIG.CSS_PATH + '">');
+})();
+</script>
 </head>
 <body>
 <div class="container">
@@ -95,21 +111,13 @@
 (function() {
     'use strict';
 
-    var API_BASE = '';
-    (function loadApiBase() {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', (window.__BASE_PATH__ || '/') + 'config.json', false);
-        xhr.send();
-        if (xhr.status === 200) {
-            var config = JSON.parse(xhr.responseText);
-            if (config.API_BASE) API_BASE = config.API_BASE;
-        }
-    })();
+    var API_BASE = window.DORNORIUM_CONFIG.API_BASE;
+    var LANG_BASE_PATH = window.DORNORIUM_CONFIG.LANG_BASE_PATH;
     var WORKER_URL = API_BASE + '/api/message';
     var TURNSTILE_KEY = (window.CONFIG && window.CONFIG.turnstile && window.CONFIG.turnstile.sitekey) || null;
 
     var lang = document.documentElement.lang || 'en';
-    var formJsonPath = '/lang/' + lang + '/form.json';
+    var formJsonPath = LANG_BASE_PATH + lang + '/form.json';
     var redirectUrl = null;
 
     var dom = {};

@@ -4,7 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Subscribe</title>
-<link rel="stylesheet" href="shared.css">
+<script>
+(function() {
+    var config = {};
+    try {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/dornorium/config.json', false);
+        xhr.send();
+        if (xhr.status === 200) config = JSON.parse(xhr.responseText);
+    } catch (e) {}
+    window.DORNORIUM_CONFIG = {
+        API_BASE: config.API_BASE || '',
+        LANG_BASE_PATH: config.LANG_BASE_PATH || '/lang/',
+        CSS_PATH: config.CSS_PATH || '/css/dornorium.css'
+    };
+    document.write('<link rel="stylesheet" href="' + window.DORNORIUM_CONFIG.CSS_PATH + '">');
+})();
+</script>
 </head>
 <body>
 <div class="container">
@@ -36,20 +52,10 @@
 <script>
 (function() {
     'use strict';
-    var API_BASE = '';
+    var API_BASE = window.DORNORIUM_CONFIG.API_BASE;
+    var LANG_BASE_PATH = window.DORNORIUM_CONFIG.LANG_BASE_PATH;
     var lang = document.documentElement.lang || 'en';
-    var jsonPath = (window.__BASE_PATH__ || '/') + 'lang/' + lang + '/newsletter.json';
-
-    function loadApiBase() {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', (window.__BASE_PATH__ || '/') + 'config.json', false);
-        xhr.send();
-        if (xhr.status === 200) {
-            var config = JSON.parse(xhr.responseText);
-            if (config.API_BASE) API_BASE = config.API_BASE;
-        }
-    }
-    loadApiBase();
+    var jsonPath = LANG_BASE_PATH + lang + '/newsletter.json';
 
     var t = {};
     var form = document.getElementById('subscribeForm');
