@@ -675,6 +675,11 @@ async function buildEmailTab() {
         </div>
         <div class="f-row"><label>Google Apps Script URL</label><input type="text" id="em_script_url" value="${esc(S('general','script_url',''))}" placeholder="https://script.google.com/macros/s/..." /></div>
         <div class="f-grid-3">
+            <div class="f-row"><label>Google App Username</label><input type="text" id="em_script_username" value="${esc(S('email_script','username',''))}" placeholder="username" /></div>
+            <div class="f-row"><label>Google App Password</label><input type="password" id="em_script_password" value="" placeholder="Leave blank to keep existing" autocomplete="new-password" /></div>
+            <div class="f-row"><label>Google App Secret</label><input type="password" id="em_script_secret" value="" placeholder="Leave blank to keep existing" autocomplete="new-password" /></div>
+        </div>
+        <div class="f-grid-3">
             <div class="f-row"><label>Email Body Max Length</label><input type="number" id="em_body_max" value="${esc(S('tickets','email_body_max_length','15000'))}" /></div>
             <div class="f-row"><label>Newsletter Batch Size</label><input type="number" id="em_nl_batch" value="${esc(S('tickets','newsletter_batch_size','10'))}" /></div>
             <div class="f-row"><label>Reply Delimiter</label><input type="text" id="em_reply_delim" value="${esc(S('tickets','reply_delimiter','\\u0001'))}" /></div>
@@ -729,16 +734,42 @@ async function buildEmailTab() {
 }
 
 async function saveEmailSettings() {
-    const ok = await saveSettings([
+    const updates = [
         { category:'email', key:'default_from', value: document.getElementById('em_default_from').value.trim() },
         { category:'email', key:'password_reset_from', value: document.getElementById('em_password_reset_from').value.trim() },
         { category:'general', key:'script_url', value: document.getElementById('em_script_url').value.trim() },
+        { category:'email_script', key:'username', value: document.getElementById('em_script_username').value.trim() },
         { category:'tickets', key:'email_body_max_length', value: document.getElementById('em_body_max').value },
         { category:'tickets', key:'newsletter_batch_size', value: document.getElementById('em_nl_batch').value },
         { category:'tickets', key:'reply_delimiter', value: document.getElementById('em_reply_delim').value },
-    ]);
+    ];
+
+    const newPassword = document.getElementById('em_script_password').value;
+    const newSecret = document.getElementById('em_script_secret').value;
+
+    try {
+        if (newPassword) {
+            const enc = await api('/api/admin/setup/encrypt', { method: 'POST', body: JSON.stringify({ value: newPassword }) });
+            if (!enc.encrypted) throw new Error(enc.error || 'Failed to encrypt password');
+            updates.push({ category:'email_script', key:'password', value: enc.encrypted });
+        }
+        if (newSecret) {
+            const enc = await api('/api/admin/setup/encrypt', { method: 'POST', body: JSON.stringify({ value: newSecret }) });
+            if (!enc.encrypted) throw new Error(enc.error || 'Failed to encrypt secret');
+            updates.push({ category:'email_script', key:'secret', value: enc.encrypted });
+        }
+    } catch (e) {
+        toast('❌ ' + e.message, 'error');
+        return;
+    }
+
+    const ok = await saveSettings(updates);
     ok ? toast('✅ Email settings saved') : toast('❌ Failed', 'error');
-    if (ok) await load();
+    if (ok) {
+        document.getElementById('em_script_password').value = '';
+        document.getElementById('em_script_secret').value = '';
+        await load();
+    }
 }
 
 // ── Email Routing functions ──

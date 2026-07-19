@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subscribe</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="container">
+    <div class="subscribe-card">
+        <h1 id="nl-heading"></h1>
+        <div id="subscribeFormWrapper">
+            <p class="sub" id="nl-sub"></p>
+            <form id="subscribeForm" novalidate>
+                <div class="sub-field">
+                    <label for="sub-name" id="label-sub-name"></label>
+                    <input type="text" id="sub-name" name="name" />
+                </div>
+                <div class="sub-field">
+                    <label for="sub-email" id="label-sub-email"></label>
+                    <input type="email" id="sub-email" name="email" required />
+                </div>
+                <button type="submit" class="btn-subscribe" id="submitBtn"></button>
+            </form>
+            <div id="sub-msg" class="sub-msg"></div>
+        </div>
+        <div id="successState" class="success-state">
+            <span class="check-icon">✅</span>
+            <h2 id="nl-success-heading"></h2>
+            <p id="nl-success-message"></p>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    'use strict';
+    var API_BASE = '';
+    var lang = document.documentElement.lang || 'en';
+    var jsonPath = (window.__BASE_PATH__ || '/') + 'lang/' + lang + '/newsletter.json';
+
+    function loadApiBase() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', (window.__BASE_PATH__ || '/') + 'config.json', false);
+        xhr.send();
+        if (xhr.status === 200) {
+            var config = JSON.parse(xhr.responseText);
+            if (config.API_BASE) API_BASE = config.API_BASE;
+        }
+    }
+    loadApiBase();
+
+    var t = {};
+    var form = document.getElementById('subscribeForm');
+    var emailInput = document.getElementById('sub-email');
+    var nameInput = document.getElementById('sub-name');
+    var submitBtn = document.getElementById('submitBtn');
+    var msg = document.getElementById('sub-msg');
+    var formWrapper = document.getElementById('subscribeFormWrapper');
+    var successState = document.getElementById('successState');
+
+    function showMsg(text, ok) {
+        msg.textContent = text;
+        msg.className = 'sub-msg show ' + (ok ? 'success' : 'error');
+    }
+
+    function populateUI(s) {
+        document.getElementById('nl-heading').textContent = s.heading || '';
+        document.getElementById('nl-sub').textContent = s.sub || '';
+        var nameLabel = document.getElementById('label-sub-name');
+        if (nameLabel) nameLabel.innerHTML = (s.nameLabel || 'Name') + ' <span style="text-transform:none;font-weight:400;">' + (s.nameOptional || '(optional)') + '</span>';
+        document.getElementById('label-sub-email').textContent = s.emailLabel || 'Email address';
+        emailInput.placeholder = s.emailPlaceholder || '';
+        nameInput.placeholder = s.namePlaceholder || '';
+        submitBtn.textContent = s.submitButton || 'Subscribe';
+        document.getElementById('nl-success-heading').textContent = s.successHeading || '';
+        document.getElementById('nl-success-message').textContent = s.successMessage || '';
+    }
+
+    fetch(jsonPath, { cache: 'no-store' })
+        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function(data) { t = data; populateUI(data.subscribe || {}); })
+        .catch(function(err) { console.error('Failed to load newsletter.json:', err); });
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        var email = emailInput.value.trim();
+        var name = nameInput.value.trim();
+        if (!email) return;
+        submitBtn.disabled = true;
+        submitBtn.textContent = (t.subscribe && t.subscribe.subscribingText) || 'Subscribing…';
+        try {
+            var res = await fetch(API_BASE + '/api/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, name: name || 'NA', language: lang })
+            });
+            var data = await res.json();
+            if (res.ok && data.success) {
+                formWrapper.style.display = 'none';
+                successState.style.display = 'block';
+            } else {
+                showMsg('❌ ' + (data.error || (t.subscribe && t.subscribe.errorFallback) || 'Something went wrong.'), false);
+                submitBtn.disabled = false;
+                submitBtn.textContent = (t.subscribe && t.subscribe.submitButton) || 'Subscribe';
+            }
+        } catch (err) {
+            showMsg('❌ ' + ((t.subscribe && t.subscribe.networkError) || 'Network error') + ': ' + err.message, false);
+            submitBtn.disabled = false;
+            submitBtn.textContent = (t.subscribe && t.subscribe.submitButton) || 'Subscribe';
+        }
+    });
+})();
+</script>
+</body>
+</html>
