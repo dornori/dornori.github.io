@@ -295,6 +295,12 @@
 </div>
 
 <script>
+    // ─── ENSURE SHARED.JS HAS LOADED ───────────────────────────
+    if (!window.API_BASE) {
+        console.error('shared.js did not load properly or config.json is missing');
+        throw new Error('API_BASE not available - check shared.js and config.json');
+    }
+
     // ─── PAGE ACCESS CHECK ──────────────────────────────────────
     (function() {
         if (!checkPageAccess('users')) return;
@@ -497,7 +503,7 @@
     // ─── LOAD DATA ───────────────────────────────────────────────
     async function apiCall(path, opts = {}) {
         opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
-        const res = await fetch(API_BASE + path, opts);
+        const res = await fetch(window.API_BASE + path, opts);
         if (res.status === 401) { localStorage.removeItem('token'); throw new Error('Unauthorized'); }
         if (res.status === 403) { throw new Error('Permission denied'); }
         return res.json();
@@ -564,7 +570,7 @@
         try {
             await loadSettings();
 
-            const usersRes = await fetch(API_BASE + '/api/admin/users', {
+            const usersRes = await fetch(window.API_BASE + '/api/admin/users', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
 
@@ -579,7 +585,7 @@
                 allUsers = usersData.users || [];
             }
 
-            const emailsRes = await fetch(API_BASE + '/api/admin/email-addresses?active_only=true', {
+            const emailsRes = await fetch(window.API_BASE + '/api/admin/email-addresses?active_only=true', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
             if (emailsRes.ok) {
@@ -841,6 +847,7 @@
             showErrorPopup('Permission Denied', 'You do not have permission to add users');
             return;
         }
+        
         const email = document.getElementById('newEmail').value.trim();
         const name = document.getElementById('newName').value.trim();
         const password = document.getElementById('newPassword').value;
@@ -876,7 +883,10 @@
         }
 
         try {
-            const res = await fetch(API_BASE + '/api/admin/users', {
+            const url = window.API_BASE + '/api/admin/users';
+            console.log('POST:', url);
+            
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -898,7 +908,8 @@
                 showErrorPopup('Error', data.error || 'Failed to add user');
             }
         } catch (e) {
-            errorEl.textContent = 'Network error';
+            errorEl.textContent = 'Network error: ' + e.message;
+            console.error('addUser error:', e);
             showErrorPopup('Network Error', e.message);
         }
     }
@@ -909,6 +920,7 @@
             showErrorPopup('Permission Denied', 'You do not have permission to edit users');
             return;
         }
+        
         const name = document.getElementById('editName').value.trim();
         const role = document.getElementById('editRole').value;
         const teamId = document.getElementById('editTeamId').value.trim() || null;
@@ -940,7 +952,7 @@
         }
         
         try {
-            const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(editingEmail)}`, {
+            const res = await fetch(`${window.API_BASE}/api/admin/users/${encodeURIComponent(editingEmail)}`, {
                 method: 'PUT',
                 headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -962,7 +974,8 @@
                 showErrorPopup('Error', data.error || 'Failed to save user');
             }
         } catch (e) {
-            errorEl.textContent = 'Network error';
+            errorEl.textContent = 'Network error: ' + e.message;
+            console.error('saveUser error:', e);
             showErrorPopup('Network Error', e.message);
         }
     }
@@ -976,7 +989,7 @@
         if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
 
         try {
-            const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(email)}`, {
+            const res = await fetch(`${window.API_BASE}/api/admin/users/${encodeURIComponent(email)}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -988,6 +1001,7 @@
                 showErrorPopup('Error', 'Failed to delete user');
             }
         } catch (e) {
+            console.error('deleteUser error:', e);
             showErrorPopup('Network Error', e.message);
         }
     }
