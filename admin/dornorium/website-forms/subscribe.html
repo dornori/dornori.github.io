@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subscribe</title>
+<script>
+(function() {
+    var config = {};
+    try {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/dornorium/config.json', false);
+        xhr.send();
+        if (xhr.status === 200) config = JSON.parse(xhr.responseText);
+    } catch (e) {}
+    window.DORNORIUM_CONFIG = {
+        API_BASE: config.API_BASE || '',
+        LANG_BASE_PATH: config.LANG_BASE_PATH || '/lang/',
+        CSS_PATH: config.CSS_PATH || '/css/dornorium.css'
+    };
+    document.write('<link rel="stylesheet" href="' + window.DORNORIUM_CONFIG.CSS_PATH + '">');
+})();
+</script>
+<style>
+.dornorium-brand { display:block !important; }
+</style>
+<link rel="icon" type="image/png" sizes="32x32" href="/dornorium/assets/icons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/dornorium/assets/icons/favicon-16x16.png">
+<link rel="shortcut icon" href="/dornorium/assets/icons/favicon.ico" type="image/x-icon">
+</head>
+<body>
+<div class="container">
+    <div class="subscribe-card">
+        <h1 id="nl-heading"></h1>
+        <div id="subscribeFormWrapper">
+            <p class="sub" id="nl-sub"></p>
+            <form id="subscribeForm" novalidate>
+                <div class="sub-field">
+                    <label for="sub-name" id="label-sub-name"></label>
+                    <input type="text" id="sub-name" name="name" />
+                </div>
+                <div class="sub-field">
+                    <label for="sub-email" id="label-sub-email"></label>
+                    <input type="email" id="sub-email" name="email" required />
+                </div>
+                <button type="submit" class="btn-subscribe" id="submitBtn"></button>
+            </form>
+            <div id="sub-msg" class="sub-msg"></div>
+        </div>
+        <div id="successState" class="success-state">
+            <span class="check-icon">✅</span>
+            <h2 id="nl-success-heading"></h2>
+            <p id="nl-success-message"></p>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    'use strict';
+    var API_BASE = window.DORNORIUM_CONFIG.API_BASE;
+    var LANG_BASE_PATH = window.DORNORIUM_CONFIG.LANG_BASE_PATH;
+    var lang = document.documentElement.lang || 'en';
+    var jsonPath = LANG_BASE_PATH + lang + '/newsletter.json';
+
+    var t = {};
+    var form = document.getElementById('subscribeForm');
+    var emailInput = document.getElementById('sub-email');
+    var nameInput = document.getElementById('sub-name');
+    var submitBtn = document.getElementById('submitBtn');
+    var msg = document.getElementById('sub-msg');
+    var formWrapper = document.getElementById('subscribeFormWrapper');
+    var successState = document.getElementById('successState');
+
+    function showMsg(text, ok) {
+        msg.textContent = text;
+        msg.className = 'sub-msg show ' + (ok ? 'success' : 'error');
+    }
+
+    function populateUI(s) {
+        document.getElementById('nl-heading').textContent = s.heading || '';
+        document.getElementById('nl-sub').textContent = s.sub || '';
+        var nameLabel = document.getElementById('label-sub-name');
+        if (nameLabel) nameLabel.innerHTML = (s.nameLabel || 'Name') + ' <span style="text-transform:none;font-weight:400;">' + (s.nameOptional || '(optional)') + '</span>';
+        document.getElementById('label-sub-email').textContent = s.emailLabel || 'Email address';
+        emailInput.placeholder = s.emailPlaceholder || '';
+        nameInput.placeholder = s.namePlaceholder || '';
+        submitBtn.textContent = s.submitButton || 'Subscribe';
+        document.getElementById('nl-success-heading').textContent = s.successHeading || '';
+        document.getElementById('nl-success-message').textContent = s.successMessage || '';
+    }
+
+    fetch(jsonPath, { cache: 'no-store' })
+        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function(data) { t = data; populateUI(data.subscribe || {}); })
+        .catch(function(err) { console.error('Failed to load newsletter.json:', err); });
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        var email = emailInput.value.trim();
+        var name = nameInput.value.trim();
+        if (!email) return;
+        submitBtn.disabled = true;
+        submitBtn.textContent = (t.subscribe && t.subscribe.subscribingText) || 'Subscribing…';
+        try {
+            var res = await fetch(API_BASE + '/api/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, name: name || 'NA', language: lang })
+            });
+            var data = await res.json();
+            if (res.ok && data.success) {
+                formWrapper.style.display = 'none';
+                successState.style.display = 'block';
+            } else {
+                showMsg('❌ ' + (data.error || (t.subscribe && t.subscribe.errorFallback) || 'Something went wrong.'), false);
+                submitBtn.disabled = false;
+                submitBtn.textContent = (t.subscribe && t.subscribe.submitButton) || 'Subscribe';
+            }
+        } catch (err) {
+            showMsg('❌ ' + ((t.subscribe && t.subscribe.networkError) || 'Network error') + ': ' + err.message, false);
+            submitBtn.disabled = false;
+            submitBtn.textContent = (t.subscribe && t.subscribe.submitButton) || 'Subscribe';
+        }
+    });
+})();
+</script>
+<div class="dornorium-brand" style="text-align:center;padding:16px 0 10px;border-top:1px solid #eee;margin-top:24px;font-size:11px;color:#999;" data-token="d7f3a9c2e1b8f4">
+    <img src="/dornorium/assets/icons/favicon-16x16.png" alt="Dornorium" width="32" height="32" style="display:inline-block;vertical-align:middle;margin-right:6px;">
+    <span style="vertical-align:middle;">Powered by <a href="https://www.dornori.info/dornorium" target="_blank" style="color:#666;text-decoration:none;font-weight:600;">Dornorium</a></span>
+    <span style="margin:0 8px;color:#ddd;">&middot;</span>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded',function(){var b=document.querySelector('[data-token="d7f3a9c2e1b8f4"]');if(!b){console.warn('Branding removed — license required: https://www.dornori.info/pricing');var style=document.createElement('style');style.textContent='body{filter:blur(2px);pointer-events:none;opacity:.5}body::after{content:"License required";position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:red;font-size:24px;font-weight:bold;background:white;padding:20px;border-radius:8px;z-index:9999}';document.head.appendChild(style);}});
+</script>
+</body>
+</html>

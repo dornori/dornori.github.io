@@ -171,22 +171,31 @@
         .disabled-form input, .disabled-form select, .disabled-form textarea, .disabled-form button, .disabled-form .btn, .disabled-form .tag-chip {
             opacity: 0.5; pointer-events: none; cursor: not-allowed;
         }
-        #productDataAccordion.open { max-height: 500px; }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
-        <h1 class="brand-logo"><img src="/dornorium/assets/icons/favicon-16x16.png" alt="Dornorium" class="brand-icon" style="width:32px;height:32px;"><span class="brand-text">Dornorium</span></h1>
+        <h1 class="brand-logo"><img src="/dornorium/assets/icons/favicon-16x16.png" alt="Dornorium" class="brand-icon" ><span class="brand-text">Dornorium</span></h1>
         <div class="header-right">
             <div class="nav-links">
                 <a id="nav-dashboard" href="dashboard.html">🎫 <span>Dashboard</span></a>
                 <a id="nav-reports" href="reports.html">📊 <span>Reports</span></a>
                 <a id="nav-newsletter" href="newsletter.html">📧 <span>Newsletter</span></a>
-                <a id="nav-order-reply" href="order-reply.html">📦 <span>Order Reply</span></a>
+                <a id="nav-order-reply" href="order-reply.html" class="active">📦 <span>Order Reply</span></a>
                 <a id="nav-settings" href="settings.html">⚙️ <span>Settings</span></a>
                 <a id="nav-users" href="users.html">👥 <span>Users</span></a>
             </div>
+            <script>
+            (function(){
+                document.querySelectorAll('.nav-links a').forEach(function(a){
+                    if (a.classList.contains('active')) return;
+                    fetch(a.getAttribute('href'), { method: 'HEAD' })
+                        .then(function(res){ if (!res.ok) a.style.display = 'none'; })
+                        .catch(function(){ a.style.display = 'none'; });
+                });
+            })();
+            </script>
             <div class="nav-actions">
                 <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
                 <div id="userDisplay"></div>
@@ -197,20 +206,6 @@
 
     <div class="n-page">
         <div id="content"><div class="loading">Loading…</div></div>
-    </div>
-
-    <div class="s-card" style="margin-top:24px;">
-        <div style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:12px 0;margin-bottom:0;" onclick="document.getElementById('productDataAccordion').classList.toggle('open');document.getElementById('productDataChevron').style.transform=document.getElementById('productDataAccordion').classList.contains('open')?'rotate(90deg)':'rotate(0)'" id="productDataHead">
-            <h3 style="font-size:15px;font-weight:700;color:var(--text);margin:0;">📦 Product Data Configuration</h3>
-            <span style="color:var(--text-muted);font-size:12px;transition:transform .2s;display:inline-block;" id="productDataChevron">▶</span>
-        </div>
-        <div id="productDataAccordion" style="max-height:0;overflow:hidden;transition:max-height .2s;border-top:1px solid var(--border);padding:0;">
-            <div style="padding:16px 0;">
-                <div class="f-row"><label>Product Data Base URL</label><input type="text" id="products_data_url" value="" placeholder="/data/" /></div>
-                <div class="f-row"><label>Product Images Base URL</label><input type="text" id="products_images_url" value="" placeholder="/products/" /></div>
-                <button class="btn btn-accent" style="margin-top:16px;" onclick="saveProductData()">Save</button><span id="productDataStatus" style="margin-left:12px;font-size:12px;color:var(--success);"></span>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -1359,11 +1354,44 @@
         toast(`✅ Exported ${all.length} orders`);
     }
 
+    function buildProductDataCard() {
+        const dataUrl = settings.general?.products_data_base_url || '';
+        const imagesUrl = settings.general?.products_images_base_url || '';
+        return `<div class="s-card" id="productDataCard">
+            <div class="s-card-head">
+                <div><h3>🖼️ Product Data</h3>
+                <p>Base URLs used to look up product images and data shown in order reply emails.</p></div>
+            </div>
+            <div class="f-row"><label>Product Data Base URL</label><input type="text" id="or_products_data_url" value="${esc(dataUrl)}" /></div>
+            <div class="f-row"><label>Product Images Base URL</label><input type="text" id="or_products_images_url" value="${esc(imagesUrl)}" /></div>
+            <button class="btn btn-accent" onclick="saveProductData()">Save Product Data</button>
+        </div>`;
+    }
+
+    async function saveProductData() {
+        try {
+            const d = await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify({ settings: [
+                { category: 'general', key: 'products_data_base_url', value: document.getElementById('or_products_data_url').value.trim() },
+                { category: 'general', key: 'products_images_base_url', value: document.getElementById('or_products_images_url').value.trim() },
+            ] }) });
+            if (d.success) {
+                toast('✅ Product data saved');
+                const sd = await api('/api/admin/settings');
+                settings = sd.data || sd.settings || {};
+            } else {
+                toast('❌ Failed to save product data', 'error');
+            }
+        } catch (e) {
+            toast('❌ ' + e.message, 'error');
+        }
+    }
+
     // ─── RENDER ──────────────────────────────────────────────────
     function render() {
         document.getElementById('content').innerHTML = `
             ${buildAutoReplyCard()}
             ${buildTicketList()}
+            ${buildProductDataCard()}
         `;
     }
 
@@ -1407,81 +1435,10 @@
     window.loadTemplateIntoEditor = loadTemplateIntoEditor;
     window.saveOrderAutoReply = saveOrderAutoReply;
     window.previewAutoReply = previewAutoReply;
+    window.saveProductData = saveProductData;
     window.exportOrdersCsv = exportOrdersCsv;
     window.logout = logout;
     window.toggleTheme = toggleTheme;
-
-    async function loadProductData() {
-        try {
-            const sd = await api('/api/admin/settings');
-            const settings = sd.data || sd.settings || {};
-            const dataUrl = settings.general?.products_data_base_url || '';
-            const imagesUrl = settings.general?.products_images_base_url || '';
-            document.getElementById('products_data_url').value = dataUrl;
-            document.getElementById('products_images_url').value = imagesUrl;
-        } catch (e) {
-            console.warn('Failed to load product data settings:', e);
-        }
-    }
-
-    async function saveProductData() {
-        const dataUrl = document.getElementById('products_data_url').value.trim();
-        const imagesUrl = document.getElementById('products_images_url').value.trim();
-        const ok = await saveSettings([
-            { category:'general', key:'products_data_base_url', value: dataUrl },
-            { category:'general', key:'products_images_base_url', value: imagesUrl }
-        ]);
-        if (ok) {
-            const status = document.getElementById('productDataStatus');
-            status.textContent = 'Saved ✓';
-            setTimeout(() => status.textContent = '', 2500);
-        } else {
-            toast('❌ Failed to save', 'error');
-        }
-    }
-
-    function saveSettings(updates) {
-        return fetch(API_BASE + '/api/admin/settings', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', credentials: 'include' },
-            body: JSON.stringify({ updates })
-        }).then(r => r.json()).then(d => d.success).catch(e => { toast('❌ ' + e.message, 'error'); return false; });
-    }
-
-    loadProductData();
-
-    function highlightCurrentPage() {
-        const currentPage = window.location.pathname.split('/').pop() || 'dashboard.html';
-        const navMap = {
-            'dashboard.html': 'nav-dashboard',
-            'reports.html': 'nav-reports',
-            'newsletter.html': 'nav-newsletter',
-            'order-reply.html': 'nav-order-reply',
-            'settings.html': 'nav-settings',
-            'users.html': 'nav-users'
-        };
-        const navId = navMap[currentPage];
-        if (navId) {
-            const el = document.getElementById(navId);
-            if (el) el.style.background = 'var(--accent)';
-            if (el) el.style.color = 'var(--text-inverse)';
-            if (el) el.style.borderColor = 'var(--accent)';
-        }
-    }
-
-    highlightCurrentPage();
-    window.saveProductData = saveProductData;
 </script>
-
-<div style="text-align:center;padding:16px 0 10px;border-top:1px solid #eee;margin-top:24px;font-size:11px;color:#999;" class="dornorium-brand" data-token="d7f3a9c2e1b8f4">
-    <img src="/dornorium/assets/icons/favicon-16x16.png" alt="Dornorium" width="32" height="32" style="display:inline-block;vertical-align:middle;margin-right:6px;">
-    <span style="vertical-align:middle;">Powered by <a href="https://www.dornori.info/dornorium" target="_blank" style="color:#666;text-decoration:none;font-weight:600;">Dornorium</a></span>
-    <span style="margin:0 8px;color:#ddd;">&middot;</span>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded',function(){var b=document.querySelector('[data-token="d7f3a9c2e1b8f4"]');if(!b){console.warn('Branding removed — license required: https://www.dornori.info/pricing');var style=document.createElement('style');style.textContent='body{filter:blur(2px);pointer-events:none;opacity:.5}body::after{content:"License required";position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:red;font-size:24px;font-weight:bold;background:white;padding:20px;border-radius:8px;z-index:9999}';document.head.appendChild(style);}});
-</script>
-
 </body>
 </html>
