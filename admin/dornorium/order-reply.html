@@ -171,21 +171,6 @@
         .disabled-form input, .disabled-form select, .disabled-form textarea, .disabled-form button, .disabled-form .btn, .disabled-form .tag-chip {
             opacity: 0.5; pointer-events: none; cursor: not-allowed;
         }
-        .accordion-panel { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
-        .accordion-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--bg-input); cursor: pointer; user-select: none; }
-        .accordion-head:hover { background: var(--bg-hover); }
-        .accordion-head h4 { font-size: 13px; font-weight: 700; margin: 0; color: var(--text); }
-        .accordion-chevron { color: var(--text-muted); font-size: 11px; transition: transform .2s; }
-        .accordion-panel.open .accordion-chevron { transform: rotate(90deg); }
-        .accordion-body { display: none; padding: 16px; border-top: 1px solid var(--border); }
-        .accordion-panel.open .accordion-body { display: block; }
-        .pwd-input-wrapper { position: relative; }
-        .pwd-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 13px; padding: 4px 8px; }
-        .pwd-toggle:hover { color: var(--text); }
-        .footer-brand { display: flex; align-items: center; justify-content: center; padding: 16px 0 10px; border-top: 1px solid #eee; margin-top: 24px; font-size: 11px; color: #999; }
-        .footer-brand img { display: inline-block; vertical-align: middle; margin-right: 6px; width: 32px; height: 32px; }
-        .footer-brand a { color: #666; text-decoration: none; font-weight: 600; }
-        .footer-brand span { margin: 0 8px; color: #ddd; }
     </style>
 </head>
 <body>
@@ -211,6 +196,18 @@
 
     <div class="n-page">
         <div id="content"><div class="loading">Loading…</div></div>
+    </div>
+
+    <div class="s-card" style="margin-top:24px;">
+        <div style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:12px 0;margin-bottom:12px;" onclick="document.getElementById('productDataAccordion').classList.toggle('open')">
+            <h3 style="font-size:15px;font-weight:700;color:var(--text);margin:0;">📦 Product Data Configuration</h3>
+            <span style="color:var(--text-muted);font-size:12px;transition:transform .2s;" id="productDataChevron">▶</span>
+        </div>
+        <div id="productDataAccordion" style="display:none;">
+            <div class="f-row"><label>Product Data Base URL</label><input type="text" id="products_data_url" value="" placeholder="/data/" /></div>
+            <div class="f-row"><label>Product Images Base URL</label><input type="text" id="products_images_url" value="" placeholder="/products/" /></div>
+            <button class="btn btn-accent" style="margin-top:16px;" onclick="saveProductData()">Save</button><span id="productDataStatus" style="margin-left:12px;font-size:12px;color:var(--success);"></span>
+        </div>
     </div>
 </div>
 
@@ -254,28 +251,6 @@
             <button class="btn btn-warning" id="confirmSendBtn" onclick="executeSend()">Yes, send now</button>
         </div>
     </div>
-</div>
-
-<div style="max-width:1200px;margin:0 auto;margin-top:24px;">
-    <div class="accordion-panel" id="productDataPanel">
-        <div class="accordion-head" onclick="toggleProductData()">
-            <h4>📦 Product Data Configuration</h4>
-            <span class="accordion-chevron">▶</span>
-        </div>
-        <div class="accordion-body">
-            <div class="s-card" style="margin-bottom:0;border:none;background:transparent;padding:0;">
-                <div class="f-row"><label>Product Data Base URL</label><input type="text" id="products_data_url" value="" placeholder="/data/" style="font-family:monospace;" /></div>
-                <div class="f-row"><label>Product Images Base URL</label><input type="text" id="products_images_url" value="" placeholder="/products/" style="font-family:monospace;" /></div>
-                <div style="margin-top:16px;"><button class="btn btn-accent" onclick="saveProductData()">Save</button><span id="productDataStatus" style="margin-left:12px;font-size:12px;color:var(--success);"></span></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="footer-brand" data-token="d7f3a9c2e1b8f4">
-    <img src="/dornorium/assets/icons/favicon-16x16.png" alt="Dornorium" />
-    <span style="vertical-align:middle;">Powered by <a href="https://www.dornori.info/dornorium" target="_blank">Dornorium</a></span>
-    <span>&middot;</span>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -1432,18 +1407,10 @@
     window.exportOrdersCsv = exportOrdersCsv;
     window.logout = logout;
     window.toggleTheme = toggleTheme;
-    window.toggleProductData = toggleProductData;
-    window.saveProductData = saveProductData;
-
-    // ─── PRODUCT DATA FUNCTIONS ──────────────────────────────────
-    function toggleProductData() {
-        const panel = document.getElementById('productDataPanel');
-        panel.classList.toggle('open');
-    }
 
     async function loadProductData() {
         try {
-            const sd = await fetch(API_BASE + '/api/admin/settings', { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json());
+            const sd = await api('/api/admin/settings');
             const settings = sd.data || sd.settings || {};
             const dataUrl = settings.general?.products_data_base_url || '';
             const imagesUrl = settings.general?.products_images_base_url || '';
@@ -1457,68 +1424,40 @@
     async function saveProductData() {
         const dataUrl = document.getElementById('products_data_url').value.trim();
         const imagesUrl = document.getElementById('products_images_url').value.trim();
-        try {
-            const res = await fetch(API_BASE + '/api/admin/settings', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-                body: JSON.stringify({
-                    updates: [
-                        { category: 'general', key: 'products_data_base_url', value: dataUrl },
-                        { category: 'general', key: 'products_images_base_url', value: imagesUrl }
-                    ]
-                })
-            });
-            const data = await res.json();
-            if (data.success) {
-                const status = document.getElementById('productDataStatus');
-                status.textContent = 'Saved ✓';
-                setTimeout(() => status.textContent = '', 2500);
-                toast('✅ Product data URLs saved');
-            } else {
-                toast('❌ Failed to save', 'error');
-            }
-        } catch (e) {
-            toast('❌ ' + e.message, 'error');
+        const ok = await saveSettings([
+            { category:'general', key:'products_data_base_url', value: dataUrl },
+            { category:'general', key:'products_images_base_url', value: imagesUrl }
+        ]);
+        if (ok) {
+            const status = document.getElementById('productDataStatus');
+            status.textContent = 'Saved ✓';
+            setTimeout(() => status.textContent = '', 2500);
+        } else {
+            toast('❌ Failed to save', 'error');
         }
     }
 
-    // Load product data on init
+    function saveSettings(updates) {
+        return fetch(API_BASE + '/api/admin/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', credentials: 'include' },
+            body: JSON.stringify({ updates })
+        }).then(r => r.json()).then(d => d.success).catch(e => { toast('❌ ' + e.message, 'error'); return false; });
+    }
+
     loadProductData();
-
-    async function checkNavButtons() {
-        const buttons = [
-            { id: 'nav-dashboard', file: 'dashboard.html' },
-            { id: 'nav-reports', file: 'reports.html' },
-            { id: 'nav-newsletter', file: 'newsletter.html' },
-            { id: 'nav-order-reply', file: 'order-reply.html' },
-            { id: 'nav-settings', file: 'settings.html' },
-            { id: 'nav-users', file: 'users.html' }
-        ];
-        
-        for (const btn of buttons) {
-            const el = document.getElementById(btn.id);
-            if (!el) continue;
-            try {
-                const res = await fetch(btn.file, { method: 'HEAD' });
-                if (!res.ok) el.style.display = 'none';
-            } catch {
-                el.style.display = 'none';
-            }
-        }
-    }
-
-    checkNavButtons();
-
-    // License check
-    document.addEventListener('DOMContentLoaded', function() {
-        const b = document.querySelector('[data-token="d7f3a9c2e1b8f4"]');
-        if (!b) {
-            console.warn('Branding removed — license required: https://www.dornori.info/pricing');
-            const style = document.createElement('style');
-            style.textContent = 'body{filter:blur(2px);pointer-events:none;opacity:.5}body::after{content:"License required";position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:red;font-size:24px;font-weight:bold;background:white;padding:20px;border-radius:8px;z-index:9999}';
-            document.head.appendChild(style);
-        }
-    });
+    window.saveProductData = saveProductData;
 </script>
+
+<div style="text-align:center;padding:16px 0 10px;border-top:1px solid #eee;margin-top:24px;font-size:11px;color:#999;" class="dornorium-brand" data-token="d7f3a9c2e1b8f4">
+    <img src="/dornorium/assets/icons/favicon-16x16.png" alt="Dornorium" width="32" height="32" style="display:inline-block;vertical-align:middle;margin-right:6px;">
+    <span style="vertical-align:middle;">Powered by <a href="https://www.dornori.info/dornorium" target="_blank" style="color:#666;text-decoration:none;font-weight:600;">Dornorium</a></span>
+    <span style="margin:0 8px;color:#ddd;">&middot;</span>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded',function(){var b=document.querySelector('[data-token="d7f3a9c2e1b8f4"]');if(!b){console.warn('Branding removed — license required: https://www.dornori.info/pricing');var style=document.createElement('style');style.textContent='body{filter:blur(2px);pointer-events:none;opacity:.5}body::after{content:"License required";position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:red;font-size:24px;font-weight:bold;background:white;padding:20px;border-radius:8px;z-index:9999}';document.head.appendChild(style);}});
+</script>
+
 </body>
 </html>
