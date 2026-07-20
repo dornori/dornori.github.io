@@ -19,10 +19,7 @@ var Shop = (() => {
      LANGUAGE RESOLUTION
   ═══════════════════════════════════════════════════════ */
   function detectBrowserLanguage() {
-    // Use manifest first (loaded by site-boot.js), fallback to config
-    const supported = (window.__supportedLanguages && window.__supportedLanguages.length > 0)
-      ? window.__supportedLanguages
-      : (CONFIG.supportedLanguages || [CONFIG.defaultLanguage || "en"]);
+    const supported = CONFIG.supportedLanguages || [CONFIG.defaultLanguage || "en"];
     for (const lang of (navigator.languages || [navigator.language || "en"])) {
       const code = lang.split("-")[0].toLowerCase();
       if (supported.includes(code)) return code;
@@ -31,10 +28,7 @@ var Shop = (() => {
   }
 
   function resolveLanguage() {
-    // Use manifest first (loaded by site-boot.js), fallback to config
-    const supported = (window.__supportedLanguages && window.__supportedLanguages.length > 0)
-      ? window.__supportedLanguages
-      : (CONFIG.supportedLanguages || [CONFIG.defaultLanguage || "en"]);
+    const supported = CONFIG.supportedLanguages || [CONFIG.defaultLanguage || "en"];
     const langKey   = CONFIG.storageKeys?.shopLangKey || CONFIG.storageKeys?.parentLangKey || "dornori-lang";
 
     // PRIORITY 1: Check URL path for language code (e.g., /nl/product/?id=...)

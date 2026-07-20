@@ -161,18 +161,7 @@ export function initPageLoader() {
     
     let pageContent = pageView;
 
-    const fallbackLang = () => {
-        // Try manifest first (loaded by site-boot.js)
-        if (window.__supportedLanguages && window.__supportedLanguages.length > 0) {
-            return window.__supportedLanguages[0];
-        }
-        // Try config.languages
-        if (SITE_CONFIG.languages && SITE_CONFIG.languages.length > 0) {
-            return SITE_CONFIG.languages[0].code;
-        }
-        // Use config.defaultLanguage
-        return SITE_CONFIG.defaultLanguage || 'en';
-    };
+    const fallbackLang = () => (SITE_CONFIG.languages && SITE_CONFIG.languages[0] ? SITE_CONFIG.languages[0].code : 'en');
 
     // ── SEO ──────────────────────────────────────────────────────────────────
     function updateSEO(slug = '') {
@@ -455,7 +444,7 @@ export function initPageLoader() {
         } else if (parts.length === 1 && langCodes.has(parts[0])) {
             lang = parts[0];
         } else if (parts.length === 1) {
-            lang = fallbackLang(); urlSegment = parts[0];
+            lang = 'en'; urlSegment = parts[0];
         }
 
         if (urlSegment) {
