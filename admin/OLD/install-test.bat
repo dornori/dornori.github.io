@@ -161,10 +161,10 @@ set "WORKER_URL=https://%WORKER_NAME%.%SUBDOMAIN%.workers.dev"
 
 
 :: activate worker
-echo.
-@echo off
-curl -s -o nul -w "Response time: %%{time_total}s\n" https://posas.dornori-info.workers.dev
-pause
+
+:: Use full path to curl if needed
+curl -s -w "%%{http_code} - Time: %%{time_total}s\n" -o nul %WORKER_URL%/api/admin/config-version
+
 
 
 :: Secrets
