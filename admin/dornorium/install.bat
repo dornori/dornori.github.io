@@ -160,12 +160,6 @@ for /f %%i in ('powershell -Command "(Get-Content \"%TEMP%\subdomain.json\" -Raw
 set "WORKER_URL=https://%WORKER_NAME%.%SUBDOMAIN%.workers.dev"
 
 
-:: activate worker
-
-:: Use full path to curl if needed
-curl -s -w "%%{http_code} - Time: %%{time_total}s\n" -o nul %WORKER_URL%/api/admin/config-version
-
-
 
 :: Secrets
 echo.
@@ -186,6 +180,46 @@ curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/worke
 curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%/secrets" -H "Authorization: Bearer %API_TOKEN%" -H "Content-Type: application/json" -d "{\"name\":\"ENCRYPTION_KEY\",\"text\":\"%ENCRYPTION_KEY%\",\"type\":\"secret_text\"}"
 
 echo OK: Secrets set.
+
+:: ============================================
+:: FINAL ACTIVATION / WARMUP - Wait for 200
+:: ============================================
+
+echo.
+echo Warming up Cloudflare Worker...
+echo Waiting for /api/admin/config-version to return 200...
+
+set "MAX_RETRIES=10"
+set "RETRY=0"
+set "SUCCESS=0"
+
+:WAIT_LOOP
+set /a RETRY+=1
+
+for /f %%i in ('curl -s -w "%%{http_code}" -o nul %WORKER_URL%/api/admin/config-version 2^>nul') do set "HTTP_CODE=%%i"
+
+echo Attempt !RETRY!/!MAX_RETRIES! - Status: !HTTP_CODE!
+
+if "!HTTP_CODE!"=="200" (
+    echo.
+    echo SUCCESS: Worker is ready ^(200 OK^)!
+    set "SUCCESS=1"
+    goto WAIT_DONE
+)
+
+if !RETRY! LSS !MAX_RETRIES! (
+    timeout /t 3 >nul
+    goto WAIT_LOOP
+)
+
+:WAIT_DONE
+if "!SUCCESS!"=="0" (
+    echo.
+    echo WARNING: Worker did not return 200 after !MAX_RETRIES! attempts.
+    echo It might still be starting up or have an error.
+    echo Check Cloudflare dashboard ^→ Workers ^→ Logs for details.
+    pause
+)
 
 :: Admin User
 echo.
