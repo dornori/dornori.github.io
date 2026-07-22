@@ -102,8 +102,8 @@ if errorlevel 1 (
     goto ADMIN_PW_PROMPT
 )
 
-:: Load admin password and strip BOM
-for /f "delims=" %%i in ('powershell -NoProfile -Command "$c = Get-Content '%TEMP%\admin_pw.txt' -Raw; if ($c[0] -eq 0xFEFF) { $c = $c.Substring(1) }; $c.Trim()"') do set "ADMIN_PASSWORD=%%i"
+:: Load admin password (YOUR WORKING CODE - KEPT AS IS)
+set /p ADMIN_PASSWORD=<"%TEMP%\admin_pw.txt"
 
 :: ============================================
 :: INSTALLATION STARTS
@@ -221,7 +221,7 @@ if "!SUCCESS!"=="0" (
     pause
 )
 
-:: Admin User
+:: Admin User (YOUR WORKING CODE - KEPT AS IS)
 echo.
 echo Creating Admin User...
 powershell -NoProfile -Command ^
@@ -263,34 +263,28 @@ if errorlevel 1 (
 )
 
 :: ============================================
-:: OPTIONAL: EMAIL SENDING CREDENTIALS
+:: OPTIONAL: EMAIL SENDING CREDENTIALS (FIXED)
 :: ============================================
 if /i "%CONFIG_EMAIL%"=="Y" (
-    set "EMAIL_USERNAME_ENV=%EMAIL_USERNAME%"
-    set "EMAIL_PASSWORD_ENV=%EMAIL_PASSWORD%"
-    set "EMAIL_SECRET_ENV=%EMAIL_SECRET%"
-    set "ADMIN_EMAIL_ENV=%ADMIN_EMAIL%"
-    set "WORKER_URL_ENV=%WORKER_URL%"
-
     echo.
     echo Saving encrypted email credentials...
     powershell -NoProfile -Command ^
         "$ErrorActionPreference = 'Stop'; " ^
         "try { " ^
-        "  $loginBody = @{ email = $env:ADMIN_EMAIL_ENV; password = '%ADMIN_PASSWORD%' } | ConvertTo-Json; " ^
-        "  $login = Invoke-RestMethod -Uri ($env:WORKER_URL_ENV + '/api/admin/login') -Method Post -ContentType 'application/json' -Body $loginBody; " ^
+        "  $loginBody = @{ email = '%ADMIN_EMAIL%'; password = '%ADMIN_PASSWORD%' } | ConvertTo-Json; " ^
+        "  $login = Invoke-RestMethod -Uri '%WORKER_URL%/api/admin/login' -Method Post -ContentType 'application/json' -Body $loginBody; " ^
         "  $token = $login.token; " ^
         "  $hdr = @{ Authorization = 'Bearer ' + $token }; " ^
-        "  $encPwBody = @{ value = $env:EMAIL_PASSWORD_ENV } | ConvertTo-Json; " ^
-        "  $encPw = Invoke-RestMethod -Uri ($env:WORKER_URL_ENV + '/api/admin/setup/encrypt') -Method Post -ContentType 'application/json' -Headers $hdr -Body $encPwBody; " ^
-        "  $encSecretBody = @{ value = $env:EMAIL_SECRET_ENV } | ConvertTo-Json; " ^
-        "  $encSecret = Invoke-RestMethod -Uri ($env:WORKER_URL_ENV + '/api/admin/setup/encrypt') -Method Post -ContentType 'application/json' -Headers $hdr -Body $encSecretBody; " ^
+        "  $encPwBody = @{ value = '%EMAIL_PASSWORD%' } | ConvertTo-Json; " ^
+        "  $encPw = Invoke-RestMethod -Uri '%WORKER_URL%/api/admin/setup/encrypt' -Method Post -ContentType 'application/json' -Headers $hdr -Body $encPwBody; " ^
+        "  $encSecretBody = @{ value = '%EMAIL_SECRET%' } | ConvertTo-Json; " ^
+        "  $encSecret = Invoke-RestMethod -Uri '%WORKER_URL%/api/admin/setup/encrypt' -Method Post -ContentType 'application/json' -Headers $hdr -Body $encSecretBody; " ^
         "  $settingsBody = @{ settings = @( " ^
-        "      @{ category='email_script'; key='username'; value=$env:EMAIL_USERNAME_ENV }, " ^
+        "      @{ category='email_script'; key='username'; value='%EMAIL_USERNAME%' }, " ^
         "      @{ category='email_script'; key='password'; value=$encPw.encrypted }, " ^
         "      @{ category='email_script'; key='secret'; value=$encSecret.encrypted } " ^
         "  ) } | ConvertTo-Json -Depth 5; " ^
-        "  Invoke-RestMethod -Uri ($env:WORKER_URL_ENV + '/api/admin/settings') -Method Put -ContentType 'application/json' -Headers $hdr -Body $settingsBody | Out-Null; " ^
+        "  Invoke-RestMethod -Uri '%WORKER_URL%/api/admin/settings' -Method Put -ContentType 'application/json' -Headers $hdr -Body $settingsBody | Out-Null; " ^
         "  Write-Host 'OK: Email credentials saved.'; " ^
         "} catch { " ^
         "  Write-Host ('ERROR: ' + $_.Exception.Message); " ^
