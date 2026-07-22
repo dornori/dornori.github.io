@@ -180,26 +180,43 @@ echo {"name":"ENCRYPTION_KEY","text":"%ENCRYPTION_KEY%","type":"secret_text"} > 
 curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%/secrets" -H "Authorization: Bearer %API_TOKEN%" -H "Content-Type: application/json" -d "@%TEMP%\enc_key.json" > nul
 
 echo.
+@echo off
+setlocal enabledelayedexpansion
+
 echo Waiting for worker to come online...
 set "SUCCESS=0"
-set "MAX_RETRIES=10"
+set "MAX_RETRIES=20"
+
 for /L %%a in (1,1,%MAX_RETRIES%) do (
+    set /p "=Attempt %%a of %MAX_RETRIES%: " <nul
+    
     curl -s -o nul -w "%%{http_code}" "%WORKER_URL%/" > "%TEMP%\status.txt"
     set /p HTTP_STATUS=<"%TEMP%\status.txt"
+    
     if "!HTTP_STATUS!"=="200" (
+        echo [OK] - Worker is online!
         set "SUCCESS=1"
         goto WAIT_DONE
+    ) else (
+        echo [Status: !HTTP_STATUS!] - Waiting...
     )
-    timeout /t 3 >nul
+    
+    for /L %%t in (1,1,3) do (
+        set /p "=." <nul
+        timeout /t 1 >nul
+    )
+    echo.
 )
 
 :WAIT_DONE
 if "!SUCCESS!"=="0" (
     echo.
-    echo WARNING: Worker did not return 200 after !MAX_RETRIES! attempts.
-    echo It might still be starting up or have an error.
-    echo Check Cloudflare dashboard ^→ Workers ^→ Logs for details.
+    echo ========================================
+    echo WARNING: Worker not ready after %MAX_RETRIES% attempts
+    echo ========================================
     pause
+) else (
+    echo Worker is ready!
 )
 
 :: ============================================
@@ -328,7 +345,7 @@ if /i "%CONFIG_GOOGLE%"=="Y" (
         "}"
     
     if errorlevel 1 (
-        if !RETRY_COUNT! LSS 10 (
+        if !RETRY_COUNT! LSS 20 (
             echo Retrying...
             timeout /t 5 >nul
             goto GOOGLE_RETRY
