@@ -175,6 +175,10 @@ for /L %%i in (1,1,32) do (
 curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%/secrets" -H "Authorization: Bearer %API_TOKEN%" -H "Content-Type: application/json" -d "{\"name\":\"JWT_SECRET\",\"text\":\"%JWT_SECRET%\",\"type\":\"secret_text\"}"
 curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%/secrets" -H "Authorization: Bearer %API_TOKEN%" -H "Content-Type: application/json" -d "{\"name\":\"ENCRYPTION_KEY\",\"text\":\"%ENCRYPTION_KEY%\",\"type\":\"secret_text\"}"
 
+if not "%SCRIPT_URL%"=="" (
+    curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%/secrets" -H "Authorization: Bearer %API_TOKEN%" -H "Content-Type: application/json" -d "{\"name\":\"SCRIPT_URL\",\"text\":\"%SCRIPT_URL%\",\"type\":\"secret_text\"}"
+)
+
 echo OK: Secrets set.
 
 :: ============================================
@@ -260,11 +264,19 @@ if errorlevel 1 (
 )
 
 :: ============================================
-:: OPTIONAL: EMAIL SENDING CREDENTIALS (FIXED)
+:: OPTIONAL: EMAIL SENDING CREDENTIALS (WITH RETRY)
 :: ============================================
 if /i "%CONFIG_EMAIL%"=="Y" (
     echo.
     echo Saving encrypted email credentials...
+    echo Waiting for worker to fully initialize...
+    timeout /t 5 >nul
+    
+    set "RETRY_COUNT=0"
+    :EMAIL_RETRY
+    set /a RETRY_COUNT+=1
+    echo Attempt !RETRY_COUNT! of 3...
+    
     powershell -NoProfile -Command ^
         "$ErrorActionPreference = 'Stop'; " ^
         "try { " ^
@@ -283,9 +295,24 @@ if /i "%CONFIG_EMAIL%"=="Y" (
         "  ) } | ConvertTo-Json -Depth 5; " ^
         "  Invoke-RestMethod -Uri '%WORKER_URL%/api/admin/settings' -Method Put -ContentType 'application/json' -Headers $hdr -Body $settingsBody | Out-Null; " ^
         "  Write-Host 'OK: Email credentials saved.'; " ^
+        "  exit 0 " ^
         "} catch { " ^
         "  Write-Host ('ERROR: ' + $_.Exception.Message); " ^
+        "  exit 1 " ^
         "}"
+    
+    if errorlevel 1 (
+        if !RETRY_COUNT! LSS 3 (
+            echo Retrying...
+            timeout /t 5 >nul
+            goto EMAIL_RETRY
+        ) else (
+            echo.
+            echo WARNING: Could not save email credentials automatically.
+            echo You can configure them later in the admin panel Settings → Email.
+            echo.
+        )
+    )
 )
 
 :: ============================================
