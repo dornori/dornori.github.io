@@ -23,43 +23,43 @@ set /p SUPPORT_EMAIL="Support/from email address [support@%SITE_DOMAIN%]: "
 if "%SUPPORT_EMAIL%"=="" set SUPPORT_EMAIL=support@%SITE_DOMAIN%
 
 echo.
-echo === Email Sending Credentials ===
-set /p CONFIG_EMAIL="Configure outgoing email credentials now? (y/N): "
-if /i "%CONFIG_EMAIL%"=="Y" (
-    set /p SCRIPT_URL="Google Apps Script URL: "
-    set /p EMAIL_USERNAME="Email Username: "
+echo === Google App Credentials ===
+set /p CONFIG_GOOGLE="Configure Google App credentials now? (y/N): "
+if /i "%CONFIG_GOOGLE%"=="Y" (
+    set /p SCRIPT_URL="Google App Script URL: "
+    set /p GOOGLE_USERNAME="Google App Username: "
 
-    :EMAIL_PW_PROMPT
-    del "%TEMP%\email_pw.txt" 2>nul
+    :GOOGLE_PW_PROMPT
+    del "%TEMP%\google_pw.txt" 2>nul
     powershell -NoProfile -Command ^
-        "$p1 = Read-Host -AsSecureString 'Email Password'; " ^
-        "$p2 = Read-Host -AsSecureString 'Confirm Email Password'; " ^
+        "$p1 = Read-Host -AsSecureString 'Google App Password'; " ^
+        "$p2 = Read-Host -AsSecureString 'Confirm Google App Password'; " ^
         "$b1 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($p1); " ^
         "$b2 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($p2); " ^
         "$t1 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b1); " ^
         "$t2 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b2); " ^
-        "if ($t1 -ne $t2) { exit 1 } else { $t1 | Out-File -Encoding ascii '%TEMP%\email_pw.txt'; exit 0 }"
+        "if ($t1 -ne $t2) { exit 1 } else { $t1 | Out-File -Encoding ascii '%TEMP%\google_pw.txt'; exit 0 }"
     if errorlevel 1 (
         echo Passwords did not match. Try again.
-        goto EMAIL_PW_PROMPT
+        goto GOOGLE_PW_PROMPT
     )
-    set /p EMAIL_PASSWORD=<"%TEMP%\email_pw.txt"
+    set /p GOOGLE_PASSWORD=<"%TEMP%\google_pw.txt"
 
-    :EMAIL_SECRET_PROMPT
-    del "%TEMP%\email_secret.txt" 2>nul
+    :GOOGLE_SECRET_PROMPT
+    del "%TEMP%\google_secret.txt" 2>nul
     powershell -NoProfile -Command ^
-        "$p1 = Read-Host -AsSecureString 'Email Secret'; " ^
-        "$p2 = Read-Host -AsSecureString 'Confirm Email Secret'; " ^
+        "$p1 = Read-Host -AsSecureString 'Google App Secret'; " ^
+        "$p2 = Read-Host -AsSecureString 'Confirm Google App Secret'; " ^
         "$b1 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($p1); " ^
         "$b2 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($p2); " ^
         "$t1 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b1); " ^
         "$t2 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b2); " ^
-        "if ($t1 -ne $t2) { exit 1 } else { $t1 | Out-File -Encoding ascii '%TEMP%\email_secret.txt'; exit 0 }"
+        "if ($t1 -ne $t2) { exit 1 } else { $t1 | Out-File -Encoding ascii '%TEMP%\google_secret.txt'; exit 0 }"
     if errorlevel 1 (
         echo Secrets did not match. Try again.
-        goto EMAIL_SECRET_PROMPT
+        goto GOOGLE_SECRET_PROMPT
     )
-    set /p EMAIL_SECRET=<"%TEMP%\email_secret.txt"
+    set /p GOOGLE_SECRET=<"%TEMP%\google_secret.txt"
 )
 
 echo.
@@ -185,7 +185,7 @@ echo.
 echo Warming up Cloudflare Worker...
 echo Waiting for /api/admin/config-version to return 200...
 
-set "MAX_RETRIES=10"
+set "MAX_RETRIES=15"
 set "RETRY=0"
 set "SUCCESS=0"
 
@@ -227,12 +227,7 @@ set "DEFAULT_FROM=support@%SITE_DOMAIN%"
 set "PASSWORD_RESET_FROM=%DEFAULT_FROM%"
 
 powershell -NoProfile -Command ^
-    "$sql = @' " ^
-    "INSERT OR REPLACE INTO settings (category, key, value) VALUES " ^
-    "('general', 'domain', '%SITE_DOMAIN%'), " ^
-    "('email', 'default_from', '%DEFAULT_FROM%'), " ^
-    "('email', 'password_reset_from', '%PASSWORD_RESET_FROM%')" ^
-    "'@; " ^
+    "$sql = @'INSERT OR REPLACE INTO settings (category, key, value) VALUES ('general', 'domain', '%SITE_DOMAIN%'), ('email', 'default_from', '%DEFAULT_FROM%'), ('email', 'password_reset_from', '%PASSWORD_RESET_FROM%')'@; " ^
     "$json = @{ sql = $sql } | ConvertTo-Json -Compress; " ^
     "[System.IO.File]::WriteAllText('%TEMP%\domain_settings.json', $json)"
 
@@ -250,9 +245,7 @@ if not "%SCRIPT_URL%"=="" (
     echo.
     echo Setting SCRIPT_URL...
     powershell -NoProfile -Command ^
-        "$sql = @' " ^
-        "INSERT OR REPLACE INTO settings (category, key, value) VALUES ('general', 'script_url', '%SCRIPT_URL%')" ^
-        "'@; " ^
+        "$sql = @'INSERT OR REPLACE INTO settings (category, key, value) VALUES ('general', 'script_url', '%SCRIPT_URL%')'@; " ^
         "$json = @{ sql = $sql } | ConvertTo-Json -Compress; " ^
         "[System.IO.File]::WriteAllText('%TEMP%\script_url.json', $json)"
     
@@ -306,18 +299,18 @@ if errorlevel 1 (
 )
 
 :: ============================================
-:: OPTIONAL: EMAIL SENDING CREDENTIALS (WITH RETRY)
+:: OPTIONAL: GOOGLE APP CREDENTIALS (WITH RETRY)
 :: ============================================
-if /i "%CONFIG_EMAIL%"=="Y" (
+if /i "%CONFIG_GOOGLE%"=="Y" (
     echo.
-    echo Saving encrypted email credentials...
+    echo Saving encrypted Google App credentials...
     echo Waiting for worker to fully initialize...
     timeout /t 5 >nul
     
     set "RETRY_COUNT=0"
-    :EMAIL_RETRY
+    :GOOGLE_RETRY
     set /a RETRY_COUNT+=1
-    echo Attempt !RETRY_COUNT! of 3...
+    echo Attempt !RETRY_COUNT! of 10...
     
     powershell -NoProfile -Command ^
         "$ErrorActionPreference = 'Stop'; " ^
@@ -326,17 +319,17 @@ if /i "%CONFIG_EMAIL%"=="Y" (
         "  $login = Invoke-RestMethod -Uri '%WORKER_URL%/api/admin/login' -Method Post -ContentType 'application/json' -Body $loginBody; " ^
         "  $token = $login.token; " ^
         "  $hdr = @{ Authorization = 'Bearer ' + $token }; " ^
-        "  $encPwBody = @{ value = '%EMAIL_PASSWORD%' } | ConvertTo-Json; " ^
+        "  $encPwBody = @{ value = '%GOOGLE_PASSWORD%' } | ConvertTo-Json; " ^
         "  $encPw = Invoke-RestMethod -Uri '%WORKER_URL%/api/admin/setup/encrypt' -Method Post -ContentType 'application/json' -Headers $hdr -Body $encPwBody; " ^
-        "  $encSecretBody = @{ value = '%EMAIL_SECRET%' } | ConvertTo-Json; " ^
+        "  $encSecretBody = @{ value = '%GOOGLE_SECRET%' } | ConvertTo-Json; " ^
         "  $encSecret = Invoke-RestMethod -Uri '%WORKER_URL%/api/admin/setup/encrypt' -Method Post -ContentType 'application/json' -Headers $hdr -Body $encSecretBody; " ^
         "  $settingsBody = @{ settings = @( " ^
-        "      @{ category='email_script'; key='username'; value='%EMAIL_USERNAME%' }, " ^
+        "      @{ category='email_script'; key='username'; value='%GOOGLE_USERNAME%' }, " ^
         "      @{ category='email_script'; key='password'; value=$encPw.encrypted }, " ^
         "      @{ category='email_script'; key='secret'; value=$encSecret.encrypted } " ^
         "  ) } | ConvertTo-Json -Depth 5; " ^
         "  Invoke-RestMethod -Uri '%WORKER_URL%/api/admin/settings' -Method Put -ContentType 'application/json' -Headers $hdr -Body $settingsBody | Out-Null; " ^
-        "  Write-Host 'OK: Email credentials saved.'; " ^
+        "  Write-Host 'OK: Google App credentials saved.'; " ^
         "  exit 0 " ^
         "} catch { " ^
         "  Write-Host ('ERROR: ' + $_.Exception.Message); " ^
@@ -344,13 +337,13 @@ if /i "%CONFIG_EMAIL%"=="Y" (
         "}"
     
     if errorlevel 1 (
-        if !RETRY_COUNT! LSS 3 (
+        if !RETRY_COUNT! LSS 10 (
             echo Retrying...
             timeout /t 5 >nul
-            goto EMAIL_RETRY
+            goto GOOGLE_RETRY
         ) else (
             echo.
-            echo WARNING: Could not save email credentials automatically.
+            echo WARNING: Could not save Google App credentials automatically.
             echo You can configure them later in the admin panel Settings → Email.
             echo.
         )

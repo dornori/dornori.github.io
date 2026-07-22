@@ -172,40 +172,25 @@ for /L %%i in (1,1,32) do (
     for %%r in (!r!) do set "ENCRYPTION_KEY=!ENCRYPTION_KEY!!CHARS:~%%r,1!"
 )
 
-curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%/secrets" -H "Authorization: Bearer %API_TOKEN%" -H "Content-Type: application/json" -d "{\"name\":\"JWT_SECRET\",\"text\":\"%JWT_SECRET%\",\"type\":\"secret_text\"}"
-curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%/secrets" -H "Authorization: Bearer %API_TOKEN%" -H "Content-Type: application/json" -d "{\"name\":\"ENCRYPTION_KEY\",\"text\":\"%ENCRYPTION_KEY%\",\"type\":\"secret_text\"}"
+echo Uploading secrets...
+echo {"name":"JWT_SECRET","text":"%JWT_SECRET%","type":"secret_text"} > "%TEMP%\jwt_secret.json"
+curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%/secrets" -H "Authorization: Bearer %API_TOKEN%" -H "Content-Type: application/json" -d "@%TEMP%\jwt_secret.json" > nul
 
-echo OK: Secrets set.
-
-:: ============================================
-:: FINAL ACTIVATION / WARMUP - Wait for 200
-:: ============================================
+echo {"name":"ENCRYPTION_KEY","text":"%ENCRYPTION_KEY%","type":"secret_text"} > "%TEMP%\enc_key.json"
+curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%/secrets" -H "Authorization: Bearer %API_TOKEN%" -H "Content-Type: application/json" -d "@%TEMP%\enc_key.json" > nul
 
 echo.
-echo Warming up Cloudflare Worker...
-echo Waiting for /api/admin/config-version to return 200...
-
-set "MAX_RETRIES=15"
-set "RETRY=0"
+echo Waiting for worker to come online...
 set "SUCCESS=0"
-
-:WAIT_LOOP
-set /a RETRY+=1
-
-for /f %%i in ('curl -s -w "%%{http_code}" -o nul %WORKER_URL%/api/admin/config-version 2^>nul') do set "HTTP_CODE=%%i"
-
-echo Attempt !RETRY!/!MAX_RETRIES! - Status: !HTTP_CODE!
-
-if "!HTTP_CODE!"=="200" (
-    echo.
-    echo SUCCESS: Worker is ready ^(200 OK^)!
-    set "SUCCESS=1"
-    goto WAIT_DONE
-)
-
-if !RETRY! LSS !MAX_RETRIES! (
+set "MAX_RETRIES=10"
+for /L %%a in (1,1,%MAX_RETRIES%) do (
+    curl -s -o nul -w "%%{http_code}" "%WORKER_URL%/" > "%TEMP%\status.txt"
+    set /p HTTP_STATUS=<"%TEMP%\status.txt"
+    if "!HTTP_STATUS!"=="200" (
+        set "SUCCESS=1"
+        goto WAIT_DONE
+    )
     timeout /t 3 >nul
-    goto WAIT_LOOP
 )
 
 :WAIT_DONE
@@ -227,7 +212,9 @@ set "DEFAULT_FROM=support@%SITE_DOMAIN%"
 set "PASSWORD_RESET_FROM=%DEFAULT_FROM%"
 
 powershell -NoProfile -Command ^
-    "$sql = @'INSERT OR REPLACE INTO settings (category, key, value) VALUES ('general', 'domain', '%SITE_DOMAIN%'), ('email', 'default_from', '%DEFAULT_FROM%'), ('email', 'password_reset_from', '%PASSWORD_RESET_FROM%')'@; " ^
+    "$sq = [char]39; " ^
+    "$d = $env:SITE_DOMAIN; $f = $env:DEFAULT_FROM; $r = $env:PASSWORD_RESET_FROM; " ^
+    "$sql = 'INSERT OR REPLACE INTO settings (category, key, value) VALUES (' + $sq + 'general' + $sq + ', ' + $sq + 'domain' + $sq + ', ' + $sq + $d + $sq + '), (' + $sq + 'email' + $sq + ', ' + $sq + 'default_from' + $sq + ', ' + $sq + $f + $sq + '), (' + $sq + 'email' + $sq + ', ' + $sq + 'password_reset_from' + $sq + ', ' + $sq + $r + $sq + ')'; " ^
     "$json = @{ sql = $sql } | ConvertTo-Json -Compress; " ^
     "[System.IO.File]::WriteAllText('%TEMP%\domain_settings.json', $json)"
 
@@ -245,7 +232,9 @@ if not "%SCRIPT_URL%"=="" (
     echo.
     echo Setting SCRIPT_URL...
     powershell -NoProfile -Command ^
-        "$sql = @'INSERT OR REPLACE INTO settings (category, key, value) VALUES ('general', 'script_url', '%SCRIPT_URL%')'@; " ^
+        "$sq = [char]39; " ^
+        "$u = $env:SCRIPT_URL; " ^
+        "$sql = 'INSERT OR REPLACE INTO settings (category, key, value) VALUES (' + $sq + 'general' + $sq + ', ' + $sq + 'script_url' + $sq + ', ' + $sq + $u + $sq + ')'; " ^
         "$json = @{ sql = $sql } | ConvertTo-Json -Compress; " ^
         "[System.IO.File]::WriteAllText('%TEMP%\script_url.json', $json)"
     
@@ -270,10 +259,12 @@ powershell -NoProfile -Command ^
 
 for /f "delims=" %%i in (%TEMP%\password_hash.txt) do set "PASSWORD_HASH=%%i"
 
-set "ADMIN_SQL=INSERT OR IGNORE INTO users (email, name, role, password_hash, allowed_languages, allowed_emails, allowed_categories, team_id, page_permissions, active) VALUES ('%ADMIN_EMAIL%', '%ADMIN_NAME%', 'admin', '%PASSWORD_HASH%', '["en"]', '[]', '[]', NULL, '{"tickets":{"read":true,"write":true},"users":{"read":true,"write":true},"settings":{"read":true,"write":true},"newsletter":{"read":true,"write":true},"reports":{"read":true,"write":true},"order_reply":{"read":true,"write":true}}', 1);"
-
 powershell -NoProfile -Command ^
-    "$sql = $env:ADMIN_SQL; " ^
+    "$sq = [char]39; $q = [char]34; " ^
+    "$e = $env:ADMIN_EMAIL; $n = $env:ADMIN_NAME; $h = $env:PASSWORD_HASH; " ^
+    "$perms = '{' + $q + 'tickets' + $q + ':{' + $q + 'read' + $q + ':true,' + $q + 'write' + $q + ':true},' + $q + 'users' + $q + ':{' + $q + 'read' + $q + ':true,' + $q + 'write' + $q + ':true},' + $q + 'settings' + $q + ':{' + $q + 'read' + $q + ':true,' + $q + 'write' + $q + ':true},' + $q + 'newsletter' + $q + ':{' + $q + 'read' + $q + ':true,' + $q + 'write' + $q + ':true},' + $q + 'reports' + $q + ':{' + $q + 'read' + $q + ':true,' + $q + 'write' + $q + ':true},' + $q + 'order_reply' + $q + ':{' + $q + 'read' + $q + ':true,' + $q + 'write' + $q + ':true}}'; " ^
+    "$langs = '[' + $q + 'en' + $q + ']'; " ^
+    "$sql = 'INSERT OR IGNORE INTO users (email, name, role, password_hash, allowed_languages, allowed_emails, allowed_categories, team_id, page_permissions, active) VALUES (' + $sq + $e + $sq + ', ' + $sq + $n + $sq + ', ' + $sq + 'admin' + $sq + ', ' + $sq + $h + $sq + ', ' + $sq + $langs + $sq + ', ' + $sq + '[]' + $sq + ', ' + $sq + '[]' + $sq + ', NULL, ' + $sq + $perms + $sq + ', 1);'; " ^
     "$json = @{ sql = $sql } | ConvertTo-Json -Compress; " ^
     "[System.IO.File]::WriteAllText('%TEMP%\admin.json', $json)"
 
