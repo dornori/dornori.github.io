@@ -21,12 +21,12 @@ echo === Site Configuration ===
 set /p SITE_DOMAIN="Your domain (e.g. example.com): "
 set /p SUPPORT_EMAIL="Support/from email address [support@%SITE_DOMAIN%]: "
 if "%SUPPORT_EMAIL%"=="" set SUPPORT_EMAIL=support@%SITE_DOMAIN%
-set /p SCRIPT_URL="Google Apps Script URL (optional, press Enter to skip): "
 
 echo.
 echo === Email Sending Credentials ===
 set /p CONFIG_EMAIL="Configure outgoing email credentials now? (y/N): "
 if /i "%CONFIG_EMAIL%"=="Y" (
+    set /p SCRIPT_URL="Google Apps Script URL: "
     set /p EMAIL_USERNAME="Email Username: "
 
     :EMAIL_PW_PROMPT
@@ -175,10 +175,6 @@ for /L %%i in (1,1,32) do (
 curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%/secrets" -H "Authorization: Bearer %API_TOKEN%" -H "Content-Type: application/json" -d "{\"name\":\"JWT_SECRET\",\"text\":\"%JWT_SECRET%\",\"type\":\"secret_text\"}"
 curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%/secrets" -H "Authorization: Bearer %API_TOKEN%" -H "Content-Type: application/json" -d "{\"name\":\"ENCRYPTION_KEY\",\"text\":\"%ENCRYPTION_KEY%\",\"type\":\"secret_text\"}"
 
-if not "%SCRIPT_URL%"=="" (
-    curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%/secrets" -H "Authorization: Bearer %API_TOKEN%" -H "Content-Type: application/json" -d "{\"name\":\"SCRIPT_URL\",\"text\":\"%SCRIPT_URL%\",\"type\":\"secret_text\"}"
-)
-
 echo OK: Secrets set.
 
 :: ============================================
@@ -219,6 +215,52 @@ if "!SUCCESS!"=="0" (
     echo It might still be starting up or have an error.
     echo Check Cloudflare dashboard ^→ Workers ^→ Logs for details.
     pause
+)
+
+:: ============================================
+:: SQL INSERTS - Domain & Email Settings
+:: ============================================
+echo.
+echo Setting domain and email defaults...
+
+set "DEFAULT_FROM=support@%SITE_DOMAIN%"
+set "PASSWORD_RESET_FROM=%DEFAULT_FROM%"
+
+powershell -NoProfile -Command ^
+    "$sql = @' " ^
+    "INSERT OR REPLACE INTO settings (category, key, value) VALUES " ^
+    "('general', 'domain', '%SITE_DOMAIN%'), " ^
+    "('email', 'default_from', '%DEFAULT_FROM%'), " ^
+    "('email', 'password_reset_from', '%PASSWORD_RESET_FROM%')" ^
+    "'@; " ^
+    "$json = @{ sql = $sql } | ConvertTo-Json -Compress; " ^
+    "[System.IO.File]::WriteAllText('%TEMP%\domain_settings.json', $json)"
+
+curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/d1/database/%DB_ID%/query" ^
+  -H "Authorization: Bearer %API_TOKEN%" ^
+  -H "Content-Type: application/json" ^
+  -d "@%TEMP%\domain_settings.json" > nul
+
+echo OK: Domain and email defaults set
+
+:: ============================================
+:: SCRIPT_URL - Set if provided
+:: ============================================
+if not "%SCRIPT_URL%"=="" (
+    echo.
+    echo Setting SCRIPT_URL...
+    powershell -NoProfile -Command ^
+        "$sql = @' " ^
+        "INSERT OR REPLACE INTO settings (category, key, value) VALUES ('general', 'script_url', '%SCRIPT_URL%')" ^
+        "'@; " ^
+        "$json = @{ sql = $sql } | ConvertTo-Json -Compress; " ^
+        "[System.IO.File]::WriteAllText('%TEMP%\script_url.json', $json)"
+    
+    curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/d1/database/%DB_ID%/query" ^
+      -H "Authorization: Bearer %API_TOKEN%" ^
+      -H "Content-Type: application/json" ^
+      -d "@%TEMP%\script_url.json" > nul
+    echo OK: SCRIPT_URL set
 )
 
 :: Admin User
