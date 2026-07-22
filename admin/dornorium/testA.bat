@@ -38,7 +38,7 @@ if /i "%CONFIG_EMAIL%"=="Y" (
         "$b2 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($p2); " ^
         "$t1 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b1); " ^
         "$t2 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b2); " ^
-        "if ($t1 -ne $t2) { exit 1 } else { $t1 | Out-File -Encoding utf8 '%TEMP%\email_pw.txt'; exit 0 }"
+        "if ($t1 -ne $t2) { exit 1 } else { $t1 | Out-File -Encoding ascii '%TEMP%\email_pw.txt'; exit 0 }"
     if errorlevel 1 (
         echo Passwords did not match. Try again.
         goto EMAIL_PW_PROMPT
@@ -54,7 +54,7 @@ if /i "%CONFIG_EMAIL%"=="Y" (
         "$b2 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($p2); " ^
         "$t1 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b1); " ^
         "$t2 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b2); " ^
-        "if ($t1 -ne $t2) { exit 1 } else { $t1 | Out-File -Encoding utf8 '%TEMP%\email_secret.txt'; exit 0 }"
+        "if ($t1 -ne $t2) { exit 1 } else { $t1 | Out-File -Encoding ascii '%TEMP%\email_secret.txt'; exit 0 }"
     if errorlevel 1 (
         echo Secrets did not match. Try again.
         goto EMAIL_SECRET_PROMPT
@@ -96,13 +96,13 @@ powershell -NoProfile -Command ^
     "$b2 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($p2); " ^
     "$t1 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b1); " ^
     "$t2 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b2); " ^
-    "if ($t1 -ne $t2 -or $t1.Length -lt 12) { exit 1 } else { $t1 | Out-File -Encoding utf8 '%TEMP%\admin_pw.txt'; exit 0 }"
+    "if ($t1 -ne $t2 -or $t1.Length -lt 12) { exit 1 } else { $t1 | Out-File -Encoding ascii '%TEMP%\admin_pw.txt'; exit 0 }"
 if errorlevel 1 (
     echo Passwords did not match or were too short. Try again.
     goto ADMIN_PW_PROMPT
 )
 
-:: Load admin password (YOUR WORKING CODE - KEPT AS IS)
+:: Load admin password (NO BOM - using ascii encoding)
 set /p ADMIN_PASSWORD=<"%TEMP%\admin_pw.txt"
 
 :: ============================================
@@ -146,20 +146,16 @@ if errorlevel 1 (
 )
 echo OK: Worker uploaded successfully.
 
-
 echo Enabling subdomain...
 curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%/subdomain" ^
   -H "Authorization: Bearer %API_TOKEN%" ^
   -H "Content-Type: application/json" ^
   -d "{\"enabled\": true, \"previews_enabled\": true}"
 
-
 echo Fetching subdomain...
 curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/subdomain" -H "Authorization: Bearer %API_TOKEN%" > "%TEMP%\subdomain.json"
 for /f %%i in ('powershell -Command "(Get-Content \"%TEMP%\subdomain.json\" -Raw | ConvertFrom-Json).result.subdomain"') do set "SUBDOMAIN=%%i"
 set "WORKER_URL=https://%WORKER_NAME%.%SUBDOMAIN%.workers.dev"
-
-
 
 :: Secrets
 echo.
@@ -221,11 +217,12 @@ if "!SUCCESS!"=="0" (
     pause
 )
 
-:: Admin User (YOUR WORKING CODE - KEPT AS IS)
+:: Admin User
 echo.
 echo Creating Admin User...
 powershell -NoProfile -Command ^
-    "$pass = '%ADMIN_PASSWORD%'; " ^
+    "$pass = Get-Content -Path '%TEMP%\admin_pw.txt' -Raw -Encoding Ascii; " ^
+    "$pass = $pass.Trim(); " ^
     "$sha = [System.Security.Cryptography.SHA256]::Create(); " ^
     "$bytes = [System.Text.Encoding]::UTF8.GetBytes($pass); " ^
     "$hash = $sha.ComputeHash($bytes); " ^
@@ -294,10 +291,8 @@ if /i "%CONFIG_EMAIL%"=="Y" (
 :: ============================================
 :: OFFER CONFIG.JSON AS DOWNLOAD
 :: ============================================
-:: Create the config content
 set "CONFIG_CONTENT={\"API_BASE\": \"%WORKER_URL%\"}"
 
-:: Write simple HTML using echo with minimal special characters
 echo ^<html^>^<body^>^<script^> > "%TEMP%\download_config.html" 2>nul
 echo var configData = '%CONFIG_CONTENT%'; >> "%TEMP%\download_config.html" 2>nul
 echo var blob = new Blob([configData], {type: 'application/json'}); >> "%TEMP%\download_config.html" 2>nul
@@ -310,7 +305,6 @@ echo a.click(); >> "%TEMP%\download_config.html" 2>nul
 echo document.write('Download started! If it didn\'t work, right-click and save as...'); >> "%TEMP%\download_config.html" 2>nul
 echo ^</script^>^</body^>^</html^> >> "%TEMP%\download_config.html" 2>nul
 
-:: Open in browser
 start "" "%TEMP%\download_config.html" >nul 2>&1
 echo.
 echo ========================================
