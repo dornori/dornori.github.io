@@ -750,6 +750,264 @@ async function buildEmailTab() {
             ${emailAddresses.length ? oeItems : '<div class="empty-state">No email addresses configured — add them in Email Routing above.</div>'}
         </div>
     </div>`;
+
+    <!-- Domain Email Routing (collapsible) -->
+    <div class="collapse-section" id="sec-domain-routing">
+        <div class="collapse-head" onclick="toggleSection('sec-domain-routing')">
+            <h4>🌐 Domain Email Setup</h4>
+            <span class="collapse-chevron">▶</span>
+        </div>
+        <div class="collapse-body">
+            <p style="font-size:12px;color:var(--text-muted);margin-bottom:20px;">Configure Cloudflare email routing to forward domain emails to this Worker. Requires CLOUDFLARE_API_TOKEN in environment variables.</p>
+            
+            <!-- Step 1: Domain Configuration -->
+            <div class="s-card" style="margin-bottom:16px;">
+                <div class="s-card-head"><div><h3>1. Add Domain</h3><p>Register a new domain with Cloudflare</p></div></div>
+                <div class="f-grid-2">
+                    <div class="f-row"><label>Domain Name</label><input type="text" id="dr_domain" placeholder="example.com" /></div>
+                    <div class="f-row"><label>Account ID (optional)</label><input type="text" id="dr_accountid" placeholder="Leave blank to use default" /></div>
+                </div>
+                <button class="btn btn-accent" onclick="addDomainToCloudflare()">Add Domain to Cloudflare</button>
+                <span id="dr_domain_status" style="font-size:12px;color:var(--text-muted);margin-left:8px;"></span>
+            </div>
+
+            <!-- Step 2: Nameserver Configuration -->
+            <div class="s-card" style="margin-bottom:16px;" id="dr_ns_section" style="display:none;">
+                <div class="s-card-head"><div><h3>2. Update Nameservers</h3><p>Change your domain registrar's nameservers to these</p></div></div>
+                <div id="dr_ns_list" style="margin-bottom:16px;"></div>
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">After updating at your registrar, click "Check Status" below.</p>
+                <button class="btn btn-accent" onclick="pollDomainStatus()">Check Domain Status</button>
+                <button class="btn btn-ghost btn-sm" onclick="resetDomainSetup()" style="margin-left:8px;">Reset</button>
+                <span id="dr_poll_status" style="font-size:12px;color:var(--text-muted);margin-left:8px;"></span>
+            </div>
+
+            <!-- Step 3: Enable Email Routing -->
+            <div class="s-card" style="margin-bottom:16px;" id="dr_enable_section" style="display:none;">
+                <div class="s-card-head"><div><h3>3. Enable Email Routing</h3><p>Activate Cloudflare email routing for this domain</p></div></div>
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">This will create MX, SPF, and DKIM records automatically.</p>
+                <button class="btn btn-accent" onclick="enableEmailRouting()">Enable Email Routing</button>
+                <span id="dr_enable_status" style="font-size:12px;color:var(--text-muted);margin-left:8px;"></span>
+            </div>
+
+            <!-- Step 4: Create Routing Rule -->
+            <div class="s-card" style="margin-bottom:16px;" id="dr_rule_section" style="display:none;">
+                <div class="s-card-head"><div><h3>4. Create Routing Rule</h3><p>Route emails to this Worker</p></div></div>
+                <div class="f-grid-2">
+                    <div class="f-row">
+                        <label>Email Pattern</label>
+                        <select id="dr_pattern_type" onchange="toggleSpecificAddress()">
+                            <option value="catchall">Catch-all (*@domain.com)</option>
+                            <option value="specific">Specific address</option>
+                        </select>
+                    </div>
+                    <div class="f-row" id="dr_specific_row" style="display:none;">
+                        <label>Specific Address</label>
+                        <input type="email" id="dr_specific_addr" placeholder="support@example.com" />
+                    </div>
+                </div>
+                <button class="btn btn-accent" onclick="createRoutingRule()">Create Routing Rule</button>
+                <span id="dr_rule_status" style="font-size:12px;color:var(--text-muted);margin-left:8px;"></span>
+            </div>
+
+            <!-- Summary -->
+            <div id="dr_summary_section" style="display:none;">
+                <div class="s-card" style="background:var(--bg-input);border-color:var(--success);">
+
+// ── Domain Email Routing functions ──
+let domainSetupState = { zoneId: null, domainName: null, pollInterval: null };
+
+async function addDomainToCloudflare() {
+    const domain = document.getElementById('dr_domain').value.trim().toLowerCase();
+    const accountId = document.getElementById('dr_accountid').value.trim();
+    if (!domain) { toast('Enter a domain name', 'error'); return; }
+    
+    const statusEl = document.getElementById('dr_domain_status');
+    statusEl.textContent = '⏳ Adding domain...';
+    
+    try {
+        const payload = { domain };
+        if (accountId) payload.accountId = accountId;
+        
+        const res = await api('/api/admin/setup/cloudflare-zone', { 
+            method: 'POST', 
+            body: JSON.stringify(payload)
+        });
+        
+        if (!res.success) throw new Error(res.error || 'Failed to add domain');
+        
+        domainSetupState.zoneId = res.zoneId;
+        domainSetupState.domainName = res.name;
+        
+        // Show nameservers
+        const nsList = document.getElementById('dr_ns_list');
+        nsList.innerHTML = (res.nameServers || []).map(ns => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg-input);border:1px dashed var(--border);border-radius:7px;margin-bottom:8px;font-family:monospace;font-size:13px;">
+                <span>${esc(ns)}</span>
+                <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${ns}')">Copy</button>
+            </div>
+        `).join('');
+        
+        document.getElementById('dr_ns_section').style.display = 'block';
+        document.getElementById('dr_enable_section').style.display = 'none';
+        document.getElementById('dr_rule_section').style.display = 'none';
+        document.getElementById('dr_summary_section').style.display = 'none';
+        
+        statusEl.textContent = '✅ Domain added. Update nameservers at your registrar.';
+        toast('✅ Domain added to Cloudflare', 'success');
+    } catch (e) {
+        statusEl.textContent = '❌ ' + e.message;
+        toast('❌ ' + e.message, 'error');
+    }
+}
+
+async function pollDomainStatus() {
+    if (!domainSetupState.zoneId) { toast('Add a domain first', 'error'); return; }
+    
+    const pollEl = document.getElementById('dr_poll_status');
+    pollEl.textContent = '⏳ Checking status...';
+    
+    let attempts = 0;
+    const maxAttempts = 60; // 10 minutes
+    
+    const poll = async () => {
+        attempts++;
+        try {
+            const res = await api(`/api/admin/setup/cloudflare-zone/${domainSetupState.zoneId}`);
+            if (!res.success) throw new Error(res.error || 'Failed to check status');
+            
+            const status = res.status;
+            if (status === 'active') {
+                clearInterval(domainSetupState.pollInterval);
+                domainSetupState.pollInterval = null;
+                pollEl.textContent = '✅ Domain is active';
+                
+                document.getElementById('dr_ns_section').style.display = 'none';
+                document.getElementById('dr_enable_section').style.display = 'block';
+                toast('✅ Domain activated', 'success');
+            } else if (attempts >= maxAttempts) {
+                clearInterval(domainSetupState.pollInterval);
+                domainSetupState.pollInterval = null;
+                pollEl.textContent = '❌ Timeout. Please try again.';
+                toast('❌ Domain activation timed out', 'error');
+            } else {
+                pollEl.textContent = `⏳ Status: ${status} (attempt ${attempts}/${maxAttempts})`;
+            }
+        } catch (e) {
+            clearInterval(domainSetupState.pollInterval);
+            domainSetupState.pollInterval = null;
+            pollEl.textContent = '❌ ' + e.message;
+            toast('❌ Poll error: ' + e.message, 'error');
+        }
+    };
+    
+    await poll();
+    if (domainSetupState.pollInterval) clearInterval(domainSetupState.pollInterval);
+    domainSetupState.pollInterval = setInterval(poll, 10000);
+}
+
+async function enableEmailRouting() {
+    if (!domainSetupState.zoneId) { toast('Setup domain first', 'error'); return; }
+    
+    const statusEl = document.getElementById('dr_enable_status');
+    statusEl.textContent = '⏳ Enabling...';
+    
+    try {
+        const res = await api('/api/admin/setup/email-routing', {
+            method: 'POST',
+            body: JSON.stringify({ zoneId: domainSetupState.zoneId })
+        });
+        
+        if (!res.success) throw new Error(res.error || 'Failed to enable routing');
+        
+        statusEl.textContent = '✅ Enabled';
+        document.getElementById('dr_rule_section').style.display = 'block';
+        toast('✅ Email routing enabled', 'success');
+    } catch (e) {
+        statusEl.textContent = '❌ ' + e.message;
+        toast('❌ ' + e.message, 'error');
+    }
+}
+
+function toggleSpecificAddress() {
+    const type = document.getElementById('dr_pattern_type').value;
+    document.getElementById('dr_specific_row').style.display = type === 'specific' ? 'block' : 'none';
+}
+
+async function createRoutingRule() {
+    if (!domainSetupState.zoneId) { toast('Setup domain first', 'error'); return; }
+    
+    const type = document.getElementById('dr_pattern_type').value;
+    let pattern = '*';
+    
+    if (type === 'specific') {
+        const addr = document.getElementById('dr_specific_addr').value.trim();
+        if (!addr) { toast('Enter specific email address', 'error'); return; }
+        pattern = addr;
+    }
+    
+    const statusEl = document.getElementById('dr_rule_status');
+    statusEl.textContent = '⏳ Creating rule...';
+    
+    try {
+        const res = await api('/api/admin/setup/routing-rule', {
+            method: 'POST',
+            body: JSON.stringify({
+                zoneId: domainSetupState.zoneId,
+                emailPattern: pattern
+            })
+        });
+        
+        if (!res.success) throw new Error(res.error || 'Failed to create rule');
+        
+        statusEl.textContent = '✅ Created';
+        
+        // Show summary
+        const summaryEl = document.getElementById('dr_summary');
+        summaryEl.innerHTML = `
+            <strong>Domain:</strong> ${esc(domainSetupState.domainName)}<br/>
+            <strong>Zone ID:</strong> <code style="background:var(--bg);padding:2px 6px;border-radius:3px;font-size:12px;">${esc(domainSetupState.zoneId)}</code><br/>
+            <strong>Pattern:</strong> ${pattern === '*' ? 'Catch-all (all emails)' : esc(pattern)}<br/>
+            <strong>Action:</strong> Route to Worker
+        `;
+        
+        document.getElementById('dr_rule_section').style.display = 'none';
+        document.getElementById('dr_summary_section').style.display = 'block';
+        
+        toast('✅ Setup complete', 'success');
+    } catch (e) {
+        statusEl.textContent = '❌ ' + e.message;
+        toast('❌ ' + e.message, 'error');
+    }
+}
+
+function resetDomainSetup() {
+    if (domainSetupState.pollInterval) clearInterval(domainSetupState.pollInterval);
+    domainSetupState = { zoneId: null, domainName: null, pollInterval: null };
+    
+    document.getElementById('dr_domain').value = '';
+    document.getElementById('dr_accountid').value = '';
+    document.getElementById('dr_domain_status').textContent = '';
+    document.getElementById('dr_poll_status').textContent = '';
+    document.getElementById('dr_enable_status').textContent = '';
+    document.getElementById('dr_rule_status').textContent = '';
+    
+    document.getElementById('dr_ns_section').style.display = 'none';
+    document.getElementById('dr_enable_section').style.display = 'none';
+    document.getElementById('dr_rule_section').style.display = 'none';
+    document.getElementById('dr_summary_section').style.display = 'none';
+}
+
+                    <div class="s-card-head"><div><h3 style="color:var(--success);">✅ Setup Complete</h3><p>Your domain is ready to receive emails</p></div></div>
+                    <div id="dr_summary" style="font-size:13px;line-height:1.6;"></div>
+                    <button class="btn btn-ghost btn-sm" onclick="resetDomainSetup()" style="margin-top:12px;">Configure Another Domain</button>
+                </div>
+            </div>
+
+            <!-- Active Domains List -->
+            <div id="dr_active_domains" style="margin-top:20px;"></div>
+        </div>
+    </div>
+
 }
 
 async function saveEmailSettings() {
