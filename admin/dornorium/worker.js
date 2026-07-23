@@ -179,6 +179,38 @@ function validatePasswordStrength(password) {
   };
 }
 
+async function callCloudflareAPI(method, endpoint, body, env) {
+  const token = env.CLOUDFLARE_API_TOKEN;
+  if (!token) throw new Error("CLOUDFLARE_API_TOKEN not configured in Worker environment variables");
+
+  const url = endpoint.startsWith("http") ? endpoint : `https://api.cloudflare.com/client/v4${endpoint}`;
+  const headers = {
+    "Authorization": `Bearer ${token}`,
+    "Content-Type": "application/json"
+  };
+
+  const options = { method, headers };
+  if (body && (method === "POST" || method === "PUT" || method === "PATCH")) {
+    options.body = JSON.stringify(body);
+  }
+
+  const res = await fetch(url, options);
+  let data;
+  try {
+    data = await res.json();
+  } catch (e) {
+    const text = await res.text();
+    throw new Error(`Cloudflare API returned non-JSON (${res.status}): ${text.substring(0, 200)}`);
+  }
+
+  if (!res.ok || !data.success) {
+    const errors = data.errors?.map(e => `${e.message} (code: ${e.code})`).join(", ") || `HTTP ${res.status}`;
+    throw new Error(errors);
+  }
+  return data;
+}
+
+
 async function validateAndHashPassword(password, env) {
   const result = validatePasswordStrength(password);
   if (!result.valid) {
@@ -2941,6 +2973,207 @@ var worker_default = {
           return json({ error: e.message }, 500);
         }
       }
+
+      // ============================================================
+      // CLOUDFLARE EMAIL ROUTING SETUP APIs
+      // ============================================================
+
+      // Verify the stored Cloudflare API token is valid
+      if (path === "/api/admin/setup/verify-token" && method === "GET") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const email = await verifyToken(token, env);
+        if (!email) return json({ error: "Unauthorized" }, 401);
+        if (!await checkAccess(email, "settings", "view", env)) return json({ error: "Permission denied" }, 403);
+
+        try {
+          const data = await callCloudflareAPI("GET", "/user/tokens/verify", null, env);
+          return json({ success: true, tokenInfo: data.result });
+        } catch (e) {
+          return json({ success: false, error: e.message }, 400);
+        }
+      }
+
+      // Create zone (add domain to Cloudflare)
+      if (path === "/api/admin/setup/cloudflare-zone" && method === "POST") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const email = await verifyToken(token, env);
+        if (!email) return json({ error: "Unauthorized" }, 401);
+        if (!await checkAccess(email, "settings", "edit", env)) return json({ error: "Permission denied" }, 403);
+
+        const { domain, accountId } = await request.json();
+        if (!domain) return json({ error: "Domain required" }, 400);
+
+        try {
+          const data = await callCloudflareAPI("POST", "/zones", {
+            name: domain,
+            account: { id: accountId || env.CLOUDFLARE_ACCOUNT_ID || "" },
+            type: "full",
+            jump_start: false
+          }, env);
+
+          const zone = data.result;
+          return json({
+            success: true,
+            zoneId: zone.id,
+            name: zone.name,
+            status: zone.status,
+            nameServers: zone.name_servers || [],
+            originalNameServers: zone.original_name_servers || []
+          });
+        } catch (e) {
+          return json({ success: false, error: e.message }, 400);
+        }
+      }
+
+      // Get zone status (poll this until status === "active")
+      if (path.startsWith("/api/admin/setup/cloudflare-zone/") && method === "GET") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const email = await verifyToken(token, env);
+        if (!email) return json({ error: "Unauthorized" }, 401);
+        if (!await checkAccess(email, "settings", "view", env)) return json({ error: "Permission denied" }, 403);
+
+        const zoneId = path.split("/")[5];
+        try {
+          const data = await callCloudflareAPI("GET", `/zones/${zoneId}`, null, env);
+          const zone = data.result;
+          return json({
+            success: true,
+            zoneId: zone.id,
+            name: zone.name,
+            status: zone.status,
+            nameServers: zone.name_servers || [],
+            originalNameServers: zone.original_name_servers || []
+          });
+        } catch (e) {
+          return json({ success: false, error: e.message }, 400);
+        }
+      }
+
+      // Enable Email Routing on a zone
+      if (path === "/api/admin/setup/email-routing" && method === "POST") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const email = await verifyToken(token, env);
+        if (!email) return json({ error: "Unauthorized" }, 401);
+        if (!await checkAccess(email, "settings", "edit", env)) return json({ error: "Permission denied" }, 403);
+
+        const { zoneId } = await request.json();
+        if (!zoneId) return json({ error: "zoneId required" }, 400);
+
+        try {
+          const data = await callCloudflareAPI("POST", `/zones/${zoneId}/email/routing`, { enabled: true }, env);
+          return json({ success: true, routing: data.result });
+        } catch (e) {
+          return json({ success: false, error: e.message }, 400);
+        }
+      }
+
+      // Get Email Routing status
+      if (path.startsWith("/api/admin/setup/email-routing/") && method === "GET") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const email = await verifyToken(token, env);
+        if (!email) return json({ error: "Unauthorized" }, 401);
+        if (!await checkAccess(email, "settings", "view", env)) return json({ error: "Permission denied" }, 403);
+
+        const zoneId = path.split("/")[5];
+        try {
+          const data = await callCloudflareAPI("GET", `/zones/${zoneId}/email/routing`, null, env);
+          return json({ success: true, routing: data.result });
+        } catch (e) {
+          return json({ success: false, error: e.message }, 400);
+        }
+      }
+
+      // Create a routing rule (catch-all or specific address) → sends to this Worker
+      if (path === "/api/admin/setup/routing-rule" && method === "POST") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const email = await verifyToken(token, env);
+        if (!email) return json({ error: "Unauthorized" }, 401);
+        if (!await checkAccess(email, "settings", "edit", env)) return json({ error: "Permission denied" }, 403);
+
+        const { zoneId, emailPattern, workerName } = await request.json();
+        if (!zoneId) return json({ error: "zoneId required" }, 400);
+
+        const worker = workerName || env.WORKER_NAME || "";
+        if (!worker) return json({ error: "Worker name required. Set WORKER_NAME environment variable or pass workerName in body." }, 400);
+
+        try {
+          // Resolve domain name for the zone (needed to build full email address)
+          const zoneData = await callCloudflareAPI("GET", `/zones/${zoneId}`, null, env);
+          const domainName = zoneData.result.name;
+
+          let matchers;
+          if (!emailPattern || emailPattern === "*" || emailPattern === "*@*" || emailPattern === `*@${domainName}`) {
+            matchers = [{ type: "all" }];
+          } else if (emailPattern.includes("@")) {
+            matchers = [{ type: "literal", field: "to", value: emailPattern }];
+          } else {
+            matchers = [{ type: "literal", field: "to", value: `${emailPattern}@${domainName}` }];
+          }
+
+          const data = await callCloudflareAPI("POST", `/zones/${zoneId}/email/routing/rules`, {
+            name: `Route to ${worker}`,
+            enabled: true,
+            priority: 0,
+            matchers: matchers,
+            actions: [{ type: "worker", value: [worker] }]
+          }, env);
+
+          return json({ success: true, rule: data.result });
+        } catch (e) {
+          return json({ success: false, error: e.message }, 400);
+        }
+      }
+
+      // List routing rules for a zone
+      if (path.startsWith("/api/admin/setup/routing-rules/") && method === "GET") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const email = await verifyToken(token, env);
+        if (!email) return json({ error: "Unauthorized" }, 401);
+        if (!await checkAccess(email, "settings", "view", env)) return json({ error: "Permission denied" }, 403);
+
+        const zoneId = path.split("/")[5];
+        try {
+          const data = await callCloudflareAPI("GET", `/zones/${zoneId}/email/routing/rules`, null, env);
+          return json({ success: true, rules: data.result || [] });
+        } catch (e) {
+          return json({ success: false, error: e.message }, 400);
+        }
+      }
+
+      // List DNS records for a zone (useful to verify MX/SPF/DKIM were auto-created)
+      if (path.startsWith("/api/admin/setup/dns-records/") && method === "GET") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const email = await verifyToken(token, env);
+        if (!email) return json({ error: "Unauthorized" }, 401);
+        if (!await checkAccess(email, "settings", "view", env)) return json({ error: "Permission denied" }, 403);
+
+        const zoneId = path.split("/")[5];
+        try {
+          const data = await callCloudflareAPI("GET", `/zones/${zoneId}/dns_records`, null, env);
+          return json({ success: true, records: data.result || [] });
+        } catch (e) {
+          return json({ success: false, error: e.message }, 400);
+        }
+      }
+
+      // List verified destination addresses (account-level)
+      if (path === "/api/admin/setup/destination-addresses" && method === "GET") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const email = await verifyToken(token, env);
+        if (!email) return json({ error: "Unauthorized" }, 401);
+        if (!await checkAccess(email, "settings", "view", env)) return json({ error: "Permission denied" }, 403);
+
+        const accountId = url.searchParams.get("accountId") || env.CLOUDFLARE_ACCOUNT_ID || "";
+        if (!accountId) return json({ error: "accountId required" }, 400);
+
+        try {
+          const data = await callCloudflareAPI("GET", `/accounts/${accountId}/email/routing/addresses`, null, env);
+          return json({ success: true, addresses: data.result || [] });
+        } catch (e) {
+          return json({ success: false, error: e.message }, 400);
+        }
+      }
+
 
       return json({ error: "Not found" }, 404);
     } catch (err) {
