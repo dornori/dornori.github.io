@@ -67,10 +67,14 @@
         .oe-body { padding: 20px 18px; }
         .oe-footer-status { font-size: 11px; color: var(--text-muted); font-style: italic; }
         .oe-footer-status.has-footer { color: var(--success); font-style: normal; }
-        .email-row { display: grid; grid-template-columns: 1fr 160px 120px auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
-        .email-row .email-addr { font-weight: 600; font-size: 14px; }
-        .add-row { display: flex; gap: 10px; align-items: flex-end; padding: 16px; background: var(--bg-input); border: 1px dashed var(--border); border-radius: 8px; margin-top: 8px; }
-        .add-row .f-row { margin-bottom: 0; flex: 1; }
+        .email-row { display: grid; grid-template-columns: 1fr 140px 100px 90px 100px auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .email-row .email-addr { font-weight: 600; font-size: 14px; font-family: monospace; }
+        .email-row .status-badge { font-size: 11px; padding: 2px 10px; border-radius: 12px; font-weight: 600; text-align: center; }
+        .email-row .status-badge.active { background: var(--success); color: #fff; }
+        .email-row .status-badge.inactive { background: var(--border); color: var(--text-muted); }
+        .email-row .no-mapping { font-size: 11px; color: var(--warning); }
+        .add-row { display: flex; gap: 10px; align-items: flex-end; padding: 16px; background: var(--bg-input); border: 1px dashed var(--border); border-radius: 8px; margin-top: 8px; flex-wrap: wrap; }
+        .add-row .f-row { margin-bottom: 0; flex: 1; min-width: 140px; }
         .add-row .f-row:last-child { flex: 0 0 auto; }
         .btn { padding: 8px 18px; border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
         .btn:hover { opacity: .85; }
@@ -102,7 +106,8 @@
         .domain-row .status-badge.pending { background: var(--warning); color: #fff; }
         .domain-row .status-badge.inactive { background: var(--border); color: var(--text-muted); }
         .domain-info { background: var(--bg-input); padding: 12px 16px; border-radius: 8px; border-left: 3px solid var(--accent); margin-bottom: 16px; }
-        @media (max-width: 640px) { .f-grid-2, .f-grid-3 { grid-template-columns: 1fr; } .add-row { flex-direction: column; } .email-row { grid-template-columns: 1fr; gap: 6px; } .domain-row { grid-template-columns: 1fr; gap: 6px; } }
+        .sync-status { font-size: 12px; color: var(--text-muted); padding: 4px 0; }
+        @media (max-width: 768px) { .email-row { grid-template-columns: 1fr; gap: 6px; } .domain-row { grid-template-columns: 1fr; gap: 6px; } .add-row { flex-direction: column; } .add-row .f-row { min-width: 100%; } }
     </style>
 </head>
 <body>
@@ -213,7 +218,9 @@ function toast(msg, type = 'success') {
 // ── State ──
 let settings = [], emailAddresses = [], currentTab = 'email';
 let cloudflareDomains = [];
+let cloudflareRules = [];
 let configuredZoneId = null;
+let configuredDomain = null;
 
 function S(cat, key, def = '') {
     const s = settings.find(s => s.category === cat && s.key === key);
@@ -245,9 +252,18 @@ async function load() {
         // Get configured zone from settings
         const zoneSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'zone_id');
         configuredZoneId = zoneSetting ? zoneSetting.value : null;
+        const domainSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'domain');
+        configuredDomain = domainSetting ? domainSetting.value : null;
         
         // Fetch Cloudflare domains
         await fetchCloudflareDomains();
+        
+        // Fetch Cloudflare rules if zone configured
+        if (configuredZoneId) {
+            await fetchCloudflareRules(configuredZoneId);
+        } else {
+            cloudflareRules = [];
+        }
         
         renderAll();
         switchTab(currentTab);
@@ -266,6 +282,19 @@ async function fetchCloudflareDomains() {
         }
     } catch (e) {
         cloudflareDomains = [];
+    }
+}
+
+async function fetchCloudflareRules(zoneId) {
+    try {
+        const res = await api(`/api/admin/setup/routing-rules/${zoneId}`);
+        if (res.success) {
+            cloudflareRules = res.rules || [];
+        } else {
+            cloudflareRules = [];
+        }
+    } catch (e) {
+        cloudflareRules = [];
     }
 }
 
@@ -628,7 +657,7 @@ async function deleteLang(idx) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// EMAIL TAB - Separate sections as requested
+// EMAIL TAB - Full integration
 // ─────────────────────────────────────────────────────────────
 const DYN_TAGS = [
     { tag: '{{ticket_id}}', label: 'Ticket ID' },
@@ -678,23 +707,6 @@ async function buildEmailTab() {
 
     const langOpts = langs.map(l => `<option value="${esc(l.code)}"${l.code===activeLang?' selected':''}>${esc(l.name)}</option>`).join('');
 
-    // ── Email routing rows ──
-    const catOpts = cats.map(c => `<option value="${c}">${cap(c)}</option>`).join('');
-    const langOpts2 = langs.map(l => `<option value="${l.code}">${l.code} - ${l.name}</option>`).join('');
-    const routingRows = emailAddresses.map(addr => {
-        const catSel = cats.map(c => `<option value="${c}"${c===addr.action?' selected':''}>${cap(c)}</option>`).join('');
-        const langSel = langs.map(l => `<option value="${l.code}"${l.code===addr.language?' selected':''}>${l.code} - ${l.name}</option>`).join('');
-        return `<div class="email-row">
-            <span class="email-addr">${esc(addr.email)}</span>
-            <select onchange="updateEmailCat(${addr.id}, this.value)" style="padding:7px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);">${catSel}</select>
-            <select onchange="updateEmailLang(${addr.id}, this.value)" style="padding:7px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);">${langSel}</select>
-            <div style="display:flex;gap:6px;">
-                <button class="btn btn-ghost btn-sm" onclick="editEmailAddr(${addr.id})">Edit</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteEmailAddr(${addr.id})">Delete</button>
-            </div>
-        </div>`;
-    }).join('');
-
     // ── Outgoing email items ──
     const oeItems = emailAddresses.map(addr => {
         const safeKey = addr.email.replace(/[^a-z0-9]/gi, '_'), footerKey = 'footer_' + safeKey, footer = S('email', footerKey, ''), hasFooter = footer.length > 0;
@@ -711,11 +723,8 @@ async function buildEmailTab() {
         </div>`;
     }).join('');
 
-    // ── Cloudflare Domains Section (NEW - separate) ──
+    // ── Cloudflare Domains Section ──
     let domainsHtml = '';
-    const configuredDomain = settings.find(s => s.category === 'cloudflare' && s.key === 'domain');
-    const configuredDomainName = configuredDomain ? configuredDomain.value : null;
-    
     if (cloudflareDomains.length > 0) {
         domainsHtml = cloudflareDomains.map(domain => {
             const isConfigured = domain.id === configuredZoneId;
@@ -736,18 +745,98 @@ async function buildEmailTab() {
         domainsHtml = '<div class="empty-state">No domains found in Cloudflare. <a href="domain-setup.html" style="color:var(--accent);">Add a domain →</a></div>';
     }
 
+    // ── Email Routing Rules (MERGED: Cloudflare + DB) ──
+    const catOpts = cats.map(c => `<option value="${c}">${cap(c)}</option>`).join('');
+    const langOpts2 = langs.map(l => `<option value="${l.code}">${l.code} - ${l.name}</option>`).join('');
+    
+    // Build merged list: Cloudflare rules + DB mappings
+    let mergedRules = [];
+    
+    if (configuredZoneId && cloudflareRules.length > 0) {
+        // Start with Cloudflare rules
+        mergedRules = cloudflareRules.map(rule => {
+            // Extract email from matcher
+            let email = '*';
+            if (rule.matchers && rule.matchers.length > 0) {
+                const matcher = rule.matchers[0];
+                if (matcher.type === 'all') {
+                    email = '*@*';
+                } else if (matcher.value) {
+                    email = matcher.value;
+                }
+            }
+            
+            // Find DB mapping for this email
+            const dbMapping = emailAddresses.find(a => a.email.toLowerCase() === email.toLowerCase());
+            
+            return {
+                ruleId: rule.id,
+                email: email,
+                cloudflareEnabled: rule.enabled !== false,
+                dbMapping: dbMapping || null,
+                category: dbMapping ? dbMapping.action || dbMapping.label : '',
+                language: dbMapping ? dbMapping.language || 'en' : 'en',
+                hasMapping: !!dbMapping
+            };
+        });
+    } else if (emailAddresses.length > 0) {
+        // No Cloudflare rules, but we have DB mappings - show them
+        mergedRules = emailAddresses.map(addr => ({
+            ruleId: null,
+            email: addr.email,
+            cloudflareEnabled: false,
+            dbMapping: addr,
+            category: addr.action || addr.label || '',
+            language: addr.language || 'en',
+            hasMapping: true
+        }));
+    }
+
+    const emailRows = mergedRules.map((item, index) => {
+        const email = item.email;
+        const isActive = item.cloudflareEnabled;
+        const hasMapping = item.hasMapping;
+        const category = item.category || '';
+        const language = item.language || 'en';
+        const ruleId = item.ruleId;
+        
+        const catSel = cats.map(c => `<option value="${c}"${c===category?' selected':''}>${cap(c)}</option>`).join('');
+        const langSel = langs.map(l => `<option value="${l.code}"${l.code===language?' selected':''}>${l.code} - ${l.name}</option>`).join('');
+        
+        return `<div class="email-row" data-rule-id="${ruleId || ''}" data-email="${esc(email)}">
+            <span class="email-addr">${esc(email)}</span>
+            <select class="category-select" onchange="updateMapping('${esc(email)}', this.value, null)" style="padding:6px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);width:100%;">${catSel}</select>
+            <select class="language-select" onchange="updateMapping('${esc(email)}', null, this.value)" style="padding:6px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);width:100%;">${langSel}</select>
+            ${ruleId ? 
+                `<span class="status-badge ${isActive ? 'active' : 'inactive'}">${isActive ? 'Active' : 'Inactive'}</span>` :
+                `<span style="font-size:11px;color:var(--warning);">⚠️ No Cloudflare rule</span>`
+            }
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                ${ruleId ? 
+                    `<button class="btn btn-ghost btn-sm" onclick="toggleCloudflareRule('${ruleId}', ${!isActive})">${isActive ? '🔴' : '🟢'}</button>` :
+                    `<button class="btn btn-accent btn-sm" onclick="createCloudflareRule('${esc(email)}')">Create Rule</button>`
+                }
+                <button class="btn btn-danger btn-sm" onclick="deleteEmail('${esc(email)}', '${ruleId || ''}')">🗑️</button>
+            </div>
+        </div>`;
+    }).join('');
+
+    const noRulesMessage = !configuredZoneId ? 
+        '<div class="empty-state">Select a domain first to manage email rules.</div>' :
+        '<div class="empty-state">No email rules configured. Add one below.</div>';
+
     return `
-    <!-- ─── CLOUDFLARE DOMAINS SECTION (NEW) ─── -->
+    <!-- ─── CLOUDFLARE DOMAINS ─── -->
     <div class="s-card">
         <div class="s-card-head">
             <div>
                 <h3>🌐 Cloudflare Domains</h3>
-                <p>Domains detected in your Cloudflare account. Click "Use This Domain" to configure email routing.</p>
+                <p>Select which domain to manage email routing for.</p>
             </div>
             <button class="btn btn-ghost btn-sm" onclick="refreshDomains()" style="white-space:nowrap;">🔄 Refresh</button>
         </div>
         ${domainsHtml}
-        ${configuredZoneId ? `<div style="margin-top:12px;font-size:12px;color:var(--success);">✅ Using domain: ${esc(configuredDomainName || configuredZoneId)}</div>` : ''}
+        ${configuredZoneId ? `<div style="margin-top:12px;font-size:12px;color:var(--success);">✅ Using: ${esc(configuredDomain || configuredZoneId)}</div>` : ''}
         <div style="margin-top:12px;font-size:12px;color:var(--text-muted);">
             <a href="domain-setup.html" style="color:var(--accent);">➕ Add new domain →</a>
         </div>
@@ -774,31 +863,37 @@ async function buildEmailTab() {
         <button class="btn btn-accent" style="margin-top:8px;" onclick="saveEmailSettings()">Save Email Settings</button>
     </div>
 
-    <!-- ─── EMAIL ROUTING RULES (DB) ─── -->
+    <!-- ─── EMAIL ROUTING RULES (MERGED) ─── -->
     <div class="collapse-section open" id="sec-routing">
         <div class="collapse-head" onclick="toggleSection('sec-routing')">
             <h4>📤 Email Routing Rules</h4>
             <span class="collapse-chevron">▼</span>
         </div>
         <div class="collapse-body">
-            <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Map incoming email addresses to ticket categories and languages.</p>
-            ${emailAddresses.length ? routingRows : '<div class="empty-state">No email addresses configured yet — add one below</div>'}
+            <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">
+                Manage email addresses, their category mappings, and Cloudflare routing rules.
+                ${configuredZoneId ? `<span style="color:var(--success);">✅ Cloudflare connected</span>` : `<span style="color:var(--warning);">⚠️ No domain selected</span>`}
+            </p>
+            ${emailRows || noRulesMessage}
             <hr class="divider" />
-            <h4 style="font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;">Add new rule</h4>
+            <h4 style="font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;">Add new email address</h4>
             <div class="add-row">
                 <div class="f-row" style="margin:0;flex:2;">
                     <label>Email address</label>
-                    <input type="email" id="newErEmail" placeholder="support@example.com" />
+                    <input type="email" id="newEmailAddr" placeholder="support@example.com" />
                 </div>
                 <div class="f-row" style="margin:0;flex:1;">
                     <label>Category</label>
-                    <select id="newErCat" style="padding:9px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);width:100%;">${catOpts}</select>
+                    <select id="newEmailCat" style="padding:9px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);width:100%;">${catOpts}</select>
                 </div>
                 <div class="f-row" style="margin:0;flex:1;">
                     <label>Language</label>
-                    <select id="newErLang" style="padding:9px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);width:100%;">${langOpts2}</select>
+                    <select id="newEmailLang" style="padding:9px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);width:100%;">${langOpts2}</select>
                 </div>
-                <button class="btn btn-accent" style="white-space:nowrap;margin-bottom:2px;" onclick="addEmailAddr()">Add rule</button>
+                <button class="btn btn-accent" style="white-space:nowrap;margin-bottom:2px;" onclick="addEmail()">Add Email</button>
+            </div>
+            <div style="margin-top:8px;font-size:11px;color:var(--text-muted);">
+                ${configuredZoneId ? '✅ This will create a Cloudflare routing rule AND a DB mapping.' : '⚠️ Select a domain first to create Cloudflare rules.'}
             </div>
         </div>
     </div>
@@ -824,17 +919,20 @@ async function buildEmailTab() {
         </div>
         <div class="collapse-body">
             <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Set a per-address HTML footer appended to every outgoing email.</p>
-            ${emailAddresses.length ? oeItems : '<div class="empty-state">No email addresses configured — add them in Email Routing above.</div>'}
+            ${emailAddresses.length ? oeItems : '<div class="empty-state">No email addresses configured.</div>'}
         </div>
     </div>`;
 }
 
-// ─── Cloudflare Domain Functions ──
+// ─── Domain Functions ──
 async function refreshDomains() {
     await fetchCloudflareDomains();
+    if (configuredZoneId) {
+        await fetchCloudflareRules(configuredZoneId);
+    }
     const panel = document.getElementById('panel-email');
     if (panel) panel.innerHTML = await buildEmailTab();
-    toast('✅ Domains refreshed');
+    toast('✅ Refreshed');
 }
 
 async function configureDomain(zoneId, domainName) {
@@ -846,12 +944,201 @@ async function configureDomain(zoneId, domainName) {
         ]);
         if (ok) {
             configuredZoneId = zoneId;
+            configuredDomain = domainName;
+            await fetchCloudflareRules(zoneId);
             toast(`✅ Domain ${domainName} configured`);
             const panel = document.getElementById('panel-email');
             if (panel) panel.innerHTML = await buildEmailTab();
         } else {
             toast('❌ Failed to save domain', 'error');
         }
+    } catch (e) {
+        toast('❌ ' + e.message, 'error');
+    }
+}
+
+// ─── Email Rule Functions ──
+async function createCloudflareRule(email) {
+    if (!configuredZoneId) {
+        toast('Select a domain first', 'error');
+        return;
+    }
+    try {
+        const res = await api('/api/admin/setup/routing-rule', {
+            method: 'POST',
+            body: JSON.stringify({ 
+                zoneId: configuredZoneId,
+                emailPattern: email,
+                workerName: 'dornorium'
+            })
+        });
+        if (res.success) {
+            toast('✅ Cloudflare rule created');
+            await fetchCloudflareRules(configuredZoneId);
+            const panel = document.getElementById('panel-email');
+            if (panel) panel.innerHTML = await buildEmailTab();
+        } else {
+            toast('❌ ' + (res.error || 'Failed'), 'error');
+        }
+    } catch (e) {
+        toast('❌ ' + e.message, 'error');
+    }
+}
+
+async function toggleCloudflareRule(ruleId, newStatus) {
+    if (!configuredZoneId) {
+        toast('Select a domain first', 'error');
+        return;
+    }
+    try {
+        const res = await api(`/api/admin/setup/routing-rule/${ruleId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ zoneId: configuredZoneId, enabled: newStatus })
+        });
+        if (res.success) {
+            toast(`✅ Rule ${newStatus ? 'activated' : 'deactivated'}`);
+            await fetchCloudflareRules(configuredZoneId);
+            const panel = document.getElementById('panel-email');
+            if (panel) panel.innerHTML = await buildEmailTab();
+        } else {
+            toast('❌ ' + (res.error || 'Failed'), 'error');
+        }
+    } catch (e) {
+        toast('❌ ' + e.message, 'error');
+    }
+}
+
+async function updateMapping(email, category, language) {
+    // Find existing mapping
+    let existing = emailAddresses.find(a => a.email.toLowerCase() === email.toLowerCase());
+    
+    try {
+        if (existing) {
+            // Update existing
+            const updates = {};
+            if (category !== null) updates.category = category;
+            if (language !== null) updates.language = language;
+            
+            await api(`/api/admin/email-addresses/${existing.id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    email: existing.email,
+                    label: category || existing.action,
+                    action: category || existing.action,
+                    language: language || existing.language,
+                    is_active: existing.is_active ? 1 : 0
+                })
+            });
+            toast('✅ Mapping updated');
+        } else if (category && language) {
+            // Create new mapping
+            await api('/api/admin/email-addresses', {
+                method: 'POST',
+                body: JSON.stringify({
+                    email: email,
+                    label: category,
+                    action: category,
+                    language: language
+                })
+            });
+            toast('✅ Mapping created');
+        }
+        
+        // Reload
+        const [sd, ed] = await Promise.all([api('/api/admin/settings'), api('/api/admin/email-addresses')]);
+        settings = sd.settings || [];
+        emailAddresses = ed.addresses || [];
+        const panel = document.getElementById('panel-email');
+        if (panel) panel.innerHTML = await buildEmailTab();
+        
+    } catch (e) {
+        toast('❌ ' + e.message, 'error');
+    }
+}
+
+async function addEmail() {
+    const email = document.getElementById('newEmailAddr').value.trim();
+    const category = document.getElementById('newEmailCat').value;
+    const language = document.getElementById('newEmailLang').value;
+    
+    if (!email) { toast('Enter an email address', 'error'); return; }
+    if (!category) { toast('Select a category', 'error'); return; }
+    if (!language) { toast('Select a language', 'error'); return; }
+    
+    // Check if already exists
+    if (emailAddresses.some(a => a.email.toLowerCase() === email.toLowerCase())) {
+        toast('Email already exists', 'warning');
+        return;
+    }
+    
+    try {
+        // 1. Create Cloudflare rule if domain configured
+        let cloudflareCreated = false;
+        if (configuredZoneId) {
+            const cfRes = await api('/api/admin/setup/routing-rule', {
+                method: 'POST',
+                body: JSON.stringify({ 
+                    zoneId: configuredZoneId,
+                    emailPattern: email,
+                    workerName: 'dornorium'
+                })
+            });
+            if (cfRes.success) {
+                cloudflareCreated = true;
+            } else {
+                toast('⚠️ Cloudflare rule failed: ' + (cfRes.error || 'Unknown'), 'warning');
+                // Continue anyway to create DB mapping
+            }
+        }
+        
+        // 2. Create DB mapping
+        await api('/api/admin/email-addresses', {
+            method: 'POST',
+            body: JSON.stringify({
+                email: email,
+                label: category,
+                action: category,
+                language: language
+            })
+        });
+        
+        toast(`✅ ${cloudflareCreated ? 'Email added with Cloudflare rule' : 'Email added (no Cloudflare rule)'}`);
+        
+        // Reload
+        await load();
+        const panel = document.getElementById('panel-email');
+        if (panel) panel.innerHTML = await buildEmailTab();
+        
+        document.getElementById('newEmailAddr').value = '';
+        
+    } catch (e) {
+        toast('❌ ' + e.message, 'error');
+    }
+}
+
+async function deleteEmail(email, ruleId) {
+    if (!confirm(`Delete "${email}"? This will remove Cloudflare rule and DB mapping.`)) return;
+    
+    try {
+        // 1. Delete Cloudflare rule if exists
+        if (ruleId && configuredZoneId) {
+            await api(`/api/admin/setup/routing-rule/${ruleId}`, {
+                method: 'DELETE',
+                body: JSON.stringify({ zoneId: configuredZoneId })
+            });
+        }
+        
+        // 2. Delete DB mapping
+        const existing = emailAddresses.find(a => a.email.toLowerCase() === email.toLowerCase());
+        if (existing) {
+            await api(`/api/admin/email-addresses/${existing.id}`, { method: 'DELETE' });
+        }
+        
+        toast('✅ Deleted');
+        await load();
+        const panel = document.getElementById('panel-email');
+        if (panel) panel.innerHTML = await buildEmailTab();
+        
     } catch (e) {
         toast('❌ ' + e.message, 'error');
     }
@@ -895,58 +1182,6 @@ async function saveEmailSettings() {
         document.getElementById('em_script_secret').value = '';
         await load();
     }
-}
-
-// ── Email Routing Functions ──
-async function updateEmailCat(id, cat) { 
-    const addr = emailAddresses.find(a => a.id === id); 
-    if (!addr) return; 
-    const d = await api('/api/admin/email-addresses/'+id, { 
-        method:'PUT', 
-        body:JSON.stringify({ email:addr.email, label:cat, action:cat, language:addr.language||'', is_active:addr.is_active ? 1 : 0 }) 
-    }); 
-    d.success ? (toast('✅ Category updated'), load()) : toast('❌ Failed','error'); 
-}
-
-async function updateEmailLang(id, lang) { 
-    const addr = emailAddresses.find(a => a.id === id); 
-    if (!addr) return; 
-    const d = await api('/api/admin/email-addresses/'+id, { 
-        method:'PUT', 
-        body:JSON.stringify({ email:addr.email, label:addr.action, action:addr.action, language:lang, is_active:addr.is_active ? 1 : 0 }) 
-    }); 
-    d.success ? (toast('✅ Language updated'), load()) : toast('❌ Failed','error'); 
-}
-
-async function addEmailAddr() { 
-    const email = document.getElementById('newErEmail').value.trim(); 
-    const cat = document.getElementById('newErCat').value; 
-    const lang = document.getElementById('newErLang').value;
-    if (!email) { toast('Enter an email address','error'); return; } 
-    if (!lang) { toast('Select a language','error'); return; } 
-    const d = await api('/api/admin/email-addresses', { 
-        method:'POST', 
-        body:JSON.stringify({ email, label:cat, action:cat, language:lang }) 
-    }); 
-    d.success ? (document.getElementById('newErEmail').value='', toast('✅ Rule added'), load()) : toast('❌ '+(d.error||'Failed'),'error'); 
-}
-
-async function editEmailAddr(id) { 
-    const addr = emailAddresses.find(a => a.id === id); 
-    if (!addr) return; 
-    const newEmail = prompt('Edit email address:', addr.email); 
-    if (!newEmail || newEmail === addr.email) return; 
-    const d = await api('/api/admin/email-addresses/'+id, { 
-        method:'PUT', 
-        body:JSON.stringify({ email:newEmail, label:addr.action, action:addr.action, language:addr.language||'', is_active:addr.is_active ? 1 : 0 }) 
-    }); 
-    d.success ? (toast('✅ Updated'), load()) : toast('❌ Failed','error'); 
-}
-
-async function deleteEmailAddr(id) { 
-    if (!confirm('Delete this email rule?')) return; 
-    const d = await api('/api/admin/email-addresses/'+id, { method:'DELETE' }); 
-    d.success ? (toast('✅ Deleted'), load()) : toast('❌ Failed','error'); 
 }
 
 // ── Auto-Reply Functions ──
