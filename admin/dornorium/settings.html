@@ -198,7 +198,6 @@ const purgeBtn = document.getElementById('purgeCacheBtn');
 if (purgeBtn) purgeBtn.disabled = !canEditSettings();
 
 // ── API ──
-// ── API ──
 async function api(path, opts = {}) {
     const headers = {
         'Authorization': 'Bearer ' + token,
@@ -219,7 +218,7 @@ async function api(path, opts = {}) {
         throw new Error('Permission denied');
     }
     
-    // Read the response body directly - don't clone
+    // Read the response body directly as text first
     try {
         const text = await response.text();
         if (!text || text.trim() === '') {
@@ -475,9 +474,9 @@ async function saveSecurity() {
     if (ok) await load();
 }
 
-// ─────────────────────────────────────────────────────────────// GENERAL
 // ─────────────────────────────────────────────────────────────
-function buildGeneral() {
+// GENERAL
+// ─────────────────────────────────────────────────────────────function buildGeneral() {
     const tz = S('general', 'timezone', 'UTC');
     const defaultLang = S('general', 'default_language', '');
     const langs = getLanguages();
@@ -670,7 +669,7 @@ async function deleteLang(idx) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// EMAIL TAB - Full integration
+// EMAIL TAB
 // ─────────────────────────────────────────────────────────────
 const DYN_TAGS = [
     { tag: '{{ticket_id}}', label: 'Ticket ID' },
@@ -758,11 +757,10 @@ async function buildEmailTab() {
         domainsHtml = '<div class="empty-state">No domains found in Cloudflare. <a href="domain-setup.html" style="color:var(--accent);">Add a domain →</a></div>';
     }
 
-    // ── Email Routing Rules (MERGED: Cloudflare + DB) ──
+    // ── Email Routing Rules ──
     const catOpts = cats.map(c => `<option value="${c}">${cap(c)}</option>`).join('');
     const langOpts2 = langs.map(l => `<option value="${l.code}">${l.code} - ${l.name}</option>`).join('');
     
-    // Build merged list: Cloudflare rules + DB mappings
     let mergedRules = [];
     
     if (configuredZoneId && cloudflareRules.length > 0) {
@@ -1025,12 +1023,10 @@ async function updateMapping(selectElement) {
         return;
     }
     
-    // Find existing mapping
     let existing = emailAddresses.find(a => a.email.toLowerCase() === email.toLowerCase());
     
     try {
         if (existing) {
-            // Update existing
             const res = await api(`/api/admin/email-addresses/${existing.id}`, {
                 method: 'PUT',
                 body: JSON.stringify({
@@ -1044,14 +1040,12 @@ async function updateMapping(selectElement) {
             
             if (res.success) {
                 toast('✅ Mapping updated');
-                // Update local data
                 existing.action = category;
                 existing.language = language;
             } else {
                 toast('❌ ' + (res.error || 'Failed'), 'error');
             }
         } else {
-            // Create new mapping
             const res = await api('/api/admin/email-addresses', {
                 method: 'POST',
                 body: JSON.stringify({
@@ -1063,7 +1057,6 @@ async function updateMapping(selectElement) {
             });
             if (res.success) {
                 toast('✅ Mapping created');
-                // Reload data
                 const [sd, ed] = await Promise.all([api('/api/admin/settings'), api('/api/admin/email-addresses')]);
                 settings = sd.settings || [];
                 emailAddresses = ed.addresses || [];
