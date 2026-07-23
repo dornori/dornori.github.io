@@ -218,15 +218,15 @@ async function api(path, opts = {}) {
         throw new Error('Permission denied');
     }
     
-    // Read as text first to avoid "body already used" error
+    // Use .text() to avoid "body already used" error
+    const text = await response.text();
+    if (!text || text.trim() === '') {
+        return { success: false, status: response.status, error: 'Empty response' };
+    }
     try {
-        const text = await response.text();
-        if (!text || text.trim() === '') {
-            return { success: false, status: response.status, error: 'Empty response' };
-        }
         return JSON.parse(text);
     } catch (e) {
-        return { success: false, status: response.status, error: 'Invalid JSON response' };
+        return { success: false, status: response.status, error: 'Invalid JSON: ' + e.message };
     }
 }
 
