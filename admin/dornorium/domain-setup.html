@@ -229,14 +229,15 @@
   <div class="log hidden" id="globalLog"></div>
 </div>
 
-<script src="shared.js"></script>
 <script>
-// Get authentication from dashboard
+// Get authentication from dashboard (shared.js already loaded)
+// Use API_BASE from shared.js - don't redeclare it!
+
+// Check if user is logged in and has admin rights
 const token = localStorage.getItem('token');
 const storedUser = localStorage.getItem('user');
 const currentUser = storedUser ? JSON.parse(storedUser) : null;
 
-// Check if user is logged in and has admin rights
 if (!token || !currentUser) {
   document.body.innerHTML = `
     <div class="container" style="text-align:center;padding:60px 32px;">
@@ -257,12 +258,6 @@ if (currentUser.role !== 'admin' && !currentUser.effective_permissions?.settings
   `;
   throw new Error('Admin access required');
 }
-
-// Get API base from shared.js or construct it
-const API_BASE = window.API_BASE || (() => {
-  const url = new URL(window.location.href);
-  return url.origin + '/api';
-})();
 
 // Show user info
 document.getElementById('userName').textContent = currentUser.name || currentUser.email;
