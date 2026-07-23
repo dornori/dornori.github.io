@@ -78,6 +78,7 @@
         .btn-ghost { background: var(--bg-input); color: var(--text); border: 1px solid var(--border); }
         .btn-danger { background: var(--error); color: #fff; }
         .btn-sm { padding: 5px 12px; font-size: 12px; }
+        .btn-success { background: var(--success); color: #fff; }
         .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; z-index: 9999; opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; pointer-events: none; }
         .toast.show { opacity: 1; transform: translateY(0); }
         .toast.success { background: var(--bg-secondary); color: var(--success); border-left: 4px solid var(--success); box-shadow: 0 4px 20px var(--shadow); }
@@ -94,13 +95,14 @@
         .collapse-section.open .collapse-chevron { transform: rotate(90deg); }
         .collapse-body { display: none; padding: 20px 18px; border-top: 1px solid var(--border); }
         .collapse-section.open .collapse-body { display: block; }
-        .cf-rule-row { display: grid; grid-template-columns: 1fr 120px 100px auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
-        .cf-rule-row .pattern { font-family: monospace; font-weight: 600; font-size: 13px; }
-        .cf-rule-row .status { font-size: 11px; padding: 2px 10px; border-radius: 12px; font-weight: 600; text-align: center; }
-        .cf-rule-row .status.active { background: var(--success); color: #fff; }
-        .cf-rule-row .status.inactive { background: var(--border); color: var(--text-muted); }
+        .domain-row { display: grid; grid-template-columns: 1fr 120px 100px auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .domain-row .domain-name { font-weight: 600; font-size: 14px; }
+        .domain-row .status-badge { font-size: 11px; padding: 2px 10px; border-radius: 12px; font-weight: 600; text-align: center; }
+        .domain-row .status-badge.active { background: var(--success); color: #fff; }
+        .domain-row .status-badge.pending { background: var(--warning); color: #fff; }
+        .domain-row .status-badge.inactive { background: var(--border); color: var(--text-muted); }
         .domain-info { background: var(--bg-input); padding: 12px 16px; border-radius: 8px; border-left: 3px solid var(--accent); margin-bottom: 16px; }
-        @media (max-width: 640px) { .f-grid-2, .f-grid-3 { grid-template-columns: 1fr; } .add-row { flex-direction: column; } .email-row { grid-template-columns: 1fr; gap: 6px; } .cf-rule-row { grid-template-columns: 1fr; gap: 6px; } }
+        @media (max-width: 640px) { .f-grid-2, .f-grid-3 { grid-template-columns: 1fr; } .add-row { flex-direction: column; } .email-row { grid-template-columns: 1fr; gap: 6px; } .domain-row { grid-template-columns: 1fr; gap: 6px; } }
     </style>
 </head>
 <body>
@@ -210,6 +212,8 @@ function toast(msg, type = 'success') {
 
 // ── State ──
 let settings = [], emailAddresses = [], currentTab = 'email';
+let cloudflareDomains = [];
+let configuredZoneId = null;
 
 function S(cat, key, def = '') {
     const s = settings.find(s => s.category === cat && s.key === key);
@@ -237,10 +241,31 @@ async function load() {
         const [sd, ed] = await Promise.all([api('/api/admin/settings'), api('/api/admin/email-addresses')]);
         settings = sd.settings || [];
         emailAddresses = ed.addresses || [];
+        
+        // Get configured zone from settings
+        const zoneSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'zone_id');
+        configuredZoneId = zoneSetting ? zoneSetting.value : null;
+        
+        // Fetch Cloudflare domains
+        await fetchCloudflareDomains();
+        
         renderAll();
         switchTab(currentTab);
     } catch(e) {
         document.getElementById('tabContent').innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
+    }
+}
+
+async function fetchCloudflareDomains() {
+    try {
+        const res = await api('/api/admin/setup/cloudflare-zones');
+        if (res.success) {
+            cloudflareDomains = res.zones || [];
+        } else {
+            cloudflareDomains = [];
+        }
+    } catch (e) {
+        cloudflareDomains = [];
     }
 }
 
@@ -603,7 +628,7 @@ async function deleteLang(idx) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// EMAIL TAB - Shows BOTH DB rules AND Cloudflare rules
+// EMAIL TAB - Separate sections as requested
 // ─────────────────────────────────────────────────────────────
 const DYN_TAGS = [
     { tag: '{{ticket_id}}', label: 'Ticket ID' },
@@ -622,27 +647,6 @@ async function buildEmailTab() {
     let activeLang = sessionStorage.getItem('ar_active_lang') || (langs.length > 0 ? langs[0].code : 'en');
     let autoReplies = [];
     try { const res = await api('/api/admin/auto-reply'); if (res.success && Array.isArray(res.data)) autoReplies = res.data; } catch (e) {}
-
-    // ── Get Cloudflare routing rules ──
-    let cfRules = [];
-    let cfZoneId = null;
-    let cfDomain = null;
-    
-    const zoneSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'zone_id');
-    cfZoneId = zoneSetting ? zoneSetting.value : null;
-    const domainSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'domain');
-    cfDomain = domainSetting ? domainSetting.value : null;
-    
-    if (cfZoneId) {
-        try {
-            const rulesRes = await api(`/api/admin/setup/routing-rules/${cfZoneId}`);
-            if (rulesRes.success) {
-                cfRules = rulesRes.rules || [];
-            }
-        } catch (e) {
-            console.log('Could not fetch Cloudflare rules:', e);
-        }
-    }
 
     // ── Auto-reply items ──
     const arItems = cats.map(cat => {
@@ -674,7 +678,7 @@ async function buildEmailTab() {
 
     const langOpts = langs.map(l => `<option value="${esc(l.code)}"${l.code===activeLang?' selected':''}>${esc(l.name)}</option>`).join('');
 
-    // ── Email routing rows (existing DB rules) ──
+    // ── Email routing rows ──
     const catOpts = cats.map(c => `<option value="${c}">${cap(c)}</option>`).join('');
     const langOpts2 = langs.map(l => `<option value="${l.code}">${l.code} - ${l.name}</option>`).join('');
     const routingRows = emailAddresses.map(addr => {
@@ -707,48 +711,49 @@ async function buildEmailTab() {
         </div>`;
     }).join('');
 
-    // ── Cloudflare Routing Rules (NEW) ──
-    let cfRulesHtml = '';
-    if (cfZoneId && cfRules.length > 0) {
-        cfRulesHtml = cfRules.map(rule => {
-            const pattern = rule.matchers && rule.matchers.length > 0 
-                ? rule.matchers.map(m => m.type === 'all' ? '*@*' : m.value || m.field || 'all').join(', ')
-                : 'all';
-            const isActive = rule.enabled !== false;
-            const action = rule.actions && rule.actions.length > 0 
-                ? rule.actions.map(a => a.type + (a.value ? ':' + a.value.join(',') : '')).join(', ')
-                : 'worker';
-            return `<div class="cf-rule-row">
-                <span class="pattern">${esc(pattern)}</span>
-                <span class="status ${isActive ? 'active' : 'inactive'}">${isActive ? 'Active' : 'Inactive'}</span>
-                <span style="font-size:11px;color:var(--text-muted);">${esc(action)}</span>
+    // ── Cloudflare Domains Section (NEW - separate) ──
+    let domainsHtml = '';
+    const configuredDomain = settings.find(s => s.category === 'cloudflare' && s.key === 'domain');
+    const configuredDomainName = configuredDomain ? configuredDomain.value : null;
+    
+    if (cloudflareDomains.length > 0) {
+        domainsHtml = cloudflareDomains.map(domain => {
+            const isConfigured = domain.id === configuredZoneId;
+            const statusClass = domain.status === 'active' ? 'active' : domain.status === 'pending' ? 'pending' : 'inactive';
+            return `<div class="domain-row">
+                <span class="domain-name">${esc(domain.name)}</span>
+                <span class="status-badge ${statusClass}">${domain.status || 'unknown'}</span>
+                <span style="font-size:11px;color:var(--text-muted);">${esc(domain.id.substring(0, 16))}...</span>
                 <div style="display:flex;gap:6px;">
-                    <button class="btn btn-ghost btn-sm" onclick="toggleCFRule('${rule.id}', ${!isActive})">
-                        ${isActive ? '🔴' : '🟢'}
-                    </button>
-                    <button class="btn btn-danger btn-sm" onclick="deleteCFRule('${rule.id}')">🗑️</button>
+                    ${isConfigured ? 
+                        `<span style="color:var(--success);font-size:12px;font-weight:600;">✅ Configured</span>` :
+                        `<button class="btn btn-accent btn-sm" onclick="configureDomain('${domain.id}', '${domain.name}')">Use This Domain</button>`
+                    }
                 </div>
             </div>`;
         }).join('');
-    } else if (cfZoneId) {
-        cfRulesHtml = '<div class="empty-state">No Cloudflare routing rules configured. <a href="domain-setup.html" style="color:var(--accent);">Set up a domain →</a></div>';
     } else {
-        cfRulesHtml = '<div class="empty-state">No Cloudflare domain configured. <a href="domain-setup.html" style="color:var(--accent);">Set up a domain →</a></div>';
-    }
-
-    // ── Domain info ──
-    let domainInfo = '';
-    if (cfZoneId && cfDomain) {
-        domainInfo = `<div class="domain-info"><strong>🌐 Domain:</strong> ${esc(cfDomain)} <span style="margin-left:12px;font-size:12px;color:var(--text-muted);">Zone ID: ${esc(cfZoneId)}</span></div>`;
-    } else {
-        domainInfo = `<div class="domain-info" style="border-left-color:var(--error);"><strong>⚠️ No domain configured</strong> <a href="domain-setup.html" style="margin-left:12px;color:var(--accent);">Set up a domain →</a></div>`;
+        domainsHtml = '<div class="empty-state">No domains found in Cloudflare. <a href="domain-setup.html" style="color:var(--accent);">Add a domain →</a></div>';
     }
 
     return `
-    <!-- Domain Info -->
-    ${domainInfo}
+    <!-- ─── CLOUDFLARE DOMAINS SECTION (NEW) ─── -->
+    <div class="s-card">
+        <div class="s-card-head">
+            <div>
+                <h3>🌐 Cloudflare Domains</h3>
+                <p>Domains detected in your Cloudflare account. Click "Use This Domain" to configure email routing.</p>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="refreshDomains()" style="white-space:nowrap;">🔄 Refresh</button>
+        </div>
+        ${domainsHtml}
+        ${configuredZoneId ? `<div style="margin-top:12px;font-size:12px;color:var(--success);">✅ Using domain: ${esc(configuredDomainName || configuredZoneId)}</div>` : ''}
+        <div style="margin-top:12px;font-size:12px;color:var(--text-muted);">
+            <a href="domain-setup.html" style="color:var(--accent);">➕ Add new domain →</a>
+        </div>
+    </div>
 
-    <!-- Email Settings -->
+    <!-- ─── EMAIL SETTINGS ─── -->
     <div class="s-card">
         <div class="s-card-head"><div><h3>📧 Email Settings</h3><p>Core email configuration</p></div></div>
         <div class="f-grid-2">
@@ -769,27 +774,11 @@ async function buildEmailTab() {
         <button class="btn btn-accent" style="margin-top:8px;" onclick="saveEmailSettings()">Save Email Settings</button>
     </div>
 
-    <!-- Cloudflare Email Routing Rules (NEW) -->
-    <div class="collapse-section open" id="sec-cf-routing">
-        <div class="collapse-head" onclick="toggleSection('sec-cf-routing')">
-            <h4>🌐 Cloudflare Email Routing Rules</h4>
-            <span class="collapse-chevron">▼</span>
-        </div>
-        <div class="collapse-body">
-            <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Email routing rules configured in Cloudflare. These forward incoming emails to your Worker.</p>
-            ${cfRulesHtml}
-            <div style="margin-top:12px;">
-                <a href="domain-setup.html" class="btn btn-accent btn-sm">➕ Add New Domain</a>
-                <button class="btn btn-ghost btn-sm" onclick="refreshCFRules()" style="margin-left:8px;">🔄 Refresh Rules</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Email Routing Rules (DB) -->
-    <div class="collapse-section" id="sec-routing">
+    <!-- ─── EMAIL ROUTING RULES (DB) ─── -->
+    <div class="collapse-section open" id="sec-routing">
         <div class="collapse-head" onclick="toggleSection('sec-routing')">
-            <h4>📤 Email Routing Rules (DB)</h4>
-            <span class="collapse-chevron">▶</span>
+            <h4>📤 Email Routing Rules</h4>
+            <span class="collapse-chevron">▼</span>
         </div>
         <div class="collapse-body">
             <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Map incoming email addresses to ticket categories and languages.</p>
@@ -814,7 +803,7 @@ async function buildEmailTab() {
         </div>
     </div>
 
-    <!-- Auto-Reply -->
+    <!-- ─── AUTO-REPLY ─── -->
     <div class="collapse-section" id="sec-autoreply">
         <div class="collapse-head" onclick="toggleSection('sec-autoreply')">
             <h4>🤖 Auto-Reply Rules</h4>
@@ -827,7 +816,7 @@ async function buildEmailTab() {
         </div>
     </div>
 
-    <!-- Outgoing Email Footers -->
+    <!-- ─── OUTGOING EMAIL FOOTERS ─── -->
     <div class="collapse-section" id="sec-outgoing">
         <div class="collapse-head" onclick="toggleSection('sec-outgoing')">
             <h4>✉️ Outgoing Email Footers</h4>
@@ -840,59 +829,28 @@ async function buildEmailTab() {
     </div>`;
 }
 
-// ── Cloudflare Rule Functions ──
-async function refreshCFRules() {
-    const zoneSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'zone_id');
-    const zoneId = zoneSetting ? zoneSetting.value : null;
-    if (!zoneId) { toast('No Cloudflare domain configured', 'error'); return; }
-    try {
-        const res = await api(`/api/admin/setup/routing-rules/${zoneId}`);
-        if (res.success) {
-            toast(`✅ Loaded ${res.rules?.length || 0} rules`);
-            await load();
-        } else {
-            toast('❌ Failed to load rules', 'error');
-        }
-    } catch (e) {
-        toast('❌ ' + e.message, 'error');
-    }
+// ─── Cloudflare Domain Functions ──
+async function refreshDomains() {
+    await fetchCloudflareDomains();
+    const panel = document.getElementById('panel-email');
+    if (panel) panel.innerHTML = await buildEmailTab();
+    toast('✅ Domains refreshed');
 }
 
-async function toggleCFRule(ruleId, newStatus) {
-    const zoneSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'zone_id');
-    const zoneId = zoneSetting ? zoneSetting.value : null;
-    if (!zoneId) { toast('No Cloudflare domain configured', 'error'); return; }
+async function configureDomain(zoneId, domainName) {
+    if (!confirm(`Use domain "${domainName}" for email routing?`)) return;
     try {
-        const res = await api(`/api/admin/setup/routing-rule/${ruleId}`, {
-            method: 'PUT',
-            body: JSON.stringify({ zoneId, enabled: newStatus })
-        });
-        if (res.success) {
-            toast(`✅ Rule ${newStatus ? 'activated' : 'deactivated'}`);
-            await load();
+        const ok = await saveSettings([
+            { category: 'cloudflare', key: 'zone_id', value: zoneId },
+            { category: 'cloudflare', key: 'domain', value: domainName }
+        ]);
+        if (ok) {
+            configuredZoneId = zoneId;
+            toast(`✅ Domain ${domainName} configured`);
+            const panel = document.getElementById('panel-email');
+            if (panel) panel.innerHTML = await buildEmailTab();
         } else {
-            toast('❌ ' + (res.error || 'Failed'), 'error');
-        }
-    } catch (e) {
-        toast('❌ ' + e.message, 'error');
-    }
-}
-
-async function deleteCFRule(ruleId) {
-    if (!confirm('Delete this Cloudflare routing rule?')) return;
-    const zoneSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'zone_id');
-    const zoneId = zoneSetting ? zoneSetting.value : null;
-    if (!zoneId) { toast('No Cloudflare domain configured', 'error'); return; }
-    try {
-        const res = await api(`/api/admin/setup/routing-rule/${ruleId}`, {
-            method: 'DELETE',
-            body: JSON.stringify({ zoneId })
-        });
-        if (res.success) {
-            toast('✅ Rule deleted');
-            await load();
-        } else {
-            toast('❌ ' + (res.error || 'Failed'), 'error');
+            toast('❌ Failed to save domain', 'error');
         }
     } catch (e) {
         toast('❌ ' + e.message, 'error');
