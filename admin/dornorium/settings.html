@@ -750,6 +750,7 @@ async function buildEmailTab() {
             ${emailAddresses.length ? oeItems : '<div class="empty-state">No email addresses configured — add them in Email Routing above.</div>'}
         </div>
     </div>`;
+}
 
     <!-- Domain Email Routing (collapsible) -->
     <div class="collapse-section" id="sec-domain-routing">
@@ -772,7 +773,7 @@ async function buildEmailTab() {
             </div>
 
             <!-- Step 2: Nameserver Configuration -->
-            <div class="s-card" style="margin-bottom:16px;" id="dr_ns_section" style="display:none;">
+            <div class="s-card" style="margin-bottom:16px;display:none;" id="dr_ns_section">
                 <div class="s-card-head"><div><h3>2. Update Nameservers</h3><p>Change your domain registrar's nameservers to these</p></div></div>
                 <div id="dr_ns_list" style="margin-bottom:16px;"></div>
                 <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">After updating at your registrar, click "Check Status" below.</p>
@@ -782,7 +783,7 @@ async function buildEmailTab() {
             </div>
 
             <!-- Step 3: Enable Email Routing -->
-            <div class="s-card" style="margin-bottom:16px;" id="dr_enable_section" style="display:none;">
+            <div class="s-card" style="margin-bottom:16px;display:none;" id="dr_enable_section">
                 <div class="s-card-head"><div><h3>3. Enable Email Routing</h3><p>Activate Cloudflare email routing for this domain</p></div></div>
                 <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">This will create MX, SPF, and DKIM records automatically.</p>
                 <button class="btn btn-accent" onclick="enableEmailRouting()">Enable Email Routing</button>
@@ -790,7 +791,7 @@ async function buildEmailTab() {
             </div>
 
             <!-- Step 4: Create Routing Rule -->
-            <div class="s-card" style="margin-bottom:16px;" id="dr_rule_section" style="display:none;">
+            <div class="s-card" style="margin-bottom:16px;display:none;" id="dr_rule_section">
                 <div class="s-card-head"><div><h3>4. Create Routing Rule</h3><p>Route emails to this Worker</p></div></div>
                 <div class="f-grid-2">
                     <div class="f-row">
@@ -812,6 +813,75 @@ async function buildEmailTab() {
             <!-- Summary -->
             <div id="dr_summary_section" style="display:none;">
                 <div class="s-card" style="background:var(--bg-input);border-color:var(--success);">
+                    <div class="s-card-head"><div><h3 style="color:var(--success);">✅ Setup Complete</h3><p>Your domain is ready to receive emails</p></div></div>
+                    <div id="dr_summary" style="font-size:13px;line-height:1.6;"></div>
+                    <button class="btn btn-ghost btn-sm" onclick="resetDomainSetup()" style="margin-top:12px;">Configure Another Domain</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+async function saveEmailSettings() {
+    const updates = [
+        { category:'email', key:'default_from', value: document.getElementById('em_default_from').value.trim() },
+        { category:'email', key:'password_reset_from', value: document.getElementById('em_password_reset_from').value.trim() },
+        { category:'general', key:'script_url', value: document.getElementById('em_script_url').value.trim() },
+        { category:'email_script', key:'username', value: document.getElementById('em_script_username').value.trim() },
+        { category:'tickets', key:'email_body_max_length', value: document.getElementById('em_body_max').value },
+        { category:'tickets', key:'newsletter_batch_size', value: document.getElementById('em_nl_batch').value },
+        { category:'tickets', key:'reply_delimiter', value: document.getElementById('em_reply_delim').value },
+    ];
+
+    const newPassword = document.getElementById('em_script_password').value;
+    const newSecret = document.getElementById('em_script_secret').value;
+
+    try {
+        if (newPassword) {
+            const enc = await api('/api/admin/setup/encrypt', { method: 'POST', body: JSON.stringify({ value: newPassword }) });
+            if (!enc.encrypted) throw new Error(enc.error || 'Failed to encrypt password');
+            updates.push({ category:'email_script', key:'password', value: enc.encrypted });
+        }
+        if (newSecret) {
+            const enc = await api('/api/admin/setup/encrypt', { method: 'POST', body: JSON.stringify({ value: newSecret }) });
+            if (!enc.encrypted) throw new Error(enc.error || 'Failed to encrypt secret');
+            updates.push({ category:'email_script', key:'secret', value: enc.encrypted });
+        }
+    } catch (e) {
+        toast('❌ ' + e.message, 'error');
+        return;
+    }
+
+    const ok = await saveSettings(updates);
+    ok ? toast('✅ Email settings saved') : toast('❌ Failed', 'error');
+    if (ok) {
+        document.getElementById('em_script_password').value = '';
+        document.getElementById('em_script_secret').value = '';
+        await load();
+    }
+}
+
+// ── Email Routing functions ──
+async function updateEmailCat(id, cat) { const addr = emailAddresses.find(a => a.id === id); if (!addr) return; const d = await api('/api/admin/email-addresses/'+id, { method:'PUT', body:JSON.stringify({ email:addr.email, label:cat, action:cat, language:addr.language||'', is_active:1 }) }); d.success ? (toast('✅ Updated'), load()) : toast('❌ Failed','error'); }
+async function updateEmailLang(id, lang) { const addr = emailAddresses.find(a => a.id === id); if (!addr) return; const d = await api('/api/admin/email-addresses/'+id, { method:'PUT', body:JSON.stringify({ email:addr.email, label:addr.action, action:addr.action, language:lang, is_active:1 }) }); d.success ? (toast('✅ Updated'), load()) : toast('❌ Failed','error'); }
+async function addEmailAddr() { const email = document.getElementById('newErEmail').value.trim(), cat = document.getElementById('newErCat').value, lang = document.getElementById('newErLang').value; if (!email) { toast('Enter an email address','error'); return; } if (!lang) { toast('Select a language','error'); return; } const d = await api('/api/admin/email-addresses', { method:'POST', body:JSON.stringify({ email, label:cat, action:cat, language:lang }) }); d.success ? (document.getElementById('newErEmail').value='', toast('✅ Address added'), load()) : toast('❌ '+(d.error||'Failed'),'error'); }
+async function editEmailAddr(id) { const addr = emailAddresses.find(a => a.id === id); if (!addr) return; const newEmail = prompt('Edit email address:', addr.email); if (!newEmail || newEmail === addr.email) return; const d = await api('/api/admin/email-addresses/'+id, { method:'PUT', body:JSON.stringify({ email:newEmail, label:addr.action, action:addr.action, language:addr.language||'', is_active:1 }) }); d.success ? (toast('✅ Updated'), load()) : toast('❌ Failed','error'); }
+async function deleteEmailAddr(id) { if (!confirm('Delete this email address?')) return; const d = await api('/api/admin/email-addresses/'+id, { method:'DELETE' }); d.success ? (toast('✅ Deleted'), load()) : toast('❌ Failed','error'); }
+
+// ── Auto-Reply functions ──
+async function setArLanguage(lang) { sessionStorage.setItem('ar_active_lang', lang); const panel = document.getElementById('panel-email'); if (panel) panel.innerHTML = await buildEmailTab(); }
+async function saveAr(cat, lang) {
+    const enabled = document.getElementById('ar_en_'+cat).checked ? 1 : 0, subject = document.getElementById('ar_subj_'+cat).value, body = document.getElementById('ar_body_'+cat).value, from = document.getElementById('ar_from_'+cat).value;
+    const d = await api('/api/admin/auto-reply', { method:'PUT', body:JSON.stringify({ category:cat, language:lang, enabled, subject, body, from }) });
+    if (d.success) { toast('✅ Auto-reply saved'); const s = document.getElementById('ar_status_'+cat); if (s) { s.textContent = 'Saved ✓'; setTimeout(() => s.textContent = '', 2500); } }
+    else toast('❌ Save failed', 'error');
+}
+async function deleteAr(cat, lang) { if (!confirm(`Remove auto-reply for "${cat}" in ${lang}?`)) return; const d = await api('/api/admin/auto-reply', { method:'DELETE', body:JSON.stringify({ category:cat, language:lang }) }); d.success ? (toast('✅ Auto-reply cleared'), load()) : toast('❌ Failed','error'); }
+
+// ── Outgoing Email functions ──
+async function saveFooter(email, safeKey) { const body = document.getElementById('oe_footer_'+safeKey).value; const ok = await saveSettings([{ category:'email', key:'footer_'+safeKey, value: body }]); if (ok) { toast('✅ Footer saved for '+email); const s = document.getElementById('oe_status_'+safeKey); if (s) { s.textContent = 'Saved ✓'; setTimeout(() => s.textContent = '', 2500); } } else toast('❌ Save failed','error'); }
+async function clearFooter(email, safeKey) { if (!confirm('Clear footer for '+email+'?')) return; document.getElementById('oe_footer_'+safeKey).value = ''; await saveFooter(email, safeKey); await load(); }
+
 
 // ── Domain Email Routing functions ──
 let domainSetupState = { zoneId: null, domainName: null, pollInterval: null };
@@ -838,7 +908,6 @@ async function addDomainToCloudflare() {
         domainSetupState.zoneId = res.zoneId;
         domainSetupState.domainName = res.name;
         
-        // Show nameservers
         const nsList = document.getElementById('dr_ns_list');
         nsList.innerHTML = (res.nameServers || []).map(ns => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg-input);border:1px dashed var(--border);border-radius:7px;margin-bottom:8px;font-family:monospace;font-size:13px;">
@@ -867,7 +936,7 @@ async function pollDomainStatus() {
     pollEl.textContent = '⏳ Checking status...';
     
     let attempts = 0;
-    const maxAttempts = 60; // 10 minutes
+    const maxAttempts = 60;
     
     const poll = async () => {
         attempts++;
@@ -961,7 +1030,6 @@ async function createRoutingRule() {
         
         statusEl.textContent = '✅ Created';
         
-        // Show summary
         const summaryEl = document.getElementById('dr_summary');
         summaryEl.innerHTML = `
             <strong>Domain:</strong> ${esc(domainSetupState.domainName)}<br/>
@@ -996,79 +1064,6 @@ function resetDomainSetup() {
     document.getElementById('dr_rule_section').style.display = 'none';
     document.getElementById('dr_summary_section').style.display = 'none';
 }
-
-                    <div class="s-card-head"><div><h3 style="color:var(--success);">✅ Setup Complete</h3><p>Your domain is ready to receive emails</p></div></div>
-                    <div id="dr_summary" style="font-size:13px;line-height:1.6;"></div>
-                    <button class="btn btn-ghost btn-sm" onclick="resetDomainSetup()" style="margin-top:12px;">Configure Another Domain</button>
-                </div>
-            </div>
-
-            <!-- Active Domains List -->
-            <div id="dr_active_domains" style="margin-top:20px;"></div>
-        </div>
-    </div>
-
-}
-
-async function saveEmailSettings() {
-    const updates = [
-        { category:'email', key:'default_from', value: document.getElementById('em_default_from').value.trim() },
-        { category:'email', key:'password_reset_from', value: document.getElementById('em_password_reset_from').value.trim() },
-        { category:'general', key:'script_url', value: document.getElementById('em_script_url').value.trim() },
-        { category:'email_script', key:'username', value: document.getElementById('em_script_username').value.trim() },
-        { category:'tickets', key:'email_body_max_length', value: document.getElementById('em_body_max').value },
-        { category:'tickets', key:'newsletter_batch_size', value: document.getElementById('em_nl_batch').value },
-        { category:'tickets', key:'reply_delimiter', value: document.getElementById('em_reply_delim').value },
-    ];
-
-    const newPassword = document.getElementById('em_script_password').value;
-    const newSecret = document.getElementById('em_script_secret').value;
-
-    try {
-        if (newPassword) {
-            const enc = await api('/api/admin/setup/encrypt', { method: 'POST', body: JSON.stringify({ value: newPassword }) });
-            if (!enc.encrypted) throw new Error(enc.error || 'Failed to encrypt password');
-            updates.push({ category:'email_script', key:'password', value: enc.encrypted });
-        }
-        if (newSecret) {
-            const enc = await api('/api/admin/setup/encrypt', { method: 'POST', body: JSON.stringify({ value: newSecret }) });
-            if (!enc.encrypted) throw new Error(enc.error || 'Failed to encrypt secret');
-            updates.push({ category:'email_script', key:'secret', value: enc.encrypted });
-        }
-    } catch (e) {
-        toast('❌ ' + e.message, 'error');
-        return;
-    }
-
-    const ok = await saveSettings(updates);
-    ok ? toast('✅ Email settings saved') : toast('❌ Failed', 'error');
-    if (ok) {
-        document.getElementById('em_script_password').value = '';
-        document.getElementById('em_script_secret').value = '';
-        await load();
-    }
-}
-
-// ── Email Routing functions ──
-async function updateEmailCat(id, cat) { const addr = emailAddresses.find(a => a.id === id); if (!addr) return; const d = await api('/api/admin/email-addresses/'+id, { method:'PUT', body:JSON.stringify({ email:addr.email, label:cat, action:cat, language:addr.language||'', is_active:1 }) }); d.success ? (toast('✅ Updated'), load()) : toast('❌ Failed','error'); }
-async function updateEmailLang(id, lang) { const addr = emailAddresses.find(a => a.id === id); if (!addr) return; const d = await api('/api/admin/email-addresses/'+id, { method:'PUT', body:JSON.stringify({ email:addr.email, label:addr.action, action:addr.action, language:lang, is_active:1 }) }); d.success ? (toast('✅ Updated'), load()) : toast('❌ Failed','error'); }
-async function addEmailAddr() { const email = document.getElementById('newErEmail').value.trim(), cat = document.getElementById('newErCat').value, lang = document.getElementById('newErLang').value; if (!email) { toast('Enter an email address','error'); return; } if (!lang) { toast('Select a language','error'); return; } const d = await api('/api/admin/email-addresses', { method:'POST', body:JSON.stringify({ email, label:cat, action:cat, language:lang }) }); d.success ? (document.getElementById('newErEmail').value='', toast('✅ Address added'), load()) : toast('❌ '+(d.error||'Failed'),'error'); }
-async function editEmailAddr(id) { const addr = emailAddresses.find(a => a.id === id); if (!addr) return; const newEmail = prompt('Edit email address:', addr.email); if (!newEmail || newEmail === addr.email) return; const d = await api('/api/admin/email-addresses/'+id, { method:'PUT', body:JSON.stringify({ email:newEmail, label:addr.action, action:addr.action, language:addr.language||'', is_active:1 }) }); d.success ? (toast('✅ Updated'), load()) : toast('❌ Failed','error'); }
-async function deleteEmailAddr(id) { if (!confirm('Delete this email address?')) return; const d = await api('/api/admin/email-addresses/'+id, { method:'DELETE' }); d.success ? (toast('✅ Deleted'), load()) : toast('❌ Failed','error'); }
-
-// ── Auto-Reply functions ──
-async function setArLanguage(lang) { sessionStorage.setItem('ar_active_lang', lang); const panel = document.getElementById('panel-email'); if (panel) panel.innerHTML = await buildEmailTab(); }
-async function saveAr(cat, lang) {
-    const enabled = document.getElementById('ar_en_'+cat).checked ? 1 : 0, subject = document.getElementById('ar_subj_'+cat).value, body = document.getElementById('ar_body_'+cat).value, from = document.getElementById('ar_from_'+cat).value;
-    const d = await api('/api/admin/auto-reply', { method:'PUT', body:JSON.stringify({ category:cat, language:lang, enabled, subject, body, from }) });
-    if (d.success) { toast('✅ Auto-reply saved'); const s = document.getElementById('ar_status_'+cat); if (s) { s.textContent = 'Saved ✓'; setTimeout(() => s.textContent = '', 2500); } }
-    else toast('❌ Save failed', 'error');
-}
-async function deleteAr(cat, lang) { if (!confirm(`Remove auto-reply for "${cat}" in ${lang}?`)) return; const d = await api('/api/admin/auto-reply', { method:'DELETE', body:JSON.stringify({ category:cat, language:lang }) }); d.success ? (toast('✅ Auto-reply cleared'), load()) : toast('❌ Failed','error'); }
-
-// ── Outgoing Email functions ──
-async function saveFooter(email, safeKey) { const body = document.getElementById('oe_footer_'+safeKey).value; const ok = await saveSettings([{ category:'email', key:'footer_'+safeKey, value: body }]); if (ok) { toast('✅ Footer saved for '+email); const s = document.getElementById('oe_status_'+safeKey); if (s) { s.textContent = 'Saved ✓'; setTimeout(() => s.textContent = '', 2500); } } else toast('❌ Save failed','error'); }
-async function clearFooter(email, safeKey) { if (!confirm('Clear footer for '+email+'?')) return; document.getElementById('oe_footer_'+safeKey).value = ''; await saveFooter(email, safeKey); await load(); }
 
 // ── INIT ──
 load();
