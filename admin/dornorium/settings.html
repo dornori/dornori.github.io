@@ -85,6 +85,9 @@
         .btn-danger { background: var(--error); color: #fff; }
         .btn-sm { padding: 4px 10px; font-size: 11px; }
         .btn-success { background: var(--success); color: #fff; }
+        .test-email-box { background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-top: 12px; }
+        .test-email-box .f-row { margin-bottom: 12px; }
+        .test-email-box .f-row:last-child { margin-bottom: 0; }
         .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; z-index: 9999; opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; pointer-events: none; }
         .toast.show { opacity: 1; transform: translateY(0); }
         .toast.success { background: var(--bg-secondary); color: var(--success); border-left: 4px solid var(--success); }
@@ -218,7 +221,6 @@ async function api(path, opts = {}) {
         throw new Error('Permission denied');
     }
     
-    // Use .text() to avoid "body already used" error
     const text = await response.text();
     if (!text || text.trim() === '') {
         return { success: false, status: response.status, error: 'Empty response' };
@@ -240,7 +242,7 @@ function toast(msg, type = 'success') {
 }
 
 // ── State ──
-let settings = [], emailAddresses = [], currentTab = 'email';
+let settings = [], emailAddresses = [], currentTab = 'incoming';
 let cloudflareDomains = [];
 let cloudflareRules = [];
 let configuredZoneId = null;
@@ -335,13 +337,14 @@ function disableElements(selector, disabled) {
 // TABS
 // ─────────────────────────────────────────────────────────────
 const TABS = [
-    { id: 'system',    icon: '🔧', label: 'System Config' },
-    { id: 'security',  icon: '🔒', label: 'Security' },
-    { id: 'general',   icon: '⚙️', label: 'General' },
-    { id: 'sla',       icon: '⏱️', label: 'SLA' },
-    { id: 'categories',icon: '📂', label: 'Categories' },
-    { id: 'languages', icon: '🌐', label: 'Languages' },
-    { id: 'email',     icon: '✉️', label: 'Email' },
+    { id: 'system',      icon: '🔧', label: 'System Config' },
+    { id: 'security',    icon: '🔒', label: 'Security' },
+    { id: 'general',     icon: '⚙️', label: 'General' },
+    { id: 'sla',         icon: '⏱️', label: 'SLA' },
+    { id: 'categories',  icon: '📂', label: 'Categories' },
+    { id: 'languages',   icon: '🌐', label: 'Languages' },
+    { id: 'incoming',    icon: '📥', label: 'Incoming Email' },
+    { id: 'outgoing',    icon: '📤', label: 'Outgoing Email' },
 ];
 
 function renderAll() {
@@ -358,11 +361,11 @@ function switchTab(id) {
     document.querySelectorAll('.tab-strip button').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + id));
     const noEdit = !canEditSettings();
-    if (id === 'email') {
-        buildEmailTab().then(html => {
-            const panel = document.getElementById('panel-email');
+    if (id === 'incoming' || id === 'outgoing') {
+        buildEmailTab(id).then(html => {
+            const panel = document.getElementById('panel-' + id);
             if (panel) panel.innerHTML = html;
-            if (noEdit) setTimeout(() => disableElements('#panel-email input, #panel-email textarea, #panel-email select, #panel-email button', true), 50);
+            if (noEdit) setTimeout(() => disableElements('#panel-' + id + ' input, #panel-' + id + ' textarea, #panel-' + id + ' select, #panel-' + id + ' button', true), 50);
         });
     }
     if (noEdit) setTimeout(() => disableElements(`#panel-${id} input, #panel-${id} textarea, #panel-${id} select, #panel-${id} button`, true), 50);
@@ -376,13 +379,14 @@ function buildPanel(id) {
         case 'sla': return buildSla();
         case 'categories': return buildCategories();
         case 'languages': return buildLanguages();
-        case 'email': return '<div class="loading">Loading…</div>';
+        case 'incoming':
+        case 'outgoing': return '<div class="loading">Loading…</div>';
         default: return '';
     }
 }
 
 // ─────────────────────────────────────────────────────────────
-// SYSTEM CONFIG
+// SYSTEM CONFIG (unchanged)
 // ─────────────────────────────────────────────────────────────
 function buildSystem() {
     return `<div class="s-card">
@@ -447,7 +451,7 @@ async function saveSystem() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// SECURITY
+// SECURITY (unchanged)
 // ─────────────────────────────────────────────────────────────
 function buildSecurity() {
     return `<div class="s-card">
@@ -475,7 +479,7 @@ async function saveSecurity() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// GENERAL
+// GENERAL (unchanged)
 // ─────────────────────────────────────────────────────────────
 function buildGeneral() {
     const tz = S('general', 'timezone', 'UTC');
@@ -515,7 +519,7 @@ async function saveGeneral() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// SLA
+// SLA (unchanged)
 // ─────────────────────────────────────────────────────────────
 function buildSla() {
     const cats = getCategories();
@@ -556,7 +560,7 @@ async function saveSla() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// CATEGORIES
+// CATEGORIES (unchanged)
 // ─────────────────────────────────────────────────────────────
 function buildCategories() {
     const cats = getCategories();
@@ -629,7 +633,7 @@ async function addCat() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// LANGUAGES
+// LANGUAGES (unchanged)
 // ─────────────────────────────────────────────────────────────
 function buildLanguages() {
     const langs = getLanguages();
@@ -670,7 +674,7 @@ async function deleteLang(idx) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// EMAIL TAB
+// INCOMING EMAIL TAB
 // ─────────────────────────────────────────────────────────────
 const DYN_TAGS = [
     { tag: '{{ticket_id}}', label: 'Ticket ID' },
@@ -679,62 +683,25 @@ const DYN_TAGS = [
     { tag: '{{category}}', label: 'Category' },
     { tag: '{{subject}}', label: 'Subject' },
 ];
+
 function tagBar(targetId) { return `<div class="tag-bar"><span class="tag-bar-label">Insert tag:</span>${DYN_TAGS.map(t => `<button type="button" class="tag-chip" onclick="insertTag('${targetId}','${t.tag}')">${t.tag}</button>`).join('')}</div>`; }
 function insertTag(targetId, tag) { const el = document.getElementById(targetId); if (!el) return; const s = el.selectionStart, e = el.selectionEnd; el.value = el.value.slice(0,s) + tag + el.value.slice(e); el.selectionStart = el.selectionEnd = s + tag.length; el.focus(); }
 
 function toggleSection(id) { document.getElementById(id)?.classList.toggle('open'); }
 
-async function buildEmailTab() {
+async function buildEmailTab(tabName) {
     const cats = getCategories(), langs = getLanguages();
+    
+    if (tabName === 'incoming') {
+        return await buildIncomingTab(cats, langs);
+    } else {
+        return await buildOutgoingTab(cats, langs);
+    }
+}
+
+// ─── INCOMING TAB ─────────────────────────────────────────────
+async function buildIncomingTab(cats, langs) {
     let activeLang = sessionStorage.getItem('ar_active_lang') || (langs.length > 0 ? langs[0].code : 'en');
-    let autoReplies = [];
-    try { const res = await api('/api/admin/auto-reply'); if (res.success && Array.isArray(res.data)) autoReplies = res.data; } catch (e) {}
-
-    // ── Auto-reply items ──
-    const arItems = cats.map(cat => {
-        const ar = autoReplies.find(a => a.category === cat && a.language === activeLang) || {};
-        const enabled = ar.enabled ? 1 : 0, subject = ar.subject || `[Ticket {{ticket_id}}] Your ${cat} inquiry`, body = ar.body || '', from = ar.from || '';
-        const color = S('category', cat+'_color', '#8892b0');
-        const fromOpts = `<option value="">Default</option>` + emailAddresses.map(a => `<option value="${esc(a.email)}"${a.email===from?' selected':''}>${esc(a.email)}</option>`).join('');
-        return `<div class="ar-item" id="aritem-${cat}">
-            <div class="ar-item-head" onclick="document.getElementById('aritem-${cat}').classList.toggle('open')">
-                <span class="ar-enabled-dot ${enabled?'on':'off'}"></span>
-                <span class="cat-dot" style="background:${esc(color)};width:10px;height:10px;border-radius:50%;flex-shrink:0;"></span>
-                <span class="ar-cat-name">${esc(cap(cat))}</span>
-                <span class="ar-subject-preview">${esc(subject)}</span>
-                <span class="ar-chevron">▶</span>
-            </div>
-            <div class="ar-body">
-                <div class="toggle-row" style="margin-bottom:20px;"><label class="toggle-switch"><input type="checkbox" id="ar_en_${cat}" ${enabled?'checked':''} /><span class="toggle-track"></span></label><span class="toggle-label">Send auto-reply when a <strong>${cat}</strong> ticket is created</span></div>
-                <div class="f-row"><label>Send from address</label><select id="ar_from_${cat}">${fromOpts}</select></div>
-                <div class="f-row"><label>Subject line</label>${tagBar('ar_subj_'+cat)}<input type="text" id="ar_subj_${cat}" value="${esc(subject)}" /></div>
-                <div class="f-row"><label>Email body (HTML accepted)</label>${tagBar('ar_body_'+cat)}<textarea id="ar_body_${cat}">${esc(body)}</textarea></div>
-                <div style="display:flex;gap:8px;margin-top:16px;align-items:center;">
-                    <button class="btn btn-accent btn-sm" onclick="saveAr('${cat}','${activeLang}')">Save auto-reply</button>
-                    <button class="btn btn-danger btn-sm" onclick="deleteAr('${cat}','${activeLang}')">Remove</button>
-                    <span id="ar_status_${cat}" style="font-size:12px;color:var(--text-muted);margin-left:4px;"></span>
-                </div>
-            </div>
-        </div>`;
-    }).join('');
-
-    const langOpts = langs.map(l => `<option value="${esc(l.code)}"${l.code===activeLang?' selected':''}>${esc(l.name)}</option>`).join('');
-
-    // ── Outgoing email items ──
-    const oeItems = emailAddresses.map(addr => {
-        const safeKey = addr.email.replace(/[^a-z0-9]/gi, '_'), footerKey = 'footer_' + safeKey, footer = S('email', footerKey, ''), hasFooter = footer.length > 0;
-        return `<div class="oe-item">
-            <div class="oe-item-head"><span style="width:8px;height:8px;border-radius:50%;background:${hasFooter?'var(--success)':'var(--border)'};flex-shrink:0;"></span><span class="oe-email-label">${esc(addr.email)}</span><span class="oe-cat-badge">${esc(addr.action||addr.label||'—')}</span><span class="oe-footer-status ${hasFooter?'has-footer':''}">${hasFooter?'Custom footer set':'No footer'}</span></div>
-            <div class="oe-body">
-                <div class="f-row"><label>Footer HTML</label><textarea id="oe_footer_${safeKey}" rows="7">${esc(footer)}</textarea></div>
-                <div style="display:flex;gap:8px;margin-top:4px;align-items:center;">
-                    <button class="btn btn-accent btn-sm" onclick="saveFooter('${esc(addr.email)}','${safeKey}')">Save footer</button>
-                    ${hasFooter ? `<button class="btn btn-ghost btn-sm" onclick="clearFooter('${esc(addr.email)}','${safeKey}')">Clear footer</button>` : ''}
-                    <span id="oe_status_${safeKey}" style="font-size:12px;color:var(--text-muted);margin-left:4px;"></span>
-                </div>
-            </div>
-        </div>`;
-    }).join('');
 
     // ── Cloudflare Domains Section ──
     let domainsHtml = '';
@@ -758,7 +725,7 @@ async function buildEmailTab() {
         domainsHtml = '<div class="empty-state">No domains found in Cloudflare. <a href="domain-setup.html" style="color:var(--accent);">Add a domain →</a></div>';
     }
 
-    // ── Email Routing Rules ──
+    // ── Email Routing Rules (MERGED: Cloudflare + DB) ──
     const catOpts = cats.map(c => `<option value="${c}">${cap(c)}</option>`).join('');
     const langOpts2 = langs.map(l => `<option value="${l.code}">${l.code} - ${l.name}</option>`).join('');
     
@@ -832,7 +799,12 @@ async function buildEmailTab() {
         '<div class="empty-state">Select a domain first to manage email rules.</div>' :
         '<div class="empty-state">No email rules configured. Add one below.</div>';
 
+    // ── Email Body Max Length & Reply Delimiter ──
+    const emailBodyMax = S('tickets','email_body_max_length','15000');
+    const replyDelim = S('tickets','reply_delimiter','\\u0001');
+
     return `
+    <!-- ─── CLOUDFLARE DOMAINS ─── -->
     <div class="s-card">
         <div class="s-card-head">
             <div>
@@ -848,26 +820,7 @@ async function buildEmailTab() {
         </div>
     </div>
 
-    <div class="s-card">
-        <div class="s-card-head"><div><h3>📧 Email Settings</h3><p>Core email configuration</p></div></div>
-        <div class="f-grid-2">
-            <div class="f-row"><label>Default From Address</label><input type="email" id="em_default_from" value="${esc(S('email','default_from',''))}" placeholder="support@example.com" /></div>
-            <div class="f-row"><label>Password Reset From Address</label><input type="email" id="em_password_reset_from" value="${esc(S('email','password_reset_from',''))}" placeholder="account-security@example.com" /></div>
-        </div>
-        <div class="f-row"><label>Google Apps Script URL</label><input type="text" id="em_script_url" value="${esc(S('general','script_url',''))}" placeholder="https://script.google.com/macros/s/..." /></div>
-        <div class="f-grid-3">
-            <div class="f-row"><label>Google App Username</label><input type="text" id="em_script_username" value="${esc(S('email_script','username',''))}" placeholder="username" /></div>
-            <div class="f-row"><label>Google App Password</label><input type="password" id="em_script_password" value="" placeholder="${S('email_script','password','') ? '••••••••' : 'Leave blank to keep existing'}" autocomplete="new-password" /></div>
-            <div class="f-row"><label>Google App Secret</label><input type="password" id="em_script_secret" value="" placeholder="${S('email_script','secret','') ? '••••••••' : 'Leave blank to keep existing'}" autocomplete="new-password" /></div>
-        </div>
-        <div class="f-grid-3">
-            <div class="f-row"><label>Email Body Max Length</label><input type="number" id="em_body_max" value="${esc(S('tickets','email_body_max_length','15000'))}" /></div>
-            <div class="f-row"><label>Newsletter Batch Size</label><input type="number" id="em_nl_batch" value="${esc(S('tickets','newsletter_batch_size','10'))}" /></div>
-            <div class="f-row"><label>Reply Delimiter</label><input type="text" id="em_reply_delim" value="${esc(S('tickets','reply_delimiter','\\u0001'))}" /></div>
-        </div>
-        <button class="btn btn-accent" style="margin-top:8px;" onclick="saveEmailSettings()">Save Email Settings</button>
-    </div>
-
+    <!-- ─── EMAIL ROUTING RULES (MERGED) ─── -->
     <div class="collapse-section open" id="sec-routing">
         <div class="collapse-head" onclick="toggleSection('sec-routing')">
             <h4>📤 Email Routing Rules</h4>
@@ -902,10 +855,98 @@ async function buildEmailTab() {
         </div>
     </div>
 
-    <div class="collapse-section" id="sec-autoreply">
+    <!-- ─── EMAIL PROCESSING SETTINGS ─── -->
+    <div class="s-card">
+        <div class="s-card-head"><div><h3>⚙️ Email Processing Settings</h3><p>Settings for incoming email processing</p></div></div>
+        <div class="f-grid-2">
+            <div class="f-row"><label>Email Body Max Length</label><input type="number" id="em_body_max" value="${esc(emailBodyMax)}" /></div>
+            <div class="f-row"><label>Reply Delimiter</label><input type="text" id="em_reply_delim" value="${esc(replyDelim)}" /></div>
+        </div>
+        <button class="btn btn-accent" style="margin-top:8px;" onclick="saveIncomingSettings()">Save Incoming Settings</button>
+    </div>`;
+}
+
+// ─── OUTGOING TAB ─────────────────────────────────────────────
+async function buildOutgoingTab(cats, langs) {
+    let activeLang = sessionStorage.getItem('ar_active_lang') || (langs.length > 0 ? langs[0].code : 'en');
+    let autoReplies = [];
+    try { const res = await api('/api/admin/auto-reply'); if (res.success && Array.isArray(res.data)) autoReplies = res.data; } catch (e) {}
+
+    // ── Auto-reply items ──
+    const arItems = cats.map(cat => {
+        const ar = autoReplies.find(a => a.category === cat && a.language === activeLang) || {};
+        const enabled = ar.enabled ? 1 : 0, subject = ar.subject || `[Ticket {{ticket_id}}] Your ${cat} inquiry`, body = ar.body || '', from = ar.from || '';
+        const color = S('category', cat+'_color', '#8892b0');
+        const fromOpts = `<option value="">Default</option>` + emailAddresses.map(a => `<option value="${esc(a.email)}"${a.email===from?' selected':''}>${esc(a.email)}</option>`).join('');
+        return `<div class="ar-item" id="aritem-${cat}">
+            <div class="ar-item-head" onclick="document.getElementById('aritem-${cat}').classList.toggle('open')">
+                <span class="ar-enabled-dot ${enabled?'on':'off'}"></span>
+                <span class="cat-dot" style="background:${esc(color)};width:10px;height:10px;border-radius:50%;flex-shrink:0;"></span>
+                <span class="ar-cat-name">${esc(cap(cat))}</span>
+                <span class="ar-subject-preview">${esc(subject)}</span>
+                <span class="ar-chevron">▶</span>
+            </div>
+            <div class="ar-body">
+                <div class="toggle-row" style="margin-bottom:20px;"><label class="toggle-switch"><input type="checkbox" id="ar_en_${cat}" ${enabled?'checked':''} /><span class="toggle-track"></span></label><span class="toggle-label">Send auto-reply when a <strong>${cat}</strong> ticket is created</span></div>
+                <div class="f-row"><label>Send from address</label><select id="ar_from_${cat}">${fromOpts}</select></div>
+                <div class="f-row"><label>Subject line</label>${tagBar('ar_subj_'+cat)}<input type="text" id="ar_subj_${cat}" value="${esc(subject)}" /></div>
+                <div class="f-row"><label>Email body (HTML accepted)</label>${tagBar('ar_body_'+cat)}<textarea id="ar_body_${cat}">${esc(body)}</textarea></div>
+                <div style="display:flex;gap:8px;margin-top:16px;align-items:center;">
+                    <button class="btn btn-accent btn-sm" onclick="saveAr('${cat}','${activeLang}')">Save auto-reply</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteAr('${cat}','${activeLang}')">Remove</button>
+                    <span id="ar_status_${cat}" style="font-size:12px;color:var(--text-muted);margin-left:4px;"></span>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    const langOpts = langs.map(l => `<option value="${esc(l.code)}"${l.code===activeLang?' selected':''}>${esc(l.name)}</option>`).join('');
+
+    // ── Outgoing email footers ──
+    const oeItems = emailAddresses.map(addr => {
+        const safeKey = addr.email.replace(/[^a-z0-9]/gi, '_'), footerKey = 'footer_' + safeKey, footer = S('email', footerKey, ''), hasFooter = footer.length > 0;
+        return `<div class="oe-item">
+            <div class="oe-item-head"><span style="width:8px;height:8px;border-radius:50%;background:${hasFooter?'var(--success)':'var(--border)'};flex-shrink:0;"></span><span class="oe-email-label">${esc(addr.email)}</span><span class="oe-cat-badge">${esc(addr.action||addr.label||'—')}</span><span class="oe-footer-status ${hasFooter?'has-footer':''}">${hasFooter?'Custom footer set':'No footer'}</span></div>
+            <div class="oe-body">
+                <div class="f-row"><label>Footer HTML</label><textarea id="oe_footer_${safeKey}" rows="7">${esc(footer)}</textarea></div>
+                <div style="display:flex;gap:8px;margin-top:4px;align-items:center;">
+                    <button class="btn btn-accent btn-sm" onclick="saveFooter('${esc(addr.email)}','${safeKey}')">Save footer</button>
+                    ${hasFooter ? `<button class="btn btn-ghost btn-sm" onclick="clearFooter('${esc(addr.email)}','${safeKey}')">Clear footer</button>` : ''}
+                    <span id="oe_status_${safeKey}" style="font-size:12px;color:var(--text-muted);margin-left:4px;"></span>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    // ── Test Email Sending ──
+    const fromOpts = `<option value="">Select sender...</option>` + emailAddresses.map(a => `<option value="${esc(a.email)}">${esc(a.email)}</option>`).join('');
+
+    return `
+    <!-- ─── EMAIL SETTINGS (Outgoing) ─── -->
+    <div class="s-card">
+        <div class="s-card-head"><div><h3>📧 Outgoing Email Settings</h3><p>Configuration for sending emails</p></div></div>
+        <div class="f-grid-2">
+            <div class="f-row"><label>Default From Address</label><input type="email" id="em_default_from" value="${esc(S('email','default_from',''))}" placeholder="support@example.com" /></div>
+            <div class="f-row"><label>Password Reset From Address</label><input type="email" id="em_password_reset_from" value="${esc(S('email','password_reset_from',''))}" placeholder="account-security@example.com" /></div>
+        </div>
+        <div class="f-row"><label>Google Apps Script URL</label><input type="text" id="em_script_url" value="${esc(S('general','script_url',''))}" placeholder="https://script.google.com/macros/s/..." /></div>
+        <div class="f-grid-3">
+            <div class="f-row"><label>Google App Username</label><input type="text" id="em_script_username" value="${esc(S('email_script','username',''))}" placeholder="username" /></div>
+            <div class="f-row"><label>Google App Password</label><input type="password" id="em_script_password" value="" placeholder="${S('email_script','password','') ? '••••••••' : 'Leave blank to keep existing'}" autocomplete="new-password" /></div>
+            <div class="f-row"><label>Google App Secret</label><input type="password" id="em_script_secret" value="" placeholder="${S('email_script','secret','') ? '••••••••' : 'Leave blank to keep existing'}" autocomplete="new-password" /></div>
+        </div>
+        <div class="f-grid-2">
+            <div class="f-row"><label>Newsletter Batch Size</label><input type="number" id="em_nl_batch" value="${esc(S('tickets','newsletter_batch_size','10'))}" /></div>
+            <div class="f-row"><label>Newsletter Unsubscribe Link Path (per language)</label><input type="text" id="em_unsub_path" value="${esc(S('newsletter','unsubscribe_link_path','unsubscribe'))}" placeholder="unsubscribe" /></div>
+        </div>
+        <button class="btn btn-accent" style="margin-top:8px;" onclick="saveOutgoingSettings()">Save Outgoing Settings</button>
+    </div>
+
+    <!-- ─── AUTO-REPLY RULES ─── -->
+    <div class="collapse-section open" id="sec-autoreply">
         <div class="collapse-head" onclick="toggleSection('sec-autoreply')">
             <h4>🤖 Auto-Reply Rules</h4>
-            <span class="collapse-chevron">▶</span>
+            <span class="collapse-chevron">▼</span>
         </div>
         <div class="collapse-body">
             <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Configure automatic reply sent when a ticket is created.</p>
@@ -914,8 +955,9 @@ async function buildEmailTab() {
         </div>
     </div>
 
-    <div class="collapse-section" id="sec-outgoing">
-        <div class="collapse-head" onclick="toggleSection('sec-outgoing')">
+    <!-- ─── OUTGOING EMAIL FOOTERS ─── -->
+    <div class="collapse-section" id="sec-outgoing-footers">
+        <div class="collapse-head" onclick="toggleSection('sec-outgoing-footers')">
             <h4>✉️ Outgoing Email Footers</h4>
             <span class="collapse-chevron">▶</span>
         </div>
@@ -923,17 +965,44 @@ async function buildEmailTab() {
             <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Set a per-address HTML footer appended to every outgoing email.</p>
             ${emailAddresses.length ? oeItems : '<div class="empty-state">No email addresses configured.</div>'}
         </div>
+    </div>
+
+    <!-- ─── TEST EMAIL SENDING ─── -->
+    <div class="s-card">
+        <div class="s-card-head"><div><h3>🧪 Test Email Sending</h3><p>Send a test email to verify your outgoing email configuration</p></div></div>
+        <div class="test-email-box">
+            <div class="f-row">
+                <label>From Address</label>
+                <select id="test_from" style="padding:9px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);width:100%;">${fromOpts}</select>
+            </div>
+            <div class="f-row">
+                <label>To Address</label>
+                <input type="email" id="test_to" placeholder="recipient@example.com" />
+            </div>
+            <div class="f-row">
+                <label>Subject</label>
+                <input type="text" id="test_subject" placeholder="Test email from Dornorium" value="Test email from Dornorium" />
+            </div>
+            <div class="f-row">
+                <label>Message Body (HTML supported)</label>
+                <textarea id="test_body" rows="5" style="min-height:120px;" placeholder="Hello, this is a test email...">&lt;p&gt;This is a test email from Dornorium.&lt;/p&gt;&lt;p&gt;If you received this, your outgoing email configuration is working! ✅&lt;/p&gt;</textarea>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:4px;">
+                <button class="btn btn-accent" onclick="sendTestEmail()">📧 Send Test Email</button>
+                <span id="test_status" style="font-size:12px;color:var(--text-muted);margin-left:8px;align-self:center;"></span>
+            </div>
+        </div>
     </div>`;
 }
 
-// ─── Domain Functions ──
+// ─── INCOMING FUNCTIONS ────────────────────────────────────────
 async function refreshDomains() {
     await fetchCloudflareDomains();
     if (configuredZoneId) {
         await fetchCloudflareRules(configuredZoneId);
     }
-    const panel = document.getElementById('panel-email');
-    if (panel) panel.innerHTML = await buildEmailTab();
+    const panel = document.getElementById('panel-incoming');
+    if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
     toast('✅ Refreshed');
 }
 
@@ -949,8 +1018,8 @@ async function configureDomain(zoneId, domainName) {
             configuredDomain = domainName;
             await fetchCloudflareRules(zoneId);
             toast(`✅ Domain ${domainName} configured`);
-            const panel = document.getElementById('panel-email');
-            if (panel) panel.innerHTML = await buildEmailTab();
+            const panel = document.getElementById('panel-incoming');
+            if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
         } else {
             toast('❌ Failed to save domain', 'error');
         }
@@ -959,7 +1028,6 @@ async function configureDomain(zoneId, domainName) {
     }
 }
 
-// ─── Email Rule Functions ──
 async function createCloudflareRule(email) {
     if (!configuredZoneId) {
         toast('Select a domain first', 'error');
@@ -977,8 +1045,8 @@ async function createCloudflareRule(email) {
         if (res.success) {
             toast('✅ Cloudflare rule created');
             await fetchCloudflareRules(configuredZoneId);
-            const panel = document.getElementById('panel-email');
-            if (panel) panel.innerHTML = await buildEmailTab();
+            const panel = document.getElementById('panel-incoming');
+            if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
         } else {
             toast('❌ ' + (res.error || 'Failed'), 'error');
         }
@@ -993,35 +1061,19 @@ async function toggleCloudflareRule(ruleId, newStatus) {
         return;
     }
     try {
-        // First, get the current rule to get its full structure
-        const listRes = await api(`/api/admin/setup/routing-rules/${configuredZoneId}`);
-        if (!listRes.success) {
-            toast('❌ Failed to get rule', 'error');
-            return;
-        }
-        const rule = listRes.rules.find(r => r.id === ruleId);
-        if (!rule) {
-            toast('❌ Rule not found', 'error');
-            return;
-        }
-        
-        // Update the enabled status
-        rule.enabled = newStatus;
-        
-        // Send the FULL rule object - this is what Cloudflare expects
         const res = await api(`/api/admin/setup/routing-rule/${ruleId}`, {
             method: 'PUT',
             body: JSON.stringify({ 
                 zoneId: configuredZoneId, 
-                rule: rule  // Send the entire rule object
+                enabled: newStatus 
             })
         });
         
         if (res.success) {
             toast(`✅ Rule ${newStatus ? 'activated' : 'deactivated'}`);
             await fetchCloudflareRules(configuredZoneId);
-            const panel = document.getElementById('panel-email');
-            if (panel) panel.innerHTML = await buildEmailTab();
+            const panel = document.getElementById('panel-incoming');
+            if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
         } else {
             toast('❌ ' + (res.error || 'Failed'), 'error');
         }
@@ -1078,11 +1130,9 @@ async function updateMapping(selectElement) {
             });
             if (res.success) {
                 toast('✅ Mapping created');
-                const [sd, ed] = await Promise.all([api('/api/admin/settings'), api('/api/admin/email-addresses')]);
-                settings = sd.settings || [];
-                emailAddresses = ed.addresses || [];
-                const panel = document.getElementById('panel-email');
-                if (panel) panel.innerHTML = await buildEmailTab();
+                await load();
+                const panel = document.getElementById('panel-incoming');
+                if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
             } else {
                 toast('❌ ' + (res.error || 'Failed'), 'error');
             }
@@ -1137,8 +1187,8 @@ async function addEmail() {
         if (dbRes.success) {
             toast(`✅ ${cloudflareCreated ? 'Email added with Cloudflare rule' : 'Email added (no Cloudflare rule)'}`);
             await load();
-            const panel = document.getElementById('panel-email');
-            if (panel) panel.innerHTML = await buildEmailTab();
+            const panel = document.getElementById('panel-incoming');
+            if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
             document.getElementById('newEmailAddr').value = '';
         } else {
             toast('❌ Failed to add DB mapping: ' + (dbRes.error || 'Unknown'), 'error');
@@ -1172,23 +1222,31 @@ async function deleteEmail(email, ruleId) {
         
         toast('✅ Deleted');
         await load();
-        const panel = document.getElementById('panel-email');
-        if (panel) panel.innerHTML = await buildEmailTab();
+        const panel = document.getElementById('panel-incoming');
+        if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
     } catch (e) {
         toast('❌ ' + e.message, 'error');
     }
 }
 
-// ── Email Settings Functions ──
-async function saveEmailSettings() {
+async function saveIncomingSettings() {
+    const ok = await saveSettings([
+        { category:'tickets', key:'email_body_max_length', value: document.getElementById('em_body_max').value },
+        { category:'tickets', key:'reply_delimiter', value: document.getElementById('em_reply_delim').value },
+    ]);
+    ok ? toast('✅ Incoming settings saved') : toast('❌ Failed', 'error');
+    if (ok) await load();
+}
+
+// ─── OUTGOING FUNCTIONS ────────────────────────────────────────
+async function saveOutgoingSettings() {
     const updates = [
         { category:'email', key:'default_from', value: document.getElementById('em_default_from').value.trim() },
         { category:'email', key:'password_reset_from', value: document.getElementById('em_password_reset_from').value.trim() },
         { category:'general', key:'script_url', value: document.getElementById('em_script_url').value.trim() },
         { category:'email_script', key:'username', value: document.getElementById('em_script_username').value.trim() },
-        { category:'tickets', key:'email_body_max_length', value: document.getElementById('em_body_max').value },
         { category:'tickets', key:'newsletter_batch_size', value: document.getElementById('em_nl_batch').value },
-        { category:'tickets', key:'reply_delimiter', value: document.getElementById('em_reply_delim').value },
+        { category:'newsletter', key:'unsubscribe_link_path', value: document.getElementById('em_unsub_path').value.trim() },
     ];
 
     const newPassword = document.getElementById('em_script_password').value;
@@ -1211,7 +1269,7 @@ async function saveEmailSettings() {
     }
 
     const ok = await saveSettings(updates);
-    ok ? toast('✅ Email settings saved') : toast('❌ Failed', 'error');
+    ok ? toast('✅ Outgoing settings saved') : toast('❌ Failed', 'error');
     if (ok) {
         document.getElementById('em_script_password').value = '';
         document.getElementById('em_script_secret').value = '';
@@ -1219,11 +1277,80 @@ async function saveEmailSettings() {
     }
 }
 
-// ── Auto-Reply Functions ──
+async function sendTestEmail() {
+    const from = document.getElementById('test_from').value;
+    const to = document.getElementById('test_to').value.trim();
+    const subject = document.getElementById('test_subject').value.trim() || 'Test email from Dornorium';
+    const body = document.getElementById('test_body').value || '<p>Test email</p>';
+    const statusEl = document.getElementById('test_status');
+    
+    if (!from) { toast('Select a "From" address', 'error'); return; }
+    if (!to) { toast('Enter a recipient email address', 'error'); return; }
+    
+    statusEl.textContent = '⏳ Sending...';
+    
+    try {
+        // Use the existing sendEmail logic via the ticket reply endpoint
+        // We'll create a temporary ticket to send the test
+        const res = await api('/api/message', {
+            method: 'POST',
+            body: JSON.stringify({
+                email: to,
+                name: 'Test User',
+                subject: subject,
+                message: body,
+                category: 'test',
+                language: 'en',
+                metadata: { test: true }
+            })
+        });
+        
+        if (res.success && res.ticketId) {
+            // Send a reply to the test ticket
+            const replyRes = await api(`/api/admin/ticket/${res.ticketId}/reply`, {
+                method: 'POST',
+                body: JSON.stringify({ from: from, body: body })
+            });
+            
+            if (replyRes.success) {
+                statusEl.textContent = '✅ Sent! Check your inbox.';
+                toast('✅ Test email sent to ' + to);
+            } else {
+                statusEl.textContent = '❌ Failed to send: ' + (replyRes.error || 'Unknown error');
+                toast('❌ Failed to send test email', 'error');
+            }
+        } else {
+            statusEl.textContent = '❌ Failed to create test ticket';
+            toast('❌ Failed to create test ticket', 'error');
+        }
+    } catch (e) {
+        statusEl.textContent = '❌ Error: ' + e.message;
+        toast('❌ ' + e.message, 'error');
+    }
+}
+
+async function saveFooter(email, safeKey) { 
+    const body = document.getElementById('oe_footer_'+safeKey).value; 
+    const ok = await saveSettings([{ category:'email', key:'footer_'+safeKey, value: body }]); 
+    if (ok) { 
+        toast('✅ Footer saved for '+email); 
+        const s = document.getElementById('oe_status_'+safeKey); 
+        if (s) { s.textContent = 'Saved ✓'; setTimeout(() => s.textContent = '', 2500); } 
+    } else toast('❌ Save failed','error'); 
+}
+
+async function clearFooter(email, safeKey) { 
+    if (!confirm('Clear footer for '+email+'?')) return; 
+    document.getElementById('oe_footer_'+safeKey).value = ''; 
+    await saveFooter(email, safeKey); 
+    await load(); 
+}
+
+// ─── AUTO-REPLY FUNCTIONS ──────────────────────────────────────
 async function setArLanguage(lang) { 
     sessionStorage.setItem('ar_active_lang', lang); 
-    const panel = document.getElementById('panel-email'); 
-    if (panel) panel.innerHTML = await buildEmailTab(); 
+    const panel = document.getElementById('panel-outgoing'); 
+    if (panel) panel.innerHTML = await buildOutgoingTab(getCategories(), getLanguages()); 
 }
 
 async function saveAr(cat, lang) {
@@ -1251,25 +1378,7 @@ async function deleteAr(cat, lang) {
     d.success ? (toast('✅ Auto-reply cleared'), load()) : toast('❌ Failed','error'); 
 }
 
-// ── Outgoing Email Functions ──
-async function saveFooter(email, safeKey) { 
-    const body = document.getElementById('oe_footer_'+safeKey).value; 
-    const ok = await saveSettings([{ category:'email', key:'footer_'+safeKey, value: body }]); 
-    if (ok) { 
-        toast('✅ Footer saved for '+email); 
-        const s = document.getElementById('oe_status_'+safeKey); 
-        if (s) { s.textContent = 'Saved ✓'; setTimeout(() => s.textContent = '', 2500); } 
-    } else toast('❌ Save failed','error'); 
-}
-
-async function clearFooter(email, safeKey) { 
-    if (!confirm('Clear footer for '+email+'?')) return; 
-    document.getElementById('oe_footer_'+safeKey).value = ''; 
-    await saveFooter(email, safeKey); 
-    await load(); 
-}
-
-// ── Init ──
+// ─── INIT ──
 load();
 renderUserBadge();
 
