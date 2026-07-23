@@ -198,6 +198,7 @@ const purgeBtn = document.getElementById('purgeCacheBtn');
 if (purgeBtn) purgeBtn.disabled = !canEditSettings();
 
 // ── API ──
+// ── API ──
 async function api(path, opts = {}) {
     const headers = {
         'Authorization': 'Bearer ' + token,
@@ -218,14 +219,15 @@ async function api(path, opts = {}) {
         throw new Error('Permission denied');
     }
     
-    // Clone response before reading to avoid "body already used" error
-    const clonedResponse = response.clone();
+    // Read the response body directly - don't clone
     try {
-        const data = await clonedResponse.json();
-        return data;
+        const text = await response.text();
+        if (!text || text.trim() === '') {
+            return { success: false, status: response.status, error: 'Empty response' };
+        }
+        return JSON.parse(text);
     } catch (e) {
-        // If response is not JSON, return empty object with status
-        return { success: false, status: response.status, error: 'Invalid response' };
+        return { success: false, status: response.status, error: 'Invalid JSON response' };
     }
 }
 
