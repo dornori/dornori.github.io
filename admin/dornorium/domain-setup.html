@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Email Routing Dashboard</title>
+  <title>Email Routing Setup</title>
   <link rel="stylesheet" href="style.css" />
   <script src="shared.js"></script>
   <style>
@@ -26,13 +26,87 @@
       display: flex; justify-content: center; padding: 40px 16px;
     }
     .container {
-      width: 100%; max-width: 1000px;
+      width: 100%; max-width: 720px;
       background: var(--panel); border: 1px solid var(--border);
       border-radius: 12px; padding: 32px;
     }
     h1 { margin: 0 0 8px; font-size: 22px; }
     .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 14px; }
-    
+    .step { display: none; animation: fadeIn .25s ease; }
+    .step.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    input[type="text"], input[type="email"] {
+      width: 100%; padding: 10px 12px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg); color: var(--text);
+      font-size: 14px; margin-bottom: 16px;
+    }
+    input:focus { outline: none; border-color: var(--accent); }
+    button {
+      background: var(--accent); color: #fff; border: none;
+      padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: background .15s;
+    }
+    button:hover { background: var(--accent-hover); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-secondary { background: var(--border); margin-left: 8px; }
+    .btn-secondary:hover { background: #475569; }
+    .btn-success { background: var(--success); }
+    .btn-success:hover { background: #16a34a; }
+    .progress {
+      display: flex; gap: 8px; margin-bottom: 28px;
+    }
+    .progress-dot {
+      flex: 1; height: 4px; border-radius: 2px; background: var(--border);
+      transition: background .3s;
+    }
+    .progress-dot.done { background: var(--success); }
+    .progress-dot.active { background: var(--accent); }
+    .card {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px; margin-bottom: 16px;
+    }
+    .card h3 { margin: 0 0 10px; font-size: 15px; }
+    .card p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+    .nameserver {
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      background: #0b1220; padding: 10px 14px; border-radius: 6px;
+      border: 1px dashed var(--border); margin-bottom: 8px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .copy-btn {
+      font-size: 12px; padding: 4px 10px; background: var(--border);
+      border-radius: 4px; cursor: pointer; border: none; color: var(--text);
+    }
+    .status {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 600; padding: 6px 10px;
+      border-radius: 6px; background: var(--bg); border: 1px solid var(--border);
+    }
+    .status.success { color: var(--success); border-color: rgba(34,197,94,.25); }
+    .status.warn { color: var(--warning); border-color: rgba(245,158,11,.25); }
+    .status.error { color: var(--danger); border-color: rgba(239,68,68,.25); }
+    .log {
+      background: #0b1220; border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px; font-family: monospace;
+      font-size: 12px; color: var(--muted); max-height: 220px;
+      overflow-y: auto; white-space: pre-wrap; margin-top: 16px;
+    }
+    .log .ok { color: var(--success); }
+    .log .err { color: var(--danger); }
+    .log .info { color: var(--accent); }
+    .checkbox-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .checkbox-row input { width: auto; margin: 0; }
+    .hidden { display: none !important; }
+    .error-msg { color: var(--danger); font-size: 13px; margin-top: -10px; margin-bottom: 12px; }
+    .domain-status-box {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: 12px 16px; margin-bottom: 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .action-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
     .user-badge {
       display: flex; align-items: center; gap: 12px;
       padding: 8px 16px; background: var(--bg); border-radius: 8px;
@@ -46,159 +120,14 @@
     .user-badge .info { font-size: 13px; }
     .user-badge .info .name { font-weight: 600; }
     .user-badge .info .role { color: var(--muted); font-size: 12px; }
-    
-    .domain-selector {
-      display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;
-      align-items: center;
-    }
-    .domain-selector select {
-      flex: 1; min-width: 200px; padding: 10px 14px;
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 8px; color: var(--text); font-size: 14px;
-    }
-    .domain-selector select:focus { outline: none; border-color: var(--accent); }
-    
-    .btn {
-      padding: 10px 18px; border: none; border-radius: 8px;
-      font-size: 14px; font-weight: 600; cursor: pointer;
-      transition: opacity .15s;
-    }
-    .btn:hover { opacity: .85; }
-    .btn-primary { background: var(--accent); color: #fff; }
-    .btn-success { background: var(--success); color: #fff; }
-    .btn-danger { background: var(--danger); color: #fff; }
-    .btn-secondary { background: var(--border); color: var(--text); }
-    .btn-sm { padding: 6px 12px; font-size: 12px; }
-    
-    .rule-list {
-      margin-top: 16px;
-    }
-    .rule-item {
-      display: grid;
-      grid-template-columns: 1fr 120px 140px auto;
-      gap: 12px;
-      align-items: center;
-      padding: 12px 16px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      margin-bottom: 8px;
-    }
-    .rule-item .pattern {
-      font-family: monospace;
-      font-weight: 600;
-      font-size: 14px;
-    }
-    .rule-item .status {
-      font-size: 12px;
-      padding: 2px 10px;
-      border-radius: 12px;
-      font-weight: 600;
-      text-align: center;
-    }
-    .rule-item .status.active {
-      background: var(--success);
-      color: #fff;
-    }
-    .rule-item .status.inactive {
-      background: var(--border);
-      color: var(--muted);
-    }
-    .rule-item .actions {
-      display: flex;
-      gap: 6px;
-    }
-    
-    .empty-state {
-      text-align: center;
-      padding: 40px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-    
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.7);
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-    .modal.active {
-      display: flex;
-    }
-    .modal-content {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 32px;
-      max-width: 500px;
-      width: 90%;
-    }
-    .modal-content h2 { margin: 0 0 16px; font-size: 18px; }
-    .modal-content label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-      color: var(--muted);
-      margin-bottom: 4px;
-    }
-    .modal-content input, .modal-content select {
-      width: 100%;
-      padding: 10px 12px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-size: 14px;
-      margin-bottom: 16px;
-    }
-    .modal-content input:focus, .modal-content select:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-    .modal-actions {
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-      margin-top: 8px;
-    }
-    
-    .toast {
-      position: fixed; bottom: 24px; right: 24px;
-      padding: 12px 20px; border-radius: 8px;
-      font-size: 14px; font-weight: 600;
-      z-index: 9999;
-      opacity: 0; transform: translateY(8px);
-      transition: opacity .2s, transform .2s;
-      pointer-events: none;
-    }
-    .toast.show {
-      opacity: 1; transform: translateY(0);
-    }
-    .toast.success {
-      background: var(--bg-secondary); color: var(--success);
-      border-left: 4px solid var(--success);
-      box-shadow: 0 4px 20px var(--shadow);
-    }
-    .toast.error {
-      background: var(--bg-secondary); color: var(--danger);
-      border-left: 4px solid var(--danger);
-    }
-    
-    .loading { text-align: center; padding: 40px; color: var(--muted); }
-    .hidden { display: none !important; }
+    .user-badge .info .role.admin { color: var(--success); }
   </style>
 </head>
 <body>
 <div class="container">
-  <h1>📧 Email Routing Dashboard</h1>
-  <div class="subtitle">Manage incoming email routing rules for your domains</div>
-  
-  <!-- User Badge -->
+  <h1>📧 Email Routing Setup</h1>
+  <div class="subtitle">Connect a domain to Cloudflare and route mail to your Worker</div>
+
   <div class="user-badge" id="userBadge">
     <div class="avatar" id="userAvatar">👤</div>
     <div class="info">
@@ -206,79 +135,100 @@
       <div class="role" id="userRole">Checking permissions...</div>
     </div>
   </div>
-  
-  <!-- Domain Selector -->
-  <div class="domain-selector">
-    <select id="domainSelect" onchange="loadDomainRules()">
-      <option value="">Select a domain...</option>
-    </select>
-    <button class="btn btn-success btn-sm" onclick="openAddDomainModal()">➕ Add Domain</button>
-    <button class="btn btn-secondary btn-sm" onclick="refreshDomains()">🔄 Refresh</button>
-  </div>
-  
-  <!-- Rules List -->
-  <div id="rulesContainer">
-    <div class="loading">Select a domain to view routing rules</div>
-  </div>
-  
-  <!-- Add Rule Button -->
-  <div id="addRuleBtn" class="hidden" style="margin-top:16px;">
-    <button class="btn btn-primary" onclick="openAddRuleModal()">➕ Add Routing Rule</button>
-  </div>
-</div>
 
-<!-- Add Domain Modal -->
-<div class="modal" id="addDomainModal">
-  <div class="modal-content">
-    <h2>Add Domain</h2>
-    <label>Domain Name</label>
-    <input type="text" id="newDomainName" placeholder="example.com" />
-    <div id="domainCheckResult" style="font-size:13px;color:var(--muted);margin-bottom:12px;"></div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeModal('addDomainModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="addDomain()">Add Domain</button>
-    </div>
+  <div class="progress" id="progressBar">
+    <div class="progress-dot active"></div>
+    <div class="progress-dot"></div>
+    <div class="progress-dot"></div>
+    <div class="progress-dot"></div>
+    <div class="progress-dot"></div>
   </div>
-</div>
 
-<!-- Add Rule Modal -->
-<div class="modal" id="addRuleModal">
-  <div class="modal-content">
-    <h2>Add Routing Rule</h2>
-    <label>Email Pattern</label>
-    <select id="rulePatternType" onchange="toggleRulePattern()">
-      <option value="catchall">Catch-all (*@domain.com)</option>
-      <option value="specific">Specific address</option>
-    </select>
-    <div id="specificAddressField" class="hidden">
-      <label>Email Address</label>
-      <input type="email" id="ruleSpecificAddress" placeholder="support@example.com" />
+  <!-- STEP 1: Domain -->
+  <div class="step active" id="step1">
+    <label>Domain to set up</label>
+    <input type="text" id="domainInput" placeholder="example.com" />
+    
+    <div id="domainCheckResult" class="hidden" style="margin-bottom:16px;">
+      <div class="domain-status-box" id="domainStatusBox">
+        <span id="domainStatusText">Checking...</span>
+        <span id="domainStatusAction"></span>
+      </div>
     </div>
-    <label>Worker Name</label>
-    <input type="text" id="ruleWorkerName" placeholder="worker-name" value="dornorium" />
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeModal('addRuleModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="createRule()">Create Rule</button>
+    
+    <div class="action-row">
+      <button onclick="checkDomain()">🔍 Check Domain</button>
+      <button id="btnAddDomain" onclick="addDomain()" disabled>Add Domain to Cloudflare</button>
+      <button id="btnUseExisting" onclick="useExistingDomain()" class="btn-success hidden">✅ Use Existing Domain</button>
     </div>
+    
+    <div id="domainError" class="error-msg hidden"></div>
   </div>
-</div>
 
-<!-- Edit Rule Modal -->
-<div class="modal" id="editRuleModal">
-  <div class="modal-content">
-    <h2>Edit Routing Rule</h2>
-    <div id="editRuleContent"></div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeModal('editRuleModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveRuleEdit()">Save Changes</button>
+  <!-- STEP 2: Nameservers -->
+  <div class="step" id="step2">
+    <div class="card">
+      <h3>⚠️ Manual action required at your registrar</h3>
+      <p>Change your domain's nameservers to the two below. This is the only manual step.</p>
+      <div id="nsList"></div>
     </div>
+    <button onclick="startPolling()">I've updated the nameservers → Check Status</button>
+    <button class="btn-secondary" onclick="prevStep(1)">Back</button>
   </div>
-</div>
 
-<div id="toast" class="toast"></div>
+  <!-- STEP 3: Activation polling -->
+  <div class="step" id="step3">
+    <p>Waiting for Cloudflare to detect the new nameservers…</p>
+    <div class="status warn" id="pollStatus">⏳ Checking every 10 seconds</div>
+    <div class="log" id="pollLog"></div>
+    <button class="btn-secondary" onclick="stopPolling(); prevStep(2)">Cancel</button>
+  </div>
+
+  <!-- STEP 4: Enable Email Routing -->
+  <div class="step" id="step4">
+    <p>Domain is active. Enable Email Routing now?</p>
+    <button onclick="enableRouting()">Enable Email Routing</button>
+    <button class="btn-secondary" onclick="prevStep(3)">Back</button>
+  </div>
+
+  <!-- STEP 5: Create routing rule -->
+  <div class="step" id="step5">
+    <label>Route emails to Worker</label>
+    <div class="card" style="font-size:14px;">
+      <div class="checkbox-row">
+        <input type="radio" name="routeType" value="catchall" id="routeCatchall" checked />
+        <label for="routeCatchall" style="margin:0;font-weight:400;text-transform:none;">Catch-all (<code>*@domain.com</code>) → Worker</label>
+      </div>
+      <div class="checkbox-row">
+        <input type="radio" name="routeType" value="specific" id="routeSpecific" />
+        <label for="routeSpecific" style="margin:0;font-weight:400;text-transform:none;">Specific address only</label>
+      </div>
+      <input type="text" id="specificAddress" placeholder="support@example.com" class="hidden" />
+    </div>
+    <button onclick="createRule()">Create Routing Rule</button>
+    <button class="btn-secondary" onclick="prevStep(4)">Back</button>
+  </div>
+
+  <!-- STEP 6: Done -->
+  <div class="step" id="step6">
+    <div class="card">
+      <h3 style="color:var(--success)">✅ Setup Complete</h3>
+      <p style="margin:0;color:var(--muted);font-size:14px;">
+        Incoming emails to this domain will now hit your Worker.
+      </p>
+      <div id="summary" style="margin-top:12px;font-size:13px;"></div>
+    </div>
+    <button onclick="resetWizard()">Set up another domain</button>
+    <button class="btn-secondary" onclick="window.location.href='settings.html'">Return to Settings</button>
+  </div>
+
+  <div class="log hidden" id="globalLog"></div>
+</div>
 
 <script>
-// Get authentication from dashboard
+// Get authentication from dashboard (shared.js already loaded)
+// API_BASE is already defined in shared.js - DO NOT redeclare!
+
 const token = localStorage.getItem('token');
 const storedUser = localStorage.getItem('user');
 const currentUser = storedUser ? JSON.parse(storedUser) : null;
@@ -297,7 +247,7 @@ if (currentUser.role !== 'admin' && !currentUser.effective_permissions?.settings
   document.body.innerHTML = `
     <div class="container" style="text-align:center;padding:60px 32px;">
       <h2>⛔ Access Denied</h2>
-      <p style="color:var(--muted);">You need <strong>admin</strong> privileges to manage email routing.</p>
+      <p style="color:var(--muted);">You need <strong>admin</strong> privileges to set up email routing.</p>
       <a href="settings.html" style="color:var(--accent);">← Back to Settings</a>
     </div>
   `;
@@ -310,16 +260,11 @@ document.getElementById('userRole').textContent = currentUser.role === 'admin' ?
 document.getElementById('userAvatar').textContent = (currentUser.name || currentUser.email || 'U')[0].toUpperCase();
 
 // ── State ──
-const API_BASE = window.API_BASE || (() => {
-  const url = new URL(window.location.href);
-  return url.origin + '/api';
-})();
-
-let domains = [];
-let currentZoneId = null;
-let currentDomainName = null;
-let currentRules = [];
-let editingRuleId = null;
+let zoneId = '';
+let domainName = '';
+let pollTimer = null;
+let domainExists = false;
+let existingZoneData = null;
 
 const $ = id => document.getElementById(id);
 const headers = () => ({ 
@@ -327,333 +272,346 @@ const headers = () => ({
   'Content-Type': 'application/json' 
 });
 
-// ── Toast ──
-function toast(msg, type = 'success') {
-  const el = $('toast');
-  el.textContent = msg;
-  el.className = 'toast show ' + type;
-  clearTimeout(window._toastTimer);
-  window._toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+function setStep(n) {
+  document.querySelectorAll('.step').forEach((el, i) => el.classList.toggle('active', i + 1 === n));
+  document.querySelectorAll('.progress-dot').forEach((el, i) => {
+    el.classList.toggle('done', i < n - 1);
+    el.classList.toggle('active', i === n - 1);
+  });
 }
+function prevStep(n) { setStep(n); }
 
-// ── Domains ──
-async function refreshDomains() {
+function log(msg, cls = 'info') {
+  const el = $('globalLog');
+  el.classList.remove('hidden');
+  const time = new Date().toLocaleTimeString();
+  const color = cls === 'ok' ? 'var(--success)' : cls === 'err' ? 'var(--danger)' : 'var(--accent)';
+  el.innerHTML += `<span style="color:${color}">[${time}]</span> ${msg}\n`;
+  el.scrollTop = el.scrollHeight;
+}
+function clearLog() { $('globalLog').textContent = ''; $('globalLog').classList.add('hidden'); }
+
+function showError(msg) {
+  const el = $('domainError');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+function hideError() { $('domainError').classList.add('hidden'); }
+
+// ── Check if domain exists ──
+async function checkDomain() {
+  const d = $('domainInput').value.trim().toLowerCase();
+  if (!d) { showError('Enter a domain name.'); return; }
+  
+  hideError();
+  domainName = d;
+  
+  const resultDiv = $('domainCheckResult');
+  const statusText = $('domainStatusText');
+  const statusAction = $('domainStatusAction');
+  const btnAdd = $('btnAddDomain');
+  const btnUse = $('btnUseExisting');
+  
+  resultDiv.classList.remove('hidden');
+  statusText.innerHTML = '⏳ Checking if domain exists in Cloudflare...';
+  statusAction.innerHTML = '';
+  btnAdd.disabled = true;
+  btnUse.classList.add('hidden');
+  
   try {
+    // First check if the domain exists by trying to list zones
+    // Use API_BASE from shared.js
     const res = await fetch(`${API_BASE}/api/admin/setup/cloudflare-zones`, {
       headers: headers()
     });
     const data = await res.json();
     
-    if (!data.success) throw new Error(data.error || 'Failed to load domains');
-    
-    domains = data.zones || [];
-    const select = $('domainSelect');
-    const currentValue = select.value;
-    
-    select.innerHTML = '<option value="">Select a domain...</option>';
-    domains.forEach(zone => {
-      const opt = document.createElement('option');
-      opt.value = zone.id;
-      opt.textContent = `${zone.name} (${zone.status})`;
-      select.appendChild(opt);
-    });
-    
-    if (currentValue && domains.some(d => d.id === currentValue)) {
-      select.value = currentValue;
+    if (data.success && data.zones) {
+      const existing = data.zones.find(z => z.name === d);
+      
+      if (existing) {
+        domainExists = true;
+        existingZoneData = existing;
+        statusText.innerHTML = `✅ Domain <strong>${d}</strong> already exists in Cloudflare`;
+        statusAction.innerHTML = `
+          <span style="color:var(--muted);font-size:12px;">
+            Zone ID: <code>${existing.id}</code> | Status: ${existing.status}
+          </span>
+        `;
+        btnAdd.disabled = true;
+        btnUse.classList.remove('hidden');
+        log(`✅ Domain ${d} already exists (Zone: ${existing.id})`, 'ok');
+      } else {
+        domainExists = false;
+        existingZoneData = null;
+        statusText.innerHTML = `🆕 Domain <strong>${d}</strong> is not in Cloudflare yet`;
+        statusAction.innerHTML = `<span style="color:var(--muted);font-size:12px;">Ready to add</span>`;
+        btnAdd.disabled = false;
+        btnUse.classList.add('hidden');
+        log(`🆕 ${d} is new - ready to add to Cloudflare`, 'info');
+      }
+    } else {
+      statusText.innerHTML = `⚠️ Could not list zones. Try adding the domain.`;
+      btnAdd.disabled = false;
+      btnUse.classList.add('hidden');
     }
-    
-    toast(`✅ Loaded ${domains.length} domains`);
-    loadDomainRules();
   } catch (e) {
-    toast('❌ ' + e.message, 'error');
+    statusText.innerHTML = `⚠️ Could not check: ${e.message}`;
+    btnAdd.disabled = false;
+    btnUse.classList.add('hidden');
+    log(`⚠️ Check failed: ${e.message}`, 'err');
   }
 }
 
-function openAddDomainModal() {
-  $('addDomainModal').classList.add('active');
-  $('newDomainName').value = '';
-  $('domainCheckResult').textContent = '';
-}
-
-function closeModal(id) {
-  $(id).classList.remove('active');
-}
-
-async function addDomain() {
-  const domain = $('newDomainName').value.trim().toLowerCase();
-  if (!domain) {
-    toast('Enter a domain name', 'error');
+// ── Use existing domain ──
+function useExistingDomain() {
+  if (!existingZoneData) {
+    showError('No existing domain data found. Try checking again.');
     return;
   }
+  
+  zoneId = existingZoneData.id;
+  domainName = existingZoneData.name;
+  
+  log(`✅ Using existing zone: ${zoneId} (${domainName})`, 'ok');
+  
+  if (existingZoneData.status === 'active') {
+    log(`✅ Domain is already active!`, 'ok');
+    setStep(4);
+    return;
+  }
+  
+  const ns = existingZoneData.name_servers || [];
+  if (ns.length > 0) {
+    $('nsList').innerHTML = ns.map(s => `
+      <div class="nameserver">
+        <span>${s}</span>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('${s}')">Copy</button>
+      </div>`).join('');
+    setStep(2);
+  } else {
+    setStep(3);
+  }
+}
+
+// ── Add new domain ──
+async function addDomain() {
+  const d = $('domainInput').value.trim().toLowerCase();
+  if (!d) return;
+  
+  domainName = d;
   
   try {
     const res = await fetch(`${API_BASE}/api/admin/setup/cloudflare-zone`, {
-      method: 'POST',
-      headers: headers(),
-      body: JSON.stringify({ domain })
+      method: 'POST', 
+      headers: headers(), 
+      body: JSON.stringify({ domain: d })
     });
     const data = await res.json();
     
-    if (!data.success) throw new Error(data.error || 'Failed to add domain');
+    if (!data.success) {
+      if (data.error && data.error.includes('already exists')) {
+        log('⚠️ Domain already exists. Click "Use Existing Domain".', 'info');
+        showError('Domain already exists. Click "Use Existing Domain" button.');
+        return;
+      }
+      throw new Error(data.error || 'Failed to add domain');
+    }
     
-    closeModal('addDomainModal');
-    toast(`✅ Domain ${domain} added successfully`);
-    refreshDomains();
+    zoneId = data.zoneId;
+    const ns = data.nameServers || [];
+    $('nsList').innerHTML = ns.map(s => `
+      <div class="nameserver">
+        <span>${s}</span>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('${s}')">Copy</button>
+      </div>`).join('');
+    
+    log(`✅ Zone created: ${zoneId} (${domainName})`, 'ok');
+    setStep(2);
+    
   } catch (e) {
-    toast('❌ ' + e.message, 'error');
+    showError('Failed: ' + e.message);
   }
 }
 
-// ── Rules ──
-async function loadDomainRules() {
-  const select = $('domainSelect');
-  const zoneId = select.value;
-  const container = $('rulesContainer');
-  const addBtn = $('addRuleBtn');
+// ── Polling ──
+function startPolling() {
+  setStep(3);
+  $('pollLog').textContent = '';
+  log('⏳ Polling started…', 'info');
   
-  if (!zoneId) {
-    container.innerHTML = '<div class="empty-state">Select a domain to view routing rules</div>';
-    addBtn.classList.add('hidden');
-    currentZoneId = null;
-    return;
+  pollTimer = setInterval(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/setup/cloudflare-zone/${zoneId}`, { 
+        headers: headers() 
+      });
+      const data = await res.json();
+      
+      if (!data.success) throw new Error(data.error || 'Failed to get status');
+      
+      const st = data.status || 'pending';
+      log(`Status: ${st}`, st === 'active' ? 'ok' : 'info');
+      
+      if (st === 'active') {
+        stopPolling();
+        setStep(4);
+        log('✅ Domain is active!', 'ok');
+      }
+    } catch (e) {
+      log('❌ Error: ' + e.message, 'err');
+    }
+  }, 10000);
+}
+
+function stopPolling() { 
+  if (pollTimer) {
+    clearInterval(pollTimer); 
+    pollTimer = null;
+    log('⏹️ Polling stopped.', 'info');
   }
-  
-  currentZoneId = zoneId;
-  const domain = domains.find(d => d.id === zoneId);
-  currentDomainName = domain ? domain.name : 'unknown';
-  
-  container.innerHTML = '<div class="loading">Loading rules...</div>';
-  
+}
+
+// ── Enable Email Routing ──
+async function enableRouting() {
   try {
-    const res = await fetch(`${API_BASE}/api/admin/setup/routing-rules/${zoneId}`, {
-      headers: headers()
+    const res = await fetch(`${API_BASE}/api/admin/setup/email-routing`, {
+      method: 'POST', 
+      headers: headers(), 
+      body: JSON.stringify({ zoneId })
     });
     const data = await res.json();
     
-    if (!data.success) throw new Error(data.error || 'Failed to load rules');
+    if (!data.success) throw new Error(data.error || 'Failed to enable routing');
     
-    currentRules = data.rules || [];
-    renderRules(currentRules);
-    addBtn.classList.remove('hidden');
+    log('✅ Email Routing enabled', 'ok');
+    setStep(5);
+    
   } catch (e) {
-    container.innerHTML = `<div class="empty-state">❌ ${e.message}</div>`;
-    toast('❌ ' + e.message, 'error');
+    alert('Failed to enable Email Routing: ' + e.message);
   }
 }
 
-function renderRules(rules) {
-  const container = $('rulesContainer');
-  
-  if (!rules || rules.length === 0) {
-    container.innerHTML = `<div class="empty-state">No routing rules for ${currentDomainName}</div>`;
-    return;
-  }
-  
-  let html = `<div style="margin-bottom:12px;font-size:13px;color:var(--muted);">${rules.length} rules for ${currentDomainName}</div>`;
-  html += '<div class="rule-list">';
-  
-  rules.forEach(rule => {
-    const pattern = rule.matchers && rule.matchers.length > 0 
-      ? rule.matchers.map(m => m.type === 'all' ? '*@*' : m.value || m.field || 'all').join(', ')
-      : 'all';
-    const isActive = rule.enabled !== false;
-    const action = rule.actions && rule.actions.length > 0 
-      ? rule.actions.map(a => a.type + (a.value ? ':' + a.value.join(',') : '')).join(', ')
-      : 'worker';
-    
-    html += `
-      <div class="rule-item">
-        <span class="pattern">${pattern}</span>
-        <span class="status ${isActive ? 'active' : 'inactive'}">${isActive ? 'Active' : 'Inactive'}</span>
-        <span style="font-size:12px;color:var(--muted);">${action}</span>
-        <div class="actions">
-          <button class="btn btn-secondary btn-sm" onclick="toggleRule('${rule.id}')">
-            ${isActive ? '🔴' : '🟢'}
-          </button>
-          <button class="btn btn-secondary btn-sm" onclick="openEditRuleModal('${rule.id}')">✏️</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteRule('${rule.id}')">🗑️</button>
-        </div>
-      </div>
-    `;
-  });
-  
-  html += '</div>';
-  container.innerHTML = html;
-}
-
-// ── Create Rule ──
-function openAddRuleModal() {
-  if (!currentZoneId) {
-    toast('Select a domain first', 'error');
-    return;
-  }
-  $('addRuleModal').classList.add('active');
-  $('ruleSpecificAddress').value = '';
-  $('ruleSpecificAddress').classList.add('hidden');
-  $('rulePatternType').value = 'catchall';
-  $('ruleWorkerName').value = 'dornorium';
-}
-
-function toggleRulePattern() {
-  const type = $('rulePatternType').value;
-  const field = $('specificAddressField');
-  if (type === 'specific') {
-    field.classList.remove('hidden');
-  } else {
-    field.classList.add('hidden');
-  }
-}
+// ── Create Routing Rule ──
+$('routeSpecific').addEventListener('change', () => {
+  $('specificAddress').classList.remove('hidden');
+});
+$('routeCatchall').addEventListener('change', () => {
+  $('specificAddress').classList.add('hidden');
+});
 
 async function createRule() {
-  const type = $('rulePatternType').value;
+  const type = document.querySelector('input[name="routeType"]:checked').value;
   let pattern = '*';
   
   if (type === 'specific') {
-    pattern = $('ruleSpecificAddress').value.trim();
+    pattern = $('specificAddress').value.trim();
     if (!pattern || !pattern.includes('@')) {
-      toast('Enter a valid email address', 'error');
+      alert('Enter a valid email address (e.g., support@example.com)');
       return;
     }
   }
   
-  const workerName = $('ruleWorkerName').value.trim() || 'dornorium';
-  
   try {
+    // Get worker name from URL or use default
+    const workerName = new URL(API_BASE).hostname.split('.')[0] || 'dornorium';
+    
     const res = await fetch(`${API_BASE}/api/admin/setup/routing-rule`, {
-      method: 'POST',
+      method: 'POST', 
       headers: headers(),
-      body: JSON.stringify({
-        zoneId: currentZoneId,
-        emailPattern: pattern,
-        workerName: workerName
+      body: JSON.stringify({ 
+        zoneId, 
+        emailPattern: pattern, 
+        workerName: workerName 
       })
     });
     const data = await res.json();
     
     if (!data.success) throw new Error(data.error || 'Failed to create rule');
     
-    closeModal('addRuleModal');
-    toast('✅ Rule created successfully');
-    loadDomainRules();
+    log('✅ Routing rule created', 'ok');
+    
+    $('summary').innerHTML = `
+      <strong>Domain:</strong> ${domainName}<br/>
+      <strong>Zone ID:</strong> <code style="background:var(--bg);padding:2px 6px;border-radius:3px;font-size:12px;">${zoneId}</code><br/>
+      <strong>Rule:</strong> ${pattern === '*' ? 'Catch-all (*@domain.com) → Worker' : `${pattern} → Worker`}<br/>
+      <strong>Status:</strong> <span style="color:var(--success);">Active ✅</span>
+    `;
+    
+    // Save to settings
+    try {
+      await fetch(`${API_BASE}/api/admin/settings`, {
+        method: 'PUT',
+        headers: headers(),
+        body: JSON.stringify({
+          settings: [
+            { category: 'cloudflare', key: 'zone_id', value: zoneId },
+            { category: 'cloudflare', key: 'domain', value: domainName }
+          ]
+        })
+      });
+      log('✅ Configuration saved to settings', 'ok');
+    } catch (e) {
+      log('⚠️ Could not save to settings: ' + e.message, 'err');
+    }
+    
+    setStep(6);
+    
   } catch (e) {
-    toast('❌ ' + e.message, 'error');
+    alert('Failed to create rule: ' + e.message);
   }
 }
 
-// ── Toggle Rule ──
-async function toggleRule(ruleId) {
-  const rule = currentRules.find(r => r.id === ruleId);
-  if (!rule) return;
-  
-  const newStatus = !rule.enabled;
-  
-  try {
-    const res = await fetch(`${API_BASE}/api/admin/setup/routing-rule/${ruleId}`, {
-      method: 'PUT',
-      headers: headers(),
-      body: JSON.stringify({
-        zoneId: currentZoneId,
-        enabled: newStatus
-      })
-    });
-    const data = await res.json();
-    
-    if (!data.success) throw new Error(data.error || 'Failed to update rule');
-    
-    toast(`✅ Rule ${newStatus ? 'activated' : 'deactivated'}`);
-    loadDomainRules();
-  } catch (e) {
-    toast('❌ ' + e.message, 'error');
-  }
+// ── Reset ──
+function resetWizard() {
+  zoneId = ''; 
+  domainName = ''; 
+  domainExists = false;
+  existingZoneData = null;
+  stopPolling();
+  clearLog();
+  $('domainInput').value = '';
+  $('specificAddress').value = '';
+  $('specificAddress').classList.add('hidden');
+  $('routeCatchall').checked = true;
+  $('domainCheckResult').classList.add('hidden');
+  $('btnUseExisting').classList.add('hidden');
+  $('btnAddDomain').disabled = true;
+  hideError();
+  setStep(1);
 }
 
-// ── Edit Rule ──
-function openEditRuleModal(ruleId) {
-  const rule = currentRules.find(r => r.id === ruleId);
-  if (!rule) return;
-  
-  editingRuleId = ruleId;
-  const modal = $('editRuleModal');
-  const content = $('editRuleContent');
-  
-  const pattern = rule.matchers && rule.matchers.length > 0 
-    ? rule.matchers.map(m => m.type === 'all' ? '*@*' : m.value || m.field || 'all').join(', ')
-    : 'all';
-  const action = rule.actions && rule.actions.length > 0 
-    ? rule.actions.map(a => a.type + (a.value ? ':' + a.value.join(',') : '')).join(', ')
-    : 'worker';
-  
-  content.innerHTML = `
-    <label>Pattern</label>
-    <div style="font-family:monospace;padding:10px 12px;background:var(--bg);border-radius:6px;margin-bottom:16px;">${pattern}</div>
-    <label>Action</label>
-    <div style="font-family:monospace;padding:10px 12px;background:var(--bg);border-radius:6px;margin-bottom:16px;">${action}</div>
-    <label>Status</label>
-    <select id="editRuleStatus">
-      <option value="true" ${rule.enabled !== false ? 'selected' : ''}>Active</option>
-      <option value="false" ${rule.enabled === false ? 'selected' : ''}>Inactive</option>
-    </select>
-  `;
-  
-  modal.classList.add('active');
-}
-
-async function saveRuleEdit() {
-  const enabled = $('editRuleStatus').value === 'true';
-  
-  try {
-    const res = await fetch(`${API_BASE}/api/admin/setup/routing-rule/${editingRuleId}`, {
-      method: 'PUT',
-      headers: headers(),
-      body: JSON.stringify({
-        zoneId: currentZoneId,
-        enabled: enabled
-      })
-    });
-    const data = await res.json();
-    
-    if (!data.success) throw new Error(data.error || 'Failed to update rule');
-    
-    closeModal('editRuleModal');
-    toast('✅ Rule updated');
-    loadDomainRules();
-  } catch (e) {
-    toast('❌ ' + e.message, 'error');
-  }
-}
-
-// ── Delete Rule ──
-async function deleteRule(ruleId) {
-  if (!confirm('Delete this routing rule?')) return;
-  
-  try {
-    const res = await fetch(`${API_BASE}/api/admin/setup/routing-rule/${ruleId}`, {
-      method: 'DELETE',
-      headers: headers(),
-      body: JSON.stringify({ zoneId: currentZoneId })
-    });
-    const data = await res.json();
-    
-    if (!data.success) throw new Error(data.error || 'Failed to delete rule');
-    
-    toast('✅ Rule deleted');
-    loadDomainRules();
-  } catch (e) {
-    toast('❌ ' + e.message, 'error');
-  }
-}
+// ── Auto-check domain on input ──
+let debounceTimer;
+$('domainInput').addEventListener('input', function() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    if (this.value.trim().length > 3) {
+      checkDomain();
+    }
+  }, 1000);
+});
 
 // ── Init ──
-refreshDomains();
+log(`✅ Logged in as ${currentUser.name || currentUser.email}`, 'ok');
 
-// Close modals on backdrop click
-document.querySelectorAll('.modal').forEach(modal => {
-  modal.addEventListener('click', function(e) {
-    if (e.target === this) {
-      this.classList.remove('active');
+// Check if Cloudflare API token is configured
+(async function checkCloudflareToken() {
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/setup/verify-token`, {
+      headers: headers()
+    });
+    const data = await res.json();
+    
+    if (!data.success) {
+      log('❌ Cloudflare API token not configured or invalid. Please set CLOUDFLARE_API_TOKEN in Worker environment variables.', 'err');
+      showError('⚠️ Cloudflare API token not configured. Please set CLOUDFLARE_API_TOKEN in your Worker environment variables.');
+    } else {
+      log('✅ Cloudflare API token verified', 'ok');
     }
-  });
-});
+  } catch (e) {
+    log('⚠️ Could not verify Cloudflare token: ' + e.message, 'err');
+  }
+})();
 </script>
 </body>
 </html>
