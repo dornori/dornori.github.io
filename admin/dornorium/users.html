@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Users – Dornorium</title>
     <link rel="stylesheet" href="style.css" />
-    
+    <script src="config.js"></script>
+    <script src="dornoriumconfig.js"></script>
     <script src="shared.js"></script>
     <style>
         .container { max-width: 1400px !important; }
@@ -88,7 +89,7 @@
 <div class="container">
     <div id="toast" class="toast"></div>
     <div class="header">
-        <h1 class="brand-logo"><a href="https://www.dornori.info/dornorium" class="brand-logo-link"><span class="brand-icon">👥  </span><span class="brand-text">Dornorium</span></a></h1>
+        <h1>👥 User Management</h1>
         <div class="header-right">
             <div class="nav-links">
                 <a id="nav-dashboard" href="dashboard.html">🎫 <span>Dashboard</span></a>
@@ -96,18 +97,8 @@
                 <a id="nav-newsletter" href="newsletter.html">📧 <span>Newsletter</span></a>
                 <a id="nav-order-reply" href="order-reply.html">📦 <span>Order Reply</span></a>
                 <a id="nav-settings" href="settings.html">⚙️ <span>Settings</span></a>
-                <a id="nav-users" href="users.html" class="active">👥 <span>Users</span></a>
+                <a id="nav-users" href="users.html" style="display:none;">👥 <span>Users</span></a>
             </div>
-            <script>
-            (function(){
-                document.querySelectorAll('.nav-links a').forEach(function(a){
-                    if (a.classList.contains('active')) return;
-                    fetch(a.getAttribute('href'), { method: 'HEAD' })
-                        .then(function(res){ if (!res.ok) a.style.display = 'none'; })
-                        .catch(function(){ a.style.display = 'none'; });
-                });
-            })();
-            </script>
             <div class="nav-actions">
                 <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
                 <div id="userDisplay"></div>
@@ -305,12 +296,6 @@
 </div>
 
 <script>
-    // ─── ENSURE SHARED.JS HAS LOADED ───────────────────────────
-    if (!window.API_BASE) {
-        console.error('shared.js did not load properly or config.json is missing');
-        throw new Error('API_BASE not available - check shared.js and config.json');
-    }
-
     // ─── PAGE ACCESS CHECK ──────────────────────────────────────
     (function() {
         if (!checkPageAccess('users')) return;
@@ -328,7 +313,7 @@
     const storedUser = localStorage.getItem('user');
     let currentUser = storedUser ? JSON.parse(storedUser) : null;
 
-    // hasPageAccess() comes from shared.js
+    function hasPageAccess(page) { return hasAccess(page, 'view'); }
     function hasPermission(resource, action) { return hasAccess(resource, action); }
 
     const hasUsersAccess = hasAccess('users', 'view');
@@ -513,7 +498,7 @@
     // ─── LOAD DATA ───────────────────────────────────────────────
     async function apiCall(path, opts = {}) {
         opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
-        const res = await fetch(window.API_BASE + path, opts);
+        const res = await fetch(API_BASE + path, opts);
         if (res.status === 401) { localStorage.removeItem('token'); throw new Error('Unauthorized'); }
         if (res.status === 403) { throw new Error('Permission denied'); }
         return res.json();
@@ -580,7 +565,7 @@
         try {
             await loadSettings();
 
-            const usersRes = await fetch(window.API_BASE + '/api/admin/users', {
+            const usersRes = await fetch(API_BASE + '/api/admin/users', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
 
@@ -595,7 +580,7 @@
                 allUsers = usersData.users || [];
             }
 
-            const emailsRes = await fetch(window.API_BASE + '/api/admin/email-addresses?active_only=true', {
+            const emailsRes = await fetch(API_BASE + '/api/admin/email-addresses?active_only=true', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
             if (emailsRes.ok) {
@@ -857,7 +842,6 @@
             showErrorPopup('Permission Denied', 'You do not have permission to add users');
             return;
         }
-        
         const email = document.getElementById('newEmail').value.trim();
         const name = document.getElementById('newName').value.trim();
         const password = document.getElementById('newPassword').value;
@@ -877,18 +861,10 @@
         if (['agent', 'tl'].includes(role) && emails.length === 0) { errorEl.textContent = 'Agents/TLs must have email addresses'; return; }
         if (role === 'tl' && !teamId) { errorEl.textContent = 'Team Leaders must have a team'; return; }
         
-        // Ensure languages are loaded
-        if (!languagesLoaded || languageList.length === 0) {
-            console.warn('Languages not loaded yet, attempting reload...');
-            await loadSettings();
-        }
-        
         const validLangCodes = languageList.map(l => l.code);
-        console.log('Valid language codes:', validLangCodes, 'Selected:', langs);
         for (const lang of langs) {
             if (!validLangCodes.includes(lang)) {
                 errorEl.textContent = `Invalid language: ${lang}`;
-                console.error(`Language validation failed. "${lang}" not in`, validLangCodes);
                 return;
             }
         }
@@ -901,10 +877,7 @@
         }
 
         try {
-            const url = window.API_BASE + '/api/admin/users';
-            console.log('POST:', url);
-            
-            const res = await fetch(url, {
+            const res = await fetch(API_BASE + '/api/admin/users', {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -926,8 +899,7 @@
                 showErrorPopup('Error', data.error || 'Failed to add user');
             }
         } catch (e) {
-            errorEl.textContent = 'Network error: ' + e.message;
-            console.error('addUser error:', e);
+            errorEl.textContent = 'Network error';
             showErrorPopup('Network Error', e.message);
         }
     }
@@ -938,7 +910,6 @@
             showErrorPopup('Permission Denied', 'You do not have permission to edit users');
             return;
         }
-        
         const name = document.getElementById('editName').value.trim();
         const role = document.getElementById('editRole').value;
         const teamId = document.getElementById('editTeamId').value.trim() || null;
@@ -954,18 +925,10 @@
         if (['agent', 'tl'].includes(role) && emails.length === 0) { errorEl.textContent = 'Agents/TLs must have email addresses'; return; }
         if (role === 'tl' && !teamId) { errorEl.textContent = 'Team Leaders must have a team'; return; }
         
-        // Ensure languages are loaded
-        if (!languagesLoaded || languageList.length === 0) {
-            console.warn('Languages not loaded yet, attempting reload...');
-            await loadSettings();
-        }
-        
         const validLangCodes = languageList.map(l => l.code);
-        console.log('Valid language codes:', validLangCodes, 'Selected:', langs);
         for (const lang of langs) {
             if (!validLangCodes.includes(lang)) {
                 errorEl.textContent = `Invalid language: ${lang}`;
-                console.error(`Language validation failed. "${lang}" not in`, validLangCodes);
                 return;
             }
         }
@@ -978,7 +941,7 @@
         }
         
         try {
-            const res = await fetch(`${window.API_BASE}/api/admin/users/${encodeURIComponent(editingEmail)}`, {
+            const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(editingEmail)}`, {
                 method: 'PUT',
                 headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1000,8 +963,7 @@
                 showErrorPopup('Error', data.error || 'Failed to save user');
             }
         } catch (e) {
-            errorEl.textContent = 'Network error: ' + e.message;
-            console.error('saveUser error:', e);
+            errorEl.textContent = 'Network error';
             showErrorPopup('Network Error', e.message);
         }
     }
@@ -1015,7 +977,7 @@
         if (!confirm(`Delete user ${email}? This cannot be undone.`)) return;
 
         try {
-            const res = await fetch(`${window.API_BASE}/api/admin/users/${encodeURIComponent(email)}`, {
+            const res = await fetch(`${API_BASE}/api/admin/users/${encodeURIComponent(email)}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -1027,7 +989,6 @@
                 showErrorPopup('Error', 'Failed to delete user');
             }
         } catch (e) {
-            console.error('deleteUser error:', e);
             showErrorPopup('Network Error', e.message);
         }
     }
@@ -1080,14 +1041,6 @@
     window.removeNewEmail = removeNewEmail;
     window.removeEditEmail = removeEditEmail;
     window.logout = logout;
-</script>
-<div class="dornorium-brand" style="text-align:center;padding:16px 0 10px;border-top:1px solid #eee;margin-top:24px;font-size:11px;color:#999;" data-token="d7f3a9c2e1b8f4">
-    <img src="/dornorium/assets/icons/favicon-16x16.png" alt="Dornorium" style="display:inline-block;vertical-align:middle;margin-right:6px;">
-    <span style="vertical-align:middle;">Powered by <a href="https://www.dornori.info/dornorium" target="_blank" style="color:#666;text-decoration:none;font-weight:600;">Dornorium</a></span>
-    <span style="margin:0 8px;color:#ddd;">&middot;</span>
-</div>
-<script>
-document.addEventListener('DOMContentLoaded',function(){var b=document.querySelector('[data-token="d7f3a9c2e1b8f4"]');if(!b){console.warn('Branding removed — license required: https://www.dornori.info/dornorium');var style=document.createElement('style');style.textContent='body{filter:blur(2px);pointer-events:none;opacity:.5}body::after{content:"License required";position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:red;font-size:24px;font-weight:bold;background:white;padding:20px;border-radius:8px;z-index:9999}';document.head.appendChild(style);}});
 </script>
 </body>
 </html>
