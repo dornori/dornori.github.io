@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Email Routing Setup Wizard</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --border: #334155;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg); color: var(--text);
+      display: flex; justify-content: center; padding: 40px 16px;
+    }
+    .container {
+      width: 100%; max-width: 720px;
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 12px; padding: 32px;
+    }
+    h1 { margin: 0 0 8px; font-size: 22px; }
+    .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 14px; }
+    .step {
+      display: none;
+      animation: fadeIn .25s ease;
+    }
+    .step.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    input[type="text"], input[type="password"], input[type="email"] {
+      width: 100%; padding: 10px 12px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg); color: var(--text);
+      font-size: 14px; margin-bottom: 16px;
+    }
+    input:focus { outline: none; border-color: var(--accent); }
+    button {
+      background: var(--accent); color: #fff; border: none;
+      padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: background .15s;
+    }
+    button:hover { background: var(--accent-hover); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-secondary { background: var(--border); margin-left: 8px; }
+    .btn-secondary:hover { background: #475569; }
+    .progress {
+      display: flex; gap: 8px; margin-bottom: 28px;
+    }
+    .progress-dot {
+      flex: 1; height: 4px; border-radius: 2px; background: var(--border);
+      transition: background .3s;
+    }
+    .progress-dot.done { background: var(--success); }
+    .progress-dot.active { background: var(--accent); }
+    .card {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px; margin-bottom: 16px;
+    }
+    .card h3 { margin: 0 0 10px; font-size: 15px; }
+    .nameserver {
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      background: #0b1220; padding: 10px 14px; border-radius: 6px;
+      border: 1px dashed var(--border); margin-bottom: 8px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .copy-btn {
+      font-size: 12px; padding: 4px 10px; background: var(--border);
+      border-radius: 4px; cursor: pointer; border: none; color: var(--text);
+    }
+    .status {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 600; padding: 6px 10px;
+      border-radius: 6px; background: var(--bg); border: 1px solid var(--border);
+    }
+    .status.success { color: var(--success); border-color: rgba(34,197,94,.25); }
+    .status.warn { color: var(--warning); border-color: rgba(245,158,11,.25); }
+    .status.error { color: var(--danger); border-color: rgba(239,68,68,.25); }
+    .log {
+      background: #0b1220; border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px; font-family: monospace;
+      font-size: 12px; color: var(--muted); max-height: 220px;
+      overflow-y: auto; white-space: pre-wrap; margin-top: 16px;
+    }
+    .log .ok { color: var(--success); }
+    .log .err { color: var(--danger); }
+    .log .info { color: var(--accent); }
+    .checkbox-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .checkbox-row input { width: auto; margin: 0; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📧 Email Routing Setup Wizard</h1>
+    <div class="subtitle">Connect a domain to Cloudflare and route mail to your Worker automatically.</div>
+
+    <div class="progress" id="progressBar">
+      <div class="progress-dot active"></div>
+      <div class="progress-dot"></div>
+      <div class="progress-dot"></div>
+      <div class="progress-dot"></div>
+      <div class="progress-dot"></div>
+      <div class="progress-dot"></div>
+    </div>
+
+    <!-- STEP 1: Login -->
+    <div class="step active" id="step1">
+      <label>Admin JWT Token</label>
+      <input type="password" id="jwtToken" placeholder="Paste your /api/admin/login token here" />
+      <label>Worker API Base URL</label>
+      <input type="text" id="apiBase" placeholder="https://your-worker.your-subdomain.workers.dev" />
+      <div class="checkbox-row">
+        <input type="checkbox" id="remember" checked />
+        <label for="remember" style="margin:0;font-weight:400;text-transform:none;color:var(--muted);">Save to browser session</label>
+      </div>
+      <button onclick="verifyToken()">Verify & Continue</button>
+    </div>
+
+    <!-- STEP 2: Domain -->
+    <div class="step" id="step2">
+      <label>Domain to add</label>
+      <input type="text" id="domainInput" placeholder="example.com" />
+      <button onclick="addDomain()">Add Domain to Cloudflare</button>
+      <button class="btn-secondary" onclick="prevStep(1)">Back</button>
+    </div>
+
+    <!-- STEP 3: Nameservers -->
+    <div class="step" id="step3">
+      <div class="card">
+        <h3>⚠️ Manual action required at your registrar</h3>
+        <p style="margin:0 0 14px;color:var(--muted);font-size:14px;">
+          Change your domain’s nameservers to the two below. This is the only manual step.
+        </p>
+        <div id="nsList"></div>
+      </div>
+      <button onclick="startPolling()">I’ve updated the nameservers → Check Status</button>
+      <button class="btn-secondary" onclick="prevStep(2)">Back</button>
+    </div>
+
+    <!-- STEP 4: Activation polling -->
+    <div class="step" id="step4">
+      <p>Waiting for Cloudflare to detect the new nameservers…</p>
+      <div class="status warn" id="pollStatus">⏳ Checking every 10 seconds</div>
+      <div class="log" id="pollLog"></div>
+      <button class="btn-secondary" onclick="stopPolling(); prevStep(3)">Cancel</button>
+    </div>
+
+    <!-- STEP 5: Enable Email Routing -->
+    <div class="step" id="step5">
+      <p>Domain is active. Enable Email Routing now?</p>
+      <button onclick="enableRouting()">Enable Email Routing</button>
+      <button class="btn-secondary" onclick="prevStep(4)">Back</button>
+    </div>
+
+    <!-- STEP 6: Create routing rule -->
+    <div class="step" id="step6">
+      <label>Route emails to Worker</label>
+      <div class="card" style="font-size:14px;">
+        <div class="checkbox-row">
+          <input type="radio" name="routeType" value="catchall" id="routeCatchall" checked />
+          <label for="routeCatchall" style="margin:0;font-weight:400;text-transform:none;">Catch-all (<code>*@domain.com</code>) → Worker</label>
+        </div>
+        <div class="checkbox-row">
+          <input type="radio" name="routeType" value="specific" id="routeSpecific" />
+          <label for="routeSpecific" style="margin:0;font-weight:400;text-transform:none;">Specific address only</label>
+        </div>
+        <input type="text" id="specificAddress" placeholder="support@example.com" class="hidden" />
+      </div>
+      <button onclick="createRule()">Create Routing Rule</button>
+      <button class="btn-secondary" onclick="prevStep(5)">Back</button>
+    </div>
+
+    <!-- STEP 7: Done -->
+    <div class="step" id="step7">
+      <div class="card">
+        <h3 class="ok" style="color:var(--success)">✅ Setup Complete</h3>
+        <p style="margin:0;color:var(--muted);font-size:14px;">
+          Incoming emails to this domain will now hit your Worker.
+        </p>
+        <div id="summary" style="margin-top:12px;font-size:13px;"></div>
+      </div>
+      <button onclick="resetWizard()">Set up another domain</button>
+    </div>
+
+    <div class="log hidden" id="globalLog"></div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const api = path => `${$('apiBase').value.replace(/\/+$/, '')}${path}`;
+    const headers = () => ({ 'Authorization': `Bearer ${$('jwtToken').value}`, 'Content-Type': 'application/json' });
+
+    let zoneId = '';
+    let domainName = '';
+    let pollTimer = null;
+
+    function setStep(n) {
+      document.querySelectorAll('.step').forEach((el, i) => el.classList.toggle('active', i + 1 === n));
+      document.querySelectorAll('.progress-dot').forEach((el, i) => {
+        el.classList.toggle('done', i < n - 1);
+        el.classList.toggle('active', i === n - 1);
+      });
+    }
+    function prevStep(n) { setStep(n); }
+    function log(id, msg, cls = 'info') {
+      const el = $(id);
+      el.classList.remove('hidden');
+      el.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+      el.scrollTop = el.scrollHeight;
+    }
+    function clearLog(id) { $(id).textContent = ''; }
+
+    async function verifyToken() {
+      const base = $('apiBase').value.trim();
+      const token = $('jwtToken').value.trim();
+      if (!base || !token) return alert('Enter both API base URL and JWT token.');
+      try {
+        const res = await fetch(api('/api/admin/setup/verify-token'), { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Token invalid');
+        if ($('remember').checked) {
+          sessionStorage.setItem('er_jwt', token);
+          sessionStorage.setItem('er_base', base);
+        }
+        log('globalLog', 'Cloudflare API token verified.', 'ok');
+        setStep(2);
+      } catch (e) {
+        alert('Verification failed: ' + e.message);
+      }
+    }
+
+    async function addDomain() {
+      const d = $('domainInput').value.trim().toLowerCase();
+      if (!d) return alert('Enter a domain.');
+      domainName = d;
+      try {
+        const res = await fetch(api('/api/admin/setup/cloudflare-zone'), {
+          method: 'POST', headers: headers(), body: JSON.stringify({ domain: d })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        zoneId = data.zoneId;
+        const ns = data.nameServers || [];
+        $('nsList').innerHTML = ns.map(s => `
+          <div class="nameserver">
+            <span>${s}</span>
+            <button class="copy-btn" onclick="navigator.clipboard.writeText('${s}')">Copy</button>
+          </div>`).join('');
+        log('globalLog', `Zone created: ${zoneId}`, 'ok');
+        setStep(3);
+      } catch (e) {
+        alert('Failed to add domain: ' + e.message);
+      }
+    }
+
+    function startPolling() {
+      setStep(4);
+      clearLog('pollLog');
+      log('pollLog', 'Polling started…', 'info');
+      pollTimer = setInterval(async () => {
+        try {
+          const res = await fetch(api(`/api/admin/setup/cloudflare-zone/${zoneId}`), { headers: headers() });
+          const data = await res.json();
+          if (!data.success) throw new Error(data.error);
+          const st = data.status;
+          log('pollLog', `Status: ${st}`, st === 'active' ? 'ok' : 'info');
+          if (st === 'active') {
+            stopPolling();
+            setStep(5);
+          }
+        } catch (e) {
+          log('pollLog', 'Error: ' + e.message, 'err');
+        }
+      }, 10000);
+    }
+    function stopPolling() { if (pollTimer) clearInterval(pollTimer); }
+
+    async function enableRouting() {
+      try {
+        const res = await fetch(api('/api/admin/setup/email-routing'), {
+          method: 'POST', headers: headers(), body: JSON.stringify({ zoneId })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        log('globalLog', 'Email Routing enabled.', 'ok');
+        setStep(6);
+      } catch (e) {
+        alert('Failed to enable Email Routing: ' + e.message);
+      }
+    }
+
+    $('routeSpecific').addEventListener('change', () => $('specificAddress').classList.remove('hidden'));
+    $('routeCatchall').addEventListener('change', () => $('specificAddress').classList.add('hidden'));
+
+    async function createRule() {
+      const type = document.querySelector('input[name="routeType"]:checked').value;
+      const pattern = type === 'catchall' ? '*' : ($('specificAddress').value.trim() || '*');
+      try {
+        const res = await fetch(api('/api/admin/setup/routing-rule'), {
+          method: 'POST', headers: headers(),
+          body: JSON.stringify({ zoneId, emailPattern: pattern })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        log('globalLog', 'Routing rule created.', 'ok');
+        $('summary').innerHTML = `
+          <strong>Domain:</strong> ${domainName}<br/>
+          <strong>Zone ID:</strong> <code>${zoneId}</code><br/>
+          <strong>Rule:</strong> ${pattern === '*' ? 'Catch-all → Worker' : pattern + ' → Worker'}
+        `;
+        setStep(7);
+      } catch (e) {
+        alert('Failed to create rule: ' + e.message);
+      }
+    }
+
+    function resetWizard() {
+      zoneId = ''; domainName = ''; stopPolling();
+      clearLog('globalLog'); clearLog('pollLog');
+      $('domainInput').value = '';
+      $('specificAddress').value = '';
+      setStep(2);
+    }
+
+    // Restore session
+    (function init() {
+      const savedJwt = sessionStorage.getItem('er_jwt');
+      const savedBase = sessionStorage.getItem('er_base');
+      if (savedJwt && savedBase) {
+        $('jwtToken').value = savedJwt;
+        $('apiBase').value = savedBase;
+      }
+    })();
+  </script>
+</body>
+</html>
