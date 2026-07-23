@@ -201,9 +201,16 @@ if (purgeBtn) purgeBtn.disabled = !canEditSettings();
 async function api(path, opts = {}) {
     opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
     const res = await fetch(API_BASE + path, opts);
+    // Clone response to avoid "body already used" error
+    const clonedRes = res.clone();
     if (res.status === 401) { localStorage.removeItem('token'); throw new Error('Unauthorized'); }
     if (res.status === 403) { throw new Error('Permission denied'); }
-    return res.json();
+    try {
+        return await clonedRes.json();
+    } catch (e) {
+        // If response is not JSON, return empty object
+        return {};
+    }
 }
 
 // ── Toast ──
@@ -1019,7 +1026,7 @@ async function updateMapping(email, category, language) {
             if (category !== null) updates.category = category;
             if (language !== null) updates.language = language;
             
-            await api(`/api/admin/email-addresses/${existing.id}`, {
+            const res = await api(`/api/admin/email-addresses/${existing.id}`, {
                 method: 'PUT',
                 body: JSON.stringify({
                     email: existing.email,
@@ -1029,10 +1036,31 @@ async function updateMapping(email, category, language) {
                     is_active: existing.is_active ? 1 : 0
                 })
             });
-            toast('✅ Mapping updated');
+            
+            if (res.success) {
+                toast('✅ Mapping updated');
+                // Update local data without reloading the whole page
+                if (category !== null) existing.action = category;
+                if (language !== null) existing.language = language;
+                
+                // Update dropdown UI
+                const row = document.querySelector(`.email-row[data-email="${email}"]`);
+                if (row) {
+                    if (category !== null) {
+                        const catSelect = row.querySelector('.category-select');
+                        if (catSelect) catSelect.value = category;
+                    }
+                    if (language !== null) {
+                        const langSelect = row.querySelector('.language-select');
+                        if (langSelect) langSelect.value = language;
+                    }
+                }
+            } else {
+                toast('❌ ' + (res.error || 'Failed'), 'error');
+            }
         } else if (category && language) {
             // Create new mapping
-            await api('/api/admin/email-addresses', {
+            const res = await api('/api/admin/email-addresses', {
                 method: 'POST',
                 body: JSON.stringify({
                     email: email,
@@ -1041,16 +1069,19 @@ async function updateMapping(email, category, language) {
                     language: language
                 })
             });
-            toast('✅ Mapping created');
+            if (res.success) {
+                toast('✅ Mapping created');
+                // Reload data to get the new mapping
+                const [sd, ed] = await Promise.all([api('/api/admin/settings'), api('/api/admin/email-addresses')]);
+                settings = sd.settings || [];
+                emailAddresses = ed.addresses || [];
+                // Rebuild the UI
+                const panel = document.getElementById('panel-email');
+                if (panel) panel.innerHTML = await buildEmailTab();
+            } else {
+                toast('❌ ' + (res.error || 'Failed'), 'error');
+            }
         }
-        
-        // Reload
-        const [sd, ed] = await Promise.all([api('/api/admin/settings'), api('/api/admin/email-addresses')]);
-        settings = sd.settings || [];
-        emailAddresses = ed.addresses || [];
-        const panel = document.getElementById('panel-email');
-        if (panel) panel.innerHTML = await buildEmailTab();
-        
     } catch (e) {
         toast('❌ ' + e.message, 'error');
     }
@@ -1092,7 +1123,7 @@ async function addEmail() {
         }
         
         // 2. Create DB mapping
-        await api('/api/admin/email-addresses', {
+        const dbRes = await api('/api/admin/email-addresses', {
             method: 'POST',
             body: JSON.stringify({
                 email: email,
@@ -1102,14 +1133,18 @@ async function addEmail() {
             })
         });
         
-        toast(`✅ ${cloudflareCreated ? 'Email added with Cloudflare rule' : 'Email added (no Cloudflare rule)'}`);
-        
-        // Reload
-        await load();
-        const panel = document.getElementById('panel-email');
-        if (panel) panel.innerHTML = await buildEmailTab();
-        
-        document.getElementById('newEmailAddr').value = '';
+        if (dbRes.success) {
+            toast(`✅ ${cloudflareCreated ? 'Email added with Cloudflare rule' : 'Email added (no Cloudflare rule)'}`);
+            
+            // Reload everything
+            await load();
+            const panel = document.getElementById('panel-email');
+            if (panel) panel.innerHTML = await buildEmailTab();
+            
+            document.getElementById('newEmailAddr').value = '';
+        } else {
+            toast('❌ Failed to add DB mapping: ' + (dbRes.error || 'Unknown'), 'error');
+        }
         
     } catch (e) {
         toast('❌ ' + e.message, 'error');
@@ -1122,16 +1157,22 @@ async function deleteEmail(email, ruleId) {
     try {
         // 1. Delete Cloudflare rule if exists
         if (ruleId && configuredZoneId) {
-            await api(`/api/admin/setup/routing-rule/${ruleId}`, {
+            const cfRes = await api(`/api/admin/setup/routing-rule/${ruleId}`, {
                 method: 'DELETE',
                 body: JSON.stringify({ zoneId: configuredZoneId })
             });
+            if (!cfRes.success) {
+                toast('⚠️ Cloudflare rule delete failed: ' + (cfRes.error || 'Unknown'), 'warning');
+            }
         }
         
         // 2. Delete DB mapping
         const existing = emailAddresses.find(a => a.email.toLowerCase() === email.toLowerCase());
         if (existing) {
-            await api(`/api/admin/email-addresses/${existing.id}`, { method: 'DELETE' });
+            const dbRes = await api(`/api/admin/email-addresses/${existing.id}`, { method: 'DELETE' });
+            if (!dbRes.success) {
+                toast('⚠️ DB mapping delete failed: ' + (dbRes.error || 'Unknown'), 'warning');
+            }
         }
         
         toast('✅ Deleted');
