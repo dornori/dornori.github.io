@@ -993,27 +993,11 @@ async function toggleCloudflareRule(ruleId, newStatus) {
         return;
     }
     try {
-        // Get the current rule first to get its full structure
-        const listRes = await api(`/api/admin/setup/routing-rules/${configuredZoneId}`);
-        if (!listRes.success) {
-            toast('❌ Failed to get rule', 'error');
-            return;
-        }
-        const rule = listRes.rules.find(r => r.id === ruleId);
-        if (!rule) {
-            toast('❌ Rule not found', 'error');
-            return;
-        }
-        
-        // Update just the enabled status
-        rule.enabled = newStatus;
-        
-        // Send the full rule object
         const res = await api(`/api/admin/setup/routing-rule/${ruleId}`, {
             method: 'PUT',
             body: JSON.stringify({ 
-                zoneId: configuredZoneId,
-                rule: rule
+                zoneId: configuredZoneId, 
+                enabled: newStatus 
             })
         });
         
