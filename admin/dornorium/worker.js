@@ -3242,6 +3242,27 @@ if (path === "/api/admin/setup/verify-token" && method === "GET") {
         }
       }
 
+      // Delete a single DNS record (used to clear conflicting non-Cloudflare MX
+      // records that block Email Routing from being enabled)
+      if (path.startsWith("/api/admin/setup/dns-records/") && method === "DELETE") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const email = await verifyToken(token, env);
+        if (!email) return json({ error: "Unauthorized" }, 401);
+        if (!await checkAccess(email, "settings", "edit", env)) return json({ error: "Permission denied" }, 403);
+
+        const parts = path.split("/");
+        const zoneId = parts[5];
+        const recordId = parts[6];
+        if (!zoneId || !recordId) return json({ error: "zoneId and recordId required" }, 400);
+
+        try {
+          await callCloudflareAPI("DELETE", `/zones/${zoneId}/dns_records/${recordId}`, null, env);
+          return json({ success: true });
+        } catch (e) {
+          return json({ success: false, error: e.message }, 400);
+        }
+      }
+
       // List verified destination addresses (account-level)
       if (path === "/api/admin/setup/destination-addresses" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");

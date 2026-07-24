@@ -971,6 +971,27 @@ async function enableRouting() {
     if (!zoneId) { toast('No zone configured', 'error'); return; }
     
     try {
+        // Cloudflare refuses to enable Email Routing if non-Cloudflare MX records
+        // already exist on the zone. Check first so we can give a clear fix instead
+        // of a raw 400.
+        const dnsCheck = await api(`/api/admin/setup/dns-records/${zoneId}`);
+        if (dnsCheck.success) {
+            const conflictingMx = (dnsCheck.records || []).filter(r =>
+                r.type === 'MX' && !/\.mx\.cloudflare\.net\.?$/i.test(r.content || '')
+            );
+            if (conflictingMx.length) {
+                const list = conflictingMx.map(r => `${r.name} → ${r.content}`).join('\n');
+                if (!confirm(`Existing MX record(s) are blocking Email Routing:\n\n${list}\n\nRemove them and continue?`)) {
+                    toast('Cancelled - remove the conflicting MX records first', 'warning');
+                    return;
+                }
+                for (const r of conflictingMx) {
+                    const del = await api(`/api/admin/setup/dns-records/${zoneId}/${r.id}`, { method: 'DELETE' });
+                    if (!del.success) throw new Error('Failed to remove MX record ' + r.content + ': ' + (del.error || ''));
+                }
+            }
+        }
+        
         const res = await api('/api/admin/setup/email-routing', {
             method: 'POST',
             body: JSON.stringify({ zoneId: zoneId })
