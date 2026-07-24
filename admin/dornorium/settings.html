@@ -963,17 +963,19 @@ function stopPolling() {
 }
 
 async function enableRouting() {
-    if (!setupZoneId) { toast('No zone to enable', 'error'); return; }
+    let zoneId = setupZoneId || configuredZoneId;
+    if (!zoneId) { toast('No zone configured', 'error'); return; }
     
     try {
         const res = await api('/api/admin/setup/email-routing', {
             method: 'POST',
-            body: JSON.stringify({ zoneId: setupZoneId })
+            body: JSON.stringify({ zoneId: zoneId })
         });
         
         if (!res.success) throw new Error(res.error || 'Failed to enable routing');
         
         setupStep = 5;
+        setupZoneId = zoneId;
         toast('✅ Email routing enabled');
         refreshIncomingTab();
         
