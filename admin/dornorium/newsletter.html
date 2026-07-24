@@ -398,7 +398,7 @@
 
     // ─── ESCAPE HTML ─────────────────────────────────────────────
     function esc(s) {
-        return s ? String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : '';
+        return s ? String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;') : '';
     }
 
     // formatDate() comes from shared.js
@@ -428,12 +428,12 @@
     }
 
     // ─── BUILD TAG BAR ──────────────────────────────────────────
-    function buildTagBar() {
+    function buildTagBar(targetId = 'nl_editor') {
         return `<div class="tag-bar">
             <span class="tag-bar-label">Insert tag:</span>
-            <button type="button" class="tag-chip" onclick="insertTag('nl_editor','{{subscriber_email}}')">{{subscriber_email}}</button>
-            <button type="button" class="tag-chip" onclick="insertTag('nl_editor','{{subscriber_name}}')">{{subscriber_name}}</button>
-            <button type="button" class="tag-chip" onclick="insertTag('nl_editor','{{unsubscribe_link}}')">{{unsubscribe_link}}</button>
+            <button type="button" class="tag-chip" onclick="insertTag('${targetId}','{{subscriber_email}}')">{{subscriber_email}}</button>
+            <button type="button" class="tag-chip" onclick="insertTag('${targetId}','{{subscriber_name}}')">{{subscriber_name}}</button>
+            <button type="button" class="tag-chip" onclick="insertTag('${targetId}','{{unsubscribe_link}}')">{{unsubscribe_link}}</button>
         </div>`;
     }
 
@@ -613,7 +613,7 @@
             </div>
             <div class="f-row">
                 <label>Body (HTML)</label>
-                ${buildTagBar()}
+                ${buildTagBar('nl_ar_body')}
                 <textarea id="nl_ar_body" style="width:100%;min-height:120px;padding:9px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;font-family:Menlo,Consolas,monospace;line-height:1.55;resize:vertical;" ${!canEdit ? 'disabled' : ''}>${esc(body)}</textarea>
             </div>
             <div class="f-row">
@@ -622,6 +622,24 @@
                 <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Filename only (e.g., unsubscribe.html). The domain and ?token= will be added automatically.</p>
             </div>
             <button class="btn btn-accent" onclick="saveAutoReply()" ${!canEdit ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Save auto-reply</button>
+        </div>`;
+    }
+
+    // ─── BUILD GENERAL SETTINGS ─────────────────────────────────
+    function buildGeneralSettings() {
+        const batchSize = settings.tickets?.newsletter_batch_size || '10';
+        const canEdit = canEditNewsletter();
+
+        return `<div class="s-card">
+            <div class="s-card-head">
+                <div><h3>⚙️ General Settings</h3></div>
+            </div>
+            <div class="f-row">
+                <label>Newsletter Batch Size</label>
+                <input type="number" id="nl_batch_size" value="${esc(batchSize)}" placeholder="10" ${!canEdit ? 'disabled' : ''} />
+                <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Number of newsletters to send per batch (recommended: 10-100)</p>
+            </div>
+            <button class="btn btn-accent" onclick="saveGeneralSettings()" ${!canEdit ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Save settings</button>
         </div>`;
     }
 
@@ -777,6 +795,7 @@
             </div>
             ${buildHistory()}
             ${buildAutoReply()}
+            ${buildGeneralSettings()}
             ${buildStats()}
             ${buildSubs()}
         `;
@@ -903,6 +922,36 @@
         }
     }
 
+    // ─── SAVE GENERAL SETTINGS ──────────────────────────────────
+    async function saveGeneralSettings() {
+        if (!canEditNewsletter()) {
+            alert('You do not have permission to edit settings');
+            return;
+        }
+        const batchSize = document.getElementById('nl_batch_size').value.trim();
+        if (!batchSize || isNaN(batchSize) || parseInt(batchSize) < 1) {
+            toast('Please enter a valid batch size', 'error');
+            return;
+        }
+        try {
+            const d = await api('/api/admin/settings', {
+                method: 'PUT',
+                body: JSON.stringify([
+                    { category: 'tickets', key: 'newsletter_batch_size', value: batchSize }
+                ])
+            });
+            if (d.success) {
+                toast('✅ General settings saved');
+                settings.tickets = settings.tickets || {};
+                settings.tickets.newsletter_batch_size = batchSize;
+            } else {
+                toast('❌ ' + (d.error || 'Save failed'), 'error');
+            }
+        } catch (e) {
+            toast('❌ ' + e.message, 'error');
+        }
+    }
+
     // ─── SAVE DRAFT ─────────────────────────────────────────────
     async function saveDraft() {
         if (!canCreateNewsletter()) {
@@ -1006,6 +1055,7 @@
     window.executeSend = executeSend;
     window.saveDraft = saveDraft;
     window.saveAutoReply = saveAutoReply;
+    window.saveGeneralSettings = saveGeneralSettings;
     window.loadNewsletter = loadNewsletter;
     window.deleteNewsletter = deleteNewsletter;
     window.delSub = delSub;
