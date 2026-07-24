@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beginner's Guide: Setting Up Your Gmail API Web App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        h1, h2, h3 {
+            color: #1a73e8;
+        }
+        h1 {
+            border-bottom: 2px solid #1a73e8;
+            padding-bottom: 10px;
+        }
+        .step {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        code {
+            background: #eee;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #d93025;
+        }
+        .code-container {
+            position: relative;
+            margin: 15px 0;
+        }
+        pre {
+            background: #272822;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 0;
+        }
+        pre code {
+            background: transparent;
+            color: #f8f8f2;
+            padding: 0;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #1a73e8;
+            color: #fff;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: background 0.2s;
+        }
+        .copy-btn:hover {
+            background: #1557b0;
+        }
+        .screenshot-container {
+            margin: 15px 0;
+            text-align: center;
+        }
+        .screenshot-container img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .note {
+            background: #fef7e0;
+            border-left: 4px solid #f9ab00;
+            padding: 10px 15px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Ultimate Beginner's Guide: Setting Up Your Gmail API Web App</h1>
+    <p>Welcome! This guide will walk you through setting up a Google Apps Script that acts as a private API to send emails from your custom domain.</p>
+
+    <!-- STEP 1 -->
+    <div class="step">
+        <h2>Step 1: Create a Google Apps Script Project</h2>
+        <ol>
+            <li>Go to <a href="https://script.google.com" target="_blank">script.google.com</a> and sign in with your Google account.</li>
+            <li>Click the blue <strong>+ New project</strong> button in the top-left corner.</li>
+        </ol>
+        
+        <div class="screenshot-container">
+            <img src="googleApps-new-project-screen.png" alt="Google Apps Script Dashboard showing the New project button">
+        </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="step">
+        <h2>Step 2: Paste Your Code and Save</h2>
+        <ol>
+<li>Paste the code block shown below into the editor (use the copy button right on the code block!):</li>
+        
+<li>Then change the default credentials to your own liking - keep standard security recommendations in mind eg DO NOT! set "PASSWORD123" etc.</li>
+
+            <li>SECRET_KEY: "YourSecretKey123",  // Change this to your private security secret</li>
+            <li>  API_USERNAME: "user",             // Change this to your desired API username</li>
+            <li>  API_PASSWORD: "SomePassword"      // Change this to your desired API password</li>
+
+            <li>Make sure you store these 3 credentials somewhere you will need these when setting up Dornorium</li>
+
+            <li>Delete any text currently inside the Google App code editor.</li>
+            </ol>
+
+        <div class="code-container">
+            <button class="copy-btn" onclick="copyCode(this)">Copy Code</button>
+            <pre><code>/********************************************************************************
+ * 🚀 USER CONFIGURATION SETTINGS (EDIT THESE VALUES BELOW)
+ * ----------------------------------------------------------------------------
+ * INSTRUCTIONS:
+ * Change the text inside the quotes below to your own private credentials. 
+ * You will need these exact values in the Dornorium setup to connect it to the Gmail App.
+ * Do not change anything else in the rest of the script!
+ ********************************************************************************/
+var CONFIG = {
+  SECRET_KEY: "YourSecretKey123",  // Change this to your private security secret
+  API_USERNAME: "user",             // Change this to your desired API username
+  API_PASSWORD: "SomePassword"      // Change this to your desired API password
+};
+
+
+/********************************************************************************
+ * CORE SCRIPT LOGIC (DO NOT EDIT BELOW THIS LINE)
+ ********************************************************************************/
+function doGet(e) {
+  return handleRequest(e);
+}
+
+function doPost(e) {
+  return handleRequest(e);
+}
+
+function handleRequest(e) {
+  var p = e.parameter;
+
+  // Validate the secret key
+  if (p.secret !== CONFIG.SECRET_KEY) {
+    return ContentService.createTextOutput(JSON.stringify({status: "error", message: "Unauthorized"}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Validate username and password credentials
+  if (p.username !== CONFIG.API_USERNAME || p.password !== CONFIG.API_PASSWORD) {
+    return ContentService.createTextOutput(JSON.stringify({status: "error", message: "Invalid Credentials"}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  try {
+    var options = {
+      htmlBody: p.message
+    };
+    if (p.from) {
+      options.from = p.from;
+    }
+
+    GmailApp.sendEmail(p.to, p.subject, "", options);
+
+    return ContentService.createTextOutput(JSON.stringify({status: "success"}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({status: "error", message: err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}</code></pre>
+        </div>
+
+        <ol start="8">
+            <li>Click the <strong>Save icon</strong> (floppy disk) at the top toolbar, or press <code>Ctrl + S</code>. Name your project something like "Gmail API Wrapper".</li>
+        </ol>
+
+        <div class="screenshot-container">
+            <img src="googleApps-save-project-screen.png" alt="Apps Script code editor with code pasted and save button">
+        </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="step">
+        <h2>Step 3: Deploy as a Web App</h2>
+        <ol>
+            <li>In the top-right corner, click the blue <strong>Deploy</strong> button, then select <strong>New deployment</strong>.</li>
+            <li>Click the gear icon next to "Select type" and choose <strong>Web app</strong>.</li>
+
+        <div class="screenshot-container">
+            <img src="googleApps-select-webapp-screen.png" alt="Web App deployment configuration window showing Who has access set to Anyone">
+        </div>
+            <li>Fill out the fields:
+                <ul>
+                    <li><strong>Description:</strong> Dornorium GMail App</li>
+                    <li><strong>Execute as:</strong> Me (your email)</li>
+                    <li><strong>Who has access:</strong> <span style="color:red; font-weight:bold;">Anyone</span> (Critical step!)</li>
+                </ul>
+            </li>
+            <li>Click the blue <strong>Deploy</strong> button.</li>
+        </ol>
+
+        <div class="screenshot-container">
+            <img src="googleApps-deploy-project-screen.png" alt="Web App deployment configuration window showing Who has access set to Anyone">
+        </div>
+    </div>
+
+    <!-- STEP 4 -->
+    <div class="step">
+        <h2>Step 4: Authorize Permissions</h2>
+        <ol>
+            <li>Google will prompt you with an "Authorization required" window. Click <strong>Review permissions</strong>.</li>
+            <li>Select your Google account.</li>
+            <li>You will see a warning screen saying <em>"Google hasn't verified this app"</em>. Click <strong>Advanced</strong> (small text on the bottom left).</li>
+        <div class="screenshot-container">
+            <img src="googleApps-verify-project-screen.png" alt="Google unverified app warning screen">
+        </div>
+            <li>Click <strong>Go to Untitled project (unsafe)</strong>.</li>
+            <li>Click <strong>Allow</strong> at the bottom.</li>
+        <div class="screenshot-container">
+            <img src="googleApps-verify2-project-screen.png" alt="Google unverified app warning screen">
+        </div>
+            <li>Copy your generated <strong>Web App URL</strong> and save it somewhere safe. You will need this to configure Dornorium</li>
+        </ol>
+    </div>
+
+<!-- STEP 5 -->
+    <div class="step">
+        <h2>Step 5: Setup Custom Domain "Send As" with an App Password</h2>
+        <p>To send emails from a custom domain address (e.g., <code>info@yourdomain.com</code>) without security warnings, you must link it using Gmail's SMTP servers and a Google App Password.</p>
+        
+        <h3>Phase 1: Generate Your Google App Password</h3>
+        <ol>
+            <li>Go to your Google Account Security Settings at <a href="https://myaccount.google.com/security" target="_blank">myaccount.google.com/security</a>.</li>
+            <li>Make sure <strong>2-Step Verification</strong> is turned on.</li>
+  <div class="screenshot-container">
+            <img src="google-account-2-step-verification.png" alt="Generating Google App Password interface">
+        </div>
+            <li>Scroll down and click on <strong>App passwords</strong>.</li>
+<div class="screenshot-container">
+            <img src="google-account-2-step-verification2.png" alt="Generating Google App Password interface">
+        </div>
+            <li>Select a name something like <code>Dornorium SMPT</code>, then click <strong>Create</strong>.</li>
+<div class="screenshot-container">
+            <img src="google-account-2-step-verification3.png" alt="Generating Google App Password interface">
+        </div>
+            <li>Copy the generated <strong>16-character password</strong> and keep it safe.</li>
+        </ol>
+  <div class="screenshot-container">
+            <img src="google-account-2-step-verification-password.png" alt="Generating Google App Password interface">
+   </div>
+
+  <li>The below will require the email addresses you want to setup to have an inbox where mails can get routed to. This can be done from the Dornorium GUI so it's adviced you will skip the next step till you deployed Dornorium</li>
+       
+      
+        <h3>Phase 2: Configure "Send As" in Gmail</h3>
+        <ol>
+            <li>Open your regular Gmail inbox and click the <strong>Gear icon (Settings)</strong> -> <strong>See all settings</strong>.</li>
+            <li>Go to the <strong>Accounts and Import</strong> tab.</li>
+            <li>Under <strong>Send mail as:</strong>, click <strong>Add another email address</strong>.</li>
+ <div class="screenshot-container">
+            <img src="google-alias1.png" alt="Gmail SMTP configuration window for custom domain alias">
+        </div>
+            <li>Enter your custom domain name (e.g., <code>info@yourdomain.com</code>) and click Next Step.</li>
+ <div class="screenshot-container">
+            <img src="google-alias2.png" alt="Gmail SMTP configuration window for custom domain alias">
+        </div>
+            <li>Fill out the SMTP settings:
+                <ul>
+                    <li><strong>SMTP Server:</strong> <code>smtp.gmail.com</code></li>
+                    <li><strong>Port:</strong> <code>465</code></li>
+                    <li><strong>Username:</strong> Your main Google account email address</li>
+                    <li><strong>Password:</strong> Your 16-character Google App Password (without spaces)</li>
+                    <li>Select <strong>Secured connection using SSL</strong></li>
+                </ul>
+            </li>
+ <div class="screenshot-container">
+            <img src="google-alias3.png" alt="Gmail SMTP configuration window for custom domain alias">
+        </div>
+            <li>Click <strong>Add Account</strong> a verification email is sent to the email address with a confirmation URL. Copy the URL from the email and load the google confirmation page. Press the Confirm button and the email address will now work once configured in the Dornorium user interface. You can configure up to 99 email addresses in a free gmail account and sent out 500 emails per 24 hours</li>
+        </ol>
+    </div>
+
+    </div>
+
+    <script>
+        function copyCode(button) {
+            const container = button.closest('.code-container');
+            const codeText = container.querySelector('code').innerText;
+            
+            navigator.clipboard.writeText(codeText).then(() => {
+                const originalText = button.innerText;
+                button.innerText = 'Copied!';
+                button.style.background = '#34a853';
+                
+                setTimeout(() => {
+                    button.innerText = originalText;
+                    button.style.background = '#1a73e8';
+                }, 2000);
+            }).catch(err => {
+                alert('Failed to copy code: ' + err);
+            });
+        }
+    </script>
+
+</body>
+</html>
