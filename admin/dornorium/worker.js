@@ -3381,11 +3381,26 @@ if (path === "/api/admin/setup/cloudflare-zones" && method === "GET") {
     const data = await callCloudflareAPI("GET", "/zones", null, env);
     const zones = data.result || [];
     
-    // Merge with DB tracking info
+    // Merge with DB tracking info; auto-register zones that predate the table
     const merged = await Promise.all(zones.map(async (zone) => {
-      const dbRecord = await env.DB.prepare(
+      let dbRecord = await env.DB.prepare(
         "SELECT enabled, status FROM cloudflare_domains WHERE zone_id = ?"
       ).bind(zone.id).first();
+      
+      // Zone exists in CF but not in our DB (added before this feature) — upsert it.
+      // If CF reports it as active, treat as active-but-not-enabled (needs routing enabled).
+      if (!dbRecord) {
+        const inferredStatus = zone.status === 'active' ? 'active' : 'pending_setup';
+        try {
+          await env.DB.prepare(
+            "INSERT OR IGNORE INTO cloudflare_domains (zone_id, domain_name, enabled, status) VALUES (?, ?, 0, ?)"
+          ).bind(zone.id, zone.name, inferredStatus).run();
+          dbRecord = { enabled: 0, status: inferredStatus };
+        } catch (e) {
+          dbRecord = { enabled: 0, status: inferredStatus };
+        }
+      }
+      
       return {
         ...zone,
         db_enabled: dbRecord?.enabled || 0,
