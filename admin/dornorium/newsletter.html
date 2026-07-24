@@ -439,9 +439,20 @@
 
     function insertTag(id, tag) {
         const el = document.getElementById(id);
-        if (!el || !el.contentEditable) return;
+        if (!el) return;
         el.focus();
-        document.execCommand('insertText', false, tag);
+        
+        // Handle textarea
+        if (el.tagName === 'TEXTAREA') {
+            const start = el.selectionStart;
+            const end = el.selectionEnd;
+            el.value = el.value.substring(0, start) + tag + el.value.substring(end);
+            el.selectionStart = el.selectionEnd = start + tag.length;
+        } 
+        // Handle contentEditable div
+        else if (el.contentEditable === 'true') {
+            document.execCommand('insertText', false, tag);
+        }
     }
 
     // ─── EDITOR COMMANDS ────────────────────────────────────────
@@ -795,9 +806,9 @@
             </div>
             ${buildHistory()}
             ${buildAutoReply()}
-            ${buildGeneralSettings()}
             ${buildStats()}
             ${buildSubs()}
+            ${buildGeneralSettings()}
         `;
     }
 
