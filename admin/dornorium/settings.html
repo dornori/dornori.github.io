@@ -318,11 +318,15 @@ async function load() {
         configuredDomain = domainSetting ? domainSetting.value : null;
         
         // Check if cloudflare credentials are set
-        const hasAccountId = settings.some(s => s.category === 'cloudflare' && s.key === 'account_id' && s.value);
-        const hasApiToken = settings.some(s => s.category === 'cloudflare' && s.key === 'api_token' && s.value);
+        const accountIdSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'account_id' && s.value);
+        const apiTokenSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'api_token' && s.value);
         
         // Store for later use in UI
-        window.cfCredentialsSet = { accountId: hasAccountId, apiToken: hasApiToken };
+        window.cfCredentialsSet = { 
+            accountId: !!accountIdSetting, 
+            apiToken: !!apiTokenSetting,
+            accountIdValue: accountIdSetting ? accountIdSetting.value : ''
+        };
         
         await fetchCloudflareDomains();
         
@@ -1196,15 +1200,14 @@ async function buildIncomingTab(cats, langs) {
         <div class="f-grid-2">
             <div class="f-row">
                 <label>Cloudflare Account ID</label>
-                <input type="text" id="cf_account_id" placeholder="Your Cloudflare Account ID" />
+                <input type="text" id="cf_account_id" value="${window.cfCredentialsSet && window.cfCredentialsSet.accountIdValue ? esc(window.cfCredentialsSet.accountIdValue) : ''}" placeholder="Your Cloudflare Account ID" />
                 <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Find in Cloudflare Dashboard → Account Settings</p>
-                ${window.cfCredentialsSet && window.cfCredentialsSet.accountId ? '<p style="font-size:11px;color:var(--success);margin-top:4px;">✅ Set (encrypted)</p>' : ''}
             </div>
             <div class="f-row">
                 <label>Cloudflare API Token</label>
-                <input type="password" id="cf_api_token" placeholder="Your Cloudflare API Token" />
-                <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Create in Cloudflare → API Tokens (or use env var)</p>
-                ${window.cfCredentialsSet && window.cfCredentialsSet.apiToken ? '<p style="font-size:11px;color:var(--success);margin-top:4px;">✅ Set (encrypted)</p>' : ''}
+                <input type="password" id="cf_api_token" value="${window.cfCredentialsSet && window.cfCredentialsSet.apiToken ? '****' + '****'.repeat(8) : ''}" placeholder="Your Cloudflare API Token" />
+                <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Create in Cloudflare → API Tokens (encrypted)</p>
+                ${window.cfCredentialsSet && window.cfCredentialsSet.apiToken ? '<p style="font-size:11px;color:var(--success);margin-top:4px;">✅ Token set (encrypted)</p>' : ''}
             </div>
         </div>
         <button class="btn btn-accent" style="margin-top:8px;" onclick="saveCloudflareSettings()">Save Cloudflare Settings</button>
@@ -1592,9 +1595,7 @@ async function saveCloudflareSettings() {
     
     try {
         if (accountId) {
-            const enc = await api('/api/admin/setup/encrypt', { method: 'POST', body: JSON.stringify({ value: accountId }) });
-            if (!enc.encrypted) throw new Error('Failed to encrypt account ID');
-            updates.push({ category:'cloudflare', key:'account_id', value: enc.encrypted });
+            updates.push({ category:'cloudflare', key:'account_id', value: accountId });
         }
         if (apiToken) {
             const enc = await api('/api/admin/setup/encrypt', { method: 'POST', body: JSON.stringify({ value: apiToken }) });
@@ -1607,7 +1608,7 @@ async function saveCloudflareSettings() {
     }
     
     const ok = await saveSettings(updates);
-    ok ? toast('✅ Cloudflare settings saved (encrypted)') : toast('❌ Failed', 'error');
+    ok ? toast('✅ Cloudflare settings saved') : toast('❌ Failed', 'error');
     if (ok) await load();
 }
 
