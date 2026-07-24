@@ -978,9 +978,19 @@ async function enableRouting() {
         
         if (!res.success) throw new Error(res.error || 'Failed to enable routing');
         
+        // Enabling routing alone can leave the MX/SPF/DKIM records showing "Missing"
+        // in Cloudflare - fetch what CF says this zone needs and create them.
+        let dnsRes = { success: false };
+        try {
+            dnsRes = await api('/api/admin/setup/email-dns', {
+                method: 'POST',
+                body: JSON.stringify({ zoneId: zoneId })
+            });
+        } catch (e) { dnsRes = { success: false, error: e.message }; }
+        
         setupStep = 5;
         setupZoneId = zoneId;
-        toast('✅ Email routing enabled');
+        toast(dnsRes.success ? '✅ Email routing enabled with DNS records' : '⚠️ Email routing enabled but DNS records failed: ' + (dnsRes.error || 'unknown error'), dnsRes.success ? 'success' : 'warning');
         refreshIncomingTab();
         
     } catch (e) {
