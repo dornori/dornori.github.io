@@ -722,6 +722,16 @@ async function buildEmailTab(tabName) {
     }
 }
 
+// ─── DOMAIN SETUP REBUILD HELPER ──────────────────────────────
+function refreshIncomingTab() {
+    const panel = document.getElementById('panel-incoming');
+    if (panel) {
+        buildIncomingTab(getCategories(), getLanguages()).then(html => {
+            if (panel) panel.innerHTML = html;
+        });
+    }
+}
+
 // ─── INCOMING TAB ─────────────────────────────────────────────
 async function buildIncomingTab(cats, langs) {
     let activeLang = sessionStorage.getItem('ar_active_lang') || (langs.length > 0 ? langs[0].code : 'en');
@@ -749,7 +759,7 @@ async function buildIncomingTab(cats, langs) {
     }
 
     // ── Domain Setup Section ──
-    const setupHtml = buildDomainSetupHtml();
+    const setupHtml = await buildDomainSetupHtml();
 
     // ── Email Routing Rules (MERGED: Cloudflare + DB) ──
     const catOpts = cats.map(c => `<option value="${c}">${cap(c)}</option>`).join('');
@@ -906,7 +916,7 @@ async function buildIncomingTab(cats, langs) {
 }
 
 // ─── DOMAIN SETUP HTML ────────────────────────────────────────
-function buildDomainSetupHtml() {
+async function buildDomainSetupHtml() {
     const isAdding = setupStep === 1 || setupStep === 2 || setupStep === 3 || setupStep === 4 || setupStep === 5 || setupStep === 6;
     const isPolling = setupStep === 3;
     const isActive = setupStep >= 4;
@@ -1070,8 +1080,7 @@ async function addDomain() {
                     setupDomainName = domain;
                     setupStep = 2;
                     toast('✅ Domain found, showing nameservers');
-                    const panel = document.getElementById('panel-incoming');
-                    if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
+                    refreshIncomingTab();
                     return;
                 }
             }
@@ -1084,9 +1093,7 @@ async function addDomain() {
         
         await fetchCloudflareDomains();
         toast('✅ Domain added to Cloudflare');
-        
-        const panel = document.getElementById('panel-incoming');
-        if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
+        refreshIncomingTab();
         
     } catch (e) {
         statusEl.textContent = '❌ ' + e.message;
@@ -1096,12 +1103,12 @@ async function addDomain() {
 
 function startPolling() {
     setupStep = 3;
-    const panel = document.getElementById('panel-incoming');
-    if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
+    refreshIncomingTab();
     
     const logEl = document.getElementById('setupPollLog');
     if (logEl) logEl.innerHTML = '';
     
+    if (setupPollTimer) clearInterval(setupPollTimer);
     setupPollTimer = setInterval(async () => {
         try {
             const res = await api(`/api/admin/setup/cloudflare-zone/${setupZoneId}`);
@@ -1119,8 +1126,7 @@ function startPolling() {
                 stopPolling();
                 setupStep = 4;
                 toast('✅ Domain is active!');
-                const panel2 = document.getElementById('panel-incoming');
-                if (panel2) panel2.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
+                refreshIncomingTab();
             }
         } catch (e) {
             const logEl3 = document.getElementById('setupPollLog');
@@ -1152,8 +1158,7 @@ async function enableRouting() {
         
         setupStep = 5;
         toast('✅ Email routing enabled');
-        const panel = document.getElementById('panel-incoming');
-        if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
+        refreshIncomingTab();
         
     } catch (e) {
         toast('❌ ' + e.message, 'error');
@@ -1195,9 +1200,7 @@ async function createRoutingRule() {
         
         await fetchCloudflareRules(setupZoneId);
         toast('✅ Routing rule created! Setup complete.');
-        
-        const panel = document.getElementById('panel-incoming');
-        if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
+        refreshIncomingTab();
         
     } catch (e) {
         toast('❌ ' + e.message, 'error');
@@ -1209,8 +1212,7 @@ function resetDomainSetup() {
     setupZoneId = null;
     setupDomainName = null;
     setupStep = 0;
-    const panel = document.getElementById('panel-incoming');
-    if (panel) panel.innerHTML = buildIncomingTab(getCategories(), getLanguages());
+    refreshIncomingTab();
 }
 
 // ─── OUTGOING TAB ─────────────────────────────────────────────
@@ -1362,8 +1364,7 @@ async function refreshDomains() {
     if (configuredZoneId) {
         await fetchCloudflareRules(configuredZoneId);
     }
-    const panel = document.getElementById('panel-incoming');
-    if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
+    refreshIncomingTab();
     toast('✅ Refreshed');
 }
 
@@ -1379,8 +1380,7 @@ async function configureDomain(zoneId, domainName) {
             configuredDomain = domainName;
             await fetchCloudflareRules(zoneId);
             toast(`✅ Domain ${domainName} configured`);
-            const panel = document.getElementById('panel-incoming');
-            if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
+            refreshIncomingTab();
         } else {
             toast('❌ Failed to save domain', 'error');
         }
@@ -1406,8 +1406,7 @@ async function createCloudflareRule(email) {
         if (res.success) {
             toast('✅ Cloudflare rule created');
             await fetchCloudflareRules(configuredZoneId);
-            const panel = document.getElementById('panel-incoming');
-            if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
+            refreshIncomingTab();
         } else {
             toast('❌ ' + (res.error || 'Failed'), 'error');
         }
@@ -1433,8 +1432,7 @@ async function toggleCloudflareRule(ruleId, newStatus) {
         if (res.success) {
             toast(`✅ Rule ${newStatus ? 'activated' : 'deactivated'}`);
             await fetchCloudflareRules(configuredZoneId);
-            const panel = document.getElementById('panel-incoming');
-            if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
+            refreshIncomingTab();
         } else {
             toast('❌ ' + (res.error || 'Failed'), 'error');
         }
@@ -1492,8 +1490,7 @@ async function updateMapping(selectElement) {
             if (res.success) {
                 toast('✅ Mapping created');
                 await load();
-                const panel = document.getElementById('panel-incoming');
-                if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
+                refreshIncomingTab();
             } else {
                 toast('❌ ' + (res.error || 'Failed'), 'error');
             }
@@ -1548,8 +1545,7 @@ async function addEmail() {
         if (dbRes.success) {
             toast(`✅ ${cloudflareCreated ? 'Email added with Cloudflare rule' : 'Email added (no Cloudflare rule)'}`);
             await load();
-            const panel = document.getElementById('panel-incoming');
-            if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
+            refreshIncomingTab();
             document.getElementById('newEmailAddr').value = '';
         } else {
             toast('❌ Failed to add DB mapping: ' + (dbRes.error || 'Unknown'), 'error');
@@ -1583,8 +1579,7 @@ async function deleteEmail(email, ruleId) {
         
         toast('✅ Deleted');
         await load();
-        const panel = document.getElementById('panel-incoming');
-        if (panel) panel.innerHTML = await buildIncomingTab(getCategories(), getLanguages());
+        refreshIncomingTab();
     } catch (e) {
         toast('❌ ' + e.message, 'error');
     }
