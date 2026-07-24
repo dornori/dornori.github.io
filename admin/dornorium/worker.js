@@ -3173,6 +3173,26 @@ if (path === "/api/admin/setup/verify-token" && method === "GET") {
         }
       }
 
+      // Update domain status (used during polling when active is detected)
+      if (path === "/api/admin/setup/domain-status" && method === "POST") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const email = await verifyToken(token, env);
+        if (!email) return json({ error: "Unauthorized" }, 401);
+        if (!await checkAccess(email, "settings", "edit", env)) return json({ error: "Permission denied" }, 403);
+
+        const { zoneId, status } = await request.json();
+        if (!zoneId || !status) return json({ error: "zoneId and status required" }, 400);
+
+        try {
+          await env.DB.prepare(
+            "UPDATE cloudflare_domains SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE zone_id = ?"
+          ).bind(status, zoneId).run();
+          return json({ success: true });
+        } catch (e) {
+          return json({ success: false, error: e.message }, 400);
+        }
+      }
+
       // Disable Email Routing on a zone
       if (path === "/api/admin/setup/email-routing-disable" && method === "POST") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");

@@ -749,8 +749,7 @@ async function buildEmailTab(tabName) {
 
 // ─── BUILD DOMAIN SETUP HTML ────────────────────────────────
 function buildDomainSetupHtml() {
-    const isAdding = setupStep === 1 || setupStep === 2 || setupStep === 3 || setupStep === 4 || setupStep === 5 || setupStep === 6;
-    const isPolling = setupStep === 3;
+    const isAdding = setupStep === 1 || setupStep === 2 || setupStep === 3;
 
     let stepHtml = '';
     if (isAdding) {
@@ -758,10 +757,7 @@ function buildDomainSetupHtml() {
             <div class="step-indicator">
                 <span class="step ${setupStep >= 1 ? 'done' : ''}">1. Add Domain</span>
                 <span class="step ${setupStep >= 2 ? 'done' : ''}">2. Nameservers</span>
-                <span class="step ${setupStep >= 3 ? (setupStep >= 4 ? 'done' : 'active') : ''}">3. Activate</span>
-                <span class="step ${setupStep >= 4 ? 'done' : ''}">4. Enable Routing</span>
-                <span class="step ${setupStep >= 5 ? (setupStep >= 6 ? 'done' : 'active') : ''}">5. Create Rule</span>
-                <span class="step ${setupStep >= 6 ? 'done' : ''}">6. Done</span>
+                <span class="step ${setupStep >= 3 ? 'done' : ''}">3. Check Status</span>
             </div>
         `;
     }
@@ -789,55 +785,13 @@ function buildDomainSetupHtml() {
     if (setupStep === 3) {
         pollHtml = `
             <div style="margin:12px 0;padding:16px;background:var(--info-bg);border:1px solid var(--info);border-radius:8px;color:var(--text);">
-                <p style="font-size:13px;margin:0 0 12px 0;"><strong>✨ Setting up your domain</strong></p>
-                <p style="font-size:12px;margin:0;color:var(--text-muted);">This can take a few minutes. You can close this modal and continue working. The setup will continue in the background.</p>
-                <p style="font-size:12px;margin:12px 0 0 0;color:var(--text-muted);">When ready, you'll see a "Check Status" button appear next to your domain in the table above — click it to resume.</p>
-                <button class="btn btn-sm btn-accent" style="margin-top:12px;" onclick="closeModal(); resetDomainSetup();">Close and Continue</button>
+                <p style="font-size:13px;margin:0 0 12px 0;"><strong>✨ Checking nameservers</strong></p>
+                <p style="font-size:12px;margin:0;color:var(--text-muted);">This can take a few minutes. You can close this modal and continue working — polling will continue in the background.</p>
+                <p style="font-size:12px;margin:12px 0 0 0;color:var(--text-muted);">Once detected, your domain will appear in the table above with an "Enable Email Routing" button.</p>
+                <button class="btn btn-sm btn-accent" style="margin-top:12px;" onclick="resetDomainSetup(); refreshIncomingTab();">Close and Continue</button>
                 <button class="btn btn-sm btn-ghost" onclick="stopPolling(); resetDomainSetup();">Cancel Setup</button>
             </div>
             <div class="poll-log" id="setupPollLog" style="display:none;"></div>
-        `;
-    }
-
-    let routingHtml = '';
-    if (setupStep === 4) {
-        routingHtml = `
-            <div style="margin:12px 0;">
-                <p style="font-size:13px;color:var(--text-muted);">Domain is active! Enable Email Routing?</p>
-                <button class="btn btn-accent btn-sm" onclick="enableRouting()">Enable Email Routing</button>
-                <button class="btn btn-sm btn-ghost" onclick="resetDomainSetup()">Cancel</button>
-            </div>
-        `;
-    }
-
-    let ruleHtml = '';
-    if (setupStep === 5) {
-        ruleHtml = `
-            <div style="margin:12px 0;">
-                <p style="font-size:13px;color:var(--text-muted);">Create a catch-all rule to route emails to your Worker?</p>
-                <div style="margin:8px 0;">
-                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;">
-                        <input type="radio" name="ruleType" value="catchall" checked onchange="toggleRuleType()" /> Catch-all (*@domain.com)
-                    </label>
-                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-top:4px;">
-                        <input type="radio" name="ruleType" value="specific" onchange="toggleRuleType()" /> Specific address
-                    </label>
-                    <input type="email" id="setupSpecificAddr" placeholder="support@example.com" style="display:none;margin-top:8px;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);width:100%;max-width:300px;" />
-                </div>
-                <button class="btn btn-accent btn-sm" onclick="createRoutingRule()">Create Routing Rule</button>
-                <button class="btn btn-sm btn-ghost" onclick="resetDomainSetup()">Cancel</button>
-            </div>
-        `;
-    }
-
-    let completeHtml = '';
-    if (setupStep === 6) {
-        completeHtml = `
-            <div style="margin:12px 0;padding:16px;background:var(--bg);border:1px solid var(--success);border-radius:8px;">
-                <p style="color:var(--success);font-weight:600;font-size:15px;">✅ Setup Complete!</p>
-                <p style="font-size:13px;color:var(--text-muted);">Domain ${esc(setupDomainName)} is configured and routing emails to your Worker.</p>
-                <button class="btn btn-sm btn-accent" onclick="resetDomainSetup(); load();">Done</button>
-            </div>
         `;
     }
 
@@ -859,9 +813,6 @@ function buildDomainSetupHtml() {
             </div>
             ${nameserverHtml}
             ${pollHtml}
-            ${routingHtml}
-            ${ruleHtml}
-            ${completeHtml}
         </div>
     `;
 }
@@ -926,11 +877,7 @@ function startPolling() {
     setupStep = 3;
     refreshIncomingTab();
     
-    // Wait for DOM to render before accessing element
     setTimeout(() => {
-        const logEl = document.getElementById('setupPollLog');
-        if (logEl) logEl.innerHTML = '';
-        
         if (setupPollTimer) clearInterval(setupPollTimer);
         setupPollTimer = setInterval(async () => {
             try {
@@ -938,25 +885,24 @@ function startPolling() {
                 if (!res.success) throw new Error(res.error || 'Failed to get status');
                 
                 const st = res.status || 'pending';
-                const logEl2 = document.getElementById('setupPollLog');
-                if (logEl2) {
-                    const color = st === 'active' ? 'ok' : 'info';
-                    logEl2.innerHTML += `<span class="${color}">[${new Date().toLocaleTimeString()}] Status: ${st}</span>\n`;
-                    logEl2.scrollTop = logEl2.scrollHeight;
-                }
                 
                 if (st === 'active') {
                     stopPolling();
-                    setupStep = 4;
-                    toast('✅ Domain is active!');
-                    refreshIncomingTab();
+                    
+                    // Update DB status to active
+                    try {
+                        await api('/api/admin/setup/domain-status', {
+                            method: 'POST',
+                            body: JSON.stringify({ zoneId: setupZoneId, status: 'active' })
+                        });
+                    } catch (e) { /* non-fatal */ }
+                    
+                    // Reset setup and refresh table to show "Enable Email Routing" button
+                    resetDomainSetup();
+                    toast('✅ Domain is active! Click "Enable Email Routing" in the table to start routing emails.');
                 }
             } catch (e) {
-                const logEl3 = document.getElementById('setupPollLog');
-                if (logEl3) {
-                    logEl3.innerHTML += `<span class="err">[${new Date().toLocaleTimeString()}] Error: ${e.message}</span>\n`;
-                    logEl3.scrollTop = logEl3.scrollHeight;
-                }
+                console.warn('Polling error:', e.message);
             }
         }, 10000);
     }, 100);
@@ -1071,12 +1017,6 @@ function resetDomainSetup() {
     refreshIncomingTab();
 }
 
-function closeModal() {
-    // Close any modal (general purpose)
-    const modal = document.querySelector('[role="dialog"]');
-    if (modal) modal.style.display = 'none';
-}
-
 async function checkDomainStatus(zoneId, domainName) {
     // Resume polling for a domain in pending_setup state
     setupZoneId = zoneId;
@@ -1085,7 +1025,7 @@ async function checkDomainStatus(zoneId, domainName) {
 }
 
 async function cancelDomainSetup(zoneId) {
-    if (!confirm(`Cancel setup for ${zoneId}? This will remove it from Cloudflare.`)) return;
+    if (!confirm(`Cancel setup for this domain? It will be removed from Cloudflare.`)) return;
     try {
         const res = await api(`/api/admin/setup/domain-remove`, {
             method: 'DELETE',
@@ -1095,14 +1035,14 @@ async function cancelDomainSetup(zoneId) {
             toast('✅ Setup cancelled and domain removed');
             await load();
         } else {
-            toast('❌ ' + (res.error || 'Failed to cancel setup'), 'error');
+            toast('❌ ' + (res.error || 'Failed to cancel'), 'error');
         }
     } catch (e) {
         toast('❌ ' + e.message, 'error');
     }
 }
 
-async function enableDomain(zoneId, domainName) {
+async function enableDomainRouting(zoneId, domainName) {
     if (!confirm(`Enable email routing for ${domainName}? Mail will start flowing to your Worker.`)) return;
     try {
         const res = await api('/api/admin/setup/email-routing', {
@@ -1121,7 +1061,7 @@ async function enableDomain(zoneId, domainName) {
 }
 
 async function disableDomain(zoneId, domainName) {
-    if (!confirm(`Disable email routing for ${domainName}? Mail sent to this domain will bounce.`)) return;
+    if (!confirm(`Disable email routing for ${domainName}? Mail will bounce if sent.`)) return;
     try {
         const res = await api('/api/admin/setup/email-routing-disable', {
             method: 'POST',
@@ -1131,7 +1071,7 @@ async function disableDomain(zoneId, domainName) {
             toast(`✅ Email routing disabled for ${domainName}`);
             await load();
         } else {
-            toast('❌ ' + (res.error || 'Failed to disable routing'), 'error');
+            toast('❌ ' + (res.error || 'Failed to disable'), 'error');
         }
     } catch (e) {
         toast('❌ ' + e.message, 'error');
@@ -1139,17 +1079,17 @@ async function disableDomain(zoneId, domainName) {
 }
 
 async function removeDomain(zoneId, domainName) {
-    if (!confirm(`Remove ${domainName} completely?\n\nThis will:\n• Delete the domain from Cloudflare\n• Remove all routing rules\n• Stop accepting mail\n\nThis action cannot be undone.`)) return;
+    if (!confirm(`Remove ${domainName} completely?\n\nThis will:\n• Delete from Cloudflare\n• Stop accepting emails\n• Cannot be undone`)) return;
     try {
         const res = await api(`/api/admin/setup/domain-remove`, {
             method: 'DELETE',
             body: JSON.stringify({ zoneId })
         });
         if (res.success) {
-            toast(`✅ ${domainName} removed from Dornorium and Cloudflare`);
+            toast(`✅ ${domainName} removed`);
             await load();
         } else {
-            toast('❌ ' + (res.error || 'Failed to remove domain'), 'error');
+            toast('❌ ' + (res.error || 'Failed to remove'), 'error');
         }
     } catch (e) {
         toast('❌ ' + e.message, 'error');
@@ -1166,18 +1106,29 @@ async function buildIncomingTab(cats, langs) {
         const tableRows = cloudflareDomains.map(domain => {
             const enabled = domain.db_enabled || 0;
             const dbStatus = domain.db_status || 'unknown';
-            const statusClass = enabled ? 'active' : dbStatus === 'pending_setup' ? 'pending' : 'disabled';
-            const statusText = enabled ? '✅ Enabled' : dbStatus === 'pending_setup' ? '⏳ Pending Setup' : '⛔ Disabled';
             
-            let actions = '';
+            // Determine status display and button
+            let statusClass, statusText, actions;
+            
             if (dbStatus === 'pending_setup') {
+                statusClass = 'pending';
+                statusText = '⏳ Pending Setup';
                 actions = `<button class="btn btn-sm btn-accent" onclick="checkDomainStatus('${domain.id}', '${esc(domain.name)}')">Check Status</button>
                            <button class="btn btn-sm btn-ghost" onclick="cancelDomainSetup('${domain.id}')">Cancel</button>`;
+            } else if (dbStatus === 'active' && !enabled) {
+                statusClass = 'pending';
+                statusText = '🔧 Ready to Enable';
+                actions = `<button class="btn btn-sm btn-accent" onclick="enableDomainRouting('${domain.id}', '${esc(domain.name)}')">Enable Email Routing</button>
+                           <button class="btn btn-sm btn-ghost" onclick="removeDomain('${domain.id}', '${esc(domain.name)}')">Remove</button>`;
             } else if (enabled) {
+                statusClass = 'active';
+                statusText = '✅ Enabled';
                 actions = `<button class="btn btn-sm btn-ghost" onclick="disableDomain('${domain.id}', '${esc(domain.name)}')">Disable</button>
                            <button class="btn btn-sm btn-danger" onclick="removeDomain('${domain.id}', '${esc(domain.name)}')">Remove</button>`;
             } else {
-                actions = `<button class="btn btn-sm btn-accent" onclick="enableDomain('${domain.id}', '${esc(domain.name)}')">Enable</button>
+                statusClass = 'disabled';
+                statusText = '⛔ Disabled';
+                actions = `<button class="btn btn-sm btn-accent" onclick="enableDomainRouting('${domain.id}', '${esc(domain.name)}')">Enable</button>
                            <button class="btn btn-sm btn-danger" onclick="removeDomain('${domain.id}', '${esc(domain.name)}')">Remove</button>`;
             }
             
