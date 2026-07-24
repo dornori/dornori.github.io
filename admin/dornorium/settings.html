@@ -317,6 +317,13 @@ async function load() {
         const domainSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'domain');
         configuredDomain = domainSetting ? domainSetting.value : null;
         
+        // Check if cloudflare credentials are set
+        const hasAccountId = settings.some(s => s.category === 'cloudflare' && s.key === 'account_id' && s.value);
+        const hasApiToken = settings.some(s => s.category === 'cloudflare' && s.key === 'api_token' && s.value);
+        
+        // Store for later use in UI
+        window.cfCredentialsSet = { accountId: hasAccountId, apiToken: hasApiToken };
+        
         await fetchCloudflareDomains();
         
         if (configuredZoneId) {
@@ -1184,13 +1191,15 @@ async function buildIncomingTab(cats, langs) {
         <div class="f-grid-2">
             <div class="f-row">
                 <label>Cloudflare Account ID</label>
-                <input type="text" id="cf_account_id" value="${esc(S('cloudflare','account_id',''))}" placeholder="Your Cloudflare Account ID" />
+                <input type="text" id="cf_account_id" placeholder="Your Cloudflare Account ID" />
                 <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Find in Cloudflare Dashboard → Account Settings</p>
+                ${window.cfCredentialsSet && window.cfCredentialsSet.accountId ? '<p style="font-size:11px;color:var(--success);margin-top:4px;">✅ Set (encrypted)</p>' : ''}
             </div>
             <div class="f-row">
                 <label>Cloudflare API Token</label>
-                <input type="password" id="cf_api_token" value="${esc(S('cloudflare','api_token',''))}" placeholder="Your Cloudflare API Token" />
+                <input type="password" id="cf_api_token" placeholder="Your Cloudflare API Token" />
                 <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Create in Cloudflare → API Tokens (or use env var)</p>
+                ${window.cfCredentialsSet && window.cfCredentialsSet.apiToken ? '<p style="font-size:11px;color:var(--success);margin-top:4px;">✅ Set (encrypted)</p>' : ''}
             </div>
         </div>
         <button class="btn btn-accent" style="margin-top:8px;" onclick="saveCloudflareSettings()">Save Cloudflare Settings</button>
@@ -1571,11 +1580,29 @@ async function deleteEmail(email, ruleId) {
 }
 
 async function saveCloudflareSettings() {
-    const ok = await saveSettings([
-        { category:'cloudflare', key:'account_id', value: document.getElementById('cf_account_id').value.trim() },
-        { category:'cloudflare', key:'api_token', value: document.getElementById('cf_api_token').value.trim() },
-    ]);
-    ok ? toast('✅ Cloudflare settings saved') : toast('❌ Failed', 'error');
+    const accountId = document.getElementById('cf_account_id').value.trim();
+    const apiToken = document.getElementById('cf_api_token').value.trim();
+    
+    const updates = [];
+    
+    try {
+        if (accountId) {
+            const enc = await api('/api/admin/setup/encrypt', { method: 'POST', body: JSON.stringify({ value: accountId }) });
+            if (!enc.encrypted) throw new Error('Failed to encrypt account ID');
+            updates.push({ category:'cloudflare', key:'account_id', value: enc.encrypted });
+        }
+        if (apiToken) {
+            const enc = await api('/api/admin/setup/encrypt', { method: 'POST', body: JSON.stringify({ value: apiToken }) });
+            if (!enc.encrypted) throw new Error('Failed to encrypt API token');
+            updates.push({ category:'cloudflare', key:'api_token', value: enc.encrypted });
+        }
+    } catch (e) {
+        toast('❌ ' + e.message, 'error');
+        return;
+    }
+    
+    const ok = await saveSettings(updates);
+    ok ? toast('✅ Cloudflare settings saved (encrypted)') : toast('❌ Failed', 'error');
     if (ok) await load();
 }
 
