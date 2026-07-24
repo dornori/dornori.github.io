@@ -865,13 +865,16 @@ async function addDomain() {
     const domain = document.getElementById('setupDomain').value.trim().toLowerCase();
     if (!domain) { toast('Enter a domain name', 'error'); return; }
     
+    const accountId = document.getElementById('cf_account_id').value.trim();
+    if (!accountId) { toast('Enter Cloudflare Account ID first', 'error'); return; }
+    
     const statusEl = document.getElementById('setupStatus');
     if (statusEl) statusEl.textContent = '⏳ Adding domain...';
     
     try {
         const res = await api('/api/admin/setup/cloudflare-zone', {
             method: 'POST',
-            body: JSON.stringify({ domain: domain })
+            body: JSON.stringify({ domain: domain, accountId: accountId })
         });
         
         if (!res.success) {
@@ -1174,6 +1177,23 @@ async function buildIncomingTab(cats, langs) {
                 ${configuredZoneId ? '✅ This will create a Cloudflare routing rule AND a DB mapping.' : '⚠️ Select a domain first to create Cloudflare rules.'}
             </div>
         </div>
+    </div>
+
+    <div class="s-card">
+        <div class="s-card-head"><div><h3>🔑 Cloudflare Configuration</h3><p>API credentials for domain and email routing setup</p></div></div>
+        <div class="f-grid-2">
+            <div class="f-row">
+                <label>Cloudflare Account ID</label>
+                <input type="text" id="cf_account_id" value="${esc(S('cloudflare','account_id',''))}" placeholder="Your Cloudflare Account ID" />
+                <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Find in Cloudflare Dashboard → Account Settings</p>
+            </div>
+            <div class="f-row">
+                <label>Cloudflare API Token</label>
+                <input type="password" id="cf_api_token" value="${esc(S('cloudflare','api_token',''))}" placeholder="Your Cloudflare API Token" />
+                <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Create in Cloudflare → API Tokens (or use env var)</p>
+            </div>
+        </div>
+        <button class="btn btn-accent" style="margin-top:8px;" onclick="saveCloudflareSettings()">Save Cloudflare Settings</button>
     </div>
 
     <div class="s-card">
@@ -1548,6 +1568,15 @@ async function deleteEmail(email, ruleId) {
     } catch (e) {
         toast('❌ ' + e.message, 'error');
     }
+}
+
+async function saveCloudflareSettings() {
+    const ok = await saveSettings([
+        { category:'cloudflare', key:'account_id', value: document.getElementById('cf_account_id').value.trim() },
+        { category:'cloudflare', key:'api_token', value: document.getElementById('cf_api_token').value.trim() },
+    ]);
+    ok ? toast('✅ Cloudflare settings saved') : toast('❌ Failed', 'error');
+    if (ok) await load();
 }
 
 async function saveIncomingSettings() {
