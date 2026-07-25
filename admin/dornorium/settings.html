@@ -901,10 +901,19 @@ function startPolling() {
                             body: JSON.stringify({ zoneId: setupZoneId, status: 'active' })
                         });
                     } catch (e) { /* non-fatal */ }
-                    
-                    // Reset setup and refresh table to show "Enable Email Routing" button
+
+                    // Save domain to settings so the domain field is updated
+                    try {
+                        await saveSettings([
+                            { category: 'cloudflare', key: 'zone_id', value: setupZoneId },
+                            { category: 'cloudflare', key: 'domain', value: setupDomainName }
+                        ]);
+                    } catch (e) { /* non-fatal */ }
+
+                    // Auto-enable routing — no manual step needed
+                    toast('✅ Domain active — enabling email routing...');
+                    await enableRouting();
                     resetDomainSetup();
-                    toast('✅ Domain is active! Click "Enable Email Routing" in the table to start routing emails.');
                 }
             } catch (e) {
                 console.warn('Polling error:', e.message);
@@ -1158,11 +1167,6 @@ async function buildIncomingTab(cats, langs) {
                 statusText = '⏳ Pending Setup';
                 actions = `<button class="btn btn-sm btn-accent" onclick="checkDomainStatus('${domain.id}', '${esc(domain.name)}')">Check Status</button>
                            <button class="btn btn-sm btn-ghost" onclick="cancelDomainSetup('${domain.id}')">Cancel</button>`;
-            } else if (dbStatus === 'active' && !enabled) {
-                statusClass = 'pending';
-                statusText = '🔧 Ready to Enable';
-                actions = `<button class="btn btn-sm btn-accent" onclick="enableDomainRouting('${domain.id}', '${esc(domain.name)}')">Enable Email Routing</button>
-                           <button class="btn btn-sm btn-ghost" onclick="removeDomain('${domain.id}', '${esc(domain.name)}')">Remove</button>`;
             } else if (enabled) {
                 statusClass = 'active';
                 statusText = '✅ Enabled';

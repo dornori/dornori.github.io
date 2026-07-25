@@ -58,6 +58,10 @@ async function initializeDatabase(env) {
   try {
     await env.DB.exec("ALTER TABLE email_addresses ADD COLUMN address_type TEXT DEFAULT 'incoming'");
   } catch (e) { /* column already exists, ignore */ }
+  // Backfill any rows that predate the column
+  try {
+    await env.DB.exec("UPDATE email_addresses SET address_type = 'incoming' WHERE address_type IS NULL");
+  } catch (e) { }
   try {
     await env.DB.exec("ALTER TABLE cloudflare_domains ADD COLUMN enabled INTEGER DEFAULT 0");
   } catch (e) { /* column already exists, ignore */ }
@@ -3262,6 +3266,18 @@ if (path === "/api/admin/setup/verify-token" && method === "GET") {
             } catch (e) { console.warn("Could not fetch zone from CF:", e.message); }
           }
 
+          console.log(`domain-remove: zoneId=${zoneId} domainName=${domainName}`);
+
+          // Delete incoming email_addresses FIRST (before CF calls that might throw)
+          let emailsDeleted = 0;
+          if (domainName) {
+            const delResult = await env.DB.prepare(
+              "DELETE FROM email_addresses WHERE lower(email) LIKE ? AND (address_type = 'incoming' OR address_type IS NULL)"
+            ).bind(`%@${domainName.toLowerCase()}`).run();
+            emailsDeleted = delResult.meta?.changes || 0;
+            console.log(`domain-remove: deleted ${emailsDeleted} email_addresses for @${domainName}`);
+          }
+
           // Delete all CF email routing rules for this zone
           try {
             const rules = await callCloudflareAPI("GET", `/zones/${zoneId}/email/routing/rules`, null, env);
@@ -3273,20 +3289,17 @@ if (path === "/api/admin/setup/verify-token" && method === "GET") {
           }
 
           // Delete zone from Cloudflare
-          await callCloudflareAPI("DELETE", `/zones/${zoneId}`, null, env);
-
-          // Delete incoming email_addresses for this domain only (leave outgoing untouched)
-          if (domainName) {
-            await env.DB.prepare(
-              "DELETE FROM email_addresses WHERE lower(email) LIKE ? AND address_type = 'incoming'"
-            ).bind(`%@${domainName.toLowerCase()}`).run();
+          try {
+            await callCloudflareAPI("DELETE", `/zones/${zoneId}`, null, env);
+          } catch (e) {
+            console.warn("Could not delete CF zone:", e.message);
           }
 
           // Remove from tracking table and settings
           await env.DB.prepare("DELETE FROM cloudflare_domains WHERE zone_id = ?").bind(zoneId).run();
           await env.DB.prepare("DELETE FROM settings WHERE category = 'cloudflare' AND key = 'domain'").run();
 
-          return json({ success: true, deletedDomain: domainName });
+          return json({ success: true, deletedDomain: domainName, emailsDeleted });
         } catch (e) {
           return json({ success: false, error: e.message }, 400);
         }
