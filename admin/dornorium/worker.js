@@ -3268,14 +3268,32 @@ if (path === "/api/admin/setup/verify-token" && method === "GET") {
 
           console.log(`domain-remove: zoneId=${zoneId} domainName=${domainName}`);
 
-          // Delete incoming email_addresses FIRST (before CF calls that might throw)
+          if (!domainName) {
+            return json({ success: false, error: "Could not determine domain name — aborting to prevent data loss" }, 400);
+          }
+
+          // Safety check: domainName must be a proper domain (contains a dot, no wildcards)
+          if (!domainName.includes('.') || domainName.includes('%') || domainName.includes('*')) {
+            return json({ success: false, error: `Unsafe domain name "${domainName}" — aborting` }, 400);
+          }
+
+          // Use exact suffix match — LIKE with escaped @ to ensure we only match @exactdomain.tld
+          const emailsToDelete = await env.DB.prepare(
+            "SELECT id, email FROM email_addresses WHERE lower(email) LIKE ? AND (address_type = 'incoming' OR address_type IS NULL)"
+          ).bind(`%@${domainName.toLowerCase()}`).all();
+
+          // Extra safety: verify each match actually ends with @domainName exactly
+          const exactMatches = (emailsToDelete.results || []).filter(row => {
+            const parts = row.email.toLowerCase().split('@');
+            return parts.length === 2 && parts[1] === domainName.toLowerCase();
+          });
+
+          console.log(`domain-remove: found ${exactMatches.length} emails to delete for @${domainName}`);
+
           let emailsDeleted = 0;
-          if (domainName) {
-            const delResult = await env.DB.prepare(
-              "DELETE FROM email_addresses WHERE lower(email) LIKE ? AND (address_type = 'incoming' OR address_type IS NULL)"
-            ).bind(`%@${domainName.toLowerCase()}`).run();
-            emailsDeleted = delResult.meta?.changes || 0;
-            console.log(`domain-remove: deleted ${emailsDeleted} email_addresses for @${domainName}`);
+          for (const row of exactMatches) {
+            await env.DB.prepare("DELETE FROM email_addresses WHERE id = ?").bind(row.id).run();
+            emailsDeleted++;
           }
 
           // Delete all CF email routing rules for this zone
