@@ -310,12 +310,12 @@ async function load() {
     try {
         const [sd, ed, oed] = await Promise.all([
             api('/api/admin/settings'),
-            api('/api/admin/email-addresses?type=incoming'),
+            api('/api/admin/email-addresses'),
             api('/api/admin/email-addresses?type=outgoing')
         ]);
         settings = sd.settings || [];
-        emailAddresses = ed.addresses || [];       // incoming routing addresses (CF rules)
-        outgoingAddresses = oed.addresses || [];   // outgoing sender addresses (NULL + outgoing type)
+        emailAddresses = ed.addresses || [];       // ALL addresses — used for incoming tab + CF rule matching
+        outgoingAddresses = oed.addresses || [];   // outgoing type only — used for outgoing tab senders
         
         const zoneSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'zone_id');
         configuredZoneId = zoneSetting ? zoneSetting.value : null;
