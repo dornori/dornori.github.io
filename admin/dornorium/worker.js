@@ -56,12 +56,9 @@ async function initializeDatabase(env) {
 
   // Migrations for columns added after initial release
   try {
-    await env.DB.exec("ALTER TABLE email_addresses ADD COLUMN address_type TEXT DEFAULT 'incoming'");
+    await env.DB.exec("ALTER TABLE email_addresses ADD COLUMN address_type TEXT DEFAULT NULL");
   } catch (e) { /* column already exists, ignore */ }
-  // Backfill any rows that predate the column
-  try {
-    await env.DB.exec("UPDATE email_addresses SET address_type = 'incoming' WHERE address_type IS NULL");
-  } catch (e) { }
+  // No backfill needed - NULL rows are treated as outgoing (senders) by default
   try {
     await env.DB.exec("ALTER TABLE cloudflare_domains ADD COLUMN enabled INTEGER DEFAULT 0");
   } catch (e) { /* column already exists, ignore */ }
@@ -995,18 +992,20 @@ async function getAllAutoReplies(env) {
 async function getEmailAddresses(env, activeOnly = false, addressType = null) {
   try {
     let q, params = [];
-    if (addressType === 'incoming') {
-      // NULL rows predate the address_type column and are implicitly incoming
+    if (addressType === 'outgoing') {
+      // NULL rows predate address_type and were always used as senders = outgoing
       q = activeOnly
-        ? "SELECT * FROM email_addresses WHERE is_active = 1 AND (address_type = 'incoming' OR address_type IS NULL) ORDER BY label"
-        : "SELECT * FROM email_addresses WHERE (address_type = 'incoming' OR address_type IS NULL) ORDER BY label";
-    } else if (addressType) {
+        ? "SELECT * FROM email_addresses WHERE is_active = 1 AND (address_type = 'outgoing' OR address_type IS NULL) ORDER BY label"
+        : "SELECT * FROM email_addresses WHERE (address_type = 'outgoing' OR address_type IS NULL) ORDER BY label";
+    } else if (addressType === 'incoming') {
       q = activeOnly
-        ? "SELECT * FROM email_addresses WHERE is_active = 1 AND address_type = ? ORDER BY label"
-        : "SELECT * FROM email_addresses WHERE address_type = ? ORDER BY label";
-      params = [addressType];
+        ? "SELECT * FROM email_addresses WHERE is_active = 1 AND address_type = 'incoming' ORDER BY label"
+        : "SELECT * FROM email_addresses WHERE address_type = 'incoming' ORDER BY label";
     } else {
-      q = activeOnly ? "SELECT * FROM email_addresses WHERE is_active = 1 ORDER BY label" : "SELECT * FROM email_addresses ORDER BY label";
+      // No filter — dashboard compat: return outgoing/NULL (senders) only
+      q = activeOnly
+        ? "SELECT * FROM email_addresses WHERE is_active = 1 AND (address_type = 'outgoing' OR address_type IS NULL) ORDER BY label"
+        : "SELECT * FROM email_addresses WHERE (address_type = 'outgoing' OR address_type IS NULL) ORDER BY label";
     }
     const r = await env.DB.prepare(q).bind(...params).all();
     return r.results || [];
@@ -1015,7 +1014,7 @@ async function getEmailAddresses(env, activeOnly = false, addressType = null) {
   }
 }
 
-async function addEmailAddress(env, email, label, action, language, addressType = 'incoming') {
+async function addEmailAddress(env, email, label, action, language, addressType = 'outgoing') {
   if (!language) {
     throw new Error("Language is required for email address configuration");
   }

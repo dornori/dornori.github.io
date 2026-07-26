@@ -314,13 +314,16 @@ async function load() {
             api('/api/admin/email-addresses?type=outgoing')
         ]);
         settings = sd.settings || [];
-        emailAddresses = ed.addresses || [];
-        outgoingAddresses = oed.addresses || [];
+        emailAddresses = ed.addresses || [];       // incoming routing addresses (CF rules)
+        outgoingAddresses = oed.addresses || [];   // outgoing sender addresses (NULL + outgoing type)
         
         const zoneSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'zone_id');
         configuredZoneId = zoneSetting ? zoneSetting.value : null;
         const domainSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'domain');
         configuredDomain = domainSetting ? domainSetting.value : null;
+        
+        // If no zone in settings, use the first enabled domain from cloudflareDomains
+        // (populated after fetchCloudflareDomains below)
         
         // Check if cloudflare credentials are set
         const accountIdSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'account_id' && s.value);
@@ -334,6 +337,15 @@ async function load() {
         };
         
         await fetchCloudflareDomains();
+        
+        // Fall back to first enabled domain if settings has no zone_id
+        if (!configuredZoneId && cloudflareDomains.length > 0) {
+            const enabled = cloudflareDomains.find(d => d.db_enabled === 1);
+            if (enabled) {
+                configuredZoneId = enabled.id;
+                configuredDomain = enabled.name;
+            }
+        }
         
         if (configuredZoneId) {
             await fetchCloudflareRules(configuredZoneId);
