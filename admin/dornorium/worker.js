@@ -3538,7 +3538,18 @@ if (path.startsWith("/api/admin/setup/routing-rule/") && method === "PUT") {
   if (!zoneId || !ruleId || !rule) return json({ error: "zoneId, ruleId and rule required" }, 400);
 
   try {
-    const data = await callCloudflareAPI("PUT", `/zones/${zoneId}/email/routing/rules/${ruleId}`, rule, env);
+    const cleanRule = {
+      enabled: rule.enabled,
+      name: rule.name || '',
+      priority: rule.priority,
+      matchers: rule.matchers,
+      actions: rule.actions
+    };
+    // CF requires catch-all rules to have empty matchers array, not type:'all' object
+    if (cleanRule.matchers && cleanRule.matchers.length === 1 && cleanRule.matchers[0]?.type === 'all') {
+      cleanRule.matchers = [];
+    }
+    const data = await callCloudflareAPI("PUT", `/zones/${zoneId}/email/routing/rules/${ruleId}`, cleanRule, env);
     return json({ success: true, rule: data.result });
   } catch (e) {
     return json({ success: false, error: e.message }, 400);
