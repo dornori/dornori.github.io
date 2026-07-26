@@ -1273,9 +1273,10 @@ async function buildIncomingTab(cats, langs) {
                 hasMapping: !!dbMapping
             };
         });
-        // Also show DB addresses that have no CF rule yet
+        // Also show DB addresses that have no CF rule yet — exclude wildcards
         const ruleEmails = new Set(mergedRules.map(r => r.email.toLowerCase()));
         emailAddresses.forEach(addr => {
+            if (addr.email.startsWith('*@') || addr.email === '*') return;
             if (!ruleEmails.has(addr.email.toLowerCase())) {
                 const addrDomain = addr.email.split('@')[1]?.toLowerCase();
                 const matchedZone = cloudflareDomains.find(d => d.name?.toLowerCase() === addrDomain);
@@ -1283,7 +1284,7 @@ async function buildIncomingTab(cats, langs) {
             }
         });
     } else {
-        mergedRules = emailAddresses.map(addr => {
+        mergedRules = emailAddresses.filter(addr => !addr.email.startsWith('*@') && addr.email !== '*').map(addr => {
             const addrDomain = addr.email.split('@')[1]?.toLowerCase();
             const matchedZone = cloudflareDomains.find(d => d.name?.toLowerCase() === addrDomain);
             return { ruleId: null, zoneId: matchedZone?.id || configuredZoneId || '', domainName: matchedZone?.name || addrDomain || '', email: addr.email, isCatchAll: false, cloudflareEnabled: false, dbMapping: addr, category: addr.action || addr.label || '', language: addr.language || 'en', hasMapping: true };
