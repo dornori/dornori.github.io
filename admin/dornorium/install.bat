@@ -218,7 +218,7 @@ set "MAX_RETRIES=20"
 for /L %%a in (1,1,%MAX_RETRIES%) do (
     set /p "=Attempt %%a of %MAX_RETRIES%: " <nul
     
-    curl -s -o nul -w "%%{http_code}" "%WORKER_URL%/" > "%TEMP%\status.txt"
+    curl -s -o nul -w "%%{http_code}" "%WORKER_URL%/api/admin/config-version" > "%TEMP%\status.txt"
     set /p HTTP_STATUS=<"%TEMP%\status.txt"
     
     if "!HTTP_STATUS!"=="200" (
