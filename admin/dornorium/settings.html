@@ -350,8 +350,11 @@ async function load() {
             }
         }
         
-        if (configuredZoneId) {
-            await fetchCloudflareRules(configuredZoneId);
+        const enabledZones = cloudflareDomains.filter(d => d.db_enabled == 1 || d.db_status === 'active');
+        if (enabledZones.length > 0) {
+            await fetchCloudflareRules(enabledZones.map(z => z.id));
+        } else if (configuredZoneId) {
+            await fetchCloudflareRules([configuredZoneId]);
         } else {
             cloudflareRules = [];
         }
@@ -376,14 +379,16 @@ async function fetchCloudflareDomains() {
     }
 }
 
-async function fetchCloudflareRules(zoneId) {
+async function fetchCloudflareRules(zoneIds) {
+    if (!Array.isArray(zoneIds)) zoneIds = [zoneIds];
     try {
-        const res = await api(`/api/admin/setup/routing-rules/${zoneId}`);
-        if (res.success) {
-            cloudflareRules = res.rules || [];
-        } else {
-            cloudflareRules = [];
-        }
+        const results = await Promise.all(zoneIds.map(async zoneId => {
+            try {
+                const res = await api(`/api/admin/setup/routing-rules/${zoneId}`);
+                return res.success ? (res.rules || []) : [];
+            } catch (e) { return []; }
+        }));
+        cloudflareRules = results.flat();
     } catch (e) {
         cloudflareRules = [];
     }
