@@ -1276,7 +1276,7 @@ async function buildIncomingTab(cats, langs) {
         // Also show DB addresses that have no CF rule yet — exclude wildcards
         const ruleEmails = new Set(mergedRules.map(r => r.email.toLowerCase()));
         emailAddresses.forEach(addr => {
-            if (addr.email.startsWith('*@') || addr.email === '*') return;
+            if (addr.email.startsWith('*') || addr.email === '*') return;
             if (!ruleEmails.has(addr.email.toLowerCase())) {
                 const addrDomain = addr.email.split('@')[1]?.toLowerCase();
                 const matchedZone = cloudflareDomains.find(d => d.name?.toLowerCase() === addrDomain);
@@ -1284,7 +1284,7 @@ async function buildIncomingTab(cats, langs) {
             }
         });
     } else {
-        mergedRules = emailAddresses.filter(addr => !addr.email.startsWith('*@') && addr.email !== '*').map(addr => {
+        mergedRules = emailAddresses.filter(addr => !addr.email.startsWith('*') && addr.email !== '*').map(addr => {
             const addrDomain = addr.email.split('@')[1]?.toLowerCase();
             const matchedZone = cloudflareDomains.find(d => d.name?.toLowerCase() === addrDomain);
             return { ruleId: null, zoneId: matchedZone?.id || configuredZoneId || '', domainName: matchedZone?.name || addrDomain || '', email: addr.email, isCatchAll: false, cloudflareEnabled: false, dbMapping: addr, category: addr.action || addr.label || '', language: addr.language || 'en', hasMapping: true };
@@ -1299,12 +1299,11 @@ async function buildIncomingTab(cats, langs) {
         const ruleId = item.ruleId;
         const zoneId = item.zoneId || '';
         const isCatchAll = item.isCatchAll;
-        const domainLabel = (!isCatchAll && item.domainName) ? `<span style="font-size:10px;color:var(--text-muted);margin-left:4px;">@${esc(item.domainName)}</span>` : '';
         const catSel = cats.map(c => `<option value="${c}"${c===category?' selected':''}>${cap(c)}</option>`).join('');
         const langSel = langs.map(l => `<option value="${l.code}"${l.code===language?' selected':''}>${l.code} - ${l.name}</option>`).join('');
 
         return `<div class="email-row" data-rule-id="${ruleId || ''}" data-email="${esc(email)}">
-            <span class="email-addr">${esc(email)}${domainLabel}</span>
+            <span class="email-addr">${esc(email)}</span>
             <select class="category-select" onchange="updateMapping(this)" data-email="${esc(email)}" style="padding:5px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:5px;color:var(--text);width:100%;font-size:12px;">${catSel}</select>
             <select class="language-select" onchange="updateMapping(this)" data-email="${esc(email)}" style="padding:5px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:5px;color:var(--text);width:100%;font-size:12px;">${langSel}</select>
             ${ruleId ? 
@@ -1652,7 +1651,8 @@ async function toggleCloudflareRule(ruleId, newStatus, email, zoneId) {
         });
         if (res.success) {
             toast(`✅ Rule ${newStatus ? 'activated' : 'deactivated'}`);
-            await fetchCloudflareRules(targetZoneId);
+            const enabledZones = cloudflareDomains.filter(d => d.db_enabled == 1 || d.db_status === 'active').map(d => d.id);
+            await fetchCloudflareRules(enabledZones.length ? enabledZones : [targetZoneId]);
             refreshIncomingTab();
         } else {
             toast('❌ ' + (res.error || 'Failed'), 'error');
