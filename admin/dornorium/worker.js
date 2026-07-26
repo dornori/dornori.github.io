@@ -3276,21 +3276,22 @@ if (path === "/api/admin/setup/verify-token" && method === "GET") {
           }
 
           // Use exact suffix match — LIKE with escaped @ to ensure we only match @exactdomain.tld
-          const emailsToDelete = await env.DB.prepare(
-            "SELECT id, email FROM email_addresses WHERE lower(email) LIKE ? AND (address_type IS NULL OR address_type = 'incoming')"
-          ).bind(`%@${domainName.toLowerCase()}`).all();
-
-          const exactMatches = (emailsToDelete.results || []).filter(row => {
-            const parts = row.email.toLowerCase().split('@');
-            return parts.length === 2 && parts[1] === domainName.toLowerCase();
-          });
-
-          console.log(`domain-remove: found ${exactMatches.length} emails to delete for @${domainName}`);
-
-          let emailsDeleted = 0;
-          for (const row of exactMatches) {
-            await env.DB.prepare("DELETE FROM email_addresses WHERE id = ?").bind(row.id).run();
-            emailsDeleted++;
+          // Delete ALL email addresses for this domain
+          if (domainName) {
+            const pattern = `%@${domainName.toLowerCase()}`;
+            const toDelete = await env.DB.prepare(
+              "SELECT id, email FROM email_addresses WHERE lower(email) LIKE ?"
+            ).bind(pattern).all();
+            
+            // Exact match safety check
+            const confirmed = (toDelete.results || []).filter(row => 
+              row.email.toLowerCase().split('@')[1] === domainName.toLowerCase()
+            );
+            
+            for (const row of confirmed) {
+              await env.DB.prepare("DELETE FROM email_addresses WHERE id = ?").bind(row.id).run();
+            }
+            console.log(`domain-remove: deleted ${confirmed.length} emails for @${domainName}`);
           }
 
           // Delete all CF email routing rules for this zone
