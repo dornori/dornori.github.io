@@ -1736,35 +1736,16 @@ async function addEmail() {
     }
     
     try {
-        // Derive the correct zoneId from the email's domain — not the global configuredZoneId
-        const emailDomain = email.split('@')[1]?.toLowerCase();
-        const matchedZone = cloudflareDomains.find(d => d.name?.toLowerCase() === emailDomain);
-        const targetZoneId = matchedZone ? matchedZone.id : configuredZoneId;
-
-        let cloudflareCreated = false;
-        if (targetZoneId) {
-            const cfRes = await api('/api/admin/setup/routing-rule', {
-                method: 'POST',
-                body: JSON.stringify({ 
-                    zoneId: targetZoneId,
-                    emailPattern: email,
-                    workerName: 'dornorium'
-                })
-            });
-            if (cfRes.success) {
-                cloudflareCreated = true;
-            } else {
-                toast('⚠️ Cloudflare rule failed: ' + (cfRes.error || 'Unknown'), 'warning');
-            }
-        }
-        
-        if (cloudflareCreated) {
-            toast('✅ Cloudflare routing rule created');
+        const res = await api('/api/admin/email-addresses', {
+            method: 'POST',
+            body: JSON.stringify({ email, label: category, action: category, language })
+        });
+        if (res.success) {
+            toast('✅ Email added');
             document.getElementById('newEmailAddr').value = '';
             await load();
-            refreshIncomingTab();
-        } else if (!targetZoneId) {
-            toast('❌ No matching domain zone found for ' + (emailDomain || email), 'error');
+        } else {
+            toast('❌ ' + (res.error || 'Failed'), 'error');
         }
     } catch (e) {
         toast('❌ ' + e.message, 'error');
