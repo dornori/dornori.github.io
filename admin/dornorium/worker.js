@@ -3275,25 +3275,27 @@ if (path === "/api/admin/setup/verify-token" && method === "GET") {
             return json({ success: false, error: `Unsafe domain name "${domainName}" — aborting` }, 400);
           }
 
-          // Use exact suffix match — LIKE with escaped @ to ensure we only match @exactdomain.tld
-          // Delete ALL email addresses for this domain
-          if (domainName) {
-            const pattern = `%@${domainName.toLowerCase()}`;
-            const toDelete = await env.DB.prepare(
-              "SELECT id, email FROM email_addresses WHERE lower(email) LIKE ?"
-            ).bind(pattern).all();
-            
-            // Exact match safety check
-            const confirmed = (toDelete.results || []).filter(row => 
-              row.email.toLowerCase().split('@')[1] === domainName.toLowerCase()
-            );
-            
-            for (const row of confirmed) {
-              await env.DB.prepare("DELETE FROM email_addresses WHERE id = ?").bind(row.id).run();
-            }
-            console.log(`domain-remove: deleted ${confirmed.length} emails for @${domainName}`);
+          // DELETE EMAILS FIRST — exact match on full domain
+          let emailsDeleted = 0;
+          const exactDomainLower = domainName.toLowerCase();
+          const pattern = `%@${exactDomainLower}`;
+          const toDelete = await env.DB.prepare(
+            "SELECT id, email FROM email_addresses WHERE lower(email) LIKE ?"
+          ).bind(pattern).all();
+          
+          // Exact match safety check — ensure domain portion after @ exactly matches
+          const confirmed = (toDelete.results || []).filter(row => {
+            const domainPart = row.email.toLowerCase().split('@')[1];
+            return domainPart === exactDomainLower;
+          });
+          
+          for (const row of confirmed) {
+            await env.DB.prepare("DELETE FROM email_addresses WHERE id = ?").bind(row.id).run();
           }
+          emailsDeleted = confirmed.length;
+          console.log(`domain-remove: deleted ${emailsDeleted} emails for @${exactDomainLower}`);
 
+          // THEN delete from CF and DB
           // Delete all CF email routing rules for this zone
           try {
             const rules = await callCloudflareAPI("GET", `/zones/${zoneId}/email/routing/rules`, null, env);
@@ -4023,4 +4025,4 @@ var TicketHub = class {
 export {
   TicketHub,
   worker_default as default
-}; 
+};
