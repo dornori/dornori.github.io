@@ -995,7 +995,12 @@ async function getAllAutoReplies(env) {
 async function getEmailAddresses(env, activeOnly = false, addressType = null) {
   try {
     let q, params = [];
-    if (addressType) {
+    if (addressType === 'incoming') {
+      // NULL rows predate the address_type column and are implicitly incoming
+      q = activeOnly
+        ? "SELECT * FROM email_addresses WHERE is_active = 1 AND (address_type = 'incoming' OR address_type IS NULL) ORDER BY label"
+        : "SELECT * FROM email_addresses WHERE (address_type = 'incoming' OR address_type IS NULL) ORDER BY label";
+    } else if (addressType) {
       q = activeOnly
         ? "SELECT * FROM email_addresses WHERE is_active = 1 AND address_type = ? ORDER BY label"
         : "SELECT * FROM email_addresses WHERE address_type = ? ORDER BY label";

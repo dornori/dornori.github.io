@@ -1227,9 +1227,7 @@ async function buildIncomingTab(cats, langs) {
                     email = matcher.value;
                 }
             }
-            
             const dbMapping = emailAddresses.find(a => a.email.toLowerCase() === email.toLowerCase());
-            
             return {
                 ruleId: rule.id,
                 email: email,
@@ -1240,7 +1238,14 @@ async function buildIncomingTab(cats, langs) {
                 hasMapping: !!dbMapping
             };
         });
-    } else if (emailAddresses.length > 0) {
+        // Also show DB addresses that have no CF rule yet
+        const ruleEmails = new Set(mergedRules.map(r => r.email.toLowerCase()));
+        emailAddresses.forEach(addr => {
+            if (!ruleEmails.has(addr.email.toLowerCase())) {
+                mergedRules.push({ ruleId: null, email: addr.email, cloudflareEnabled: false, dbMapping: addr, category: addr.action || addr.label || '', language: addr.language || 'en', hasMapping: true });
+            }
+        });
+    } else {
         mergedRules = emailAddresses.map(addr => ({
             ruleId: null,
             email: addr.email,
