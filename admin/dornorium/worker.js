@@ -40,7 +40,7 @@ var configLoaded = false;
 var dbInitialized = false;
 
 // Database initialization SQL
-const SEED_SQL = `PRAGMA foreign_keys = OFF; CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(category, key)); CREATE TABLE IF NOT EXISTS cloudflare_domains (id INTEGER PRIMARY KEY AUTOINCREMENT, zone_id TEXT UNIQUE NOT NULL, domain_name TEXT NOT NULL, enabled INTEGER DEFAULT 0, status TEXT DEFAULT 'pending_setup', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP); CREATE TABLE IF NOT EXISTS agents_online (id INTEGER PRIMARY KEY CHECK (id = 1), count INTEGER NOT NULL DEFAULT 0); CREATE TABLE IF NOT EXISTS teams (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, manager_id VARCHAR(100), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP); CREATE TABLE IF NOT EXISTS email_addresses (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, label TEXT NOT NULL, action TEXT NOT NULL, is_active INTEGER DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, signature TEXT, language TEXT, address_type TEXT DEFAULT NULL); CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT UNIQUE NOT NULL, keys TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP); CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT DEFAULT 'agent', password_hash TEXT NOT NULL, permissions TEXT DEFAULT '["read","write"]', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, allowed_emails TEXT DEFAULT '[]', updated_at TEXT, allowed_languages TEXT DEFAULT '["en"]', team_id VARCHAR(50), page_permissions TEXT DEFAULT '{}', allowed_categories TEXT DEFAULT '[]', active INTEGER DEFAULT 1); CREATE TABLE IF NOT EXISTS newsletter_subscribers (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE, name TEXT DEFAULT '', status TEXT NOT NULL DEFAULT 'active', subscribed_at TEXT, unsubscribed_at TEXT, language TEXT DEFAULT 'en'); CREATE TABLE IF NOT EXISTS newsletters (id INTEGER PRIMARY KEY AUTOINCREMENT, subject TEXT NOT NULL, body TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'draft', sent_at TEXT, recipient_count INTEGER DEFAULT 0, created_at TEXT NOT NULL, language TEXT DEFAULT 'en'); CREATE TABLE IF NOT EXISTS password_resets (token_hash TEXT PRIMARY KEY, email TEXT NOT NULL, expires_at INTEGER NOT NULL, used INTEGER NOT NULL DEFAULT 0, created_at TEXT DEFAULT (datetime('now'))); CREATE TABLE IF NOT EXISTS tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_number TEXT UNIQUE NOT NULL, external_ref TEXT, category TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'new', priority TEXT DEFAULT 'medium', sender_name TEXT, sender_email TEXT NOT NULL, subject TEXT, message TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, sla_response_due DATETIME, sla_resolution_due DATETIME, assigned_to TEXT, metadata TEXT, last_action DATETIME, language TEXT DEFAULT 'unknown', sender_phone TEXT, order_number TEXT, last_updated_by TEXT); CREATE TABLE IF NOT EXISTS ticket_comments (id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_id INTEGER NOT NULL, comment_type TEXT NOT NULL, author_email TEXT, content TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, new_status TEXT, old_status TEXT, FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE); CREATE TABLE IF NOT EXISTS ticket_summary (id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_id INTEGER UNIQUE NOT NULL, ticket_number TEXT NOT NULL, status TEXT NOT NULL, category TEXT NOT NULL, language TEXT NOT NULL, subject TEXT NOT NULL, sender_email TEXT NOT NULL, created_at DATETIME NOT NULL, last_action DATETIME NOT NULL, sla_status TEXT NOT NULL DEFAULT 'on_track', priority TEXT NOT NULL DEFAULT 'medium', FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE); CREATE TABLE IF NOT EXISTS unsubscribe_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, subscriber_id INTEGER NOT NULL UNIQUE REFERENCES newsletter_subscribers(id), token TEXT NOT NULL UNIQUE, expires_at TEXT NOT NULL); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('system','ticket_cache_key','ticket-list'),('system','jwt_expiry_seconds','86400'),('system','lock_timeout_write_ms','45000'),('system','lock_timeout_read_ms','30000'),('system','lock_cleanup_interval_ms','15000'),('system','login_max_attempts','5'),('system','login_ratelimit_window_ms','300000'),('system','cors_allowed_origins',''),('system','cors_enabled','1'),('system','rate_limit_enabled','1'); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('security','password_min_length','12'),('security','password_reset_expiry_minutes','15'),('security','password_blocklist','password,123456,12345678,qwerty,abc123,password123,admin,letmein,welcome,monkey,dragon,master,hello,fuckyou,superman,123456789,12345,1234567890,qwertyuiop,qwerty123,1q2w3e4r,password1,123321,111111,000000,abcdef,abcd1234,iloveyou,trustno1,sunshine,princess,shadow,ashley,bailey,passw0rd,admin123,root,toor'); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('tickets','newsletter_batch_size','10'),('tickets','ticket_sequence_max','999999'),('tickets','email_body_max_length','15000'),('tickets','ticket_active_statuses','new,open,in_progress,pending'),('tickets','reply_delimiter','\u0001'); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('general','domain',''),('general','app_basedir',''),('general','script_url',''),('general','products_data_base_url',''),('general','products_images_base_url',''),('general','default_language','en'),('general','config_version','1'); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('email','default_from',''),('email','password_reset_from',''); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('cloudflare','account_id',''),('cloudflare','api_token',''); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('languages','list','[{\"code\":\"en\",\"name\":\"English\"}]'); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('category','business_description','Business'),('category','general_description','General'),('category','info_description','Info'),('category','legal_description','Legal'),('category','newsletter_description','Newsletter'),('category','no_reply_description','No-Reply'),('category','other_description','Other'),('category','press_description','Press'),('category','privacy_description','Privacy'),('category','support_description','Support'),('category','unclassified_description','Unclassified'); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('category','business_color','#3b82f6'),('category','general_color','#6b7280'),('category','info_color','#06b6d4'),('category','legal_color','#8b5cf6'),('category','newsletter_color','#ec4899'),('category','no_reply_color','#64748b'),('category','other_color','#9ca3af'),('category','press_color','#6366f1'),('category','privacy_color','#a78bfa'),('category','support_color','#f97316'),('category','unclassified_color','#8892b0'); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('sla','business_response','24'),('sla','business_resolution','72'),('sla','business_resolved_grace','0'),('sla','business_closed_grace','0'),('sla','general_response','24'),('sla','general_resolution','72'),('sla','general_resolved_grace','0'),('sla','general_closed_grace','0'),('sla','info_response','24'),('sla','info_resolution','72'),('sla','info_resolved_grace','0'),('sla','info_closed_grace','0'),('sla','legal_response','24'),('sla','legal_resolution','72'),('sla','legal_resolved_grace','0'),('sla','legal_closed_grace','0'),('sla','newsletter_response','24'),('sla','newsletter_resolution','72'),('sla','newsletter_resolved_grace','0'),('sla','newsletter_closed_grace','0'),('sla','no_reply_response','24'),('sla','no_reply_resolution','72'),('sla','no_reply_resolved_grace','0'),('sla','no_reply_closed_grace','0'),('sla','other_response','24'),('sla','other_resolution','72'),('sla','other_resolved_grace','0'),('sla','other_closed_grace','0'),('sla','press_response','24'),('sla','press_resolution','72'),('sla','press_resolved_grace','0'),('sla','press_closed_grace','0'),('sla','privacy_response','24'),('sla','privacy_resolution','72'),('sla','privacy_resolved_grace','0'),('sla','privacy_closed_grace','0'),('sla','support_response','24'),('sla','support_resolution','72'),('sla','support_resolved_grace','0'),('sla','support_closed_grace','0'),('sla','unclassified_response','24'),('sla','unclassified_resolution','72'),('sla','unclassified_resolved_grace','0'),('sla','unclassified_closed_grace','0'); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('auto_reply','business_enabled','0'),('auto_reply','business_subject','[Ticket {{ticket_id}}] Your business inquiry'),('auto_reply','business_body','<p>Thank you for your business inquiry. We will respond shortly.</p>'),('auto_reply','general_enabled','0'),('auto_reply','general_subject','[Ticket {{ticket_id}}] Your general inquiry'),('auto_reply','general_body','<p>Thank you for your general inquiry. We will respond shortly.</p>'),('auto_reply','info_enabled','0'),('auto_reply','info_subject','[Ticket {{ticket_id}}] Your info inquiry'),('auto_reply','info_body','<p>Thank you for your information request. We will respond shortly.</p>'),('auto_reply','legal_enabled','0'),('auto_reply','legal_subject','[Ticket {{ticket_id}}] Your legal inquiry'),('auto_reply','legal_body','<p>Thank you for your legal inquiry. We will respond shortly.</p>'),('auto_reply','newsletter_enabled','0'),('auto_reply','newsletter_subject','[Ticket {{ticket_id}}] Your newsletter inquiry'),('auto_reply','newsletter_body','<p>Thank you for your newsletter inquiry. We will respond shortly.</p>'),('auto_reply','no_reply_enabled','0'),('auto_reply','no_reply_subject','[Ticket {{ticket_id}}] Your no-reply inquiry'),('auto_reply','no_reply_body','<p>Thank you for your inquiry. We will respond shortly.</p>'),('auto_reply','other_enabled','0'),('auto_reply','other_subject','[Ticket {{ticket_id}}] Your other inquiry'),('auto_reply','other_body','<p>Thank you for your inquiry. We will respond shortly.</p>'),('auto_reply','press_enabled','0'),('auto_reply','press_subject','[Ticket {{ticket_id}}] Your press inquiry'),('auto_reply','press_body','<p>Thank you for your press inquiry. We will respond shortly.</p>'),('auto_reply','privacy_enabled','0'),('auto_reply','privacy_subject','[Ticket {{ticket_id}}] Your privacy inquiry'),('auto_reply','privacy_body','<p>Thank you for your privacy inquiry. We will respond shortly.</p>'),('auto_reply','support_enabled','0'),('auto_reply','support_subject','[Ticket {{ticket_id}}] Your support inquiry'),('auto_reply','support_body','<p>Thank you for your support inquiry. We will respond shortly.</p>'),('auto_reply','unclassified_enabled','0'),('auto_reply','unclassified_subject','[Ticket {{ticket_id}}] Your unclassified inquiry'),('auto_reply','unclassified_body','<p>Thank you for your inquiry. We will respond shortly.</p>'); INSERT OR IGNORE INTO agents_online (id, count) VALUES (1, 0); PRAGMA foreign_keys = ON;`;
+const SEED_SQL = `PRAGMA foreign_keys = OFF; CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(category, key)); CREATE TABLE IF NOT EXISTS cloudflare_domains (id INTEGER PRIMARY KEY AUTOINCREMENT, zone_id TEXT UNIQUE NOT NULL, domain_name TEXT NOT NULL, enabled INTEGER DEFAULT 0, status TEXT DEFAULT 'pending_setup', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP); CREATE TABLE IF NOT EXISTS agents_online (id INTEGER PRIMARY KEY CHECK (id = 1), count INTEGER NOT NULL DEFAULT 0); CREATE TABLE IF NOT EXISTS teams (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, manager_id VARCHAR(100), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP); CREATE TABLE IF NOT EXISTS email_addresses (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, label TEXT NOT NULL, action TEXT NOT NULL, is_active INTEGER DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, signature TEXT, language TEXT); CREATE TABLE IF NOT EXISTS push_subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT UNIQUE NOT NULL, keys TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP); CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT DEFAULT 'agent', password_hash TEXT NOT NULL, permissions TEXT DEFAULT '["read","write"]', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, allowed_emails TEXT DEFAULT '[]', updated_at TEXT, allowed_languages TEXT DEFAULT '["en"]', team_id VARCHAR(50), page_permissions TEXT DEFAULT '{}', allowed_categories TEXT DEFAULT '[]', active INTEGER DEFAULT 1); CREATE TABLE IF NOT EXISTS newsletter_subscribers (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE, name TEXT DEFAULT '', status TEXT NOT NULL DEFAULT 'active', subscribed_at TEXT, unsubscribed_at TEXT, language TEXT DEFAULT 'en'); CREATE TABLE IF NOT EXISTS newsletters (id INTEGER PRIMARY KEY AUTOINCREMENT, subject TEXT NOT NULL, body TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'draft', sent_at TEXT, recipient_count INTEGER DEFAULT 0, created_at TEXT NOT NULL, language TEXT DEFAULT 'en'); CREATE TABLE IF NOT EXISTS password_resets (token_hash TEXT PRIMARY KEY, email TEXT NOT NULL, expires_at INTEGER NOT NULL, used INTEGER NOT NULL DEFAULT 0, created_at TEXT DEFAULT (datetime('now'))); CREATE TABLE IF NOT EXISTS tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_number TEXT UNIQUE NOT NULL, external_ref TEXT, category TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'new', priority TEXT DEFAULT 'medium', sender_name TEXT, sender_email TEXT NOT NULL, subject TEXT, message TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, sla_response_due DATETIME, sla_resolution_due DATETIME, assigned_to TEXT, metadata TEXT, last_action DATETIME, language TEXT DEFAULT 'unknown', sender_phone TEXT, order_number TEXT, last_updated_by TEXT); CREATE TABLE IF NOT EXISTS ticket_comments (id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_id INTEGER NOT NULL, comment_type TEXT NOT NULL, author_email TEXT, content TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, new_status TEXT, old_status TEXT, FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE); CREATE TABLE IF NOT EXISTS ticket_summary (id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_id INTEGER UNIQUE NOT NULL, ticket_number TEXT NOT NULL, status TEXT NOT NULL, category TEXT NOT NULL, language TEXT NOT NULL, subject TEXT NOT NULL, sender_email TEXT NOT NULL, created_at DATETIME NOT NULL, last_action DATETIME NOT NULL, sla_status TEXT NOT NULL DEFAULT 'on_track', priority TEXT NOT NULL DEFAULT 'medium', FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE); CREATE TABLE IF NOT EXISTS unsubscribe_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, subscriber_id INTEGER NOT NULL UNIQUE REFERENCES newsletter_subscribers(id), token TEXT NOT NULL UNIQUE, expires_at TEXT NOT NULL); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('system','ticket_cache_key','ticket-list'),('system','jwt_expiry_seconds','86400'),('system','lock_timeout_write_ms','45000'),('system','lock_timeout_read_ms','30000'),('system','lock_cleanup_interval_ms','15000'),('system','login_max_attempts','5'),('system','login_ratelimit_window_ms','300000'),('system','cors_allowed_origins',''),('system','cors_enabled','1'),('system','rate_limit_enabled','1'); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('security','password_min_length','12'),('security','password_reset_expiry_minutes','15'),('security','password_blocklist','password,123456,12345678,qwerty,abc123,password123,admin,letmein,welcome,monkey,dragon,master,hello,fuckyou,superman,123456789,12345,1234567890,qwertyuiop,qwerty123,1q2w3e4r,password1,123321,111111,000000,abcdef,abcd1234,iloveyou,trustno1,sunshine,princess,shadow,ashley,bailey,passw0rd,admin123,root,toor'); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('tickets','newsletter_batch_size','10'),('tickets','ticket_sequence_max','999999'),('tickets','email_body_max_length','15000'),('tickets','ticket_active_statuses','new,open,in_progress,pending'),('tickets','reply_delimiter','\u0001'); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('general','domain',''),('general','app_basedir',''),('general','script_url',''),('general','products_data_base_url',''),('general','products_images_base_url',''),('general','default_language','en'),('general','config_version','1'); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('email','default_from',''),('email','password_reset_from',''); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('cloudflare','account_id',''),('cloudflare','api_token',''); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('languages','list','[{\"code\":\"en\",\"name\":\"English\"}]'); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('category','business_description','Business'),('category','general_description','General'),('category','info_description','Info'),('category','legal_description','Legal'),('category','newsletter_description','Newsletter'),('category','no_reply_description','No-Reply'),('category','other_description','Other'),('category','press_description','Press'),('category','privacy_description','Privacy'),('category','support_description','Support'),('category','unclassified_description','Unclassified'); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('category','business_color','#3b82f6'),('category','general_color','#6b7280'),('category','info_color','#06b6d4'),('category','legal_color','#8b5cf6'),('category','newsletter_color','#ec4899'),('category','no_reply_color','#64748b'),('category','other_color','#9ca3af'),('category','press_color','#6366f1'),('category','privacy_color','#a78bfa'),('category','support_color','#f97316'),('category','unclassified_color','#8892b0'); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('sla','business_response','24'),('sla','business_resolution','72'),('sla','business_resolved_grace','0'),('sla','business_closed_grace','0'),('sla','general_response','24'),('sla','general_resolution','72'),('sla','general_resolved_grace','0'),('sla','general_closed_grace','0'),('sla','info_response','24'),('sla','info_resolution','72'),('sla','info_resolved_grace','0'),('sla','info_closed_grace','0'),('sla','legal_response','24'),('sla','legal_resolution','72'),('sla','legal_resolved_grace','0'),('sla','legal_closed_grace','0'),('sla','newsletter_response','24'),('sla','newsletter_resolution','72'),('sla','newsletter_resolved_grace','0'),('sla','newsletter_closed_grace','0'),('sla','no_reply_response','24'),('sla','no_reply_resolution','72'),('sla','no_reply_resolved_grace','0'),('sla','no_reply_closed_grace','0'),('sla','other_response','24'),('sla','other_resolution','72'),('sla','other_resolved_grace','0'),('sla','other_closed_grace','0'),('sla','press_response','24'),('sla','press_resolution','72'),('sla','press_resolved_grace','0'),('sla','press_closed_grace','0'),('sla','privacy_response','24'),('sla','privacy_resolution','72'),('sla','privacy_resolved_grace','0'),('sla','privacy_closed_grace','0'),('sla','support_response','24'),('sla','support_resolution','72'),('sla','support_resolved_grace','0'),('sla','support_closed_grace','0'),('sla','unclassified_response','24'),('sla','unclassified_resolution','72'),('sla','unclassified_resolved_grace','0'),('sla','unclassified_closed_grace','0'); INSERT OR IGNORE INTO settings (category, key, value) VALUES ('auto_reply','business_enabled','0'),('auto_reply','business_subject','[Ticket {{ticket_id}}] Your business inquiry'),('auto_reply','business_body','<p>Thank you for your business inquiry. We will respond shortly.</p>'),('auto_reply','general_enabled','0'),('auto_reply','general_subject','[Ticket {{ticket_id}}] Your general inquiry'),('auto_reply','general_body','<p>Thank you for your general inquiry. We will respond shortly.</p>'),('auto_reply','info_enabled','0'),('auto_reply','info_subject','[Ticket {{ticket_id}}] Your info inquiry'),('auto_reply','info_body','<p>Thank you for your information request. We will respond shortly.</p>'),('auto_reply','legal_enabled','0'),('auto_reply','legal_subject','[Ticket {{ticket_id}}] Your legal inquiry'),('auto_reply','legal_body','<p>Thank you for your legal inquiry. We will respond shortly.</p>'),('auto_reply','newsletter_enabled','0'),('auto_reply','newsletter_subject','[Ticket {{ticket_id}}] Your newsletter inquiry'),('auto_reply','newsletter_body','<p>Thank you for your newsletter inquiry. We will respond shortly.</p>'),('auto_reply','no_reply_enabled','0'),('auto_reply','no_reply_subject','[Ticket {{ticket_id}}] Your no-reply inquiry'),('auto_reply','no_reply_body','<p>Thank you for your inquiry. We will respond shortly.</p>'),('auto_reply','other_enabled','0'),('auto_reply','other_subject','[Ticket {{ticket_id}}] Your other inquiry'),('auto_reply','other_body','<p>Thank you for your inquiry. We will respond shortly.</p>'),('auto_reply','press_enabled','0'),('auto_reply','press_subject','[Ticket {{ticket_id}}] Your press inquiry'),('auto_reply','press_body','<p>Thank you for your press inquiry. We will respond shortly.</p>'),('auto_reply','privacy_enabled','0'),('auto_reply','privacy_subject','[Ticket {{ticket_id}}] Your privacy inquiry'),('auto_reply','privacy_body','<p>Thank you for your privacy inquiry. We will respond shortly.</p>'),('auto_reply','support_enabled','0'),('auto_reply','support_subject','[Ticket {{ticket_id}}] Your support inquiry'),('auto_reply','support_body','<p>Thank you for your support inquiry. We will respond shortly.</p>'),('auto_reply','unclassified_enabled','0'),('auto_reply','unclassified_subject','[Ticket {{ticket_id}}] Your unclassified inquiry'),('auto_reply','unclassified_body','<p>Thank you for your inquiry. We will respond shortly.</p>'); INSERT OR IGNORE INTO agents_online (id, count) VALUES (1, 0); PRAGMA foreign_keys = ON;`;
 
 async function initializeDatabase(env) {
   if (dbInitialized || !env.DB) return;
@@ -53,17 +53,6 @@ async function initializeDatabase(env) {
     console.error("❌ Database initialization error:", error);
     dbInitialized = true;
   }
-
-  // Migrations for columns added after initial release
-  try { await env.DB.exec("ALTER TABLE email_addresses ADD COLUMN address_type TEXT DEFAULT NULL"); } catch (e) { }
-  // Reset rows that were incorrectly defaulted to 'incoming' — NULL means normal routing address
-  try { await env.DB.exec("UPDATE email_addresses SET address_type = NULL WHERE address_type = 'incoming'"); } catch (e) { }
-  try {
-    await env.DB.exec("ALTER TABLE cloudflare_domains ADD COLUMN enabled INTEGER DEFAULT 0");
-  } catch (e) { /* column already exists, ignore */ }
-  try {
-    await env.DB.exec("ALTER TABLE cloudflare_domains ADD COLUMN status TEXT DEFAULT 'pending_setup'");
-  } catch (e) { /* column already exists, ignore */ }
 }
 
 async function loadConfig(env) {
@@ -988,20 +977,9 @@ async function getAllAutoReplies(env) {
   }
 }
 
-async function getEmailAddresses(env, activeOnly = false, addressType = null) {
+async function getEmailAddresses(env, activeOnly = false) {
   try {
-    let q;
-    if (addressType === 'outgoing') {
-      q = activeOnly
-        ? "SELECT * FROM email_addresses WHERE is_active = 1 AND address_type = 'outgoing' ORDER BY label"
-        : "SELECT * FROM email_addresses WHERE address_type = 'outgoing' ORDER BY label";
-    } else {
-      // No filter — returns NULL rows (routing addresses) + everything else
-      // Dashboard, incoming tab, CF rule matching all use this
-      q = activeOnly
-        ? "SELECT * FROM email_addresses WHERE is_active = 1 ORDER BY label"
-        : "SELECT * FROM email_addresses ORDER BY label";
-    }
+    const q = activeOnly ? "SELECT * FROM email_addresses WHERE is_active = 1 ORDER BY label" : "SELECT * FROM email_addresses ORDER BY label";
     const r = await env.DB.prepare(q).all();
     return r.results || [];
   } catch {
@@ -1009,12 +987,12 @@ async function getEmailAddresses(env, activeOnly = false, addressType = null) {
   }
 }
 
-async function addEmailAddress(env, email, label, action, language, addressType = null) {
+async function addEmailAddress(env, email, label, action, language) {
   if (!language) {
     throw new Error("Language is required for email address configuration");
   }
   await validateLanguage(language, env);
-  await env.DB.prepare("INSERT INTO email_addresses (email, label, action, language, address_type) VALUES (?, ?, ?, ?, ?)").bind(email, label, action, language, addressType).run();
+  await env.DB.prepare("INSERT INTO email_addresses (email, label, action, language) VALUES (?, ?, ?, ?)").bind(email, label, action, language).run();
 }
 
 async function updateEmailAddress(env, id, email, label, action, language, is_active) {
@@ -2388,8 +2366,7 @@ var worker_default = {
         if (!email) return json({ error: "Unauthorized" }, 401);
         if (!await checkAccess(email, "settings", "view", env)) return json({ error: "Permission denied" }, 403);
         const activeOnly = url.searchParams.get("active_only") === "true";
-        const addressType = url.searchParams.get("type") || null;
-        return json({ success: true, addresses: await getEmailAddresses(env, activeOnly, addressType) });
+        return json({ success: true, addresses: await getEmailAddresses(env, activeOnly) });
       }
 
       if (path === "/api/admin/email-addresses" && method === "POST") {
@@ -2397,10 +2374,10 @@ var worker_default = {
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
         if (!await checkAccess(email, "settings", "create", env)) return json({ error: "Permission denied" }, 403);
-        const { email: newEmail, label, action, language, address_type } = await request.json();
+        const { email: newEmail, label, action, language } = await request.json();
         if (!newEmail || !label || !language) return json({ error: "Email, label and language required" }, 400);
         try {
-          await addEmailAddress(env, newEmail, label, await validateCategory(action || label, env), language, address_type || null);
+          await addEmailAddress(env, newEmail, label, await validateCategory(action || label, env), language);
           await bumpConfigVersion(env);
           return json({ success: true });
         } catch (e) {
@@ -3196,26 +3173,6 @@ if (path === "/api/admin/setup/verify-token" && method === "GET") {
         }
       }
 
-      // Update domain status (used during polling when active is detected)
-      if (path === "/api/admin/setup/domain-status" && method === "POST") {
-        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
-        const email = await verifyToken(token, env);
-        if (!email) return json({ error: "Unauthorized" }, 401);
-        if (!await checkAccess(email, "settings", "edit", env)) return json({ error: "Permission denied" }, 403);
-
-        const { zoneId, status } = await request.json();
-        if (!zoneId || !status) return json({ error: "zoneId and status required" }, 400);
-
-        try {
-          await env.DB.prepare(
-            "UPDATE cloudflare_domains SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE zone_id = ?"
-          ).bind(status, zoneId).run();
-          return json({ success: true });
-        } catch (e) {
-          return json({ success: false, error: e.message }, 400);
-        }
-      }
-
       // Disable Email Routing on a zone
       if (path === "/api/admin/setup/email-routing-disable" && method === "POST") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
@@ -3251,71 +3208,16 @@ if (path === "/api/admin/setup/verify-token" && method === "GET") {
         if (!zoneId) return json({ error: "zoneId required" }, 400);
 
         try {
-          // Get domain name — from DB first, fall back to CF API
-          let domainName = null;
-          const domainRow = await env.DB.prepare(
-            "SELECT domain_name FROM cloudflare_domains WHERE zone_id = ?"
-          ).bind(zoneId).first();
-          if (domainRow?.domain_name) {
-            domainName = domainRow.domain_name;
-          } else {
-            try {
-              const zoneData = await callCloudflareAPI("GET", `/zones/${zoneId}`, null, env);
-              domainName = zoneData.result?.name || null;
-            } catch (e) { console.warn("Could not fetch zone from CF:", e.message); }
-          }
-
-          console.log(`domain-remove: zoneId=${zoneId} domainName=${domainName}`);
-
-          if (!domainName) {
-            return json({ success: false, error: "Could not determine domain name — aborting to prevent data loss" }, 400);
-          }
-
-          // Safety check: domainName must be a proper domain (contains a dot, no wildcards)
-          if (!domainName.includes('.') || domainName.includes('%') || domainName.includes('*')) {
-            return json({ success: false, error: `Unsafe domain name "${domainName}" — aborting` }, 400);
-          }
-
-          // Use exact suffix match — LIKE with escaped @ to ensure we only match @exactdomain.tld
-          const emailsToDelete = await env.DB.prepare(
-            "SELECT id, email FROM email_addresses WHERE lower(email) LIKE ? AND (address_type IS NULL OR address_type = 'incoming')"
-          ).bind(`%@${domainName.toLowerCase()}`).all();
-
-          const exactMatches = (emailsToDelete.results || []).filter(row => {
-            const parts = row.email.toLowerCase().split('@');
-            return parts.length === 2 && parts[1] === domainName.toLowerCase();
-          });
-
-          console.log(`domain-remove: found ${exactMatches.length} emails to delete for @${domainName}`);
-
-          let emailsDeleted = 0;
-          for (const row of exactMatches) {
-            await env.DB.prepare("DELETE FROM email_addresses WHERE id = ?").bind(row.id).run();
-            emailsDeleted++;
-          }
-
-          // Delete all CF email routing rules for this zone
-          try {
-            const rules = await callCloudflareAPI("GET", `/zones/${zoneId}/email/routing/rules`, null, env);
-            for (const rule of (rules.result || [])) {
-              await callCloudflareAPI("DELETE", `/zones/${zoneId}/email/routing/rules/${rule.id}`, null, env);
-            }
-          } catch (e) {
-            console.warn("Could not delete CF routing rules:", e.message);
-          }
-
-          // Delete zone from Cloudflare
-          try {
-            await callCloudflareAPI("DELETE", `/zones/${zoneId}`, null, env);
-          } catch (e) {
-            console.warn("Could not delete CF zone:", e.message);
-          }
-
-          // Remove from tracking table and settings
+          // Delete from Cloudflare
+          await callCloudflareAPI("DELETE", `/zones/${zoneId}`, null, env);
+          
+          // Remove from DB
           await env.DB.prepare("DELETE FROM cloudflare_domains WHERE zone_id = ?").bind(zoneId).run();
-          await env.DB.prepare("DELETE FROM settings WHERE category = 'cloudflare' AND key = 'domain'").run();
-
-          return json({ success: true, deletedDomain: domainName, emailsDeleted });
+          
+          // Clear any stored settings for this domain
+          await env.DB.prepare("DELETE FROM settings WHERE category = ? AND key = ?").bind('cloudflare', 'domain').run();
+          
+          return json({ success: true });
         } catch (e) {
           return json({ success: false, error: e.message }, 400);
         }
@@ -3459,34 +3361,11 @@ if (path === "/api/admin/setup/cloudflare-zones" && method === "GET") {
     const data = await callCloudflareAPI("GET", "/zones", null, env);
     const zones = data.result || [];
     
-    // Merge with DB tracking info; auto-register zones that predate the table
+    // Merge with DB tracking info
     const merged = await Promise.all(zones.map(async (zone) => {
-      let dbRecord = await env.DB.prepare(
+      const dbRecord = await env.DB.prepare(
         "SELECT enabled, status FROM cloudflare_domains WHERE zone_id = ?"
       ).bind(zone.id).first();
-      
-      // Zone exists in CF but not in our DB (added before this feature) — upsert it.
-      // If CF reports it as active, treat as active-but-not-enabled (needs routing enabled).
-      if (!dbRecord) {
-        const inferredStatus = zone.status === 'active' ? 'active' : 'pending_setup';
-        try {
-          await env.DB.prepare(
-            "INSERT OR IGNORE INTO cloudflare_domains (zone_id, domain_name, enabled, status) VALUES (?, ?, 0, ?)"
-          ).bind(zone.id, zone.name, inferredStatus).run();
-          // If this zone is active in CF and no zone is configured in settings yet, save it
-          if (inferredStatus === 'active') {
-            const existing = await env.DB.prepare("SELECT value FROM settings WHERE category = 'cloudflare' AND key = 'zone_id'").first();
-            if (!existing || !existing.value) {
-              await env.DB.prepare("INSERT OR REPLACE INTO settings (category, key, value) VALUES ('cloudflare', 'zone_id', ?)").bind(zone.id).run();
-              await env.DB.prepare("INSERT OR REPLACE INTO settings (category, key, value) VALUES ('cloudflare', 'domain', ?)").bind(zone.name).run();
-            }
-          }
-          dbRecord = { enabled: 0, status: inferredStatus };
-        } catch (e) {
-          dbRecord = { enabled: 0, status: inferredStatus };
-        }
-      }
-      
       return {
         ...zone,
         db_enabled: dbRecord?.enabled || 0,

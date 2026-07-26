@@ -254,7 +254,7 @@ function toast(msg, type = 'success') {
 }
 
 // ── State ──
-let settings = [], emailAddresses = [], outgoingAddresses = [], currentTab = 'incoming';
+let settings = [], emailAddresses = [], currentTab = 'incoming';
 let cloudflareDomains = [];
 let cloudflareRules = [];
 let configuredZoneId = null;
@@ -308,22 +308,14 @@ function refreshOutgoingTab() {
 // ── Load ──
 async function load() {
     try {
-        const [sd, ed, oed] = await Promise.all([
-            api('/api/admin/settings'),
-            api('/api/admin/email-addresses'),
-            api('/api/admin/email-addresses?type=outgoing')
-        ]);
+        const [sd, ed] = await Promise.all([api('/api/admin/settings'), api('/api/admin/email-addresses')]);
         settings = sd.settings || [];
         emailAddresses = ed.addresses || [];
-        outgoingAddresses = oed.addresses || [];
         
         const zoneSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'zone_id');
         configuredZoneId = zoneSetting ? zoneSetting.value : null;
         const domainSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'domain');
         configuredDomain = domainSetting ? domainSetting.value : null;
-        
-        // If no zone in settings, use the first enabled domain from cloudflareDomains
-        // (populated after fetchCloudflareDomains below)
         
         // Check if cloudflare credentials are set
         const accountIdSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'account_id' && s.value);
@@ -337,15 +329,6 @@ async function load() {
         };
         
         await fetchCloudflareDomains();
-        
-        // Fall back to first enabled domain if settings has no zone_id
-        if (!configuredZoneId && cloudflareDomains.length > 0) {
-            const enabled = cloudflareDomains.find(d => d.db_enabled == 1) || cloudflareDomains.find(d => d.status === 'active');
-            if (enabled) {
-                configuredZoneId = enabled.id;
-                configuredDomain = enabled.name;
-            }
-        }
         
         if (configuredZoneId) {
             await fetchCloudflareRules(configuredZoneId);
@@ -766,7 +749,8 @@ async function buildEmailTab(tabName) {
 
 // ─── BUILD DOMAIN SETUP HTML ────────────────────────────────
 function buildDomainSetupHtml() {
-    const isAdding = setupStep === 1 || setupStep === 2 || setupStep === 3;
+    const isAdding = setupStep === 1 || setupStep === 2 || setupStep === 3 || setupStep === 4 || setupStep === 5 || setupStep === 6;
+    const isPolling = setupStep === 3;
 
     let stepHtml = '';
     if (isAdding) {
@@ -774,7 +758,10 @@ function buildDomainSetupHtml() {
             <div class="step-indicator">
                 <span class="step ${setupStep >= 1 ? 'done' : ''}">1. Add Domain</span>
                 <span class="step ${setupStep >= 2 ? 'done' : ''}">2. Nameservers</span>
-                <span class="step ${setupStep >= 3 ? 'done' : ''}">3. Check Status</span>
+                <span class="step ${setupStep >= 3 ? (setupStep >= 4 ? 'done' : 'active') : ''}">3. Activate</span>
+                <span class="step ${setupStep >= 4 ? 'done' : ''}">4. Enable Routing</span>
+                <span class="step ${setupStep >= 5 ? (setupStep >= 6 ? 'done' : 'active') : ''}">5. Create Rule</span>
+                <span class="step ${setupStep >= 6 ? 'done' : ''}">6. Done</span>
             </div>
         `;
     }
@@ -802,13 +789,55 @@ function buildDomainSetupHtml() {
     if (setupStep === 3) {
         pollHtml = `
             <div style="margin:12px 0;padding:16px;background:var(--info-bg);border:1px solid var(--info);border-radius:8px;color:var(--text);">
-                <p style="font-size:13px;margin:0 0 12px 0;"><strong>✨ Checking nameservers</strong></p>
-                <p style="font-size:12px;margin:0;color:var(--text-muted);">This can take a few minutes. You can close this modal and continue working — polling will continue in the background.</p>
-                <p style="font-size:12px;margin:12px 0 0 0;color:var(--text-muted);">Once detected, your domain will appear in the table above with an "Enable Email Routing" button.</p>
-                <button class="btn btn-sm btn-accent" style="margin-top:12px;" onclick="resetDomainSetup(); refreshIncomingTab();">Close and Continue</button>
+                <p style="font-size:13px;margin:0 0 12px 0;"><strong>✨ Setting up your domain</strong></p>
+                <p style="font-size:12px;margin:0;color:var(--text-muted);">This can take a few minutes. You can close this modal and continue working. The setup will continue in the background.</p>
+                <p style="font-size:12px;margin:12px 0 0 0;color:var(--text-muted);">When ready, you'll see a "Check Status" button appear next to your domain in the table above — click it to resume.</p>
+                <button class="btn btn-sm btn-accent" style="margin-top:12px;" onclick="closeModal(); resetDomainSetup();">Close and Continue</button>
                 <button class="btn btn-sm btn-ghost" onclick="stopPolling(); resetDomainSetup();">Cancel Setup</button>
             </div>
             <div class="poll-log" id="setupPollLog" style="display:none;"></div>
+        `;
+    }
+
+    let routingHtml = '';
+    if (setupStep === 4) {
+        routingHtml = `
+            <div style="margin:12px 0;">
+                <p style="font-size:13px;color:var(--text-muted);">Domain is active! Enable Email Routing?</p>
+                <button class="btn btn-accent btn-sm" onclick="enableRouting()">Enable Email Routing</button>
+                <button class="btn btn-sm btn-ghost" onclick="resetDomainSetup()">Cancel</button>
+            </div>
+        `;
+    }
+
+    let ruleHtml = '';
+    if (setupStep === 5) {
+        ruleHtml = `
+            <div style="margin:12px 0;">
+                <p style="font-size:13px;color:var(--text-muted);">Create a catch-all rule to route emails to your Worker?</p>
+                <div style="margin:8px 0;">
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;">
+                        <input type="radio" name="ruleType" value="catchall" checked onchange="toggleRuleType()" /> Catch-all (*@domain.com)
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-top:4px;">
+                        <input type="radio" name="ruleType" value="specific" onchange="toggleRuleType()" /> Specific address
+                    </label>
+                    <input type="email" id="setupSpecificAddr" placeholder="support@example.com" style="display:none;margin-top:8px;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);width:100%;max-width:300px;" />
+                </div>
+                <button class="btn btn-accent btn-sm" onclick="createRoutingRule()">Create Routing Rule</button>
+                <button class="btn btn-sm btn-ghost" onclick="resetDomainSetup()">Cancel</button>
+            </div>
+        `;
+    }
+
+    let completeHtml = '';
+    if (setupStep === 6) {
+        completeHtml = `
+            <div style="margin:12px 0;padding:16px;background:var(--bg);border:1px solid var(--success);border-radius:8px;">
+                <p style="color:var(--success);font-weight:600;font-size:15px;">✅ Setup Complete!</p>
+                <p style="font-size:13px;color:var(--text-muted);">Domain ${esc(setupDomainName)} is configured and routing emails to your Worker.</p>
+                <button class="btn btn-sm btn-accent" onclick="resetDomainSetup(); load();">Done</button>
+            </div>
         `;
     }
 
@@ -830,6 +859,9 @@ function buildDomainSetupHtml() {
             </div>
             ${nameserverHtml}
             ${pollHtml}
+            ${routingHtml}
+            ${ruleHtml}
+            ${completeHtml}
         </div>
     `;
 }
@@ -894,7 +926,11 @@ function startPolling() {
     setupStep = 3;
     refreshIncomingTab();
     
+    // Wait for DOM to render before accessing element
     setTimeout(() => {
+        const logEl = document.getElementById('setupPollLog');
+        if (logEl) logEl.innerHTML = '';
+        
         if (setupPollTimer) clearInterval(setupPollTimer);
         setupPollTimer = setInterval(async () => {
             try {
@@ -902,34 +938,25 @@ function startPolling() {
                 if (!res.success) throw new Error(res.error || 'Failed to get status');
                 
                 const st = res.status || 'pending';
+                const logEl2 = document.getElementById('setupPollLog');
+                if (logEl2) {
+                    const color = st === 'active' ? 'ok' : 'info';
+                    logEl2.innerHTML += `<span class="${color}">[${new Date().toLocaleTimeString()}] Status: ${st}</span>\n`;
+                    logEl2.scrollTop = logEl2.scrollHeight;
+                }
                 
                 if (st === 'active') {
                     stopPolling();
-                    
-                    // Update DB status to active
-                    try {
-                        await api('/api/admin/setup/domain-status', {
-                            method: 'POST',
-                            body: JSON.stringify({ zoneId: setupZoneId, status: 'active' })
-                        });
-                    } catch (e) { /* non-fatal */ }
-
-                    // Save domain to settings so the domain field is updated
-                    try {
-                        await saveSettings([
-                            { category: 'cloudflare', key: 'zone_id', value: setupZoneId },
-                            { category: 'cloudflare', key: 'domain', value: setupDomainName }
-                        ]);
-                    } catch (e) { /* non-fatal */ }
-
-                    // Auto-enable routing — no manual step needed
-                    toast('✅ Domain active — enabling email routing...');
-                    await enableRouting();
-                    await load();
-                    resetDomainSetup();
+                    setupStep = 4;
+                    toast('✅ Domain is active!');
+                    refreshIncomingTab();
                 }
             } catch (e) {
-                console.warn('Polling error:', e.message);
+                const logEl3 = document.getElementById('setupPollLog');
+                if (logEl3) {
+                    logEl3.innerHTML += `<span class="err">[${new Date().toLocaleTimeString()}] Error: ${e.message}</span>\n`;
+                    logEl3.scrollTop = logEl3.scrollHeight;
+                }
             }
         }, 10000);
     }, 100);
@@ -1044,42 +1071,10 @@ function resetDomainSetup() {
     refreshIncomingTab();
 }
 
-async function addOutgoingAddress() {
-    const email = document.getElementById('newOutgoingAddr')?.value.trim();
-    const label = document.getElementById('newOutgoingLabel')?.value.trim();
-    if (!email) { toast('Enter an email address', 'error'); return; }
-    if (!label) { toast('Enter a label', 'error'); return; }
-    try {
-        const res = await api('/api/admin/email-addresses', {
-            method: 'POST',
-            body: JSON.stringify({ email, label, action: label, language: 'en', address_type: 'outgoing' })
-        });
-        if (res.success) {
-            toast('✅ Outgoing address added');
-            await load();
-            switchTab('outgoing');
-        } else {
-            toast('❌ ' + (res.error || 'Failed'), 'error');
-        }
-    } catch (e) {
-        toast('❌ ' + e.message, 'error');
-    }
-}
-
-async function deleteOutgoingAddress(id, email) {
-    if (!confirm(`Remove outgoing address "${email}"?`)) return;
-    try {
-        const res = await api(`/api/admin/email-addresses/${id}`, { method: 'DELETE' });
-        if (res.success) {
-            toast('✅ Address removed');
-            await load();
-            switchTab('outgoing');
-        } else {
-            toast('❌ ' + (res.error || 'Failed'), 'error');
-        }
-    } catch (e) {
-        toast('❌ ' + e.message, 'error');
-    }
+function closeModal() {
+    // Close any modal (general purpose)
+    const modal = document.querySelector('[role="dialog"]');
+    if (modal) modal.style.display = 'none';
 }
 
 async function checkDomainStatus(zoneId, domainName) {
@@ -1090,7 +1085,7 @@ async function checkDomainStatus(zoneId, domainName) {
 }
 
 async function cancelDomainSetup(zoneId) {
-    if (!confirm(`Cancel setup for this domain? It will be removed from Cloudflare.`)) return;
+    if (!confirm(`Cancel setup for ${zoneId}? This will remove it from Cloudflare.`)) return;
     try {
         const res = await api(`/api/admin/setup/domain-remove`, {
             method: 'DELETE',
@@ -1100,14 +1095,14 @@ async function cancelDomainSetup(zoneId) {
             toast('✅ Setup cancelled and domain removed');
             await load();
         } else {
-            toast('❌ ' + (res.error || 'Failed to cancel'), 'error');
+            toast('❌ ' + (res.error || 'Failed to cancel setup'), 'error');
         }
     } catch (e) {
         toast('❌ ' + e.message, 'error');
     }
 }
 
-async function enableDomainRouting(zoneId, domainName) {
+async function enableDomain(zoneId, domainName) {
     if (!confirm(`Enable email routing for ${domainName}? Mail will start flowing to your Worker.`)) return;
     try {
         const res = await api('/api/admin/setup/email-routing', {
@@ -1126,7 +1121,7 @@ async function enableDomainRouting(zoneId, domainName) {
 }
 
 async function disableDomain(zoneId, domainName) {
-    if (!confirm(`Disable email routing for ${domainName}? Mail will bounce if sent.`)) return;
+    if (!confirm(`Disable email routing for ${domainName}? Mail sent to this domain will bounce.`)) return;
     try {
         const res = await api('/api/admin/setup/email-routing-disable', {
             method: 'POST',
@@ -1136,7 +1131,7 @@ async function disableDomain(zoneId, domainName) {
             toast(`✅ Email routing disabled for ${domainName}`);
             await load();
         } else {
-            toast('❌ ' + (res.error || 'Failed to disable'), 'error');
+            toast('❌ ' + (res.error || 'Failed to disable routing'), 'error');
         }
     } catch (e) {
         toast('❌ ' + e.message, 'error');
@@ -1144,17 +1139,17 @@ async function disableDomain(zoneId, domainName) {
 }
 
 async function removeDomain(zoneId, domainName) {
-    if (!confirm(`⚠️ Remove ${domainName} completely?\n\nThis will permanently delete:\n• The domain from Cloudflare\n• All email routing rules\n• All configured email addresses for @${domainName}\n\nMail sent to this domain will bounce. This cannot be undone.`)) return;
+    if (!confirm(`Remove ${domainName} completely?\n\nThis will:\n• Delete the domain from Cloudflare\n• Remove all routing rules\n• Stop accepting mail\n\nThis action cannot be undone.`)) return;
     try {
         const res = await api(`/api/admin/setup/domain-remove`, {
             method: 'DELETE',
             body: JSON.stringify({ zoneId })
         });
         if (res.success) {
-            toast(`✅ ${domainName} removed`);
+            toast(`✅ ${domainName} removed from Dornorium and Cloudflare`);
             await load();
         } else {
-            toast('❌ ' + (res.error || 'Failed to remove'), 'error');
+            toast('❌ ' + (res.error || 'Failed to remove domain'), 'error');
         }
     } catch (e) {
         toast('❌ ' + e.message, 'error');
@@ -1171,24 +1166,18 @@ async function buildIncomingTab(cats, langs) {
         const tableRows = cloudflareDomains.map(domain => {
             const enabled = domain.db_enabled || 0;
             const dbStatus = domain.db_status || 'unknown';
+            const statusClass = enabled ? 'active' : dbStatus === 'pending_setup' ? 'pending' : 'disabled';
+            const statusText = enabled ? '✅ Enabled' : dbStatus === 'pending_setup' ? '⏳ Pending Setup' : '⛔ Disabled';
             
-            // Determine status display and button
-            let statusClass, statusText, actions;
-            
+            let actions = '';
             if (dbStatus === 'pending_setup') {
-                statusClass = 'pending';
-                statusText = '⏳ Pending Setup';
                 actions = `<button class="btn btn-sm btn-accent" onclick="checkDomainStatus('${domain.id}', '${esc(domain.name)}')">Check Status</button>
                            <button class="btn btn-sm btn-ghost" onclick="cancelDomainSetup('${domain.id}')">Cancel</button>`;
             } else if (enabled) {
-                statusClass = 'active';
-                statusText = '✅ Enabled';
                 actions = `<button class="btn btn-sm btn-ghost" onclick="disableDomain('${domain.id}', '${esc(domain.name)}')">Disable</button>
                            <button class="btn btn-sm btn-danger" onclick="removeDomain('${domain.id}', '${esc(domain.name)}')">Remove</button>`;
             } else {
-                statusClass = 'disabled';
-                statusText = '⛔ Disabled';
-                actions = `<button class="btn btn-sm btn-accent" onclick="enableDomainRouting('${domain.id}', '${esc(domain.name)}')">Enable</button>
+                actions = `<button class="btn btn-sm btn-accent" onclick="enableDomain('${domain.id}', '${esc(domain.name)}')">Enable</button>
                            <button class="btn btn-sm btn-danger" onclick="removeDomain('${domain.id}', '${esc(domain.name)}')">Remove</button>`;
             }
             
@@ -1239,7 +1228,9 @@ async function buildIncomingTab(cats, langs) {
                     email = matcher.value;
                 }
             }
+            
             const dbMapping = emailAddresses.find(a => a.email.toLowerCase() === email.toLowerCase());
+            
             return {
                 ruleId: rule.id,
                 email: email,
@@ -1250,14 +1241,7 @@ async function buildIncomingTab(cats, langs) {
                 hasMapping: !!dbMapping
             };
         });
-        // Also show DB addresses that have no CF rule yet
-        const ruleEmails = new Set(mergedRules.map(r => r.email.toLowerCase()));
-        emailAddresses.forEach(addr => {
-            if (!ruleEmails.has(addr.email.toLowerCase())) {
-                mergedRules.push({ ruleId: null, email: addr.email, cloudflareEnabled: false, dbMapping: addr, category: addr.action || addr.label || '', language: addr.language || 'en', hasMapping: true });
-            }
-        });
-    } else {
+    } else if (emailAddresses.length > 0) {
         mergedRules = emailAddresses.map(addr => ({
             ruleId: null,
             email: addr.email,
@@ -1285,7 +1269,7 @@ async function buildIncomingTab(cats, langs) {
             <select class="language-select" onchange="updateMapping(this)" data-email="${esc(email)}" style="padding:5px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:5px;color:var(--text);width:100%;font-size:12px;">${langSel}</select>
             ${ruleId ? 
                 `<span class="status-badge ${isActive ? 'active' : 'inactive'}">${isActive ? 'Active' : 'Inactive'}</span>` :
-                `<span style="font-size:10px;color:var(--warning);">⚠️ No CF rule</span>`
+                `<span style="font-size:10px;color:var(--warning);">⚠️ No Cloudflare rule</span>`
             }
             <div class="actions">
                 ${ruleId ? 
@@ -1314,6 +1298,7 @@ async function buildIncomingTab(cats, langs) {
             <button class="btn btn-ghost btn-sm" onclick="refreshDomains()" style="white-space:nowrap;">🔄 Refresh</button>
         </div>
         ${domainsHtml}
+        ${configuredZoneId ? `<div style="margin-top:12px;font-size:12px;color:var(--success);">✅ Using: ${esc(configuredDomain || configuredZoneId)} <button class="btn btn-sm btn-accent" style="margin-left:8px;" onclick="enableRouting()">Enable Email Routing</button></div>` : ''}
     </div>
 
     <div class="s-card">
@@ -1389,15 +1374,12 @@ async function buildOutgoingTab(cats, langs) {
     let autoReplies = [];
     try { const res = await api('/api/admin/auto-reply'); if (res.success && Array.isArray(res.data)) autoReplies = res.data; } catch (e) {}
 
-    // All addresses available for outgoing use — unchanged from original
-    const allAddresses = emailAddresses;
-
     // ── Auto-reply items ──
     const arItems = cats.map(cat => {
         const ar = autoReplies.find(a => a.category === cat && a.language === activeLang) || {};
         const enabled = ar.enabled ? 1 : 0, subject = ar.subject || `[Ticket {{ticket_id}}] Your ${cat} inquiry`, body = ar.body || '', from = ar.from || '';
         const color = S('category', cat+'_color', '#8892b0');
-        const fromOpts = `<option value="">Default</option>` + allAddresses.map(a => `<option value="${esc(a.email)}"${a.email===from?' selected':''}>${esc(a.email)}</option>`).join('');
+        const fromOpts = `<option value="">Default</option>` + emailAddresses.map(a => `<option value="${esc(a.email)}"${a.email===from?' selected':''}>${esc(a.email)}</option>`).join('');
         return `<div class="ar-item" id="aritem-${cat}">
             <div class="ar-item-head" onclick="document.getElementById('aritem-${cat}').classList.toggle('open')">
                 <span class="ar-enabled-dot ${enabled?'on':'off'}"></span>
@@ -1423,7 +1405,7 @@ async function buildOutgoingTab(cats, langs) {
     const langOpts = langs.map(l => `<option value="${esc(l.code)}"${l.code===activeLang?' selected':''}>${esc(l.name)}</option>`).join('');
 
     // ── Outgoing email footers ──
-    const oeItems = allAddresses.map(addr => {
+    const oeItems = emailAddresses.map(addr => {
         const safeKey = addr.email.replace(/[^a-z0-9]/gi, '_'), footerKey = 'footer_' + safeKey, footer = S('email', footerKey, ''), hasFooter = footer.length > 0;
         return `<div class="oe-item">
             <div class="oe-item-head"><span style="width:8px;height:8px;border-radius:50%;background:${hasFooter?'var(--success)':'var(--border)'};flex-shrink:0;"></span><span class="oe-email-label">${esc(addr.email)}</span><span class="oe-cat-badge">${esc(addr.action||addr.label||'—')}</span><span class="oe-footer-status ${hasFooter?'has-footer':''}">${hasFooter?'Custom footer set':'No footer'}</span></div>
@@ -1438,19 +1420,8 @@ async function buildOutgoingTab(cats, langs) {
         </div>`;
     }).join('');
 
-    // ── Outgoing sender addresses ──
-    const outAddrRows = outgoingAddresses.map(addr => `
-        <tr>
-            <td>${esc(addr.email)}</td>
-            <td>${esc(addr.label || '—')}</td>
-            <td style="text-align:right;">
-                <button class="btn btn-sm btn-danger" onclick="deleteOutgoingAddress(${addr.id}, '${esc(addr.email)}')">Remove</button>
-            </td>
-        </tr>
-    `).join('');
-
     // ── Test Email Sending ──
-    const fromOpts = `<option value="">Select sender...</option>` + allAddresses.map(a => `<option value="${esc(a.email)}">${esc(a.email)}</option>`).join('');
+    const fromOpts = `<option value="">Select sender...</option>` + emailAddresses.map(a => `<option value="${esc(a.email)}">${esc(a.email)}</option>`).join('');
 
     return `
     <div class="s-card">
@@ -1466,26 +1437,6 @@ async function buildOutgoingTab(cats, langs) {
             <div class="f-row"><label>Google App Secret</label><input type="password" id="em_script_secret" value="" placeholder="${S('email_script','secret','') ? '••••••••' : 'Leave blank to keep existing'}" autocomplete="new-password" /></div>
         </div>
         <button class="btn btn-accent" style="margin-top:8px;" onclick="saveOutgoingSettings()">Save Outgoing Settings</button>
-    </div>
-
-    <div class="s-card">
-        <div class="s-card-head"><div><h3>✉️ Sender Addresses</h3><p>Email addresses used for sending — auto-replies, notifications, password resets.</p></div></div>
-        ${outAddrRows.length ? `
-        <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
-            <thead>
-                <tr style="border-bottom:2px solid var(--border);">
-                    <th style="text-align:left;padding:8px;font-size:12px;font-weight:600;color:var(--text-muted);">Address</th>
-                    <th style="text-align:left;padding:8px;font-size:12px;font-weight:600;color:var(--text-muted);">Label</th>
-                    <th style="text-align:right;padding:8px;font-size:12px;font-weight:600;color:var(--text-muted);">Actions</th>
-                </tr>
-            </thead>
-            <tbody>${outAddrRows}</tbody>
-        </table>` : '<div class="empty-state" style="margin-bottom:16px;">No sender addresses added yet.</div>'}
-        <div class="f-grid-2" style="align-items:flex-end;gap:8px;">
-            <div class="f-row" style="margin:0;"><label>Email Address</label><input type="email" id="newOutgoingAddr" placeholder="noreply@example.com" /></div>
-            <div class="f-row" style="margin:0;"><label>Label</label><input type="text" id="newOutgoingLabel" placeholder="No-Reply" /></div>
-        </div>
-        <button class="btn btn-accent btn-sm" style="margin-top:8px;" onclick="addOutgoingAddress()">Add Address</button>
     </div>
 
     <div class="collapse-section open" id="sec-autoreply">
@@ -1507,7 +1458,7 @@ async function buildOutgoingTab(cats, langs) {
         </div>
         <div class="collapse-body">
             <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Set a per-address HTML footer appended to every outgoing email.</p>
-            ${allAddresses.length ? oeItems : '<div class="empty-state">No outgoing addresses configured.</div>'}
+            ${emailAddresses.length ? oeItems : '<div class="empty-state">No email addresses configured.</div>'}
         </div>
     </div>
 
@@ -1740,9 +1691,9 @@ async function addEmail() {
         
         if (dbRes.success) {
             toast(`✅ ${cloudflareCreated ? 'Email added with Cloudflare rule' : 'Email added (no Cloudflare rule)'}`);
-            document.getElementById('newEmailAddr').value = '';
             await load();
             refreshIncomingTab();
+            document.getElementById('newEmailAddr').value = '';
         } else {
             toast('❌ Failed to add DB mapping: ' + (dbRes.error || 'Unknown'), 'error');
         }
