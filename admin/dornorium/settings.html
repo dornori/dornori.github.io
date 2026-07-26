@@ -310,20 +310,17 @@ async function load() {
     try {
         const [sd, ed, oed] = await Promise.all([
             api('/api/admin/settings'),
-            api('/api/admin/email-addresses'),
+            api('/api/admin/email-addresses?type=incoming'),
             api('/api/admin/email-addresses?type=outgoing')
         ]);
         settings = sd.settings || [];
-        emailAddresses = ed.addresses || [];       // ALL addresses — used for incoming tab + CF rule matching
-        outgoingAddresses = oed.addresses || [];   // outgoing type only — used for outgoing tab senders
+        emailAddresses = ed.addresses || [];
+        outgoingAddresses = oed.addresses || [];
         
         const zoneSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'zone_id');
         configuredZoneId = zoneSetting ? zoneSetting.value : null;
         const domainSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'domain');
         configuredDomain = domainSetting ? domainSetting.value : null;
-        
-        // If no zone in settings, use the first enabled domain from cloudflareDomains
-        // (populated after fetchCloudflareDomains below)
         
         // Check if cloudflare credentials are set
         const accountIdSetting = settings.find(s => s.category === 'cloudflare' && s.key === 'account_id' && s.value);
@@ -337,15 +334,6 @@ async function load() {
         };
         
         await fetchCloudflareDomains();
-        
-        // Fall back to first enabled domain if settings has no zone_id
-        if (!configuredZoneId && cloudflareDomains.length > 0) {
-            const enabled = cloudflareDomains.find(d => d.db_enabled === 1);
-            if (enabled) {
-                configuredZoneId = enabled.id;
-                configuredDomain = enabled.name;
-            }
-        }
         
         if (configuredZoneId) {
             await fetchCloudflareRules(configuredZoneId);
@@ -913,20 +901,10 @@ function startPolling() {
                             body: JSON.stringify({ zoneId: setupZoneId, status: 'active' })
                         });
                     } catch (e) { /* non-fatal */ }
-
-                    // Save domain to settings so the domain field is updated
-                    try {
-                        await saveSettings([
-                            { category: 'cloudflare', key: 'zone_id', value: setupZoneId },
-                            { category: 'cloudflare', key: 'domain', value: setupDomainName }
-                        ]);
-                    } catch (e) { /* non-fatal */ }
-
-                    // Auto-enable routing — no manual step needed
-                    toast('✅ Domain active — enabling email routing...');
-                    await enableRouting();
-                    await load();
+                    
+                    // Reset setup and refresh table to show "Enable Email Routing" button
                     resetDomainSetup();
+                    toast('✅ Domain is active! Click "Enable Email Routing" in the table to start routing emails.');
                 }
             } catch (e) {
                 console.warn('Polling error:', e.message);
@@ -1180,6 +1158,11 @@ async function buildIncomingTab(cats, langs) {
                 statusText = '⏳ Pending Setup';
                 actions = `<button class="btn btn-sm btn-accent" onclick="checkDomainStatus('${domain.id}', '${esc(domain.name)}')">Check Status</button>
                            <button class="btn btn-sm btn-ghost" onclick="cancelDomainSetup('${domain.id}')">Cancel</button>`;
+            } else if (dbStatus === 'active' && !enabled) {
+                statusClass = 'pending';
+                statusText = '🔧 Ready to Enable';
+                actions = `<button class="btn btn-sm btn-accent" onclick="enableDomainRouting('${domain.id}', '${esc(domain.name)}')">Enable Email Routing</button>
+                           <button class="btn btn-sm btn-ghost" onclick="removeDomain('${domain.id}', '${esc(domain.name)}')">Remove</button>`;
             } else if (enabled) {
                 statusClass = 'active';
                 statusText = '✅ Enabled';
@@ -1239,7 +1222,9 @@ async function buildIncomingTab(cats, langs) {
                     email = matcher.value;
                 }
             }
+            
             const dbMapping = emailAddresses.find(a => a.email.toLowerCase() === email.toLowerCase());
+            
             return {
                 ruleId: rule.id,
                 email: email,
@@ -1250,14 +1235,7 @@ async function buildIncomingTab(cats, langs) {
                 hasMapping: !!dbMapping
             };
         });
-        // Also show DB addresses that have no CF rule yet
-        const ruleEmails = new Set(mergedRules.map(r => r.email.toLowerCase()));
-        emailAddresses.forEach(addr => {
-            if (!ruleEmails.has(addr.email.toLowerCase())) {
-                mergedRules.push({ ruleId: null, email: addr.email, cloudflareEnabled: false, dbMapping: addr, category: addr.action || addr.label || '', language: addr.language || 'en', hasMapping: true });
-            }
-        });
-    } else {
+    } else if (emailAddresses.length > 0) {
         mergedRules = emailAddresses.map(addr => ({
             ruleId: null,
             email: addr.email,
@@ -1389,8 +1367,8 @@ async function buildOutgoingTab(cats, langs) {
     let autoReplies = [];
     try { const res = await api('/api/admin/auto-reply'); if (res.success && Array.isArray(res.data)) autoReplies = res.data; } catch (e) {}
 
-    // All addresses available for outgoing use (outgoing type only)
-    const allAddresses = outgoingAddresses;
+    // All addresses available for outgoing use (both incoming routing addresses + dedicated outgoing)
+    const allAddresses = [...emailAddresses, ...outgoingAddresses];
 
     // ── Auto-reply items ──
     const arItems = cats.map(cat => {
@@ -1469,7 +1447,7 @@ async function buildOutgoingTab(cats, langs) {
     </div>
 
     <div class="s-card">
-        <div class="s-card-head"><div><h3>✉️ Sender Addresses</h3><p>Email addresses used for sending — auto-replies, notifications, password resets.</p></div></div>
+        <div class="s-card-head"><div><h3>✉️ Outgoing Sender Addresses</h3><p>Addresses used for sending mail (auto-replies, notifications). These are not email routing addresses.</p></div></div>
         ${outAddrRows.length ? `
         <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
             <thead>
@@ -1480,7 +1458,7 @@ async function buildOutgoingTab(cats, langs) {
                 </tr>
             </thead>
             <tbody>${outAddrRows}</tbody>
-        </table>` : '<div class="empty-state" style="margin-bottom:16px;">No sender addresses added yet.</div>'}
+        </table>` : '<div class="empty-state" style="margin-bottom:16px;">No outgoing addresses added yet.</div>'}
         <div class="f-grid-2" style="align-items:flex-end;gap:8px;">
             <div class="f-row" style="margin:0;"><label>Email Address</label><input type="email" id="newOutgoingAddr" placeholder="noreply@example.com" /></div>
             <div class="f-row" style="margin:0;"><label>Label</label><input type="text" id="newOutgoingLabel" placeholder="No-Reply" /></div>
@@ -1507,7 +1485,7 @@ async function buildOutgoingTab(cats, langs) {
         </div>
         <div class="collapse-body">
             <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Set a per-address HTML footer appended to every outgoing email.</p>
-            ${allAddresses.length ? oeItems : '<div class="empty-state">No outgoing addresses configured.</div>'}
+            ${emailAddresses.length ? oeItems : '<div class="empty-state">No email addresses configured.</div>'}
         </div>
     </div>
 
@@ -1740,9 +1718,9 @@ async function addEmail() {
         
         if (dbRes.success) {
             toast(`✅ ${cloudflareCreated ? 'Email added with Cloudflare rule' : 'Email added (no Cloudflare rule)'}`);
-            document.getElementById('newEmailAddr').value = '';
             await load();
             refreshIncomingTab();
+            document.getElementById('newEmailAddr').value = '';
         } else {
             toast('❌ Failed to add DB mapping: ' + (dbRes.error || 'Unknown'), 'error');
         }

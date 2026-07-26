@@ -7,11 +7,6 @@ echo ========================================
 echo.
 
 :: ============================================
-:: CONFIGURATION - Set worker URL here
-:: ============================================
-set "WORKER_SOURCE_URL=http://dornori.com/admin/dornorium/worker.js"
-
-:: ============================================
 :: ALL INPUTS AT START
 :: ============================================
 
@@ -111,29 +106,6 @@ if errorlevel 1 (
 set /p ADMIN_PASSWORD=<"%TEMP%\admin_pw.txt"
 
 :: ============================================
-:: FETCH WORKER.JS FROM REMOTE SOURCE
-:: ============================================
-echo.
-echo Fetching worker.js from %WORKER_SOURCE_URL%...
-curl -s -o "%TEMP%\worker.js" "%WORKER_SOURCE_URL%"
-
-if not exist "%TEMP%\worker.js" (
-    echo ERROR: Failed to download worker.js from %WORKER_SOURCE_URL%
-    pause
-    exit /b 1
-)
-
-for %%A in ("%TEMP%\worker.js") do (
-    if %%~zA equ 0 (
-        echo ERROR: Downloaded worker.js is empty
-        pause
-        exit /b 1
-    )
-)
-
-echo OK: Worker.js downloaded successfully (%%~zA bytes)
-
-:: ============================================
 :: INSTALLATION STARTS
 :: ============================================
 
@@ -163,7 +135,7 @@ echo {"main_module":"worker.js","compatibility_date":"2026-07-17","bindings":[{"
 curl -X PUT "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/workers/scripts/%WORKER_NAME%" ^
   -H "Authorization: Bearer %API_TOKEN%" ^
   -F "metadata=@%TEMP%\metadata.json;type=application/json" ^
-  -F "worker.js=@%TEMP%\worker.js;type=application/javascript+module" --silent > "%TEMP%\upload.json"
+  -F "worker.js=@worker.js;type=application/javascript+module" --silent > "%TEMP%\upload.json"
 
 findstr /C:"\"success\":" "%TEMP%\upload.json" >nul
 if errorlevel 1 (
