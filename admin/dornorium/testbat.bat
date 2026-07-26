@@ -106,10 +106,12 @@ if "%ADMIN_PASSWORD%"=="" (echo Required. & goto getpass)
 
 for /f "delims=" %%i in ('powershell -Command "[System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes('%ADMIN_PASSWORD%'))).Replace('-','').ToLower()"') do set "PHASH=%%i"
 
+powershell -Command "$sql = 'INSERT INTO users (email, name, role, password_hash, allowed_languages, allowed_emails, allowed_categories, page_permissions) VALUES (''' + '%ADMIN_EMAIL%' + ''', ''' + '%ADMIN_NAME%' + ''', ''admin'', ''' + '%PHASH%' + ''', ''[]'', ''[]'', ''[]'', ''{}'')'; $json = [PSCustomObject]@{sql = $sql} | ConvertTo-Json -Compress; [System.IO.File]::WriteAllText('%TEMP%\admin.json', $json)"
+
 curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/%ACCOUNT_ID%/d1/database/%DB_ID%/query" ^
   -H "Authorization: Bearer %API_TOKEN%" ^
   -H "Content-Type: application/json" ^
-  -d "{\"sql\":\"INSERT INTO users (email, name, role, password_hash, allowed_languages, allowed_emails, allowed_categories, page_permissions) VALUES ('%ADMIN_EMAIL%', '%ADMIN_NAME%', 'admin', '%PHASH%', '[]', '[]', '[]', '{}')\"}" >nul
+  -d "@%TEMP%\admin.json" >nul
 
 echo Admin user created.
 
@@ -137,9 +139,8 @@ echo.
 echo   Admin Email:    %ADMIN_EMAIL%
 echo   Admin Name:     %ADMIN_NAME%
 echo.
-echo   ⚠️  SAVE YOUR PASSWORD - IT WILL NOT BE SHOWN AGAIN
+echo   ⚠️  SAVE YOUR PASSWORD - NOT SHOWN AGAIN
 echo.
-echo   Upload config.json to your website folder.
-echo   Then visit your site to get started.
+echo   Upload config.json to your website.
 echo ========================================
 pause

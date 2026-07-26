@@ -1292,7 +1292,7 @@ async function buildIncomingTab(cats, langs) {
             }
             <div class="actions">
                 ${ruleId ? 
-                    `<button class="btn btn-ghost btn-sm" onclick="toggleCloudflareRule('${ruleId}', ${!isActive})" title="${isActive ? 'Deactivate' : 'Activate'} rule">${isActive ? '🔴' : '🟢'}</button>` :
+                    `<button class="btn btn-ghost btn-sm" onclick="toggleCloudflareRule('${ruleId}', ${!isActive}, '${esc(email)}')" title="${isActive ? 'Deactivate' : 'Activate'} rule">${isActive ? '🔴' : '🟢'}</button>` :
                     `<button class="btn btn-accent btn-sm" onclick="createCloudflareRule('${esc(email)}')" style="font-size:10px;">Create Rule</button>`
                 }
                 <button class="btn btn-danger btn-sm" onclick="deleteEmail('${esc(email)}', '${ruleId || ''}')" title="Delete email and rule">🗑️</button>
@@ -1573,22 +1573,25 @@ async function configureDomain(zoneId, domainName) {
 }
 
 async function createCloudflareRule(email) {
-    if (!configuredZoneId) {
-        toast('Select a domain first', 'error');
+    const emailDomain = email.split('@')[1]?.toLowerCase();
+    const matchedZone = cloudflareDomains.find(d => d.name?.toLowerCase() === emailDomain);
+    const targetZoneId = matchedZone ? matchedZone.id : configuredZoneId;
+    if (!targetZoneId) {
+        toast('No matching domain zone found', 'error');
         return;
     }
     try {
         const res = await api('/api/admin/setup/routing-rule', {
             method: 'POST',
             body: JSON.stringify({ 
-                zoneId: configuredZoneId,
+                zoneId: targetZoneId,
                 emailPattern: email,
                 workerName: 'dornorium'
             })
         });
         if (res.success) {
             toast('✅ Cloudflare rule created');
-            await fetchCloudflareRules(configuredZoneId);
+            await fetchCloudflareRules(targetZoneId);
             refreshIncomingTab();
         } else {
             toast('❌ ' + (res.error || 'Failed'), 'error');
@@ -1598,14 +1601,16 @@ async function createCloudflareRule(email) {
     }
 }
 
-async function toggleCloudflareRule(ruleId, newStatus) {
-    if (!configuredZoneId) {
-        toast('Select a domain first', 'error');
+async function toggleCloudflareRule(ruleId, newStatus, email) {
+    const emailDomain = email?.split('@')[1]?.toLowerCase();
+    const matchedZone = emailDomain && cloudflareDomains.find(d => d.name?.toLowerCase() === emailDomain);
+    const targetZoneId = matchedZone ? matchedZone.id : configuredZoneId;
+    if (!targetZoneId) {
+        toast('No matching domain zone found', 'error');
         return;
     }
     try {
-        // Get the full rule first
-        const listRes = await api(`/api/admin/setup/routing-rules/${configuredZoneId}`);
+        const listRes = await api(`/api/admin/setup/routing-rules/${targetZoneId}`);
         if (!listRes.success) {
             toast('❌ Failed to get rule', 'error');
             return;
@@ -1615,22 +1620,14 @@ async function toggleCloudflareRule(ruleId, newStatus) {
             toast('❌ Rule not found', 'error');
             return;
         }
-        
-        // Update enabled status
         rule.enabled = newStatus;
-        
-        // Send the full rule object
         const res = await api(`/api/admin/setup/routing-rule/${ruleId}`, {
             method: 'PUT',
-            body: JSON.stringify({ 
-                zoneId: configuredZoneId, 
-                rule: rule
-            })
+            body: JSON.stringify({ zoneId: targetZoneId, rule })
         });
-        
         if (res.success) {
             toast(`✅ Rule ${newStatus ? 'activated' : 'deactivated'}`);
-            await fetchCloudflareRules(configuredZoneId);
+            await fetchCloudflareRules(targetZoneId);
             refreshIncomingTab();
         } else {
             toast('❌ ' + (res.error || 'Failed'), 'error');
@@ -1714,12 +1711,17 @@ async function addEmail() {
     }
     
     try {
+        // Derive the correct zoneId from the email's domain — not the global configuredZoneId
+        const emailDomain = email.split('@')[1]?.toLowerCase();
+        const matchedZone = cloudflareDomains.find(d => d.name?.toLowerCase() === emailDomain);
+        const targetZoneId = matchedZone ? matchedZone.id : configuredZoneId;
+
         let cloudflareCreated = false;
-        if (configuredZoneId) {
+        if (targetZoneId) {
             const cfRes = await api('/api/admin/setup/routing-rule', {
                 method: 'POST',
                 body: JSON.stringify({ 
-                    zoneId: configuredZoneId,
+                    zoneId: targetZoneId,
                     emailPattern: email,
                     workerName: 'dornorium'
                 })
@@ -1758,10 +1760,14 @@ async function deleteEmail(email, ruleId) {
     if (!confirm(`Delete "${email}"? This will remove Cloudflare rule and DB mapping.`)) return;
     
     try {
-        if (ruleId && configuredZoneId) {
+        const emailDomain = email.split('@')[1]?.toLowerCase();
+        const matchedZone = cloudflareDomains.find(d => d.name?.toLowerCase() === emailDomain);
+        const targetZoneId = matchedZone ? matchedZone.id : configuredZoneId;
+
+        if (ruleId && targetZoneId) {
             const cfRes = await api(`/api/admin/setup/routing-rule/${ruleId}`, {
                 method: 'DELETE',
-                body: JSON.stringify({ zoneId: configuredZoneId })
+                body: JSON.stringify({ zoneId: targetZoneId })
             });
             if (!cfRes.success) {
                 toast('⚠️ Cloudflare rule delete failed: ' + (cfRes.error || 'Unknown'), 'warning');

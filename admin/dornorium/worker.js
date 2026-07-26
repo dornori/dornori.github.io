@@ -3279,14 +3279,19 @@ if (path === "/api/admin/setup/verify-token" && method === "GET") {
           let emailsDeleted = 0;
           const exactDomainLower = domainName.toLowerCase();
           const pattern = `%@${exactDomainLower}`;
-          const toDelete = await env.DB.prepare(
+          const toDeleteResult = await env.DB.prepare(
             "SELECT id, email FROM email_addresses WHERE lower(email) LIKE ?"
           ).bind(pattern).all();
           
           // Exact match safety check — ensure domain portion after @ exactly matches
-          const confirmed = (toDelete.results || []).filter(row => {
+          const toDelete = toDeleteResult.results || [];
+          console.log(`domain-remove: query for pattern "${pattern}" returned ${toDelete.length} rows`);
+          
+          const confirmed = toDelete.filter(row => {
             const domainPart = row.email.toLowerCase().split('@')[1];
-            return domainPart === exactDomainLower;
+            const match = domainPart === exactDomainLower;
+            console.log(`domain-remove: email="${row.email}" domain_part="${domainPart}" matches=${match}`);
+            return match;
           });
           
           for (const row of confirmed) {
