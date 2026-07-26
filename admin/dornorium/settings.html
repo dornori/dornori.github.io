@@ -1733,23 +1733,13 @@ async function addEmail() {
             }
         }
         
-        const dbRes = await api('/api/admin/email-addresses', {
-            method: 'POST',
-            body: JSON.stringify({
-                email: email,
-                label: category,
-                action: category,
-                language: language
-            })
-        });
-        
-        if (dbRes.success) {
-            toast(`✅ ${cloudflareCreated ? 'Email added with Cloudflare rule' : 'Email added (no Cloudflare rule)'}`);
+        if (cloudflareCreated) {
+            toast('✅ Cloudflare routing rule created');
             document.getElementById('newEmailAddr').value = '';
             await load();
             refreshIncomingTab();
-        } else {
-            toast('❌ Failed to add DB mapping: ' + (dbRes.error || 'Unknown'), 'error');
+        } else if (!targetZoneId) {
+            toast('❌ No matching domain zone found for ' + (emailDomain || email), 'error');
         }
     } catch (e) {
         toast('❌ ' + e.message, 'error');
@@ -1771,14 +1761,6 @@ async function deleteEmail(email, ruleId) {
             });
             if (!cfRes.success) {
                 toast('⚠️ Cloudflare rule delete failed: ' + (cfRes.error || 'Unknown'), 'warning');
-            }
-        }
-        
-        const existing = emailAddresses.find(a => a.email.toLowerCase() === email.toLowerCase());
-        if (existing) {
-            const dbRes = await api(`/api/admin/email-addresses/${existing.id}`, { method: 'DELETE' });
-            if (!dbRes.success) {
-                toast('⚠️ DB mapping delete failed: ' + (dbRes.error || 'Unknown'), 'warning');
             }
         }
         
