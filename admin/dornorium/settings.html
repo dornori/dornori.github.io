@@ -1245,13 +1245,19 @@ async function buildIncomingTab(cats, langs) {
             let email = '*';
             const zoneId = rule._zoneId || configuredZoneId || '';
             const domainName = zoneNameMap[zoneId] || zoneId;
+            const isCatchAllRule = !rule.matchers || rule.matchers.length === 0 || rule.matchers[0]?.type === 'all';
             if (rule.matchers && rule.matchers.length > 0) {
                 const matcher = rule.matchers[0];
                 if (matcher.type === 'all') {
-                    email = `*@${domainName || '*'}`;
+                    email = domainName ? `*@${domainName}` : '*@*';
                 } else if (matcher.value) {
                     email = matcher.value;
+                } else {
+                    email = domainName ? `*@${domainName}` : '*@*';
                 }
+            } else {
+                // empty matchers = catch-all
+                email = domainName ? `*@${domainName}` : '*@*';
             }
             const dbMapping = emailAddresses.find(a => a.email.toLowerCase() === email.toLowerCase());
             return {
@@ -1259,7 +1265,7 @@ async function buildIncomingTab(cats, langs) {
                 zoneId: zoneId,
                 domainName: domainName,
                 email: email,
-                isCatchAll: rule.matchers?.[0]?.type === 'all',
+                isCatchAll: isCatchAllRule,
                 cloudflareEnabled: rule.enabled !== false,
                 dbMapping: dbMapping || null,
                 category: dbMapping ? dbMapping.action || dbMapping.label : '',
@@ -1291,12 +1297,8 @@ async function buildIncomingTab(cats, langs) {
         const language = item.language || 'en';
         const ruleId = item.ruleId;
         const zoneId = item.zoneId || '';
-        const domainLabel = item.domainName ? `<span style="font-size:10px;color:var(--text-muted);margin-left:4px;">@${esc(item.domainName)}</span>` : '';
-        
-        const catSel = cats.map(c => `<option value="${c}"${c===category?' selected':''}>${cap(c)}</option>`).join('');
-        const langSel = langs.map(l => `<option value="${l.code}"${l.code===language?' selected':''}>${l.code} - ${l.name}</option>`).join('');
-        
         const isCatchAll = item.isCatchAll;
+        const domainLabel = (!isCatchAll && item.domainName) ? `<span style="font-size:10px;color:var(--text-muted);margin-left:4px;">@${esc(item.domainName)}</span>` : '';
 
         return `<div class="email-row" data-rule-id="${ruleId || ''}" data-email="${esc(email)}">
             <span class="email-addr">${esc(email)}${domainLabel}</span>
