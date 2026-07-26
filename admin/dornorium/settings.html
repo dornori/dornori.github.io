@@ -385,7 +385,7 @@ async function fetchCloudflareRules(zoneIds) {
         const results = await Promise.all(zoneIds.map(async zoneId => {
             try {
                 const res = await api(`/api/admin/setup/routing-rules/${zoneId}`);
-                return res.success ? (res.rules || []) : [];
+                return res.success ? (res.rules || []).map(r => ({ ...r, _zoneId: zoneId })) : [];
             } catch (e) { return []; }
         }));
         cloudflareRules = results.flat();
@@ -1235,14 +1235,20 @@ async function buildIncomingTab(cats, langs) {
     const langOpts2 = langs.map(l => `<option value="${l.code}">${l.code} - ${l.name}</option>`).join('');
     
     let mergedRules = [];
-    
-    if (configuredZoneId && cloudflareRules.length > 0) {
+
+    // Build a zoneId→domainName lookup
+    const zoneNameMap = {};
+    cloudflareDomains.forEach(d => { zoneNameMap[d.id] = d.name; });
+
+    if (cloudflareRules.length > 0) {
         mergedRules = cloudflareRules.map(rule => {
             let email = '*';
+            const zoneId = rule._zoneId || configuredZoneId || '';
+            const domainName = zoneNameMap[zoneId] || zoneId;
             if (rule.matchers && rule.matchers.length > 0) {
                 const matcher = rule.matchers[0];
                 if (matcher.type === 'all') {
-                    email = '*@*';
+                    email = `*@${domainName || '*'}`;
                 } else if (matcher.value) {
                     email = matcher.value;
                 }
@@ -1250,7 +1256,10 @@ async function buildIncomingTab(cats, langs) {
             const dbMapping = emailAddresses.find(a => a.email.toLowerCase() === email.toLowerCase());
             return {
                 ruleId: rule.id,
+                zoneId: zoneId,
+                domainName: domainName,
                 email: email,
+                isCatchAll: rule.matchers?.[0]?.type === 'all',
                 cloudflareEnabled: rule.enabled !== false,
                 dbMapping: dbMapping || null,
                 category: dbMapping ? dbMapping.action || dbMapping.label : '',
@@ -1262,19 +1271,17 @@ async function buildIncomingTab(cats, langs) {
         const ruleEmails = new Set(mergedRules.map(r => r.email.toLowerCase()));
         emailAddresses.forEach(addr => {
             if (!ruleEmails.has(addr.email.toLowerCase())) {
-                mergedRules.push({ ruleId: null, email: addr.email, cloudflareEnabled: false, dbMapping: addr, category: addr.action || addr.label || '', language: addr.language || 'en', hasMapping: true });
+                const addrDomain = addr.email.split('@')[1]?.toLowerCase();
+                const matchedZone = cloudflareDomains.find(d => d.name?.toLowerCase() === addrDomain);
+                mergedRules.push({ ruleId: null, zoneId: matchedZone?.id || configuredZoneId || '', domainName: matchedZone?.name || addrDomain || '', email: addr.email, isCatchAll: false, cloudflareEnabled: false, dbMapping: addr, category: addr.action || addr.label || '', language: addr.language || 'en', hasMapping: true });
             }
         });
     } else {
-        mergedRules = emailAddresses.map(addr => ({
-            ruleId: null,
-            email: addr.email,
-            cloudflareEnabled: false,
-            dbMapping: addr,
-            category: addr.action || addr.label || '',
-            language: addr.language || 'en',
-            hasMapping: true
-        }));
+        mergedRules = emailAddresses.map(addr => {
+            const addrDomain = addr.email.split('@')[1]?.toLowerCase();
+            const matchedZone = cloudflareDomains.find(d => d.name?.toLowerCase() === addrDomain);
+            return { ruleId: null, zoneId: matchedZone?.id || configuredZoneId || '', domainName: matchedZone?.name || addrDomain || '', email: addr.email, isCatchAll: false, cloudflareEnabled: false, dbMapping: addr, category: addr.action || addr.label || '', language: addr.language || 'en', hasMapping: true };
+        });
     }
 
     const emailRows = mergedRules.map((item) => {
@@ -1283,12 +1290,16 @@ async function buildIncomingTab(cats, langs) {
         const category = item.category || '';
         const language = item.language || 'en';
         const ruleId = item.ruleId;
+        const zoneId = item.zoneId || '';
+        const domainLabel = item.domainName ? `<span style="font-size:10px;color:var(--text-muted);margin-left:4px;">@${esc(item.domainName)}</span>` : '';
         
         const catSel = cats.map(c => `<option value="${c}"${c===category?' selected':''}>${cap(c)}</option>`).join('');
         const langSel = langs.map(l => `<option value="${l.code}"${l.code===language?' selected':''}>${l.code} - ${l.name}</option>`).join('');
         
+        const isCatchAll = item.isCatchAll;
+
         return `<div class="email-row" data-rule-id="${ruleId || ''}" data-email="${esc(email)}">
-            <span class="email-addr">${esc(email)}</span>
+            <span class="email-addr">${esc(email)}${domainLabel}</span>
             <select class="category-select" onchange="updateMapping(this)" data-email="${esc(email)}" style="padding:5px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:5px;color:var(--text);width:100%;font-size:12px;">${catSel}</select>
             <select class="language-select" onchange="updateMapping(this)" data-email="${esc(email)}" style="padding:5px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:5px;color:var(--text);width:100%;font-size:12px;">${langSel}</select>
             ${ruleId ? 
@@ -1297,10 +1308,10 @@ async function buildIncomingTab(cats, langs) {
             }
             <div class="actions">
                 ${ruleId ? 
-                    `<button class="btn btn-ghost btn-sm" onclick="toggleCloudflareRule('${ruleId}', ${!isActive}, '${esc(email)}')" title="${isActive ? 'Deactivate' : 'Activate'} rule">${isActive ? '🔴' : '🟢'}</button>` :
-                    `<button class="btn btn-accent btn-sm" onclick="createCloudflareRule('${esc(email)}')" style="font-size:10px;">Create Rule</button>`
+                    `<button class="btn btn-ghost btn-sm" onclick="toggleCloudflareRule('${ruleId}', ${!isActive}, '${esc(email)}', '${zoneId}')" title="${isActive ? 'Deactivate' : 'Activate'} rule">${isActive ? '🔴' : '🟢'}</button>` :
+                    `<button class="btn btn-accent btn-sm" onclick="createCloudflareRule('${esc(email)}', '${zoneId}')" style="font-size:10px;">Create Rule</button>`
                 }
-                <button class="btn btn-danger btn-sm" onclick="deleteEmail('${esc(email)}', '${ruleId || ''}')" title="Delete email and rule">🗑️</button>
+                ${isCatchAll ? '' : `<button class="btn btn-danger btn-sm" onclick="deleteEmail('${esc(email)}', '${ruleId || ''}', '${zoneId}')" title="Delete email and rule">🗑️</button>`}
             </div>
         </div>`;
     }).join('');
@@ -1577,10 +1588,12 @@ async function configureDomain(zoneId, domainName) {
     }
 }
 
-async function createCloudflareRule(email) {
-    const emailDomain = email.split('@')[1]?.toLowerCase();
-    const matchedZone = cloudflareDomains.find(d => d.name?.toLowerCase() === emailDomain);
-    const targetZoneId = matchedZone ? matchedZone.id : configuredZoneId;
+async function createCloudflareRule(email, zoneId) {
+    const targetZoneId = zoneId || (() => {
+        const emailDomain = email.split('@')[1]?.toLowerCase();
+        const matchedZone = cloudflareDomains.find(d => d.name?.toLowerCase() === emailDomain);
+        return matchedZone ? matchedZone.id : configuredZoneId;
+    })();
     if (!targetZoneId) {
         toast('No matching domain zone found', 'error');
         return;
@@ -1606,10 +1619,12 @@ async function createCloudflareRule(email) {
     }
 }
 
-async function toggleCloudflareRule(ruleId, newStatus, email) {
-    const emailDomain = email?.split('@')[1]?.toLowerCase();
-    const matchedZone = emailDomain && cloudflareDomains.find(d => d.name?.toLowerCase() === emailDomain);
-    const targetZoneId = matchedZone ? matchedZone.id : configuredZoneId;
+async function toggleCloudflareRule(ruleId, newStatus, email, zoneId) {
+    const targetZoneId = zoneId || (() => {
+        const emailDomain = email?.split('@')[1]?.toLowerCase();
+        const matchedZone = emailDomain && cloudflareDomains.find(d => d.name?.toLowerCase() === emailDomain);
+        return matchedZone ? matchedZone.id : configuredZoneId;
+    })();
     if (!targetZoneId) {
         toast('No matching domain zone found', 'error');
         return;
@@ -1751,13 +1766,15 @@ async function addEmail() {
     }
 }
 
-async function deleteEmail(email, ruleId) {
+async function deleteEmail(email, ruleId, zoneId) {
     if (!confirm(`Delete "${email}"? This will remove Cloudflare rule and DB mapping.`)) return;
     
     try {
-        const emailDomain = email.split('@')[1]?.toLowerCase();
-        const matchedZone = cloudflareDomains.find(d => d.name?.toLowerCase() === emailDomain);
-        const targetZoneId = matchedZone ? matchedZone.id : configuredZoneId;
+        const targetZoneId = zoneId || (() => {
+            const emailDomain = email.split('@')[1]?.toLowerCase();
+            const matchedZone = cloudflareDomains.find(d => d.name?.toLowerCase() === emailDomain);
+            return matchedZone ? matchedZone.id : configuredZoneId;
+        })();
 
         if (ruleId && targetZoneId) {
             const cfRes = await api(`/api/admin/setup/routing-rule/${ruleId}`, {
