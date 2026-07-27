@@ -991,10 +991,14 @@ async function getAllAutoReplies(env) {
 async function getEmailAddresses(env, activeOnly = false, addressType = null) {
   try {
     let q;
-    if (addressType) {
+    if (addressType === 'outgoing') {
       q = activeOnly
-        ? `SELECT * FROM email_addresses WHERE is_active = 1 AND address_type = '${addressType}' ORDER BY label`
-        : `SELECT * FROM email_addresses WHERE address_type = '${addressType}' ORDER BY label`;
+        ? "SELECT * FROM email_addresses WHERE is_active = 1 AND address_type = 'outgoing' ORDER BY label"
+        : "SELECT * FROM email_addresses WHERE address_type = 'outgoing' ORDER BY label";
+    } else if (addressType === 'incoming') {
+      q = activeOnly
+        ? "SELECT * FROM email_addresses WHERE is_active = 1 AND (address_type IS NULL OR address_type != 'outgoing') ORDER BY label"
+        : "SELECT * FROM email_addresses WHERE address_type IS NULL OR address_type != 'outgoing' ORDER BY label";
     } else {
       q = activeOnly
         ? "SELECT * FROM email_addresses WHERE is_active = 1 ORDER BY label"
@@ -3538,18 +3542,26 @@ if (path.startsWith("/api/admin/setup/routing-rule/") && method === "PUT") {
   if (!zoneId || !ruleId || !rule) return json({ error: "zoneId, ruleId and rule required" }, 400);
 
   try {
-    const cleanRule = {
-      enabled: rule.enabled,
-      name: rule.name || '',
-      priority: rule.priority,
-      matchers: rule.matchers,
-      actions: rule.actions
-    };
-    // CF requires catch-all rules to have empty matchers array, not type:'all' object
-    if (cleanRule.matchers && cleanRule.matchers.length === 1 && cleanRule.matchers[0]?.type === 'all') {
-      cleanRule.matchers = [];
+    // Catch-all rules use a dedicated CF endpoint
+    const isCatchAll = !rule.matchers || rule.matchers.length === 0 || rule.matchers[0]?.type === 'all';
+    let data;
+    if (isCatchAll) {
+      data = await callCloudflareAPI("PUT", `/zones/${zoneId}/email/routing/rules/catch_all`, {
+        enabled: rule.enabled,
+        actions: rule.actions,
+        matchers: [{ type: 'all' }],
+        name: rule.name || 'catch_all'
+      }, env);
+    } else {
+      const cleanRule = {
+        enabled: rule.enabled,
+        name: rule.name || '',
+        priority: rule.priority,
+        matchers: rule.matchers,
+        actions: rule.actions
+      };
+      data = await callCloudflareAPI("PUT", `/zones/${zoneId}/email/routing/rules/${ruleId}`, cleanRule, env);
     }
-    const data = await callCloudflareAPI("PUT", `/zones/${zoneId}/email/routing/rules/${ruleId}`, cleanRule, env);
     return json({ success: true, rule: data.result });
   } catch (e) {
     return json({ success: false, error: e.message }, 400);
