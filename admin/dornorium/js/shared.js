@@ -4,10 +4,22 @@
 // NO HARDCODING - load from config.json only
 let API_BASE = null;
 
+function getSharedJsBaseUrl() {
+    const scripts = document.querySelectorAll('script[src]');
+    for (const s of scripts) {
+        if (s.src && s.src.includes('shared.js')) {
+            return s.src.substring(0, s.src.lastIndexOf('/') + 1);
+        }
+    }
+    return window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+}
+
 function loadConfig() {
     try {
+        const base = getSharedJsBaseUrl();
+        const configUrl = base + '../config/config.json';
         const xhr = new XMLHttpRequest();
-        xhr.open('GET', '../config/config.json', false);
+        xhr.open('GET', configUrl, false);
         xhr.send();
         if (xhr.status === 200) {
             const config = JSON.parse(xhr.responseText);
