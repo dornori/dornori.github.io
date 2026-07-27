@@ -1671,10 +1671,13 @@ async function updateMapping(selectElement) {
     const category = categorySelect.value;
     const language = languageSelect.value;
     
-    if (!email || !category || !language) {
+    if (!email || !language) {
         toast('Missing data', 'error');
         return;
     }
+
+    // Don't save if category not set yet
+    if (!category) return;
     
     let existing = emailAddresses.find(a => a.email.toLowerCase() === email.toLowerCase());
     
@@ -1690,7 +1693,6 @@ async function updateMapping(selectElement) {
                     is_active: existing.is_active ? 1 : 0
                 })
             });
-            
             if (res.success) {
                 toast('✅ Mapping updated');
                 existing.action = category;
@@ -1701,15 +1703,10 @@ async function updateMapping(selectElement) {
         } else {
             const res = await api('/api/admin/email-addresses', {
                 method: 'POST',
-                body: JSON.stringify({
-                    email: email,
-                    label: category,
-                    action: category,
-                    language: language
-                })
+                body: JSON.stringify({ email, label: category, action: category, language })
             });
             if (res.success) {
-                toast('✅ Mapping created');
+                toast('✅ Mapping saved');
                 await load();
                 refreshIncomingTab();
             } else {
@@ -1723,6 +1720,8 @@ async function updateMapping(selectElement) {
 
 async function addIncomingRule() {
     const email = document.getElementById('newEmailAddr').value.trim();
+    const category = document.getElementById('newEmailCat').value;
+    const language = document.getElementById('newEmailLang').value;
     if (!email) { toast('Enter an email address', 'error'); return; }
 
     const emailDomain = email.split('@')[1]?.toLowerCase();
@@ -1737,9 +1736,17 @@ async function addIncomingRule() {
             body: JSON.stringify({ zoneId: targetZoneId, emailPattern: email, workerName: 'dornorium' })
         });
         if (cfRes.success) {
+            // Save category/language DB mapping if category is set
+            if (category) {
+                await api('/api/admin/email-addresses', {
+                    method: 'POST',
+                    body: JSON.stringify({ email, label: category, action: category, language: language || 'en' })
+                });
+            }
             toast('✅ Cloudflare routing rule created');
             document.getElementById('newEmailAddr').value = '';
             const enabledZones = cloudflareDomains.filter(d => d.db_enabled == 1 || d.db_status === 'active').map(d => d.id);
+            await load();
             await fetchCloudflareRules(enabledZones.length ? enabledZones : [targetZoneId]);
             refreshIncomingTab();
         } else {
