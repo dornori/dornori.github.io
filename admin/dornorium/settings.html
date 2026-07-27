@@ -1685,22 +1685,12 @@ async function updateMapping(selectElement) {
         if (existing) {
             const res = await api(`/api/admin/email-addresses/${existing.id}`, {
                 method: 'PUT',
-                body: JSON.stringify({
-                    email: existing.email,
-                    label: category,
-                    action: category,
-                    language: language,
-                    is_active: existing.is_active ? 1 : 0
-                })
+                body: JSON.stringify({ email: existing.email, label: category, action: category, language, is_active: existing.is_active ? 1 : 0 })
             });
-            if (res.success) {
-                toast('✅ Mapping updated');
-                existing.action = category;
-                existing.language = language;
-            } else {
-                toast('❌ ' + (res.error || 'Failed'), 'error');
-            }
+            if (res.success) { toast('✅ Mapping updated'); existing.action = category; existing.language = language; }
+            else toast('❌ ' + (res.error || 'Failed'), 'error');
         } else {
+            // May exist in DB as outgoing — try POST, fall back to upsert via email lookup
             const res = await api('/api/admin/email-addresses', {
                 method: 'POST',
                 body: JSON.stringify({ email, label: category, action: category, language })
@@ -1709,6 +1699,14 @@ async function updateMapping(selectElement) {
                 toast('✅ Mapping saved');
                 await load();
                 refreshIncomingTab();
+            } else if (res.error && res.error.toLowerCase().includes('unique')) {
+                // Already exists as outgoing — update it by email
+                const res2 = await api('/api/admin/email-addresses/by-email', {
+                    method: 'PUT',
+                    body: JSON.stringify({ email, label: category, action: category, language })
+                });
+                if (res2.success) { toast('✅ Mapping updated'); await load(); refreshIncomingTab(); }
+                else toast('❌ ' + (res2.error || 'Failed'), 'error');
             } else {
                 toast('❌ ' + (res.error || 'Failed'), 'error');
             }
