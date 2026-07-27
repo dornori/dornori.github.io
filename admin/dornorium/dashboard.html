@@ -672,14 +672,6 @@
                     }
                 }
             }
-
-            // ─── Email template Save/Delete buttons ──────────────
-            const canManage = canManageTemplates();
-            ['btnSaveEmailTemplate', 'btnDeleteEmailTemplate'].forEach(id => {
-                const btn = document.getElementById(id);
-                if (!btn) return;
-                btn.style.display = canManage ? '' : 'none';
-            });
         }
     };
 
@@ -688,7 +680,7 @@
     }
 
     function canManageTemplates() {
-        return hasAccess('tickets', 'edit');
+        return hasAccess('tickets', 'edit') && currentUser?.role !== 'agent';
     }
 
     function showToast(title, message, type = 'info') {
@@ -1746,6 +1738,15 @@
         
         // Load templates from DB (already loaded)
         updateTemplateSelect();
+
+        // Save/Delete buttons: only inject into the DOM for users who can manage templates
+        var manageBtnsSlot = document.getElementById("templateManageBtns");
+        if (manageBtnsSlot) {
+            manageBtnsSlot.innerHTML = canManageTemplates()
+                ? '<button type="button" id="btnSaveEmailTemplate" class="editor-btn" style="padding:6px 10px;" onclick="saveEmailTemplate()">💾 Save</button>' +
+                  '<button type="button" id="btnDeleteEmailTemplate" class="editor-btn" style="padding:6px 10px;color:#dc2626;" onclick="deleteEmailTemplate()">Delete</button>'
+                : '';
+        }
         
         // Update preview on input
         editor.addEventListener("input", updateEmailPreview);
@@ -2360,8 +2361,7 @@
                         <option value="">📁 Load template…</option>
                     </select>
                     <button type="button" class="editor-btn" style="padding:6px 10px;" onclick="loadEmailTemplate(document.getElementById('emailTemplateSelect').value)">Load</button>
-                    <button type="button" id="btnSaveEmailTemplate" class="editor-btn" style="padding:6px 10px;" onclick="saveEmailTemplate()">💾 Save</button>
-                    <button type="button" id="btnDeleteEmailTemplate" class="editor-btn" style="padding:6px 10px;color:#dc2626;" onclick="deleteEmailTemplate()">Delete</button>
+                    <span id="templateManageBtns"></span>
                     <span class="shared-badge">👥 Shared</span>
                 </div>
                 
