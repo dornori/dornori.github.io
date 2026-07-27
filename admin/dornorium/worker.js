@@ -2510,6 +2510,31 @@ var worker_default = {
         return json({ success: true });
       }
 
+      // ─── Email templates (shared, readable by all ticket users) ───────────
+      if (path === "/api/email-templates" && method === "GET") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const email = await verifyToken(token, env);
+        if (!email) return json({ error: "Unauthorized" }, 401);
+        if (!await checkAccess(email, "tickets", "view", env)) return json({ error: "Permission denied" }, 403);
+        const entry = await env.DB.prepare(
+          "SELECT value FROM settings WHERE category = 'email_templates' AND key = 'templates_dashboard'"
+        ).first();
+        const templates = entry ? JSON.parse(entry.value) : [];
+        return json({ success: true, templates });
+      }
+
+      if (path === "/api/email-templates" && method === "PUT") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const email = await verifyToken(token, env);
+        if (!email) return json({ error: "Unauthorized" }, 401);
+        const user = await getUser(email, env);
+        if (!user || !["admin", "manager"].includes(user.role)) return json({ error: "Permission denied" }, 403);
+        const { templates } = await request.json();
+        if (!Array.isArray(templates)) return json({ error: "Invalid templates payload" }, 400);
+        await updateSetting(env, "email_templates", "templates_dashboard", JSON.stringify(templates));
+        return json({ success: true });
+      }
+
       if (path === "/api/admin/newsletters" && method === "GET") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
