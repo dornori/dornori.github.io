@@ -189,8 +189,9 @@ function validatePasswordStrength(password) {
 }
 
 async function callCloudflareAPI(method, endpoint, body, env) {
-  const token = env.CLOUDFLARE_API_TOKEN;
-  if (!token) throw new Error("CLOUDFLARE_API_TOKEN not configured in Worker environment variables");
+  const encToken = await getSetting(env, 'cloudflare', 'api_token');
+  const token = encToken ? await decrypt(encToken, env) : null;
+  if (!token) throw new Error("Cloudflare API token not configured. Please set it in Settings → Incoming Email → Cloudflare Configuration.");
 
   const url = endpoint.startsWith("http") ? endpoint : `https://api.cloudflare.com/client/v4${endpoint}`;
   const headers = {
@@ -2181,12 +2182,13 @@ var worker_default = {
       
   // 👇 ADD THIS RIGHT HERE 👇
   if (path === "/api/admin/debug-token" && method === "GET") {
-    const token = env.CLOUDFLARE_API_TOKEN;
+    const encToken = await getSetting(env, 'cloudflare', 'api_token');
+    const token = encToken ? await decrypt(encToken, env) : null;
     return json({ 
-      tokenExists: typeof token !== 'undefined',
+      tokenExists: !!token,
       tokenLength: token ? token.length : 0,
       tokenFirst4: token ? token.substring(0, 4) : 'none',
-      allKeys: Object.keys(env) // Show ALL keys without filtering
+      allKeys: Object.keys(env)
     });
   }
 
@@ -3097,11 +3099,6 @@ if (path === "/api/admin/setup/verify-token" && method === "GET") {
             finalAccountId = await getSetting(env, 'cloudflare', 'account_id');
           }
           
-          // Fall back to env var
-          if (!finalAccountId) {
-            finalAccountId = env.CLOUDFLARE_ACCOUNT_ID;
-          }
-          
           if (!finalAccountId) {
             return json({ error: "Cloudflare Account ID not configured. Please set it in settings." }, 400);
           }
@@ -3483,7 +3480,7 @@ if (path === "/api/admin/setup/verify-token" && method === "GET") {
         if (!email) return json({ error: "Unauthorized" }, 401);
         if (!await checkAccess(email, "settings", "view", env)) return json({ error: "Permission denied" }, 403);
 
-        const accountId = url.searchParams.get("accountId") || env.CLOUDFLARE_ACCOUNT_ID || "";
+        const accountId = url.searchParams.get("accountId") || await getSetting(env, 'cloudflare', 'account_id') || "";
         if (!accountId) return json({ error: "accountId required" }, 400);
 
         try {
