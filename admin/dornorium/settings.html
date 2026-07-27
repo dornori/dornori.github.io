@@ -310,8 +310,8 @@ async function load() {
     try {
         const [sd, ed, oed] = await Promise.all([
             api('/api/admin/settings'),
-            api('/api/admin/email-addresses?type=incoming'),
-            api('/api/admin/email-addresses?active_only=true&type=outgoing')
+            api('/api/admin/incoming-email-addresses'),
+            api('/api/admin/email-addresses?active_only=true')
         ]);
         settings = sd.settings || [];
         emailAddresses = ed.addresses || [];
@@ -1683,15 +1683,15 @@ async function updateMapping(selectElement) {
     
     try {
         if (existing) {
-            const res = await api(`/api/admin/email-addresses/${existing.id}`, {
-                method: 'PUT',
-                body: JSON.stringify({ email: existing.email, label: category, action: category, language, is_active: existing.is_active ? 1 : 0 })
+            const res = await api('/api/admin/incoming-email-addresses', {
+                method: 'POST',
+                body: JSON.stringify({ email: existing.email, label: category, action: category, language })
             });
             if (res.success) { toast('✅ Mapping updated'); existing.action = category; existing.language = language; }
             else toast('❌ ' + (res.error || 'Failed'), 'error');
         } else {
             // May exist in DB as outgoing — try POST, fall back to upsert via email lookup
-            const res = await api('/api/admin/email-addresses', {
+            const res = await api('/api/admin/incoming-email-addresses', {
                 method: 'POST',
                 body: JSON.stringify({ email, label: category, action: category, language })
             });
@@ -1699,14 +1699,6 @@ async function updateMapping(selectElement) {
                 toast('✅ Mapping saved');
                 await load();
                 refreshIncomingTab();
-            } else if (res.error && (res.error.toLowerCase().includes('unique') || res.error.toLowerCase().includes('already exists'))) {
-                // Already exists as outgoing — update it by email
-                const res2 = await api('/api/admin/email-addresses/by-email', {
-                    method: 'PUT',
-                    body: JSON.stringify({ email, label: category, action: category, language })
-                });
-                if (res2.success) { toast('✅ Mapping updated'); await load(); refreshIncomingTab(); }
-                else toast('❌ ' + (res2.error || 'Failed'), 'error');
             } else {
                 toast('❌ ' + (res.error || 'Failed'), 'error');
             }
@@ -1736,7 +1728,7 @@ async function addIncomingRule() {
         if (cfRes.success) {
             // Save category/language DB mapping if category is set
             if (category) {
-                await api('/api/admin/email-addresses', {
+                await api('/api/admin/incoming-email-addresses', {
                     method: 'POST',
                     body: JSON.stringify({ email, label: category, action: category, language: language || 'en' })
                 });
@@ -1804,6 +1796,12 @@ async function deleteEmail(email, ruleId, zoneId) {
             if (!cfRes.success) {
                 toast('⚠️ Cloudflare rule delete failed: ' + (cfRes.error || 'Unknown'), 'warning');
             }
+        }
+
+        // Clean up incoming_email_addresses mapping
+        const incomingMatch = emailAddresses.find(a => a.email.toLowerCase() === email.toLowerCase());
+        if (incomingMatch) {
+            await api(`/api/admin/incoming-email-addresses/${incomingMatch.id}`, { method: 'DELETE' });
         }
         
         toast('✅ Deleted');
