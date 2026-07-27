@@ -1000,7 +1000,7 @@ async function createRoutingRule() {
             body: JSON.stringify({ 
                 zoneId: setupZoneId,
                 emailPattern: pattern,
-                workerName: 'dornorium'
+                workerName: S('cloudflare', 'worker_name', '')
             })
         });
         
@@ -1373,6 +1373,11 @@ async function buildIncomingTab(cats, langs) {
                 ${S('cloudflare','api_token','') ? '<p style="font-size:11px;color:var(--success);margin-top:4px;">✅ Token set (encrypted)</p>' : ''}
             </div>
         </div>
+        <div class="f-row" style="margin-top:16px;">
+            <label>Worker Name</label>
+            <input type="text" id="cf_worker_name" value="${esc(S('cloudflare','worker_name',''))}" placeholder="Your Cloudflare Worker name" />
+            <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">The name of your deployed Cloudflare Worker</p>
+        </div>
         <button class="btn btn-accent" style="margin-top:8px;" onclick="saveCloudflareSettings()">Save Cloudflare Settings</button>
     </div>
 
@@ -1588,7 +1593,7 @@ async function createCloudflareRule(email, zoneId) {
             body: JSON.stringify({ 
                 zoneId: targetZoneId,
                 emailPattern: email,
-                workerName: 'dornorium'
+                workerName: S('cloudflare', 'worker_name', '')
             })
         });
         if (res.success) {
@@ -1703,7 +1708,7 @@ async function addIncomingRule() {
     try {
         const cfRes = await api('/api/admin/setup/routing-rule', {
             method: 'POST',
-            body: JSON.stringify({ zoneId: targetZoneId, emailPattern: email, workerName: 'dornorium' })
+            body: JSON.stringify({ zoneId: targetZoneId, emailPattern: email, workerName: S('cloudflare', 'worker_name', '') })
         });
         if (cfRes.success) {
             // Save category/language DB mapping if category is set
@@ -1796,11 +1801,15 @@ async function saveCloudflareSettings() {
     const accountId = document.getElementById('cf_account_id').value.trim();
     const apiToken = document.getElementById('cf_api_token').value.trim();
     
+    const workerName = document.getElementById('cf_worker_name').value.trim();
     const updates = [];
     
     try {
         if (accountId) {
             updates.push({ category:'cloudflare', key:'account_id', value: accountId });
+        }
+        if (workerName) {
+            updates.push({ category:'cloudflare', key:'worker_name', value: workerName });
         }
         if (apiToken) {
             const enc = await api('/api/admin/setup/encrypt', { method: 'POST', body: JSON.stringify({ value: apiToken }) });

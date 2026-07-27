@@ -3389,8 +3389,8 @@ if (path === "/api/admin/setup/verify-token" && method === "GET") {
         const { zoneId, emailPattern, workerName } = await request.json();
         if (!zoneId) return json({ error: "zoneId required" }, 400);
 
-        const worker = workerName || env.WORKER_NAME || "";
-        if (!worker) return json({ error: "Worker name required. Set WORKER_NAME environment variable or pass workerName in body." }, 400);
+        const worker = workerName || await getSetting(env, 'cloudflare', 'worker_name') || "";
+        if (!worker) return json({ error: "Worker name required. Set it in Settings → Cloudflare Configuration." }, 400);
 
         try {
           // Resolve domain name for the zone (needed to build full email address)
