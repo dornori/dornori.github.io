@@ -54,10 +54,8 @@ async function initializeDatabase(env) {
     dbInitialized = true;
   }
 
-  // Migrations for columns added after initial release
-  try { await env.DB.exec("ALTER TABLE email_addresses ADD COLUMN address_type TEXT DEFAULT NULL"); } catch (e) { }
-  // Reset rows that were incorrectly defaulted to 'incoming' — NULL means normal routing address
-  try { await env.DB.exec("UPDATE email_addresses SET address_type = NULL WHERE address_type = 'incoming'"); } catch (e) { }
+  // Migration: create incoming_email_addresses table if not in SEED_SQL yet
+  try { await env.DB.exec("CREATE TABLE IF NOT EXISTS incoming_email_addresses (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, label TEXT, action TEXT, language TEXT DEFAULT 'en', is_active INTEGER DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"); } catch (e) { }
   try {
     await env.DB.exec("ALTER TABLE cloudflare_domains ADD COLUMN enabled INTEGER DEFAULT 0");
   } catch (e) { /* column already exists, ignore */ }
@@ -988,22 +986,11 @@ async function getAllAutoReplies(env) {
   }
 }
 
-async function getEmailAddresses(env, activeOnly = false, addressType = null) {
+async function getEmailAddresses(env, activeOnly = false) {
   try {
-    let q;
-    if (addressType === 'outgoing') {
-      q = activeOnly
-        ? "SELECT * FROM email_addresses WHERE is_active = 1 ORDER BY label"
-        : "SELECT * FROM email_addresses ORDER BY label";
-    } else if (addressType === 'incoming') {
-      q = activeOnly
-        ? "SELECT * FROM incoming_email_addresses WHERE is_active = 1 ORDER BY email"
-        : "SELECT * FROM incoming_email_addresses ORDER BY email";
-    } else {
-      q = activeOnly
-        ? "SELECT * FROM email_addresses WHERE is_active = 1 ORDER BY label"
-        : "SELECT * FROM email_addresses ORDER BY label";
-    }
+    const q = activeOnly
+      ? "SELECT * FROM email_addresses WHERE is_active = 1 ORDER BY label"
+      : "SELECT * FROM email_addresses ORDER BY label";
     const r = await env.DB.prepare(q).all();
     return r.results || [];
   } catch {
@@ -1011,14 +998,10 @@ async function getEmailAddresses(env, activeOnly = false, addressType = null) {
   }
 }
 
-async function addEmailAddress(env, email, label, action, language, addressType = null) {
+async function addEmailAddress(env, email, label, action, language) {
   if (!language) throw new Error("Language is required for email address configuration");
-  if (addressType === 'incoming') {
-    await env.DB.prepare("INSERT INTO incoming_email_addresses (email, label, action, language) VALUES (?, ?, ?, ?)").bind(email, label || '', action || '', language).run();
-  } else {
-    await validateLanguage(language, env);
-    await env.DB.prepare("INSERT INTO email_addresses (email, label, action, language) VALUES (?, ?, ?, ?)").bind(email, label, action, language).run();
-  }
+  await validateLanguage(language, env);
+  await env.DB.prepare("INSERT INTO email_addresses (email, label, action, language) VALUES (?, ?, ?, ?)").bind(email, label, action, language).run();
 }
 
 async function updateEmailAddress(env, id, email, label, action, language, is_active) {
@@ -2392,8 +2375,7 @@ var worker_default = {
         if (!email) return json({ error: "Unauthorized" }, 401);
         if (!await checkAccess(email, "settings", "view", env)) return json({ error: "Permission denied" }, 403);
         const activeOnly = url.searchParams.get("active_only") === "true";
-        const addressType = url.searchParams.get("type") || null;
-        return json({ success: true, addresses: await getEmailAddresses(env, activeOnly, addressType) });
+        return json({ success: true, addresses: await getEmailAddresses(env, activeOnly) });
       }
 
       if (path === "/api/admin/email-addresses" && method === "POST") {
@@ -2401,11 +2383,10 @@ var worker_default = {
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
         if (!await checkAccess(email, "settings", "create", env)) return json({ error: "Permission denied" }, 403);
-        const { email: newEmail, label, action, language, address_type } = await request.json();
+        const { email: newEmail, label, action, language } = await request.json();
         if (!newEmail || !label || !language) return json({ error: "Email, label and language required" }, 400);
         try {
-          const validatedAction = address_type === 'outgoing' ? (action || label) : await validateCategory(action || label, env);
-          await addEmailAddress(env, newEmail, label, validatedAction, language, address_type || null);
+          await addEmailAddress(env, newEmail, label, action || label, language);
           await bumpConfigVersion(env);
           return json({ success: true });
         } catch (e) {
