@@ -2411,6 +2411,25 @@ var worker_default = {
         }
       }
 
+      if (path === "/api/admin/email-addresses/by-email" && method === "PUT") {
+        const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+        const email = await verifyToken(token, env);
+        if (!email) return json({ error: "Unauthorized" }, 401);
+        if (!await checkAccess(email, "settings", "edit", env)) return json({ error: "Permission denied" }, 403);
+        const { email: targetEmail, label, action, language } = await request.json();
+        if (!targetEmail) return json({ error: "email required" }, 400);
+        try {
+          const validatedAction = await validateCategory(action || label, env);
+          await env.DB.prepare(
+            "UPDATE email_addresses SET label=?, action=?, language=? WHERE lower(email)=lower(?)"
+          ).bind(label, validatedAction, language, targetEmail).run();
+          await bumpConfigVersion(env);
+          return json({ success: true });
+        } catch (e) {
+          return json({ error: e.message }, 400);
+        }
+      }
+
       if (path.match(/^\/api\/admin\/email-addresses\/\d+$/) && method === "PUT") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
