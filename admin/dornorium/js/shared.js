@@ -7,7 +7,7 @@ let API_BASE = null;
 function loadConfig() {
     try {
         const xhr = new XMLHttpRequest();
-        xhr.open('GET', 'config/config.json', false);
+        xhr.open('GET', '/config/config.json', false);
         xhr.send();
         if (xhr.status === 200) {
             const config = JSON.parse(xhr.responseText);

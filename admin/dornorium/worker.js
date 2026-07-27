@@ -3040,6 +3040,24 @@ var worker_default = {
         return json({ version: row ? row.value : "0" });
       }
 
+
+// In the fetch handler, add this route (anywhere before the 404 handler):
+if (path === "/api/admin/init-db" && method === "GET") {
+  // Force re-initialization
+  dbInitialized = false;
+  await initializeDatabase(env);
+  
+  // Check if tables were actually created
+  const check = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'").first();
+  
+  return json({ 
+    success: true, 
+    initialized: dbInitialized,
+    tablesExist: !!check
+  });
+}
+
+
       if (path === "/api/admin/setup/encrypt" && method === "POST") {
         const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
         const email = await verifyToken(token, env);
