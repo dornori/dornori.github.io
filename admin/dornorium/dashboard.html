@@ -4,9 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dornorium</title>
-    <link rel="stylesheet" href="style.css" />
-    
-    <script src="shared.js"></script>
+    <link rel="stylesheet" href="css/style.css" />
+    <script src="js/shared.js"></script>
     <style>
         .tag-chip {
             display: inline-block;
@@ -679,7 +678,9 @@
             ['btnSaveEmailTemplate', 'btnDeleteEmailTemplate'].forEach(id => {
                 const btn = document.getElementById(id);
                 if (!btn) return;
-                btn.style.display = canManage ? '' : 'none';
+                btn.disabled = !canManage;
+                btn.style.opacity = canManage ? '' : '0.5';
+                btn.style.cursor = canManage ? '' : 'not-allowed';
             });
         }
     };
@@ -689,7 +690,7 @@
     }
 
     function canManageTemplates() {
-        return hasAccess('tickets', 'edit');
+        return currentUser && ['admin', 'manager'].includes(currentUser.role);
     }
 
     function showToast(title, message, type = 'info') {
@@ -1494,32 +1495,12 @@
     // Load templates from database (shared across all users)
     async function loadTemplatesFromDB() {
         try {
-            const res = await fetch(API_BASE + '/api/admin/settings', {
+            const res = await fetch(API_BASE + '/api/email-templates', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
-            if (!res.ok) throw new Error('Settings fetch failed');
+            if (!res.ok) throw new Error('Templates fetch failed');
             const data = await res.json();
-            const settings = data.data || data.settings || {};
-            
-            // Support both array and nested-object response shapes
-            let raw = null;
-            if (Array.isArray(settings)) {
-                const entry = settings.find(s => s.category === 'email_templates' && s.key === 'templates_dashboard');
-                raw = entry ? entry.value : null;
-                // Also refresh settingsCache while we have fresh data
-                settingsCache = {};
-                settings.forEach(s => {
-                    if (s.category && s.key) {
-                        if (!settingsCache[s.category]) settingsCache[s.category] = {};
-                        settingsCache[s.category][s.key] = s.value;
-                    }
-                });
-            } else {
-                raw = settings?.email_templates?.templates_dashboard;
-                settingsCache = settings;
-            }
-            
-            emailTemplates = raw ? JSON.parse(raw) : [];
+            emailTemplates = Array.isArray(data.templates) ? data.templates : [];
             updateTemplateSelect();
         } catch (e) {
             console.warn('Failed to load templates from DB:', e);
@@ -1531,31 +1512,15 @@
     // Save templates to database (shared across all users)
     async function saveTemplatesToDB() {
         try {
-            const value = JSON.stringify(emailTemplates);
-            
-            const res = await fetch(API_BASE + '/api/admin/settings', {
+            const res = await fetch(API_BASE + '/api/email-templates', {
                 method: 'PUT',
                 headers: { 
                     'Content-Type': 'application/json',
                     'Authorization': 'Bearer ' + token 
                 },
-                body: JSON.stringify({ 
-                    settings: [{ 
-                        category: 'email_templates', 
-                        key: 'templates_dashboard', 
-                        value: value 
-                    }] 
-                })
+                body: JSON.stringify({ templates: emailTemplates })
             });
-            
-            if (res.ok) {
-                // Update local cache
-                if (!settingsCache) settingsCache = {};
-                if (!settingsCache.email_templates) settingsCache.email_templates = {};
-                settingsCache.email_templates.templates_dashboard = value;
-                return true;
-            }
-            return false;
+            return res.ok;
         } catch (e) {
             console.warn('Failed to save templates to DB:', e);
             return false;
