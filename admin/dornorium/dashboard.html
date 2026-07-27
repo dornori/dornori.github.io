@@ -910,7 +910,19 @@
             });
             if (res.ok) {
                 const data = await res.json();
-                settingsCache = data.data || data.settings || {};
+                const raw = data.data || data.settings || {};
+                // Normalize array of {category, key, value} into nested object
+                if (Array.isArray(raw)) {
+                    settingsCache = {};
+                    raw.forEach(s => {
+                        if (s.category && s.key) {
+                            if (!settingsCache[s.category]) settingsCache[s.category] = {};
+                            settingsCache[s.category][s.key] = s.value;
+                        }
+                    });
+                } else {
+                    settingsCache = raw;
+                }
             }
         } catch (e) {
             console.warn('Failed to load settings:', e);
@@ -1471,30 +1483,46 @@
     //  TEMPLATE FUNCTIONS - STORED IN DATABASE (SHARED)
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    // Load templates from database
+    // Load templates from database (shared across all users)
     async function loadTemplatesFromDB() {
         try {
-            if (!settingsCache) await loadSettings();
+            const res = await fetch(API_BASE + '/api/admin/settings', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!res.ok) throw new Error('Settings fetch failed');
+            const data = await res.json();
+            const settings = data.data || data.settings || {};
             
-            // Templates are stored in order_template category
-            const templateKey = 'templates_dashboard';
-            const raw = settingsCache?.order_template?.[templateKey];
-            if (raw) {
-                emailTemplates = JSON.parse(raw);
+            // Support both array and nested-object response shapes
+            let raw = null;
+            if (Array.isArray(settings)) {
+                const entry = settings.find(s => s.category === 'email_templates' && s.key === 'templates_dashboard');
+                raw = entry ? entry.value : null;
+                // Also refresh settingsCache while we have fresh data
+                settingsCache = {};
+                settings.forEach(s => {
+                    if (s.category && s.key) {
+                        if (!settingsCache[s.category]) settingsCache[s.category] = {};
+                        settingsCache[s.category][s.key] = s.value;
+                    }
+                });
             } else {
-                emailTemplates = [];
+                raw = settings?.email_templates?.templates_dashboard;
+                settingsCache = settings;
             }
+            
+            emailTemplates = raw ? JSON.parse(raw) : [];
             updateTemplateSelect();
         } catch (e) {
             console.warn('Failed to load templates from DB:', e);
             emailTemplates = [];
+            updateTemplateSelect();
         }
     }
 
-    // Save templates to database
+    // Save templates to database (shared across all users)
     async function saveTemplatesToDB() {
         try {
-            const templateKey = 'templates_dashboard';
             const value = JSON.stringify(emailTemplates);
             
             const res = await fetch(API_BASE + '/api/admin/settings', {
@@ -1505,18 +1533,18 @@
                 },
                 body: JSON.stringify({ 
                     settings: [{ 
-                        category: 'order_template', 
-                        key: templateKey, 
+                        category: 'email_templates', 
+                        key: 'templates_dashboard', 
                         value: value 
                     }] 
                 })
             });
             
             if (res.ok) {
-                // Update cache
+                // Update local cache
                 if (!settingsCache) settingsCache = {};
-                if (!settingsCache.order_template) settingsCache.order_template = {};
-                settingsCache.order_template[templateKey] = value;
+                if (!settingsCache.email_templates) settingsCache.email_templates = {};
+                settingsCache.email_templates.templates_dashboard = value;
                 return true;
             }
             return false;
