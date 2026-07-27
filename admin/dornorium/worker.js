@@ -398,7 +398,7 @@ const ROLE_RESOURCES = {
     reports: [],
     users: [],
     settings: [],
-    order_reply: ['read']
+    order_reply: []
   }
 };
 
