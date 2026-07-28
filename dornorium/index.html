@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DORNORIUM • The Living Network</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js">
+    </script>
+    <script src="js/shared.js">
+    </script>
+    <style>
+        :root {
+            --cyan: #60a5fa;
+            --silver: #e2e8f0;
+            --bg: #0a0a0a;
+            --bg-card: #13131f;
+            --accent: #38bdf8;
+            --accent2: #818cf8;
+            --success: #22c55e;
+            --error: #ef4444;
+            --border: #1e293b;
+            --input-bg: #0a0a0f;
+            --radius: 12px;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0a0a0a;
+            color: var(--silver);
+            font-family: 'Inter', system_ui, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            position: relative;
+        }
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        .content {
+            position: relative;
+            z-index: 2;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+        }
+        .title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(3rem, 8vw, 7rem);
+            font-weight: 600;
+            letter-spacing: -0.05em;
+            background: linear-gradient(90deg, #60a5fa, #e2e8f0, #60a5fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 40px rgba(96, 165, 250, 0.6);
+            opacity: 0;
+        }
+        .subtitle {
+            font-size: 1.25rem;
+            letter-spacing: 0.5em;
+            text-transform: uppercase;
+            color: #94a3b8;
+            margin-top: 1rem;
+            opacity: 0;
+        }
+        .scene {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        .globe-container {
+            width: 420px;
+            height: 420px;
+            border-radius: 50%;
+            position: relative;
+            border: 2px solid rgba(96, 165, 250, 0.4);
+            box-shadow: 0 0 80px rgba(96, 165, 250, 0.3);
+            overflow: hidden;
+        }
+        .final-text {
+            font-size: 2.8rem;
+            font-weight: 600;
+            letter-spacing: -0.03em;
+            margin-bottom: 1rem;
+        }
+        .scanline {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent 40%, rgba(96, 165, 250, 0.08) 50%, transparent 60%);
+            animation: scan 6s linear infinite;
+            pointer-events: none;
+            z-index: 3;
+        }
+        @keyframes scan {
+            0% {
+                transform: translateY(-100%);
+            }
+            100% {
+                transform: translateY(400%);
+            }
+        }
+
+        /* ─── SUN BEHIND MOUNTAINS (z-index 5) ─────── */
+        .sky-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 5;
+            pointer-events: none;
+        }
+        .rising-sun {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, #fff 0%, #ffd780 20%, #f59e0b 45%, rgba(245, 158, 11, 0.3) 70%, transparent 100%);
+            border-radius: 50%;
+            z-index: 5;
+        }
+        .sun-rays {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            z-index: 4;
+            opacity: 0.6;
+        }
+        .sun-ray {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 2px;
+            height: 80px;
+            background: linear-gradient(to top, rgba(255, 220, 100, .5), transparent);
+            transform-origin: bottom center;
+        }
+
+        /* ─── MOUNTAINS (z-index 6, in front of sun) ── */
+        .mountains-foreground {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 220px;
+            z-index: 6;
+            pointer-events: none;
+        }
+        .fg-mountain {
+            position: absolute;
+            bottom: 0;
+            width: 0;
+            height: 0;
+            border-style: solid;
+        }
+        .fg-mountain.back {
+            border-left: 280px solid transparent;
+            border-right: 280px solid transparent;
+            border-bottom: 180px solid #0d1a30;
+            left: 15%;
+            opacity: 0.85;
+        }
+        .fg-mountain.mid {
+            border-left: 200px solid transparent;
+            border-right: 200px solid transparent;
+            border-bottom: 140px solid #111f38;
+            left: 5%;
+            opacity: 0.9;
+        }
+        .fg-mountain.front {
+            border-left: 240px solid transparent;
+            border-right: 240px solid transparent;
+            border-bottom: 200px solid #162544;
+            left: 25%;
+        }
+        .fg-mountain.right {
+            border-left: 180px solid transparent;
+            border-right: 180px solid transparent;
+            border-bottom: 150px solid #0f1f35;
+            left: 55%;
+            opacity: 0.9;
+        }
+        .fg-mountain.far-right {
+            border-left: 150px solid transparent;
+            border-right: 150px solid transparent;
+            border-bottom: 120px solid #0a1525;
+            left: 70%;
+            opacity: 0.8;
+        }
+        .fg-mountain::after {
+            content: '';
+            position: absolute;
+            top: -20px;
+            left: -18px;
+            width: 0;
+            height: 0;
+            border-left: 18px solid transparent;
+            border-right: 18px solid transparent;
+            border-bottom: 20px solid rgba(255, 255, 255, .1);
+        }
+        .fg-mountain.front::after {
+            top: -28px;
+            left: -22px;
+            border-left-width: 22px;
+            border-right-width: 22px;
+            border-bottom-width: 28px;
+        }
+        .fg-lake {
+            position: absolute;
+            bottom: 0;
+            left: 10%;
+            right: 10%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, rgba(56, 189, 248, .3), rgba(129, 140, 248, .4), rgba(56, 189, 248, .3), transparent);
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(56, 189, 248, .25), 0 0 40px rgba(129, 140, 248, .15);
+            z-index: 7;
+        }
+
+        /* ─── SETUP CARD ──────────────────────────────── */
+        .setup-container {
+            position: relative;
+            z-index: 10;
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 44px;
+            max-width: 580px;
+            width: 90%;
+            border: 1px solid var(--border);
+            box-shadow: 0 0 80px rgba(56, 189, 248, .08);
+            display: none;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .setup-container.visible {
+            display: block;
+            animation: cardIn .6s ease;
+        }
+        @keyframes cardIn {
+            0% {
+                opacity: 0;
+                transform: translateY(30px) scale(.96);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        .setup-container .logo-text {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .setup-container .logo-subtitle {
+            font-size: 12px;
+            color: #94a3b8;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        .glow-line {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
+            margin-bottom: 28px;
+            border-radius: 2px;
+        }
+        .step {
+            display: none;
+            animation: fadeSlide .4s ease;
+        }
+        .step.active {
+            display: block;
+        }
+        @keyframes fadeSlide {
+            0% {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        .step h2 {
+            font-size: 18px;
+            margin-bottom: 12px;
+            color: #e2e8f0;
+        }
+        .step p {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 20px;
+            line-height: 1.7;
+        }
+        .step ul {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 20px;
+            padding-left: 20px;
+            line-height: 2.2;
+        }
+        .step ul li strong {
+            color: var(--accent);
+        }
+        .step ul li a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .step ul li a:hover {
+            text-decoration: underline;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            color: #94a3b8;
+            margin-bottom: 6px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: #e2e8f0;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, .1);
+        }
+        .form-group input[readonly] {
+            background: var(--border);
+            color: #94a3b8;
+            cursor: default;
+        }
+        .code-block {
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Menlo', monospace;
+            font-size: 11px;
+            color: var(--accent);
+            word-break: break-all;
+            margin-bottom: 16px;
+            user-select: all;
+        }
+        .btn {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: #0a0a0f;
+        }
+        .btn-success {
+            background: var(--success);
+            color: #fff;
+        }
+        .btn-download {
+            background: var(--accent);
+            color: #0a0a0f;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-download:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.3);
+        }
+        .btn-check {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--silver);
+            padding: 10px 28px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-check:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .btn:disabled {
+            opacity: .4;
+            cursor: not-allowed;
+        }
+        .btn-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .status {
+            font-size: 13px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            display: none;
+        }
+        .status.success {
+            display: block;
+            background: rgba(34, 197, 94, .08);
+            color: var(--success);
+            border: 1px solid rgba(34, 197, 94, .15);
+        }
+        .status.error {
+            display: block;
+            background: rgba(239, 68, 68, .08);
+            color: var(--error);
+            border: 1px solid rgba(239, 68, 68, .15);
+        }
+        .status.info {
+            display: block;
+            background: rgba(56, 189, 248, .08);
+            color: var(--accent);
+            border: 1px solid rgba(56, 189, 248, .15);
+        }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin .6s linear infinite;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        .loading-dots {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin: 24px 0;
+        }
+        .loading-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent);
+            animation: loadBounce 1.2s ease-in-out infinite;
+        }
+        .loading-dot:nth-child(2) {
+            animation-delay: .2s;
+        }
+        .loading-dot:nth-child(3) {
+            animation-delay: .4s;
+        }
+        @keyframes loadBounce {
+            0%,
+            80%,
+            100% {
+                transform: scale(.6);
+                opacity: .4;
+            }
+            40% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
+        }
+
+        .download-grid {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 16px 0;
+        }
+        .download-grid .btn-download {
+            min-width: 140px;
+            text-align: center;
+        }
+        .download-grid .btn-download small {
+            display: block;
+            font-size: 10px;
+            opacity: 0.7;
+            font-weight: 400;
+        }
+
+        .info-box {
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+            text-align: left;
+            border-left: 3px solid var(--accent);
+        }
+        .info-box p {
+            font-size: 13px;
+            color: #94a3b8;
+            margin-bottom: 4px;
+            line-height: 1.6;
+        }
+        .info-box strong {
+            color: var(--silver);
+        }
+
+        @media (max-width: 500px) {
+            .setup-container {
+                padding: 28px 20px;
+            }
+            .globe-container {
+                width: 300px;
+                height: 300px;
+            }
+            .download-grid .btn-download {
+                min-width: 100px;
+                font-size: 12px;
+                padding: 10px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <canvas id="bg-canvas"></canvas>
+
+        <!-- Sky layer: sun behind mountains -->
+        <div class="sky-layer">
+            <div class="sun-rays" id="sunRays"></div>
+            <div class="rising-sun" id="risingSun" style="bottom:-120px;"></div>
+        </div>
+
+        <!-- Foreground mountains (in front of sun) -->
+        <div class="mountains-foreground">
+            <div class="fg-mountain far-right"></div>
+            <div class="fg-mountain right"></div>
+            <div class="fg-mountain back"></div>
+            <div class="fg-mountain mid"></div>
+            <div class="fg-mountain front"></div>
+            <div class="fg-lake" id="fgLake"></div>
+        </div>
+
+        <!-- Scene 1 -->
+        <div id="scene1" class="scene" style="display: flex;">
+            <div class="content">
+                <h1 id="title-main" class="title">DORNORIUM</h1>
+                <p class="subtitle">THE LIVING NETWORK</p>
+            </div>
+        </div>
+        <!-- Scene 2: Globe -->
+        <div id="scene2" class="scene">
+            <div class="content">
+                <div class="globe-container" id="globe"></div>
+            </div>
+        </div>
+        <!-- Scene 3: Closing -->
+        <div id="scene3" class="scene">
+            <div class="content" style="padding-bottom: 20vh;">
+                <div class="content">
+                    <h1 class="final-text" style="background: linear-gradient(90deg, #60a5fa, #e2e8f0); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">DORNORIUM</h1>
+                    <p style="font-size: 1.35rem; color: #94a3b8; max-width: 620px; line-height: 1.4;">Form → Secure Routing → Global Agents → Instant Resolution</p>
+                    <div style="margin-top: 4rem; font-size: 0.9rem; letter-spacing: 4px; color: #475569;">2026</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Setup / Cloudflare Setup Screen -->
+        <div class="scene" id="scene-setup">
+            <div class="setup-container" id="setupCard">
+                <div class="logo-text">DORNORIUM</div>
+                <div class="logo-subtitle" id="modeLabel">Cloudflare Setup</div>
+                <div class="glow-line"></div>
+
+                <!-- Loading -->
+                <div id="loadingScreen" style="text-align:center;">
+                    <p style="color:#94a3b8;margin-bottom:8px;">Checking configuration…</p>
+                    <div class="loading-dots">
+                        <div class="loading-dot"></div>
+                        <div class="loading-dot"></div>
+                        <div class="loading-dot"></div>
+                    </div>
+                </div>
+
+                <!-- Step 1: Cloudflare Account & API Key -->
+                <div class="step active" id="step-cloudflare">
+                    <h2>☁️ Step 1: Cloudflare Account</h2>
+                    <p>Create a Cloudflare account and generate an API token.</p>
+                    <ul>
+                        <li>1. Go to <strong><a href="https://dash.cloudflare.com/sign-up" target="_blank">cloudflare.com/sign-up</a></strong></li>
+                        <li>2. After signup, go to <strong><a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank">API Tokens</a></strong></li>
+                        <li>3. Click <strong>+ Create Token</strong> → Use template: <strong>Edit Cloudflare Workers</strong></li>
+                        <li>4. Copy your <strong>Account ID</strong> and the generated <strong>API Token</strong></li>
+                    </ul>
+
+                    <div class="info-box">
+                        <p>💡 <strong>Save your credentials</strong> — you'll need your Account ID and API Token when running the installer.</p>
+                        <p style="font-size:12px;color:#64748b;margin-top:6px;">These are required for the installation script to deploy Dornorium to Cloudflare Workers.</p>
+                    </div>
+
+                    <div class="info-box" style="border-left-color: var(--success);">
+                        <p>📧 <strong>Email Configuration (Optional)</strong></p>
+                        <p>To enable outgoing emails (password reset, notifications, etc.), create a <strong>Google Application</strong> for OAuth 2.0.</p>
+                        <p style="font-size:12px;color:#64748b;">You can link your domain (e.g., <strong>example.com</strong>) to send emails under your own domain.</p>
+                        <p style="font-size:12px;color:#64748b;margin-top:4px;">Read the <strong>INSTALLATION.md</strong> instructions for full configuration options.</p>
+                    </div>
+
+                    <div class="btn-row">
+                        <button class="btn btn-success" onclick="stepCloudflareDone()">✅ I have my Cloudflare API credentials</button>
+                    </div>
+                    <div class="status" id="cloudflare-status"></div>
+                </div>
+
+                <!-- Step 2: Download installers -->
+                <div class="step" id="step-download">
+                    <h2>⬇ Step 2: Download Installer</h2>
+                    <p>Download the installer for your operating system.</p>
+                    <div class="download-grid">
+                        <a href="install.bat" download="install.bat" class="btn btn-download">
+                            🪟 Windows <small>.bat</small>
+                        </a>
+                        <a href="install.sh" download="install.sh" class="btn btn-download">
+                            🐧 Linux <small>.sh</small>
+                        </a>
+                        <a href="install.command" download="install.command" class="btn btn-download">
+                            🍎 macOS <small>.command</small>
+                        </a>
+                    </div>
+                    <p style="font-size:13px;color:#94a3b8;margin-top:12px;">
+                        After downloading, <strong>run the installer</strong>. It will upload the configuration to your Cloudflare Workers.
+                    </p>
+                    <div class="info-box">
+                        <p>📖 <strong>Read the instructions</strong> in the installer file for configuration options.</p>
+                        <p style="font-size:12px;color:#64748b;">The installer will prompt you for your Account ID and API Token.</p>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-success" onclick="stepDownloadDone()">✅ I ran the installer</button>
+                    </div>
+                    <div class="status" id="download-status"></div>
+                </div>
+
+                <!-- Step 3: Check and launch -->
+                <div class="step" id="step-check">
+                    <h2>🚀 Step 3: Launch Dornorium</h2>
+                    <p>If the installer completed successfully and you downloaded and stored <strong>config.json</strong> in the root folder.</p>
+                    <p style="font-size:13px;color:#94a3b8;">Click the button below to verify and enter the network.</p>
+                    <div class="btn-row">
+                        <button class="btn btn-success" onclick="checkConfigAndLaunch()" style="font-size:1.1rem;padding:16px 48px;">
+                            🔍 Check & Launch
+                        </button>
+                    </div>
+                    <div class="status" id="check-status"></div>
+                </div>
+
+                <!-- Done -->
+                <div class="step" id="step-done">
+                    <h2>✅ Dornorium is Ready!</h2>
+                    <p>Redirecting to dashboard…</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="scanline"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() { canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight; }
+        class Particle {
+            constructor() { this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2.5 + 0.8;
+                this.speedX = Math.random() * 0.6 - 0.3;
+                this.speedY = Math.random() * 0.6 - 0.3;
+                this.opacity = Math.random() * 0.6 + 0.3; }
+            update() { this.x += this.speedX;
+                this.y += this.speedY; if (this.x < 0 || this.x > canvas.width) this.speedX *= -1; if (this.y < 0 || this.y > canvas.height) this.speedY *= -1; }
+            draw() { ctx.save();
+                ctx.globalAlpha = this.opacity;
+                ctx.fillStyle = '#60a5fa';
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = '#60a5fa';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore(); }
+        }
+
+        function initParticles() { particles = []; for (let i = 0; i < 180; i++) particles.push(new Particle()); }
+
+        function animateBackground() { ctx.fillStyle = 'rgba(10, 10, 12, 0.12)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height); for (let i = 0; i < particles.length; i++) { particles[i].update();
+                particles[i].draw(); for (let j = i + 1; j < particles.length; j++) { const dx = particles[i].x - particles[j].x,
+                        dy = particles[i].y - particles[j].y,
+                        d = Math.sqrt(dx * dx + dy * dy); if (d < 110) { ctx.save();
+                        ctx.globalAlpha = (110 - d) / 110 * 0.15;
+                        ctx.strokeStyle = '#60a5fa';
+                        ctx.lineWidth = 0.8;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                        ctx.restore(); } } } requestAnimationFrame(animateBackground); }
+
+        function showScene(id) { document.querySelectorAll('.scene').forEach(s => s.style.display = 'none');
+            document.getElementById(id).style.display = 'flex'; }
+
+        let globeAngle = 0;
+
+        function animateGlobe() {
+            const globeEl = document.getElementById('globe');
+            const gCanvas = document.createElement('canvas');
+            gCanvas.width = 420;
+            gCanvas.height = 420;
+            gCanvas.style.cssText = 'position:absolute;top:0;left:0;z-index:5;';
+            globeEl.appendChild(gCanvas);
+            const gCtx = gCanvas.getContext('2d');
+
+            function draw() { gCtx.clearRect(0, 0, 420, 420);
+                gCtx.save();
+                gCtx.translate(210, 210);
+                gCtx.beginPath();
+                gCtx.ellipse(18, 25, 165, 45, 0, 0, Math.PI * 2);
+                gCtx.fillStyle = 'rgba(0,0,0,0.6)';
+                gCtx.fill();
+                const grad = gCtx.createRadialGradient(-50, -55, 40, 20, 20, 170);
+                grad.addColorStop(0, '#1e2937');
+                grad.addColorStop(1, '#0f172a');
+                gCtx.beginPath();
+                gCtx.arc(0, 0, 160, 0, Math.PI * 2);
+                gCtx.fillStyle = grad;
+                gCtx.fill();
+                gCtx.strokeStyle = 'rgba(96,165,250,0.35)';
+                gCtx.lineWidth = 2.5;
+                for (let i = -3; i <= 3; i++) { const r = globeAngle + i * 25;
+                    gCtx.save();
+                    gCtx.rotate(r * Math.PI / 180);
+                    gCtx.beginPath();
+                    gCtx.moveTo(-145, 0);
+                    gCtx.quadraticCurveTo(0, -110, 145, 0);
+                    gCtx.stroke();
+                    gCtx.restore(); }
+                gCtx.strokeStyle = '#60a5fa';
+                gCtx.lineWidth = 3;
+                for (let i = 0; i < 4; i++) { const rad = 75 + i * 22;
+                    gCtx.save();
+                    gCtx.globalAlpha = 0.6 - i * 0.1;
+                    gCtx.beginPath();
+                    gCtx.arc(0, 0, rad, globeAngle * 0.8 * Math.PI / 180, (globeAngle * 0.8 + 120) * Math.PI / 180);
+                    gCtx.stroke();
+                    gCtx.restore(); }
+                gCtx.beginPath();
+                gCtx.arc(-45, -55, 65, 0, Math.PI * 2);
+                gCtx.fillStyle = 'rgba(224,242,255,0.12)';
+                gCtx.fill();
+                gCtx.restore();
+                globeAngle += 0.6;
+                requestAnimationFrame(draw); }
+            draw();
+        }
+
+        function startSunRise() {
+            gsap.to("#risingSun", {
+                bottom: "45%",
+                duration: 8,
+                ease: "power2.out",
+                onUpdate: function() {
+                    const prog = this.progress();
+                    if (prog > 0.3) document.querySelectorAll('.fg-mountain').forEach(m => m.style.borderBottomColor =
+                        '#2a5588');
+                    if (prog > 0.4) document.getElementById('fgLake').classList.add('sunrise');
+                }
+            });
+            gsap.fromTo("#sunRays", { opacity: 0 }, { opacity: 0.7, duration: 2, delay: 2 });
+            gsap.to("#sunRays", { rotation: 360, duration: 20, repeat: -1, ease: "none" });
+        }
+
+        function startExperience() {
+            const tl = gsap.timeline();
+            startSunRise();
+            showScene('scene1');
+            gsap.fromTo("#title-main", { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 1.5, ease: "power3.out" });
+            tl.to("#scene1 .subtitle", { opacity: 1, y: 20, duration: 0.8, delay: 0.8 });
+            tl.to("#scene1", { opacity: 0, duration: 0.6, delay: 0.7, onComplete: () => { showScene('scene2');
+                    animateGlobe(); } });
+            tl.to({}, { duration: 3 });
+            tl.to("#scene2", { opacity: 0, duration: 0.5, onComplete: () => showScene('scene3') });
+            tl.fromTo("#scene3 .final-text", { y: 80, opacity: 0 }, { y: 0, opacity: 1, duration: 1,
+                ease: "power4.out" });
+            tl.to({}, { duration: 1, onComplete: checkSetup });
+        }
+
+        // ─── SETUP FLOW ──────────────────────────────────────────
+
+        function showSetupStep(id) {
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            const el = document.getElementById(id);
+            if (el) el.classList.add('active');
+        }
+
+        function showStatus(id, msg, type) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.textContent = msg;
+            el.className = 'status ' + type;
+            el.style.display = 'block';
+        }
+
+        function clearStatus(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.className = 'status';
+            el.textContent = '';
+            el.style.display = 'none';
+        }
+
+        async function checkSetup() {
+            try {
+                const resp = await fetch('config.json', { method: 'HEAD', cache: 'no-store' });
+                if (resp.ok) {
+                    // config exists → dashboard
+                    gsap.to("#scene3", { opacity: 0, duration: 0.6, onComplete: () => {
+                            window.location.href = 'dashboard.html';
+                        } });
+                    return;
+                }
+            } catch (_) { /* ignore */ }
+
+            // config missing → show setup
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('scene3').style.display = 'none';
+            document.getElementById('scene-setup').style.display = 'flex';
+            document.getElementById('setupCard').classList.add('visible');
+            showSetupStep('step-cloudflare');
+        }
+
+        function stepCloudflareDone() {
+            showStatus('cloudflare-status', '✅ Great! Now download the installer.', 'success');
+            setTimeout(() => {
+                clearStatus('cloudflare-status');
+                showSetupStep('step-download');
+            }, 800);
+        }
+
+        function stepDownloadDone() {
+            showStatus('download-status', '✅ Installer executed. Now verify and launch.', 'success');
+            setTimeout(() => {
+                clearStatus('download-status');
+                showSetupStep('step-check');
+            }, 800);
+        }
+
+        async function checkConfigAndLaunch() {
+            const statusEl = document.getElementById('check-status');
+            const btn = document.querySelector('#step-check .btn-success');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Checking…';
+            clearStatus('check-status');
+
+            try {
+                const resp = await fetch('config.json', { method: 'HEAD', cache: 'no-store' });
+                if (resp.ok) {
+                    showStatus('check-status', '✅ config.json found! Redirecting…', 'success');
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 800);
+                } else {
+                    showStatus('check-status', '❌ config.json not found. Please run the installer again.', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '🔍 Check & Launch';
+                }
+            } catch (e) {
+                showStatus('check-status', '❌ Could not reach server. Make sure Dornorium is running.', 'error');
+                btn.disabled = false;
+                btn.innerHTML = '🔍 Check & Launch';
+            }
+        }
+
+        // ─── create sun rays ────────────────────────────────────
+        (function createRays() {
+            const container = document.getElementById('sunRays');
+            for (let i = 0; i < 16; i++) {
+                const ray = document.createElement('div');
+                ray.className = 'sun-ray';
+                ray.style.transform = `translate(-50%,-100%) rotate(${i*22.5}deg)`;
+                ray.style.animationDelay = (i * 0.1) + 's';
+                container.appendChild(ray);
+            }
+        })();
+
+        // ─── dummy / no-op (kept to avoid errors) ──────────────
+        function generateKey() { return 'dummy'; }
+
+        function updateProgress() {}
+        function copyKey() {}
+        function initializeDB() {}
+        function createAdmin() {}
+        function goToDashboard() { window.location.href = 'dashboard.html'; }
+        async function api() { return { status: 404, data: {} }; }
+
+        // ─── init ──────────────────────────────────────────────
+        window.onload = function() {
+            resizeCanvas();
+            initParticles();
+            animateBackground();
+            setTimeout(startExperience, 400);
+            document.addEventListener('keydown', e => { if (e.key.toLowerCase() === 'r') location.reload(); });
+        };
+        window.addEventListener('resize', () => resizeCanvas());
+    </script>
+</body>
+</html>
