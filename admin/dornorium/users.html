@@ -83,7 +83,7 @@
         .toast.warning a { color: inherit; text-decoration: underline; }
     </style>
 </head>
-<body>
+<body data-page="users">
 <div class="container">
     <div id="toast" class="toast"></div>
     <div class="header">
@@ -101,9 +101,13 @@
             (function(){
                 document.querySelectorAll('.nav-links a').forEach(function(a){
                     if (a.classList.contains('active')) return;
-                    fetch(a.getAttribute('href'), { method: 'HEAD', cache: 'no-store' })
-                            .then(function(res){ if (res.status !== 200) a.style.display = 'none'; })
-                        .catch(function(){ /* network hiccup: don't hide a page that may well exist */ });
+                    var slug = a.getAttribute('href').replace(/\.html$/, '');
+                    fetch(a.getAttribute('href'), { method: 'GET', cache: 'no-store' })
+                        .then(function(res){ return res.text().then(function(html){
+                            var marker = 'data-page="' + slug + '"';
+                            if (res.status !== 200 || html.indexOf(marker) === -1) a.style.display = 'none';
+                        }); })
+                        .catch(function(){ a.style.display = 'none'; });
                 });
             })();
             </script>

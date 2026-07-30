@@ -172,7 +172,7 @@
         }
     </style>
 </head>
-<body>
+<body data-page="order-reply">
 <div class="container">
     <div class="header">
         <h1 class="brand-logo"><a href="https://www.dornori.info/dornorium" class="brand-logo-link"><span class="brand-icon">📦  </span><span class="brand-text">Dornorium</span></a></h1>
@@ -189,18 +189,12 @@
             (function(){
                 document.querySelectorAll('.nav-links a').forEach(function(a){
                     if (a.classList.contains('active')) return;
-                    fetch(a.getAttribute('href'))
-                        .then(function(res){ 
-                            if (!res.ok) {
-                                a.style.display = 'none';
-                                return;
-                            }
-                            return res.text().then(function(html) {
-                                if (!html || html.includes('404') || !html.includes('<!DOCTYPE')) {
-                                    a.style.display = 'none';
-                                }
-                            });
-                        })
+                    var slug = a.getAttribute('href').replace(/\.html$/, '');
+                    fetch(a.getAttribute('href'), { method: 'GET', cache: 'no-store' })
+                        .then(function(res){ return res.text().then(function(html){
+                            var marker = 'data-page="' + slug + '"';
+                            if (res.status !== 200 || html.indexOf(marker) === -1) a.style.display = 'none';
+                        }); })
                         .catch(function(){ a.style.display = 'none'; });
                 });
             })();
