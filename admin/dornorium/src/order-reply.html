@@ -189,9 +189,19 @@
             (function(){
                 document.querySelectorAll('.nav-links a').forEach(function(a){
                     if (a.classList.contains('active')) return;
-                    fetch(a.getAttribute('href'), { method: 'HEAD', cache: 'no-store' })
-                        .then(function(res){ if (res.status !== 200) a.style.display = 'none'; })
-                        .catch(function(){ /* network hiccup: don't hide a page that may well exist */ });
+                    fetch(a.getAttribute('href'))
+                        .then(function(res){ 
+                            if (!res.ok) {
+                                a.style.display = 'none';
+                                return;
+                            }
+                            return res.text().then(function(html) {
+                                if (!html || html.includes('404') || !html.includes('<!DOCTYPE')) {
+                                    a.style.display = 'none';
+                                }
+                            });
+                        })
+                        .catch(function(){ a.style.display = 'none'; });
                 });
             })();
             </script>

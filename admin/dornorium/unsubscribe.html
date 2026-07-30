@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unsubscribe</title>
+<script>
+(function() {
+    var config = {};
+    try {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/dornorium/config/config.json', false);
+        xhr.send();
+        if (xhr.status === 200) config = JSON.parse(xhr.responseText);
+    } catch (e) {}
+    window.DORNORIUM_CONFIG = {
+        API_BASE: config.API_BASE || '',
+        LANG_BASE_PATH: config.LANG_BASE_PATH || '/lang/',
+        CSS_PATH: config.CSS_PATH || '/css/dornorium.css'
+    };
+    document.write('<link rel="stylesheet" href="' + window.DORNORIUM_CONFIG.CSS_PATH + '">');
+})();
+</script>
+<style>
+.dornorium-brand { display:block !important; }
+</style>
+<link rel="icon" type="image/png" sizes="32x32" href="/dornorium/assets/icons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/dornorium/assets/icons/favicon-16x16.png">
+<link rel="shortcut icon" href="/dornorium/assets/icons/favicon.ico" type="image/x-icon">
+</head>
+<body>
+<div class="container">
+    <div class="unsubscribe-card">
+        <h1 id="nl-heading"></h1>
+
+        <div id="tokenSection">
+            <p class="sub" id="tokenSub"></p>
+            <button type="button" class="btn-unsubscribe" id="tokenBtn"></button>
+        </div>
+
+        <div id="emailSection">
+            <p class="sub" id="emailSub"></p>
+            <form id="emailForm" novalidate>
+                <div class="field">
+                    <label for="email" id="label-email"></label>
+                    <input type="email" id="email" name="email" required />
+                </div>
+                <button type="submit" class="btn-unsubscribe" id="emailBtn"></button>
+            </form>
+        </div>
+
+        <div id="msg" class="msg"></div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        'use strict';
+
+        var API_BASE = window.DORNORIUM_CONFIG.API_BASE;
+        var LANG_BASE_PATH = window.DORNORIUM_CONFIG.LANG_BASE_PATH;
+        var params = new URLSearchParams(window.location.search);
+        var token = params.get('token');
+
+        var lang = document.documentElement.lang || 'en';
+        var jsonPath = LANG_BASE_PATH + lang + '/newsletter.json';
+
+        var t = {};
+
+        var heading = document.getElementById('nl-heading');
+        var tokenSection = document.getElementById('tokenSection');
+        var tokenSub = document.getElementById('tokenSub');
+        var tokenBtn = document.getElementById('tokenBtn');
+        var emailSection = document.getElementById('emailSection');
+        var emailSub = document.getElementById('emailSub');
+        var emailLabel = document.getElementById('label-email');
+        var emailInput = document.getElementById('email');
+        var emailBtn = document.getElementById('emailBtn');
+        var emailForm = document.getElementById('emailForm');
+        var msg = document.getElementById('msg');
+
+        function showMsg(text, ok) {
+            msg.textContent = text;
+            msg.className = 'msg show ' + (ok ? 'success' : 'error');
+        }
+
+        function populateUI(s) {
+            heading.textContent = s.heading || '';
+            tokenSub.textContent = s.tokenSub || '';
+            emailSub.textContent = s.emailSub || '';
+            emailLabel.textContent = s.emailLabel || '';
+            emailInput.placeholder = s.emailPlaceholder || '';
+            var btnText = s.submitButton || '';
+            tokenBtn.textContent = btnText;
+            emailBtn.textContent = btnText;
+        }
+
+        fetch(jsonPath, { cache: 'no-store' })
+            .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(function(data) {
+                t = data;
+                populateUI(data.unsubscribe || {});
+            })
+            .catch(function(err) {
+                console.error('Failed to load newsletter.json:', err);
+                heading.textContent = '⚠️ Error loading content';
+            });
+
+        if (token) {
+            tokenSection.style.display = 'block';
+
+            tokenBtn.addEventListener('click', async function() {
+                var confirmMsg = (t.unsubscribe && t.unsubscribe.confirmMessage) || '';
+                if (!confirm(confirmMsg)) {
+                    return;
+                }
+
+                var btn = this;
+                btn.disabled = true;
+                btn.textContent = (t.unsubscribe && t.unsubscribe.unsubscribingText) || '';
+
+                try {
+                    var res = await fetch(API_BASE + '/api/unsubscribe/' + encodeURIComponent(token));
+                    var text = await res.text();
+                    if (res.ok) {
+                        var successMsg = (t.unsubscribe && t.unsubscribe.successMessage) || '';
+                        showMsg(successMsg, true);
+                        btn.style.display = 'none';
+                        var sub = tokenSection.querySelector('.sub');
+                        if (sub) {
+                            sub.textContent = (t.unsubscribe && t.unsubscribe.tokenSuccessSub) || '';
+                        }
+                    } else {
+                        var clean = text.replace(/^[^\w]*/, '');
+                        var errMsg = (t.unsubscribe && t.unsubscribe.errorFallback) || '';
+                        showMsg('❌ ' + (clean || errMsg), false);
+                    }
+                } catch (err) {
+                    var netMsg = (t.unsubscribe && t.unsubscribe.networkError) || '';
+                    showMsg('❌ ' + netMsg + ': ' + err.message, false);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = (t.unsubscribe && t.unsubscribe.submitButton) || '';
+                }
+            });
+        } else {
+            emailSection.style.display = 'block';
+
+            emailForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                var email = emailInput.value.trim();
+                if (!email) return;
+
+                var confirmMsg = (t.unsubscribe && t.unsubscribe.confirmMessage) || '';
+                if (!confirm(confirmMsg)) {
+                    return;
+                }
+
+                emailBtn.disabled = true;
+                emailBtn.textContent = (t.unsubscribe && t.unsubscribe.unsubscribingText) || '';
+
+                try {
+                    var res = await fetch(API_BASE + '/api/unsubscribe-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: email })
+                    });
+                    var data = await res.json();
+                    if (res.ok && data.success) {
+                        var successMsg = (t.unsubscribe && t.unsubscribe.successMessage) || '';
+                        showMsg(successMsg, true);
+                        emailForm.reset();
+                        emailBtn.style.display = 'none';
+                        var sub = emailSection.querySelector('.sub');
+                        if (sub) {
+                            sub.textContent = (t.unsubscribe && t.unsubscribe.emailSuccessSub) || '';
+                        }
+                    } else {
+                        var errMsg = (t.unsubscribe && t.unsubscribe.errorFallback) || '';
+                        showMsg('❌ ' + (data.message || data.error || errMsg), false);
+                    }
+                } catch (err) {
+                    var netMsg = (t.unsubscribe && t.unsubscribe.networkError) || '';
+                    showMsg('❌ ' + netMsg + ': ' + err.message, false);
+                } finally {
+                    emailBtn.disabled = false;
+                    emailBtn.textContent = (t.unsubscribe && t.unsubscribe.submitButton) || '';
+                }
+            });
+        }
+    })();
+</script>
+<div class="dornorium-brand" style="text-align:center;padding:16px 0 10px;border-top:1px solid #eee;margin-top:24px;font-size:11px;color:#999;" data-token="d7f3a9c2e1b8f4">
+    <img src="/dornorium/assets/icons/favicon-16x16.png" alt="Dornorium" style="display:inline-block;vertical-align:middle;margin-right:6px;">
+    <span style="vertical-align:middle;">Powered by <a href="https://www.dornori.info/dornorium" target="_blank" style="color:#666;text-decoration:none;font-weight:600;">Dornorium</a></span>
+    <span style="margin:0 8px;color:#ddd;">&middot;</span>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded',function(){var b=document.querySelector('[data-token="d7f3a9c2e1b8f4"]');if(!b){console.warn('Branding removed — license required: https://www.dornori.info/dornorium');var style=document.createElement('style');style.textContent='body{filter:blur(2px);pointer-events:none;opacity:.5}body::after{content:"License required";position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:red;font-size:24px;font-weight:bold;background:white;padding:20px;border-radius:8px;z-index:9999}';document.head.appendChild(style);}});
+</script>
+</body>
+</html>
