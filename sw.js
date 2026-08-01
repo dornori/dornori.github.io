@@ -15,36 +15,30 @@ const URLS_TO_CACHE = [
   '/data/shipping.json',
 ];
 
-// Only cache full (non-partial) successful responses
 function isCacheable(response) {
   return response && response.ok && response.status !== 206;
 }
 
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(URLS_TO_CACHE))
-      .then(() => self.skipWaiting())
-  );
-});
-
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys()
-      .then(names => Promise.all(
-        names.filter(n => n.startsWith('dornori-') && n !== CACHE_NAME)
-             .map(n => caches.delete(n))
-      ))
-      .then(() => self.clients.claim())
-  );
-});
-
+// 🔍 ADD THIS: Log all fetch events
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
-
   const url = event.request.url;
-
-  // Never intercept external API calls — let them go direct (or fail gracefully)
+  
+  // Log ALL requests to see what's happening
+  console.log('🔍 SW Fetch:', url);
+  
+  // Specifically log products.json requests
+  if (url.includes('products.json')) {
+    console.log('🎯 PRODUCTS.JSON REQUEST:', url);
+    console.log('📋 Request details:', {
+      url: url,
+      referrer: event.request.referrer,
+      mode: event.request.mode,
+      destination: event.request.destination
+    });
+  }
+  
+  // Continue with normal handling...
+  if (event.request.method !== 'GET') return;
   if (!url.startsWith(self.location.origin)) return;
 
   // Network-first for /data/ and /api/
@@ -63,7 +57,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Network-first for lang files (change with deployments)
+  // Network-first for lang files
   if (url.includes('/lang/')) {
     event.respondWith(
       fetch(event.request)
@@ -96,5 +90,5 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Everything else (HTML, images, etc.) — network only, no caching
+  // Everything else - network only
 });
