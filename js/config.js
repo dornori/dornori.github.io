@@ -140,6 +140,7 @@ const CONFIG = {
 
     // ── Navigation ────────────────────────────────────────────────────────────
     navigation: [
+        { slug: 'kickstarter',  icon: 'kickstarter-200x200.svg',           type: 'standard', enabled: true  },
         { slug: 'about',  icon: 'about-icon-200x200.svg',           type: 'standard', enabled: true  },
         { slug: 'built',  icon: 'assembled-lamp-icon-200x200.svg',  type: 'standard', enabled: true  },
         { slug: 'kit',    icon: 'building-kit-icon-200x200.svg',    type: 'standard', enabled: true  },
@@ -180,6 +181,7 @@ const CONFIG = {
         'about-us':          { file: 'about-us.html'          },
         'form':              { file: 'form.html'              },
         'newsletter':        { file: 'subscribe.html'         },
+		'kickstarter':       { file: 'kickstarter.html'         },
     },
 
     // ── Socials ───────────────────────────────────────────────────────────────
