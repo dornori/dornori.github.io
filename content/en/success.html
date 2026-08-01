@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Order Confirmation - Dornori</title>
-	<!-- <link rel="stylesheet" href="/style.css" /> -->
     <style>
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .success-wrap { min-height:60vh; display:flex; align-items:center; justify-content:center; padding:3rem 1rem; }
@@ -66,9 +65,12 @@
 
   // ============================================================
   // PRODUCT CATALOG LOOKUPS - Base + Language Overrides
+  // Returns merged product data with name and label in the right language
   // ============================================================
   async function fetchProducts() {
     try {
+      const lang = window.LANG || 'en';
+      
       // Fetch base products and language overrides in parallel
       const [baseRes, langRes] = await Promise.all([
         fetch('/data/products.json'),
@@ -93,6 +95,7 @@
       }
 
       // Merge: language overrides take precedence
+      // This gives us name, label, description in the right language
       const merged = { ...baseProducts };
       Object.keys(langOverrides).forEach(key => {
         if (merged[key]) {
@@ -207,19 +210,33 @@
           qty: Math.max(1, parseInt(item.qty || item.quantity || 1, 10)),
           price: Math.max(0, parseFloat(item.price || item.cost || item.unit_amount?.value || 0)),
           image: String(item.image || item.img || '').trim(),
+          label: String(item.label || item.productLabel || '').trim(),
           ...item
         };
       }).filter(Boolean);
 
-      // Fill in real name + image from the product catalog
+      // Fill in real name, label, and image from the product catalog
       try {
         const products = await fetchProducts();
         items = items.map(item => {
           const key = item.sku;
           const entry = key && key !== 'N/A' ? products[key] : null;
+          
+          // Build display name: name + label (if available)
+          let displayName = item.name;
+          if (entry) {
+            // Use language name if available
+            displayName = entry.name || item.name;
+            // Add label if available and different from name
+            if (entry.label && entry.label !== displayName) {
+              displayName = `${displayName} - ${entry.label}`;
+            }
+          }
+          
           return {
             ...item,
-            name: (entry && entry.name) || item.name,
+            name: displayName,
+            label: (entry && entry.label) || item.label || '',
             image: bestImage(entry) || item.image
           };
         });
