@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Order Confirmation - Dornori</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="/style.css" />
     <style>
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .success-wrap { min-height:60vh; display:flex; align-items:center; justify-content:center; padding:3rem 1rem; }
@@ -65,37 +65,46 @@
   }
 
   // ============================================================
-  // PRODUCT CATALOG LOOKUPS (name by lang, image generic) — keyed by sku/id
+  // PRODUCT CATALOG LOOKUPS - Base + Language Overrides
   // ============================================================
-  async function fetchLangProducts(langCode) {
+  async function fetchProducts() {
     try {
-      const base = (window.CONFIG?.data?.productsDataBaseUrl) || '/data/';
-      const url = `${base}${langCode}/products.json`;
-      const res = await fetch(url);
-      if (!res.ok) return {};
-      return await res.json();
-    } catch (e) {
-      console.warn('Failed to fetch lang products.json:', e);
-      return {};
-    }
-  }
+      // Fetch base products and language overrides in parallel
+      const [baseRes, langRes] = await Promise.all([
+        fetch('/data/products.json'),
+        fetch(`/lang/${lang}/products.json`)
+      ]);
 
-  async function fetchGenericProducts() {
-    try {
-      const base = (window.CONFIG?.data?.imagesBaseUrl) || '/data/';
-      const url = `${base}products.json`;
-      const res = await fetch(url);
-      if (!res.ok) return {};
-      const data = await res.json();
-      const map = {};
-      if (Array.isArray(data)) {
-        data.forEach(p => { if (p && p.id) map[p.id] = p; });
-      } else if (data && typeof data === 'object') {
-        Object.assign(map, data);
+      // Parse base products
+      let baseProducts = {};
+      if (baseRes.ok) {
+        const data = await baseRes.json();
+        if (Array.isArray(data)) {
+          data.forEach(p => { if (p && p.id) baseProducts[p.id] = p; });
+        } else if (data && typeof data === 'object') {
+          baseProducts = data;
+        }
       }
-      return map;
+
+      // Parse language overrides
+      let langOverrides = {};
+      if (langRes.ok) {
+        langOverrides = await langRes.json();
+      }
+
+      // Merge: language overrides take precedence
+      const merged = { ...baseProducts };
+      Object.keys(langOverrides).forEach(key => {
+        if (merged[key]) {
+          merged[key] = { ...merged[key], ...langOverrides[key] };
+        } else {
+          merged[key] = langOverrides[key];
+        }
+      });
+
+      return merged;
     } catch (e) {
-      console.warn('Failed to fetch generic products.json:', e);
+      console.warn('Failed to fetch products:', e);
       return {};
     }
   }
@@ -134,16 +143,9 @@
       if (!customer.shipping_country && fd.country) customer.shipping_country = fd.country;
       if (!customer.amount && totals.total != null) customer.amount = Number(totals.total).toFixed(2);
 
-      // The cart snapshot is taken BEFORE payment, in the currency/amounts the
-      // customer actually saw and agreed to. Capture-returned values have been
-      // unreliable, so the snapshot wins whenever it's available.
       if (snapshot.currency) customer.currency = snapshot.currency;
       else if (!customer.currency) customer.currency = 'EUR';
 
-      // Use items from snapshot if available, otherwise from customer._items.
-      // The snapshot wins here too: PayPal only ever echoes back a generic
-      // 'Product' name/sku with no discount info, while the snapshot carries
-      // the real name, image, discount %, and pre-discount originalPrice.
       customer._items = (snapshot.items && snapshot.items.length) ? snapshot.items : (customer._items || []);
       customer._totals = (totals && (totals.subtotal != null || totals.shipping != null || totals.tax != null || totals.total != null))
         ? totals
@@ -162,7 +164,7 @@
   }
 
   // ============================================================
-  // SEND TICKET TO TICKETING SYSTEM - FIXED VERSION
+  // SEND TICKET TO TICKETING SYSTEM
   // ============================================================
   async function sendToTicketing(data) {
     if (status !== 'success') {
@@ -209,22 +211,16 @@
         };
       }).filter(Boolean);
 
-      // Fill in real name + image from the product catalog, keyed by sku.
-      // PayPal only ever echoes back the literal 'Product' placeholder, so
-      // this is the only place the real name/image can come from.
+      // Fill in real name + image from the product catalog
       try {
-        const [langProducts, genericProducts] = await Promise.all([
-          fetchLangProducts(lang),
-          fetchGenericProducts()
-        ]);
+        const products = await fetchProducts();
         items = items.map(item => {
           const key = item.sku;
-          const langEntry = key && key !== 'N/A' ? langProducts[key] : null;
-          const genEntry = key && key !== 'N/A' ? genericProducts[key] : null;
+          const entry = key && key !== 'N/A' ? products[key] : null;
           return {
             ...item,
-            name: (langEntry && langEntry.name) || item.name,
-            image: bestImage(genEntry) || item.image
+            name: (entry && entry.name) || item.name,
+            image: bestImage(entry) || item.image
           };
         });
       } catch (e) {
@@ -232,14 +228,8 @@
       }
 
       // ============================================================
-      // FIX: CONVERT ITEM PRICES TO ORDER CURRENCY
+      // CONVERT ITEM PRICES TO ORDER CURRENCY
       // ============================================================
-      // customer._items comes from the cart snapshot, where item.price/
-      // originalPrice are always stored in EUR (the base catalog price),
-      // never converted to the customer's selected currency. totals.itemTotal
-      // (from handleValidateCart, same source as the already-correct shipping
-      // and tax figures) IS in the order currency, so derive the EUR->currency
-      // rate from it and apply that rate to every item's price/originalPrice.
       if (currency !== 'EUR') {
         const trustedItemTotal = totals.itemTotal != null ? Number(totals.itemTotal) :
                                  (customer._itemTotal != null ? Number(customer._itemTotal) : null);
@@ -251,8 +241,6 @@
           const fxRate = trustedItemTotal / eurItemTotal;
           items = items.map(i => ({
             ...i,
-            // Round UP — product prices never carry decimals, matching the
-            // frontend (Currency.convertRounded) and the pay-worker (Math.ceil).
             price: Math.ceil(Number(i.price) * fxRate),
             originalPrice: i.originalPrice != null ? Math.ceil(Number(i.originalPrice) * fxRate) : i.originalPrice
           }));
@@ -260,9 +248,8 @@
       }
 
       // ============================================================
-      // FIX: CALCULATE ALL TOTALS FROM PARTS
+      // CALCULATE ALL TOTALS
       // ============================================================
-      // 1. Subtotal from items
       let calculatedSubtotal = 0;
       let calculatedItemTotal = 0;
       let itemLines = '';
@@ -294,12 +281,9 @@
         console.warn('⚠️ No items found in order data');
       }
 
-      // Use calculated subtotal as primary source
       const finalSubtotal = calculatedSubtotal > 0 ? calculatedSubtotal : 
                             (totals.subtotal != null ? totals.subtotal : 0);
 
-      // 1b. Items total (before discount) and the discount amount — standard
-      // invoice breakdown: itemTotal - discount = subtotal
       const finalItemTotal = calculatedItemTotal > 0 ? calculatedItemTotal :
                              (totals.itemTotal != null ? totals.itemTotal :
                              (customer._itemTotal != null ? customer._itemTotal : finalSubtotal));
@@ -308,15 +292,12 @@
         : (totals.totalDiscount != null ? totals.totalDiscount :
           (customer._discount != null ? customer._discount : 0));
 
-      // 2. Shipping from snapshot or fallback — always whole units, rounded up.
       const finalShipping = Math.ceil(totals.shipping != null ? totals.shipping :
                             (customer._shipping != null ? customer._shipping : 0));
 
-      // 3. Tax from snapshot or fallback
       const finalTax = totals.tax != null ? totals.tax : 
                        (customer._tax != null ? customer._tax : 0);
 
-      // 4. TOTAL = SUBTOTAL + SHIPPING + TAX (FORCE CALCULATE - IGNORE STORED TOTAL)
       const finalTotal = finalSubtotal + finalShipping + finalTax;
 
       console.log('📊 FORCED TOTALS:', { 
@@ -336,7 +317,7 @@
       const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
 
-      // Build the message with EXACT format
+      // Build the message
       const message = [
         `--------------- TIME/DATE -----------------`,
         `Transaction Date: ${dateStr}`,
@@ -372,7 +353,7 @@
       console.log('📝 TICKET CONTENT:');
       console.log(message);
 
-      // Build payload with correct totals
+      // Build payload
       const payload = {
         name: fullName,
         email: email,
@@ -464,7 +445,6 @@
       `;
       launchConfetti();
       
-      // Clean up localStorage after showing the page
       setTimeout(() => {
         localStorage.removeItem('webshop_paypal_customer');
         localStorage.removeItem('webshop_paypal_order_id');
@@ -504,9 +484,6 @@
     }
   }
 
-  // ============================================================
-  // HANDLE ERROR STATE
-  // ============================================================
   function showError(message) {
     const page = document.getElementById('result-page');
     if (!page) return;
@@ -533,21 +510,16 @@
       const loadingText = document.getElementById('success-loading-text');
       if (loadingText) loadingText.textContent = T('processing_order', 'Processing your order...');
       
-      // Read data from localStorage
       const data = getPayPalData();
       console.log('📦 Data from localStorage:', data);
       
-      // Check if we have data
       if (!data.dorReference || data.dorReference === 'N/A') {
         console.warn('⚠️ No order reference found, showing error state');
         showError(T('error_no_order_reference', 'No order reference found. Please contact support.'));
         return;
       }
       
-      // Send ticket to ticketing
       const ticketNumber = await sendToTicketing(data);
-      
-      // Render the page
       render(data, ticketNumber);
     } catch (err) {
       console.error('❌ Init error:', err);
@@ -555,7 +527,6 @@
     }
   }
 
-  // Handle case where DOM might not be fully loaded
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
