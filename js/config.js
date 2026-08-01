@@ -148,7 +148,7 @@ const CONFIG = {
             { slug: '', label: 'Files', enabled: true },
             { slug: 'python', label: 'Python', enabled: true },
         ] },
-        { slug: 'shop',   icon: 'shop-icon-200x200.svg',            type: 'standard', enabled: true  },
+    //    { slug: 'shop',   icon: 'shop-icon-200x200.svg',            type: 'standard', enabled: true  },
     ],
 
     // ── Pages ─────────────────────────────────────────────────────────────────
