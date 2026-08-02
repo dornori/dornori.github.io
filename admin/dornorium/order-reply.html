@@ -416,7 +416,20 @@
         return { dataBaseUrl, imagesBaseUrl };
     }
 
-    // Fetch product names from language-specific JSON
+    // ✅ Normalizes array-format products.json into an object keyed by id,
+    // preserving every field (name, label, etc.) — not just image fields.
+    // Applied to the per-language catalog so {{order_items_with_names}} /
+    // {{order_items_with_images}} can resolve a product's label, not just its name.
+    function normalizeProductCatalog(data) {
+        if (!Array.isArray(data)) return data || {};
+        const out = {};
+        for (const item of data) {
+            if (item && item.id) out[item.id] = item;
+        }
+        return out;
+    }
+
+    // Fetch product names/labels from language-specific JSON
     async function fetchProductNames(lang) {
         try {
             const urls = await getProductUrls();
@@ -428,7 +441,7 @@
             const res = await fetch(url);
             if (!res.ok) return {};
             
-            return await res.json();
+            return normalizeProductCatalog(await res.json());
             
         } catch (e) {
             console.warn(`Failed to fetch product names for ${lang}:`, e);

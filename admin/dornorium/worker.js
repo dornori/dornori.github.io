@@ -1686,12 +1686,24 @@ async function getProductUrls(env) {
   return { domain, dataBaseUrl, imagesBaseUrl };
 }
 
+// Normalizes array-format products.json into an object keyed by id, preserving
+// ALL fields on each item (name, label, image, images, price, etc.) — not just
+// the image-related ones. Used for the per-language names/labels catalog.
+function normalizeProductCatalog(data) {
+  if (!Array.isArray(data)) return data || {};
+  const out = {};
+  for (const item of data) {
+    if (item && item.id) out[item.id] = item;
+  }
+  return out;
+}
+
 async function fetchProductNames(urls, lang) {
   try {
     if (!urls.dataBaseUrl) return {};
     const res = await fetch(`${urls.dataBaseUrl}/${lang}/products.json`);
     if (!res.ok) return {};
-    return await res.json();
+    return normalizeProductCatalog(await res.json());
   } catch (e) {
     return {};
   }
