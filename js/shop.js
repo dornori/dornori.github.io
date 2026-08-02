@@ -601,10 +601,10 @@ var Shop = (() => {
           <div class="webshop-cart-hover-panel__footer">
             ${(() => { const s = cart.reduce((a,i) => a + (i.originalPrice ? (i.originalPrice - i.price) * i.qty : 0), 0); return s > 0 ? `<div class="webshop-cart-hover-panel__totals" style="color:#cc0c39;font-weight:600;"><span>${t("you_save","You save")}</span><span>-${fmt(s)}</span></div>` : ""; })()}
             <div class="webshop-cart-hover-panel__totals">
-              <span>${t("subtotal","Subtotal")}</span><span>${fmt(subtotal)}</span>
+              <span>${t("subtotal","Subtotal")}</span><span>${fmtWhole(subtotal)}</span>
             </div>
             <div class="webshop-cart-hover-panel__totals webshop-cart-hover-panel__totals--shipping">
-              <span>${t("shipping","Shipping")}</span><span>${isFreeShipping ? t("free","FREE") : fmt(shipping)}</span>
+              <span>${t("shipping","Shipping")}</span><span>${isFreeShipping ? t("free","FREE") : fmtWhole(shipping)}</span>
             </div>
             <a class="webshop-btn webshop-btn--primary" href="${(typeof window !== 'undefined' && window.__CART_URL__) || cartUrl}">${t("checkout","Checkout")}</a>
           </div>`;
