@@ -1517,6 +1517,64 @@
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  FULL-FIDELITY HTML EMAIL RENDERING (sandboxed iframe)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // sanitizeHtml() above flattens content to a small tag allowlist, which is
+    // good for inline snippets but strips <style> blocks, custom layouts, fonts,
+    // etc. To show an HTML email exactly as the sender intended (their own CSS
+    // and layout), we render it inside a sandboxed <iframe> instead. The iframe
+    // has no "allow-scripts" permission, so embedded <script> tags cannot
+    // execute no matter what — this is the real security boundary. Everything
+    // below is defense-in-depth on top of that.
+    function sanitizeHtmlForIframe(html) {
+        if (!html) return "<!DOCTYPE html><html><body></body></html>";
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+
+        // Scripts can't run inside the sandbox anyway, but strip them so they
+        // don't even sit inertly in the DOM, and drop <base>/meta-refresh so
+        // the email can't quietly redirect its own frame.
+        doc.querySelectorAll('script, noscript, base').forEach(function (el) { el.remove(); });
+        doc.querySelectorAll('meta[http-equiv]').forEach(function (el) {
+            if ((el.getAttribute('http-equiv') || '').toLowerCase() === 'refresh') el.remove();
+        });
+
+        doc.querySelectorAll('*').forEach(function (el) {
+            Array.from(el.attributes).forEach(function (attr) {
+                var name = attr.name.toLowerCase();
+                if (name.indexOf('on') === 0) { el.removeAttribute(attr.name); return; }
+                if ((name === 'href' || name === 'src' || name === 'action') && /^\s*javascript:/i.test(attr.value)) {
+                    el.removeAttribute(attr.name);
+                }
+            });
+        });
+
+        return '<!DOCTYPE html>' + doc.documentElement.outerHTML;
+    }
+
+    function emailIframePlaceholder(id) {
+        return '<iframe id="' + id + '" class="email-frame" sandbox="allow-same-origin allow-popups allow-top-navigation-by-user-activation" ' +
+            'style="width:100%;border:0;display:block;min-height:80px;background:#fff;" title="Email content"></iframe>';
+    }
+
+    function mountEmailIframe(id, html) {
+        var frame = document.getElementById(id);
+        if (!frame) return;
+        frame.srcdoc = sanitizeHtmlForIframe(html);
+        frame.addEventListener('load', function () {
+            try {
+                var frameDoc = frame.contentDocument;
+                var h = Math.max(
+                    frameDoc.documentElement ? frameDoc.documentElement.scrollHeight : 0,
+                    frameDoc.body ? frameDoc.body.scrollHeight : 0
+                );
+                frame.style.height = (h + 24) + 'px';
+            } catch (e) {
+                frame.style.height = '400px';
+            }
+        });
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  TEMPLATE FUNCTIONS - STORED IN DATABASE (SHARED)
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -2179,6 +2237,7 @@
     function renderTicketDetailModal(ticket) {
         var content = document.getElementById("modalContent");
         var activityHtml = "";
+        var pendingEmailIframes = [];
         if (ticket.comments && ticket.comments.length > 0) {
             for (var i = 0; i < ticket.comments.length; i++) {
                 var c = ticket.comments[i];
@@ -2194,7 +2253,7 @@
                 var titleStyle = 'style="font-weight:600;font-size:13px;flex:1;"';
                 var timeStyle = 'style="font-size:12px;color:var(--text-muted);"';
                 var subHeaderStyle = 'style="font-size:12px;color:var(--text-muted);margin-bottom:8px;padding:0 0 8px 0;border-bottom:1px solid var(--border);"';
-                var msgStyle = 'style="font-size:13px;line-height:1.6;margin-top:8px;white-space:pre-wrap;word-wrap:break-word;"';
+                var msgStyle = 'style="font-size:13px;line-height:1.6;margin-top:8px;"';
                 
                 if (isPublicReply) {
                     var raw = c.content || '';
@@ -2210,8 +2269,10 @@
                     }
                     
                     var isHtml = detectIsHtml(replyContent);
-                    var displayContent = isHtml ? sanitizeHtml(replyContent) : escapeHtml(replyContent);
-                    var contentStyle = isHtml ? msgStyle : 'style="font-size:13px;line-height:1.6;margin-top:8px;white-space:pre-wrap;word-wrap:break-word;"';
+                    var frameId = 'commentFrame_' + i;
+                    var displayContent = isHtml ? emailIframePlaceholder(frameId) : escapeHtml(replyContent);
+                    var contentStyle = isHtml ? 'style="margin-top:8px;"' : 'style="font-size:13px;line-height:1.6;margin-top:8px;white-space:pre-wrap;word-wrap:break-word;"';
+                    if (isHtml) pendingEmailIframes.push({ id: frameId, html: replyContent });
                     
                     activityHtml += '<div ' + boxStyle + '>' +
                         '<div ' + headerStyle + '>' +
@@ -2227,8 +2288,10 @@
                         '</div>';
                 } else if (isIncoming) {
                     var isHtml = detectIsHtml(c.content || '');
-                    var displayContent = isHtml ? sanitizeHtml(c.content || '') : escapeHtml(c.content || '');
-                    var contentStyle = isHtml ? msgStyle : 'style="font-size:13px;line-height:1.6;margin-top:8px;white-space:pre-wrap;word-wrap:break-word;"';
+                    var frameId = 'commentFrame_' + i;
+                    var displayContent = isHtml ? emailIframePlaceholder(frameId) : escapeHtml(c.content || '');
+                    var contentStyle = isHtml ? 'style="margin-top:8px;"' : 'style="font-size:13px;line-height:1.6;margin-top:8px;white-space:pre-wrap;word-wrap:break-word;"';
+                    if (isHtml) pendingEmailIframes.push({ id: frameId, html: c.content || '' });
                     
                     activityHtml += '<div ' + boxStyle + '>' +
                         '<div ' + headerStyle + '>' +
@@ -2413,9 +2476,11 @@
         }
 
         var msgIsHtml = detectIsHtml(ticket.message || "");
-        var msgDisplayContent = ticket.message
-            ? (msgIsHtml ? sanitizeHtml(ticket.message) : escapeHtml(ticket.message))
-            : "No message";
+        var msgFrameId = 'ticketMsgFrame';
+        var msgDisplayContent = !ticket.message
+            ? "No message"
+            : (msgIsHtml ? emailIframePlaceholder(msgFrameId) : escapeHtml(ticket.message));
+        if (msgIsHtml) pendingEmailIframes.push({ id: msgFrameId, html: ticket.message });
 
         content.innerHTML = `
             <div class="detail-section">
@@ -2453,6 +2518,9 @@
         if (canAssignTicket) populateAssignDropdown(ticket.assigned_to);
         setTimeout(() => {
             initializeEmailEditor();
+            pendingEmailIframes.forEach(function (entry) {
+                mountEmailIframe(entry.id, entry.html);
+            });
             if (canEdit()) {
                 document.getElementById("emailTemplateBar").style.display = "flex";
             }
