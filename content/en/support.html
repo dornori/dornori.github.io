@@ -207,6 +207,23 @@
         return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) && email.length <= 254;
     }
 
+    // Decides what ticket "category" gets sent to the worker.
+    // Controlled via an optional "ticketCategory" block in form.json:
+    //   { "ticketCategory": { "mode": "default", "default": "support" } }
+    //   { "ticketCategory": { "mode": "formId", "default": "support" } }
+    // mode "default" (or the block omitted entirely) always sends `default`.
+    // mode "formId" sends the selected troubleshooting category's own id
+    // (falling back to `default` if nothing was selected), for setups that
+    // have added matching categories in the admin panel.
+    function resolveTicketCategory() {
+        var cfg = (formData && formData.ticketCategory) || {};
+        var fallback = cfg.default || 'support';
+        if (cfg.mode === 'formId') {
+            return (currentCategory && currentCategory.id) || fallback;
+        }
+        return fallback;
+    }
+
     function escapeHtml(str) {
         if (!str) return '';
         return str.replace(/[&<>]/g, function(m) {
@@ -625,7 +642,7 @@
 
         // UPDATED: Payload matches contact.html format EXACTLY
         var payload = {
-            category: 'support',
+            category: resolveTicketCategory(),
             name: sanitised.name,
             email: sanitised.email,
             phone: '',
