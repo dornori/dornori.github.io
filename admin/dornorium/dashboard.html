@@ -231,6 +231,19 @@
             color: var(--text-muted);
         }
         
+        .email-preview img {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .email-preview table {
+            max-width: 100%;
+        }
+        
+        .ticket-body.email-preview {
+            overflow-x: auto;
+        }
+        
         .email-template-bar {
             display: flex;
             gap: 8px;
@@ -1428,9 +1441,16 @@
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = html;
         
-        // List of allowed tags
-        const allowedTags = ['p', 'br', 'div', 'span', 'strong', 'b', 'em', 'i', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td'];
-        const allowedAttrs = ['href', 'title', 'target', 'rel', 'style'];
+        // Tags whose content must never be surfaced as text — remove entirely, subtree and all
+        const stripEntirely = ['script', 'style', 'noscript', 'title', 'head', 'meta', 'link', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'select', 'textarea', 'svg', 'canvas', 'audio', 'video', 'source', 'track', 'base'];
+        
+        // List of allowed tags (kept, attributes filtered). Anything else is unwrapped (tag removed, children kept).
+        const allowedTags = ['p', 'br', 'div', 'span', 'strong', 'b', 'em', 'i', 'u', 'a', 'ul', 'ol', 'li',
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'hr',
+            'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'colgroup', 'col',
+            'img', 'font', 'center', 'small', 'sup', 'sub', 's', 'strike', 'mark',
+            'section', 'article', 'header', 'footer', 'nav', 'figure', 'figcaption'];
+        const allowedAttrs = ['href', 'title', 'target', 'rel', 'style', 'src', 'alt', 'width', 'height', 'align', 'valign', 'colspan', 'rowspan'];
         
         // Remove dangerous elements recursively
         function cleanNode(node) {
@@ -1439,7 +1459,13 @@
             if (node.nodeType === 1) { // element node
                 const tag = node.tagName.toLowerCase();
                 
-                // Remove script, style, and other dangerous tags
+                // Fully discard non-content tags, including their text (e.g. CSS/JS shouldn't leak as visible text)
+                if (stripEntirely.includes(tag)) {
+                    node.parentNode.removeChild(node);
+                    return;
+                }
+                
+                // Unwrap tags we don't explicitly allow, but keep their content
                 if (!allowedTags.includes(tag)) {
                     while (node.firstChild) {
                         node.parentNode.insertBefore(node.firstChild, node);
@@ -1459,7 +1485,7 @@
                 // Clean style attribute - remove javascript: and other dangerous content
                 if (node.style && node.getAttribute('style')) {
                     const styleStr = node.getAttribute('style');
-                    if (styleStr.toLowerCase().includes('javascript:') || styleStr.toLowerCase().includes('expression:')) {
+                    if (styleStr.toLowerCase().includes('javascript:') || styleStr.toLowerCase().includes('expression:') || styleStr.toLowerCase().includes('behavior:')) {
                         node.removeAttribute('style');
                     }
                 }
@@ -1469,6 +1495,14 @@
                     const href = node.getAttribute('href');
                     if (href.toLowerCase().startsWith('javascript:') || href.toLowerCase().startsWith('data:')) {
                         node.removeAttribute('href');
+                    }
+                }
+                
+                // Verify img src isn't a javascript: URI
+                if (tag === 'img' && node.getAttribute('src')) {
+                    const src = node.getAttribute('src');
+                    if (src.toLowerCase().startsWith('javascript:')) {
+                        node.removeAttribute('src');
                     }
                 }
             }
