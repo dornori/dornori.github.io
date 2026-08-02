@@ -1797,9 +1797,11 @@ function renderOrderItemsHtml(meta, langProducts, labels) {
     }
     name = escHtml(String(name || "Product"));
     productLabel = escHtml(String(productLabel || ""));
-    const nameCell = productLabel
+    const sku = escHtml(String(item.sku || productId || ""));
+    let nameCell = productLabel
       ? `${name} <span style="color:#777;">— ${productLabel}</span>`
       : name;
+    if (sku) nameCell += ` <span style="color:#999;font-size:11px;">(SKU: ${sku})</span>`;
     const qty = Math.max(1, parseInt(item.qty || item.quantity || 1, 10));
     const price = Math.max(0, parseFloat(item.price || 0));
     if (isNaN(price) || isNaN(qty)) continue;
@@ -1865,9 +1867,11 @@ function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, lab
     }
     name = escHtml(String(name || "Product"));
     productLabel = escHtml(String(productLabel || ""));
-    const nameCell = productLabel
+    const sku = escHtml(String(item.sku || productId || ""));
+    let nameCell = productLabel
       ? `${name} <span style="color:#777;">— ${productLabel}</span>`
       : name;
+    if (sku) nameCell += ` <span style="color:#999;font-size:11px;">(SKU: ${sku})</span>`;
     let imgHtml = '<div style="width:60px;height:60px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">No image</div>';
     if (productId && genericProducts[productId] && genericProducts[productId].image) {
       const imgUrl = escHtml(resolveImgUrl(domain, genericProducts[productId].image));
