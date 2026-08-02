@@ -47,12 +47,12 @@ async function initializeDatabase(env) {
   
   try {
     await env.DB.exec(SEED_SQL);
-    dbInitialized = true;
     console.log("✅ Database initialized successfully");
   } catch (error) {
     console.error("❌ Database initialization error:", error);
-    dbInitialized = true;
+    return; // leave dbInitialized=false so next request retries
   }
+  dbInitialized = true;
 
   // Migration: create incoming_email_addresses table if not in SEED_SQL yet
   try { await env.DB.exec("CREATE TABLE IF NOT EXISTS incoming_email_addresses (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, label TEXT, action TEXT, language TEXT DEFAULT 'en', is_active INTEGER DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)"); } catch (e) { }
@@ -226,7 +226,7 @@ async function validateAndHashPassword(password, env) {
   if (!result.valid) {
     throw new Error(result.errors[0]);
   }
-  return await sha256(password);
+  return await hashPassword(password);
 }
 
 async function getTicketCache() {
@@ -360,12 +360,42 @@ async function sha256(m) {
   return [...new Uint8Array(h)].map(b2 => b2.toString(16).padStart(2, "0")).join("");
 }
 
+// PBKDF2 password hashing — format: "pbkdf2:<iterations>:<saltB64>:<hashB64>"
 async function hashPassword(password) {
-  return await sha256(password);
+  const encoder = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const keyMaterial = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt, iterations: 100000 },
+    keyMaterial,
+    256
+  );
+  const saltB64 = btoa(String.fromCharCode(...salt));
+  const hashB64 = btoa(String.fromCharCode(...new Uint8Array(bits)));
+  return `pbkdf2:100000:${saltB64}:${hashB64}`;
 }
 
 async function verifyPassword(password, storedHash) {
-  return await sha256(password) === storedHash;
+  if (!storedHash) return false;
+  // Legacy SHA-256 hashes — plain 64-char hex string
+  if (!storedHash.startsWith("pbkdf2:")) {
+    return await sha256(password) === storedHash;
+  }
+  const parts = storedHash.split(":");
+  if (parts.length !== 4) return false;
+  const [, iterStr, saltB64, expectedB64] = parts;
+  const iterations = parseInt(iterStr, 10);
+  if (!iterations) return false;
+  const encoder = new TextEncoder();
+  const salt = new Uint8Array(atob(saltB64).split("").map(c => c.charCodeAt(0)));
+  const keyMaterial = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt, iterations },
+    keyMaterial,
+    256
+  );
+  const hashB64 = btoa(String.fromCharCode(...new Uint8Array(bits)));
+  return hashB64 === expectedB64;
 }
 
 const ROLE_RESOURCES = {
@@ -1351,9 +1381,13 @@ async function getTicket(id, env) {
   return { ...ticket, comments: comments.results || [] };
 }
 
+const VALID_TICKET_STATUSES = new Set(["new", "open", "in_progress", "pending", "resolved", "closed"]);
+const VALID_TICKET_PRIORITIES = new Set(["low", "medium", "high", "urgent"]);
+
 async function updateTicket(id, data, env) {
   const updates = [], values = [];
   if (data.status) {
+    if (!VALID_TICKET_STATUSES.has(data.status)) throw new Error(`Invalid status: ${data.status}`);
     updates.push("status = ?");
     values.push(data.status);
   }
@@ -1362,6 +1396,7 @@ async function updateTicket(id, data, env) {
     values.push(data.assigned_to || null);
   }
   if (data.priority) {
+    if (!VALID_TICKET_PRIORITIES.has(data.priority)) throw new Error(`Invalid priority: ${data.priority}`);
     updates.push("priority = ?");
     values.push(data.priority);
   }
@@ -1731,9 +1766,10 @@ function renderOrderItemsHtml(meta, langProducts, labels) {
   const calculatedTotal = subtotal + shipping + tax;
   
   let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
-  if (labels.product || labels.qty || labels.unit_price || labels.total) {
+  if (labels.product || labels.label || labels.qty || labels.unit_price || labels.total) {
     html += '<tr style="border-bottom:1px solid #ddd;">';
     if (labels.product) html += `<th style="padding:10px;text-align:left;">${escHtml(labels.product)}</th>`;
+    if (labels.label) html += `<th style="padding:10px;text-align:left;">${escHtml(labels.label)}</th>`;
     if (labels.qty) html += `<th style="padding:10px;text-align:center;">${escHtml(labels.qty)}</th>`;
     if (labels.unit_price) html += `<th style="padding:10px;text-align:right;">${escHtml(labels.unit_price)}</th>`;
     if (labels.total) html += `<th style="padding:10px;text-align:right;">${escHtml(labels.total)}</th>`;
@@ -1743,8 +1779,13 @@ function renderOrderItemsHtml(meta, langProducts, labels) {
     if (!item || typeof item !== "object") continue;
     const productId = resolveProductId(item, [langProducts]);
     let name = item.name;
-    if (productId && langProducts[productId]) name = langProducts[productId].name || item.name;
+    let productLabel = item.label || "";
+    if (productId && langProducts[productId]) {
+      name = langProducts[productId].name || item.name;
+      productLabel = langProducts[productId].label || productLabel;
+    }
     name = escHtml(String(name || "Product"));
+    productLabel = escHtml(String(productLabel || ""));
     const qty = Math.max(1, parseInt(item.qty || item.quantity || 1, 10));
     const price = Math.max(0, parseFloat(item.price || 0));
     if (isNaN(price) || isNaN(qty)) continue;
@@ -1755,24 +1796,24 @@ function renderOrderItemsHtml(meta, langProducts, labels) {
       ? `<s style="opacity:.55;">${currency} ${parseFloat(item.originalPrice).toFixed(2)}</s><br/>${currency} ${price.toFixed(2)} <span style="display:inline-block;background:#c8a96e;color:#1a1714;font-size:11px;font-weight:bold;padding:1px 6px;border-radius:3px;margin-left:4px;">-${itemDiscount}%</span>`
       : `${currency} ${price.toFixed(2)}`;
     html += '<tr style="border-bottom:1px solid #eee;">';
-    html += `<td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${unitPriceCell}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+    html += `<td style="padding:10px;">${name}</td><td style="padding:10px;">${productLabel}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${unitPriceCell}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
   }
   html += '<tr style="border-top:2px solid #ddd;background:#f9f9f9;">';
-  html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? escHtml(labels.subtotal) : "Subtotal"}</td><td style="padding:12px;text-align:right;">${currency} ${subtotal.toFixed(2)}</td></tr>`;
+  html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? escHtml(labels.subtotal) : "Subtotal"}</td><td style="padding:12px;text-align:right;">${currency} ${subtotal.toFixed(2)}</td></tr>`;
   if (discount > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.discount ? escHtml(labels.discount) : "Discount"}</td><td style="padding:12px;text-align:right;">-${currency} ${discount.toFixed(2)}</td></tr>`;
+    html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">${labels.discount ? escHtml(labels.discount) : "Discount"}</td><td style="padding:12px;text-align:right;">-${currency} ${discount.toFixed(2)}</td></tr>`;
   }
   if (shipping > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.shipping ? escHtml(labels.shipping) : "Shipping"}</td><td style="padding:12px;text-align:right;">${currency} ${shipping.toFixed(2)}</td></tr>`;
+    html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">${labels.shipping ? escHtml(labels.shipping) : "Shipping"}</td><td style="padding:12px;text-align:right;">${currency} ${shipping.toFixed(2)}</td></tr>`;
   }
   if (tax > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.tax ? escHtml(labels.tax) : "Tax"}</td><td style="padding:12px;text-align:right;">${currency} ${tax.toFixed(2)}</td></tr>`;
+    html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">${labels.tax ? escHtml(labels.tax) : "Tax"}</td><td style="padding:12px;text-align:right;">${currency} ${tax.toFixed(2)}</td></tr>`;
   }
   html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
-  html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? escHtml(labels.total) : "Total"}</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${calculatedTotal.toFixed(2)}</td></tr>`;
+  html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? escHtml(labels.total) : "Total"}</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${calculatedTotal.toFixed(2)}</td></tr>`;
   html += "</table>";
   return html;
 }
@@ -1790,10 +1831,11 @@ function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, lab
   const calculatedTotal = subtotal + shipping + tax;
   
   let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
-  if (labels.image || labels.product || labels.qty || labels.unit_price || labels.total) {
+  if (labels.image || labels.product || labels.label || labels.qty || labels.unit_price || labels.total) {
     html += '<tr style="border-bottom:1px solid #ddd;">';
     if (labels.image) html += `<th style="padding:10px;text-align:left;">${escHtml(labels.image)}</th>`;
     if (labels.product) html += `<th style="padding:10px;text-align:left;">${escHtml(labels.product)}</th>`;
+    if (labels.label) html += `<th style="padding:10px;text-align:left;">${escHtml(labels.label)}</th>`;
     if (labels.qty) html += `<th style="padding:10px;text-align:center;">${escHtml(labels.qty)}</th>`;
     if (labels.unit_price) html += `<th style="padding:10px;text-align:right;">${escHtml(labels.unit_price)}</th>`;
     if (labels.total) html += `<th style="padding:10px;text-align:right;">${escHtml(labels.total)}</th>`;
@@ -1803,8 +1845,13 @@ function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, lab
     if (!item || typeof item !== "object") continue;
     const productId = resolveProductId(item, [langProducts, genericProducts]);
     let name = item.name;
-    if (productId && langProducts[productId]) name = langProducts[productId].name || item.name;
+    let productLabel = item.label || "";
+    if (productId && langProducts[productId]) {
+      name = langProducts[productId].name || item.name;
+      productLabel = langProducts[productId].label || productLabel;
+    }
     name = escHtml(String(name || "Product"));
+    productLabel = escHtml(String(productLabel || ""));
     let imgHtml = '<div style="width:60px;height:60px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">No image</div>';
     if (productId && genericProducts[productId] && genericProducts[productId].image) {
       const imgUrl = escHtml(resolveImgUrl(domain, genericProducts[productId].image));
@@ -1820,24 +1867,24 @@ function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, lab
       ? `<s style="opacity:.55;">${currency} ${parseFloat(item.originalPrice).toFixed(2)}</s><br/>${currency} ${price.toFixed(2)} <span style="display:inline-block;background:#c8a96e;color:#1a1714;font-size:11px;font-weight:bold;padding:1px 6px;border-radius:3px;margin-left:4px;">-${itemDiscount}%</span>`
       : `${currency} ${price.toFixed(2)}`;
     html += '<tr style="border-bottom:1px solid #eee;">';
-    html += `<td style="padding:10px;text-align:center;">${imgHtml}</td><td style="padding:10px;">${name}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${unitPriceCell}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+    html += `<td style="padding:10px;text-align:center;">${imgHtml}</td><td style="padding:10px;">${name}</td><td style="padding:10px;">${productLabel}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${unitPriceCell}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
   }
   html += '<tr style="border-top:2px solid #ddd;background:#f9f9f9;">';
-  html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? escHtml(labels.subtotal) : "Subtotal"} ${currency} ${subtotal.toFixed(2)}</td></tr>`;
+  html += `<td colspan="5" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? escHtml(labels.subtotal) : "Subtotal"} ${currency} ${subtotal.toFixed(2)}</td></tr>`;
   if (discount > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.discount ? escHtml(labels.discount) : "Discount"} -${currency} ${discount.toFixed(2)}</td></tr>`;
+    html += `<td colspan="5" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.discount ? escHtml(labels.discount) : "Discount"} -${currency} ${discount.toFixed(2)}</td></tr>`;
   }
   if (shipping > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.shipping ? escHtml(labels.shipping) : "Shipping"} ${currency} ${shipping.toFixed(2)}</td></tr>`;
+    html += `<td colspan="5" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.shipping ? escHtml(labels.shipping) : "Shipping"} ${currency} ${shipping.toFixed(2)}</td></tr>`;
   }
   if (tax > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.tax ? escHtml(labels.tax) : "Tax"} ${currency} ${tax.toFixed(2)}</td></tr>`;
+    html += `<td colspan="5" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.tax ? escHtml(labels.tax) : "Tax"} ${currency} ${tax.toFixed(2)}</td></tr>`;
   }
   html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
-  html += `<td colspan="4" style="padding:12px;"></td><td style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? escHtml(labels.total) : "Total"} ${currency} ${calculatedTotal.toFixed(2)}</td></tr>`;
+  html += `<td colspan="5" style="padding:12px;"></td><td style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? escHtml(labels.total) : "Total"} ${currency} ${calculatedTotal.toFixed(2)}</td></tr>`;
   html += "</table>";
   return html;
 }
@@ -2137,6 +2184,7 @@ async function getAllowedOrigins(env) {
 }
 
 function getCorsHeaders(origin, allowedOrigins) {
+  // CORS_ENABLED=false means no restriction — allow all origins (wildcard)
   if (!CORS_ENABLED) {
     return {
       "Access-Control-Allow-Origin": "*",
@@ -2145,6 +2193,7 @@ function getCorsHeaders(origin, allowedOrigins) {
     };
   }
 
+  // CORS_ENABLED=true — restrict to configured allowlist
   if (origin && allowedOrigins.includes(origin)) {
     return {
       "Access-Control-Allow-Origin": origin,
@@ -2153,6 +2202,7 @@ function getCorsHeaders(origin, allowedOrigins) {
     };
   }
 
+  // Origin not in allowlist — no ACAO header, browser will block
   return {
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization"
@@ -2172,25 +2222,6 @@ var worker_default = {
     const path = url.pathname;
     const method = request.method;
     try {
-      if (path === "/api/admin/debug-env" && method === "GET") {
-        return json({ 
-          hasKey: typeof env.ENCRYPTION_KEY !== 'undefined',
-          allKeys: Object.keys(env).filter(k => k.includes('KEY') || k.includes('SECRET') || k.includes('ENCRYPT'))
-        });
-      }
-
-      
-  // 👇 ADD THIS RIGHT HERE 👇
-  if (path === "/api/admin/debug-token" && method === "GET") {
-    const encToken = await getSetting(env, 'cloudflare', 'api_token');
-    const token = encToken ? await decrypt(encToken, env) : null;
-    return json({ 
-      tokenExists: !!token,
-      tokenLength: token ? token.length : 0,
-      tokenFirst4: token ? token.substring(0, 4) : 'none',
-      allKeys: Object.keys(env)
-    });
-  }
 
       if (path === "/api/admin/ws") {
         const token = url.searchParams.get("token");
@@ -2498,7 +2529,18 @@ var worker_default = {
         const email = await verifyToken(token, env);
         if (!email) return json({ error: "Unauthorized" }, 401);
         const { settings } = await request.json();
-        const isOrderReplyWrite = Array.isArray(settings) && settings.length > 0 && settings.every((s) =>
+        const ALLOWED_SETTING_CATEGORIES = new Set([
+          "system", "security", "tickets", "general", "email", "cloudflare",
+          "languages", "category", "sla", "auto_reply", "order_template", "email_templates",
+          "email_script"
+        ]);
+        if (!Array.isArray(settings) || settings.length === 0) return json({ error: "Invalid settings payload" }, 400);
+        for (const s of settings) {
+          if (!s.category || !s.key || !ALLOWED_SETTING_CATEGORIES.has(s.category)) {
+            return json({ error: `Invalid setting category: ${s.category}` }, 400);
+          }
+        }
+        const isOrderReplyWrite = settings.every((s) =>
           s.category === "order_template" || (s.category === "auto_reply" && String(s.key || "").startsWith("payment_"))
         );
         const requiredResource = isOrderReplyWrite ? "order_reply" : "settings";
@@ -2689,7 +2731,7 @@ var worker_default = {
         const rateLimitKey = (email || "").toLowerCase().trim();
         if (await isLoginRateLimited(rateLimitKey, env)) return json({ error: "Too many login attempts. Try again later." }, 429);
         const user = await getUser(rateLimitKey, env);
-        if (!user || await sha256(password) !== user.password_hash) {
+        if (!user || !await verifyPassword(password, user.password_hash)) {
           await recordFailedLogin(rateLimitKey, env);
           return json({ error: "Invalid credentials" }, 401);
         }
@@ -2939,8 +2981,12 @@ var worker_default = {
         const filters = { category: url.searchParams.get("category"), language: url.searchParams.get("language"), sort: url.searchParams.get("sort") || "last_updated", limit, offset, assigned_to: url.searchParams.get("assigned_to") };
         if (search) filters.search = search;
         const statuses = url.searchParams.get("statuses");
-        if (statuses) filters.statuses = statuses.split(",").map((s) => s.trim());
-        else filters.status = url.searchParams.get("status");
+        if (statuses) {
+          filters.statuses = statuses.split(",").map((s) => s.trim()).filter(s => VALID_TICKET_STATUSES.has(s));
+        } else {
+          const singleStatus = url.searchParams.get("status");
+          if (singleStatus && VALID_TICKET_STATUSES.has(singleStatus)) filters.status = singleStatus;
+        }
         const statusesOk = filters.statuses ? filters.statuses.every((s) => ACTIVE_STATUSES.includes(s)) : !filters.status || ACTIVE_STATUSES.includes(filters.status);
         const useCache = !search && page === 1 && statusesOk && !filters.category && !filters.language && !filters.assigned_to;
         let tickets, total;
