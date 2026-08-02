@@ -2206,7 +2206,7 @@ async function parseEmail(rawStream) {
           }
         }
         
-        if (!plainTextBody && !htmlBody && part.includes("Content-Type: text/html")) {
+        if (!htmlBody && part.includes("Content-Type: text/html")) {
           const blankLineIdx = part.indexOf("\r\n\r\n");
           if (blankLineIdx !== -1) {
             let content = part.substring(blankLineIdx + 4);
