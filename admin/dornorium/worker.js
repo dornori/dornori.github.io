@@ -1778,14 +1778,13 @@ function renderOrderItemsHtml(meta, langProducts, labels) {
   const calculatedTotal = subtotal + shipping + tax;
   
   let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
-  if (labels.product || labels.qty || labels.unit_price || labels.total) {
-    html += '<tr style="border-bottom:1px solid #ddd;">';
-    if (labels.product) html += `<th style="padding:10px;text-align:left;">${escHtml(labels.product)}</th>`;
-    if (labels.qty) html += `<th style="padding:10px;text-align:center;">${escHtml(labels.qty)}</th>`;
-    if (labels.unit_price) html += `<th style="padding:10px;text-align:right;">${escHtml(labels.unit_price)}</th>`;
-    if (labels.total) html += `<th style="padding:10px;text-align:right;">${escHtml(labels.total)}</th>`;
-    html += "</tr>";
-  }
+  html += '<tr style="border-bottom:2px solid #ddd;background:#f5f5f5;">';
+  html += `<th style="padding:10px;text-align:center;white-space:nowrap;">${labels.qty ? escHtml(labels.qty) : "Qty"}</th>`;
+  html += `<th style="padding:10px;text-align:left;">${labels.product ? escHtml(labels.product) : "Product"}</th>`;
+  html += `<th style="padding:10px;text-align:left;color:#777;">SKU</th>`;
+  html += `<th style="padding:10px;text-align:right;white-space:nowrap;">${labels.unit_price ? escHtml(labels.unit_price) : "Unit Price"}</th>`;
+  html += `<th style="padding:10px;text-align:right;white-space:nowrap;">${labels.total ? escHtml(labels.total) : "Total"}</th>`;
+  html += "</tr>";
   for (const item of items) {
     if (!item || typeof item !== "object") continue;
     const productId = resolveProductId(item, [langProducts]);
@@ -1798,10 +1797,7 @@ function renderOrderItemsHtml(meta, langProducts, labels) {
     name = escHtml(String(name || "Product"));
     productLabel = escHtml(String(productLabel || ""));
     const sku = escHtml(String(item.sku || productId || ""));
-    let nameCell = productLabel
-      ? `${name} <span style="color:#777;">— ${productLabel}</span>`
-      : name;
-    if (sku) nameCell += ` <span style="color:#999;font-size:11px;">(SKU: ${sku})</span>`;
+    const nameCell = productLabel ? `${name}<br><span style="color:#777;font-size:12px;">— ${productLabel}</span>` : name;
     const qty = Math.max(1, parseInt(item.qty || item.quantity || 1, 10));
     const price = Math.max(0, parseFloat(item.price || 0));
     if (isNaN(price) || isNaN(qty)) continue;
@@ -1812,24 +1808,24 @@ function renderOrderItemsHtml(meta, langProducts, labels) {
       ? `<s style="opacity:.55;">${currency} ${parseFloat(item.originalPrice).toFixed(2)}</s><br/>${currency} ${price.toFixed(2)} <span style="display:inline-block;background:#c8a96e;color:#1a1714;font-size:11px;font-weight:bold;padding:1px 6px;border-radius:3px;margin-left:4px;">-${itemDiscount}%</span>`
       : `${currency} ${price.toFixed(2)}`;
     html += '<tr style="border-bottom:1px solid #eee;">';
-    html += `<td style="padding:10px;">${nameCell}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${unitPriceCell}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+    html += `<td style="padding:10px;text-align:center;font-weight:bold;">${qty}</td><td style="padding:10px;">${nameCell}</td><td style="padding:10px;font-family:monospace;font-size:12px;color:#777;">${sku}</td><td style="padding:10px;text-align:right;">${unitPriceCell}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
   }
   html += '<tr style="border-top:2px solid #ddd;background:#f9f9f9;">';
-  html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? escHtml(labels.subtotal) : "Subtotal"}</td><td style="padding:12px;text-align:right;">${currency} ${subtotal.toFixed(2)}</td></tr>`;
+  html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? escHtml(labels.subtotal) : "Subtotal"}</td><td style="padding:12px;text-align:right;">${currency} ${subtotal.toFixed(2)}</td></tr>`;
   if (discount > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.discount ? escHtml(labels.discount) : "Discount"}</td><td style="padding:12px;text-align:right;">-${currency} ${discount.toFixed(2)}</td></tr>`;
+    html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">${labels.discount ? escHtml(labels.discount) : "Discount"}</td><td style="padding:12px;text-align:right;">-${currency} ${discount.toFixed(2)}</td></tr>`;
   }
   if (shipping > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.shipping ? escHtml(labels.shipping) : "Shipping"}</td><td style="padding:12px;text-align:right;">${currency} ${shipping.toFixed(2)}</td></tr>`;
+    html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">${labels.shipping ? escHtml(labels.shipping) : "Shipping"}</td><td style="padding:12px;text-align:right;">${currency} ${shipping.toFixed(2)}</td></tr>`;
   }
   if (tax > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.tax ? escHtml(labels.tax) : "Tax"}</td><td style="padding:12px;text-align:right;">${currency} ${tax.toFixed(2)}</td></tr>`;
+    html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">${labels.tax ? escHtml(labels.tax) : "Tax"}</td><td style="padding:12px;text-align:right;">${currency} ${tax.toFixed(2)}</td></tr>`;
   }
   html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
-  html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? escHtml(labels.total) : "Total"}</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${calculatedTotal.toFixed(2)}</td></tr>`;
+  html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? escHtml(labels.total) : "Total"}</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${calculatedTotal.toFixed(2)}</td></tr>`;
   html += "</table>";
   return html;
 }
@@ -1847,15 +1843,14 @@ function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, lab
   const calculatedTotal = subtotal + shipping + tax;
   
   let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
-  if (labels.image || labels.product || labels.qty || labels.unit_price || labels.total) {
-    html += '<tr style="border-bottom:1px solid #ddd;">';
-    if (labels.image) html += `<th style="padding:10px;text-align:left;">${escHtml(labels.image)}</th>`;
-    if (labels.product) html += `<th style="padding:10px;text-align:left;">${escHtml(labels.product)}</th>`;
-    if (labels.qty) html += `<th style="padding:10px;text-align:center;">${escHtml(labels.qty)}</th>`;
-    if (labels.unit_price) html += `<th style="padding:10px;text-align:right;">${escHtml(labels.unit_price)}</th>`;
-    if (labels.total) html += `<th style="padding:10px;text-align:right;">${escHtml(labels.total)}</th>`;
-    html += "</tr>";
-  }
+  html += '<tr style="border-bottom:2px solid #ddd;background:#f5f5f5;">';
+  html += `<th style="padding:10px;text-align:center;white-space:nowrap;">${labels.qty ? escHtml(labels.qty) : "Qty"}</th>`;
+  html += `<th style="padding:10px;text-align:left;width:70px;">${labels.image ? escHtml(labels.image) : ""}</th>`;
+  html += `<th style="padding:10px;text-align:left;">${labels.product ? escHtml(labels.product) : "Product"}</th>`;
+  html += `<th style="padding:10px;text-align:left;color:#777;">SKU</th>`;
+  html += `<th style="padding:10px;text-align:right;white-space:nowrap;">${labels.unit_price ? escHtml(labels.unit_price) : "Unit Price"}</th>`;
+  html += `<th style="padding:10px;text-align:right;white-space:nowrap;">${labels.total ? escHtml(labels.total) : "Total"}</th>`;
+  html += "</tr>";
   for (const item of items) {
     if (!item || typeof item !== "object") continue;
     const productId = resolveProductId(item, [langProducts, genericProducts]);
@@ -1868,10 +1863,7 @@ function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, lab
     name = escHtml(String(name || "Product"));
     productLabel = escHtml(String(productLabel || ""));
     const sku = escHtml(String(item.sku || productId || ""));
-    let nameCell = productLabel
-      ? `${name} <span style="color:#777;">— ${productLabel}</span>`
-      : name;
-    if (sku) nameCell += ` <span style="color:#999;font-size:11px;">(SKU: ${sku})</span>`;
+    const nameCell = productLabel ? `${name}<br><span style="color:#777;font-size:12px;">— ${productLabel}</span>` : name;
     let imgHtml = '<div style="width:60px;height:60px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">No image</div>';
     if (productId && genericProducts[productId] && genericProducts[productId].image) {
       const imgUrl = escHtml(resolveImgUrl(domain, genericProducts[productId].image));
@@ -1887,25 +1879,24 @@ function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, lab
       ? `<s style="opacity:.55;">${currency} ${parseFloat(item.originalPrice).toFixed(2)}</s><br/>${currency} ${price.toFixed(2)} <span style="display:inline-block;background:#c8a96e;color:#1a1714;font-size:11px;font-weight:bold;padding:1px 6px;border-radius:3px;margin-left:4px;">-${itemDiscount}%</span>`
       : `${currency} ${price.toFixed(2)}`;
     html += '<tr style="border-bottom:1px solid #eee;">';
-    html += `<td style="padding:10px;text-align:center;">${imgHtml}</td><td style="padding:10px;">${nameCell}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${unitPriceCell}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+    html += `<td style="padding:10px;text-align:center;font-weight:bold;">${qty}</td><td style="padding:10px;text-align:center;">${imgHtml}</td><td style="padding:10px;">${nameCell}</td><td style="padding:10px;font-family:monospace;font-size:12px;color:#777;">${sku}</td><td style="padding:10px;text-align:right;">${unitPriceCell}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
   }
   html += '<tr style="border-top:2px solid #ddd;background:#f9f9f9;">';
-  html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? escHtml(labels.subtotal) : "Subtotal"} ${currency} ${subtotal.toFixed(2)}</td></tr>`;
+  html += `<td colspan="5" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? escHtml(labels.subtotal) : "Subtotal"}</td><td style="padding:12px;text-align:right;">${currency} ${subtotal.toFixed(2)}</td></tr>`;
   if (discount > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.discount ? escHtml(labels.discount) : "Discount"} -${currency} ${discount.toFixed(2)}</td></tr>`;
+    html += `<td colspan="5" style="padding:12px;text-align:right;font-weight:bold;">${labels.discount ? escHtml(labels.discount) : "Discount"}</td><td style="padding:12px;text-align:right;">-${currency} ${discount.toFixed(2)}</td></tr>`;
   }
   if (shipping > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-
-    html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.shipping ? escHtml(labels.shipping) : "Shipping"} ${currency} ${shipping.toFixed(2)}</td></tr>`;
+    html += `<td colspan="5" style="padding:12px;text-align:right;font-weight:bold;">${labels.shipping ? escHtml(labels.shipping) : "Shipping"}</td><td style="padding:12px;text-align:right;">${currency} ${shipping.toFixed(2)}</td></tr>`;
   }
   if (tax > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.tax ? escHtml(labels.tax) : "Tax"} ${currency} ${tax.toFixed(2)}</td></tr>`;
+    html += `<td colspan="5" style="padding:12px;text-align:right;font-weight:bold;">${labels.tax ? escHtml(labels.tax) : "Tax"}</td><td style="padding:12px;text-align:right;">${currency} ${tax.toFixed(2)}</td></tr>`;
   }
   html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
-  html += `<td colspan="4" style="padding:12px;"></td><td style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? escHtml(labels.total) : "Total"} ${currency} ${calculatedTotal.toFixed(2)}</td></tr>`;
+  html += `<td colspan="5" style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? escHtml(labels.total) : "Total"}</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${calculatedTotal.toFixed(2)}</td></tr>`;
   html += "</table>";
   return html;
 }
@@ -1948,6 +1939,79 @@ function renderOrderShippingHtml(meta, labels) {
   if (!customer || !customer.shipping_address) return "";
   const prefix = labels.shipping_address ? `<div style="font-weight:bold;margin-bottom:4px;">${escHtml(labels.shipping_address)}</div>` : "";
   return `<div style="padding:12px;background:#f5f5f5;border-radius:6px;font-family:Arial,sans-serif;font-size:14px;margin:12px 0;">${prefix}<div style="white-space:pre-wrap;">${escHtml(customer.shipping_address)}</div></div>`;
+}
+
+function buildPaymentTicketMessageHtml(meta) {
+  const order = (meta && meta.order) || {};
+  const items = order.items || [];
+  const currency = meta.currency || "EUR";
+  const totals = order.totals || {};
+  const subtotal = parseFloat(totals.subtotal || 0);
+  const discount = parseFloat(totals.discount || 0);
+  const shipping = parseFloat(totals.shipping || 0);
+  const tax = parseFloat(totals.tax || 0);
+  const calculatedTotal = subtotal + shipping + tax;
+  const customer = order.customer || {};
+
+  let html = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1a1a1a;">';
+
+  if (order.reference || meta.order_number) {
+    html += `<p style="margin:0 0 12px;"><strong>Order Reference:</strong> ${escHtml(order.reference || meta.order_number || "")}</p>`;
+  }
+  if (order.transaction_id) {
+    html += `<p style="margin:0 0 16px;"><strong>Transaction ID:</strong> ${escHtml(order.transaction_id)}</p>`;
+  }
+
+  if (items.length) {
+    html += '<table style="border-collapse:collapse;width:100%;margin:0 0 16px;">';
+    html += '<tr style="border-bottom:2px solid #ddd;background:#f5f5f5;">';
+    html += '<th style="padding:8px 10px;text-align:center;white-space:nowrap;">Qty</th>';
+    html += '<th style="padding:8px 10px;text-align:left;">Product</th>';
+    html += '<th style="padding:8px 10px;text-align:left;color:#777;">SKU</th>';
+    html += '<th style="padding:8px 10px;text-align:right;white-space:nowrap;">Unit Price</th>';
+    html += '<th style="padding:8px 10px;text-align:right;white-space:nowrap;">Total</th>';
+    html += '</tr>';
+    for (const item of items) {
+      if (!item || typeof item !== "object") continue;
+      const qty = Math.max(1, parseInt(item.qty || item.quantity || 1, 10));
+      const price = Math.max(0, parseFloat(item.price || 0));
+      if (isNaN(price) || isNaN(qty)) continue;
+      const lineTotal = (price * qty).toFixed(2);
+      const name = escHtml(String(item.name || "Product"));
+      const label = escHtml(String(item.label || ""));
+      const sku = escHtml(String(item.sku || ""));
+      const nameCell = label ? `${name}<br><span style="color:#777;font-size:12px;">— ${label}</span>` : name;
+      const itemDiscount = parseFloat(item.discount) || 0;
+      const hasItemDiscount = itemDiscount > 0 && item.originalPrice != null;
+      const unitPriceCell = hasItemDiscount
+        ? `<s style="opacity:.55;">${currency} ${parseFloat(item.originalPrice).toFixed(2)}</s><br/>${currency} ${price.toFixed(2)} <span style="display:inline-block;background:#c8a96e;color:#1a1714;font-size:11px;font-weight:bold;padding:1px 6px;border-radius:3px;">-${itemDiscount}%</span>`
+        : `${currency} ${price.toFixed(2)}`;
+      html += '<tr style="border-bottom:1px solid #eee;">';
+      html += `<td style="padding:8px 10px;text-align:center;font-weight:bold;">${qty}</td><td style="padding:8px 10px;">${nameCell}</td><td style="padding:8px 10px;font-family:monospace;font-size:12px;color:#777;">${sku}</td><td style="padding:8px 10px;text-align:right;">${unitPriceCell}</td><td style="padding:8px 10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+    }
+    html += `<tr style="border-top:2px solid #ddd;background:#f9f9f9;"><td colspan="4" style="padding:10px;text-align:right;font-weight:bold;">Subtotal</td><td style="padding:10px;text-align:right;">${currency} ${subtotal.toFixed(2)}</td></tr>`;
+    if (discount > 0) html += `<tr style="background:#f9f9f9;"><td colspan="4" style="padding:10px;text-align:right;font-weight:bold;">Discount</td><td style="padding:10px;text-align:right;">-${currency} ${discount.toFixed(2)}</td></tr>`;
+    if (shipping > 0) html += `<tr style="background:#f9f9f9;"><td colspan="4" style="padding:10px;text-align:right;font-weight:bold;">Shipping</td><td style="padding:10px;text-align:right;">${currency} ${shipping.toFixed(2)}</td></tr>`;
+    if (tax > 0) html += `<tr style="background:#f9f9f9;"><td colspan="4" style="padding:10px;text-align:right;font-weight:bold;">Tax</td><td style="padding:10px;text-align:right;">${currency} ${tax.toFixed(2)}</td></tr>`;
+    html += `<tr style="border-top:2px solid #ddd;background:#e8f4f8;"><td colspan="4" style="padding:10px;text-align:right;font-weight:bold;">Total</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${calculatedTotal.toFixed(2)}</td></tr>`;
+    html += '</table>';
+  }
+
+  if (customer.name || customer.email || customer.phone) {
+    html += '<div style="padding:12px;background:#f5f5f5;border-radius:6px;margin-bottom:12px;">';
+    html += '<p style="margin:0 0 8px;font-weight:bold;">Customer</p>';
+    if (customer.name) html += `<div style="margin-bottom:4px;"><strong>Name:</strong> ${escHtml(customer.name)}</div>`;
+    if (customer.email) html += `<div style="margin-bottom:4px;"><strong>Email:</strong> ${escHtml(customer.email)}</div>`;
+    if (customer.phone) html += `<div><strong>Phone:</strong> ${escHtml(customer.phone)}</div>`;
+    html += '</div>';
+  }
+
+  if (customer.shipping_address) {
+    html += `<div style="padding:12px;background:#f5f5f5;border-radius:6px;"><p style="margin:0 0 6px;font-weight:bold;">Shipping Address</p><div style="white-space:pre-wrap;">${escHtml(customer.shipping_address)}</div></div>`;
+  }
+
+  html += '</div>';
+  return html;
 }
 
 async function applyOrderTags(html, ticket, env) {
@@ -2713,16 +2777,21 @@ var worker_default = {
           
           const category = await validateCategory(data.category || "support", env);
           const language = await validateLanguage(data.language, env);
+          const mergedMeta = { source: "website", company: data.company || "", ...(data.metadata || {}) };
+          const orderMeta = mergedMeta.order;
+          const ticketMessage = (orderMeta && orderMeta.items && orderMeta.items.length)
+            ? buildPaymentTicketMessageHtml({ order: orderMeta, currency: mergedMeta.currency || data.currency || "EUR" })
+            : (data.message || "");
           const ticket = await createTicket({ 
             category, 
             senderName: data.name || "", 
             senderEmail: data.email || "", 
             senderPhone: data.phone || "", 
             subject: data.subject || "Website Inquiry", 
-            message: data.message || "", 
+            message: ticketMessage, 
             language, 
             orderNumber: data.orderNumber || orderNumber, 
-            metadata: { source: "website", company: data.company || "", ...(data.metadata || {}) } 
+            metadata: mergedMeta
           }, env);
           if (data.email) await sendTicketConfirmation(ticket, env);
           return json({ success: true, ticketNumber: ticket.ticket_number, ticketId: ticket.id });
