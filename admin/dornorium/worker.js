@@ -1778,10 +1778,9 @@ function renderOrderItemsHtml(meta, langProducts, labels) {
   const calculatedTotal = subtotal + shipping + tax;
   
   let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
-  if (labels.product || labels.label || labels.qty || labels.unit_price || labels.total) {
+  if (labels.product || labels.qty || labels.unit_price || labels.total) {
     html += '<tr style="border-bottom:1px solid #ddd;">';
     if (labels.product) html += `<th style="padding:10px;text-align:left;">${escHtml(labels.product)}</th>`;
-    if (labels.label) html += `<th style="padding:10px;text-align:left;">${escHtml(labels.label)}</th>`;
     if (labels.qty) html += `<th style="padding:10px;text-align:center;">${escHtml(labels.qty)}</th>`;
     if (labels.unit_price) html += `<th style="padding:10px;text-align:right;">${escHtml(labels.unit_price)}</th>`;
     if (labels.total) html += `<th style="padding:10px;text-align:right;">${escHtml(labels.total)}</th>`;
@@ -1798,6 +1797,9 @@ function renderOrderItemsHtml(meta, langProducts, labels) {
     }
     name = escHtml(String(name || "Product"));
     productLabel = escHtml(String(productLabel || ""));
+    const nameCell = productLabel
+      ? `${name} <span style="color:#777;">— ${productLabel}</span>`
+      : name;
     const qty = Math.max(1, parseInt(item.qty || item.quantity || 1, 10));
     const price = Math.max(0, parseFloat(item.price || 0));
     if (isNaN(price) || isNaN(qty)) continue;
@@ -1808,24 +1810,24 @@ function renderOrderItemsHtml(meta, langProducts, labels) {
       ? `<s style="opacity:.55;">${currency} ${parseFloat(item.originalPrice).toFixed(2)}</s><br/>${currency} ${price.toFixed(2)} <span style="display:inline-block;background:#c8a96e;color:#1a1714;font-size:11px;font-weight:bold;padding:1px 6px;border-radius:3px;margin-left:4px;">-${itemDiscount}%</span>`
       : `${currency} ${price.toFixed(2)}`;
     html += '<tr style="border-bottom:1px solid #eee;">';
-    html += `<td style="padding:10px;">${name}</td><td style="padding:10px;">${productLabel}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${unitPriceCell}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+    html += `<td style="padding:10px;">${nameCell}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${unitPriceCell}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
   }
   html += '<tr style="border-top:2px solid #ddd;background:#f9f9f9;">';
-  html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? escHtml(labels.subtotal) : "Subtotal"}</td><td style="padding:12px;text-align:right;">${currency} ${subtotal.toFixed(2)}</td></tr>`;
+  html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? escHtml(labels.subtotal) : "Subtotal"}</td><td style="padding:12px;text-align:right;">${currency} ${subtotal.toFixed(2)}</td></tr>`;
   if (discount > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">${labels.discount ? escHtml(labels.discount) : "Discount"}</td><td style="padding:12px;text-align:right;">-${currency} ${discount.toFixed(2)}</td></tr>`;
+    html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.discount ? escHtml(labels.discount) : "Discount"}</td><td style="padding:12px;text-align:right;">-${currency} ${discount.toFixed(2)}</td></tr>`;
   }
   if (shipping > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">${labels.shipping ? escHtml(labels.shipping) : "Shipping"}</td><td style="padding:12px;text-align:right;">${currency} ${shipping.toFixed(2)}</td></tr>`;
+    html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.shipping ? escHtml(labels.shipping) : "Shipping"}</td><td style="padding:12px;text-align:right;">${currency} ${shipping.toFixed(2)}</td></tr>`;
   }
   if (tax > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">${labels.tax ? escHtml(labels.tax) : "Tax"}</td><td style="padding:12px;text-align:right;">${currency} ${tax.toFixed(2)}</td></tr>`;
+    html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.tax ? escHtml(labels.tax) : "Tax"}</td><td style="padding:12px;text-align:right;">${currency} ${tax.toFixed(2)}</td></tr>`;
   }
   html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
-  html += `<td colspan="4" style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? escHtml(labels.total) : "Total"}</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${calculatedTotal.toFixed(2)}</td></tr>`;
+  html += `<td colspan="3" style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? escHtml(labels.total) : "Total"}</td><td style="padding:12px;text-align:right;font-weight:bold;">${currency} ${calculatedTotal.toFixed(2)}</td></tr>`;
   html += "</table>";
   return html;
 }
@@ -1843,11 +1845,10 @@ function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, lab
   const calculatedTotal = subtotal + shipping + tax;
   
   let html = '<table style="border-collapse:collapse;width:100%;margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">';
-  if (labels.image || labels.product || labels.label || labels.qty || labels.unit_price || labels.total) {
+  if (labels.image || labels.product || labels.qty || labels.unit_price || labels.total) {
     html += '<tr style="border-bottom:1px solid #ddd;">';
     if (labels.image) html += `<th style="padding:10px;text-align:left;">${escHtml(labels.image)}</th>`;
     if (labels.product) html += `<th style="padding:10px;text-align:left;">${escHtml(labels.product)}</th>`;
-    if (labels.label) html += `<th style="padding:10px;text-align:left;">${escHtml(labels.label)}</th>`;
     if (labels.qty) html += `<th style="padding:10px;text-align:center;">${escHtml(labels.qty)}</th>`;
     if (labels.unit_price) html += `<th style="padding:10px;text-align:right;">${escHtml(labels.unit_price)}</th>`;
     if (labels.total) html += `<th style="padding:10px;text-align:right;">${escHtml(labels.total)}</th>`;
@@ -1864,6 +1865,9 @@ function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, lab
     }
     name = escHtml(String(name || "Product"));
     productLabel = escHtml(String(productLabel || ""));
+    const nameCell = productLabel
+      ? `${name} <span style="color:#777;">— ${productLabel}</span>`
+      : name;
     let imgHtml = '<div style="width:60px;height:60px;background:#f0f0f0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">No image</div>';
     if (productId && genericProducts[productId] && genericProducts[productId].image) {
       const imgUrl = escHtml(resolveImgUrl(domain, genericProducts[productId].image));
@@ -1879,24 +1883,25 @@ function renderOrderItemsWithImagesHtml(meta, langProducts, genericProducts, lab
       ? `<s style="opacity:.55;">${currency} ${parseFloat(item.originalPrice).toFixed(2)}</s><br/>${currency} ${price.toFixed(2)} <span style="display:inline-block;background:#c8a96e;color:#1a1714;font-size:11px;font-weight:bold;padding:1px 6px;border-radius:3px;margin-left:4px;">-${itemDiscount}%</span>`
       : `${currency} ${price.toFixed(2)}`;
     html += '<tr style="border-bottom:1px solid #eee;">';
-    html += `<td style="padding:10px;text-align:center;">${imgHtml}</td><td style="padding:10px;">${name}</td><td style="padding:10px;">${productLabel}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${unitPriceCell}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
+    html += `<td style="padding:10px;text-align:center;">${imgHtml}</td><td style="padding:10px;">${nameCell}</td><td style="padding:10px;text-align:center;">${qty}</td><td style="padding:10px;text-align:right;">${unitPriceCell}</td><td style="padding:10px;text-align:right;font-weight:bold;">${currency} ${lineTotal}</td></tr>`;
   }
   html += '<tr style="border-top:2px solid #ddd;background:#f9f9f9;">';
-  html += `<td colspan="5" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? escHtml(labels.subtotal) : "Subtotal"} ${currency} ${subtotal.toFixed(2)}</td></tr>`;
+  html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.subtotal ? escHtml(labels.subtotal) : "Subtotal"} ${currency} ${subtotal.toFixed(2)}</td></tr>`;
   if (discount > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="5" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.discount ? escHtml(labels.discount) : "Discount"} -${currency} ${discount.toFixed(2)}</td></tr>`;
+    html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.discount ? escHtml(labels.discount) : "Discount"} -${currency} ${discount.toFixed(2)}</td></tr>`;
   }
   if (shipping > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="5" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.shipping ? escHtml(labels.shipping) : "Shipping"} ${currency} ${shipping.toFixed(2)}</td></tr>`;
+
+    html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.shipping ? escHtml(labels.shipping) : "Shipping"} ${currency} ${shipping.toFixed(2)}</td></tr>`;
   }
   if (tax > 0) {
     html += '<tr style="border-bottom:1px solid #eee;background:#f9f9f9;">';
-    html += `<td colspan="5" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.tax ? escHtml(labels.tax) : "Tax"} ${currency} ${tax.toFixed(2)}</td></tr>`;
+    html += `<td colspan="4" style="padding:12px;"></td><td colspan="1" style="padding:12px;text-align:right;font-weight:bold;">${labels.tax ? escHtml(labels.tax) : "Tax"} ${currency} ${tax.toFixed(2)}</td></tr>`;
   }
   html += '<tr style="border-top:2px solid #ddd;background:#e8f4f8;">';
-  html += `<td colspan="5" style="padding:12px;"></td><td style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? escHtml(labels.total) : "Total"} ${currency} ${calculatedTotal.toFixed(2)}</td></tr>`;
+  html += `<td colspan="4" style="padding:12px;"></td><td style="padding:12px;text-align:right;font-weight:bold;">${labels.total ? escHtml(labels.total) : "Total"} ${currency} ${calculatedTotal.toFixed(2)}</td></tr>`;
   html += "</table>";
   return html;
 }
