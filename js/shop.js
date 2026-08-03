@@ -1396,6 +1396,7 @@ var Shop = (() => {
   
   /* ═══════════════════════════════════════════════════════
 <<<<<<< HEAD
+<<<<<<< HEAD
      FIX: Worker totals methods (ADDED)
   ═══════════════════════════════════════════════════════ */
   function setWorkerTotals(totals) {
@@ -1476,6 +1477,11 @@ var Shop = (() => {
      FIXED: submitOrderDetails() - NOW USES WORKER'S TOTALS
      This fixes the 1 CZK discrepancy between frontend and worker
   ═══════════════════════════════════════════════════════ */
+=======
+     FIXED: submitOrderDetails() - NOW USES WORKER'S TOTALS
+     This fixes the 1 CZK discrepancy between frontend and worker
+  ═══════════════════════════════════════════════════════ */
+>>>>>>> parent of 5252fdf2 (shop)
   async function submitOrderDetails(orderRef, formData, cart, workerTotals = null, captchaEl = null) {
     // USE WORKER'S TOTALS if provided (from payment:success event)
     // This ensures email/ticket matches PayPal exactly
@@ -1511,6 +1517,9 @@ var Shop = (() => {
         }
       }
       return `${i.qty}× ${i.name}${label} @ ${price} each | total: ${price * i.qty} | weight: ${fmtWeight((i.weight||0)*i.qty)}`;
+<<<<<<< HEAD
+>>>>>>> parent of 5252fdf2 (shop)
+=======
 >>>>>>> parent of 5252fdf2 (shop)
     });
     
@@ -1525,7 +1534,11 @@ var Shop = (() => {
       ...filtered,
       items,
 <<<<<<< HEAD
+<<<<<<< HEAD
       subtotal_eur: "€" + (totals.subtotal / (totals.currency === 'EUR' ? 1 : (Currency.getRates()?.[totals.currency]?.rate || 1))).toFixed(2),
+=======
+      subtotal_eur: totals.subtotal ? "€" + (totals.subtotal / (totals.currency === 'EUR' ? 1 : (Currency.getRates()?.[totals.currency]?.rate || 1))).toFixed(2) : null,
+>>>>>>> parent of 5252fdf2 (shop)
 =======
       subtotal_eur: totals.subtotal ? "€" + (totals.subtotal / (totals.currency === 'EUR' ? 1 : (Currency.getRates()?.[totals.currency]?.rate || 1))).toFixed(2) : null,
 >>>>>>> parent of 5252fdf2 (shop)
@@ -1574,8 +1587,11 @@ var Shop = (() => {
     renderShop, renderProductInfo, renderMiniCart, renderBuyNowButton,
     renderTurnstile, submitOrderDetails, submitOrderStatus,
 <<<<<<< HEAD
+<<<<<<< HEAD
     // NEW: Worker totals methods
     setWorkerTotals, getWorkerTotals,
+=======
+>>>>>>> parent of 5252fdf2 (shop)
 =======
 >>>>>>> parent of 5252fdf2 (shop)
   };

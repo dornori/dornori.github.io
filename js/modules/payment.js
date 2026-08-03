@@ -80,6 +80,7 @@ const Payment = (() => {
     const cleanFormData = _collectFormData(formData);
     
 <<<<<<< HEAD
+<<<<<<< HEAD
     // STEP 1: Validate cart with worker to get CORRECT prices
     console.log('🔵 Validating cart with worker...');
     const validation = await _validateWithWorker(cart, countryCode, currency);
@@ -124,6 +125,8 @@ const Payment = (() => {
     };
     
     // STEP 4: Create order with validated cart
+=======
+>>>>>>> parent of 5252fdf2 (shop)
 =======
 >>>>>>> parent of 5252fdf2 (shop)
     const res = await fetch(`${WORKER}/api/create-order`, {
