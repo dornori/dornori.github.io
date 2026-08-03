@@ -99,7 +99,7 @@ const CONFIG = {
     payment: {
         activeProcessor: "paypal",
         paypal: {
-            clientId:   "",
+            clientId:   "AWqba_w8m1T0RmuVa6xwgD8UIbAP-j_w-pmdu8aksmfvjuyqQM3UDIU4gYZxOyWNJ-lJy3PAh_Id8nmM",
             currency:   "EUR",
             intent:     "capture",
             returnPath: "/success.html",
