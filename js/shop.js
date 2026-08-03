@@ -1,11 +1,9 @@
 /* =========================================================
-   WEBSHOP SHOP ENGINE  –  shop.js  (v6 - FIXED PRICE CALCULATIONS)
+   WEBSHOP SHOP ENGINE  –  shop.js  (v5 - FIXED TOTAL DISPLAY)
    =========================================================
-   FIXES:
-   - calculateTotals() now applies discount BEFORE rounding (matches worker)
-   - fmtTotal() now shows exact total with decimals (matches PayPal)
-   - convertCeil() now applies discount before rounding
-   - Price display now matches worker's calculation exactly
+   Language file structure:
+     lang/{lang}/common.json   — UI strings, slugs, profiles
+     lang/{lang}/products.json — product text
    ========================================================= */
 
 if (typeof window.Shop !== "undefined") { var Shop = window.Shop; } else
@@ -48,6 +46,7 @@ var Shop = (() => {
         .split('/')
         .filter(Boolean);
       
+      // Check first path segment against supported languages (dynamic, not hardcoded)
       if (parts.length >= 1 && supported.includes(parts[0])) {
         const langFromPath = parts[0];
         CONFIG.language = langFromPath;
@@ -55,7 +54,7 @@ var Shop = (() => {
         return langFromPath;
       }
     } catch (e) {
-      // silently fail
+      // silently fail, continue to next check
     }
 
     // PRIORITY 2: Check URL query param (?lang=...)
@@ -87,7 +86,7 @@ var Shop = (() => {
     localStorage.setItem(langKey, code);
     _langLoaded = false; _langLoadPromise = null; LANG = {};
     PRODUCT_LANG = {}; PRODUCT_LANG_EN = {};
-    _products = {};
+    _products = {}; // Clear product cache so they reload in the new language
     await loadLang();
     document.dispatchEvent(new CustomEvent("shop:langChanged", { detail: { lang: code } }));
   }
@@ -112,6 +111,7 @@ var Shop = (() => {
   /* ─── VARIANT HELPERS ───────────────────────────────── */
   function getVariant(product, variantId) {
     if (!product.variants?.length) return null;
+    // Variants are now just IDs - look up the actual product
     const variantProduct = _products[variantId];
     return variantProduct || null;
   }
@@ -127,6 +127,7 @@ var Shop = (() => {
     const v = getVariant(product, variantId);
     return (v && v.dimensions) ? v.dimensions : (product.dimensions || null);
   }
+  // Volumetric (dimensional) weight in kg from L×W×H (cm) using CONFIG.shipping.volumetricDivisor.
   function volumetricWeight(dimensions) {
     if (!dimensions) return 0;
     const { l, w, h } = dimensions;
@@ -134,6 +135,7 @@ var Shop = (() => {
     if (!l || !w || !h) return 0;
     return (l * w * h) / divisor;
   }
+  // Billable weight for one unit: the greater of actual weight and volumetric weight.
   function billableWeight(item) {
     const actual = item.weight || 0;
     const vol = volumetricWeight(item.dimensions);
@@ -168,6 +170,7 @@ var Shop = (() => {
     try {
       localStorage.setItem(CONFIG.storageKeys?.cartKey || "webshop_cart", JSON.stringify(cart));
     } catch (e) {
+      // Handle quota exceeded or private browsing
       if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_FILE_CORRUPTED') {
         console.warn('[shop] localStorage quota exceeded or unavailable:', e);
         toast("Storage unavailable - your cart may not persist", 3000);
@@ -177,6 +180,8 @@ var Shop = (() => {
   }
   function addToCart(product, qty = 1, variantId = null, selectedColor = null, imageOverride = null) {
     const cart  = getCart();
+    // If variantId is selected and is itself a standalone product, use it as cartKey base
+    // Otherwise use the current product ID + variant suffix
     const cartBase = variantId && variantId.match(/^mushroom-|^ufo-|^star-/) ? variantId : product.id;
     const vKey = (variantId && !cartBase.match(/^mushroom-|^ufo-|^star-/)) ? variantId : (selectedColor || "");
     const key = cartBase + (vKey ? "_" + slugify(vKey) : "");
@@ -221,75 +226,59 @@ var Shop = (() => {
     return { code, rate: c ? c.rate : 1, decimals: c ? c.decimals : 2, symbol: c ? c.symbol : "€" };
   }
 
-  /* ═══════════════════════════════════════════════════════
-     FIXED: convertCeil() - applies discount BEFORE rounding
-     Matches worker.js behavior exactly
-  ═══════════════════════════════════════════════════════ */
-  function convertCeil(eurAmount, currencyCode, discountPercent = 0) {
+  // Converts a single EUR amount to the given/active currency and rounds UP once —
+  // the same single-step conversion the server (pay-worker) performs. Use this
+  // instead of converting a value twice (e.g. once in EUR, once after conversion).
+  function convertCeil(eurAmount, currencyCode) {
     const { rate } = _currencyInfo(currencyCode);
-    // Apply discount BEFORE conversion (matches worker)
-    const discounted = discountPercent > 0 ? eurAmount * (1 - discountPercent / 100) : eurAmount;
-    return Math.ceil(discounted * rate);
+    return Math.ceil(eurAmount * rate);
   }
 
-  /* ═══════════════════════════════════════════════════════
-     FIXED: calculateTotals() - applies discount BEFORE rounding
-     This fixes the 1 CZK discrepancy with the worker
-  ═══════════════════════════════════════════════════════ */
+  // Formats an amount that has ALREADY been converted to the active currency
+  // (e.g. from calculateTotals or convertCeil) — no further conversion, whole units.
+  function fmtWhole(amount, currencyCode) {
+    const { symbol } = _currencyInfo(currencyCode);
+    return symbol + "\u00A0" + Math.ceil(amount);
+  }
+
+  // Formats an amount that has ALREADY been converted to the active currency,
+  // preserving decimals — for tax and total, which are never rounded to whole units.
+  function fmtDecimal(amount, currencyCode) {
+    const { symbol, decimals } = _currencyInfo(currencyCode);
+    return symbol + "\u00A0" + amount.toFixed(decimals);
+  }
+
   function calculateTotals(cart, isBusiness = false, countryCode = null, currencyCode = null) {
     const { rate, decimals, code } = _currencyInfo(currencyCode);
 
-    // FIX: Apply discount BEFORE rounding per unit (matches worker)
-    // 1. For each item, calculate discounted price in EUR first
-    // 2. Then convert to target currency and round ONCE
-    const subtotal = cart.reduce((a, i) => {
-      const discount = i.discount || 0;
-      // Apply discount to EUR price FIRST (matches worker)
-      const discountedEUR = discount > 0 ? i.price * (1 - discount / 100) : i.price;
-      // Then convert and round ONCE (matches worker)
-      return a + Math.ceil(discountedEUR * rate) * i.qty;
+    // EUR-space subtotal is only used for the free-shipping threshold check,
+    // since thresholds are configured in EUR.
+    const subtotalEUR = cart.reduce((a, i) => a + i.price * i.qty, 0);
+
+    // Subtotal in the active currency: convert + round UP per unit, then multiply by qty
+    // (matches pay-worker.txt and the per-item price shown on each cart row exactly —
+    // never round a summed line total, always round the unit price first).
+    const subtotal = cart.reduce((a, i) => a + Math.ceil(i.price * rate) * i.qty, 0);
+    const totalDiscount = cart.reduce((a, i) => {
+      if (i.originalPrice && i.discount > 0) {
+        return a + (Math.ceil(i.originalPrice * rate) - Math.ceil(i.price * rate)) * i.qty;
+      }
+      return a;
     }, 0);
-
-    // Original price (pre-discount) for display and discount calculation
-    const originalSubtotal = cart.reduce((a, i) => {
-      return a + Math.ceil(i.price * rate) * i.qty;
-    }, 0);
-
-    // Total discount = original subtotal - discounted subtotal (matches worker)
-    const totalDiscount = originalSubtotal - subtotal;
-
-    const totalWeight = cart.reduce((a, i) => a + (i.weight || 0) * i.qty, 0);
+    const totalWeight    = cart.reduce((a, i) => a + (i.weight || 0) * i.qty, 0);
+    // Billable weight accounts for both actual weight AND package dimensions (volumetric weight),
+    // per item, since bulky-but-light items still cost more to ship. Carriers bill on whichever is greater.
     const totalBillableWeight = cart.reduce((a, i) => a + billableWeight(i) * i.qty, 0);
-    
     let cfg = { base: CONFIG.shipping.base, perKg: CONFIG.shipping.perKg, freeThreshold: CONFIG.shipping.freeThreshold, estimatedDays: CONFIG.shipping.estimatedDays };
     if (countryCode && typeof Shipping !== "undefined") cfg = Shipping.getRate(countryCode);
-    
-    // Subtotal in EUR for free shipping threshold check
-    const subtotalEUR = cart.reduce((a, i) => a + i.price * i.qty, 0);
     const isFreeShipping = subtotalEUR >= cfg.freeThreshold;
-    
-    // Shipping: convert EUR to currency and round ONCE (matches worker)
-    const shippingEUR = isFreeShipping ? 0 : (cfg.base + totalBillableWeight * cfg.perKg);
-    const shipping = Math.ceil(shippingEUR * rate);
-
-    // Tax: calculated on subtotal + shipping (matches worker)
+    // Shipping in the active currency: convert the raw EUR shipping cost once, round UP once.
+    const shipping = isFreeShipping ? 0 : Math.ceil((cfg.base + totalBillableWeight * cfg.perKg) * rate);
+    // Tax is calculated ONLY on the already-rounded subtotal + shipping (the exact figures
+    // the customer sees) — never on raw/unrounded amounts. Kept with currency decimals.
     const tax = isBusiness ? 0 : roundToDecimals((subtotal + shipping) * CONFIG.taxRate, decimals);
     const total = subtotal + shipping + tax;
-
-    return { 
-      subtotal, 
-      originalSubtotal,
-      shipping, 
-      tax, 
-      total, 
-      totalWeight, 
-      totalBillableWeight, 
-      isFreeShipping, 
-      estimatedDays: cfg.estimatedDays, 
-      totalDiscount, 
-      currency: code, 
-      decimals 
-    };
+    return { subtotal, shipping, tax, total, totalWeight, totalBillableWeight, isFreeShipping, estimatedDays: cfg.estimatedDays, totalDiscount, currency: code, decimals };
   }
 
   /* ─── LANG LOADER ───────────────────────────────────── */
@@ -325,6 +314,8 @@ var Shop = (() => {
   function loadLang() {
     if (_langLoaded) return Promise.resolve(LANG);
     if (_langLoadPromise) return _langLoadPromise;
+    // Use CONFIG.language directly — it's already set by switchLanguage() or resolveLanguage() at init.
+    // Calling resolveLanguage() here would re-read the URL which may not yet reflect the new language.
     const lang = CONFIG.language || resolveLanguage();
 
     const safeFetch = url => fetch(url)
@@ -355,7 +346,8 @@ var Shop = (() => {
 
   /* ─── FORMAT ────────────────────────────────────────── */
   function fmt(eurAmount) {
-    // Rounded-up, no-decimal display — used for prices, shipping, subtotal ONLY
+    // Rounded-up, no-decimal display — used for prices, shipping, subtotal ONLY.
+    // NEVER use for tax or total.
     if (typeof Currency !== "undefined" && Currency.getActive && Currency.isReady && Currency.isReady()) {
       if (Currency.getActive() !== "EUR") return Currency.fmt(eurAmount);
     }
@@ -363,7 +355,8 @@ var Shop = (() => {
   }
   
   function fmtExact(eurAmount) {
-    // Exact, decimal-preserving display — used for tax
+    // Exact, decimal-preserving display — used for tax, in every currency incl. base.
+    // NEVER round tax amounts - legal requirement.
     if (typeof Currency !== "undefined" && Currency.getActive && Currency.isReady && Currency.isReady()) {
       if (Currency.getActive() !== "EUR") return Currency.fmtExact(eurAmount);
     }
@@ -371,8 +364,9 @@ var Shop = (() => {
   }
   
   function fmtTotal(eurAmount) {
-    // Exact, decimal-preserving display — used for TOTAL display
-    // This ensures customers see EXACTLY what they'll be charged
+    // Exact, decimal-preserving display — used for TOTAL display.
+    // This ensures customers see EXACTLY what they'll be charged.
+    // Matches the exact amount used in payment processing.
     if (typeof Currency !== "undefined" && Currency.getActive && Currency.isReady && Currency.isReady()) {
       if (Currency.getActive() !== "EUR") return Currency.fmtExact(eurAmount);
     }
@@ -391,6 +385,7 @@ var Shop = (() => {
       .then(r => { if (!r.ok) throw 0; return r.json(); })
       .catch(() => null);
     
+    // 1. Always load base products first
     const src = CONFIG.data?.productsJson || "data/products.json";
     let all = [];
     try {
@@ -400,6 +395,7 @@ var Shop = (() => {
       return [];
     }
     
+    // 2. Try to overlay language-specific overrides
     if (lang && langDir) {
       const langProducts = await safeFetch(langDir + lang + '/products.json');
       if (langProducts && Array.isArray(all)) {
@@ -431,6 +427,7 @@ var Shop = (() => {
   }
   
   async function getProduct(id) {
+    // Use cache if populated; otherwise load via loadProducts() to avoid duplicate fetches
     if (_products[id]) return _products[id];
     if (Object.keys(_products).length === 0) await loadProducts();
     return _products[id] || null;
@@ -480,6 +477,7 @@ var Shop = (() => {
       if (Currency.waitForReady) await Currency.waitForReady();
       const active = Currency.getActive();
       const isMobile = window.innerWidth <= 768;
+      // Render only the <select> — label/icon are handled by the wrapper in nav-loader
       container.innerHTML =
         `<select class="profile-select" aria-label="Currency">
           ${Currency.list().map(c => `<option value="${c.code}"${c.code===active?" selected":""}>${isMobile ? c.code : c.code + ' ' + c.symbol}</option>`).join("")}
@@ -503,6 +501,7 @@ var Shop = (() => {
         document.querySelectorAll(selector).forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         await switchLanguage(code);
+        // Do not push ?lang= — language is managed via path-based routing and localStorage.
       });
     });
   }
@@ -531,6 +530,7 @@ var Shop = (() => {
     const mount = target === "body" ? document.body : document.querySelector(target);
     if (!mount) return;
 
+    /* ── Idempotent: if an icon already exists in this slot, just update its href ── */
     const existing = mount.querySelector(".webshop-cart-icon-wrap");
     if (existing) {
       const link = existing.querySelector(".webshop-cart-icon");
@@ -538,6 +538,7 @@ var Shop = (() => {
       return;
     }
 
+    /* Outer wrapper — positions the dropdown relative to the icon */
     const outer = document.createElement("div");
     outer.className = "webshop-cart-icon-wrap" + (fixed ? " webshop-cart-icon-wrap--fixed" : "");
 
@@ -545,9 +546,10 @@ var Shop = (() => {
     wrapper.href = cartUrl;
     wrapper.className = "webshop-cart-icon";
     wrapper.setAttribute("aria-label", t("aria_shopping_cart", "Shopping cart"));
-    wrapper.innerHTML = `<img src="/assets/icons/cart-icon-200x200.svg" alt="" aria-hidden="true">
+	wrapper.innerHTML = `<img src="/assets/icons/cart-icon-200x200.svg" alt="" aria-hidden="true">
    <span class="webshop-cart-icon__badge" aria-live="polite">0</span>`;
-    
+	
+    // Use SPA navigation instead of full page reload
     wrapper.addEventListener('click', e => { 
       e.preventDefault(); 
       if (typeof window.viewPage === 'function') {
@@ -557,6 +559,7 @@ var Shop = (() => {
       }
     });
 
+    /* Hover dropdown */
     const dropdown = document.createElement("div");
     dropdown.className = "webshop-cart-hover-panel";
 
@@ -568,8 +571,10 @@ var Shop = (() => {
     function renderDropdown() {
       loadLang().then(() => {
         const cart = getCart();
-        const { subtotal, total, shipping, isFreeShipping, totalDiscount } = calculateTotals(cart);
+        const { subtotal, total, shipping, isFreeShipping } = calculateTotals(cart);
         
+        // Use the CURRENT LANG variable (just reloaded by loadLang)
+        // Don't cache translations in helper functions - use t() directly
         if (!cart.length) {
           dropdown.innerHTML = `<p class="webshop-cart-hover-panel__empty">${t("cart_empty", "Your cart is empty")}</p>`;
           return;
@@ -594,12 +599,12 @@ var Shop = (() => {
               </li>`).join("")}
           </ul>
           <div class="webshop-cart-hover-panel__footer">
-            ${totalDiscount > 0 ? `<div class="webshop-cart-hover-panel__totals" style="color:#cc0c39;font-weight:600;"><span>${t("you_save","You save")}</span><span>-${fmt(totalDiscount)}</span></div>` : ""}
+            ${(() => { const s = cart.reduce((a,i) => a + (i.originalPrice ? (i.originalPrice - i.price) * i.qty : 0), 0); return s > 0 ? `<div class="webshop-cart-hover-panel__totals" style="color:#cc0c39;font-weight:600;"><span>${t("you_save","You save")}</span><span>-${fmt(s)}</span></div>` : ""; })()}
             <div class="webshop-cart-hover-panel__totals">
-              <span>${t("subtotal","Subtotal")}</span><span>${fmt(subtotal)}</span>
+              <span>${t("subtotal","Subtotal")}</span><span>${fmtWhole(subtotal)}</span>
             </div>
             <div class="webshop-cart-hover-panel__totals webshop-cart-hover-panel__totals--shipping">
-              <span>${t("shipping","Shipping")}</span><span>${isFreeShipping ? t("free","FREE") : fmt(shipping)}</span>
+              <span>${t("shipping","Shipping")}</span><span>${isFreeShipping ? t("free","FREE") : fmtWhole(shipping)}</span>
             </div>
             <a class="webshop-btn webshop-btn--primary" href="${(typeof window !== 'undefined' && window.__CART_URL__) || cartUrl}">${t("checkout","Checkout")}</a>
           </div>`;
@@ -625,20 +630,29 @@ var Shop = (() => {
   /* ═══════════════════════════════════════════════════════
      RELATED PRODUCTS STRIP
   ═══════════════════════════════════════════════════════ */
+  /* Resolve a related entry: accepts either a string ID or a legacy inline object */
   function _resolveRelated(entry) {
     if (typeof entry === "string") return _products[entry] || null;
     if (entry && typeof entry === "object") {
+      /* prefer cached version if available (has translated name etc) */
       return _products[entry.id] || entry;
     }
     return null;
   }
 
   function buildRelatedStrip(product, context = "card", options = {}) {
+    /* Check display flags - control what to show
+     * options.showAddons: true/false (default false) - show addons section
+     * options.showRelated: true/false (default false) - show related products section
+     * 
+     * FIXED: Now shows BOTH addons AND related when both flags are true
+     */
     const showAddons = options.showAddons === true;
     const showRelated = options.showRelated === true;
     
     let html = '';
     
+    // Show ADDONS section if flag is true AND product has addons
     if (showAddons && product.addons?.length) {
       const addonItems = product.addons.map(_resolveRelated).filter(Boolean);
       if (addonItems.length) {
@@ -660,6 +674,7 @@ var Shop = (() => {
       }
     }
     
+    // Show RELATED section if flag is true AND product has related
     if (showRelated && product.related?.length) {
       const relatedItems = product.related.map(_resolveRelated).filter(Boolean);
       if (relatedItems.length) {
@@ -685,6 +700,7 @@ var Shop = (() => {
   }
 
   function wireRelatedStrip(container, product, options = {}) {
+    // Single listener per button — avoids double-fire when both addons + related shown
     container.querySelectorAll(".webshop-related__add").forEach(btn => {
       btn.addEventListener("click", e => {
         e.stopPropagation();
@@ -700,11 +716,14 @@ var Shop = (() => {
      PRODUCT CARD
   ═══════════════════════════════════════════════════════ */
   function buildProductCard(p, options = {}) {
+    // Options: { showVariants: true/false, showRelated: true/false, showAddons: true/false }
+    // Defaults: all false (minimal card with just main product)
     const showVariants = options.showVariants === true;
     const showRelated = options.showRelated === true;
     const showAddons = options.showAddons === true;
     
     const hasVariants  = p.variants?.length > 0 && showVariants;
+    // Default display uses the product itself (not first variant)
     const displayPrice = p.price;
     const discountPercent = p.discount || 0;
     const discountedPrice = discountPercent > 0 ? displayPrice * (1 - discountPercent / 100) : displayPrice;
@@ -713,6 +732,8 @@ var Shop = (() => {
 
     let selectorHtml = "";
     if (hasVariants) {
+      // Prepend a "self" button for the main product, active by default.
+      // Button label comes from data/products.json label field, not the translated name.
       const selfLabel = p.selfLabel || p.label || p.name || pName(p) || p.id;
       const selfBtn = `<button class="webshop-variant-btn active" data-variant-id="${p.id}" title="${selfLabel}">${selfLabel}</button>`;
       selectorHtml = `<div class="webshop-variants">${selfBtn}${p.variants.map((vid) => {
@@ -730,6 +751,7 @@ var Shop = (() => {
       }).join("")}</div>`;
     }
 
+    // Build a lang-aware product URL — ignore p.url which is hardcoded to /en/
     const lang    = CONFIG.language || resolveLanguage();
     const base    = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || CONFIG.data?.basePath || '/';
     const slug    = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
@@ -738,16 +760,19 @@ var Shop = (() => {
     const wTag    = `a href="${prodUrl}"`;
     const wEnd    = 'a';
 
+    // Resolve label text and button text
     const upLabelText = getUpLabelText(p);
     const downLabelText = getDownLabelText(p);
     const urlText = getUrlText(p);
     
+    // Determine button label for products with URL redirect
     let btnLabel = t("add_to_cart","Add to Cart");
     let btnDisabled = !inStock;
     if (p.url) {
       if (urlText) {
         btnLabel = urlText;
       } else {
+        // Extract domain name from URL
         try {
           const urlObj = new URL(p.url.startsWith("http") ? p.url : "http://" + p.url);
           let domain = urlObj.hostname;
@@ -758,7 +783,7 @@ var Shop = (() => {
           btnLabel = "Visit";
         }
       }
-      btnDisabled = false;
+      btnDisabled = false; // Always enable redirect buttons
     }
 
     return `
@@ -792,17 +817,22 @@ var Shop = (() => {
     let qty = 1;
     const hasVariants = p.variants?.length > 0;
 
+    // selectedVariantId = null means "main product is selected" (no variant override).
+    // The self-button (data-variant-id === p.id) always maps back to null.
     let selectedVariantId = null;
     let selectedColor = !hasVariants && p.colors ? p.colors[0] : null;
 
     const img     = card.querySelector(".webshop-card-img");
     const addBtn  = card.querySelector(".webshop-card-atc");
 
+    // effectiveVariantId: null when main product or self-button selected.
+    // Prevents duplicate cart keys and uses product's own price/image/stock.
     function effectiveVid() {
       return (selectedVariantId === null || selectedVariantId === p.id) ? null : selectedVariantId;
     }
 
     function refresh(currencyOnly = false) {
+      // For currency-only updates on non-variant products, rebuild footer to ensure correct price display
       if (!hasVariants) {
         if (!currencyOnly) return;
         const discount = p.discount || 0;
@@ -829,6 +859,7 @@ var Shop = (() => {
                 <button class="webshop-qty-btn webshop-qty-btn--plus" aria-label="Increase quantity"">+</button>
               </div>`:""}`;
           }
+          // Re-wire qty buttons after rebuild
           const qv = footer.querySelector(".webshop-qty-val");
           footer.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { 
             const max = p.stock || 99; 
@@ -851,6 +882,7 @@ var Shop = (() => {
       const inStock = evid ? variantInStock(p, evid) : (p.stock > 0);
       const imgSrc  = evid ? variantImage(p, evid) : p.image;
       
+      // Always rebuild footer to properly handle discount/no-discount transitions
       const footer = card.querySelector(".webshop-card-footer");
       if (footer) {
         const qtyVal = footer.querySelector(".webshop-qty-val")?.textContent || qty;
@@ -874,6 +906,7 @@ var Shop = (() => {
             </div>`:""}`;
         }
         
+        // Re-wire qty buttons after rebuild
         const qv = footer.querySelector(".webshop-qty-val");
         footer.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { 
           const evid = effectiveVid(); 
@@ -887,6 +920,7 @@ var Shop = (() => {
         });
       }
       
+      // Update discount badge visibility
       const badgeEl = card.querySelector(".webshop-badge--discount");
       if (badgeEl) {
         if (discount > 0) {
@@ -905,6 +939,7 @@ var Shop = (() => {
       btn.addEventListener("click", () => {
         card.querySelectorAll(".webshop-variant-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
+        // Self-button (p.id) → null so cart uses main product key
         selectedVariantId = (btn.dataset.variantId === p.id) ? null : btn.dataset.variantId;
         refresh();
       });
@@ -920,6 +955,7 @@ var Shop = (() => {
     card.querySelector(".webshop-qty-btn--plus")?.addEventListener("click", () => { const evid = effectiveVid(); const max = evid ? variantStock(p, evid) : (p.stock||99); qty = Math.min(qty+1, max||99); qv.textContent = qty; });
     card.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty = Math.max(1, qty-1); qv.textContent = qty; });
     addBtn?.addEventListener("click", () => {
+      // Check if product has a URL redirect
       if (p.url) {
         window.location.href = p.url;
         return;
@@ -931,6 +967,7 @@ var Shop = (() => {
     });
     const buyNowBtn = card.querySelector(".webshop-card-buynow-overlay");
     buyNowBtn?.addEventListener("click", () => {
+      // Check if product has a URL redirect
       if (p.url) {
         window.location.href = p.url;
         return;
@@ -939,6 +976,7 @@ var Shop = (() => {
       addToCart(p, 1, evid, selectedColor, img?.src || null);
       const itemName = evid ? variantLabel(p, evid) : (p.label || p.id);
       toast(`${itemName} ${t("added","added to cart")}`);
+      // Navigate to cart
       setTimeout(() => {
         if (typeof window.viewPage === 'function') {
           window.viewPage('cart');
@@ -949,6 +987,7 @@ var Shop = (() => {
       }, 100);
     });
     wireRelatedStrip(card, p, options);
+    // Store refresh so onCurrencyChange can call it with correct variant state
     card._shopRefresh = refresh;
     document.addEventListener("currency:changed", () => refresh(true));
   }
@@ -963,6 +1002,7 @@ var Shop = (() => {
     if (!container) return;
     const { columns = "auto", showFilter = true } = options;
 
+    // Read feature flags from container data attributes (or passed options)
     const cardOptions = {
       showVariants: options.showVariants !== undefined ? options.showVariants : container.hasAttribute('data-variants'),
       showRelated:  options.showRelated  !== undefined ? options.showRelated  : container.hasAttribute('data-related'),
@@ -997,18 +1037,21 @@ var Shop = (() => {
     }
     buildGrid();
     const onLangChange = async () => {
-      products = await loadProducts();
+      products = await loadProducts(); // Reload products in the new language
       buildGrid();
     };
     const onCurrencyChange = () => {
       container.querySelectorAll(".webshop-product-card").forEach(card => {
+        // Prefer the stored refresh fn (set by wireProductCard) so variant state is respected
         if (typeof card._shopRefresh === "function") { card._shopRefresh(true); return; }
+        // Fallback: determine active variant from DOM
         const p = products.find(p => p.id === card.dataset.productId); if (!p) return;
         const activeBtn = card.querySelector(".webshop-variant-btn.active");
         const vid = activeBtn ? (activeBtn.dataset.variantId === p.id ? null : activeBtn.dataset.variantId) : null;
         const rawPrice = vid ? variantPrice(p, vid) : p.price;
         const discountPercent = vid ? variantDiscount(p, vid) : (p.discount || 0);
         const discountedPrice = discountPercent > 0 ? rawPrice * (1 - discountPercent / 100) : rawPrice;
+        // Update price elements
         const footer = card.querySelector(".webshop-card-footer");
         if (footer) {
           const origEl = footer.querySelector(".webshop-card-price--original");
@@ -1021,6 +1064,7 @@ var Shop = (() => {
             if (plainEl) plainEl.textContent = fmt(rawPrice);
           }
         }
+        // Update discount badge
         const badgeEl = card.querySelector(".webshop-badge--discount");
         if (badgeEl) {
           if (discountPercent > 0) { badgeEl.textContent = `${discountPercent}% ${t("off_badge","OFF")}`; badgeEl.style.display = ""; }
@@ -1042,10 +1086,12 @@ var Shop = (() => {
     if (!container) return;
     container.classList.add("webshop-product-info");
     const hasVariants = p.variants?.length > 0;
+    // null = main product is selected (no variant override). Self-button maps back to null.
     let selectedVariantId = null;
     let selectedColor = !hasVariants && p.colors ? p.colors[0] : null;
     let qty = 1;
 
+    // effectiveVariantId: null when main product or self-button selected.
     function effectiveVid() {
       return (selectedVariantId === null || selectedVariantId === p.id) ? null : selectedVariantId;
     }
@@ -1208,6 +1254,7 @@ var Shop = (() => {
       const atcBtn  = container.querySelector("#pinfo-atc-"+productId);
       const wtEl    = container.querySelector(".webshop-weight-info");
 
+      // Handle info tabs
       container.querySelectorAll(".webshop-info-tab-btn").forEach(btn => {
         btn.addEventListener("click", () => {
           container.querySelectorAll(".webshop-info-tab-btn").forEach(b => b.classList.remove("active"));
@@ -1229,6 +1276,7 @@ var Shop = (() => {
         const wt      = evid ? variantWeight(p, evid) : (p.weight || 0);
         const imgSrc  = evid ? variantImage(p, evid) : p.image;
         
+        // Update price display - rebuild price group to show/hide discount elements
         const priceGroup = container.querySelector(".webshop-product-price-group");
         if (priceGroup) {
           if (discount > 0) {
@@ -1246,11 +1294,13 @@ var Shop = (() => {
         if (mainImg) swapMainImg(mainImg, imgSrc, p.image);
         if (wtEl)    wtEl.textContent = `${t("weight","Weight")}: ${fmtWeight(wt)}`;
         
+        // Re-attach ATC button handler with current variant state
         if (atcBtn) {
           atcBtn.replaceWith(atcBtn.cloneNode(true));
           const newAtcBtn = container.querySelector(`#pinfo-atc-${productId}`);
           newAtcBtn?.addEventListener("click", () => { 
             const currentEvid = effectiveVid(); 
+            // Check if active variant or parent product has URL redirect
             const urlTarget = currentEvid ? (_products[currentEvid]?.url || null) : (p.url || null);
             if (urlTarget) { window.location.href = urlTarget; return; }
             addToCart(p, qty, currentEvid, selectedColor, mainImg?.src || null); 
@@ -1281,6 +1331,7 @@ var Shop = (() => {
               if (vplayer) { vplayer.style.display="block"; vplayer.src=vsrc; vplayer.play().catch(()=>{}); }
             }
           } else {
+            // Image thumb — hide video, show image
             if (vplayer) { vplayer.pause(); vplayer.src=""; }
             if (ytIframe) ytIframe.src = "";
             if (videoWrap) videoWrap.style.display = "none";
@@ -1299,6 +1350,7 @@ var Shop = (() => {
       container.querySelector(".webshop-qty-btn--minus")?.addEventListener("click", () => { qty=Math.max(1,qty-1); qv.textContent=qty; });
       atcBtn?.addEventListener("click", () => { 
         const evid=effectiveVid(); 
+        // Check if active variant or parent product has URL redirect
         const urlTarget = evid ? (_products[evid]?.url || null) : (p.url || null);
         if (urlTarget) { window.location.href = urlTarget; return; }
         addToCart(p,qty,evid,selectedColor,mainImg?.src||null); const itemName=evid?(getVariant(p,evid)?.label||evid):(p.label||p.id); toast(`${itemName} ${t("added","added to cart")}`); 
@@ -1307,9 +1359,10 @@ var Shop = (() => {
     }
     build();
     document.addEventListener("shop:langChanged", async () => {
+      // Reload the product in the new language
       const newProduct = await getProduct(productId);
       if (newProduct) {
-        Object.assign(p, newProduct);
+        Object.assign(p, newProduct); // Update product object with new language data
         build();
       }
     });
@@ -1394,182 +1447,33 @@ var Shop = (() => {
     });
   }
   
-  /* ═══════════════════════════════════════════════════════
-<<<<<<< HEAD
-<<<<<<< HEAD
-     FIX: Worker totals methods (ADDED)
-  ═══════════════════════════════════════════════════════ */
-  function setWorkerTotals(totals) {
-    _workerTotals = totals;
-  }
-
-  function getWorkerTotals() {
-    return _workerTotals;
-  }
-
-  /* ─── MODIFIED submitOrderDetails ────────────────────── */
-  const _originalSubmitOrderDetails = submitOrderDetails;
-  
-  // Override submitOrderDetails to use worker totals when available
-  submitOrderDetails = async function(orderRef, formData, cart, captchaEl = null) {
-    // If we have worker totals, use them
-    if (_workerTotals) {
-      const items = cart.map(i => {
-        const label = i.productLabel ? ` — ${i.productLabel}` : "";
-        let price = i.price;
-        if (_workerTotals.items) {
-          const workerItem = _workerTotals.items.find(w => w.id === i.id);
-          if (workerItem) {
-            price = workerItem.price;
-          }
-        }
-        return `${i.qty}× ${i.name}${label} @ ${price} each | total: ${price * i.qty} | weight: ${fmtWeight((i.weight||0)*i.qty)}`;
-      });
-      
-      const filtered = {}; 
-      Object.entries(formData).forEach(([k,v]) => { if (v!=null&&v!=="") filtered[k]=v; });
-      
-      const data = {
-        _subject: `New Order ${orderRef}`,
-        order_ref: orderRef,
-        status: "PENDING_PAYMENT",
-        display_currency: CONFIG.currencyCode,
-        ...filtered,
-        items,
-        subtotal_display: fmt(_workerTotals?.subtotal || 0),
-        tax: fmtExact(_workerTotals?.tax || 0),
-        shipping: _workerTotals?.isFreeShipping ? "FREE" : fmt(_workerTotals?.shipping || 0),
-        total_display: fmtTotal(_workerTotals?.total || 0),
-        total_weight: fmtWeight(_workerTotals?.totalWeight || 0),
-        total_discount: fmt(_workerTotals?.totalDiscount || 0),
-        // Store worker's exact values for debugging
-        _worker_subtotal: _workerTotals?.subtotal,
-        _worker_shipping: _workerTotals?.shipping,
-        _worker_tax: _workerTotals?.tax,
-        _worker_total: _workerTotals?.total,
-        _worker_currency: _workerTotals?.currency,
-        _worker_decimals: _workerTotals?.decimals,
-      };
-      
-      try { 
-        const fn = (typeof sendToQueue !== "undefined" ? sendToQueue : window.sendToQueue); 
-        if (!fn) { console.warn("sendToQueue not available"); return false; } 
-        const ok = await fn("payment-pending", data); 
-        return ok; 
-      } catch(e) { 
-        console.warn("Queue failed",e); 
-        return false; 
-      }
-    }
-    
-    // Fallback: use original function
-    return _originalSubmitOrderDetails(orderRef, formData, cart, captchaEl);
-  };
-
-  /* ─── ORIGINAL submitOrderDetails (kept for fallback) ─ */
-  async function _originalSubmitOrderDetails(orderRef, formData, cart, captchaEl = null) {
+  async function submitOrderDetails(orderRef, formData, cart, captchaEl = null) {
     const totals = calculateTotals(cart, formData.isBusiness, formData.country);
-    
     const items = cart.map(i => {
       const label = i.productLabel ? ` — ${i.productLabel}` : "";
       return `${i.qty}× ${i.name}${label} @ ${fmt(i.price)} each | total: ${fmt((parseFloat(i.price)||0)*i.qty)} | weight: ${fmtWeight((i.weight||0)*i.qty)}`;
-=======
-     FIXED: submitOrderDetails() - NOW USES WORKER'S TOTALS
-     This fixes the 1 CZK discrepancy between frontend and worker
-  ═══════════════════════════════════════════════════════ */
-=======
-     FIXED: submitOrderDetails() - NOW USES WORKER'S TOTALS
-     This fixes the 1 CZK discrepancy between frontend and worker
-  ═══════════════════════════════════════════════════════ */
->>>>>>> parent of 5252fdf2 (shop)
-  async function submitOrderDetails(orderRef, formData, cart, workerTotals = null, captchaEl = null) {
-    // USE WORKER'S TOTALS if provided (from payment:success event)
-    // This ensures email/ticket matches PayPal exactly
-    let totals;
-    if (workerTotals) {
-      // Use worker's calculated totals (already in correct currency with proper rounding)
-      totals = {
-        subtotal: workerTotals.subtotal || 0,
-        shipping: workerTotals.shipping || 0,
-        tax: workerTotals.tax || 0,
-        total: workerTotals.total || 0,
-        totalDiscount: workerTotals.totalDiscount || 0,
-        totalWeight: 0,
-        isFreeShipping: false,
-        currency: workerTotals.currency || 'EUR',
-        decimals: workerTotals.decimals || 2
-      };
-    } else {
-      // Fallback: calculate from cart (should match worker's logic now)
-      totals = calculateTotals(cart, formData.isBusiness, formData.country);
-    }
-    
-    const items = cart.map(i => {
-      const label = i.productLabel ? ` — ${i.productLabel}` : "";
-      // Use worker's price if available (from workerTotals.items)
-      let price = i.price;
-      let originalPrice = i.originalPrice;
-      if (workerTotals && workerTotals.items) {
-        const workerItem = workerTotals.items.find(w => w.id === i.id);
-        if (workerItem) {
-          price = workerItem.price;
-          originalPrice = workerItem.unitPriceOriginal || workerItem.price;
-        }
-      }
-      return `${i.qty}× ${i.name}${label} @ ${price} each | total: ${price * i.qty} | weight: ${fmtWeight((i.weight||0)*i.qty)}`;
-<<<<<<< HEAD
->>>>>>> parent of 5252fdf2 (shop)
-=======
->>>>>>> parent of 5252fdf2 (shop)
     });
-    
-    const filtered = {}; 
-    Object.entries(formData).forEach(([k,v]) => { if (v!=null&&v!=="") filtered[k]=v; });
-    
+    const filtered = {}; Object.entries(formData).forEach(([k,v]) => { if (v!=null&&v!=="") filtered[k]=v; });
     const data = {
-      _subject: `New Order ${orderRef}`,
-      order_ref: orderRef,
-      status: "PENDING_PAYMENT",
-      display_currency: CONFIG.currencyCode,
-      ...filtered,
-      items,
-<<<<<<< HEAD
-<<<<<<< HEAD
-      subtotal_eur: "€" + (totals.subtotal / (totals.currency === 'EUR' ? 1 : (Currency.getRates()?.[totals.currency]?.rate || 1))).toFixed(2),
-=======
-      subtotal_eur: totals.subtotal ? "€" + (totals.subtotal / (totals.currency === 'EUR' ? 1 : (Currency.getRates()?.[totals.currency]?.rate || 1))).toFixed(2) : null,
->>>>>>> parent of 5252fdf2 (shop)
-=======
-      subtotal_eur: totals.subtotal ? "€" + (totals.subtotal / (totals.currency === 'EUR' ? 1 : (Currency.getRates()?.[totals.currency]?.rate || 1))).toFixed(2) : null,
->>>>>>> parent of 5252fdf2 (shop)
-      subtotal_display: fmt(totals.subtotal || 0),
-      tax: fmtExact(totals.tax || 0),
-      shipping: totals.isFreeShipping ? "FREE" : fmt(totals.shipping || 0),
-      total_eur: totals.total ? "€" + (totals.total / (totals.currency === 'EUR' ? 1 : (Currency.getRates()?.[totals.currency]?.rate || 1))).toFixed(2) : null,
-      total_display: fmtTotal(totals.total || 0),
-      total_weight: fmtWeight(totals.totalWeight || 0),
-      total_discount: fmt(totals.totalDiscount || 0),
+      _subject: `New Order ${orderRef}`, order_ref: orderRef, status: "PENDING_PAYMENT",
+      display_currency: CONFIG.currencyCode, ...filtered, items,
+      subtotal_eur: "€"+totals.subtotal.toFixed(2), 
+      subtotal_display: fmt(totals.subtotal),
+      tax: fmtExact(totals.tax), 
+      shipping: totals.isFreeShipping?"FREE":fmt(totals.shipping),
+      total_eur: "€"+totals.total.toFixed(2), 
+      total_display: fmtTotal(totals.total),  // ← FIXED: Now shows exact total, not rounded!
+      total_weight: fmtWeight(totals.totalWeight||0),
     };
-    
-    try { 
-      const fn = (typeof sendToQueue !== "undefined" ? sendToQueue : window.sendToQueue); 
-      if (!fn) { console.warn("sendToQueue not available"); return false; } 
-      const ok = await fn("payment-pending", data); 
-      return ok; 
-    } catch(e) { 
-      console.warn("Queue failed",e); 
-      return false; 
-    }
+    try { const fn = (typeof sendToQueue !== "undefined" ? sendToQueue : window.sendToQueue); if (!fn) { console.warn("sendToQueue not available"); return false; } const ok = await fn("payment-pending", data); return ok; } catch(e) { console.warn("Queue failed",e); return false; }
   }
   
   async function submitOrderStatus(orderRef, status) {
-    try { 
-      const fn = (typeof sendToQueue !== "undefined" ? sendToQueue : window.sendToQueue); 
-      if (fn) await fn("payment-success", { _subject:`Order ${status}: ${orderRef}`, order_ref:orderRef, status }); 
-    } catch {}
+    try { const fn = (typeof sendToQueue !== "undefined" ? sendToQueue : window.sendToQueue); if (fn) await fn("payment-success", { _subject:`Order ${status}: ${orderRef}`, order_ref:orderRef, status }); } catch {}
   }
 
   /* ─── PUBLIC API ────────────────────────────────────── */
+  /* expose lang caches for external use (e.g. per-product spec title translations) */
   function getProductLang()   { return PRODUCT_LANG; }
   function getProductLangEn() { return PRODUCT_LANG_EN; }
 
@@ -1578,7 +1482,7 @@ var Shop = (() => {
     loadProducts, getProduct, pName, pDesc, pCategory, getUrlText, getUpLabelText, getDownLabelText,
     getProductLang, getProductLangEn,
     getCart, saveCart, addToCart, removeFromCart, updateQty, clearCart, calculateTotals,
-    fmt, fmtExact, fmtTotal, convertCeil, fmtWeight, generateOrderRef,
+    fmt, fmtExact, fmtTotal, fmtWhole, fmtDecimal, convertCeil, fmtWeight, generateOrderRef,
     slugify, buildImagePath, colorImageSrc,
     toast, swapMainImg,
     getVariant, variantPrice, variantWeight, variantImage, variantStock, variantInStock,
@@ -1586,14 +1490,6 @@ var Shop = (() => {
     renderCurrencySelector, renderBackButton, renderCartIcon,
     renderShop, renderProductInfo, renderMiniCart, renderBuyNowButton,
     renderTurnstile, submitOrderDetails, submitOrderStatus,
-<<<<<<< HEAD
-<<<<<<< HEAD
-    // NEW: Worker totals methods
-    setWorkerTotals, getWorkerTotals,
-=======
->>>>>>> parent of 5252fdf2 (shop)
-=======
->>>>>>> parent of 5252fdf2 (shop)
   };
 })();
 window.Shop = Shop;
