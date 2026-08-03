@@ -1,0 +1,235 @@
+/* ── Variable bridge (always active) ───────────────────────────────────────── */
+/* Maps shop's internal --c-* tokens onto profile tokens from profiles.css.     */
+/* No per-profile overrides here — all colours live in profiles.css.            */
+:root,
+[data-theme] {
+    /* Backgrounds */
+    --c-bg: var(--bg);
+    --c-surface: var(--bg-card);
+    --c-surface-2: color-mix(in srgb, var(--bg-card) 80%, var(--accent) 20%);
+
+    /* Borders & text */
+    --c-border: var(--border);
+    --c-text: var(--text);
+    --c-text-2: var(--text-muted);
+    --c-text-3: var(--text-dim);
+
+    /* Interactive */
+    --c-accent: var(--accent);
+    --c-accent-dark: var(--btn-bg-hover);
+    --c-accent-light: color-mix(in srgb, var(--accent) 15%, transparent 85%);
+    --c-black: var(--text);
+    --c-white: var(--bg);
+    --c-success: #4a7c59;
+    --c-error: #9b3a3a;
+
+    /* Button tokens */
+    --c-btn-bg: var(--btn-bg);
+    --c-btn-text: var(--btn-text);
+    --c-btn-bg-hover: var(--btn-bg-hover);
+    --c-btn-text-hover: var(--btn-text-hover);
+
+    /* Buy Now overlay tokens */
+    --c-buynow-bg: var(--btn-buynow-bg);
+    --c-buynow-text: var(--btn-buynow-text);
+    --c-buynow-border: var(--btn-buynow-border);
+    --c-buynow-bg-hover: var(--btn-buynow-bg-hover);
+
+    /* Cart icon tokens */
+    --c-cart-bg: var(--cart-bg);
+    --c-cart-text: var(--cart-text);
+    --c-cart-bg-hover: var(--cart-bg-hover);
+    --c-cart-text-hover: var(--cart-text-hover);
+    --c-cart-shadow-hover:var(--cart-shadow-hover);
+
+    /* Toast tokens */
+    --c-toast-bg: var(--toast-bg);
+    --c-toast-text: var(--toast-text);
+
+    /* Cart panel tokens */
+    --c-panel-bg: var(--cart-panel-bg);
+    --c-panel-border: var(--cart-panel-border);
+    --c-panel-text: var(--cart-panel-text);
+
+    /* Fonts */
+    --font-display: var(--font-mono, Impact, monospace);
+    --font-body: var(--font-sans, system-ui, sans-serif);
+}
+
+/* ── Hide the shop's standalone header when embedded in the SPA ─────────────── */
+/* The .webshop-page-header is shown on /shop/index.html direct access,           */
+/* but when its content is injected into #page-view we hide it.        */
+#page-view .webshop-page-header {
+    display: none !important;
+}
+
+/* ── Cart page: hide back-to-shop button's href that points to shop/index.html  */
+/* (the SPA handles navigation via window.viewPage / window.showHome)           */
+#page-view .webshop-btn--back-shop {
+    cursor: pointer;
+}
+
+/* ── Shop grid / product cards: respect site's overall max-width ────────────── */
+#page-view .webshop-container {
+    padding-left: clamp(12px, 3vw, 40px);
+    padding-right: clamp(12px, 3vw, 40px);
+}
+
+.site-currency-wrap .webshop-currency-selector {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
+@keyframes cart-pop {
+    0%   { transform: scale(0.6); }
+    70%  { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+
+
+/* ── Toast notification inherits profile theme ──────────────────────────────── */
+.webshop-toast {
+    background: var(--c-toast-bg) !important;
+    color: var(--c-toast-text) !important;
+    border: 1px solid var(--border) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 0.8rem !important;
+    letter-spacing: 0.04em !important;
+}
+
+/* ── Product card hover uses site accent ────────────────────────────────────── */
+.webshop-product-card:hover {
+    border-color: var(--accent) !important;
+}
+
+/* ── Opt-in rounded bordered cards ─────────────────────────────────────────── */
+/* Add class="webshop-grid--rounded" to the grid wrapper in content HTML */
+.webshop-grid--rounded .webshop-product-card {
+    border-radius: var(--radius-xl, 24px) !important;
+    border: 2px solid var(--border) !important;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+.webshop-grid--rounded .webshop-product-card:hover {
+    border-color: var(--accent) !important;
+}
+
+.webshop-product-card__add-btn:hover,
+.webshop-btn--primary:hover {
+    background: var(--c-btn-bg-hover) !important;
+    color: var(--c-btn-text-hover) !important;
+}
+
+/* ── Fix shop body background when embedded (body bg already set by profiles) ── */
+#page-view .webshop-page-main,
+#page-view .webshop-grid-section {
+    background: transparent;
+}
+
+/* =====================================================
+   Integration CSS – moved from inline <style> in index.html
+   ===================================================== */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Header layout */
+        #main-header {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            flex-wrap: wrap;
+        }
+
+        /* Cart sits inline inside the nav, right after the last menu item */
+        .cart-icon-header-slot {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 12px;
+            margin-right: 16px;
+        }
+
+        /* Cart icon wrapper – remove fixed positioning, keep relative for dropdown */
+        .webshop-cart-icon-wrap {
+            position: relative !important;
+            top: auto !important;
+            right: auto !important;
+            display: inline-block;
+        }
+
+        /* Style the cart icon button */
+        .webshop-cart-icon {
+            width: 44px;
+            height: 44px;
+            background: var(--cart-bg);
+            backdrop-filter: blur(4px);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            text-decoration: none;
+            color: var(--cart-text);
+        }
+        .webshop-cart-icon:hover {
+            background: var(--cart-bg-hover);
+            color: var(--cart-text-hover);
+            transform: scale(1.02);
+        }
+
+        /* Hover dropdown panel – ensure it's visible on hover */
+        .webshop-cart-icon-wrap:hover .webshop-cart-hover-panel,
+        .webshop-cart-hover-panel:hover {
+            opacity: 1 !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+            transform: translateY(0) !important;
+        }
+
+        .webshop-cart-hover-panel {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            left: auto;
+            width: 300px;
+            background: var(--cart-panel-bg);
+            border: 1px solid var(--cart-panel-border);
+            border-radius: var(--radius, 8px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.13);
+            padding: 12px;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transform: translateY(-6px);
+            transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+            z-index: 10000;
+        }
+
+        /* Arrow pointing up */
+        .webshop-cart-hover-panel::before {
+            content: '';
+            position: absolute;
+            top: -6px;
+            right: 16px;
+            width: 12px;
+            height: 12px;
+            background: var(--cart-panel-bg);
+            border-left: 1px solid var(--cart-panel-border);
+            border-top: 1px solid var(--cart-panel-border);
+            transform: rotate(45deg);
+        }
+
+        /* Currency selector in topBar */
+        .webshop-currency-selector {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 20px;
+            padding: 4px 8px;
+            margin-left: 8px;
+        }

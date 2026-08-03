@@ -1,0 +1,265 @@
+/**
+ * DORNORI UNIFIED CONFIGURATION
+ * Merged from config.js and shop-config.js (v5)
+ */
+
+const CONFIG = {
+    // ── Appearance ────────────────────────────────────────────────────────────
+    appearance: {
+        base_path:  window.__BASE_PATH__ || '/',
+        root_url:   (globalThis.__ENV_ROOT_URL__) || 'https://dornori.com',
+    },
+
+    // ── Shop Info ─────────────────────────────────────────────────────────────
+    shopName: "Dornori",
+    tagline:  "Curated lighting for modern spaces",
+    baseCurrency: "EUR",
+    currencyCode: "EUR",
+    defaultLanguage: "en",
+    // Matches the full site's supported-language set (see index/js/i18n.js FALLBACK_LANGUAGES).
+    // Add more language JSON files under lang/<code>/ (common.json + products.json) and list the
+    // code below to bring another language in — same format as the full site's lang/<code>/ files.
+    supportedLanguages: ["en", "de", "es", "fr", "it", "nl", "pt", "cs"],
+
+    // ── Paths ─────────────────────────────────────────────────────────────────
+    paths: {
+        countries_file:  'data/countries.json',
+        profiles_file:   'data/profiles.json',
+        shipping_file:   'data/shipping.json',
+        lang_dir:        'lang/',
+        content_dir:     'content/',
+        icons_dir:       'assets/icons/',
+        shop_dir:        'shop/',
+        js_dir:          'js/',
+        formJsonPath:    (lang) => `${window.__BASE_PATH__ || '/'}lang/${lang}/form.json`,
+        shippingJson:    (window.__BASE_PATH__ || '/') + 'data/shipping.json',
+        langDir:         (window.__BASE_PATH__ || '/') + 'lang/',
+        productsJson:    (window.__BASE_PATH__ || '/') + 'data/products.json',
+    },
+
+    // ── Storage Keys ──────────────────────────────────────────────────────────
+    storageKeys: {
+        lang:          'dornori-lang',
+        theme:         'dornori-theme',
+        cart:          'dornori-cart',
+        parentLangKey: 'dornori-lang',
+        shopLangKey:   'dornori-lang',
+        currencyKey:   'webshop_currency',
+        cartKey:       'webshop_cart',
+    },
+
+    // ── Features ──────────────────────────────────────────────────────────────
+    features: {
+        showLanguageSwitcher: true,
+        showCurrencySelector: true,
+        showGeoLanguagePopup: true,
+        CartLive: true,
+    },
+
+    // ── Images ────────────────────────────────────────────────────────────────
+    images: {
+        imageExt: "webp",
+        imageDir: "images/products/",
+    },
+
+    // ── Tax & Shipping ────────────────────────────────────────────────────────
+    taxRate:            0.21,
+    taxLabel:           "VAT (21%)",
+    taxExemptCountries: [],
+    businessVatExempt:  false,
+
+    shipping: {
+        freeThreshold: Infinity,
+        base:          8.50,
+        perKg:         1.20,
+        maxFreeWeight: 20,
+        estimatedDays: "3–5",
+        volumetricDivisor: 5000,
+    },
+
+    // ── Data Source ───────────────────────────────────────────────────────────
+    // "json" (default) — reads data/products.json, data/countries.json, data/shipping.json,
+    //                     and lang/<code>/*.json straight from static files. No backend needed.
+    // "sql"             — reads the same data shape from a REST API (`endpoints.api`) backed by
+    //                     the schema in data/schema.sql, seeded from data/seed.sql. Point
+    //                     `endpoints.api` at that API once it's deployed; shop-init.js switches
+    //                     CONFIG.data.productsJson/countriesJson/shippingJson to it automatically.
+    //                     Expected routes: GET {api}/products, GET {api}/countries, GET {api}/shipping
+    //                     — each returning the exact same JSON shape as the matching file in data/.
+    dataSource: "json",
+
+    // ── API Endpoints ─────────────────────────────────────────────────────────
+    endpoints: {
+        api:           (globalThis.__ENV_SQL_API__) || '', // e.g. 'https://shop-api.example.workers.dev', used only when dataSource is "sql"
+        formHandler:   (globalThis.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
+        queue:         (globalThis.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
+        supportEmail:  'support@dornori.com',
+        privacyEmail:  'privacy@dornori.com',
+        securityEmail: 'security@dornori.com',
+        legalEmail:    'legal@dornori.com',
+    },
+
+    queue: {
+        endpoint: (window.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
+    },
+
+    // ── Modules ───────────────────────────────────────────────────────────────
+    modules: [
+        (window.__BASE_PATH__ || '/') + "js/modules/currency.js",
+        (window.__BASE_PATH__ || '/') + "js/modules/shipping.js",
+        (window.__BASE_PATH__ || '/') + "js/modules/payment.js",
+    ],
+
+    // ── Payment ─────────────────────────────────────────────────────────────── AWqba_w8m1T0RmuVa6xwgD8UIbAP-j_w-pmdu8aksmfvjuyqQM3UDIU4gYZxOyWNJ-lJy3PAh_Id8nmM
+    payment: {
+        activeProcessor: "paypal",
+        paypal: {
+            clientId:   "Ae0VG0A-5m-NVc3DkgwEQB8Qk4gqIp0Y_WrjuppSahdED970QStpnyfy6cneG3ScJ1-dhkjKWhKg_YTW",
+            currency:   "EUR",
+            intent:     "capture",
+            returnPath: "/success.html",
+            cancelPath: "/cart.html",
+        },
+        stripe: {
+            publishableKey: "pk_test_SAMPLE_STRIPE_PUBLISHABLE_KEY",
+            currency:       "eur",
+            intentEndpoint: "",
+            returnPath:     "/success.html",
+            cancelPath:     "/cart.html",
+            appearance: {
+                theme: "stripe",
+                variables: {
+                    colorPrimary:     "#c8a96e",
+                    colorBackground: "#ffffff",
+                    fontFamily:       "system-ui, sans-serif",
+                    borderRadius:     "8px",
+                },
+            },
+        },
+        googlePay: {
+            merchantId: "BCR2DN4TQIZPLAVW",
+            merchantName: "Dornori",
+            environment: "PRODUCTION"
+        },
+        applePay: {
+            merchantId: "merchant.dornori.com",
+            merchantName: "Dornori",
+            environment: "TEST"
+        }
+    },
+
+    // ── Turnstile ─────────────────────────────────────────────────────────────
+    turnstile: {
+        sitekey: (window.__ENV_TURNSTILE_KEY__) || (globalThis.__ENV_TURNSTILE_KEY__) || '0x4AAAAAACxsga5y-bJ_qkzC',
+    },
+
+    // ── Navigation ────────────────────────────────────────────────────────────
+    navigation: [
+        { slug: 'kickstarter',  icon: 'kickstarter-200x200.svg',           type: 'standard', enabled: true  },
+        { slug: 'about',  icon: 'about-icon-200x200.svg',           type: 'standard', enabled: true  },
+        { slug: 'built',  icon: 'assembled-lamp-icon-200x200.svg',  type: 'standard', enabled: true  },
+        { slug: 'kit',    icon: 'building-kit-icon-200x200.svg',    type: 'standard', enabled: true  },
+        { slug: 'parts',  icon: '3d-printer-icon-200x200.svg',      type: 'standard', enabled: true  },
+        { slug: 'files',  icon: '3d-file-icon-200x200.svg',         type: 'standard', enabled: true,  children: [
+            { slug: '', label: 'Files', enabled: true },
+            { slug: 'python', label: 'Python', enabled: true },
+        ] },
+    //    { slug: 'shop',   icon: 'shop-icon-200x200.svg',            type: 'standard', enabled: true  },
+    ],
+
+    // ── Pages ─────────────────────────────────────────────────────────────────
+    pages: {
+        built:               { file: 'built.html'             },
+        kit:                 { file: 'kit.html'               },
+        parts:               { file: 'parts.html'             },
+        files:               { file: 'files.html'             },
+        'mission-statement': { file: 'mission-statement.html' },
+        about:               { file: 'about-us.html'          },
+        python:              { file: 'python.html'   	      },
+        terms:               { file: 'terms.html'             },
+        privacy:             { file: 'privacy.html'           },
+        children:            { file: 'children.html'          },
+        security:            { file: 'security.html'          },
+        cookies:             { file: 'cookies.html'           },
+        imprint:             { file: 'imprint.html'           },
+        returns:             { file: 'returns.html'           },
+        contact:             { file: 'contact.html'           },
+        support:             { file: 'support.html'           },
+     //   gallery:             { file: 'gallery.html'           },
+        cart:                { file: 'cart.html'              },
+    //    shop:                { file: 'shop.html'              },
+        product:             { file: 'product.html'           },
+        success:             { file: 'success.html'           },
+	    unsubscribe:         { file: 'unsubscribe.html'       },
+        'faq':               { file: 'faq.html'               },
+        'reviews':           { file: 'reviews.html'           },
+        'about-us':          { file: 'about-us.html'          },
+        'form':              { file: 'form.html'              },
+        'newsletter':        { file: 'subscribe.html'         },
+		'kickstarter':       { file: 'kickstarter.html'         },
+    },
+
+    // ── Socials ───────────────────────────────────────────────────────────────
+    socials: [
+        { id: 'ig',  user: 'dornori.info', base: 'https://instagram.com/' },
+        { id: 'x',   user: 'dornori_info', base: 'https://x.com/'         },
+        { id: 'yt',  user: 'dornori_info', base: 'https://youtube.com/@'  },
+        { id: 'fb',  user: 'Dornori.info', base: 'https://facebook.com/'  },
+        { id: 'web', user: 'dornori.com',  base: 'https://'               },
+    ],
+
+    // ── Payment Providers ─────────────────────────────────────────────────────
+    paymentProviders: [
+        { id: 'visa',       label: 'Visa',              file: 'visa',       enabled: true  },
+        { id: 'mastercard', label: 'Mastercard',        file: 'mastercard', enabled: true  },
+        { id: 'amex',       label: 'American Express',  file: 'amex',       enabled: true  },
+        { id: 'paypal',     label: 'PayPal',            file: 'paypal',     enabled: true  },
+        { id: 'maestro',    label: 'Maestro',           file: 'maestro',    enabled: true  },
+        { id: 'discover',   label: 'Discover',          file: 'discover',   enabled: true  },
+        { id: 'ideal',      label: 'iDEAL',             file: 'ideal',      enabled: true  },
+        { id: 'klarna',     label: 'Klarna',            file: 'klarna',     enabled: true  },
+        { id: 'bancontact', label: 'Bancontact',        file: 'bancontact', enabled: false },
+        { id: 'diners',     label: 'Diners Club',       file: 'diners',     enabled: false },
+        { id: 'jcb',        label: 'JCB',               file: 'jcb',        enabled: false },
+        { id: 'unionpay',   label: 'UnionPay',          file: 'unionpay',   enabled: false },
+    ],
+
+    // ── Footer ────────────────────────────────────────────────────────────────
+    footer: [
+        {
+            label: 'Company',
+            links: [
+                { slug: 'newsletter',  enabled: true  },
+                { slug: 'about',    enabled: true  },
+                { slug: 'contact',  enabled: true  },
+                { slug: 'support',  enabled: true  },
+            ]
+        },
+        {
+            label: 'Legal',
+            links: [
+                { slug: 'terms',    enabled: true  },
+                { slug: 'privacy',  enabled: true },
+                { slug: 'cookies',  enabled: true },
+                { slug: 'imprint',  enabled: true  },
+                { slug: 'returns',  enabled: false },
+                { slug: 'children', enabled: true },
+                { slug: 'security', enabled: true },
+            ]
+        }
+    ],
+
+    // ── Credits ───────────────────────────────────────────────────────────────
+    credits: {
+        companyName: 'DORNORI',
+        creditLink: {
+            text: 'dornori.info',
+            url:  'https://dornori.info'
+        }
+    },
+};
+
+// ── Global Exposure ──────────────────────────────────────────────────────────
+window.CONFIG = CONFIG;
+const SITE_CONFIG = CONFIG;
+window.SITE_CONFIG = SITE_CONFIG;

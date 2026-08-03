@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop — Dornori</title>
+
+    <link rel="stylesheet" href="css/dornorium.css">
+    <link rel="stylesheet" href="css/shop.css">
+    <link rel="stylesheet" href="css/shop-bridge.css">
+    <link rel="stylesheet" href="css/chrome.css">
+    <style>
+        body { display: block; padding: 0; min-height: 100vh; }
+        main { max-width: 1200px; margin: 0 auto; padding: 32px 24px 60px; }
+    </style>
+</head>
+<body>
+
+    <header class="site-header">
+        <a class="site-header__logo" href="shop.html">Dornorı</a>
+        <nav class="site-header__nav">
+            <div id="topBar-currency-slot"></div>
+            <a href="shop.html">Shop</a>
+            <div id="lang-switcher-slot" class="webshop-lang-switcher"></div>
+            <div id="cart-icon-slot"></div>
+        </nav>
+    </header>
+
+    <main>
+        <!-- shop.js's Shop.renderShop() builds the product grid + filters into this div -->
+        <div id="shop-embed-root" class="webshop-embed" data-variants data-related></div>
+    </main>
+
+    <footer class="site-footer-min">Dornori — shop module</footer>
+
+    <script src="js/config.js"></script>
+    <script src="js/standalone-boot.js"></script>
+    <script src="js/shop-init.js"></script>
+    <script src="js/cart-integration.js"></script>
+    <script>
+        function buildLangSwitcher() {
+            var slot = document.getElementById('lang-switcher-slot'); if (!slot) return;
+            var langs = CONFIG.supportedLanguages || ['en'];
+            var current = CONFIG.language || 'en';
+            slot.innerHTML = langs.map(function (l) {
+                return '<button class="webshop-lang-btn' + (l === current ? ' active' : '') + '" data-lang="' + l + '">' + l.toUpperCase() + '</button>';
+            }).join('');
+            Shop.wireLanguageSwitcher('.webshop-lang-btn');
+        }
+        document.addEventListener('webshop:ready', function () {
+            buildLangSwitcher();
+            Shop.renderShop('shop-embed-root');
+        });
+        document.addEventListener('shop:langChanged', function () {
+            buildLangSwitcher();
+            Shop.renderShop('shop-embed-root');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cart — Dornori</title>
+
+  <link rel="stylesheet" href="css/dornorium.css">
+  <link rel="stylesheet" href="css/shop.css">
+  <link rel="stylesheet" href="css/shop-bridge.css">
+  <link rel="stylesheet" href="css/chrome.css">
+  <style> body { display: block; padding: 0; } main.cart-main { max-width: 1000px; margin: 0 auto; padding: 32px 24px 60px; } </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <a class="site-header__logo" href="shop.html">Dornorı</a>
+    <nav class="site-header__nav">
+      <div id="topBar-currency-slot"></div>
+      <a href="shop.html">Shop</a>
+      <div id="lang-switcher-slot" class="webshop-lang-switcher"></div>
+      <div id="cart-icon-slot"></div>
+    </nav>
+  </header>
+
+  <main class="cart-main">
+  <div class="container">
+<!-- cart.html — 2-Step Checkout with PayPal, Google Pay, Apple Pay -->
+ 
+<!-- STEP 1: Cart -->
+<div id="cart-step-1-wrapper" class="webshop-fade-in">
+  <div class="webshop-checkout-panel">
+    <h2 class="webshop-panel-title" data-i18n="shopping_cart">Shopping Cart</h2>
+    <div class="webshop-cart-table-wrap">
+      <table class="webshop-cart-table" id="cart-table">
+        <thead>
+          <tr>
+            <th style="width:80px"></th>
+            <th data-i18n="item">item</th>
+            <th data-i18n="quantity">Qty</th>
+            <th data-i18n="price">Price</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="cart-tbody"></tbody>
+      </table>
+      <div id="cart-empty-state" style="display:none;" class="webshop-cart-empty">
+        <div class="webshop-cart-empty__icon">🛒</div>
+        <h2 data-i18n="cart_empty">Your cart is empty</h2>
+        <p data-i18n="empty_cart_message">You haven't added anything yet.</p>
+        <a href="shop.html" class="webshop-btn webshop-btn--primary" id="cart-continue-shopping" data-i18n="continue_shopping">Continue Shopping</a>
+      </div>
+    </div>
+    
+    <div class="webshop-cart-totals-bar" id="cart-totals-bar">
+      <div class="webshop-cart-totals-bar__row" id="cart-savings-row" style="display:none;color:var(--c-success, #2e7d32);font-weight:600;"><span data-i18n="you_save">You save</span><span id="cart-savings-val">—</span></div>
+      <div class="webshop-cart-totals-bar__row"><span data-i18n="subtotal">Subtotal</span><span id="cart-subtotal-val">—</span></div>
+      <div class="webshop-cart-totals-bar__row webshop-cart-totals-bar__row--shipping">
+        <span><span data-i18n="shipping">Shipping</span> <span class="webshop-info-tip"><span class="webshop-info-tip__icon" tabindex="0">?</span><span class="webshop-info-tip__badge" data-i18n="shipping_estimate_note">estimate - will be calculated at checkout</span></span></span><span id="cart-shipping-val">—</span>
+      </div>
+      <div class="webshop-cart-totals-bar__row"><span><span data-i18n="tax">Tax</span> <span class="webshop-info-tip"><span class="webshop-info-tip__icon" tabindex="0">?</span><span class="webshop-info-tip__badge" data-i18n="shipping_estimate_note">estimate - will be calculated at checkout</span></span></span><span id="cart-tax-val">—</span></div>
+      <div class="webshop-cart-totals-bar__row webshop-cart-totals-bar__row--total">
+        <span data-i18n="total">Total</span><span id="cart-total-val">—</span>
+      </div>
+    </div>
+    
+    <div class="webshop-cart-actions" id="cart-actions">
+      <button type="button" class="webshop-btn webshop-btn--back-shop" id="cart-btn-back-shop" data-i18n="go_back">← Go Back</button>
+      <button type="button" class="webshop-btn webshop-btn--danger" id="cart-btn-clear-all" data-i18n="clear_cart" style="margin-left: auto; margin-right: 10px;">Clear Cart</button>
+      <button type="button" class="webshop-btn webshop-btn--primary webshop-btn--checkout" id="cart-btn-to-step-2" data-i18n="checkout">Proceed to Checkout</button>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 2: Checkout + Payment -->
+<div id="cart-step-2-wrapper" style="display:none;" class="webshop-fade-in">
+  <div class="webshop-checkout-panel">
+
+    <!-- MOBILE ORDER SUMMARY ACCORDION -->
+    <div id="order-summary-accordion" style="display:none;margin-bottom:24px;border-bottom:2px solid var(--c-border);padding-bottom:20px;">
+      <button id="accordion-toggle" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:12px 0;font-family:var(--font-display);font-size:1.1rem;background:none;border:none;cursor:pointer;color:var(--c-text);">
+        <span data-i18n="order_summary">Order Summary</span>
+        <span id="accordion-chevron">▼</span>
+      </button>
+      <div id="accordion-content" style="display:none;padding:8px 0 0;">
+        <div id="cart-step3-items-mobile"></div>
+        <div class="webshop-step3-summary__address" id="cart-step3-billing-block-mobile" style="display:none;">
+          <h4 data-i18n="billing_address">Billing Address</h4>
+          <div id="cart-step3-billing-address-mobile"></div>
+        </div>
+        <div class="webshop-step3-summary__totals">
+          <div class="webshop-step3-summary__totals-row" id="cart-step3-savings-row-mobile" style="display:none;color:var(--c-success, #2e7d32);font-weight:600;"><span data-i18n="you_save">You save</span><span id="cart-step3-savings-mobile">—</span></div>
+          <div class="webshop-step3-summary__totals-row"><span data-i18n="subtotal">Subtotal</span><span id="cart-step3-subtotal-mobile">—</span></div>
+          <div class="webshop-step3-summary__totals-row"><span><span data-i18n="shipping">Shipping</span> <span class="webshop-info-tip"><span class="webshop-info-tip__icon" tabindex="0">?</span><span class="webshop-info-tip__badge" data-i18n="shipping_estimate_note">estimate - will be calculated at checkout</span></span></span><span id="cart-step3-shipping-mobile">—</span></div>
+          <div class="webshop-step3-summary__totals-row"><span><span data-i18n="tax">Tax</span> <span class="webshop-info-tip"><span class="webshop-info-tip__icon" tabindex="0">?</span><span class="webshop-info-tip__badge" data-i18n="shipping_estimate_note">estimate - will be calculated at checkout</span></span></span><span id="cart-step3-tax-mobile">—</span></div>
+          <div class="webshop-step3-summary__totals-row webshop-step3-summary__totals-row--total"><span data-i18n="total">Total</span><span id="cart-step3-total-mobile">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="checkout-layout" style="display:grid;grid-template-columns:2fr 1fr;gap:32px;align-items:start;">
+      <!-- Left Column -->
+      <div>
+        <!-- PAYMENT BUTTONS WITH LOADING STATES -->
+        <div id="payment-methods-buttons" style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
+          
+          <!-- Google Pay -->
+          <div id="google-pay-button" style="min-height:48px;">
+            <div class="payment-loading-placeholder" style="display:flex;align-items:center;justify-content:center;height:48px;background:var(--c-bg-2, rgba(0,0,0,0.05));border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);">
+              <span data-i18n="loading_google_pay">Loading Google Pay...</span>
+            </div>
+          </div>
+
+          <!-- Apple Pay -->
+          <div id="apple-pay-button" style="min-height:48px;display:none;">
+            <div class="payment-loading-placeholder" style="display:flex;align-items:center;justify-content:center;height:48px;background:var(--c-bg-2, rgba(0,0,0,0.05));border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);">
+              <span data-i18n="loading_apple_pay">Loading Apple Pay...</span>
+            </div>
+          </div>
+
+          <!-- Credit Card -->
+          <button id="credit-card-btn" type="button" class="webshop-btn webshop-btn--primary" style="width:100%;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:8px;">
+            <span>💳</span> <span data-i18n="credit_card">Credit Card</span>
+          </button>
+
+          <!-- PayPal -->
+          <div id="paypal-button-wrapper" style="min-height:46px;border-radius:8px;overflow:hidden;background:transparent;">
+            <div class="payment-loading-placeholder" style="display:flex;align-items:center;justify-content:center;height:48px;background:var(--c-bg-2, rgba(0,0,0,0.05));border-radius:8px;font-size:0.85rem;color:var(--c-text-3, #8a8f87);">
+              <span data-i18n="loading_paypal">Loading PayPal...</span>
+            </div>
+          </div>
+        </div>
+        <div id="payment-alt-methods" style="display:none;flex-direction:column;gap:12px;margin-bottom:24px;"></div>
+
+        <!-- FORM: hidden until Credit Card clicked -->
+        <div id="credit-card-form-section" style="display:none;">
+
+        <h2 class="webshop-panel-title" data-i18n="shipping_info" style="font-size:1.1rem;margin-bottom:16px;">Customer Details</h2>
+        <div class="webshop-form" id="cart-shipping-form">
+          <div class="webshop-form-row">
+            <div class="webshop-form-group">
+              <label data-i18n="first_name">First Name</label>
+              <input type="text" id="cart-first-name" name="first_name" required autocomplete="given-name">
+            </div>
+            <div class="webshop-form-group">
+              <label data-i18n="last_name">Last Name</label>
+              <input type="text" id="cart-last-name" name="last_name" required autocomplete="family-name">
+            </div>
+          </div>
+          <div class="webshop-form-row">
+            <div class="webshop-form-group">
+              <label data-i18n="email">Email Address</label>
+              <input type="email" id="cart-email" name="email" required autocomplete="email">
+            </div>
+            <div class="webshop-form-group">
+              <label data-i18n="phone">Phone Number</label>
+              <input type="tel" id="cart-phone" name="phone" autocomplete="tel">
+            </div>
+          </div>
+          <div class="webshop-form-group">
+            <label data-i18n="address">Street Address</label>
+            <input type="text" id="cart-address" name="address" required autocomplete="street-address">
+          </div>
+          <div class="webshop-form-row">
+            <div class="webshop-form-group">
+              <label data-i18n="city">City</label>
+              <input type="text" id="cart-city" name="city" required autocomplete="address-level2">
+            </div>
+            <div class="webshop-form-group">
+              <label data-i18n="postal_code">Postal Code</label>
+              <input type="text" id="cart-postal" name="postal_code" required autocomplete="postal-code">
+            </div>
+          </div>
+          <div class="webshop-form-group">
+            <label data-i18n="country">Country</label>
+            <select id="cart-country" name="country" required autocomplete="country">
+              <option value="" data-i18n="select_country">Select country...</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Billing Address -->
+        <div class="webshop-billing-section">
+          <h3 class="webshop-billing-section__title" data-i18n="billing_address">Billing Address</h3>
+          <p class="webshop-billing-section__desc" data-i18n="billing_address_desc">Select the address that matches your card or payment method.</p>
+          <div class="webshop-billing-options">
+            <label class="webshop-billing-option selected" id="cart-billing-opt-same">
+              <input type="radio" name="cart_billing_choice" value="same" checked>
+              <span data-i18n="billing_same_as_shipping">Same as shipping address</span>
+            </label>
+            <label class="webshop-billing-option" id="cart-billing-opt-diff">
+              <input type="radio" name="cart_billing_choice" value="different">
+              <span data-i18n="billing_different">Use a different billing address</span>
+            </label>
+          </div>
+          <div class="webshop-billing-form" id="cart-billing-form" style="display:none;">
+            <div class="webshop-form">
+              <div class="webshop-form-row">
+                <div class="webshop-form-group">
+                  <label data-i18n="first_name">First Name</label>
+                  <input type="text" id="cart-billing-first-name" autocomplete="billing given-name">
+                </div>
+                <div class="webshop-form-group">
+                  <label data-i18n="last_name">Last Name</label>
+                  <input type="text" id="cart-billing-last-name" autocomplete="billing family-name">
+                </div>
+              </div>
+              <div class="webshop-form-group">
+                <label data-i18n="address">Street Address</label>
+                <input type="text" id="cart-billing-address" autocomplete="billing street-address">
+              </div>
+              <div class="webshop-form-row">
+                <div class="webshop-form-group">
+                  <label data-i18n="city">City</label>
+                  <input type="text" id="cart-billing-city" autocomplete="billing address-level2">
+                </div>
+                <div class="webshop-form-group">
+                  <label data-i18n="postal_code">Postal Code</label>
+                  <input type="text" id="cart-billing-postal" autocomplete="billing postal-code">
+                </div>
+              </div>
+              <div class="webshop-form-group">
+                <label data-i18n="country">Country</label>
+                <select id="cart-billing-country" autocomplete="billing country">
+                  <option value="" data-i18n="select_country">Select country...</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment Section -->
+        <div style="margin-top:32px;padding-top:24px;border-top:2px solid var(--c-border);">
+          <div id="cart-payment-mount"></div>
+          <div class="webshop-secure-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span id="cart-security-label" data-i18n="secured_ssl">Secured · 256-bit SSL</span>
+          </div>
+        </div>
+        </div><!-- END credit-card-form-section -->
+
+        <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap;">
+          <button type="button" class="webshop-btn webshop-btn--outline" id="cart-btn-back-to-1" data-i18n="back">Back to Cart</button>
+        </div>
+      </div>
+
+      <!-- Right Column: Order Summary -->
+      <div class="webshop-step3-summary" id="order-summary-sidebar">
+        <h3 data-i18n="order_summary">Order Summary</h3>
+        <div id="cart-step3-items"></div>
+        <div class="webshop-step3-summary__address" id="cart-step3-billing-block" style="display:none;">
+          <h4 data-i18n="billing_address">Billing Address</h4>
+          <div id="cart-step3-billing-address"></div>
+        </div>
+        <div class="webshop-step3-summary__totals">
+          <div class="webshop-step3-summary__totals-row" id="cart-step3-savings-row" style="display:none;color:var(--c-success, #2e7d32);font-weight:600;"><span data-i18n="you_save">You save</span><span id="cart-step3-savings">—</span></div>
+          <div class="webshop-step3-summary__totals-row"><span data-i18n="subtotal">Subtotal</span><span id="cart-step3-subtotal">—</span></div>
+          <div class="webshop-step3-summary__totals-row"><span><span data-i18n="shipping">Shipping</span> <span class="webshop-info-tip"><span class="webshop-info-tip__icon" tabindex="0">?</span><span class="webshop-info-tip__badge" data-i18n="shipping_estimate_note">estimate - will be calculated at checkout</span></span></span><span id="cart-step3-shipping">—</span></div>
+          <div class="webshop-step3-summary__totals-row"><span><span data-i18n="tax">Tax</span> <span class="webshop-info-tip"><span class="webshop-info-tip__icon" tabindex="0">?</span><span class="webshop-info-tip__badge" data-i18n="shipping_estimate_note">estimate - will be calculated at checkout</span></span></span><span id="cart-step3-tax">—</span></div>
+          <div class="webshop-step3-summary__totals-row webshop-step3-summary__totals-row--total"><span data-i18n="total">Total</span><span id="cart-step3-total">—</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+/* ============================================================
+   THEME-BASED STYLES
+   ============================================================ */
+
+.paypal-card-section {
+  margin-bottom: 16px;
+}
+
+.webshop-form-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a8f87;
+  margin-bottom: 6px;
+}
+
+.webshop-form-row {
+  display: flex;
+  gap: 14px;
+  margin: 0 -6px;
+}
+
+.webshop-form-row .webshop-form-group {
+  flex: 1;
+  padding: 0 6px;
+}
+
+.webshop-form-error {
+  color: #c0392b;
+  font-size: 0.82rem;
+  margin-top: 4px;
+}
+
+.webshop-secure-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: #8a8f87;
+  margin-top: 12px;
+}
+
+.webshop-secure-badge svg {
+  width: 16px;
+  height: 16px;
+}
+
+.webshop-billing-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 2px solid var(--c-border, #e5e0da);
+}
+
+.webshop-billing-section__title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--c-text, #1a1714);
+  margin-bottom: 4px;
+}
+
+.webshop-billing-section__desc {
+  font-size: 0.85rem;
+  color: var(--c-text-2, #8a8f87);
+  margin-bottom: 12px;
+}
+
+.webshop-billing-options {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.webshop-billing-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 2px solid var(--c-border, #e5e0da);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--c-text, #1a1714);
+  transition: all 0.2s ease;
+  background: var(--c-bg, #ffffff);
+}
+
+.webshop-billing-option:hover {
+  border-color: var(--c-primary, #1a1714);
+}
+
+.webshop-billing-option.selected {
+  border-color: var(--c-primary, #1a1714);
+  background: var(--c-bg-2, #f5f3ef);
+}
+
+.webshop-billing-option input[type="radio"] {
+  margin: 0;
+  accent-color: var(--c-primary, #1a1714);
+}
+
+.webshop-billing-form {
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--c-bg-2, #f5f3ef);
+  border-radius: 8px;
+}
+
+.payment-loading-placeholder {
+  animation: pulse-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-loading {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Hide empty containers */
+#google-pay-button:empty,
+#apple-pay-button:empty {
+  display: none;
+}
+
+/* ============================================================
+   PAYPAL BUTTON — no forced border-radius/overflow clipping on
+   the wrapper: PayPal's iframe already renders its own rounded
+   "rect" shape (set via Buttons({ style }) in payment.js), and
+   clipping it with a mismatched outer radius is what produced
+   the white corner sliver. Only the browser's default iframe
+   focus outline is removed, which is safe and doesn't touch
+   PayPal's rendered button in any way.
+   ============================================================ */
+#paypal-button-wrapper {
+  min-height: 46px;
+  overflow: hidden;
+}
+#paypal-button-wrapper iframe {
+  outline: none;
+  width: 100% !important;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .webshop-form-row {
+    flex-direction: column;
+    gap: 14px;
+  }
+}
+
+/* Shipping/Tax estimate tooltip */
+.webshop-info-tip {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+.webshop-info-tip__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--c-bg-2, rgba(0,0,0,0.08));
+  color: var(--c-text-3, #8a8f87);
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+}
+.webshop-info-tip__badge {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: var(--c-text, #2a2a26);
+  color: var(--c-bg, #fff);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.3;
+  white-space: nowrap;
+  padding: 6px 10px;
+  border-radius: 6px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease;
+  z-index: 10;
+}
+.webshop-info-tip__badge::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--c-text, #2a2a26);
+}
+.webshop-info-tip__icon:hover + .webshop-info-tip__badge,
+.webshop-info-tip__icon:focus + .webshop-info-tip__badge {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+@media (max-width: 768px) {
+  .webshop-info-tip__badge {
+    white-space: normal;
+    width: 200px;
+    left: auto;
+    right: -8px;
+    transform: translateY(4px);
+  }
+  .webshop-info-tip__badge::after { left: auto; right: 12px; transform: none; }
+  .webshop-info-tip__icon:hover + .webshop-info-tip__badge,
+  .webshop-info-tip__icon:focus + .webshop-info-tip__badge {
+    transform: translateY(0);
+  }
+}
+</style>
+
+<script>
+(function() {
+  function T(key, fallback) {
+    return (window.T && window.T[key]) || fallback || key;
+  }
+
+  function applyI18n() {
+    document.querySelectorAll('[data-i18n]').forEach(function(el) {
+      var key = el.getAttribute('data-i18n');
+      var val = window.T && window.T[key];
+      if (val) el.textContent = val;
+    });
+  }
+
+  function buildLangSwitcher() {
+    var slot = document.getElementById('lang-switcher-slot'); if (!slot) return;
+    var langs = (typeof CONFIG !== 'undefined' && CONFIG.supportedLanguages) || ['en'];
+    var current = (typeof CONFIG !== 'undefined' && CONFIG.language) || 'en';
+    slot.innerHTML = langs.map(function (l) {
+      return '<button class="webshop-lang-btn' + (l === current ? ' active' : '') + '" data-lang="' + l + '">' + l.toUpperCase() + '</button>';
+    }).join('');
+    if (typeof Shop !== 'undefined') Shop.wireLanguageSwitcher('.webshop-lang-btn');
+  }
+
+  var FORM_KEY = 'webshop_checkout_form';
+  var _lang = window.LANG || window.__PAGE_LANG__ || localStorage.getItem('dornori-lang') || 'en';
+  var currentStep = 1;
+  var isBusiness = false;
+  var billingChoice = 'same';
+  var formData = {};
+  var orderRef = null;
+
+  var L = {
+    days:           T('days', 'business days'),
+    b2b:            T('b2b', '(B2B)'),
+    required:       T('required_field', 'Required'),
+    invalidEmail:   T('invalid_email', 'Invalid email'),
+    cancelMsg:      T('cancel_message', 'Your order has not been processed. Your cart has been saved.'),
+    paymentError:   T('payment_error', 'A payment error occurred. Please try again.'),
+  };
+
+  function waitForShop(cb) {
+    if (typeof Shop !== 'undefined' && typeof Currency !== 'undefined' && typeof Shipping !== 'undefined') {
+      Shop.loadLang().then(function() {
+        applyI18n();
+        L.days         = T('days', L.days);
+        L.b2b          = T('b2b', L.b2b);
+        L.required     = T('required_field', L.required);
+        L.invalidEmail = T('invalid_email', L.invalidEmail);
+        L.cancelMsg    = T('cancel_message', L.cancelMsg);
+        L.paymentError = T('payment_error', L.paymentError);
+        buildLangSwitcher();
+        cb();
+      }).catch(cb);
+    } else {
+      setTimeout(function() { waitForShop(cb); }, 50);
+    }
+  }
+
+  document.addEventListener('currency:changed', function() { renderCartTable(); renderCartTotals(); if (currentStep === 2) renderOrderSummary(); });
+  document.addEventListener('shop:langChanged', function() {
+    buildLangSwitcher();
+    applyI18n();
+    L.days = T('days', L.days); L.b2b = T('b2b', L.b2b);
+    if (typeof Shipping !== 'undefined') {
+      Shipping.populateCountrySelect(document.getElementById('cart-country'), T('select_country', 'Select country…'));
+      Shipping.populateCountrySelect(document.getElementById('cart-billing-country'), T('select_country', 'Select country…'));
+    }
+    renderCartTable(); renderCartTotals();
+  });
+  document.addEventListener('shop:cartUpdated', function() { renderCartTable(); renderCartTotals(); });
+
+  waitForShop(function() {
+    Shipping.populateCountrySelect(document.getElementById('cart-country'), T('select_country', 'Select country…'));
+    Shipping.populateCountrySelect(document.getElementById('cart-billing-country'), T('select_country', 'Select country…'));
+    restoreFormData();
+    renderCartTable();
+    renderCartTotals();
+    wireButtons();
+    setupMobileAccordion();
+  });
+
+  function renderCartTable() {
+    if (typeof Shop === 'undefined') return;
+    var cart = cleanCart(Shop.getCart());
+    var tbody = document.getElementById('cart-tbody');
+    var empty = document.getElementById('cart-empty-state');
+    var table = document.getElementById('cart-table');
+    var bar = document.getElementById('cart-totals-bar');
+    var actions = document.getElementById('cart-actions');
+    if (!tbody) return;
+    if (!cart.length) {
+      if (table) table.style.display = 'none';
+      if (empty) empty.style.display = 'flex';
+      if (bar) bar.style.display = 'none';
+      if (actions) actions.style.display = 'none';
+      var s2 = document.getElementById('cart-step-2-wrapper');
+      if (s2) s2.style.display = 'none';
+      var s1 = document.getElementById('cart-step-1-wrapper');
+      if (s1) s1.style.display = 'block';
+      currentStep = 1;
+      return;
+    }
+    if (table) table.style.display = '';
+    if (empty) empty.style.display = 'none';
+    if (bar) bar.style.display = '';
+    if (actions) actions.style.display = 'flex';
+    var basePath = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || window.__BASE_PATH__ || '/';
+    function resolveImg(src) {
+      if (!src) return '';
+      if (src.startsWith('data:') || src.startsWith('http') || src.startsWith('/')) return src;
+      return basePath + src;
+    }
+    function lineDisplay(item) {
+      var qty = item.qty;
+      var unit = Shop.convertCeil(parseFloat(item.price) || 0);
+      var lineTotal = unit * qty;
+      if (item.originalPrice) {
+        var lineOrig = Shop.convertCeil(item.originalPrice) * qty;
+        return '<div style="font-size:.75em;"><span style="color:var(--c-success, #2e7d32);font-weight:600;">-' + item.discount + '%</span> <s style="opacity:.5;">' + Shop.fmtWhole(lineOrig) + '</s></div>' +
+               '<div>' + Shop.fmtWhole(lineTotal) + '</div>';
+      }
+      return '<div>' + Shop.fmtWhole(lineTotal) + '</div>';
+    }
+    tbody.innerHTML = cart.map(function(item) {
+      var fb = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 72'%3E%3Crect fill='%23ede9e3' width='72' height='72'/%3E%3C/svg%3E";
+      var pricingHtml = lineDisplay(item);
+      return '<tr>' +
+        '<td><img class="webshop-cart-item-img" src="' + (resolveImg(item.image) || fb) + '" alt="' + item.name + '"></td>' +
+        '<td><div class="webshop-cart-item-name">' + item.name + '</div></td>' +
+        '<td><div class="webshop-qty-control">' +
+          '<button class="webshop-qty-btn webshop-qty-btn--minus" data-key="' + item.cartKey + '">−</button>' +
+          '<span class="webshop-qty-val">' + item.qty + '</span>' +
+          '<button class="webshop-qty-btn webshop-qty-btn--plus" data-key="' + item.cartKey + '">+</button>' +
+        '</div></td>' +
+        '<td class="webshop-cart-item-total">' + pricingHtml + '</td>' +
+        '<td><button class="webshop-cart-remove" data-key="' + item.cartKey + '">✕</button></td>' +
+      '</tr>';
+    }).join('');
+    tbody.querySelectorAll('.webshop-qty-btn--minus').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var item = Shop.getCart().find(function(i) { return i.cartKey === btn.dataset.key; });
+        if (item) Shop.updateQty(btn.dataset.key, item.qty - 1);
+      });
+    });
+    tbody.querySelectorAll('.webshop-qty-btn--plus').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var item = Shop.getCart().find(function(i) { return i.cartKey === btn.dataset.key; });
+        if (item) Shop.updateQty(btn.dataset.key, Math.min(item.qty + 1, 99));
+      });
+    });
+    tbody.querySelectorAll('.webshop-cart-remove').forEach(function(btn) {
+      btn.addEventListener('click', function() { Shop.removeFromCart(btn.dataset.key); });
+    });
+  }
+
+  function cleanCart(cart) {
+    return cart.map(function(item) {
+      return Object.assign({}, item, { price: parseFloat(item.price)||0, weight: parseFloat(item.weight)||0 });
+    });
+  }
+
+  function renderCartTotals() {
+    if (typeof Shop === 'undefined') return;
+    var cart = cleanCart(Shop.getCart());
+    var t = Shop.calculateTotals(cart, isBusiness, null);
+    var sub = document.getElementById('cart-subtotal-val');
+    var tax = document.getElementById('cart-tax-val');
+    var tot = document.getElementById('cart-total-val');
+    var shipEl = document.getElementById('cart-shipping-val');
+    if (shipEl) shipEl.textContent = t.isFreeShipping ? T('free','FREE') : Shop.fmtWhole(t.shipping);
+    if (sub) sub.textContent = Shop.fmtWhole(t.subtotal);
+    // Tax and total are derived entirely from the already-rounded subtotal/shipping
+    // inside Shop.calculateTotals — never re-converted or re-rounded here.
+    if (tax) tax.textContent = isBusiness ? Shop.fmtWhole(0) + ' ' + L.b2b : Shop.fmtDecimal(t.tax);
+    if (tot) tot.textContent = Shop.fmtDecimal(t.total);
+    var savRow = document.getElementById('cart-savings-row');
+    var savVal = document.getElementById('cart-savings-val');
+    if (savRow && savVal) { savRow.style.display = t.totalDiscount > 0 ? '' : 'none'; savVal.textContent = '-' + Shop.fmtWhole(t.totalDiscount); }
+  }
+
+  function renderOrderSummary() {
+    if (typeof Shop === 'undefined') return;
+    var cart = cleanCart(Shop.getCart());
+    var t = Shop.calculateTotals(cart, isBusiness, formData.country);
+    
+    renderSummaryInContainer('cart-step3-items', 'cart-step3-items-mobile', cart, t);
+    renderBilling('cart-step3-billing-block', 'cart-step3-billing-block-mobile', 'cart-step3-billing-address', 'cart-step3-billing-address-mobile');
+    renderTotals('cart-step3-savings-row', 'cart-step3-savings-row-mobile', 'cart-step3-savings', 'cart-step3-savings-mobile',
+                 'cart-step3-subtotal', 'cart-step3-subtotal-mobile',
+                 'cart-step3-tax', 'cart-step3-tax-mobile',
+                 'cart-step3-shipping', 'cart-step3-shipping-mobile',
+                 'cart-step3-total', 'cart-step3-total-mobile', cart, t);
+  }
+
+  function renderSummaryInContainer(desktopId, mobileId, cart, t) {
+    var bp = (window.SHOP_CONFIG && window.SHOP_CONFIG.basePath) || window.__BASE_PATH__ || '/';
+    function resolveImg(src) {
+      if (!src) return '';
+      if (src.startsWith('data:') || src.startsWith('http') || src.startsWith('/')) return src;
+      return bp + src;
+    }
+    var fb = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect fill='%23ede9e3' width='40' height='40'/%3E%3C/svg%3E";
+    var html = cart.map(function(item) {
+      var qty = item.qty;
+      var unit = Shop.convertCeil(parseFloat(item.price) || 0);
+      var lineTotal = unit * qty;
+      var priceHtml;
+      if (item.originalPrice) {
+        var lineOrig = Shop.convertCeil(item.originalPrice) * qty;
+        priceHtml = '<div style="font-size:.75em;"><span style="color:var(--c-success, #2e7d32);font-weight:600;">-' + item.discount + '%</span> <s style="opacity:.5;">' + Shop.fmtWhole(lineOrig) + '</s></div>' +
+                    '<div>' + Shop.fmtWhole(lineTotal) + '</div>';
+      } else {
+        priceHtml = Shop.fmtWhole(lineTotal);
+      }
+      return '<div class="webshop-step3-summary__item">' +
+        '<img src="' + (resolveImg(item.image) || fb) + '" alt="' + item.name + '">' +
+        '<div class="webshop-step3-summary__item-name">' + item.qty + '× ' + item.name + '</div>' +
+        '<div class="webshop-step3-summary__item-price">' + priceHtml + '</div>' +
+      '</div>';
+    }).join('');
+    var desktopEl = document.getElementById(desktopId);
+    var mobileEl = document.getElementById(mobileId);
+    if (desktopEl) desktopEl.innerHTML = html;
+    if (mobileEl) mobileEl.innerHTML = html;
+  }
+
+  function renderBilling(desktopBlockId, mobileBlockId, desktopAddrId, mobileAddrId) {
+    var bBlock = document.getElementById(desktopBlockId);
+    var bBlockMobile = document.getElementById(mobileBlockId);
+    if (billingChoice === 'different' && formData.billing_first_name && formData.billing_address) {
+      var bSel = document.getElementById('cart-billing-country');
+      var bCountry = bSel && bSel.selectedIndex >= 0 ? bSel.options[bSel.selectedIndex].text : '';
+      var html =
+        '<strong>' + (formData.billing_first_name||'') + ' ' + (formData.billing_last_name||'') + '</strong><br>' +
+        (formData.billing_address||'') + '<br>' +
+        (formData.billing_postal||'') + ' ' + (formData.billing_city||'') + '<br>' + bCountry;
+      var desktopAddr = document.getElementById(desktopAddrId);
+      var mobileAddr = document.getElementById(mobileAddrId);
+      if (desktopAddr) desktopAddr.innerHTML = html;
+      if (mobileAddr) mobileAddr.innerHTML = html;
+      if (bBlock) bBlock.style.display = 'block';
+      if (bBlockMobile) bBlockMobile.style.display = 'block';
+    } else {
+      if (bBlock) bBlock.style.display = 'none';
+      if (bBlockMobile) bBlockMobile.style.display = 'none';
+    }
+  }
+
+  function renderTotals(savRowId, savRowMobileId, savValId, savValMobileId,
+                        subId, subMobileId, taxId, taxMobileId, shipId, shipMobileId, totalId, totalMobileId, cart, t) {
+    var savRow = document.getElementById(savRowId);
+    var savRowM = document.getElementById(savRowMobileId);
+    var savVal = document.getElementById(savValId);
+    var savValM = document.getElementById(savValMobileId);
+    if (savRow && savVal) { savRow.style.display = t.totalDiscount > 0 ? '' : 'none'; savVal.textContent = '-' + Shop.fmtWhole(t.totalDiscount); }
+    if (savRowM && savValM) { savRowM.style.display = t.totalDiscount > 0 ? '' : 'none'; savValM.textContent = '-' + Shop.fmtWhole(t.totalDiscount); }
+
+    var sub = document.getElementById(subId);
+    var subM = document.getElementById(subMobileId);
+    if (sub) sub.textContent = Shop.fmtWhole(t.subtotal);
+    if (subM) subM.textContent = Shop.fmtWhole(t.subtotal);
+
+    var tax = document.getElementById(taxId);
+    var taxM = document.getElementById(taxMobileId);
+    // Tax and total are derived entirely from the already-rounded subtotal/shipping
+    // inside Shop.calculateTotals — never re-converted or re-rounded here.
+    var taxText = isBusiness ? Shop.fmtWhole(0) + ' ' + L.b2b : Shop.fmtDecimal(t.tax);
+    if (tax) tax.textContent = taxText;
+    if (taxM) taxM.textContent = taxText;
+
+    var ship = document.getElementById(shipId);
+    var shipM = document.getElementById(shipMobileId);
+    var shipText = t.isFreeShipping ? T('free','FREE') : Shop.fmtWhole(t.shipping);
+    if (ship) ship.textContent = shipText;
+    if (shipM) shipM.textContent = shipText;
+
+    var total = document.getElementById(totalId);
+    var totalM = document.getElementById(totalMobileId);
+    // FIX: Total includes shipping + tax (tax itself is calculated on subtotal+shipping in Shop.calculateTotals)
+    var totalText = Shop.fmtDecimal(t.total);
+    if (total) total.textContent = totalText;
+    if (totalM) totalM.textContent = totalText;
+  }
+
+  function goToStep(n) {
+    currentStep = n;
+    var s1 = document.getElementById('cart-step-1-wrapper');
+    var s2 = document.getElementById('cart-step-2-wrapper');
+    if (s1) s1.style.display = n === 1 ? 'block' : 'none';
+    if (s2) s2.style.display = n === 2 ? 'block' : 'none';
+    if (n === 2) {
+      renderOrderSummary();
+      renderAllPayments(Shop.getCart(), getFormData, beforePay);
+    }
+    requestAnimationFrame(function() {
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    });
+  }
+
+  function getFormData() { return formData; }
+
+  function getSavedForm() { try { return JSON.parse(localStorage.getItem(FORM_KEY)||'{}'); } catch { return {}; } }
+  function saveField(key, val) { var d = getSavedForm(); d[key] = val; localStorage.setItem(FORM_KEY, JSON.stringify(d)); }
+  function restoreFormData() {
+    var saved = getSavedForm();
+    ['first-name','last-name','email','phone','address','city','postal','country',
+     'billing-first-name','billing-last-name','billing-address',
+     'billing-city','billing-postal','billing-country'].forEach(function(id) {
+      var el = document.getElementById('cart-' + id);
+      var key = id.replace(/-/g,'_');
+      if (el && saved[key]) el.value = saved[key];
+    });
+    if (saved._billingChoice === 'different') setBillingChoice('different');
+  }
+
+  function setBillingChoice(choice) {
+    billingChoice = choice;
+    var optSame = document.getElementById('cart-billing-opt-same');
+    var optDiff = document.getElementById('cart-billing-opt-diff');
+    var form = document.getElementById('cart-billing-form');
+    if (optSame) optSame.classList.toggle('selected', choice === 'same');
+    if (optDiff) optDiff.classList.toggle('selected', choice === 'different');
+    if (form) form.style.display = choice === 'different' ? 'block' : 'none';
+    saveField('_billingChoice', choice);
+  }
+
+  function setupMobileAccordion() {
+    var toggle = document.getElementById('accordion-toggle');
+    var content = document.getElementById('accordion-content');
+    var chevron = document.getElementById('accordion-chevron');
+    if (toggle && content) {
+      toggle.addEventListener('click', function() {
+        var isOpen = content.style.display === 'block';
+        content.style.display = isOpen ? 'none' : 'block';
+        if (chevron) chevron.textContent = isOpen ? '▼' : '▲';
+      });
+    }
+    function checkLayout() {
+      var sidebar = document.getElementById('order-summary-sidebar');
+      var accordion = document.getElementById('order-summary-accordion');
+      var layout = document.getElementById('checkout-layout');
+      if (window.innerWidth <= 768) {
+        if (sidebar) sidebar.style.display = 'none';
+        if (accordion) accordion.style.display = 'block';
+        if (layout) layout.style.gridTemplateColumns = '1fr';
+      } else {
+        if (sidebar) sidebar.style.display = 'block';
+        if (accordion) accordion.style.display = 'none';
+        if (layout) layout.style.gridTemplateColumns = '2fr 1fr';
+      }
+    }
+    window.addEventListener('resize', checkLayout);
+    checkLayout();
+  }
+
+  function beforePay() {
+    return new Promise(function(resolve) {
+      validateFormBeforePayment(function(valid) { resolve(valid); });
+    });
+  }
+
+  // ============================================================
+  // CHECK IF APPLE PAY IS AVAILABLE ON THIS DEVICE
+  // ============================================================
+  function isApplePayAvailable() {
+    var isAppleDevice = /iPhone|iPad|iPod|Mac/.test(navigator.userAgent);
+    var isSafari = /AppleWebKit/.test(navigator.userAgent) && 
+                   !/Chrome/.test(navigator.userAgent) &&
+                   !/Android/.test(navigator.userAgent);
+    var hasApplePaySession = typeof window.ApplePaySession !== 'undefined';
+    var hasPayPalApplePay = typeof window.paypal !== 'undefined' && 
+                            typeof window.paypal.Applepay === 'function';
+    return isAppleDevice && isSafari && hasApplePaySession && hasPayPalApplePay;
+  }
+
+  // ============================================================
+  // RENDER ALL PAYMENTS
+  // ============================================================
+  async function renderAllPayments(cart, custFormData, onBeforePay) {
+    if (!orderRef) {
+      orderRef = 'ORD-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+    }
+
+    var ccBtn = document.getElementById('credit-card-btn');
+    if (ccBtn && !ccBtn._wired) {
+      ccBtn._wired = true;
+      ccBtn.addEventListener('click', function() {
+        document.getElementById('payment-methods-buttons').style.display = 'none';
+        document.getElementById('credit-card-form-section').style.display = 'block';
+        renderCardPayment(cart, custFormData, onBeforePay);
+      });
+    }
+
+    try {
+      await Payment.init();
+
+      var paypalWrapper = document.getElementById('paypal-button-wrapper');
+      var googleContainer = document.getElementById('google-pay-button');
+      var appleContainer = document.getElementById('apple-pay-button');
+
+      var googleAvailable = await checkGooglePayAvailable();
+      var appleAvailable = isApplePayAvailable();
+
+      // PayPal (always)
+      if (paypalWrapper) {
+        try {
+          paypalWrapper.innerHTML = '';
+          await Payment.renderPayPalButton(cart, orderRef, paypalWrapper, custFormData);
+        } catch(e) {
+          console.warn('PayPal button failed:', e);
+          paypalWrapper.innerHTML = '<div style="padding:12px;text-align:center;font-size:0.85rem;color:var(--c-text-3);border:1px solid var(--c-border);border-radius:8px;">' + T('paypal_unavailable', 'PayPal unavailable') + '</div>';
+        }
+      }
+
+      // Google Pay
+      if (googleContainer && googleAvailable) {
+        try {
+          googleContainer.innerHTML = '';
+          googleContainer.style.display = 'block';
+          await Payment.renderGooglePay(googleContainer, cart, custFormData);
+        } catch(e) {
+          console.warn('Google Pay render failed:', e);
+          googleContainer.style.display = 'none';
+        }
+      } else if (googleContainer) {
+        googleContainer.style.display = 'none';
+      }
+
+      // Apple Pay (only if available)
+      if (appleContainer && appleAvailable) {
+        try {
+          appleContainer.innerHTML = '';
+          appleContainer.style.display = 'block';
+          await Payment.renderApplePay(appleContainer, cart, custFormData);
+        } catch(e) {
+          console.warn('Apple Pay render failed:', e);
+          appleContainer.style.display = 'none';
+        }
+      } else if (appleContainer) {
+        appleContainer.style.display = 'none';
+      }
+
+    } catch(e) {
+      console.error('Payment initialization failed:', e);
+    }
+  }
+
+  function checkGooglePayAvailable() {
+    return new Promise(function(resolve) {
+      try {
+        if (typeof window.paypal !== 'undefined' && typeof window.paypal.Googlepay === 'function') {
+          var hasGoogleScript = document.querySelector('script[src*="pay.google.com"]');
+          if (hasGoogleScript) {
+            resolve(true);
+            return;
+          }
+          var script = document.createElement('script');
+          script.src = 'https://pay.google.com/gp/p/js/pay.js';
+          script.onload = function() { resolve(true); };
+          script.onerror = function() { resolve(false); };
+          document.head.appendChild(script);
+          setTimeout(function() { resolve(false); }, 5000);
+        } else {
+          resolve(false);
+        }
+      } catch(e) {
+        resolve(false);
+      }
+    });
+  }
+
+  async function renderCardPayment(cart, custFormData, onBeforePay) {
+    var mount = document.getElementById('cart-payment-mount');
+    if (!mount) return;
+    
+    mount.innerHTML = '<div style="padding:16px;text-align:center;opacity:.6;font-size:.85rem;">' + T('loading_payment', 'Loading payment…') + '</div>';
+    
+    var t = Shop.calculateTotals(cart, false, formData.country);
+    
+    try {
+      await Payment.init();
+      await Payment.render(cart, { 
+        subtotal: t.subtotal, 
+        shipping: t.isFreeShipping ? 0 : t.shipping, 
+        tax: t.tax, 
+        total: t.total 
+      }, orderRef, mount, custFormData, onBeforePay);
+    } catch(e) {
+      var isCfg = e.message && (e.message.includes('Script load failed') || e.message.includes('client-id'));
+      mount.innerHTML = '<div style="padding:20px;text-align:center;border:1px dashed var(--c-border,var(--border));border-radius:8px;opacity:.7;font-size:.85rem;line-height:1.6;">' +
+        '<strong style="display:block;margin-bottom:6px;">' + (isCfg ? T('payment_not_configured','Payment not configured') : T('payment_load_error','Payment could not be loaded')) + '</strong>' +
+        (isCfg ? 'Set <code>CONFIG.payment.paypal.clientId</code> in config.js.' : T('payment_refresh','Please refresh or contact support.')) +
+      '</div>';
+    }
+  }
+
+  function validateFormBeforePayment(callback) {
+    var required = ['cart-first-name','cart-last-name','cart-email','cart-address','cart-city','cart-postal','cart-country'];
+    var valid = true;
+    required.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.classList.remove('error');
+      var err = el.nextElementSibling;
+      if (err && err.classList.contains('webshop-form-error')) err.remove();
+      if (!el.value.trim()) {
+        valid = false; el.classList.add('error');
+        var e = document.createElement('p'); e.className = 'webshop-form-error'; e.textContent = L.required;
+        el.after(e);
+      }
+      if (id === 'cart-email' && el.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(el.value)) {
+        valid = false; el.classList.add('error');
+        var e2 = document.createElement('p'); e2.className = 'webshop-form-error'; e2.textContent = L.invalidEmail;
+        el.after(e2);
+      }
+    });
+    if (!valid) {
+      var fe = document.querySelector('#cart-shipping-form .error');
+      if (fe) fe.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      callback(false);
+    } else {
+      collectFormData();
+      callback(true);
+    }
+  }
+
+  function collectFormData() {
+    formData = {
+      first_name:         document.getElementById('cart-first-name').value.trim(),
+      last_name:          document.getElementById('cart-last-name').value.trim(),
+      email:              document.getElementById('cart-email').value.trim(),
+      phone:              (document.getElementById('cart-phone')||{}).value || '',
+      address:            document.getElementById('cart-address').value.trim(),
+      city:               document.getElementById('cart-city').value.trim(),
+      postal:             document.getElementById('cart-postal').value.trim(),
+      country:            document.getElementById('cart-country').value,
+      billingChoice:      billingChoice,
+      billing_first_name: billingChoice==='different'?(document.getElementById('cart-billing-first-name')||{}).value||'':null,
+      billing_last_name:  billingChoice==='different'?(document.getElementById('cart-billing-last-name')||{}).value||'':null,
+      billing_address:    billingChoice==='different'?(document.getElementById('cart-billing-address')||{}).value||'':null,
+      billing_city:       billingChoice==='different'?(document.getElementById('cart-billing-city')||{}).value||'':null,
+      billing_postal:     billingChoice==='different'?(document.getElementById('cart-billing-postal')||{}).value||'':null,
+      billing_country:    billingChoice==='different'?(document.getElementById('cart-billing-country')||{}).value||'':null,
+      language:           _lang
+    };
+  }
+
+  function handlePaymentSuccess(ref) {
+    try {
+      var existing = null;
+      try { existing = JSON.parse(localStorage.getItem('webshop_order_snapshot') || 'null'); } catch (e) {}
+      if (!existing || !existing.totals) {
+        var snapCart = Shop.getCart();
+        var snapTotals = Shop.calculateTotals(snapCart, false, formData.country);
+        localStorage.setItem('webshop_order_snapshot', JSON.stringify({
+          orderRef: ref,
+          formData: formData,
+          items: snapCart,
+          totals: snapTotals
+        }));
+      }
+      localStorage.setItem('webshop_order_ref', ref);
+    } catch (e) { console.warn('Order snapshot failed:', e); }
+    
+    Shop.clearCart();
+    localStorage.removeItem(FORM_KEY);
+    Shop.submitOrderStatus(ref, 'PAYMENT_SUCCESS').catch(function() {});
+    
+    window.location.href = 'success.html?ref=' + encodeURIComponent(ref) + '&status=success';
+  }
+
+  function wireButtons() {
+    var btnBack = document.getElementById('cart-btn-back-shop');
+    if (btnBack) btnBack.addEventListener('click', function() { window.history.back(); });
+
+    var btnClearAll = document.getElementById('cart-btn-clear-all');
+    if (btnClearAll) btnClearAll.addEventListener('click', function() {
+      var cart = Shop.getCart();
+      if (!cart.length) return;
+      var confirmMsg = T('confirm_clear_cart', 'Are you sure you want to remove all items from your cart?');
+      if (confirm(confirmMsg)) {
+        Shop.clearCart();
+        if (typeof Shop.toast === 'function') {
+          Shop.toast(T('cart_cleared', 'Cart cleared'), 2000);
+        }
+      }
+    });
+
+    var btnTo2 = document.getElementById('cart-btn-to-step-2');
+    if (btnTo2) btnTo2.addEventListener('click', function() {
+      if (!Shop.getCart().length) return;
+      goToStep(2);
+    });
+
+    document.querySelectorAll('input[name="cart_billing_choice"]').forEach(function(radio) {
+      radio.addEventListener('change', function() { setBillingChoice(radio.value); });
+    });
+    
+    var optSame = document.getElementById('cart-billing-opt-same');
+    var optDiff = document.getElementById('cart-billing-opt-diff');
+    if (optSame) optSame.addEventListener('click', function() {
+      var r = document.querySelector('input[name="cart_billing_choice"][value="same"]');
+      if (r) r.checked = true; setBillingChoice('same');
+    });
+    if (optDiff) optDiff.addEventListener('click', function() {
+      var r = document.querySelector('input[name="cart_billing_choice"][value="different"]');
+      if (r) r.checked = true; setBillingChoice('different');
+    });
+
+    ['first-name','last-name','email','phone','address','city','postal','company','vat-number',
+     'billing-first-name','billing-last-name','billing-address','billing-city','billing-postal'].forEach(function(id) {
+      var el = document.getElementById('cart-' + id);
+      if (!el) return;
+      var key = id.replace(/-/g,'_');
+      el.addEventListener('input',  function() { saveField(key, el.value); });
+      el.addEventListener('change', function() { saveField(key, el.value); });
+    });
+    
+    var countryEl = document.getElementById('cart-country');
+    if (countryEl) countryEl.addEventListener('change', function() {
+      saveField('country', countryEl.value);
+      formData.country = countryEl.value;
+      renderCartTotals();
+      if (currentStep === 2) renderOrderSummary();
+    });
+    var bCountryEl = document.getElementById('cart-billing-country');
+    if (bCountryEl) bCountryEl.addEventListener('change', function() { saveField('billing_country', bCountryEl.value); });
+
+    var btnBack1 = document.getElementById('cart-btn-back-to-1');
+    if (btnBack1) btnBack1.addEventListener('click', function() { goToStep(1); });
+
+    document.addEventListener('payment:success', function(e) {
+      var ref = e.detail && e.detail.orderRef ? e.detail.orderRef : orderRef;
+      handlePaymentSuccess(ref);
+    });
+    
+    document.addEventListener('payment:cancel', function() {
+      Shop.submitOrderStatus(orderRef, 'PAYMENT_CANCELLED').catch(function() {});
+      if (typeof Shop.toast === 'function') Shop.toast(L.cancelMsg, 4000);
+    });
+    
+    document.addEventListener('payment:error', function() {
+      Shop.submitOrderStatus(orderRef, 'PAYMENT_ERROR').catch(function() {});
+      if (typeof Shop.toast === 'function') Shop.toast(L.paymentError, 4000);
+    });
+  }
+
+  applyI18n();
+})();
+</script>
+</div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/standalone-boot.js"></script>
+  <script src="js/shop-init.js"></script>
+  <script src="js/cart-integration.js"></script>
+</body>
+</html>
