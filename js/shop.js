@@ -13,7 +13,7 @@ var Shop = (() => {
   let _langLoaded = false;
   let _langLoadPromise = null;
   let _products = {};
-  let _workerTotals = null;
+  let _workerTotals = null;  // Store worker's validated totals
 
   /* ═══════════════════════════════════════════════════════
      LANGUAGE RESOLUTION
@@ -345,16 +345,6 @@ var Shop = (() => {
       if (Currency.getActive() !== "EUR") return Currency.fmtExact(eurAmount);
     }
     return "€" + eurAmount.toFixed(2);
-  }
-  
-  function fmtWhole(amount, currencyCode) {
-    const { symbol } = _currencyInfo(currencyCode);
-    return symbol + "\u00A0" + Math.ceil(amount);
-  }
-
-  function fmtDecimal(amount, currencyCode) {
-    const { symbol, decimals } = _currencyInfo(currencyCode);
-    return symbol + "\u00A0" + amount.toFixed(decimals);
   }
   
   function fmtWeight(kg) { return kg >= 1 ? kg.toFixed(1) + " kg" : (kg * 1000).toFixed(0) + " g"; }
@@ -1372,7 +1362,7 @@ var Shop = (() => {
   }
   
   /* ═══════════════════════════════════════════════════════
-     FIX: Worker totals methods
+     FIX: Worker totals methods (ADDED)
   ═══════════════════════════════════════════════════════ */
   function setWorkerTotals(totals) {
     _workerTotals = totals;
@@ -1382,66 +1372,67 @@ var Shop = (() => {
     return _workerTotals;
   }
 
-  async function submitOrderWithWorkerTotals(orderRef, formData, cart, workerTotals) {
-    // USE WORKER'S TOTALS (passed from payment:success event)
-    // This ensures email/ticket matches PayPal exactly
-    const items = cart.map(i => {
-      const label = i.productLabel ? ` — ${i.productLabel}` : "";
-      // Use worker's price if available
-      let price = i.price;
-      if (workerTotals && workerTotals.items) {
-        const workerItem = workerTotals.items.find(w => w.id === i.id);
-        if (workerItem) {
-          price = workerItem.price;
-        }
-      }
-      return `${i.qty}× ${i.name}${label} @ ${price} each | total: ${price * i.qty} | weight: ${fmtWeight((i.weight||0)*i.qty)}`;
-    });
-    
-    const filtered = {}; 
-    Object.entries(formData).forEach(([k,v]) => { if (v!=null&&v!=="") filtered[k]=v; });
-    
-    const data = {
-      _subject: `New Order ${orderRef}`,
-      order_ref: orderRef,
-      status: "PENDING_PAYMENT",
-      display_currency: CONFIG.currencyCode,
-      ...filtered,
-      items,
-      subtotal_display: fmt(workerTotals?.subtotal || 0),
-      tax: fmtExact(workerTotals?.tax || 0),
-      shipping: workerTotals?.isFreeShipping ? "FREE" : fmt(workerTotals?.shipping || 0),
-      total_display: fmtTotal(workerTotals?.total || 0),
-      total_weight: fmtWeight(workerTotals?.totalWeight || 0),
-      total_discount: fmt(workerTotals?.totalDiscount || 0),
-      // Store worker's exact values for debugging
-      _worker_subtotal: workerTotals?.subtotal,
-      _worker_shipping: workerTotals?.shipping,
-      _worker_tax: workerTotals?.tax,
-      _worker_total: workerTotals?.total,
-      _worker_currency: workerTotals?.currency,
-      _worker_decimals: workerTotals?.decimals,
-    };
-    
-    try { 
-      const fn = (typeof sendToQueue !== "undefined" ? sendToQueue : window.sendToQueue); 
-      if (!fn) { console.warn("sendToQueue not available"); return false; } 
-      const ok = await fn("payment-pending", data); 
-      return ok; 
-    } catch(e) { 
-      console.warn("Queue failed",e); 
-      return false; 
-    }
-  }
-
-  /* ─── LEGACY submitOrderDetails ─────────────────────── */
-  async function submitOrderDetails(orderRef, formData, cart, captchaEl = null) {
+  /* ─── MODIFIED submitOrderDetails ────────────────────── */
+  const _originalSubmitOrderDetails = submitOrderDetails;
+  
+  // Override submitOrderDetails to use worker totals when available
+  submitOrderDetails = async function(orderRef, formData, cart, captchaEl = null) {
     // If we have worker totals, use them
     if (_workerTotals) {
-      return submitOrderWithWorkerTotals(orderRef, formData, cart, _workerTotals);
+      const items = cart.map(i => {
+        const label = i.productLabel ? ` — ${i.productLabel}` : "";
+        let price = i.price;
+        if (_workerTotals.items) {
+          const workerItem = _workerTotals.items.find(w => w.id === i.id);
+          if (workerItem) {
+            price = workerItem.price;
+          }
+        }
+        return `${i.qty}× ${i.name}${label} @ ${price} each | total: ${price * i.qty} | weight: ${fmtWeight((i.weight||0)*i.qty)}`;
+      });
+      
+      const filtered = {}; 
+      Object.entries(formData).forEach(([k,v]) => { if (v!=null&&v!=="") filtered[k]=v; });
+      
+      const data = {
+        _subject: `New Order ${orderRef}`,
+        order_ref: orderRef,
+        status: "PENDING_PAYMENT",
+        display_currency: CONFIG.currencyCode,
+        ...filtered,
+        items,
+        subtotal_display: fmt(_workerTotals?.subtotal || 0),
+        tax: fmtExact(_workerTotals?.tax || 0),
+        shipping: _workerTotals?.isFreeShipping ? "FREE" : fmt(_workerTotals?.shipping || 0),
+        total_display: fmtTotal(_workerTotals?.total || 0),
+        total_weight: fmtWeight(_workerTotals?.totalWeight || 0),
+        total_discount: fmt(_workerTotals?.totalDiscount || 0),
+        // Store worker's exact values for debugging
+        _worker_subtotal: _workerTotals?.subtotal,
+        _worker_shipping: _workerTotals?.shipping,
+        _worker_tax: _workerTotals?.tax,
+        _worker_total: _workerTotals?.total,
+        _worker_currency: _workerTotals?.currency,
+        _worker_decimals: _workerTotals?.decimals,
+      };
+      
+      try { 
+        const fn = (typeof sendToQueue !== "undefined" ? sendToQueue : window.sendToQueue); 
+        if (!fn) { console.warn("sendToQueue not available"); return false; } 
+        const ok = await fn("payment-pending", data); 
+        return ok; 
+      } catch(e) { 
+        console.warn("Queue failed",e); 
+        return false; 
+      }
     }
     
-    // Fallback: calculate from cart
+    // Fallback: use original function
+    return _originalSubmitOrderDetails(orderRef, formData, cart, captchaEl);
+  };
+
+  /* ─── ORIGINAL submitOrderDetails (kept for fallback) ─ */
+  async function _originalSubmitOrderDetails(orderRef, formData, cart, captchaEl = null) {
     const totals = calculateTotals(cart, formData.isBusiness, formData.country);
     
     const items = cart.map(i => {
@@ -1496,7 +1487,7 @@ var Shop = (() => {
     loadProducts, getProduct, pName, pDesc, pCategory, getUrlText, getUpLabelText, getDownLabelText,
     getProductLang, getProductLangEn,
     getCart, saveCart, addToCart, removeFromCart, updateQty, clearCart, calculateTotals,
-    fmt, fmtExact, fmtTotal, fmtWhole, fmtDecimal, convertCeil, fmtWeight, generateOrderRef,
+    fmt, fmtExact, fmtTotal, convertCeil, fmtWeight, generateOrderRef,
     slugify, buildImagePath, colorImageSrc,
     toast, swapMainImg,
     getVariant, variantPrice, variantWeight, variantImage, variantStock, variantInStock,
@@ -1505,7 +1496,7 @@ var Shop = (() => {
     renderShop, renderProductInfo, renderMiniCart, renderBuyNowButton,
     renderTurnstile, submitOrderDetails, submitOrderStatus,
     // NEW: Worker totals methods
-    setWorkerTotals, getWorkerTotals, submitOrderWithWorkerTotals,
+    setWorkerTotals, getWorkerTotals,
   };
 })();
 window.Shop = Shop;
