@@ -1,11 +1,8 @@
 /* =========================================================
-   WEBSHOP SHOP ENGINE  –  shop.js  (v6 - FIXED PRICE CALCULATIONS)
+   WEBSHOP SHOP ENGINE  –  shop.js  (v6 - WORKER VALIDATION FIX)
    =========================================================
-   FIXES:
-   - calculateTotals() now applies discount BEFORE rounding (matches worker)
-   - fmtTotal() now shows exact total with decimals (matches PayPal)
-   - convertCeil() now applies discount before rounding
-   - Price display now matches worker's calculation exactly
+   FIX: Email/ticket now uses worker's validated totals
+   This ensures frontend display matches PayPal exactly
    ========================================================= */
 
 if (typeof window.Shop !== "undefined") { var Shop = window.Shop; } else
@@ -16,6 +13,7 @@ var Shop = (() => {
   let _langLoaded = false;
   let _langLoadPromise = null;
   let _products = {};
+  let _workerTotals = null;  // Store worker's validated totals
 
   /* ═══════════════════════════════════════════════════════
      LANGUAGE RESOLUTION
@@ -33,7 +31,6 @@ var Shop = (() => {
     const supported = CONFIG.supportedLanguages || [CONFIG.defaultLanguage || "en"];
     const langKey   = CONFIG.storageKeys?.shopLangKey || CONFIG.storageKeys?.parentLangKey || "dornori-lang";
 
-    // PRIORITY 1: Check URL path for language code (e.g., /nl/product/?id=...)
     try {
       const basePath = CONFIG.basePath || '/';
       const rawPath = window.location.pathname;
@@ -54,11 +51,8 @@ var Shop = (() => {
         localStorage.setItem(langKey, langFromPath);
         return langFromPath;
       }
-    } catch (e) {
-      // silently fail
-    }
+    } catch (e) {}
 
-    // PRIORITY 2: Check URL query param (?lang=...)
     const urlLang = new URLSearchParams(window.location.search).get("lang");
     if (urlLang && supported.includes(urlLang)) {
       CONFIG.language = urlLang;
@@ -66,15 +60,12 @@ var Shop = (() => {
       return urlLang;
     }
     
-    // PRIORITY 3: Check localStorage
     const saved = localStorage.getItem(langKey);
     if (saved && supported.includes(saved)) { CONFIG.language = saved; return saved; }
 
-    // PRIORITY 4: Check browser language
     const browser = detectBrowserLanguage();
     if (browser) { CONFIG.language = browser; return browser; }
 
-    // PRIORITY 5: Use default
     const def = CONFIG.language || CONFIG.defaultLanguage || "en";
     CONFIG.language = def;
     return def;
@@ -221,41 +212,25 @@ var Shop = (() => {
     return { code, rate: c ? c.rate : 1, decimals: c ? c.decimals : 2, symbol: c ? c.symbol : "€" };
   }
 
-  /* ═══════════════════════════════════════════════════════
-     FIXED: convertCeil() - applies discount BEFORE rounding
-     Matches worker.js behavior exactly
-  ═══════════════════════════════════════════════════════ */
   function convertCeil(eurAmount, currencyCode, discountPercent = 0) {
     const { rate } = _currencyInfo(currencyCode);
-    // Apply discount BEFORE conversion (matches worker)
     const discounted = discountPercent > 0 ? eurAmount * (1 - discountPercent / 100) : eurAmount;
     return Math.ceil(discounted * rate);
   }
 
-  /* ═══════════════════════════════════════════════════════
-     FIXED: calculateTotals() - applies discount BEFORE rounding
-     This fixes the 1 CZK discrepancy with the worker
-  ═══════════════════════════════════════════════════════ */
   function calculateTotals(cart, isBusiness = false, countryCode = null, currencyCode = null) {
     const { rate, decimals, code } = _currencyInfo(currencyCode);
 
-    // FIX: Apply discount BEFORE rounding per unit (matches worker)
-    // 1. For each item, calculate discounted price in EUR first
-    // 2. Then convert to target currency and round ONCE
     const subtotal = cart.reduce((a, i) => {
       const discount = i.discount || 0;
-      // Apply discount to EUR price FIRST (matches worker)
       const discountedEUR = discount > 0 ? i.price * (1 - discount / 100) : i.price;
-      // Then convert and round ONCE (matches worker)
       return a + Math.ceil(discountedEUR * rate) * i.qty;
     }, 0);
 
-    // Original price (pre-discount) for display and discount calculation
     const originalSubtotal = cart.reduce((a, i) => {
       return a + Math.ceil(i.price * rate) * i.qty;
     }, 0);
 
-    // Total discount = original subtotal - discounted subtotal (matches worker)
     const totalDiscount = originalSubtotal - subtotal;
 
     const totalWeight = cart.reduce((a, i) => a + (i.weight || 0) * i.qty, 0);
@@ -264,15 +239,12 @@ var Shop = (() => {
     let cfg = { base: CONFIG.shipping.base, perKg: CONFIG.shipping.perKg, freeThreshold: CONFIG.shipping.freeThreshold, estimatedDays: CONFIG.shipping.estimatedDays };
     if (countryCode && typeof Shipping !== "undefined") cfg = Shipping.getRate(countryCode);
     
-    // Subtotal in EUR for free shipping threshold check
     const subtotalEUR = cart.reduce((a, i) => a + i.price * i.qty, 0);
     const isFreeShipping = subtotalEUR >= cfg.freeThreshold;
     
-    // Shipping: convert EUR to currency and round ONCE (matches worker)
     const shippingEUR = isFreeShipping ? 0 : (cfg.base + totalBillableWeight * cfg.perKg);
     const shipping = Math.ceil(shippingEUR * rate);
 
-    // Tax: calculated on subtotal + shipping (matches worker)
     const tax = isBusiness ? 0 : roundToDecimals((subtotal + shipping) * CONFIG.taxRate, decimals);
     const total = subtotal + shipping + tax;
 
@@ -355,7 +327,6 @@ var Shop = (() => {
 
   /* ─── FORMAT ────────────────────────────────────────── */
   function fmt(eurAmount) {
-    // Rounded-up, no-decimal display — used for prices, shipping, subtotal ONLY
     if (typeof Currency !== "undefined" && Currency.getActive && Currency.isReady && Currency.isReady()) {
       if (Currency.getActive() !== "EUR") return Currency.fmt(eurAmount);
     }
@@ -363,7 +334,6 @@ var Shop = (() => {
   }
   
   function fmtExact(eurAmount) {
-    // Exact, decimal-preserving display — used for tax
     if (typeof Currency !== "undefined" && Currency.getActive && Currency.isReady && Currency.isReady()) {
       if (Currency.getActive() !== "EUR") return Currency.fmtExact(eurAmount);
     }
@@ -371,8 +341,6 @@ var Shop = (() => {
   }
   
   function fmtTotal(eurAmount) {
-    // Exact, decimal-preserving display — used for TOTAL display
-    // This ensures customers see EXACTLY what they'll be charged
     if (typeof Currency !== "undefined" && Currency.getActive && Currency.isReady && Currency.isReady()) {
       if (Currency.getActive() !== "EUR") return Currency.fmtExact(eurAmount);
     }
@@ -1203,7 +1171,6 @@ var Shop = (() => {
         </div>`;
 
       const mainImg = container.querySelector("#pinfo-main-"+productId);
-      const priceEl = container.querySelector("#pinfo-price-"+productId);
       const stockEl = container.querySelector("#pinfo-stock-"+productId);
       const atcBtn  = container.querySelector("#pinfo-atc-"+productId);
       const wtEl    = container.querySelector(".webshop-weight-info");
@@ -1395,41 +1362,28 @@ var Shop = (() => {
   }
   
   /* ═══════════════════════════════════════════════════════
-     FIXED: submitOrderDetails() - NOW USES WORKER'S TOTALS
-     This fixes the 1 CZK discrepancy between frontend and worker
+     FIX: Submit order details using WORKER'S totals
+     This ensures email/ticket matches PayPal exactly
   ═══════════════════════════════════════════════════════ */
-  async function submitOrderDetails(orderRef, formData, cart, workerTotals = null, captchaEl = null) {
-    // USE WORKER'S TOTALS if provided (from payment:success event)
+  function setWorkerTotals(totals) {
+    _workerTotals = totals;
+  }
+
+  function getWorkerTotals() {
+    return _workerTotals;
+  }
+
+  async function submitOrderWithWorkerTotals(orderRef, formData, cart, workerTotals) {
+    // USE WORKER'S TOTALS (passed from payment:success event)
     // This ensures email/ticket matches PayPal exactly
-    let totals;
-    if (workerTotals) {
-      // Use worker's calculated totals (already in correct currency with proper rounding)
-      totals = {
-        subtotal: workerTotals.subtotal || 0,
-        shipping: workerTotals.shipping || 0,
-        tax: workerTotals.tax || 0,
-        total: workerTotals.total || 0,
-        totalDiscount: workerTotals.totalDiscount || 0,
-        totalWeight: 0,
-        isFreeShipping: false,
-        currency: workerTotals.currency || 'EUR',
-        decimals: workerTotals.decimals || 2
-      };
-    } else {
-      // Fallback: calculate from cart (should match worker's logic now)
-      totals = calculateTotals(cart, formData.isBusiness, formData.country);
-    }
-    
     const items = cart.map(i => {
       const label = i.productLabel ? ` — ${i.productLabel}` : "";
-      // Use worker's price if available (from workerTotals.items)
+      // Use worker's price if available
       let price = i.price;
-      let originalPrice = i.originalPrice;
       if (workerTotals && workerTotals.items) {
         const workerItem = workerTotals.items.find(w => w.id === i.id);
         if (workerItem) {
           price = workerItem.price;
-          originalPrice = workerItem.unitPriceOriginal || workerItem.price;
         }
       }
       return `${i.qty}× ${i.name}${label} @ ${price} each | total: ${price * i.qty} | weight: ${fmtWeight((i.weight||0)*i.qty)}`;
@@ -1445,11 +1399,62 @@ var Shop = (() => {
       display_currency: CONFIG.currencyCode,
       ...filtered,
       items,
-      subtotal_eur: totals.subtotal ? "€" + (totals.subtotal / (totals.currency === 'EUR' ? 1 : (Currency.getRates()?.[totals.currency]?.rate || 1))).toFixed(2) : null,
+      subtotal_display: fmt(workerTotals?.subtotal || 0),
+      tax: fmtExact(workerTotals?.tax || 0),
+      shipping: workerTotals?.isFreeShipping ? "FREE" : fmt(workerTotals?.shipping || 0),
+      total_display: fmtTotal(workerTotals?.total || 0),
+      total_weight: fmtWeight(workerTotals?.totalWeight || 0),
+      total_discount: fmt(workerTotals?.totalDiscount || 0),
+      // Store worker's exact values for debugging
+      _worker_subtotal: workerTotals?.subtotal,
+      _worker_shipping: workerTotals?.shipping,
+      _worker_tax: workerTotals?.tax,
+      _worker_total: workerTotals?.total,
+      _worker_currency: workerTotals?.currency,
+      _worker_decimals: workerTotals?.decimals,
+    };
+    
+    try { 
+      const fn = (typeof sendToQueue !== "undefined" ? sendToQueue : window.sendToQueue); 
+      if (!fn) { console.warn("sendToQueue not available"); return false; } 
+      const ok = await fn("payment-pending", data); 
+      return ok; 
+    } catch(e) { 
+      console.warn("Queue failed",e); 
+      return false; 
+    }
+  }
+
+  /* ─── LEGACY submitOrderDetails (kept for compatibility) ─── */
+  async function submitOrderDetails(orderRef, formData, cart, captchaEl = null) {
+    // If we have worker totals, use them
+    if (_workerTotals) {
+      return submitOrderWithWorkerTotals(orderRef, formData, cart, _workerTotals);
+    }
+    
+    // Fallback: calculate from cart
+    const totals = calculateTotals(cart, formData.isBusiness, formData.country);
+    
+    const items = cart.map(i => {
+      const label = i.productLabel ? ` — ${i.productLabel}` : "";
+      return `${i.qty}× ${i.name}${label} @ ${fmt(i.price)} each | total: ${fmt((parseFloat(i.price)||0)*i.qty)} | weight: ${fmtWeight((i.weight||0)*i.qty)}`;
+    });
+    
+    const filtered = {}; 
+    Object.entries(formData).forEach(([k,v]) => { if (v!=null&&v!=="") filtered[k]=v; });
+    
+    const data = {
+      _subject: `New Order ${orderRef}`,
+      order_ref: orderRef,
+      status: "PENDING_PAYMENT",
+      display_currency: CONFIG.currencyCode,
+      ...filtered,
+      items,
+      subtotal_eur: "€" + (totals.subtotal / (totals.currency === 'EUR' ? 1 : (Currency.getRates()?.[totals.currency]?.rate || 1))).toFixed(2),
       subtotal_display: fmt(totals.subtotal || 0),
       tax: fmtExact(totals.tax || 0),
       shipping: totals.isFreeShipping ? "FREE" : fmt(totals.shipping || 0),
-      total_eur: totals.total ? "€" + (totals.total / (totals.currency === 'EUR' ? 1 : (Currency.getRates()?.[totals.currency]?.rate || 1))).toFixed(2) : null,
+      total_eur: "€" + (totals.total / (totals.currency === 'EUR' ? 1 : (Currency.getRates()?.[totals.currency]?.rate || 1))).toFixed(2),
       total_display: fmtTotal(totals.total || 0),
       total_weight: fmtWeight(totals.totalWeight || 0),
       total_discount: fmt(totals.totalDiscount || 0),
@@ -1490,6 +1495,8 @@ var Shop = (() => {
     renderCurrencySelector, renderBackButton, renderCartIcon,
     renderShop, renderProductInfo, renderMiniCart, renderBuyNowButton,
     renderTurnstile, submitOrderDetails, submitOrderStatus,
+    // NEW: Worker totals methods
+    setWorkerTotals, getWorkerTotals, submitOrderWithWorkerTotals,
   };
 })();
 window.Shop = Shop;
