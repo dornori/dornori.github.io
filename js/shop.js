@@ -1,10 +1,8 @@
 /* =========================================================
-   WEBSHOP SHOP ENGINE  –  shop.js  (v6 - FIXED)
+   WEBSHOP SHOP ENGINE  –  shop.js  (v6 - WORKER VALIDATION FIX)
    =========================================================
-   FIXES:
-   - calculateTotals() now applies discount BEFORE rounding (matches worker)
-   - submitOrderDetails() uses worker totals when available
-   - Added setWorkerTotals() and getWorkerTotals()
+   FIX: Email/ticket now uses worker's validated totals
+   This ensures frontend display matches PayPal exactly
    ========================================================= */
 
 if (typeof window.Shop !== "undefined") { var Shop = window.Shop; } else
@@ -201,9 +199,7 @@ var Shop = (() => {
     document.dispatchEvent(new CustomEvent("shop:cartUpdated", { detail: { cart: [] } }));
   }
 
-  /* ═══════════════════════════════════════════════════════
-     FIXED: TOTALS - Apply discount BEFORE rounding (matches worker)
-  ═══════════════════════════════════════════════════════ */
+  /* ─── TOTALS ────────────────────────────────────────── */
   function roundToDecimals(n, decimals) {
     const f = Math.pow(10, decimals);
     return Math.round((n + Number.EPSILON) * f) / f;
@@ -225,16 +221,12 @@ var Shop = (() => {
   function calculateTotals(cart, isBusiness = false, countryCode = null, currencyCode = null) {
     const { rate, decimals, code } = _currencyInfo(currencyCode);
 
-    // FIX: Apply discount BEFORE rounding per unit (matches worker)
     const subtotal = cart.reduce((a, i) => {
       const discount = i.discount || 0;
-      // Apply discount to EUR price FIRST (matches worker)
       const discountedEUR = discount > 0 ? i.price * (1 - discount / 100) : i.price;
-      // Then convert and round ONCE (matches worker)
       return a + Math.ceil(discountedEUR * rate) * i.qty;
     }, 0);
 
-    // Original price (pre-discount) for display
     const originalSubtotal = cart.reduce((a, i) => {
       return a + Math.ceil(i.price * rate) * i.qty;
     }, 0);
@@ -1370,55 +1362,82 @@ var Shop = (() => {
   }
   
   /* ═══════════════════════════════════════════════════════
-     FIX: WORKER TOTALS METHODS
+     FIX: Worker totals methods (ADDED)
   ═══════════════════════════════════════════════════════ */
   function setWorkerTotals(totals) {
     _workerTotals = totals;
-    console.log('✅ Worker totals saved to Shop:', _workerTotals);
   }
 
   function getWorkerTotals() {
     return _workerTotals;
   }
 
-  /* ═══════════════════════════════════════════════════════
-     FIXED: submitOrderDetails - Uses worker totals
-  ═══════════════════════════════════════════════════════ */
-  async function submitOrderDetails(orderRef, formData, cart, captchaEl = null) {
-    console.log('📦 Submitting order details...');
-    console.log('Worker totals available:', _workerTotals);
+  /* ─── MODIFIED submitOrderDetails ────────────────────── */
+  const _originalSubmitOrderDetails = submitOrderDetails;
+  
+  // Override submitOrderDetails to use worker totals when available
+  submitOrderDetails = async function(orderRef, formData, cart, captchaEl = null) {
+    // If we have worker totals, use them
+    if (_workerTotals) {
+      const items = cart.map(i => {
+        const label = i.productLabel ? ` — ${i.productLabel}` : "";
+        let price = i.price;
+        if (_workerTotals.items) {
+          const workerItem = _workerTotals.items.find(w => w.id === i.id);
+          if (workerItem) {
+            price = workerItem.price;
+          }
+        }
+        return `${i.qty}× ${i.name}${label} @ ${price} each | total: ${price * i.qty} | weight: ${fmtWeight((i.weight||0)*i.qty)}`;
+      });
+      
+      const filtered = {}; 
+      Object.entries(formData).forEach(([k,v]) => { if (v!=null&&v!=="") filtered[k]=v; });
+      
+      const data = {
+        _subject: `New Order ${orderRef}`,
+        order_ref: orderRef,
+        status: "PENDING_PAYMENT",
+        display_currency: CONFIG.currencyCode,
+        ...filtered,
+        items,
+        subtotal_display: fmt(_workerTotals?.subtotal || 0),
+        tax: fmtExact(_workerTotals?.tax || 0),
+        shipping: _workerTotals?.isFreeShipping ? "FREE" : fmt(_workerTotals?.shipping || 0),
+        total_display: fmtTotal(_workerTotals?.total || 0),
+        total_weight: fmtWeight(_workerTotals?.totalWeight || 0),
+        total_discount: fmt(_workerTotals?.totalDiscount || 0),
+        // Store worker's exact values for debugging
+        _worker_subtotal: _workerTotals?.subtotal,
+        _worker_shipping: _workerTotals?.shipping,
+        _worker_tax: _workerTotals?.tax,
+        _worker_total: _workerTotals?.total,
+        _worker_currency: _workerTotals?.currency,
+        _worker_decimals: _workerTotals?.decimals,
+      };
+      
+      try { 
+        const fn = (typeof sendToQueue !== "undefined" ? sendToQueue : window.sendToQueue); 
+        if (!fn) { console.warn("sendToQueue not available"); return false; } 
+        const ok = await fn("payment-pending", data); 
+        return ok; 
+      } catch(e) { 
+        console.warn("Queue failed",e); 
+        return false; 
+      }
+    }
     
-    // USE WORKER TOTALS IF AVAILABLE
-    const totals = _workerTotals || calculateTotals(cart, formData.isBusiness, formData.country);
-    
-    console.log('📊 Using totals:', totals);
+    // Fallback: use original function
+    return _originalSubmitOrderDetails(orderRef, formData, cart, captchaEl);
+  };
+
+  /* ─── ORIGINAL submitOrderDetails (kept for fallback) ─ */
+  async function _originalSubmitOrderDetails(orderRef, formData, cart, captchaEl = null) {
+    const totals = calculateTotals(cart, formData.isBusiness, formData.country);
     
     const items = cart.map(i => {
       const label = i.productLabel ? ` — ${i.productLabel}` : "";
-      
-      let price = i.price;
-      let originalPrice = i.originalPrice || i.price;
-      let discount = i.discount || 0;
-      
-      // If worker totals available, use worker's item data
-      if (_workerTotals && _workerTotals.items) {
-        const workerItem = _workerTotals.items.find(w => w.id === i.id);
-        if (workerItem) {
-          price = workerItem.price;
-          originalPrice = workerItem.unitPriceOriginal || workerItem.price;
-          discount = workerItem.discount || 0;
-        }
-      }
-      
-      // Build display string with original price and discount if applicable
-      let displayPrice;
-      if (discount > 0 && originalPrice !== price) {
-        displayPrice = `${fmt(originalPrice)} (${discount}% off → ${fmt(price)})`;
-      } else {
-        displayPrice = fmt(price);
-      }
-      
-      return `${i.qty}× ${i.name}${label} @ ${displayPrice} each | total: ${price * i.qty} | weight: ${fmtWeight((i.weight||0)*i.qty)}`;
+      return `${i.qty}× ${i.name}${label} @ ${fmt(i.price)} each | total: ${fmt((parseFloat(i.price)||0)*i.qty)} | weight: ${fmtWeight((i.weight||0)*i.qty)}`;
     });
     
     const filtered = {}; 
@@ -1431,26 +1450,20 @@ var Shop = (() => {
       display_currency: CONFIG.currencyCode,
       ...filtered,
       items,
+      subtotal_eur: "€" + (totals.subtotal / (totals.currency === 'EUR' ? 1 : (Currency.getRates()?.[totals.currency]?.rate || 1))).toFixed(2),
       subtotal_display: fmt(totals.subtotal || 0),
       tax: fmtExact(totals.tax || 0),
       shipping: totals.isFreeShipping ? "FREE" : fmt(totals.shipping || 0),
+      total_eur: "€" + (totals.total / (totals.currency === 'EUR' ? 1 : (Currency.getRates()?.[totals.currency]?.rate || 1))).toFixed(2),
       total_display: fmtTotal(totals.total || 0),
       total_weight: fmtWeight(totals.totalWeight || 0),
       total_discount: fmt(totals.totalDiscount || 0),
-      // Store worker's exact values for debugging
-      _worker_subtotal: totals.subtotal,
-      _worker_shipping: totals.shipping,
-      _worker_tax: totals.tax,
-      _worker_total: totals.total,
-      _worker_currency: totals.currency,
-      _worker_decimals: totals.decimals,
     };
     
     try { 
       const fn = (typeof sendToQueue !== "undefined" ? sendToQueue : window.sendToQueue); 
       if (!fn) { console.warn("sendToQueue not available"); return false; } 
       const ok = await fn("payment-pending", data); 
-      console.log('✅ Order submitted successfully:', ok);
       return ok; 
     } catch(e) { 
       console.warn("Queue failed",e); 
