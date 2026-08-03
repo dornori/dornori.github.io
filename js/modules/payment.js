@@ -39,8 +39,6 @@ const Payment = (() => {
     return (typeof Currency !== 'undefined' && Currency.convert) ? Currency.convert(amount) : amount;
   }
 
-  // Rounded-up (ceiling), whole-number conversion — for subtotal/shipping display.
-  // Tax must stay exact with decimals, so it always uses _convert() instead.
   function _convertRounded(amount) {
     return (typeof Currency !== 'undefined' && Currency.convertRounded) ? Currency.convertRounded(amount) : Math.ceil(amount);
   }
@@ -76,11 +74,38 @@ const Payment = (() => {
     };
   }
 
+  /* ═══════════════════════════════════════════════════════
+     FIX: VALIDATE CART WITH WORKER BEFORE CREATING ORDER
+     This ensures frontend prices match worker prices
+  ═══════════════════════════════════════════════════════ */
+  async function _validateWithWorker(cart, countryCode, currency) {
+    const res = await fetch(`${WORKER}/api/validate-cart`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        items: cart.map(item => ({ 
+          id: item.id, 
+          qty: item.qty,
+          // Don't send price - worker recalculates from source
+        })), 
+        countryCode: countryCode || 'US', 
+        currency: currency 
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Validation failed');
+    }
+    return res.json();
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     FIX: CREATE ORDER WITH VALIDATED CART
+  ═══════════════════════════════════════════════════════ */
   async function _createStandardOrder(cart, formData, currency, paymentMethod) {
     const cleanFormData = _collectFormData(formData);
+    const countryCode = cleanFormData.country || 'US';
     
-<<<<<<< HEAD
-<<<<<<< HEAD
     // STEP 1: Validate cart with worker to get CORRECT prices
     console.log('🔵 Validating cart with worker...');
     const validation = await _validateWithWorker(cart, countryCode, currency);
@@ -125,36 +150,40 @@ const Payment = (() => {
     };
     
     // STEP 4: Create order with validated cart
-=======
->>>>>>> parent of 5252fdf2 (shop)
-=======
->>>>>>> parent of 5252fdf2 (shop)
     const res = await fetch(`${WORKER}/api/create-order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        items: cart,
-        countryCode: cleanFormData.country || 'US',
+        items: validatedCart,
+        countryCode: countryCode,
         currency: currency,
         formData: cleanFormData,
-        paymentMethod: paymentMethod || 'paypal'
+        paymentMethod: paymentMethod || 'paypal',
+        // Pass validated totals to avoid recalculation
+        _validatedTotals: validatedTotals
       })
     });
+    
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Order creation failed');
     }
+    
     const result = await res.json();
+    
+    // Store validated totals with order
+    result._validatedTotals = validatedTotals;
+    result._formData = cleanFormData;
+    
     localStorage.setItem('webshop_order_ref', result.orderRef);
     localStorage.setItem('webshop_paypal_order_id', result.orderId);
     localStorage.setItem('webshop_order_snapshot', JSON.stringify({
-      items: cart,
+      items: validatedCart,
       formData: cleanFormData,
-      totals: result.totals,
+      totals: validatedTotals,
       currency: currency
     }));
-    // Attach formData to result so callers can pass it to capture
-    result._formData = cleanFormData;
+    
     return result;
   }
 
@@ -173,7 +202,9 @@ const Payment = (() => {
 
   const _renderTokens = new WeakMap();
 
-  // ── GOOGLE PAY ──
+  /* ═══════════════════════════════════════════════════════
+     GOOGLE PAY - with worker validation
+  ═══════════════════════════════════════════════════════ */
   const _googlepay = {
     async isAvailable() {
       return typeof window.paypal !== 'undefined' && typeof window.paypal.Googlepay === 'function';
@@ -298,13 +329,13 @@ const Payment = (() => {
               const [gpayFirst, ...gpayLastParts] = gpayName.split(' ').filter(Boolean);
               const gpayAddr = paymentData.shippingAddress || paymentData.paymentMethodData?.info?.billingAddress || {};
 
-              // Recalculate totals using actual country from Google Pay address
               const gpayCountry = gpayAddr.countryCode || null;
               const liveTotals = (typeof Shop !== 'undefined') ? Shop.calculateTotals(cart, false, gpayCountry) : localTotals;
               const liveSubtotal = liveTotals ? liveTotals.subtotal : rawSubtotal;
               const liveShipping = liveTotals ? (liveTotals.isFreeShipping ? 0 : liveTotals.shipping) : rawShipping;
               const liveTax = liveTotals ? liveTotals.tax : rawTax;
 
+              // FIX: Use validated cart
               const realOrder = await _createStandardOrder(cart, {
                 email: gpayEmail || '',
                 phone: gpayPhone || '',
@@ -323,19 +354,21 @@ const Payment = (() => {
               
               if (confirmResult.status === 'DECLINED') throw new Error('Payment declined');
 
+              // Use validated totals from order creation
+              const validatedTotals = realOrder._validatedTotals || realOrder.totals;
               const gpayFallback = {
                 email: gpayEmail,
                 phone: gpayPhone,
-                amount: realOrder.totals?.total != null ? Number(realOrder.totals.total).toFixed(2) : null,
-                itemTotal: realOrder.totals?.itemTotal != null ? Number(realOrder.totals.itemTotal).toFixed(2) : null,
-                discount: realOrder.totals?.totalDiscount != null ? Number(realOrder.totals.totalDiscount).toFixed(2) : null,
-                subtotal: realOrder.totals?.subtotal != null ? Number(realOrder.totals.subtotal).toFixed(2) : null,
-                shipping: realOrder.totals?.shipping != null ? Number(realOrder.totals.shipping).toFixed(2) : null,
-                tax: realOrder.totals?.tax != null ? Number(realOrder.totals.tax).toFixed(2) : null,
+                amount: validatedTotals?.total != null ? Number(validatedTotals.total).toFixed(2) : null,
+                itemTotal: validatedTotals?.itemTotal != null ? Number(validatedTotals.itemTotal).toFixed(2) : null,
+                discount: validatedTotals?.totalDiscount != null ? Number(validatedTotals.totalDiscount).toFixed(2) : null,
+                subtotal: validatedTotals?.subtotal != null ? Number(validatedTotals.subtotal).toFixed(2) : null,
+                shipping: validatedTotals?.shipping != null ? Number(validatedTotals.shipping).toFixed(2) : null,
+                tax: validatedTotals?.tax != null ? Number(validatedTotals.tax).toFixed(2) : null,
                 currency: currency
               };
 
-              const captureResult = await _captureOrder(realOrder.orderId, realOrder.orderRef, language, gpayFallback);
+              const captureResult = await _captureOrder(realOrder.orderId, realOrder.orderRef, language, gpayFallback, realOrder._formData);
               
               if (captureResult.success && captureResult.customer) {
                 localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
@@ -348,7 +381,8 @@ const Payment = (() => {
               _dispatch('payment:success', { 
                 orderRef: realOrder.orderRef, 
                 processor: 'googlepay', 
-                result: captureResult
+                result: captureResult,
+                totals: validatedTotals  // ← PASS WORKER'S TOTALS
               });
             } catch (err) {
               if (err && err.statusCode === 'CANCELED') {
@@ -368,7 +402,9 @@ const Payment = (() => {
     }
   };
 
-  // ── APPLE PAY ──
+  /* ═══════════════════════════════════════════════════════
+     APPLE PAY - with worker validation
+  ═══════════════════════════════════════════════════════ */
   const _applepay = {
     async isAvailable() {
       return typeof window.ApplePaySession !== 'undefined' &&
@@ -470,9 +506,7 @@ const Payment = (() => {
               const apayEmail = billing.emailAddress || shipping.emailAddress || '';
               const apayPhone = billing.phoneNumber || shipping.phoneNumber || '';
 
-              // Create the real order now that we have the wallet's contact info,
-              // so it can be attached to the order (email/phone can only be set
-              // at order creation, not patched in afterward).
+              // FIX: Use validated cart
               const realOrder = await _createStandardOrder(cart, {
                 email: apayEmail,
                 phone: apayPhone,
@@ -492,18 +526,19 @@ const Payment = (() => {
               });
               
               if (confirmResult.approveApplePayPayment) {
+                const validatedTotals = realOrder._validatedTotals || realOrder.totals;
                 const apayFallback = {
                   email: apayEmail || null,
                   phone: apayPhone || null,
-                  amount: realOrder.totals?.total != null ? Number(realOrder.totals.total).toFixed(2) : null,
-                  itemTotal: realOrder.totals?.itemTotal != null ? Number(realOrder.totals.itemTotal).toFixed(2) : null,
-                  discount: realOrder.totals?.totalDiscount != null ? Number(realOrder.totals.totalDiscount).toFixed(2) : null,
-                  subtotal: realOrder.totals?.subtotal != null ? Number(realOrder.totals.subtotal).toFixed(2) : null,
-                  shipping: realOrder.totals?.shipping != null ? Number(realOrder.totals.shipping).toFixed(2) : null,
-                  tax: realOrder.totals?.tax != null ? Number(realOrder.totals.tax).toFixed(2) : null,
+                  amount: validatedTotals?.total != null ? Number(validatedTotals.total).toFixed(2) : null,
+                  itemTotal: validatedTotals?.itemTotal != null ? Number(validatedTotals.itemTotal).toFixed(2) : null,
+                  discount: validatedTotals?.totalDiscount != null ? Number(validatedTotals.totalDiscount).toFixed(2) : null,
+                  subtotal: validatedTotals?.subtotal != null ? Number(validatedTotals.subtotal).toFixed(2) : null,
+                  shipping: validatedTotals?.shipping != null ? Number(validatedTotals.shipping).toFixed(2) : null,
+                  tax: validatedTotals?.tax != null ? Number(validatedTotals.tax).toFixed(2) : null,
                   currency: currency
                 };
-                const captureResult = await _captureOrder(realOrder.orderId, realOrder.orderRef, language, apayFallback);
+                const captureResult = await _captureOrder(realOrder.orderId, realOrder.orderRef, language, apayFallback, realOrder._formData);
                 
                 if (captureResult.success && captureResult.customer) {
                   localStorage.setItem('webshop_paypal_customer', JSON.stringify(captureResult.customer));
@@ -517,7 +552,8 @@ const Payment = (() => {
                 _dispatch('payment:success', { 
                   orderRef: realOrder.orderRef, 
                   processor: 'applepay', 
-                  result: captureResult
+                  result: captureResult,
+                  totals: validatedTotals  // ← PASS WORKER'S TOTALS
                 });
               } else {
                 session.completePayment(ApplePaySession.STATUS_FAILURE);
@@ -545,7 +581,9 @@ const Payment = (() => {
     }
   };
 
-  // ── PAYPAL ──
+  /* ═══════════════════════════════════════════════════════
+     PAYPAL - with worker validation
+  ═══════════════════════════════════════════════════════ */
   const _paypal = {
     _loadedCurrency: null,
 
@@ -596,12 +634,10 @@ const Payment = (() => {
 
       const uid = 'pf' + myToken + '_' + Date.now();
 
-      // ── One white rounded card holding everything: fields, Pay Now, divider, PayPal ──
       const paymentBox = document.createElement('div');
       paymentBox.className = 'payment-card-box';
       el.appendChild(paymentBox);
 
-      // ── Credit Card Section ──
       const cardSection = document.createElement('div');
       cardSection.id = 'paypal-card-section';
       cardSection.className = 'paypal-card-section';
@@ -709,7 +745,6 @@ const Payment = (() => {
             }
           },
           createOrder: async () => {
-            // Read form data DIRECTLY from DOM
             const formData = {
               first_name: document.getElementById('cart-first-name')?.value || '',
               last_name: document.getElementById('cart-last-name')?.value || '',
@@ -728,22 +763,25 @@ const Payment = (() => {
               billing_country: document.getElementById('cart-billing-country')?.value || ''
             };
             
+            // FIX: Use validated cart
             const result = await _createStandardOrder(cart, formData, currency, 'card');
             _lastOrder = { orderRef: result.orderRef, items: cart, formData: formData, totals: result.totals, currency };
             _lastOrder._savedForm = result._formData || formData;
+            _lastOrder._validatedTotals = result._validatedTotals || result.totals;
             return result.orderId;
           },
           onApprove: async (data) => {
             const submitBtn = container.querySelector('#paypal-card-submit-' + uid);
             try {
               const language = _getActiveLanguage();
+              const validatedTotals = _lastOrder?._validatedTotals || _lastOrder?.totals;
               const cardFallback = {
-                amount: _lastOrder?.totals?.total != null ? Number(_lastOrder.totals.total).toFixed(2) : null,
-                itemTotal: _lastOrder?.totals?.itemTotal != null ? Number(_lastOrder.totals.itemTotal).toFixed(2) : null,
-                discount: _lastOrder?.totals?.totalDiscount != null ? Number(_lastOrder.totals.totalDiscount).toFixed(2) : null,
-                subtotal: _lastOrder?.totals?.subtotal != null ? Number(_lastOrder.totals.subtotal).toFixed(2) : null,
-                shipping: _lastOrder?.totals?.shipping != null ? Number(_lastOrder.totals.shipping).toFixed(2) : null,
-                tax: _lastOrder?.totals?.tax != null ? Number(_lastOrder.totals.tax).toFixed(2) : null,
+                amount: validatedTotals?.total != null ? Number(validatedTotals.total).toFixed(2) : null,
+                itemTotal: validatedTotals?.itemTotal != null ? Number(validatedTotals.itemTotal).toFixed(2) : null,
+                discount: validatedTotals?.totalDiscount != null ? Number(validatedTotals.totalDiscount).toFixed(2) : null,
+                subtotal: validatedTotals?.subtotal != null ? Number(validatedTotals.subtotal).toFixed(2) : null,
+                shipping: validatedTotals?.shipping != null ? Number(validatedTotals.shipping).toFixed(2) : null,
+                tax: validatedTotals?.tax != null ? Number(validatedTotals.tax).toFixed(2) : null,
                 currency: _lastOrder?.currency || null
               };
               const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language, cardFallback, _lastOrder?._savedForm || _lastOrder?.formData);
@@ -759,7 +797,8 @@ const Payment = (() => {
               _dispatch('payment:success', {
                 orderRef: localStorage.getItem('webshop_order_ref') || orderRef,
                 processor: 'card',
-                result: captureResult
+                result: captureResult,
+                totals: validatedTotals  // ← PASS WORKER'S TOTALS
               });
             } catch (err) {
               console.error('Card capture error:', err);
@@ -864,7 +903,6 @@ const Payment = (() => {
           return actions.resolve();
         },
         createOrder: async () => {
-          // Read form data DIRECTLY from DOM elements
           const formData = {
             first_name: document.getElementById('cart-first-name')?.value || '',
             last_name: document.getElementById('cart-last-name')?.value || '',
@@ -885,21 +923,24 @@ const Payment = (() => {
           
           console.log('🔴 PayPal Button - Form Data:', formData);
           
+          // FIX: Use validated cart
           const result = await _createStandardOrder(cart, formData, currency, 'paypal');
           _lastOrder = { orderRef: result.orderRef, items: cart, formData: formData, totals: result.totals, currency };
           _lastOrder._savedForm = result._formData || formData;
+          _lastOrder._validatedTotals = result._validatedTotals || result.totals;
           return result.orderId;
         },
         onApprove: async (data) => {
           try {
             const language = _getActiveLanguage();
+            const validatedTotals = _lastOrder?._validatedTotals || _lastOrder?.totals;
             const paypalFallback = {
-              amount: _lastOrder?.totals?.total != null ? Number(_lastOrder.totals.total).toFixed(2) : null,
-              itemTotal: _lastOrder?.totals?.itemTotal != null ? Number(_lastOrder.totals.itemTotal).toFixed(2) : null,
-              discount: _lastOrder?.totals?.totalDiscount != null ? Number(_lastOrder.totals.totalDiscount).toFixed(2) : null,
-              subtotal: _lastOrder?.totals?.subtotal != null ? Number(_lastOrder.totals.subtotal).toFixed(2) : null,
-              shipping: _lastOrder?.totals?.shipping != null ? Number(_lastOrder.totals.shipping).toFixed(2) : null,
-              tax: _lastOrder?.totals?.tax != null ? Number(_lastOrder.totals.tax).toFixed(2) : null,
+              amount: validatedTotals?.total != null ? Number(validatedTotals.total).toFixed(2) : null,
+              itemTotal: validatedTotals?.itemTotal != null ? Number(validatedTotals.itemTotal).toFixed(2) : null,
+              discount: validatedTotals?.totalDiscount != null ? Number(validatedTotals.totalDiscount).toFixed(2) : null,
+              subtotal: validatedTotals?.subtotal != null ? Number(validatedTotals.subtotal).toFixed(2) : null,
+              shipping: validatedTotals?.shipping != null ? Number(validatedTotals.shipping).toFixed(2) : null,
+              tax: validatedTotals?.tax != null ? Number(validatedTotals.tax).toFixed(2) : null,
               currency: _lastOrder?.currency || null
             };
             const captureResult = await _captureOrder(data.orderID, _lastOrder?.orderRef || orderRef, language, paypalFallback, _lastOrder?._savedForm || _lastOrder?.formData);
@@ -915,7 +956,8 @@ const Payment = (() => {
             _dispatch("payment:success", { 
               orderRef: localStorage.getItem('webshop_order_ref') || orderRef, 
               processor: "paypal", 
-              result: captureResult 
+              result: captureResult,
+              totals: validatedTotals  // ← PASS WORKER'S TOTALS
             });
           } catch (err) {
             console.error('Capture error:', err);
