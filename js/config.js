@@ -124,7 +124,7 @@ const CONFIG = {
         googlePay: {
             merchantId: "BCR2DN4TQIZPLAVW",
             merchantName: "Dornori",
-            environment: "TEST"
+            environment: "PRODUCTION"
         },
         applePay: {
             merchantId: "merchant.dornori.com",
