@@ -95,11 +95,11 @@ const CONFIG = {
         (window.__BASE_PATH__ || '/') + "js/modules/payment.js",
     ],
 
-    // ── Payment ─────────────────────────────────────────────────────────────── AaYwnfwpOiekk9jVlaqWJsTKNknCYNWEM6X1-5kav2sNq2t988oBkyr_MGwonIDDKxnTET4VorHpNEnN
+    // ── Payment ─────────────────────────────────────────────────────────────── AWqba_w8m1T0RmuVa6xwgD8UIbAP-j_w-pmdu8aksmfvjuyqQM3UDIU4gYZxOyWNJ-lJy3PAh_Id8nmM
     payment: {
         activeProcessor: "paypal",
         paypal: {
-            clientId:   "AWqba_w8m1T0RmuVa6xwgD8UIbAP-j_w-pmdu8aksmfvjuyqQM3UDIU4gYZxOyWNJ-lJy3PAh_Id8nmM",
+            clientId:   "Ae0VG0A-5m-NVc3DkgwEQB8Qk4gqIp0Y_WrjuppSahdED970QStpnyfy6cneG3ScJ1-dhkjKWhKg_YTW",
             currency:   "EUR",
             intent:     "capture",
             returnPath: "/success.html",
