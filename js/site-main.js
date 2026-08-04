@@ -2,7 +2,6 @@
  * site-main.js — ES module entry point for all HTML shell pages.
  */
 
-import ENV_CONFIG           from './env-config.js';
 import { initI18n } from './i18n.js';
 import { initNavigation }   from './nav-loader.js';
 import { initSocials }      from './social-loader.js';
@@ -54,7 +53,7 @@ async function loadAndCacheCountries() {
         
         return countries;
     } catch (e) {
-        if (ENV_CONFIG.DEBUG) console.error('[site-main] Failed to load countries.json:', e);
+        if (CONFIG.debug) console.error('[site-main] Failed to load countries.json:', e);
         return [];
     }
 }
@@ -116,7 +115,7 @@ async function loadDynamicConfig() {
         const profilesRes = await fetch(basePath + SITE_CONFIG.paths.profiles_file);
         SITE_CONFIG.profiles = await profilesRes.json();
     } catch (e) {
-        if (ENV_CONFIG.DEBUG) console.error('[site-main] Failed to load profiles.json:', e);
+        if (CONFIG.debug) console.error('[site-main] Failed to load profiles.json:', e);
         // Fallback to default profiles
         SITE_CONFIG.profiles = ['dark', 'light', 'cutting-mat', 'cutting-blue'];
     }
@@ -149,5 +148,5 @@ async function init() {
 }
 
 init().catch(err => {
-    if (ENV_CONFIG.DEBUG) console.error('[site-main] Init error:', err);
+    if (CONFIG.debug) console.error('[site-main] Init error:', err);
 });

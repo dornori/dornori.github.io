@@ -15,6 +15,7 @@ const CONFIG = {
     tagline:  "Curated lighting for modern spaces",
     baseCurrency: "EUR",
     currencyCode: "EUR",
+    debug:           false,
     defaultLanguage: "en",
     supportedLanguages: ["en", "nl", "de", "fr", "es", "it", "pt", "cs", "sk"],
 
@@ -78,6 +79,8 @@ const CONFIG = {
     endpoints: {
         formHandler:   (globalThis.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
         queue:         (globalThis.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
+        payWorker:     'https://pay.dornori-info.workers.dev',
+        geoApi:        'https://ipapi.co/json/',
         supportEmail:  'support@dornori.com',
         privacyEmail:  'privacy@dornori.com',
         securityEmail: 'security@dornori.com',
