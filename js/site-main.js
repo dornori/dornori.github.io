@@ -2,7 +2,6 @@
  * site-main.js — ES module entry point for all HTML shell pages.
  */
 
-import ENV_CONFIG           from './env-config.js';
 import { initI18n } from './i18n.js';
 import { initNavigation }   from './nav-loader.js';
 import { initSocials }      from './social-loader.js';
@@ -21,8 +20,8 @@ async function loadAndCacheCountries() {
     
     // FIX #5 & #8: Check localStorage cache first (instant, no network)
     try {
-        const cached = localStorage.getItem('dornori-countries-cache');
-        const timestamp = localStorage.getItem('dornori-cache-timestamp');
+        const cached = localStorage.getItem('app-countries-cache');
+        const timestamp = localStorage.getItem('app-cache-timestamp');
         const now = Date.now();
         const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
         
@@ -46,15 +45,15 @@ async function loadAndCacheCountries() {
         
         // FIX #5 & #8: Cache to localStorage for next load
         try {
-            localStorage.setItem('dornori-countries-cache', JSON.stringify(countries));
-            localStorage.setItem('dornori-cache-timestamp', Date.now().toString());
+            localStorage.setItem('app-countries-cache', JSON.stringify(countries));
+            localStorage.setItem('app-cache-timestamp', Date.now().toString());
         } catch (e) {
             // localStorage full or unavailable, continue anyway
         }
         
         return countries;
     } catch (e) {
-        if (ENV_CONFIG.DEBUG) console.error('[site-main] Failed to load countries.json:', e);
+        if (CONFIG.debug) console.error('[site-main] Failed to load countries.json:', e);
         return [];
     }
 }
@@ -116,7 +115,7 @@ async function loadDynamicConfig() {
         const profilesRes = await fetch(basePath + SITE_CONFIG.paths.profiles_file);
         SITE_CONFIG.profiles = await profilesRes.json();
     } catch (e) {
-        if (ENV_CONFIG.DEBUG) console.error('[site-main] Failed to load profiles.json:', e);
+        if (CONFIG.debug) console.error('[site-main] Failed to load profiles.json:', e);
         // Fallback to default profiles
         SITE_CONFIG.profiles = ['dark', 'light', 'cutting-mat', 'cutting-blue'];
     }
@@ -149,5 +148,5 @@ async function init() {
 }
 
 init().catch(err => {
-    if (ENV_CONFIG.DEBUG) console.error('[site-main] Init error:', err);
+    if (CONFIG.debug) console.error('[site-main] Init error:', err);
 });

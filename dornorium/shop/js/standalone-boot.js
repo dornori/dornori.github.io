@@ -27,7 +27,7 @@
 
     if (window.__PAGE_SLUG__ === undefined) window.__PAGE_SLUG__ = '';
 
-    var LANG_KEY = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys && CONFIG.storageKeys.parentLangKey) || 'dornori-lang';
+    var LANG_KEY = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys && CONFIG.storageKeys.parentLangKey) || 'app-lang';
     var lang = localStorage.getItem(LANG_KEY) || 'en';
     window.LANG = lang;
     window.__PAGE_LANG__ = lang;

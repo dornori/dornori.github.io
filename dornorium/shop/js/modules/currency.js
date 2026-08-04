@@ -56,8 +56,8 @@ var Currency = (() => {
         // Single shared promise — geo-popup.js reuses window.__geoData set here.
         // Primary: ipapi.co. If blocked (CORS/ad-blocker), fall back silently to null.
         if (!window.__geoDataPromise) {
-          const geoUrl = (typeof ENV_CONFIG !== 'undefined' && ENV_CONFIG.GEO_API)
-                         || 'https://ipapi.co/json/';
+          const geoUrl = (typeof CONFIG !== 'undefined' && CONFIG.endpoints && CONFIG.endpoints.geoApi)
+                         || '';
           window.__geoDataPromise = fetch(geoUrl, { mode: 'cors' })
             .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
             .catch(() => null); // blocked by ad-blocker or CORS — degrade gracefully

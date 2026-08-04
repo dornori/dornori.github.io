@@ -1,5 +1,5 @@
 const CartWorker = (() => {
-  const WORKER_URL = 'https://pay.dornori-info.workers.dev';
+  const WORKER_URL = (typeof CONFIG !== 'undefined' && CONFIG.endpoints && CONFIG.endpoints.payWorker) || '';
 
   async function validateCart(items, countryCode, currency) {
     const res = await fetch(`${WORKER_URL}/api/validate-cart`, {

@@ -2,7 +2,6 @@
  * i18n.js — Data loaders, country/language helpers, and language switching
  */
 
-import ENV_CONFIG  from './env-config.js';
 
 const SITE_CONFIG = window.CONFIG || {};
 const STORAGE_KEY = SITE_CONFIG.storageKeys?.lang;
@@ -155,7 +154,7 @@ window.setLang = async (code) => {
         try {
             await window.Shop.switchLanguage(code);
         } catch (e) {
-            if (ENV_CONFIG.DEBUG) console.warn('[i18n] Shop.switchLanguage failed:', e);
+            if (CONFIG.debug) console.warn('[i18n] Shop.switchLanguage failed:', e);
         }
     }
 

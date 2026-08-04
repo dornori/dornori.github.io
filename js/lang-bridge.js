@@ -8,7 +8,7 @@
  *     CONFIG.storageKeys.parentLangKey  — key the parent site writes
  *     CONFIG.storageKeys.shopLangKey    — key the shop reads/writes
  *
- *   By default both are "dornori-lang" so there is no mismatch.
+ *   By default both are "app-lang" so there is no mismatch.
  *   To bridge from a different parent key, change parentLangKey in config.js.
  *
  * LOAD ORDER — include AFTER config.js, BEFORE shop.js:
@@ -23,8 +23,8 @@
  */
 (function () {
   var keys      = (typeof CONFIG !== "undefined" && CONFIG.storageKeys) || {};
-  var parentKey = keys.parentLangKey || "dornori-lang";
-  var shopKey   = keys.shopLangKey   || "dornori-lang";
+  var parentKey = keys.parentLangKey || "app-lang";
+  var shopKey   = keys.shopLangKey   || "app-lang";
 
   // Safe fallback before Shipping module sets CONFIG.supportedLanguages
   var supported = (typeof CONFIG !== "undefined" && CONFIG.supportedLanguages)

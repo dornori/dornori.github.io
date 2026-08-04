@@ -15,6 +15,7 @@ const CONFIG = {
     tagline:  "Curated lighting for modern spaces",
     baseCurrency: "EUR",
     currencyCode: "EUR",
+    debug:           false,
     defaultLanguage: "en",
     // Matches the full site's supported-language set (see index/js/i18n.js FALLBACK_LANGUAGES).
     // Add more language JSON files under lang/<code>/ (common.json + products.json) and list the
@@ -39,11 +40,11 @@ const CONFIG = {
 
     // ── Storage Keys ──────────────────────────────────────────────────────────
     storageKeys: {
-        lang:          'dornori-lang',
-        theme:         'dornori-theme',
-        cart:          'dornori-cart',
-        parentLangKey: 'dornori-lang',
-        shopLangKey:   'dornori-lang',
+        lang:          'app-lang',
+        theme:         'app-theme',
+        cart:          'app-cart',
+        parentLangKey: 'app-lang',
+        shopLangKey:   'app-lang',
         currencyKey:   'webshop_currency',
         cartKey:       'webshop_cart',
     },
@@ -91,8 +92,8 @@ const CONFIG = {
     // ── API Endpoints ─────────────────────────────────────────────────────────
     endpoints: {
         api:           (globalThis.__ENV_SQL_API__) || '', // e.g. 'https://shop-api.example.workers.dev', used only when dataSource is "sql"
-        formHandler:   (globalThis.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
-        queue:         (globalThis.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
+        formHandler:   (globalThis.__ENV_API_ENDPOINT__) || '',
+        queue:         (globalThis.__ENV_API_ENDPOINT__) || '',
         supportEmail:  'support@dornori.com',
         privacyEmail:  'privacy@dornori.com',
         securityEmail: 'security@dornori.com',
@@ -100,7 +101,7 @@ const CONFIG = {
     },
 
     queue: {
-        endpoint: (window.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
+        endpoint: (window.__ENV_API_ENDPOINT__) || '',
     },
 
     // ── Modules ───────────────────────────────────────────────────────────────

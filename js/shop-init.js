@@ -39,8 +39,8 @@
             cfg.jsPath + 'modules/payment.js',
         ];
 
-        CONFIG.storageKeys.parentLangKey     = 'dornori-lang';
-        CONFIG.storageKeys.shopLangKey       = 'dornori-lang';
+        CONFIG.storageKeys.parentLangKey     = 'app-lang';
+        CONFIG.storageKeys.shopLangKey       = 'app-lang';
         CONFIG.defaultLanguage               = 'en';
     }
 
@@ -91,7 +91,7 @@
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     function _cartUrl(lang) {
-        var langKey = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys && CONFIG.storageKeys.parentLangKey) || 'dornori-lang';
+        var langKey = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys && CONFIG.storageKeys.parentLangKey) || 'app-lang';
         var l    = lang || window.LANG || localStorage.getItem(langKey) || 'en';
         var slug = (window.T && window.T.url_slugs && window.T.url_slugs.cart) || 'cart';
         return sitBase + l + '/' + slug + '/';
@@ -156,7 +156,7 @@
 
     function _patchProductLinks() {
         function fixLinks(root) {
-            var langKey2 = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys && CONFIG.storageKeys.parentLangKey) || 'dornori-lang';
+            var langKey2 = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys && CONFIG.storageKeys.parentLangKey) || 'app-lang';
             var lang = window.LANG || localStorage.getItem(langKey2) || 'en';
             var slug = (window.T && window.T.url_slugs && window.T.url_slugs.product) || 'product';
             (root || document).querySelectorAll('a[href*="product.html?id="]').forEach(function (a) {
@@ -238,7 +238,7 @@
         const payload = { category, ...data };
         if (isTest) payload.test = true;
         try {
-            const response = await fetch(CONFIG.queue.endpoint, {
+            const response = await fetch(CONFIG.endpoints.ticketingWorker, {
                 method:  "POST",
                 headers: { "Content-Type": "application/json" },
                 body:    JSON.stringify(payload),

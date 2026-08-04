@@ -9,7 +9,7 @@ const Payment = (() => {
   let _ready = false;
   let _cardFieldsInstance = null;
 
-  const WORKER = 'https://pay.dornori-info.workers.dev';
+  const WORKER = (typeof CONFIG !== 'undefined' && CONFIG.endpoints && CONFIG.endpoints.payWorker) || '';
 
   function _dispatch(event, detail) {
     document.dispatchEvent(new CustomEvent(event, { detail }));
@@ -45,7 +45,7 @@ const Payment = (() => {
 
   function _getActiveLanguage() {
     return (typeof window !== 'undefined' && window.LANG) || 
-           localStorage.getItem('dornori-lang') || 
+           localStorage.getItem('app-lang') || 
            'en';
   }
 

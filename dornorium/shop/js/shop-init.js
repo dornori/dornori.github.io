@@ -41,8 +41,8 @@
             cfg.jsPath + 'modules/payment.js',
         ];
 
-        CONFIG.storageKeys.parentLangKey     = 'dornori-lang';
-        CONFIG.storageKeys.shopLangKey       = 'dornori-lang';
+        CONFIG.storageKeys.parentLangKey     = 'app-lang';
+        CONFIG.storageKeys.shopLangKey       = 'app-lang';
         CONFIG.defaultLanguage               = 'en';
     }
 

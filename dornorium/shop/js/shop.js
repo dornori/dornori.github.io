@@ -29,7 +29,7 @@ var Shop = (() => {
 
   function resolveLanguage() {
     const supported = CONFIG.supportedLanguages || [CONFIG.defaultLanguage || "en"];
-    const langKey   = CONFIG.storageKeys?.shopLangKey || CONFIG.storageKeys?.parentLangKey || "dornori-lang";
+    const langKey   = CONFIG.storageKeys?.shopLangKey || CONFIG.storageKeys?.parentLangKey || "app-lang";
 
     // PRIORITY 1: Check URL path for language code (e.g., /nl/product/?id=...)
     try {
@@ -81,7 +81,7 @@ var Shop = (() => {
 
   async function switchLanguage(code) {
     if (code === CONFIG.language && _langLoaded && LANG && Object.keys(LANG).length > 0) return;
-    const langKey = CONFIG.storageKeys?.shopLangKey || CONFIG.storageKeys?.parentLangKey || "dornori-lang";
+    const langKey = CONFIG.storageKeys?.shopLangKey || CONFIG.storageKeys?.parentLangKey || "app-lang";
     CONFIG.language = code;
     localStorage.setItem(langKey, code);
     _langLoaded = false; _langLoadPromise = null; LANG = {};

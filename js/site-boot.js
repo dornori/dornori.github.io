@@ -101,7 +101,7 @@
     // Use CONFIG.storageKeys.lang if already defined (config.js loaded before this),
     // otherwise fall back to the same literal so keys stay in sync.
     var LANG_KEY = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys && CONFIG.storageKeys.parentLangKey)
-                  || 'dornori-lang';
+                  || 'app-lang';
     var lang = localStorage.getItem(LANG_KEY) || 'en';
     if (!window.__PAGE_LANG__) {
         window.__PAGE_LANG__ = lang;
@@ -124,8 +124,8 @@
     // ── Countries cache init from localStorage ────────────────────────────────
     (function initCountriesCache() {
         try {
-            var cached    = localStorage.getItem('dornori-countries-cache');
-            var timestamp = localStorage.getItem('dornori-cache-timestamp');
+            var cached    = localStorage.getItem('app-countries-cache');
+            var timestamp = localStorage.getItem('app-cache-timestamp');
             // ✅ FIX: Cache TTL value matches CACHE_TTL.COUNTRIES in constants.js (7 days)
             // Note: site-boot.js is IIFE so cannot import modules; value must be kept in sync
             var CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days

@@ -7,7 +7,7 @@ const CONFIG = {
     // ── Appearance ────────────────────────────────────────────────────────────
     appearance: {
         base_path:  window.__BASE_PATH__ || '/',
-        root_url:   (globalThis.__ENV_ROOT_URL__) || 'https://dornori.com',
+        root_url:   globalThis.__ENV_ROOT_URL__ || '',
     },
 
     // ── Shop Info ─────────────────────────────────────────────────────────────
@@ -15,6 +15,7 @@ const CONFIG = {
     tagline:  "Curated lighting for modern spaces",
     baseCurrency: "EUR",
     currencyCode: "EUR",
+    debug:           false,
     defaultLanguage: "en",
     supportedLanguages: ["en", "nl", "de", "fr", "es", "it", "pt", "cs", "sk"],
 
@@ -36,11 +37,11 @@ const CONFIG = {
 
     // ── Storage Keys ──────────────────────────────────────────────────────────
     storageKeys: {
-        lang:          'dornori-lang',
-        theme:         'dornori-theme',
-        cart:          'dornori-cart',
-        parentLangKey: 'dornori-lang',
-        shopLangKey:   'dornori-lang',
+        lang:          'app-lang',
+        theme:         'app-theme',
+        cart:          'app-cart',
+        parentLangKey: 'app-lang',
+        shopLangKey:   'app-lang',
         currencyKey:   'webshop_currency',
         cartKey:       'webshop_cart',
     },
@@ -76,16 +77,13 @@ const CONFIG = {
 
     // ── API Endpoints ─────────────────────────────────────────────────────────
     endpoints: {
-        formHandler:   (globalThis.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
-        queue:         (globalThis.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
-        supportEmail:  'support@dornori.com',
-        privacyEmail:  'privacy@dornori.com',
-        securityEmail: 'security@dornori.com',
-        legalEmail:    'legal@dornori.com',
-    },
-
-    queue: {
-        endpoint: (window.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
+        ticketingWorker: globalThis.__ENV_API_ENDPOINT__ || '',
+        payWorker:     globalThis.__ENV_PAY_WORKER__ || '',
+        geoApi:        globalThis.__ENV_GEO_API__ || '',
+        supportEmail:  '',
+        privacyEmail:  '',
+        securityEmail: '',
+        legalEmail:    '',
     },
 
     // ── Modules ───────────────────────────────────────────────────────────────
@@ -127,7 +125,7 @@ const CONFIG = {
             environment: "PRODUCTION"
         },
         applePay: {
-            merchantId: "merchant.dornori.com",
+            merchantId: globalThis.__ENV_APPLE_PAY_MERCHANT__ || "",
             merchantName: "Dornori",
             environment: "TEST"
         }
@@ -190,11 +188,11 @@ const CONFIG = {
 
     // ── Socials ───────────────────────────────────────────────────────────────
     socials: [
-        { id: 'ig',  user: 'dornori.info', base: 'https://instagram.com/' },
-        { id: 'x',   user: 'dornori_info', base: 'https://x.com/'         },
-        { id: 'yt',  user: 'dornori_info', base: 'https://youtube.com/@'  },
-        { id: 'fb',  user: 'Dornori.info', base: 'https://facebook.com/'  },
-        { id: 'web', user: 'dornori.com',  base: 'https://'               },
+        { id: 'ig',  user: '', base: 'https://instagram.com/' },
+        { id: 'x',   user: '', base: 'https://x.com/'         },
+        { id: 'yt',  user: '', base: 'https://youtube.com/@'  },
+        { id: 'fb',  user: '', base: 'https://facebook.com/'  },
+        { id: 'web', user: '',  base: 'https://'               },
     ],
 
     // ── Payment Providers ─────────────────────────────────────────────────────
@@ -242,8 +240,8 @@ const CONFIG = {
     credits: {
         companyName: 'DORNORI',
         creditLink: {
-            text: 'dornori.info',
-            url:  'https://dornori.info'
+            text: '',
+            url:  ''
         }
     },
 };

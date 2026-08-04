@@ -1,4 +1,3 @@
-import ENV_CONFIG from '../env-config.js';
 
 export function setSVGContent(element, svgString) {
     try {
@@ -10,7 +9,7 @@ export function setSVGContent(element, svgString) {
         element.appendChild(svg.cloneNode(true));
         return true;
     } catch (e) {
-        if (ENV_CONFIG.DEBUG) console.warn('Failed to set SVG:', e);
+        if (CONFIG.debug) console.warn('Failed to set SVG:', e);
         return false;
     }
 }

@@ -22,7 +22,7 @@ const SITE_CONFIG = window.CONFIG || {};
 (function () {
   'use strict';
 
-  var STORAGE_KEY = 'dornori-geo-popup-seen'; // sessionStorage — ask once per tab
+  var STORAGE_KEY = 'app-geo-popup-seen'; // sessionStorage — ask once per tab
   var BASE_PATH   = SITE_CONFIG.appearance.base_path;
 
   // ── Guard ────────────────────────────────────────────────────────────────────
