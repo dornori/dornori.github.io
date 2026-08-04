@@ -3784,20 +3784,70 @@ if (path === "/api/admin/setup/domain-route" && method === "POST") {
 
     const cleanTarget = String(target || "").trim();
     if (!cleanTarget) return json({ error: "target required for this mode" }, 400);
+    let storedTarget = cleanTarget;
+    let cfStatus = null;
+    let cfNote = null;
 
     if (mode === "pages") {
       const accountId = await getSetting(env, 'cloudflare', 'account_id');
       if (!accountId) return json({ error: "Cloudflare Account ID not configured. Please set it in settings." }, 400);
+      // Accept "sandbox-blg", "sandbox-blg.pages.dev", or "https://sandbox-blg.pages.dev" —
+      // normalize down to the bare project slug the Pages API expects.
+      const projectSlug = cleanTarget
+        .replace(/^https?:\/\//i, "")
+        .replace(/\.pages\.dev\/?$/i, "")
+        .replace(/\/+$/, "");
+      storedTarget = projectSlug;
       // Attaches the domain to the Pages project; Cloudflare auto-provisions
       // the DNS record since the zone lives on the same account.
       await callCloudflareAPI(
         "POST",
-        `/accounts/${accountId}/pages/projects/${encodeURIComponent(cleanTarget)}/domains`,
+        `/accounts/${accountId}/pages/projects/${encodeURIComponent(projectSlug)}/domains`,
         { name: domainName },
         env
       );
+      // The POST above only confirms the request was accepted — activation
+      // (DNS propagation + certificate issuance) is asynchronous, so fetch
+      // the live status back rather than assuming "success" means "active".
+      try {
+        const statusRes = await callCloudflareAPI(
+          "GET",
+          `/accounts/${accountId}/pages/projects/${encodeURIComponent(projectSlug)}/domains/${encodeURIComponent(domainName)}`,
+          null,
+          env
+        );
+        cfStatus = statusRes.result?.status || null;
+        if (cfStatus && cfStatus !== "active") {
+          cfNote = "Cloudflare is still provisioning this domain (DNS + certificate). This usually finishes within a few minutes — check Workers & Pages → your project → Custom domains for live status.";
+        }
+      } catch (e) {
+        cfNote = "Domain attached, but couldn't confirm activation status: " + e.message;
+      }
     } else if (mode === "redirect") {
       const targetUrl = /^https?:\/\//i.test(cleanTarget) ? cleanTarget : `https://${cleanTarget}`;
+      storedTarget = targetUrl;
+
+      // Redirect Rules only fire for traffic that's already being proxied
+      // through Cloudflare — they require an existing proxied DNS record for
+      // the hostname. Zones set up here purely for MX/email may have no
+      // web-facing record at all, in which case the redirect would silently
+      // never trigger. Provision Cloudflare's official placeholder record
+      // (A → 192.0.2.0, proxied) if nothing proxied is already there.
+      const existingRecords = await callCloudflareAPI("GET", `/zones/${zoneId}/dns_records?name=${encodeURIComponent(domainName)}`, null, env);
+      const hasProxiedRecord = (existingRecords.result || []).some(r => ["A", "AAAA", "CNAME"].includes(r.type) && r.proxied);
+      if (!hasProxiedRecord) {
+        const conflicting = (existingRecords.result || []).find(r => ["A", "AAAA", "CNAME"].includes(r.type));
+        if (conflicting) {
+          // An unproxied record already exists — flip it to proxied rather
+          // than creating a duplicate/conflicting one.
+          await callCloudflareAPI("PATCH", `/zones/${zoneId}/dns_records/${conflicting.id}`, { proxied: true }, env);
+          cfNote = "Set your existing DNS record for this domain to 'Proxied' so the redirect can take effect.";
+        } else {
+          await callCloudflareAPI("POST", `/zones/${zoneId}/dns_records`, { type: "A", name: domainName, content: "192.0.2.0", proxied: true, ttl: 1 }, env);
+          cfNote = "No web-facing DNS record existed for this domain, so a proxied placeholder record was created to enable the redirect.";
+        }
+      }
+
       await callCloudflareAPI(
         "PUT",
         `/zones/${zoneId}/rulesets/phases/http_request_dynamic_redirect/entrypoint`,
@@ -3821,9 +3871,9 @@ if (path === "/api/admin/setup/domain-route" && method === "POST") {
 
     await env.DB.prepare(
       "UPDATE cloudflare_domains SET route_type = ?, route_target = ?, updated_at = CURRENT_TIMESTAMP WHERE zone_id = ?"
-    ).bind(mode, cleanTarget, zoneId).run();
+    ).bind(mode, storedTarget, zoneId).run();
 
-    return json({ success: true, route_type: mode, route_target: cleanTarget });
+    return json({ success: true, route_type: mode, route_target: storedTarget, cf_status: cfStatus, cf_note: cfNote });
   } catch (e) {
     return json({ success: false, error: e.message }, 400);
   }
