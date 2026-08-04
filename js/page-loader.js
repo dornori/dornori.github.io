@@ -1,4 +1,5 @@
 // page-loader.js
+import ENV_CONFIG from './env-config.js';
 import { mountSlideshow } from './slideshow.js';
 import { injectHreflangTags, getSlug, canonicalSlug } from './i18n.js';
 import { mountShopEmbeds } from './shop-loader.js';
@@ -252,7 +253,7 @@ export function initPageLoader() {
                 mountShopEmbeds(homeView);
             }
         } catch (err) {
-            if (CONFIG.debug) console.error('Home load error:', err);
+            if (ENV_CONFIG.DEBUG) console.error('Home load error:', err);
         }
         requestAnimationFrame(() => {
             window.scrollTo(0, 0);
@@ -292,7 +293,7 @@ export function initPageLoader() {
     // ── VIEW PAGE ────────────────────────────────────────────────────────────
     window.viewPage = async (slug, productId, fromPopstate = false, skipSpinner = false, parentSlug = null) => {
         const page = SITE_CONFIG.pages[slug];
-        if (!page) { if (CONFIG.debug) console.error(`Page "${slug}" not found in config`); return; }
+        if (!page) { if (ENV_CONFIG.DEBUG) console.error(`Page "${slug}" not found in config`); return; }
 
         if (!skipSpinner) showSpinner();
 
@@ -367,7 +368,7 @@ export function initPageLoader() {
             document.dispatchEvent(new CustomEvent('page:ready'));
 
         } catch (err) {
-            if (CONFIG.debug) console.error('Page load error:', err);
+            if (ENV_CONFIG.DEBUG) console.error('Page load error:', err);
             const T = window.T?.ui || {};
             removeSpinner();
             if (pageContent && pageContent.parentNode) {
