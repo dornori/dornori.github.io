@@ -831,14 +831,56 @@
         const lang = currentLang === 'all' ? 'en' : currentLang;
         const langKey = lang === 'en' ? '' : '_' + lang;
 
-        const ok = await saveSettings([
-            { category: 'auto_reply', key: `newsletter${langKey}_enabled`, value: document.getElementById('nl_enabled').checked ? '1' : '0' },
-            { category: 'auto_reply', key: `newsletter${langKey}_subject`, value: document.getElementById('nl_ar_subject').value },
-            { category: 'auto_reply', key: `newsletter${langKey}_body`, value: document.getElementById('nl_ar_body').value },
-            { category: 'newsletter', key: `unsubscribe_link_path_${lang}`, value: unsubPath }
-        ]);
-        ok ? toast('✅ Auto-reply saved') : toast('❌ Failed', 'error');
-        if (ok) await load();
+        // Saved as two separate requests: the 'newsletter' category (unsubscribe
+        // path) previously rode along with the 'auto_reply' fields in a single
+        // batch call, and a rejection of that one item was failing the whole
+        // batch — so the auto-reply text never saved either. Splitting them
+        // means a problem with one no longer blocks the other, and we surface
+        // the real backend error instead of a generic "Failed" toast.
+        let autoReplyOk = false;
+        let autoReplyError = '';
+        try {
+            const d1 = await api('/api/admin/settings', {
+                method: 'PUT',
+                body: JSON.stringify({
+                    settings: [
+                        { category: 'auto_reply', key: `newsletter${langKey}_enabled`, value: document.getElementById('nl_enabled').checked ? '1' : '0' },
+                        { category: 'auto_reply', key: `newsletter${langKey}_subject`, value: document.getElementById('nl_ar_subject').value },
+                        { category: 'auto_reply', key: `newsletter${langKey}_body`, value: document.getElementById('nl_ar_body').value }
+                    ]
+                })
+            });
+            autoReplyOk = !!d1.success;
+            autoReplyError = d1.error || '';
+        } catch (e) {
+            autoReplyError = e.message;
+        }
+
+        let unsubOk = false;
+        let unsubError = '';
+        try {
+            const d2 = await api('/api/admin/settings', {
+                method: 'PUT',
+                body: JSON.stringify({
+                    settings: [
+                        { category: 'newsletter', key: `unsubscribe_link_path_${lang}`, value: unsubPath }
+                    ]
+                })
+            });
+            unsubOk = !!d2.success;
+            unsubError = d2.error || '';
+        } catch (e) {
+            unsubError = e.message;
+        }
+
+        if (autoReplyOk && unsubOk) {
+            toast('✅ Auto-reply saved');
+        } else if (autoReplyOk && !unsubOk) {
+            toast('⚠️ Auto-reply saved, but unsubscribe path failed: ' + (unsubError || 'unknown error'), 'warning');
+        } else {
+            toast('❌ ' + (autoReplyError || 'Save failed'), 'error');
+        }
+        if (autoReplyOk || unsubOk) await load();
     }
 
     async function saveSettings(updates) {
