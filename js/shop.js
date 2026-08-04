@@ -265,13 +265,17 @@ var Shop = (() => {
       }
       return a;
     }, 0);
-    const totalWeight    = cart.reduce((a, i) => a + (i.weight || 0) * i.qty, 0);
+    // Items flagged shipping:false (e.g. digital/local-only products) don't require shipping —
+    // they contribute no weight, and if EVERY item in the cart is flagged this way, no shipping
+    // charge (not even the flat base rate) is applied at all.
+    const shippableItems = cart.filter(i => i.shipping !== false);
+    const totalWeight    = shippableItems.reduce((a, i) => a + (i.weight || 0) * i.qty, 0);
     // Billable weight accounts for both actual weight AND package dimensions (volumetric weight),
     // per item, since bulky-but-light items still cost more to ship. Carriers bill on whichever is greater.
-    const totalBillableWeight = cart.reduce((a, i) => a + billableWeight(i) * i.qty, 0);
+    const totalBillableWeight = shippableItems.reduce((a, i) => a + billableWeight(i) * i.qty, 0);
     let cfg = { base: CONFIG.shipping.base, perKg: CONFIG.shipping.perKg, freeThreshold: CONFIG.shipping.freeThreshold, estimatedDays: CONFIG.shipping.estimatedDays };
     if (countryCode && typeof Shipping !== "undefined") cfg = Shipping.getRate(countryCode);
-    const isFreeShipping = subtotalEUR >= cfg.freeThreshold;
+    const isFreeShipping = shippableItems.length === 0 || subtotalEUR >= cfg.freeThreshold;
     // Shipping in the active currency: convert the raw EUR shipping cost once, round UP once.
     const shipping = isFreeShipping ? 0 : Math.ceil((cfg.base + totalBillableWeight * cfg.perKg) * rate);
     // Tax is calculated ONLY on the already-rounded subtotal + shipping (the exact figures
