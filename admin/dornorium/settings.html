@@ -379,7 +379,13 @@ async function saveDomainRoute(zoneId) {
             body: JSON.stringify({ zoneId, mode, target })
         });
         if (d.success) {
-            toast('✅ Domain routing saved');
+            if (d.cf_note) {
+                toast('⚠️ ' + d.cf_note, 'warning');
+            } else if (d.cf_status && d.cf_status !== 'active') {
+                toast('⏳ Saved — Cloudflare status: ' + d.cf_status, 'warning');
+            } else {
+                toast('✅ Domain routing saved');
+            }
             await refreshDomainsTab();
         } else {
             toast('❌ ' + (d.error || 'Failed'), 'error');
