@@ -2617,7 +2617,7 @@ var worker_default = {
         const ALLOWED_SETTING_CATEGORIES = new Set([
           "system", "security", "tickets", "general", "email", "cloudflare",
           "languages", "category", "sla", "auto_reply", "order_template", "email_templates",
-          "email_script"
+          "email_script", "newsletter"
         ]);
         if (!Array.isArray(settings) || settings.length === 0) return json({ error: "Invalid settings payload" }, 400);
         for (const s of settings) {
