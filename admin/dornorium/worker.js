@@ -3737,6 +3737,36 @@ async function getDomainNameForZone(env, zoneId) {
 }
 
 // Route a domain to a Cloudflare Pages project (serves that project's content)
+// Check current domain routing state
+if (path.startsWith("/api/admin/setup/domain-route-state") && method === "GET") {
+  const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+  const email = await verifyToken(token, env);
+  if (!email) return json({ error: "Unauthorized" }, 401);
+  if (!await checkAccess(email, "settings", "read", env)) return json({ error: "Permission denied" }, 403);
+
+  const zoneId = new URL(request.url).searchParams.get("zoneId");
+  if (!zoneId) return json({ error: "zoneId required" }, 400);
+
+  try {
+    const state = await env.DB.prepare(
+      "SELECT route_type, route_target, status as cf_status FROM cloudflare_domains WHERE zone_id = ?"
+    ).bind(zoneId).first();
+
+    if (!state) return json({ error: "Zone not found" }, 404);
+
+    return json({ 
+      success: true, 
+      state: {
+        route_type: state.route_type || null,
+        route_target: state.route_target || null,
+        cf_status: state.cf_status || 'unknown'
+      }
+    });
+  } catch (e) {
+    return json({ success: false, error: e.message }, 400);
+  }
+}
+
 // or redirect it to an external website — or clear routing entirely.
 if (path === "/api/admin/setup/domain-route" && method === "POST") {
   const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
