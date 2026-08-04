@@ -68,8 +68,8 @@ const CONFIG = {
 
     shipping: {
         freeThreshold: Infinity,
-        base:          0,
-        perKg:         0,
+        base:          8.50,
+        perKg:         1.20,
         maxFreeWeight: 20,
         estimatedDays: "3–5",
         volumetricDivisor: 5000,
