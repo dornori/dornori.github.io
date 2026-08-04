@@ -15,7 +15,6 @@ const CONFIG = {
     tagline:  "Curated lighting for modern spaces",
     baseCurrency: "EUR",
     currencyCode: "EUR",
-    debug:           false,
     defaultLanguage: "en",
     // Matches the full site's supported-language set (see index/js/i18n.js FALLBACK_LANGUAGES).
     // Add more language JSON files under lang/<code>/ (common.json + products.json) and list the
