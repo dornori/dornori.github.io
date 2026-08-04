@@ -238,7 +238,7 @@
         const payload = { category, ...data };
         if (isTest) payload.test = true;
         try {
-            const response = await fetch(CONFIG.endpoints.ticketingWorker, {
+            const response = await fetch(CONFIG.queue.endpoint, {
                 method:  "POST",
                 headers: { "Content-Type": "application/json" },
                 body:    JSON.stringify(payload),

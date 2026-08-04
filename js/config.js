@@ -77,13 +77,18 @@ const CONFIG = {
 
     // ── API Endpoints ─────────────────────────────────────────────────────────
     endpoints: {
-        ticketingWorker: (globalThis.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
+        formHandler:   (globalThis.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
+        queue:         (globalThis.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
         payWorker:     'https://pay.dornori-info.workers.dev',
         geoApi:        'https://ipapi.co/json/',
         supportEmail:  'support@dornori.com',
         privacyEmail:  'privacy@dornori.com',
         securityEmail: 'security@dornori.com',
         legalEmail:    'legal@dornori.com',
+    },
+
+    queue: {
+        endpoint: (window.__ENV_API_ENDPOINT__) || 'https://dornori-ticketing.dornori-info.workers.dev',
     },
 
     // ── Modules ───────────────────────────────────────────────────────────────
