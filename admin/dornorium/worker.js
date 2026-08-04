@@ -62,6 +62,12 @@ async function initializeDatabase(env) {
   try {
     await env.DB.exec("ALTER TABLE cloudflare_domains ADD COLUMN status TEXT DEFAULT 'pending_setup'");
   } catch (e) { /* column already exists, ignore */ }
+  try {
+    await env.DB.exec("ALTER TABLE cloudflare_domains ADD COLUMN route_type TEXT DEFAULT NULL");
+  } catch (e) { /* column already exists, ignore */ }
+  try {
+    await env.DB.exec("ALTER TABLE cloudflare_domains ADD COLUMN route_target TEXT DEFAULT NULL");
+  } catch (e) { /* column already exists, ignore */ }
 }
 
 async function loadConfig(env) {
@@ -3683,7 +3689,7 @@ if (path === "/api/admin/setup/cloudflare-zones" && method === "GET") {
     // Merge with DB tracking info; auto-register zones that predate the table
     const merged = await Promise.all(zones.map(async (zone) => {
       let dbRecord = await env.DB.prepare(
-        "SELECT enabled, status FROM cloudflare_domains WHERE zone_id = ?"
+        "SELECT enabled, status, route_type, route_target FROM cloudflare_domains WHERE zone_id = ?"
       ).bind(zone.id).first();
       
       // Zone exists in CF but not in our DB (added before this feature) — upsert it.
@@ -3711,11 +3717,113 @@ if (path === "/api/admin/setup/cloudflare-zones" && method === "GET") {
       return {
         ...zone,
         db_enabled: dbRecord?.enabled || 0,
-        db_status: dbRecord?.status || 'unknown'
+        db_status: dbRecord?.status || 'unknown',
+        route_type: dbRecord?.route_type || null,
+        route_target: dbRecord?.route_target || null
       };
     }));
     
     return json({ success: true, zones: merged });
+  } catch (e) {
+    return json({ success: false, error: e.message }, 400);
+  }
+}
+
+async function getDomainNameForZone(env, zoneId) {
+  const row = await env.DB.prepare("SELECT domain_name FROM cloudflare_domains WHERE zone_id = ?").bind(zoneId).first();
+  if (row?.domain_name) return row.domain_name;
+  const zoneData = await callCloudflareAPI("GET", `/zones/${zoneId}`, null, env);
+  return zoneData.result?.name || null;
+}
+
+// Route a domain to a Cloudflare Pages project (serves that project's content)
+// or redirect it to an external website — or clear routing entirely.
+if (path === "/api/admin/setup/domain-route" && method === "POST") {
+  const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+  const email = await verifyToken(token, env);
+  if (!email) return json({ error: "Unauthorized" }, 401);
+  if (!await checkAccess(email, "settings", "edit", env)) return json({ error: "Permission denied" }, 403);
+
+  const { zoneId, mode, target } = await request.json();
+  if (!zoneId) return json({ error: "zoneId required" }, 400);
+  if (!["pages", "redirect", "none"].includes(mode)) {
+    return json({ error: "mode must be 'pages', 'redirect', or 'none'" }, 400);
+  }
+
+  try {
+    const domainName = await getDomainNameForZone(env, zoneId);
+    if (!domainName) return json({ error: "Could not resolve domain name for this zone" }, 400);
+
+    const prior = await env.DB.prepare(
+      "SELECT route_type, route_target FROM cloudflare_domains WHERE zone_id = ?"
+    ).bind(zoneId).first();
+
+    // Tear down the previous routing (best-effort) before applying a new one,
+    // so switching modes doesn't leave a dangling Pages domain or redirect rule.
+    if (prior?.route_type && prior.route_type !== mode) {
+      if (prior.route_type === "pages" && prior.route_target) {
+        try {
+          const accountId = await getSetting(env, 'cloudflare', 'account_id');
+          if (accountId) {
+            await callCloudflareAPI("DELETE", `/accounts/${accountId}/pages/projects/${encodeURIComponent(prior.route_target)}/domains/${domainName}`, null, env);
+          }
+        } catch (e) { console.warn("Failed to detach previous Pages domain:", e.message); }
+      } else if (prior.route_type === "redirect") {
+        try {
+          await callCloudflareAPI("DELETE", `/zones/${zoneId}/rulesets/phases/http_request_dynamic_redirect/entrypoint`, null, env);
+        } catch (e) { console.warn("Failed to remove previous redirect rule:", e.message); }
+      }
+    }
+
+    if (mode === "none") {
+      await env.DB.prepare(
+        "UPDATE cloudflare_domains SET route_type = NULL, route_target = NULL, updated_at = CURRENT_TIMESTAMP WHERE zone_id = ?"
+      ).bind(zoneId).run();
+      return json({ success: true, route_type: null, route_target: null });
+    }
+
+    const cleanTarget = String(target || "").trim();
+    if (!cleanTarget) return json({ error: "target required for this mode" }, 400);
+
+    if (mode === "pages") {
+      const accountId = await getSetting(env, 'cloudflare', 'account_id');
+      if (!accountId) return json({ error: "Cloudflare Account ID not configured. Please set it in settings." }, 400);
+      // Attaches the domain to the Pages project; Cloudflare auto-provisions
+      // the DNS record since the zone lives on the same account.
+      await callCloudflareAPI(
+        "POST",
+        `/accounts/${accountId}/pages/projects/${encodeURIComponent(cleanTarget)}/domains`,
+        { name: domainName },
+        env
+      );
+    } else if (mode === "redirect") {
+      const targetUrl = /^https?:\/\//i.test(cleanTarget) ? cleanTarget : `https://${cleanTarget}`;
+      await callCloudflareAPI(
+        "PUT",
+        `/zones/${zoneId}/rulesets/phases/http_request_dynamic_redirect/entrypoint`,
+        {
+          rules: [{
+            action: "redirect",
+            expression: "true",
+            description: "Dornorium domain routing",
+            action_parameters: {
+              from_value: {
+                status_code: 301,
+                target_url: { value: targetUrl },
+                preserve_query_string: true
+              }
+            }
+          }]
+        },
+        env
+      );
+    }
+
+    await env.DB.prepare(
+      "UPDATE cloudflare_domains SET route_type = ?, route_target = ?, updated_at = CURRENT_TIMESTAMP WHERE zone_id = ?"
+    ).bind(mode, cleanTarget, zoneId).run();
+
+    return json({ success: true, route_type: mode, route_target: cleanTarget });
   } catch (e) {
     return json({ success: false, error: e.message }, 400);
   }
