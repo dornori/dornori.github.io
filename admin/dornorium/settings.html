@@ -310,6 +310,85 @@ function refreshOutgoingTab() {
     }
 }
 
+function refreshDomainsTab() {
+    return buildDomainsTab().then(html => {
+        const panel = document.getElementById('panel-domains');
+        if (panel) panel.innerHTML = html;
+    });
+}
+
+// ── Domain Routing (Cloudflare Pages / redirect) ──
+async function buildDomainsTab() {
+    await fetchCloudflareDomains();
+    const canEdit = canEditSettings();
+
+    const rows = cloudflareDomains.map(z => {
+        const routeType = z.route_type || 'none';
+        const routeTarget = z.route_target || '';
+        const statusColor = z.status === 'active' ? 'var(--success)' : 'var(--text-muted)';
+        const targetLabel = routeType === 'pages' ? 'Pages project name' : 'Destination URL';
+        const targetPlaceholder = routeType === 'pages' ? 'my-pages-project' : 'https://example.com';
+
+        return `<div class="s-card">
+            <div class="s-card-head">
+                <div><h3>🌍 ${esc(z.name)}</h3>
+                <p><span style="color:${statusColor};">● ${esc(z.status)}</span> &middot; Zone ID: <code style="font-size:11px;">${esc(z.id)}</code></p></div>
+            </div>
+            <div class="f-row">
+                <label>Route this domain to</label>
+                <select id="route_mode_${esc(z.id)}" onchange="updateRouteTargetField('${esc(z.id)}')" ${!canEdit ? 'disabled' : ''}>
+                    <option value="none" ${routeType==='none'?'selected':''}>— Not routed —</option>
+                    <option value="pages" ${routeType==='pages'?'selected':''}>Cloudflare Pages project</option>
+                    <option value="redirect" ${routeType==='redirect'?'selected':''}>Redirect to another website</option>
+                </select>
+            </div>
+            <div class="f-row" id="route_target_row_${esc(z.id)}" style="${routeType==='none' ? 'display:none;' : ''}">
+                <label id="route_target_label_${esc(z.id)}">${targetLabel}</label>
+                <input type="text" id="route_target_${esc(z.id)}" value="${esc(routeTarget)}" placeholder="${targetPlaceholder}" ${!canEdit ? 'disabled' : ''} />
+                <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">${routeType === 'pages' ? 'The project must already exist in Cloudflare Pages.' : 'Visitors to this domain will be 301-redirected here (query string preserved).'}</p>
+            </div>
+            <button class="btn btn-accent btn-sm" onclick="saveDomainRoute('${esc(z.id)}')" ${!canEdit ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Save routing</button>
+        </div>`;
+    }).join('');
+
+    return `<div class="s-card-head" style="margin-bottom:14px;">
+        <div><h3>🌍 Domain Routing</h3>
+        <p>Point a domain at a Cloudflare Pages project, or redirect it to another website. Changes apply immediately via the Cloudflare API.</p></div>
+    </div>
+    ${rows || '<div class="empty-state">No domains configured yet. Add one under Incoming Email → Cloudflare Configuration.</div>'}`;
+}
+
+function updateRouteTargetField(zoneId) {
+    const mode = document.getElementById('route_mode_' + zoneId).value;
+    const row = document.getElementById('route_target_row_' + zoneId);
+    const label = document.getElementById('route_target_label_' + zoneId);
+    const input = document.getElementById('route_target_' + zoneId);
+    if (mode === 'none') { row.style.display = 'none'; return; }
+    row.style.display = '';
+    label.textContent = mode === 'pages' ? 'Pages project name' : 'Destination URL';
+    input.placeholder = mode === 'pages' ? 'my-pages-project' : 'https://example.com';
+}
+
+async function saveDomainRoute(zoneId) {
+    const mode = document.getElementById('route_mode_' + zoneId).value;
+    const target = document.getElementById('route_target_' + zoneId).value.trim();
+    if (mode !== 'none' && !target) { toast('Enter a target', 'error'); return; }
+    try {
+        const d = await api('/api/admin/setup/domain-route', {
+            method: 'POST',
+            body: JSON.stringify({ zoneId, mode, target })
+        });
+        if (d.success) {
+            toast('✅ Domain routing saved');
+            await refreshDomainsTab();
+        } else {
+            toast('❌ ' + (d.error || 'Failed'), 'error');
+        }
+    } catch (e) {
+        toast('❌ ' + e.message, 'error');
+    }
+}
+
 // ── Load ──
 async function load() {
     try {
@@ -412,6 +491,7 @@ const TABS = [
     { id: 'languages',   icon: '🌐', label: 'Languages' },
     { id: 'incoming',    icon: '📥', label: 'Incoming Email' },
     { id: 'outgoing',    icon: '📤', label: 'Outgoing Email' },
+    { id: 'domains',     icon: '🌍', label: 'Domains' },
 ];
 
 function renderAll() {
@@ -435,6 +515,13 @@ function switchTab(id) {
             if (noEdit) setTimeout(() => disableElements('#panel-' + id + ' input, #panel-' + id + ' textarea, #panel-' + id + ' select, #panel-' + id + ' button', true), 50);
         });
     }
+    if (id === 'domains') {
+        buildDomainsTab().then(html => {
+            const panel = document.getElementById('panel-domains');
+            if (panel) panel.innerHTML = html;
+            if (noEdit) setTimeout(() => disableElements('#panel-domains input, #panel-domains textarea, #panel-domains select, #panel-domains button', true), 50);
+        });
+    }
     if (noEdit) setTimeout(() => disableElements(`#panel-${id} input, #panel-${id} textarea, #panel-${id} select, #panel-${id} button`, true), 50);
 }
 
@@ -448,6 +535,7 @@ function buildPanel(id) {
         case 'languages': return buildLanguages();
         case 'incoming':
         case 'outgoing': return '<div class="loading">Loading…</div>';
+        case 'domains': return '<div class="loading">Loading…</div>';
         default: return '';
     }
 }
