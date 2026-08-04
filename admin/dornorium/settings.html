@@ -314,48 +314,169 @@ function refreshDomainsTab() {
     return buildDomainsTab().then(html => {
         const panel = document.getElementById('panel-domains');
         if (panel) panel.innerHTML = html;
+        // Keep incoming tab in sync if visible
+        const incPanel = document.getElementById('panel-incoming');
+        if (incPanel && incPanel.innerHTML && !incPanel.innerHTML.includes('Loading')) {
+            refreshIncomingTab();
+        }
     });
 }
 
-// ── Domain Routing (Cloudflare Pages / redirect) ──
+// ── Domain Dashboard ──
 async function buildDomainsTab() {
     await fetchCloudflareDomains();
     const canEdit = canEditSettings();
 
-    const rows = cloudflareDomains.map(z => {
+    const domainCards = cloudflareDomains.map(z => {
         const routeType = z.route_type || 'none';
         const routeTarget = z.route_target || '';
-        const statusColor = z.status === 'active' ? 'var(--success)' : 'var(--text-muted)';
+        const dbEnabled = z.db_enabled || 0;
+        const dbStatus = z.db_status || z.status || 'unknown';
+        const cfStatus = z.status || 'unknown';
+
+        let statusBadge, emailRoutingBtn, deleteBtn;
+
+        if (dbStatus === 'pending_setup') {
+            statusBadge = `<span class="status-badge pending">⏳ Pending Nameservers</span>`;
+            emailRoutingBtn = `<button class="btn btn-sm btn-accent" onclick="domainCheckStatus('${z.id}', '${esc(z.name)}')">Resume Setup</button>`;
+        } else if (dbEnabled) {
+            statusBadge = `<span class="status-badge active">✅ Email Routing On</span>`;
+            emailRoutingBtn = `<button class="btn btn-sm btn-ghost" onclick="disableDomain('${z.id}', '${esc(z.name)}')">Disable Routing</button>`;
+        } else {
+            statusBadge = `<span class="status-badge inactive">⛔ Email Routing Off</span>`;
+            emailRoutingBtn = `<button class="btn btn-sm btn-accent" onclick="enableDomainRouting('${z.id}', '${esc(z.name)}')">Enable Routing</button>`;
+        }
+
+        deleteBtn = canEdit
+            ? `<button class="btn btn-sm btn-danger" onclick="removeDomain('${z.id}', '${esc(z.name)}')" title="Remove domain">🗑️ Remove</button>`
+            : '';
+
         const targetLabel = routeType === 'pages' ? 'Pages project name' : 'Destination URL';
         const targetPlaceholder = routeType === 'pages' ? 'my-pages-project' : 'https://example.com';
+        const targetHint = routeType === 'pages'
+            ? 'The project must already exist in Cloudflare Pages. Cloudflare will provision SSL automatically.'
+            : 'Visitors will be 301-redirected here (query string preserved).';
+
+        // Setup guide steps
+        const nsBoxes = z.name_servers && z.name_servers.length
+            ? z.name_servers.map(s => `<div class="nameserver-box"><span>${esc(s)}</span><button class="btn btn-sm btn-ghost" onclick="navigator.clipboard.writeText('${esc(s)}').then(()=>toast('Copied'))">Copy</button></div>`).join('')
+            : '<p style="font-size:12px;color:var(--text-muted);">Nameserver info not available — refresh to load.</p>';
+
+        const setupStepsDone = dbEnabled || cfStatus === 'active';
+        const setupGuideId = `setup_guide_${z.id}`;
+        const setupGuide = `
+            <div id="${setupGuideId}" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+                <h4 style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">📋 Setup Guide</h4>
+                <div style="display:grid;gap:12px;">
+                    <div style="display:flex;gap:12px;align-items:flex-start;">
+                        <span style="width:24px;height:24px;border-radius:50%;background:var(--success);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">1</span>
+                        <div>
+                            <strong style="font-size:13px;">Domain added to Cloudflare</strong>
+                            <p style="font-size:12px;color:var(--text-muted);margin:4px 0 0;">Zone ID: <code style="font-size:11px;">${esc(z.id)}</code></p>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:12px;align-items:flex-start;">
+                        <span style="width:24px;height:24px;border-radius:50%;background:${dbStatus==='pending_setup'?'var(--warning)':'var(--success)'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">2</span>
+                        <div>
+                            <strong style="font-size:13px;">Update nameservers at your registrar</strong>
+                            <p style="font-size:12px;color:var(--text-muted);margin:4px 0 8px;">Set these nameservers at your domain registrar (GoDaddy, Namecheap, etc.):</p>
+                            ${nsBoxes}
+                            <p style="font-size:11px;color:var(--text-muted);margin-top:6px;">DNS propagation can take up to 24 hours, usually much faster.</p>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:12px;align-items:flex-start;">
+                        <span style="width:24px;height:24px;border-radius:50%;background:${setupStepsDone?'var(--success)':'var(--border)'};color:${setupStepsDone?'#fff':'var(--text-muted)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">3</span>
+                        <div>
+                            <strong style="font-size:13px;">Enable email routing</strong>
+                            <p style="font-size:12px;color:var(--text-muted);margin:4px 0 0;">Once nameservers are active, click "Enable Routing" above. Cloudflare will add the required MX and SPF records automatically.</p>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:12px;align-items:flex-start;">
+                        <span style="width:24px;height:24px;border-radius:50%;background:var(--border);color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">4</span>
+                        <div>
+                            <strong style="font-size:13px;">Configure routing (optional)</strong>
+                            <p style="font-size:12px;color:var(--text-muted);margin:4px 0 0;">Use the routing section below to point this domain at a Cloudflare Pages project or redirect it to another URL.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
 
         return `<div class="s-card">
             <div class="s-card-head">
-                <div><h3>🌍 ${esc(z.name)}</h3>
-                <p><span style="color:${statusColor};">● ${esc(z.status)}</span> &middot; Zone ID: <code style="font-size:11px;">${esc(z.id)}</code></p></div>
+                <div style="flex:1;">
+                    <h3 style="margin:0 0 4px;">🌍 ${esc(z.name)}</h3>
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                        ${statusBadge}
+                        <span style="font-size:11px;color:var(--text-muted);">CF: ${esc(cfStatus)}</span>
+                        <code style="font-size:10px;color:var(--text-muted);">${esc(z.id.substring(0,16))}…</code>
+                    </div>
+                </div>
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                    ${emailRoutingBtn}
+                    <button class="btn btn-sm btn-ghost" onclick="document.getElementById('${setupGuideId}').style.display=document.getElementById('${setupGuideId}').style.display==='none'?'block':'none'">📋 Setup Steps</button>
+                    ${deleteBtn}
+                </div>
             </div>
-            <div class="f-row">
-                <label>Route this domain to</label>
-                <select id="route_mode_${esc(z.id)}" onchange="updateRouteTargetField('${esc(z.id)}')" ${!canEdit ? 'disabled' : ''}>
-                    <option value="none" ${routeType==='none'?'selected':''}>— Not routed —</option>
-                    <option value="pages" ${routeType==='pages'?'selected':''}>Cloudflare Pages project</option>
-                    <option value="redirect" ${routeType==='redirect'?'selected':''}>Redirect to another website</option>
-                </select>
+            ${setupGuide}
+            <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+                <h4 style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Web Routing</h4>
+                <div class="f-row" style="margin-bottom:8px;">
+                    <label>Route this domain to</label>
+                    <select id="route_mode_${esc(z.id)}" onchange="updateRouteTargetField('${esc(z.id)}')" ${!canEdit ? 'disabled' : ''}>
+                        <option value="none" ${routeType==='none'?'selected':''}>— Not routed —</option>
+                        <option value="pages" ${routeType==='pages'?'selected':''}>Cloudflare Pages project</option>
+                        <option value="redirect" ${routeType==='redirect'?'selected':''}>Redirect to another website</option>
+                    </select>
+                </div>
+                <div class="f-row" id="route_target_row_${esc(z.id)}" style="${routeType==='none' ? 'display:none;' : ''}margin-bottom:8px;">
+                    <label id="route_target_label_${esc(z.id)}">${targetLabel}</label>
+                    <input type="text" id="route_target_${esc(z.id)}" value="${esc(routeTarget)}" placeholder="${targetPlaceholder}" ${!canEdit ? 'disabled' : ''} />
+                    <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">${targetHint}</p>
+                </div>
+                <button class="btn btn-accent btn-sm" onclick="saveDomainRoute('${esc(z.id)}')" ${!canEdit ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Save Routing</button>
+                ${routeType !== 'none' ? `<button class="btn btn-ghost btn-sm" onclick="clearDomainRoute('${esc(z.id)}')" style="margin-left:6px;">Clear Route</button>` : ''}
             </div>
-            <div class="f-row" id="route_target_row_${esc(z.id)}" style="${routeType==='none' ? 'display:none;' : ''}">
-                <label id="route_target_label_${esc(z.id)}">${targetLabel}</label>
-                <input type="text" id="route_target_${esc(z.id)}" value="${esc(routeTarget)}" placeholder="${targetPlaceholder}" ${!canEdit ? 'disabled' : ''} />
-                <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">${routeType === 'pages' ? 'The project must already exist in Cloudflare Pages.' : 'Visitors to this domain will be 301-redirected here (query string preserved).'}</p>
-            </div>
-            <button class="btn btn-accent btn-sm" onclick="saveDomainRoute('${esc(z.id)}')" ${!canEdit ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''}>Save routing</button>
         </div>`;
     }).join('');
 
-    return `<div class="s-card-head" style="margin-bottom:14px;">
-        <div><h3>🌍 Domain Routing</h3>
-        <p>Point a domain at a Cloudflare Pages project, or redirect it to another website. Changes apply immediately via the Cloudflare API.</p></div>
+    const addDomainHtml = buildDomainSetupHtml();
+
+    return `
+    <div class="s-card-head" style="margin-bottom:14px;">
+        <div><h3>🌍 Domains</h3><p>Manage Cloudflare zones, email routing, and web routing for your domains.</p></div>
+        <button class="btn btn-ghost btn-sm" onclick="refreshDomainsTab()" style="white-space:nowrap;">🔄 Refresh</button>
     </div>
-    ${rows || '<div class="empty-state">No domains configured yet. Add one under Incoming Email → Cloudflare Configuration.</div>'}`;
+    ${domainCards || '<div class="empty-state">No domains found. Add one below.</div>'}
+    <div class="s-card">
+        <div class="s-card-head"><div><h3>➕ Add New Domain</h3><p>Register a domain with Cloudflare and configure email routing.</p></div></div>
+        ${addDomainHtml}
+    </div>`;
+}
+
+async function clearDomainRoute(zoneId) {
+    if (!confirm('Clear routing for this domain? It will no longer point to any Pages project or redirect.')) return;
+    try {
+        const d = await api('/api/admin/setup/domain-route', {
+            method: 'POST',
+            body: JSON.stringify({ zoneId, mode: 'none', target: '' })
+        });
+        if (d.success) {
+            toast('✅ Routing cleared');
+            await refreshDomainsTab();
+        } else {
+            toast('❌ ' + (d.error || 'Failed'), 'error');
+        }
+    } catch (e) {
+        toast('❌ ' + e.message, 'error');
+    }
+}
+
+async function domainCheckStatus(zoneId, domainName) {
+    setupZoneId = zoneId;
+    setupDomainName = domainName;
+    startPolling();
+    // Re-render domains tab so the setup guide becomes visible
+    await refreshDomainsTab();
 }
 
 function updateRouteTargetField(zoneId) {
@@ -1138,6 +1259,7 @@ function resetDomainSetup() {
     setupDomainName = null;
     setupStep = 0;
     refreshIncomingTab();
+    refreshDomainsTab();
 }
 
 async function addOutgoingAddress() {
