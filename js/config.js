@@ -7,7 +7,7 @@ const CONFIG = {
     // ── Appearance ────────────────────────────────────────────────────────────
     appearance: {
         base_path:  window.__BASE_PATH__ || '/',
-        root_url:   globalThis.__ENV_ROOT_URL__ || '',
+        root_url:   globalThis.__ENV_ROOT_URL__ || 'https://dornori.com',
     },
 
     // ── Shop Info ─────────────────────────────────────────────────────────────
@@ -77,9 +77,9 @@ const CONFIG = {
 
     // ── API Endpoints ─────────────────────────────────────────────────────────
     endpoints: {
-        ticketingWorker: globalThis.__ENV_API_ENDPOINT__ || '',
-        payWorker:     globalThis.__ENV_PAY_WORKER__ || '',
-        geoApi:        globalThis.__ENV_GEO_API__ || '',
+        ticketingWorker: globalThis.__ENV_API_ENDPOINT__ || 'https://dornori-ticketing.dornori-info.workers.dev',
+        payWorker:     globalThis.__ENV_PAY_WORKER__ || 'https://pay.dornori-info.workers.dev',
+        geoApi:        globalThis.__ENV_GEO_API__ || 'https://ipapi.co/json/',
         supportEmail:  '',
         privacyEmail:  '',
         securityEmail: '',

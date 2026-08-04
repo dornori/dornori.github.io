@@ -1,5 +1,5 @@
 const CartWorker = (() => {
-  const WORKER_URL = (typeof CONFIG !== 'undefined' && CONFIG.endpoints && CONFIG.endpoints.payWorker) || '';
+  const WORKER_URL = CONFIG.endpoints.payWorker;
 
   async function validateCart(items, countryCode, currency) {
     const res = await fetch(`${WORKER_URL}/api/validate-cart`, {

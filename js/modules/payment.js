@@ -9,7 +9,7 @@ const Payment = (() => {
   let _ready = false;
   let _cardFieldsInstance = null;
 
-  const WORKER = (typeof CONFIG !== 'undefined' && CONFIG.endpoints && CONFIG.endpoints.payWorker) || '';
+  const WORKER = CONFIG.endpoints.payWorker;
 
   function _dispatch(event, detail) {
     document.dispatchEvent(new CustomEvent(event, { detail }));
