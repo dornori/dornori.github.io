@@ -3879,6 +3879,109 @@ if (path === "/api/admin/setup/domain-route" && method === "POST") {
   }
 }
 
+// Live status check for a domain's DNS + web routing (Pages / redirect).
+// Unlike the DB-stored route_type/route_target, this hits Cloudflare directly
+// so the UI can show whether the config is actually live, still provisioning,
+// or broken (e.g. missing proxied record, Pages cert not issued yet).
+if (path === "/api/admin/setup/domain-route-status" && method === "GET") {
+  const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
+  const email = await verifyToken(token, env);
+  if (!email) return json({ error: "Unauthorized" }, 401);
+  if (!await checkAccess(email, "settings", "view", env)) return json({ error: "Permission denied" }, 403);
+
+  const zoneId = url.searchParams.get("zoneId");
+  if (!zoneId) return json({ error: "zoneId required" }, 400);
+
+  try {
+    const dbRecord = await env.DB.prepare(
+      "SELECT domain_name, route_type, route_target FROM cloudflare_domains WHERE zone_id = ?"
+    ).bind(zoneId).first();
+    if (!dbRecord) return json({ error: "Domain not found" }, 404);
+    const domainName = dbRecord.domain_name;
+
+    // Zone-level status (nameservers active or not)
+    let zoneStatus = null, nameServers = [];
+    try {
+      const zoneData = await callCloudflareAPI("GET", `/zones/${zoneId}`, null, env);
+      zoneStatus = zoneData.result?.status || null;
+      nameServers = zoneData.result?.name_servers || [];
+    } catch (e) {
+      return json({ success: false, error: "Could not reach Cloudflare for zone status: " + e.message }, 400);
+    }
+
+    // Any DNS records for the apex/domain, to see what's actually pointed where
+    let dnsRecords = [];
+    try {
+      const dnsData = await callCloudflareAPI("GET", `/zones/${zoneId}/dns_records?name=${encodeURIComponent(domainName)}`, null, env);
+      dnsRecords = dnsData.result || [];
+    } catch (e) { /* non-fatal — leave empty */ }
+    const proxiedRecord = dnsRecords.find(r => ["A", "AAAA", "CNAME"].includes(r.type) && r.proxied);
+
+    const routeType = dbRecord.route_type || "none";
+    let routeStatus = "unconfigured";
+    let routeDetail = "No web routing configured for this domain.";
+
+    if (routeType === "pages") {
+      const accountId = await getSetting(env, 'cloudflare', 'account_id');
+      if (!accountId) {
+        routeStatus = "error";
+        routeDetail = "Cloudflare Account ID not configured in Settings.";
+      } else {
+        try {
+          const statusRes = await callCloudflareAPI(
+            "GET",
+            `/accounts/${accountId}/pages/projects/${encodeURIComponent(dbRecord.route_target)}/domains/${encodeURIComponent(domainName)}`,
+            null,
+            env
+          );
+          const cfDomainStatus = statusRes.result?.status || "unknown";
+          if (cfDomainStatus === "active") {
+            routeStatus = "live";
+            routeDetail = `Live — serving Cloudflare Pages project "${dbRecord.route_target}" with SSL issued.`;
+          } else {
+            routeStatus = "provisioning";
+            routeDetail = `Cloudflare is still provisioning this domain for Pages project "${dbRecord.route_target}" (status: ${cfDomainStatus}). This usually finishes within a few minutes.`;
+          }
+        } catch (e) {
+          routeStatus = "error";
+          routeDetail = "Pages domain check failed: " + e.message;
+        }
+      }
+    } else if (routeType === "redirect") {
+      let rulesetActive = false;
+      try {
+        const rulesetData = await callCloudflareAPI("GET", `/zones/${zoneId}/rulesets/phases/http_request_dynamic_redirect/entrypoint`, null, env);
+        rulesetActive = (rulesetData.result?.rules || []).length > 0;
+      } catch (e) { rulesetActive = false; }
+
+      if (!proxiedRecord) {
+        routeStatus = "error";
+        routeDetail = "No proxied DNS record found for this domain — the redirect rule cannot fire until one exists.";
+      } else if (!rulesetActive) {
+        routeStatus = "error";
+        routeDetail = "Proxied DNS record exists, but no redirect rule was found on this zone.";
+      } else {
+        routeStatus = "live";
+        routeDetail = `Live — redirecting to ${dbRecord.route_target}.`;
+      }
+    }
+
+    return json({
+      success: true,
+      zoneStatus,
+      nameServers,
+      hasProxiedRecord: !!proxiedRecord,
+      dnsRecordCount: dnsRecords.length,
+      routeType,
+      routeTarget: dbRecord.route_target || null,
+      routeStatus,
+      routeDetail
+    });
+  } catch (e) {
+    return json({ success: false, error: e.message }, 400);
+  }
+}
+
 // Delete a routing rule
 if (path.startsWith("/api/admin/setup/routing-rule/") && method === "DELETE") {
   const token = (request.headers.get("Authorization") || "").replace("Bearer ", "");
