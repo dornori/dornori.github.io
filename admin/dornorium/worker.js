@@ -3899,23 +3899,42 @@ if (path === "/api/admin/setup/domain-route-status" && method === "GET") {
     if (!dbRecord) return json({ error: "Domain not found" }, 404);
     const domainName = dbRecord.domain_name;
 
-    // Zone-level status (nameservers active or not)
-    let zoneStatus = null, nameServers = [];
+    // Zone-level status (nameservers active or not) + onboarding metadata
+    let zoneStatus = null, nameServers = [], originalNameServers = [], paused = false,
+        activatedOn = null, originalRegistrar = null, originalDnsHost = null, plan = null;
     try {
       const zoneData = await callCloudflareAPI("GET", `/zones/${zoneId}`, null, env);
-      zoneStatus = zoneData.result?.status || null;
-      nameServers = zoneData.result?.name_servers || [];
+      const z = zoneData.result || {};
+      zoneStatus = z.status || null;
+      nameServers = z.name_servers || [];
+      originalNameServers = z.original_name_servers || [];
+      paused = !!z.paused;
+      activatedOn = z.activated_on || null;
+      originalRegistrar = z.original_registrar || null;
+      originalDnsHost = z.original_dnshost || null;
+      plan = z.plan?.name || null;
     } catch (e) {
       return json({ success: false, error: "Could not reach Cloudflare for zone status: " + e.message }, 400);
     }
 
-    // Any DNS records for the apex/domain, to see what's actually pointed where
+    // Full DNS record list for the apex/domain — returned to the UI so it can
+    // show exactly what's configured (name/type/content/proxied), not just a count.
     let dnsRecords = [];
+    let dnsError = null;
     try {
       const dnsData = await callCloudflareAPI("GET", `/zones/${zoneId}/dns_records?name=${encodeURIComponent(domainName)}`, null, env);
-      dnsRecords = dnsData.result || [];
-    } catch (e) { /* non-fatal — leave empty */ }
+      dnsRecords = (dnsData.result || []).map(r => ({
+        id: r.id, type: r.type, name: r.name, content: r.content, proxied: !!r.proxied, ttl: r.ttl
+      }));
+    } catch (e) { dnsError = e.message; }
     const proxiedRecord = dnsRecords.find(r => ["A", "AAAA", "CNAME"].includes(r.type) && r.proxied);
+
+    // Overall onboarding stage — used by the UI for a single clear indicator.
+    let onboarding;
+    if (zoneStatus === "active" && !paused) onboarding = "onboarded";
+    else if (zoneStatus === "pending" || zoneStatus === "initializing" || zoneStatus === "moved") onboarding = "pending";
+    else if (paused) onboarding = "paused";
+    else onboarding = "not_onboarded";
 
     const routeType = dbRecord.route_type || "none";
     let routeStatus = "unconfigured";
@@ -3969,9 +3988,17 @@ if (path === "/api/admin/setup/domain-route-status" && method === "GET") {
     return json({
       success: true,
       zoneStatus,
+      onboarding,
+      paused,
+      activatedOn,
+      originalRegistrar,
+      originalDnsHost,
+      plan,
       nameServers,
+      originalNameServers,
       hasProxiedRecord: !!proxiedRecord,
-      dnsRecordCount: dnsRecords.length,
+      dnsRecords,
+      dnsError,
       routeType,
       routeTarget: dbRecord.route_target || null,
       routeStatus,

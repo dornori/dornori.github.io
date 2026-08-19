@@ -335,17 +335,20 @@ async function buildDomainsTab() {
         const cfStatus = z.status || 'unknown';
         const dnsActive = dbStatus !== 'pending_setup' && cfStatus === 'active';
 
-        let dnsBadge, resumeBtn, deleteBtn;
+        let dnsBadge, resumeBtn, deleteBtn, borderColor;
 
         if (dbStatus === 'pending_setup') {
-            dnsBadge = `<span class="status-badge pending">⏳ DNS Pending</span>`;
+            dnsBadge = `<span class="status-badge pending">⏳ Not Onboarded — Pending Nameservers</span>`;
             resumeBtn = `<button class="btn btn-sm btn-accent" onclick="domainCheckStatus('${z.id}', '${esc(z.name)}')">Resume Setup</button>`;
+            borderColor = 'var(--warning)';
         } else if (dnsActive) {
-            dnsBadge = `<span class="status-badge active">✅ DNS Active</span>`;
+            dnsBadge = `<span class="status-badge active">✅ Onboarded — DNS Active</span>`;
             resumeBtn = '';
+            borderColor = 'var(--success)';
         } else {
-            dnsBadge = `<span class="status-badge inactive">⚠️ DNS Not Active</span>`;
+            dnsBadge = `<span class="status-badge inactive">⛔ Not Active</span>`;
             resumeBtn = `<button class="btn btn-sm btn-accent" onclick="domainCheckStatus('${z.id}', '${esc(z.name)}')">Check Nameservers</button>`;
+            borderColor = 'var(--danger, #dc2626)';
         }
 
         deleteBtn = canEdit
@@ -402,9 +405,10 @@ async function buildDomainsTab() {
             </div>`;
 
         const routeStatusId = `route_status_${z.id}`;
+        const dnsTableId = `dns_table_${z.id}`;
 
         domainIds.push(z.id);
-        return `<div class="s-card">
+        return `<div class="s-card" style="border-left:4px solid ${borderColor};">
             <div class="s-card-head">
                 <div style="flex:1;">
                     <h3 style="margin:0 0 4px;">🌍 ${esc(z.name)}</h3>
@@ -421,9 +425,12 @@ async function buildDomainsTab() {
                 </div>
             </div>
             ${setupGuide}
-            <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;font-size:12px;color:var(--text-muted);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-                <span>📧 Email routing for this domain is managed on the Incoming Email tab.</span>
-                <button class="btn btn-sm btn-ghost" onclick="switchTab('incoming')">Go to Incoming Email →</button>
+            <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+                <h4 style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
+                    <span>DNS Records</span>
+                    <button class="btn btn-sm btn-ghost" onclick="checkDomainRouteStatus('${esc(z.id)}')">🔄 Refresh</button>
+                </h4>
+                <div id="${dnsTableId}"><span class="status-badge pending">⏳ Loading DNS records…</span></div>
             </div>
             <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
                 <h4 style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Web Routing</h4>
@@ -455,7 +462,7 @@ async function buildDomainsTab() {
 
     return `
     <div class="s-card-head" style="margin-bottom:14px;">
-        <div><h3>🌍 Domains</h3><p>Manage Cloudflare zones and DNS/web routing for your domains. Email routing is configured on the Incoming Email tab.</p></div>
+        <div><h3>🌍 Domains</h3><p>Manage Cloudflare zones, DNS, and web routing for your domains.</p></div>
         <button class="btn btn-ghost btn-sm" onclick="refreshDomainsTab()" style="white-space:nowrap;">🔄 Refresh</button>
     </div>
     ${domainCards || '<div class="empty-state">No domains found. Add one below.</div>'}
@@ -465,16 +472,57 @@ async function buildDomainsTab() {
     </div>`;
 }
 
-// ── Live web-routing status check (DNS + Pages/redirect verification) ──
+// ── Live status check: DNS records + Pages/redirect verification, both pulled live from Cloudflare ──
 async function checkDomainRouteStatus(zoneId) {
     const box = document.getElementById(`route_status_${zoneId}`);
-    if (!box) return;
+    const dnsBox = document.getElementById(`dns_table_${zoneId}`);
+    if (dnsBox) dnsBox.innerHTML = `<span class="status-badge pending">⏳ Loading DNS records…</span>`;
+    if (box) box.innerHTML = `<span class="status-badge pending">⏳ Checking status…</span>`;
+
+    let res;
     try {
-        const res = await api(`/api/admin/setup/domain-route-status?zoneId=${encodeURIComponent(zoneId)}`);
-        if (!res.success) {
-            box.innerHTML = `<span class="status-badge inactive">⚠️ ${esc(res.error || 'Status check failed')}</span>`;
-            return;
+        res = await api(`/api/admin/setup/domain-route-status?zoneId=${encodeURIComponent(zoneId)}`);
+    } catch (e) {
+        if (box) box.innerHTML = `<span class="status-badge inactive">⚠️ ${esc(e.message)}</span>`;
+        if (dnsBox) dnsBox.innerHTML = `<span class="status-badge inactive">⚠️ ${esc(e.message)}</span>`;
+        return;
+    }
+
+    if (!res.success) {
+        const errMsg = res.error || 'Status check failed';
+        if (box) box.innerHTML = `<span class="status-badge inactive">⚠️ ${esc(errMsg)}</span>`;
+        if (dnsBox) dnsBox.innerHTML = `<span class="status-badge inactive">⚠️ ${esc(errMsg)}</span>`;
+        return;
+    }
+
+    // DNS records table
+    if (dnsBox) {
+        if (res.dnsError) {
+            dnsBox.innerHTML = `<span class="status-badge inactive">⚠️ ${esc(res.dnsError)}</span>`;
+        } else if (!res.dnsRecords || res.dnsRecords.length === 0) {
+            dnsBox.innerHTML = `<p style="font-size:12px;color:var(--text-muted);">No DNS records found for this apex domain yet.</p>`;
+        } else {
+            const rows = res.dnsRecords.map(r => `
+                <tr>
+                    <td style="padding:4px 8px;font-family:monospace;font-size:11px;">${esc(r.type)}</td>
+                    <td style="padding:4px 8px;font-size:12px;">${esc(r.name)}</td>
+                    <td style="padding:4px 8px;font-family:monospace;font-size:11px;color:var(--text-muted);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.content)}</td>
+                    <td style="padding:4px 8px;text-align:center;">${r.proxied ? '<span class="status-badge active" style="font-size:10px;">Proxied</span>' : '<span class="status-badge inactive" style="font-size:10px;">DNS only</span>'}</td>
+                </tr>`).join('');
+            dnsBox.innerHTML = `
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                    <thead><tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text-muted);">
+                        <th style="padding:4px 8px;">Type</th><th style="padding:4px 8px;">Name</th><th style="padding:4px 8px;">Content</th><th style="padding:4px 8px;">Proxy</th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                ${res.activatedOn ? `<p style="font-size:11px;color:var(--text-muted);margin-top:8px;">Activated on Cloudflare: ${esc(new Date(res.activatedOn).toLocaleDateString())}${res.plan ? ' · Plan: ' + esc(res.plan) : ''}</p>` : ''}
+            `;
         }
+    }
+
+    // Web routing live status
+    if (box) {
         let badge;
         if (res.routeStatus === 'live') badge = `<span class="status-badge active">✅ Live</span>`;
         else if (res.routeStatus === 'provisioning') badge = `<span class="status-badge pending">⏳ Provisioning</span>`;
@@ -489,8 +537,6 @@ async function checkDomainRouteStatus(zoneId) {
             <p style="font-size:11px;color:var(--text-muted);margin-top:6px;">${esc(res.routeDetail || '')}</p>
             ${!res.hasProxiedRecord && res.routeType !== 'none' ? '<p style="font-size:11px;color:var(--warning);margin-top:4px;">No proxied DNS record found for this domain yet.</p>' : ''}
         `;
-    } catch (e) {
-        box.innerHTML = `<span class="status-badge inactive">⚠️ ${esc(e.message)}</span>`;
     }
 }
 
@@ -1062,8 +1108,8 @@ function buildDomainSetupHtml() {
             <div style="margin:12px 0;padding:16px;background:var(--info-bg);border:1px solid var(--info);border-radius:8px;color:var(--text);">
                 <p style="font-size:13px;margin:0 0 12px 0;"><strong>✨ Checking nameservers</strong></p>
                 <p style="font-size:12px;margin:0;color:var(--text-muted);">This can take a few minutes. You can close this modal and continue working — polling will continue in the background.</p>
-                <p style="font-size:12px;margin:12px 0 0 0;color:var(--text-muted);">Once detected, your domain will appear in the table above with an "Enable Email Routing" button.</p>
-                <button class="btn btn-sm btn-accent" style="margin-top:12px;" onclick="resetDomainSetup(); refreshIncomingTab();">Close and Continue</button>
+                <p style="font-size:12px;margin:12px 0 0 0;color:var(--text-muted);">Once detected, the domain's status will update automatically.</p>
+                <button class="btn btn-sm btn-accent" style="margin-top:12px;" onclick="resetDomainSetup();">Close and Continue</button>
                 <button class="btn btn-sm btn-ghost" onclick="stopPolling(); resetDomainSetup();">Cancel Setup</button>
             </div>
             <div class="poll-log" id="setupPollLog" style="display:none;"></div>
@@ -1128,6 +1174,7 @@ async function addDomain() {
                     setupStep = 2;
                     toast('✅ Domain found, showing nameservers');
                     refreshIncomingTab();
+                    refreshDomainsTab();
                     return;
                 }
             }
@@ -1141,6 +1188,7 @@ async function addDomain() {
         await fetchCloudflareDomains();
         toast('✅ Domain added to Cloudflare');
         refreshIncomingTab();
+        refreshDomainsTab();
         
     } catch (e) {
         if (statusEl) statusEl.textContent = '❌ ' + e.message;
@@ -1151,6 +1199,7 @@ async function addDomain() {
 function startPolling() {
     setupStep = 3;
     refreshIncomingTab();
+    refreshDomainsTab();
     
     setTimeout(() => {
         if (setupPollTimer) clearInterval(setupPollTimer);
